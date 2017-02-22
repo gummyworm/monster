@@ -148,6 +148,8 @@ STATUS_COL  = 0
 	php
 	ldx zp::curx
 	sta mem::linebuffer,x
+	lda #CURSOR_CHAR
+	sta mem::linebuffer+1,x
 	lda #0
 	sta __text_colstart
 	lda #40
