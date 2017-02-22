@@ -1,3 +1,4 @@
+.include "asm.inc"
 .include "bitmap.inc"
 .include "irq.inc"
 .include "text.inc"
@@ -36,7 +37,16 @@ main:
 	jsr key::getch
 	cmp #$00
 	beq main
-	jsr text::putch
+
+	cmp #$0d
+	bne :+
+	pha
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	jsr asm::compile
+	pla
+
+:	jsr text::putch
 	jsr text::update
 	jsr text::status
 	
