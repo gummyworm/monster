@@ -1,3 +1,4 @@
+.include "codes.inc"
 .include "text.inc"
 .include "zeropage.inc"
 
@@ -22,26 +23,45 @@ ERR_ILLEGAL_DIRECTIVE=4
 err_illegal_directive:
 	.byte "unknown directive: A",0
 
+errors:
+	.word err_unaligned_label
+	.word err_illegal_opcode
+	.word err_illegal_addrmode
+	.word err_illegal_directive
+
 ;--------------------------------------
 NUM_OPCODES = 2
 opcodes:
 .byte  "LDA", "STA"
 
 ;--------------------------------------
-.proc report_error
+; report error prints the error in .A
+.export __asm_reporterr
+.proc __asm_reporterr
+	asl
+	tax
+	lda errors,x
+	tax
+	ldy errors+1,x
 	lda #ERROR_ROW
-	jsr text::print
+	jsr text::puts
+	rts
 .endproc
 
 ;--------------------------------------
 .proc islabel
-	lda (line),y
-	cmp #$18	; if not TAB, this is not a label
-	beq @done
-@chkerr:
-	lda #ERR_ILLEGAL_OPCODE
+	ldy #$00
+:	lda (line),y
+	iny
+	cpy #40
+	bcs @notlabel
+	cmp #':'
+	bne :-
+
+@done:	lda #ASM_LABEL
 	rts
-@done:	lda #$00
+@notlabel:
+	lda #-1
 	rts
 .endproc
 
@@ -93,12 +113,11 @@ opcodes:
 	ldx #$00
 @next:
 	jsr islabel
-	cmp #0
-	bne @err
+	bpl @done
 	jsr isopcode
-	cmp #0
-	bne @err
-
-@label: jsr __text_puts
-@err:	rts
+	bpl @done
+	lda #$00
+@label:
+@err:	
+@done: 	rts
 .endproc

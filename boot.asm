@@ -1,5 +1,6 @@
 .include "asm.inc"
 .include "bitmap.inc"
+.include "codes.inc"
 .include "irq.inc"
 .include "text.inc"
 .include "zeropage.inc"
@@ -39,22 +40,25 @@ main:
 	beq main
 
 	cmp #$0d
-	bne :+
+	bne @putc
 	pha
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	jsr asm::compile
-	pla
+	cmp #ASM_LABEL
+	bne @cont
+	jsr text::fmtlabel
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	lda zp::cury
+	jsr text::puts
 
-:	jsr text::putch
+@cont:	pla
+@putc:
+	jsr text::putch
 	jsr text::update
 	jsr text::status
-	
-	ldx #<mem::filebuffer
-	ldy #>mem::filebuffer
-	lda #10
-	jsr text::print
-	
+
         jmp main
 
 irq_handler:

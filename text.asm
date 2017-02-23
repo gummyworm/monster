@@ -17,6 +17,28 @@ STATUS_COL  = 0
 .endproc
 
 ;--------------------------------------
+; fmt_label formats linebuffer as a label.
+.export __text_fmtlabel
+.proc __text_fmtlabel
+	ldx #$00
+:	lda mem::linebuffer,x
+	inx
+	cmp #' '
+	beq :-
+	dex
+
+	ldy #$00
+:	lda mem::linebuffer,x
+	sta mem::linebuffer,y
+	iny
+	inx
+	cpx #40
+	bcc :-
+
+	rts
+.endproc
+
+;--------------------------------------
 .export __text_status
 .proc __text_status
 	ldx #<mem::statusline
@@ -124,7 +146,7 @@ STATUS_COL  = 0
 	ldy #>mem::linebuffer
 	lda zp::cury
 	jsr __text_puts
-	rts
+	jmp @done
 
 :	cmp #$14
 	bne @printable
@@ -142,7 +164,7 @@ STATUS_COL  = 0
 	ldy #>mem::linebuffer
 	lda zp::cury
 	jsr __text_puts
-	rts
+	jmp @done
 
 @printable:
 	php
@@ -167,12 +189,16 @@ STATUS_COL  = 0
 	ldx zp::curx
 	inx
 	cpx #40
-	bcc @done
+	bcc :+
 	ldx #$00
 	cmp #23
-	bcs @done
+	bcs :+
 	sta zp::cury
-@done:	stx zp::curx
+:	stx zp::curx
+
+@done:	ldx zp::curx
+	lda #' '
+	sta mem::linebuffer,x	; don't persist the cursor in the buffer
 	rts
 .endproc
 
