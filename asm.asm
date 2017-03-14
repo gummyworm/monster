@@ -30,9 +30,33 @@ errors:
 	.word err_illegal_directive
 
 ;--------------------------------------
-NUM_OPCODES = 2
+NUM_OPCODES = 22
 opcodes:
-.byte  "LDA", "STA"
+; cc = 00
+.byt "BIT" ; 001
+.byt "JMP" ; 010/011
+.byt "STY" ; 100
+.byt "LDY" ; 101
+.byt "CPY" ; 110
+.byt "CPX" ; 111
+;cc = 01
+.byt "ORA" ; 000
+.byt "AND" ; 001
+.byt "EOR" ; 010
+.byt "ADC" ; 011
+.byt "STA" ; 100
+.byt "LDA" ; 101
+.byt "CMP" ; 110
+.byt "SBC" ; 111
+;cc = 10
+.byt "ASL" ; 000
+.byt "ROL" ; 001
+.byt "LSR" ; 010
+.byt "ROR" ; 011
+.byt "STX" ; 100
+.byt "LDX" ; 101
+.byt "DEC" ; 110
+.byt "INC" ; 111
 
 ;--------------------------------------
 ; report error prints the error in .A
@@ -46,6 +70,41 @@ opcodes:
 	lda #ERROR_ROW
 	jsr text::puts
 	rts
+.endproc
+
+;--------------------------------------
+; asm_opcode assembles the opcode in (line)
+.proc asm_opcode
+	ldy #$00
+	lda (line),y
+.endproc
+
+;--------------------------------------
+; tokenize tokenizes the line in (<X/>Y) into @tokens.
+.proc tokenize
+; tokenization states
+STATE0 = 0
+STATE_GET_OPERAND = 1
+STATE_GET_COMMENT = 2
+@i = zp::tmp2
+@state = zp::tmp3
+	stx line
+	sty line
+
+	lda #$00
+	sta @i
+@nexttok:
+	sta @state
+	ldy @i
+	lda (line),y
+	cmp #' '
+	beq @nexttok
+@tok:	jsr isopcode
+	bne :+
+	jsr asm_opcode
+	lda #STATE_GET_OPERAND
+	jmp @nexttok
+:	rts
 .endproc
 
 ;--------------------------------------
@@ -111,8 +170,7 @@ opcodes:
 
 	ldy #$00
 	ldx #$00
-@next:
-	jsr islabel
+@next:  jsr islabel
 	bpl @done
 	jsr isopcode
 	bpl @done
@@ -121,3 +179,102 @@ opcodes:
 @err:	
 @done: 	rts
 .endproc
+
+;--------------------------------------
+; findlabel returns the address that the label in (YX) (length in .A) 
+; corresponds to.
+.export __asm_findlabel
+.proc __asm_findlabel
+@label=zp::tmp0
+@tab=zp::tmp2
+@len = zp::tmp4
+@id=zp::tmp5
+	stx @label
+	sty @label+1
+	sta @len
+
+	ldy #$00
+	sty @id
+	sty @id+1
+@l0:	lda @len
+	cmp (@tab),y
+	bne @next
+	
+	tay
+@strcmp:
+	lda (@tab),y 
+	cmp (@label),y
+	dey
+	bpl @strcmp
+@found:	lda @id
+	asl
+	rol @id+1
+	adc label_addresses
+	sta @label
+	lda @id+1
+	adc label_addresses+1
+	sta @label+1
+	ldy #$00
+	lda (@label),y
+	tax
+	iny
+	lda (@label),y
+	tay
+	rts
+
+@next:	lda @label
+	clc
+	adc @label
+	sta @label
+	bcc @l0
+	inc @label+1
+:	bcs @l0
+
+	rts
+.endproc
+
+;--------------------------------------
+; addlabel adds a label of .A len in (YX) to the label table.
+.export __asm_addlabel
+.proc __asm_addlabel
+@label=zp::tmp0
+@savey=zp::tmp2
+	pha
+	sty @savey
+
+	lda #<__asm_labels
+	sta @label
+	lda #>__asm_labels
+	sta @label+1
+
+	ldy #$00
+@l0:	lda (@label),y
+	beq @found
+	lda @label
+	clc
+	adc @label
+	sta @label
+	bcc @l0
+	inc @label+1
+:	bcs @l0
+
+@found: pla
+	ldy #$00
+	sta (@label),y
+	iny
+	txa
+	sta (@label),y
+	iny
+	lda @savey
+	sta (@label),y
+
+	rts
+.endproc
+
+;--------------------------------------
+.export __asm_labels
+labels: .res 1024 * 16
+numlabels: .byt 0
+label_addresses: .res 1024 * 2
+
+
