@@ -10,16 +10,16 @@ line = zp::tmp0
 
 ;--------------------------------------
 ; errors
-ERR_UNALIGNED_LABEL=1
+ERR_UNALIGNED_LABEL=-1
 err_unaligned_label:
 	.byte "label not in leftmost column",0
-ERR_ILLEGAL_OPCODE=2
+ERR_ILLEGAL_OPCODE=-2
 err_illegal_opcode:
 	.byte "unknown opcode: A",0
-ERR_ILLEGAL_ADDRMODE=3
+ERR_ILLEGAL_ADDRMODE=-3
 err_illegal_addrmode:
 	.byte "invalid addressing mode: A",0
-ERR_ILLEGAL_DIRECTIVE=4
+ERR_ILLEGAL_DIRECTIVE=-4
 err_illegal_directive:
 	.byte "unknown directive: A",0
 
@@ -33,30 +33,30 @@ errors:
 NUM_OPCODES = 22
 opcodes:
 ; cc = 00
-.byt "BIT" ; 001
-.byt "JMP" ; 010/011
-.byt "STY" ; 100
-.byt "LDY" ; 101
-.byt "CPY" ; 110
-.byt "CPX" ; 111
+.byt "bit" ; 001
+.byt "jmp" ; 010/011
+.byt "sty" ; 100
+.byt "ldy" ; 101
+.byt "cpy" ; 110
+.byt "cpx" ; 111
 ;cc = 01
-.byt "ORA" ; 000
-.byt "AND" ; 001
-.byt "EOR" ; 010
-.byt "ADC" ; 011
-.byt "STA" ; 100
-.byt "LDA" ; 101
-.byt "CMP" ; 110
-.byt "SBC" ; 111
+.byt "ora" ; 000
+.byt "and" ; 001
+.byt "eor" ; 010
+.byt "adc" ; 011
+.byt "sta" ; 100
+.byt "lda" ; 101
+.byt "cmp" ; 110
+.byt "sbc" ; 111
 ;cc = 10
-.byt "ASL" ; 000
-.byt "ROL" ; 001
-.byt "LSR" ; 010
-.byt "ROR" ; 011
-.byt "STX" ; 100
-.byt "LDX" ; 101
-.byt "DEC" ; 110
-.byt "INC" ; 111
+.byt "asl" ; 000
+.byt "rol" ; 001
+.byt "lsr" ; 010
+.byt "ror" ; 011
+.byt "stx" ; 100
+.byt "ldx" ; 101
+.byt "dec" ; 110
+.byt "inc" ; 111
 
 ;--------------------------------------
 ; report error prints the error in .A
@@ -131,21 +131,19 @@ STATE_GET_COMMENT = 2
 	lda #$00
 	sta @op
 
-	ldx #<opcodes-1
-	ldy #>opcodes-1
+	ldx #<opcodes
+	ldy #>opcodes
 	stx @optab
 	sty @optab+1
 
-	ldx #3
-	ldy #0
-@l0:	iny
+@l0:	ldy #$02
 @l1:	lda (line),y
 	cmp (@optab),y
 	bne @next
-	dex
-	bne @l0
+	dey
+	bpl @l1
 
-@done:	lda #$00
+@done:	lda #ASM_OPCODE
 	rts
 
 @next:	lda @optab
@@ -228,7 +226,7 @@ STATE_GET_COMMENT = 2
 	sta @label
 	bcc @l0
 	inc @label+1
-:	bcs @l0
+	bcs @l0
 
 	rts
 .endproc
@@ -256,7 +254,7 @@ STATE_GET_COMMENT = 2
 	sta @label
 	bcc @l0
 	inc @label+1
-:	bcs @l0
+	bcs @l0
 
 @found: pla
 	ldy #$00
@@ -273,7 +271,7 @@ STATE_GET_COMMENT = 2
 
 ;--------------------------------------
 .export __asm_labels
-labels: .res 1024 * 16
+__asm_labels: .res 1024 * 16
 numlabels: .byt 0
 label_addresses: .res 1024 * 2
 

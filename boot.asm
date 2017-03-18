@@ -45,13 +45,28 @@ main:
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	jsr asm::compile
+
+@chklbl:
 	cmp #ASM_LABEL
-	bne @cont
+	bne @chkop
 	jsr text::fmtlabel
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	lda zp::cury
 	jsr text::puts
+	jmp @cont
+
+@chkop: 
+	cmp #ASM_OPCODE
+	bne @cont
+	jsr text::fmtopcode
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	lda #$00
+	sta text::colstart
+	lda zp::cury
+	jsr text::puts
+	jmp @cont
 
 @cont:	pla
 @putc:

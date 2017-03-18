@@ -8,6 +8,7 @@
 .import __text_print
 .import __text_puterr
 .import __text_fmtlabel
+.import __text_fmtopcode
 
 .scope text
         len      = __text_len
@@ -19,5 +20,6 @@
 	status   = __text_status
 	update   = __text_update
 	fmtlabel = __text_fmtlabel
+	fmtopcode = __text_fmtopcode
 .endscope
 

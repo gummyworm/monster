@@ -17,7 +17,7 @@ STATUS_COL  = 0
 .endproc
 
 ;--------------------------------------
-; fmt_label formats linebuffer as a label.
+; fmtlabel formats linebuffer as a label.
 .export __text_fmtlabel
 .proc __text_fmtlabel
 	ldx #$00
@@ -35,6 +35,24 @@ STATUS_COL  = 0
 	cpx #40
 	bcc :-
 
+	rts
+.endproc
+
+;--------------------------------------
+; fmtopcode formats linebuffer as an opcode.
+.export __text_fmtopcode
+.proc __text_fmtopcode
+	ldy #2
+@l1:	ldx #38
+@l0:	lda mem::linebuffer,x
+	sta mem::linebuffer+1,x
+	dex
+	bpl @l0
+	dey
+	bne @l1
+	lda #' '
+	sta mem::linebuffer
+	sta mem::linebuffer+1
 	rts
 .endproc
 
