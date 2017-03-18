@@ -6,6 +6,7 @@
 .include "zeropage.inc"
 .include "memory.inc"
 .include "key.inc"
+.include "util.inc"
 
 ;------------------------------------------------------------------------------
 .segment "SETUP"
@@ -54,11 +55,11 @@ main:
 	ldy #>mem::linebuffer
 	lda zp::cury
 	jsr text::puts
-	jmp @cont
+	jmp @newl
 
 @chkop: 
 	cmp #ASM_OPCODE
-	bne @cont
+	bne @err
 	jsr text::fmtopcode
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
@@ -66,11 +67,27 @@ main:
 	sta text::colstart
 	lda zp::cury
 	jsr text::puts
-	jmp @cont
+	jmp @newl
+
+@err:	lda #$00
+	sta zp::curx
+	jmp @txtdone
+	
+@newl:	inc zp::cury
+	lda #$00
+	sta zp::curx
+	lda #39
+	sta zp::tmp0
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	lda #' '
+	jsr util::memset
+	jmp @txtdone
 
 @cont:	pla
 @putc:
 	jsr text::putch
+@txtdone:
 	jsr text::update
 	jsr text::status
 

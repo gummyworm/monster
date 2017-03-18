@@ -64,11 +64,12 @@ opcodes:
 .proc __asm_reporterr
 	asl
 	tax
+	lda errors+1,x
+	tay
 	lda errors,x
 	tax
-	ldy errors+1,x
 	lda #ERROR_ROW
-	jsr text::puts
+	jsr text::print
 	rts
 .endproc
 
@@ -174,7 +175,9 @@ STATE_GET_COMMENT = 2
 	bpl @done
 	lda #$00
 @label:
-@err:	
+@err:	lda #1
+	jsr __asm_reporterr
+	lda #ERR_ILLEGAL_OPCODE
 @done: 	rts
 .endproc
 
