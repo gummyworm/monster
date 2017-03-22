@@ -30,7 +30,11 @@ errors:
 	.word err_illegal_directive
 
 ;--------------------------------------
-NUM_OPCODES = 22
+NUM_OPCODES = 46
+CC_00=0
+CC_01=6
+CC_10=14
+CC_IMP=22
 opcodes:
 ; cc = 00
 .byt "bit" ; 001
@@ -57,6 +61,32 @@ opcodes:
 .byt "ldx" ; 101
 .byt "dec" ; 110
 .byt "inc" ; 111
+;implied
+.byt "brk"
+.byt "rti"
+.byt "rts"
+.byt "php"
+.byt "plp"
+.byt "pha"
+.byt "pla"
+.byt "dey"
+.byt "tay"
+.byt "iny"
+.byt "inx"
+.byt "clc"
+.byt "sec"
+.byt "cli"
+.byt "sei"
+.byt "tya"
+.byt "clv"
+.byt "cld"
+.byt "sed"
+.byt "txa"
+.byt "txs"
+.byt "tax"
+.byt "tsx"
+.byt "dex"
+.byt "nop"
 
 ;--------------------------------------
 ; report error prints the error in .A
@@ -78,6 +108,7 @@ opcodes:
 .proc asm_opcode
 	ldy #$00
 	lda (line),y
+	
 .endproc
 
 ;--------------------------------------
@@ -148,6 +179,7 @@ STATE_GET_COMMENT = 2
 	rts
 
 @next:	lda @optab
+	clc
 	adc #$03
 	sta @optab
 	bcc :+

@@ -16,6 +16,14 @@ STATUS_COL  = 0
 	rts
 .endproc
 
+
+;--------------------------------------
+; 
+.export __text_refresh
+.proc __text_refresh
+
+.endproc
+
 ;--------------------------------------
 ; fmtlabel formats linebuffer as a label.
 .export __text_fmtlabel
@@ -415,5 +423,3 @@ __text_charmap:
 .byte   $88,$88,$88,$88,$88,$88,$88,$88
 .byte   $ff,$00,$00,$00,$00,$00,$00,$00
 .byte   $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff	; cursor
-
-
