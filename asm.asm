@@ -1,8 +1,8 @@
 .include "codes.inc"
 .include "text.inc"
 .include "zeropage.inc"
-
-ERROR_ROW = 22
+.include "memory.inc"
+.include "layout.inc"
 
 line = zp::tmp0
 
@@ -10,24 +10,57 @@ line = zp::tmp0
 
 ;--------------------------------------
 ; errors
+ERR_OK=0
 ERR_UNALIGNED_LABEL=-1
 err_unaligned_label:
 	.byte "label not in leftmost column",0
 ERR_ILLEGAL_OPCODE=-2
 err_illegal_opcode:
-	.byte "unknown opcode: A",0
+	.byte "unknown opcode:",$ff,0
 ERR_ILLEGAL_ADDRMODE=-3
 err_illegal_addrmode:
-	.byte "invalid addressing mode: A",0
+	.byte "invalid addressing mode: ",$ff,0
 ERR_ILLEGAL_DIRECTIVE=-4
 err_illegal_directive:
-	.byte "unknown directive: A",0
+	.byte "unknown directive: ",$ff,0
 
 errors:
+	.word 0	 ; no error
 	.word err_unaligned_label
 	.word err_illegal_opcode
 	.word err_illegal_addrmode
 	.word err_illegal_directive
+
+.proc mkerr
+	cmp #$00
+	bne :+
+	jsr text::clrline
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	lda #ERROR_ROW
+	jsr text::puts
+	rts
+
+:	sta zp::tmp0
+	tya
+	pha
+	txa
+	pha
+
+	lda zp::tmp0
+	asl
+	tax
+	lda errors+1,x
+	tay
+	lda errors,x
+	tax
+
+	lda #ERROR_ROW
+	jsr text::print
+	pla
+	pla
+	rts
+.endproc
 
 ;--------------------------------------
 NUM_OPCODES = 46
@@ -92,7 +125,15 @@ opcodes:
 ; report error prints the error in .A
 .export __asm_reporterr
 .proc __asm_reporterr
-	asl
+	cmp #$00
+	bne :+
+	jsr text::clrline
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	lda #ERROR_ROW
+	jsr text::puts
+	rts
+:	asl
 	tax
 	lda errors+1,x
 	tay
@@ -202,15 +243,23 @@ STATE_GET_COMMENT = 2
 	ldy #$00
 	ldx #$00
 @next:  jsr islabel
-	bpl @done
+	bpl @noerr
 	jsr isopcode
-	bpl @done
-	lda #$00
+	bpl @noerr
 @label:
-@err:	lda #1
-	jsr __asm_reporterr
+@err:	lda #$02
+	ldx line
+	ldy line+1
+	lda #$02
+	jsr mkerr
 	lda #ERR_ILLEGAL_OPCODE
-@done: 	rts
+	rts
+
+@noerr: pha
+	lda #$00
+	;jsr mkerr
+	pla
+	rts
 .endproc
 
 ;--------------------------------------

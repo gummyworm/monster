@@ -4,7 +4,7 @@ monster.prg: $(SRC)
 	rm *.o
 
 test:
-	xvic -memory all -ntsc monster.prg
+	xvic +warp -memory all -ntsc monster.prg
 clean:
 	rm monster.prg
 	rm *.o

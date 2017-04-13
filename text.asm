@@ -3,22 +3,13 @@
 .include "zeropage.inc"
 
 ESCAPE_CHARACTER = $ff
+ESCAPE_RVS_ON = $01
+ESCAPE_RVS_OFF = $02
 CURSOR_CHAR = 132
 STATUS_LINE = 23
 STATUS_COL  = 0
 
-.proc clrline
-	ldx #39
-	lda #' '
-:	sta mem::linebuffer,x
-	dex
-	bpl :-
-	rts
-.endproc
-
-
 ;--------------------------------------
-; 
 .export __text_refresh
 .proc __text_refresh
 
@@ -97,19 +88,32 @@ STATUS_COL  = 0
 .endproc
 
 ;--------------------------------------
+.export __text_clrline
+.proc __text_clrline
+	lda #' '
+	ldx #39
+:	sta mem::linebuffer,x
+	dex
+	bpl :-
+	rts
+.endproc
+
+;--------------------------------------
 .export __text_print
 .proc __text_print
 @str = zp::tmp0
-        pha
+@row = zp::tmp2
+@savex = zp::tmp3
         stx @str
         sty @str+1
+	sta @row
 
         ldx #$00
         ldy #$00
 ;copy the string (substituting escaped characters)
 @l0:    lda (@str),y
         beq @disp
-	cmp #$18
+	cmp #$18	; TAB
 	bne :+
 	lda #' '
 	sta mem::spare,x
@@ -123,9 +127,30 @@ STATUS_COL  = 0
 	jmp @cont
 
 :	cmp #ESCAPE_CHARACTER
-        bne :+
+        bne @ch
 
-:       sta mem::spare,x
+;substitute escape character with string from stack
+@esc:	stx @savex
+	tsx
+	lda $103,x
+	sta @sub
+	lda $104,x
+	sta @sub+1
+	ldx @savex
+
+@sub=*+1
+@l1:	lda $ffff
+	beq @cont
+	cmp #$20
+	beq @cont
+	sta mem::spare,x
+	inc @sub
+	bne :+
+	inc @sub+1
+:	inx
+	bne @l1
+
+@ch:    sta mem::spare,x
 	inx
 
 @cont:	iny
@@ -139,8 +164,9 @@ STATUS_COL  = 0
 
 	ldx #<mem::spare
 	ldy #>mem::spare
-        pla
+	lda @row
         jsr __text_puts
+
         rts
 .endproc
 
@@ -165,7 +191,7 @@ STATUS_COL  = 0
 	lda #$00
 	sta zp::curx
 	inc zp::cury
-	jsr clrline
+	jsr __text_clrline
 	lda #CURSOR_CHAR
 	sta mem::linebuffer
 	ldx #<mem::linebuffer
@@ -238,6 +264,7 @@ txtleft  = $25
 txtright = $27
 txtdst   = $29
 txtsrc   = $4e
+flags = $50
         stx txtsrc
         sty txtsrc+1
         asl

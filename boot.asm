@@ -3,6 +3,7 @@
 .include "codes.inc"
 .include "irq.inc"
 .include "text.inc"
+.include "layout.inc"
 .include "zeropage.inc"
 .include "memory.inc"
 .include "key.inc"
@@ -21,6 +22,7 @@ start:
         ldx #<irq_handler
         ldy #>irq_handler 
         lda #$20
+	inc $900f
         jsr irq::raster
         jmp enter
 ;------------------------------------------------------------------------------
@@ -28,6 +30,7 @@ start:
 enter:
         jsr bm::init
         jsr bm::clr
+
 	lda #$00
 	sta zp::curx
 	sta zp::cury
@@ -66,6 +69,13 @@ main:
 	lda #$00
 	sta text::colstart
 	lda zp::cury
+	jsr text::puts
+
+@clrerr:
+	jsr text::clrline
+	lda #ERROR_ROW
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
 	jsr text::puts
 	jmp @newl
 
