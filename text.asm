@@ -1,5 +1,6 @@
 .include "bitmap.inc"
 .include "memory.inc"
+.include "irq.inc"
 .include "zeropage.inc"
 
 ESCAPE_CHARACTER = $ff
@@ -8,33 +9,12 @@ ESCAPE_RVS_OFF = $02
 CURSOR_CHAR = 132
 STATUS_LINE = 23
 STATUS_COL  = 0
+HICOLOR = $0a
 
 ;--------------------------------------
 .export __text_refresh
 .proc __text_refresh
 
-.endproc
-
-;--------------------------------------
-; fmtlabel formats linebuffer as a label.
-.export __text_fmtlabel
-.proc __text_fmtlabel
-	ldx #$00
-:	lda mem::linebuffer,x
-	inx
-	cmp #' '
-	beq :-
-	dex
-
-	ldy #$00
-:	lda mem::linebuffer,x
-	sta mem::linebuffer,y
-	iny
-	inx
-	cpx #40
-	bcc :-
-
-	rts
 .endproc
 
 ;--------------------------------------
@@ -206,6 +186,7 @@ STATUS_COL  = 0
 @delete:
 	dec zp::curx
 	bpl :+
+	inc zp::curx
 	rts
 :	lda #' '
 	ldx zp::curx
@@ -450,3 +431,33 @@ __text_charmap:
 .byte   $88,$88,$88,$88,$88,$88,$88,$88
 .byte   $ff,$00,$00,$00,$00,$00,$00,$00
 .byte   $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff	; cursor
+
+
+;--------------------------------------
+; hiline highlights the row in .A with the color in .X
+.export __text_hiline
+.proc __text_hiline
+	stx @hicolor
+	ldx #<@hiirq
+	ldy #>@hiirq
+	asl
+	asl
+	adc #13
+	jsr irq::raster
+	rts
+
+@hiirq:
+	ldx #65/5-1
+	dex
+	bne *-1
+@hicolor=*+1
+	lda #HICOLOR
+	sta $900f
+	ldx #(65)/5*8-3
+:	dex
+	bne :-
+	nop
+	lda #$08
+	sta $900f
+	jmp $eabf
+.endproc

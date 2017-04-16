@@ -8,8 +8,7 @@
 .import __text_update
 .import __text_print
 .import __text_puterr
-.import __text_fmtlabel
-.import __text_fmtopcode
+.import __text_hiline
 
 .scope text
         len      = __text_len
@@ -21,7 +20,5 @@
         charmap  = __text_charmap
 	status   = __text_status
 	update   = __text_update
-	fmtlabel = __text_fmtlabel
-	fmtopcode = __text_fmtopcode
+	hiline = __text_hiline
 .endscope
-

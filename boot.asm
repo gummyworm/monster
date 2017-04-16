@@ -8,6 +8,7 @@
 .include "memory.inc"
 .include "key.inc"
 .include "util.inc"
+.include "format.inc"
 
 ;------------------------------------------------------------------------------
 .segment "SETUP"
@@ -22,7 +23,6 @@ start:
         ldx #<irq_handler
         ldy #>irq_handler 
         lda #$20
-	inc $900f
         jsr irq::raster
         jmp enter
 ;------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ main:
 @chklbl:
 	cmp #ASM_LABEL
 	bne @chkop
-	jsr text::fmtlabel
+	jsr fmt::label
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	lda zp::cury
@@ -63,7 +63,7 @@ main:
 @chkop: 
 	cmp #ASM_OPCODE
 	bne @err
-	jsr text::fmtopcode
+	jsr fmt::opcode
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	lda #$00
@@ -77,10 +77,16 @@ main:
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	jsr text::puts
+	ldx #$08
+	lda zp::cury
+	jsr text::hiline
 	jmp @newl
 
 @err:	lda #$00
 	sta zp::curx
+	lda zp::cury
+	ldx #$2a
+	jsr text::hiline
 	jmp @txtdone
 	
 @newl:	inc zp::cury
@@ -105,4 +111,3 @@ main:
 
 irq_handler:
         jmp $eabf
-
