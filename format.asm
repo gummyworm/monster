@@ -1,7 +1,8 @@
+.include "codes.inc"
 .include "memory.inc"
 
 ;--------------------------------------
-; fmtlabel formats linebuffer as a label.
+; label formats linebuffer as a label.
 .export __fmt_label
 .proc __fmt_label
 	ldx #$00
@@ -23,7 +24,7 @@
 .endproc
 
 ;--------------------------------------
-; fmtopcode formats linebuffer as an opcode.
+; opcode formats linebuffer as an opcode.
 .export __fmt_opcode
 .proc __fmt_opcode
 	ldy #2
@@ -40,3 +41,20 @@
 	rts
 .endproc
 
+;--------------------------------------
+; line formats the linebuffer according to the value in .A
+.export __fmt_line
+.proc __fmt_line
+	cmp #ASM_LABEL
+	bne :+
+	jsr __fmt_label
+	lda #$00
+	rts
+:	cmp #ASM_OPCODE
+	bne :+
+	jsr __fmt_opcode
+	lda #$00
+	rts
+:	lda #-1
+	rts
+.endproc

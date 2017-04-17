@@ -1,14 +1,15 @@
 .include "asm.inc"
 .include "bitmap.inc"
 .include "codes.inc"
-.include "irq.inc"
-.include "text.inc"
-.include "layout.inc"
-.include "zeropage.inc"
-.include "memory.inc"
-.include "key.inc"
-.include "util.inc"
+.include "cursor.inc"
 .include "format.inc"
+.include "irq.inc"
+.include "key.inc"
+.include "layout.inc"
+.include "memory.inc"
+.include "text.inc"
+.include "util.inc"
+.include "zeropage.inc"
 
 ;------------------------------------------------------------------------------
 .segment "SETUP"
@@ -50,28 +51,17 @@ main:
 	ldy #>mem::linebuffer
 	jsr asm::compile
 
-@chklbl:
-	cmp #ASM_LABEL
-	bne @chkop
-	jsr fmt::label
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-	lda zp::cury
-	jsr text::puts
-	jmp @newl
-
-@chkop: 
-	cmp #ASM_OPCODE
+	jsr fmt::line
 	bne @err
-	jsr fmt::opcode
-	ldx #<mem::linebuffer
+
+@noerr: ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	lda #$00
 	sta text::colstart
 	lda zp::cury
 	jsr text::puts
-
-@clrerr:
+	jmp @newl
+	
 	jsr text::clrline
 	lda #ERROR_ROW
 	ldx #<mem::linebuffer
@@ -89,9 +79,11 @@ main:
 	jsr text::hiline
 	jmp @txtdone
 	
-@newl:	inc zp::cury
-	lda #$00
-	sta zp::curx
+@newl:	ldy zp::cury
+	iny
+	ldx #$00
+	jsr cur::set
+
 	lda #39
 	sta zp::tmp0
 	ldx #<mem::linebuffer

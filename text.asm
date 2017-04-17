@@ -18,24 +18,6 @@ HICOLOR = $0a
 .endproc
 
 ;--------------------------------------
-; fmtopcode formats linebuffer as an opcode.
-.export __text_fmtopcode
-.proc __text_fmtopcode
-	ldy #2
-@l1:	ldx #38
-@l0:	lda mem::linebuffer,x
-	sta mem::linebuffer+1,x
-	dex
-	bpl @l0
-	dey
-	bne @l1
-	lda #' '
-	sta mem::linebuffer
-	sta mem::linebuffer+1
-	rts
-.endproc
-
-;--------------------------------------
 .export __text_status
 .proc __text_status
 	ldx #<mem::statusline
