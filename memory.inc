@@ -3,7 +3,6 @@
 .import __linebuffer
 .import __statusline
 .import __mem_filebuffer1
-.import __mem_filebuffer2
 
 .scope mem
 	init 		= __mem_init
@@ -11,5 +10,4 @@
 	linebuffer      = __linebuffer
 	statusline	= __statusline
 	filebuffer1 	= __mem_filebuffer1
-	filebuffer2	= __mem_filebuffer2
 .endscope

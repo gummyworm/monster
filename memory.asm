@@ -25,9 +25,5 @@ __mem_filebuffer1:
 	.byte $18,"hello world",0
 	.res 1000,0
 
-.export __mem_filebuffer2
-__mem_filebuffer2:
-	.res 1000,0
-
 .endscope
 

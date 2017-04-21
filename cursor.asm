@@ -5,24 +5,34 @@
 .export __cur_on
 .proc __cur_on
 @dst=zp::tmp0
-	lda curstatus
-	bne @done
-
-	lda curx
-	asl
+	lda zp::curx
+	and #$fe
 	tax
-	lda bm::coluns,x
+	lda zp::cury
+	asl
+	asl
+	asl
+	adc bm::columns,x
 	sta @dst
-	lda bm::coluns+1,x
+	lda #$00
+	adc bm::columns+1,x
 	sta @dst+1
 
+	lda zp::curx
+	and #$01
+	beq :+
+	lda #$ff
+:	eor #$f0
+	sta @mask
+
 	ldy #7
-:	lda #$ff
+@mask=*+1
+@l0:	lda #$ff
 	eor (@dst),y
 	sta (@dst),y
 	dey
-	bpl :-
-	sta curstatus
+	bpl @l0
+
 @done:	rts
 .endproc
 
@@ -32,8 +42,9 @@
 	lda curstatus
 	beq @done
 	inc curstatus
-	jsr __text_curon
-	inc curstatus
+	jsr __cur_on
+	lda #$00
+	sta curstatus
 @done:	rts
 .endproc
 
@@ -61,7 +72,7 @@
 .proc __cur_set
 	stx zp::tmp2
 	sty zp::tmp3
-	jsr __cur_off
+	;jsr __cur_off
 	ldx zp::tmp2
 	ldy zp::tmp3
 	stx zp::curx
@@ -70,4 +81,4 @@
 	rts
 .endproc
 
-.byte curstatus 0
+curstatus: .byte 0

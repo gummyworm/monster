@@ -6,10 +6,10 @@
 ESCAPE_CHARACTER = $ff
 ESCAPE_RVS_ON = $01
 ESCAPE_RVS_OFF = $02
-CURSOR_CHAR = 132
 STATUS_LINE = 23
 STATUS_COL  = 0
-HICOLOR = $0a
+
+.CODE
 
 ;--------------------------------------
 .export __text_refresh
@@ -28,6 +28,7 @@ HICOLOR = $0a
 .endproc
 
 ;--------------------------------------
+; update updates the statusline according to the current cursor position.
 .export __text_update
 .proc __text_update
 	lda zp::curx
@@ -50,6 +51,7 @@ HICOLOR = $0a
 .endproc
 
 ;--------------------------------------
+; clrline clears the text linebuffer.
 .export __text_clrline
 .proc __text_clrline
 	lda #' '
@@ -61,6 +63,7 @@ HICOLOR = $0a
 .endproc
 
 ;--------------------------------------
+; print displays the format string in (<X,>Y) at the row in .A.
 .export __text_print
 .proc __text_print
 @str = zp::tmp0
@@ -133,10 +136,12 @@ HICOLOR = $0a
 .endproc
 
 ;--------------------------------------
+; putch adds the character in .A to the current cursor position in the
+; text linebuffer.
 .export __text_putch
 .proc __text_putch
 	cmp #$0d
-	bne :+
+	bne @left
 @return:
 	ldx zp::curx
 	lda #' '
@@ -154,18 +159,32 @@ HICOLOR = $0a
 	sta zp::curx
 	inc zp::cury
 	jsr __text_clrline
-	lda #CURSOR_CHAR
-	sta mem::linebuffer
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	lda zp::cury
 	jsr __text_puts
 	jmp @done
 
-:	cmp #$14
-	bne @printable
+@left:	cmp #$9d
+	bne @right
+	ldx zp::curx
+	beq :+
+	dex
+	stx zp::curx
+:	jmp @redraw
+
+@right: cmp #$1d
+	bne @delete
+	ldx zp::curx
+	cpx #40
+	bcs :+
+	inx
+	stx zp::curx
+:	jmp @redraw
 
 @delete:
+	cmp #$14
+	bne @printable
 	dec zp::curx
 	bpl :+
 	inc zp::curx
@@ -173,8 +192,6 @@ HICOLOR = $0a
 :	lda #' '
 	ldx zp::curx
 	sta mem::linebuffer+1,x
-	lda #CURSOR_CHAR
-	sta mem::linebuffer,x
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	lda zp::cury
@@ -182,39 +199,24 @@ HICOLOR = $0a
 	jmp @done
 
 @printable:
-	php
 	ldx zp::curx
 	sta mem::linebuffer,x
-	lda #CURSOR_CHAR
-	sta mem::linebuffer+1,x
 	lda #0
 	sta __text_colstart
 	lda #40
 	sta __text_len
+	lda zp::curx
+	cmp #40
+	bcs @redraw
+	inc zp::curx
 
+@redraw: 
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	lda zp::cury
         jsr __text_puts
 
-	plp
-	lda #$00
-	adc zp::cury
-
-	ldx zp::curx
-	inx
-	cpx #40
-	bcc :+
-	ldx #$00
-	cmp #23
-	bcs :+
-	sta zp::cury
-:	stx zp::curx
-
-@done:	ldx zp::curx
-	lda #' '
-	sta mem::linebuffer,x	; don't persist the cursor in the buffer
-	rts
+@done:	rts
 .endproc
 
 ;--------------------------------------
@@ -428,12 +430,11 @@ __text_charmap:
 	jsr irq::raster
 	rts
 
-@hiirq:
-	ldx #65/5-1
+@hiirq: ldx #65/5-1
 	dex
 	bne *-1
 @hicolor=*+1
-	lda #HICOLOR
+	lda #$00
 	sta $900f
 	ldx #(65)/5*8-3
 :	dex

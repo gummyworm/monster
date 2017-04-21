@@ -14,7 +14,14 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
 .proc __irq_raster
         sei
 ;set the IRQ vector
-        stx $0314
+	cpx $0314
+	bne :+
+	cpy $0315
+	bne :+
+	cli
+	rts
+
+:	stx $0314
         sty $0315
 ;init the stable raster irq
         ldx #$7f

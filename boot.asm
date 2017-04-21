@@ -90,16 +90,16 @@ main:
 	ldy #>mem::linebuffer
 	lda #' '
 	jsr util::memset
-	jmp @txtdone
+	jmp @done
 
-@cont:	pla
 @putc:
 	jsr text::putch
 @txtdone:
 	jsr text::update
 	jsr text::status
+	jsr cur::on
 
-        jmp main
+@done:	jmp main
 
 irq_handler:
         jmp $eabf
