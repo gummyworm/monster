@@ -149,7 +149,6 @@ opcodes:
 .proc asm_opcode
 	ldy #$00
 	lda (line),y
-	
 .endproc
 
 ;--------------------------------------
@@ -198,6 +197,7 @@ STATE_GET_COMMENT = 2
 .endproc
 
 ;--------------------------------------
+; isopcode returns ASM_OPCODE if (line) contains an opcode.
 .proc isopcode
 @optab = zp::tmp2
 @op = zp::tmp4
@@ -235,6 +235,7 @@ STATE_GET_COMMENT = 2
 .endproc
 
 ;--------------------------------------
+; compile analiyzes (line) and updates the affected areas.
 .export __asm_compile
 .proc __asm_compile
 	stx line
