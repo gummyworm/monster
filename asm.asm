@@ -154,29 +154,170 @@ opcodes:
 ;--------------------------------------
 ; tokenize tokenizes the line in (<X/>Y) into @tokens.
 .proc tokenize
-; tokenization states
-STATE0 = 0
-STATE_GET_OPERAND = 1
-STATE_GET_COMMENT = 2
-@i = zp::tmp2
-@state = zp::tmp3
+;flags
+@indirect=zp::tmp2 ; 1=indirect, 0=absolute
+@indexed=zp::tmp3  ; 1=x-indexed, 2=y-indexed, 0=not indexed
 	stx line
 	sty line
 
 	lda #$00
-	sta @i
-@nexttok:
+	sta @indirect
+	sta @indexed
+
+@getws:
 	sta @state
-	ldy @i
+	lda (line),y
+	iny
+	cmp #' '
+	bne @getws
+	
+	lda (line),y
+	cmp #'('
+	bne @abslabelorvalue
+
+@lparen:
+	inc @indirect
+	iny
+
+@abslabelorvalue:
+	tya
+	pha
+	jsr getvalue
+	beq :+
+:	jsr getlabel
+	beq :+
+	jmp @err
+
+	pla
+	tay
+	lda @indirect
+	beq @index
+@rparen:
+	lda (line),y
+	iny
+	cmp #')'
+	beq @index
+	jmp @err
+
+@index: lda (line),y 
+	iny
+	cmp #','
+	bne @getws2
+
+@getindex:
+	lda (line),y
+	cmp #'X'
+	bne :+
+	inc @indexed
+:	cmp #'Y'
+	bne @getws2
+	inc @indexed
+	inc @indexed
+
+@getws2:
+	lda (line),y
+	iny
+	cmp #' '
+	bne @getws2
+
+@comment:
+	cmp #$0d
+	beq @done
+	cmp #';'
+
+@done:  lda #$00
+	rts
+
+@err:	lda #-1
+	rts
+.endproc
+
+;--------------------------------------
+.proc getvalue
+@val=zp::tmp0
+	lda (line),y
+	cmp #'$'
+	bne :+
+	iny
+
+@l0:	cmp #' '
+	beq @done
+	cmp #'0'
+	bcc @err
+	cmp #'9'
+	bcs :+
+	sec
+	sbc #'0'
+	ora @val
+	sta @val+1
+	jmp @next
+
+:	cmp #'a'
+	bcc @err
+	cmp #'f'+1
+	bcs @err
+	sec
+	sbc #'0'
+	ora @val
+	sta @val+1
+
+@next:	asl @val
+	rol @val+1
+	asl @val
+	rol @val+1
+	asl @val
+	rol @val+1
+	asl @val
+	rol @val+1
+	jmp @l0
+
+@done:	lda #$00
+	ldx @val
+	ldy @val+1
+	rts
+
+@err:	lda #-1
+	rts
+.endproc
+
+;--------------------------------------
+; getlabel returns the address of the label in (line) in (<X,>Y).
+.proc getlabel
+@l=zp::tmp2
+@num=zp::tmp4
+	lda #$00
+	sta @num
+
+@l0:	lda @num
+	cmp numlabels
+	bcs @err
+	inc @num
+	asl
+	tax
+
+	lda label_addresses,x
+	sta @l
+	ldy label_addresses+1,x
+	sta @l+1
+	lda (l),y
+	tax
+	ldy #$00
+
+@l1:	lda (line),y
+	cmp (l),y
+	bne @l0
+	iny
+	dex
+	bne @l1
 	lda (line),y
 	cmp #' '
-	beq @nexttok
-@tok:	jsr isopcode
-	bne :+
-	jsr asm_opcode
-	lda #STATE_GET_OPERAND
-	jmp @nexttok
-:	rts
+	bne @err
+
+@done:	lda #$00
+	rts
+
+@err:	lda #-1
+	rts
 .endproc
 
 ;--------------------------------------
@@ -198,6 +339,7 @@ STATE_GET_COMMENT = 2
 
 ;--------------------------------------
 ; isopcode returns ASM_OPCODE if (line) contains an opcode.
+; The opcode's ID is returned in .X
 .proc isopcode
 @optab = zp::tmp2
 @op = zp::tmp4
@@ -217,6 +359,7 @@ STATE_GET_COMMENT = 2
 	bpl @l1
 
 @done:	lda #ASM_OPCODE
+	ldx @op
 	rts
 
 @next:	lda @optab
@@ -317,11 +460,12 @@ STATE_GET_COMMENT = 2
 .endproc
 
 ;--------------------------------------
-; addlabel adds a label of .A len in (YX) to the label table.
+; addlabel adds a label of .A len in (YX) to the label table.  The address of
+; the lable is provided in zp::tmp0
 .export __asm_addlabel
 .proc __asm_addlabel
-@label=zp::tmp0
-@savey=zp::tmp2
+@label=zp::tmp2
+@savey=zp::tmp4
 	pha
 	sty @savey
 
@@ -330,6 +474,7 @@ STATE_GET_COMMENT = 2
 	lda #>__asm_labels
 	sta @label+1
 
+	; find the next free label location (0 byte in the label table)
 	ldy #$00
 @l0:	lda (@label),y
 	beq @found
@@ -341,6 +486,7 @@ STATE_GET_COMMENT = 2
 	inc @label+1
 	bcs @l0
 
+	; free label location found
 @found: pla
 	ldy #$00
 	sta (@label),y
@@ -351,13 +497,24 @@ STATE_GET_COMMENT = 2
 	lda @savey
 	sta (@label),y
 
+	; store the address of the label in the label_addresses table
+	lda numlabels
+	asl
+	tax
+	lda zp::tmp0
+	sta label_addresses,x
+	lda zp::tmp0+1
+	sta label_addresses+1,x
+
+	inc numlabels
+
 	rts
 .endproc
 
 ;--------------------------------------
 .export __asm_labels
-__asm_labels: .res 1024 * 16
+__asm_labels: .res 256 * 16
 numlabels: .byt 0
-label_addresses: .res 1024 * 2
+label_addresses: .res 256 * 2
 
 
