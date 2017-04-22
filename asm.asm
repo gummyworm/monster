@@ -1,6 +1,7 @@
 .include "codes.inc"
 .include "text.inc"
 .include "zeropage.inc"
+.include "macros.inc"
 .include "memory.inc"
 .include "layout.inc"
 
@@ -152,32 +153,40 @@ opcodes:
 .endproc
 
 ;--------------------------------------
-; tokenize tokenizes the line in (<X/>Y) into @tokens.
+; line assembles the string at (<X/>Y) into into asmresult.
+; The size of the assembled operation is returned in .A (negative indicates
+; an error occurred).
 .proc tokenize
 ;flags
-@indirect=zp::tmp2 ; 1=indirect, 0=absolute
-@indexed=zp::tmp3  ; 1=x-indexed, 2=y-indexed, 0=not indexed
+@indirect=zp::tmp2  ; 1=indirect, 0=absolute
+@indexed=zp::tmp3   ; 1=x-indexed, 2=y-indexed, 0=not indexed
+@immediate=zp::tmp4 ; 1=immediate, 0=not immediate
 	stx line
 	sty line
 
 	lda #$00
 	sta @indirect
 	sta @indexed
+	sta @immediate
 
-@getws:
-	sta @state
-	lda (line),y
-	iny
+@getws: lda (line),y
+	incw line
 	cmp #' '
 	bne @getws
 	
 	lda (line),y
 	cmp #'('
-	bne @abslabelorvalue
+	bne @immediate
 
 @lparen:
 	inc @indirect
-	iny
+	incw line
+	bne @abslabelorvalue
+
+@immediate:
+	cmp #'#'
+	bne @abslabelorvalue
+	inc @immediate
 
 @abslabelorvalue:
 	tya
@@ -194,13 +203,13 @@ opcodes:
 	beq @index
 @rparen:
 	lda (line),y
-	iny
+	incw line
 	cmp #')'
 	beq @index
 	jmp @err
 
 @index: lda (line),y 
-	iny
+	incw line
 	cmp #','
 	bne @getws2
 
@@ -216,7 +225,7 @@ opcodes:
 
 @getws2:
 	lda (line),y
-	iny
+	incw line
 	cmp #' '
 	bne @getws2
 
@@ -233,8 +242,11 @@ opcodes:
 .endproc
 
 ;--------------------------------------
+; getvalue parses (line) for a hexadecimal value.  If it succeeds, the size
+; is returned in .A and the value in (<.X/>.Y).
 .proc getvalue
 @val=zp::tmp0
+	ldy #$00
 	lda (line),y
 	cmp #'$'
 	bne :+
@@ -271,8 +283,10 @@ opcodes:
 	rol @val+1
 	jmp @l0
 
-@done:	lda #$00
-	ldx @val
+@done:	lda @val+1
+	beq :+
+	lda #$01
+:	ldx @val
 	ldy @val+1
 	rts
 
@@ -299,12 +313,12 @@ opcodes:
 	sta @l
 	ldy label_addresses+1,x
 	sta @l+1
-	lda (l),y
+	lda (@l),y
 	tax
 	ldy #$00
 
 @l1:	lda (line),y
-	cmp (l),y
+	cmp (@l),y
 	bne @l0
 	iny
 	dex
