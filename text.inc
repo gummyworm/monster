@@ -9,6 +9,7 @@
 .import __text_print
 .import __text_puterr
 .import __text_hiline
+.import __text_hioff
 
 .scope text
         len      = __text_len
@@ -20,5 +21,6 @@
         charmap  = __text_charmap
 	status   = __text_status
 	update   = __text_update
-	hiline = __text_hiline
+	hiline   = __text_hiline
+	hioff    = __text_hioff
 .endscope

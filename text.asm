@@ -1,6 +1,8 @@
+.include "asm.inc"
 .include "bitmap.inc"
 .include "memory.inc"
 .include "irq.inc"
+.include "util.inc"
 .include "zeropage.inc"
 
 ESCAPE_CHARACTER = $ff
@@ -47,8 +49,74 @@ STATUS_COL  = 0
 	cmp #10
 	adc mem::statusline+STATUS_COL+1
 	sta mem::statusline+STATUS_COL+1
-	rts
+
+	; add current PC - "*=$XXXX"
+	lda #'*'
+	sta mem::statusline+STATUS_COL+3
+	lda #'='
+	sta mem::statusline+STATUS_COL+4
+	lda #'$'
+	sta mem::statusline+STATUS_COL+5
+
+	lda asm::pc+1
+	jsr util::hextostr
+	sty mem::statusline+STATUS_COL+6
+	stx mem::statusline+STATUS_COL+7
+	lda asm::pc
+	jsr util::hextostr
+	sty mem::statusline+STATUS_COL+8
+	stx mem::statusline+STATUS_COL+9
+
+@blink: dec curtmr
+curtmr=*+1
+	lda #40
+	bne @done
+	jsr blinkcur
+
+	lda #40
+	sta curtmr
+@done:	rts
 .endproc
+
+;--------------------------------------
+blinkcur:
+	lda zp::curx
+	lsr
+	lda #$f0
+	bcc :+
+	lda #$0f
+:	sta @mask
+
+	lda zp::cury
+	asl
+	asl
+	asl
+	sta @add
+
+	lda zp::curx
+	and #$fe
+	tax
+	lda bm::columns,x
+@add=*+1
+	adc #$00
+	sta @dst1
+	sta @dst2
+	lda bm::columns+1,x
+	adc #$00
+	sta @dst1+1
+	sta @dst2+1
+
+	ldy #$07
+@l0:
+@dst1=*+1
+	lda $ffff,y
+@mask=*+1
+	eor #$f0
+@dst2=*+1
+	sta $ffff,y
+	dey
+	bpl @l0
+	rts
 
 ;--------------------------------------
 ; clrline clears the text linebuffer.
@@ -416,24 +484,24 @@ __text_charmap:
 .byte   $ff,$00,$00,$00,$00,$00,$00,$00
 .byte   $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff	; cursor
 
-
 ;--------------------------------------
 ; hiline highlights the row in .A with the color in .X
 .export __text_hiline
 .proc __text_hiline
-	stx @hicolor
-	ldx #<@hiirq
-	ldy #>@hiirq
+	stx hicolor
+	ldx #<hiirq
+	ldy #>hiirq
 	asl
 	asl
 	adc #13
 	jsr irq::raster
 	rts
+.endproc
 
-@hiirq: ldx #65/5-1
+hiirq: ldx #65/5-1
 	dex
 	bne *-1
-@hicolor=*+1
+hicolor=*+1
 	lda #$00
 	sta $900f
 	ldx #(65)/5*8-3
@@ -443,4 +511,15 @@ __text_charmap:
 	lda #$08
 	sta $900f
 	jmp $eabf
+
+;--------------------------------------
+; hioff clears any active line highlight
+.export __text_hioff
+.proc __text_hioff
+	lda #$08
+	sta hicolor
+	rts
 .endproc
+
+curx: .byte 0
+cury: .byte 0

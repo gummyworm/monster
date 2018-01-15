@@ -7,9 +7,13 @@
 .include "key.inc"
 .include "layout.inc"
 .include "memory.inc"
+.include "source.inc"
 .include "text.inc"
 .include "util.inc"
+.include "view.inc"
 .include "zeropage.inc"
+
+.import test
 
 ;------------------------------------------------------------------------------
 .segment "SETUP"
@@ -26,6 +30,7 @@ start:
         lda #$20
         jsr irq::raster
         jmp enter
+
 ;------------------------------------------------------------------------------
 .CODE
 enter:
@@ -35,6 +40,16 @@ enter:
 	lda #$00
 	sta zp::curx
 	sta zp::cury
+
+	;jsr test
+	lda #$0d
+	sta mem::linebuffer
+	jmp main
+
+;------------------------------------------------------------------------------
+; lineedit is the main loop for editing a line.
+lineedit:
+	jsr startline
 main:
         lda #$05
         cmp $9004
@@ -42,17 +57,49 @@ main:
 
 	jsr key::getch
 	cmp #$00
-	beq main
+	bne :+
+	jmp done
 
+:	cmp #$91	; up arrow?
+	bne :+
+	jmp uparrow	; RETURN?
+:	pha
+	jsr insert
+	jsr text::putch
+	pla
 	cmp #$0d
-	bne @putc
-	pha
+	beq @linedone
+	jmp maindone
+
+@linedone:
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
-	jsr asm::compile
+	jsr asm::tokenize
+	tax
+	bmi @err
 
-	jsr fmt::line
-	bne @err
+	pha
+	jsr asm::advancepc
+
+	; format line
+	pla
+	bne :+
+	lda #ASM_LABEL
+	bne :++
+:	lda #ASM_OPCODE
+:	jsr fmt::line
+
+	; copy line to source buffer
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	jsr src::puts
+
+	jsr text::hioff
+
+	; display memory (if view is enabled)
+	ldx #<src::buffer
+	ldy #>src::buffer
+	jsr view::mem
 
 @noerr: ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
@@ -72,7 +119,9 @@ main:
 	jsr text::hiline
 	jmp @newl
 
-@err:	lda #$00
+@err:	lda #$ff
+	jsr fmt::line
+	lda #$00
 	sta zp::curx
 	lda zp::cury
 	ldx #$2a
@@ -90,16 +139,114 @@ main:
 	ldy #>mem::linebuffer
 	lda #' '
 	jsr util::memset
-	jmp @done
 
-@putc:
-	jsr text::putch
 @txtdone:
-	jsr text::update
-	jsr text::status
+maindone:
 	jsr cur::on
-
-@done:	jmp main
+done:	jsr text::update
+	jsr text::status
+	jmp main
 
 irq_handler:
         jmp $eabf
+
+;------------------------------------------------------------------------------
+uparrow:
+	jsr cur::off
+	lda zp::curx
+	jsr src::lineup ; move up a line in the buffer
+
+	lda zp::cury
+	bne @noscroll
+@scroll:
+	jsr refresh
+	jmp maindone
+@noscroll:
+	dec zp::cury
+	jmp maindone
+
+;------------------------------------------------------------------------------
+; refresh redraws all the visible lines.
+.proc refresh
+@src=zp::tmp0
+@row=zp::tmp2
+	lda #$00
+	sta @row
+
+	lda src::cur
+	sta @src
+	lda src::cur+1
+	sta @src+1
+	
+	ldy #$00
+@l0:	lda (@src),y
+	cmp #$0d
+	beq @next
+	cpy #40
+	bcs :+	; if past col 40, we can't draw the rest of the line
+	sta mem::linebuffer,y
+:	jmp @l0
+
+@next:	lda @row
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	jsr text::puts
+
+	jsr src::getline
+	cmp #$ff
+	beq @done
+	lda @row
+	inc @row
+	cmp #23
+	bcc @l0
+
+@done:	rts
+.endproc
+
+;------------------------------------------------------------------------------
+.proc startline
+@cur=zp::tmp0
+	ldx src::cur
+	ldy src::cur+1
+	stx @cur
+	sty @cur+1
+	; copy the contents of the line to the linebuffer
+	ldy #$00
+@l0:	lda (@cur),y
+	sta mem::linebuffer,y
+	iny
+	cmp #$0d
+	bne @l0
+	rts
+.endproc
+
+;------------------------------------------------------------------------------
+; linelen returns the length of mem::linebuffer in .X
+.proc linelen
+	ldx #$ff
+	lda #$0d
+@l0:	inx
+	cmp mem::linebuffer,x
+	bne @l0
+	rts
+.endproc
+
+;------------------------------------------------------------------------------
+; insert makes room for a character according to the cursor position.
+.proc insert
+	pha
+	jsr linelen
+@bump:	lda mem::linebuffer,x
+	sta mem::linebuffer+1,x
+	dex
+	cpx zp::curx
+	bne @bump
+@ins:	pla
+	rts
+.endproc
+
+;------------------------------------------------------------------------------
+; printline prints the line at the cursor position.
+.proc printline
+
+.endproc

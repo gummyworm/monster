@@ -8,7 +8,7 @@
 	ldx #$00
 :	lda mem::linebuffer,x
 	inx
-	cmp #' '
+	cmp #$0d
 	beq :-
 	dex
 
@@ -42,19 +42,32 @@
 .endproc
 
 ;--------------------------------------
-; line formats the linebuffer according to the value in .A
+; line formats the linebuffer according to the value in .A. The line length is
+; returned in .A
 .export __fmt_line
 .proc __fmt_line
 	cmp #ASM_LABEL
 	bne :+
 	jsr __fmt_label
-	lda #$00
 	rts
 :	cmp #ASM_OPCODE
 	bne :+
 	jsr __fmt_opcode
-	lda #$00
-	rts
-:	lda #-1
+
+:	ldx #$00
+@l0:	lda mem::linebuffer,x
+	inx
+	cmp #$0d
+	bne @l0
+	dex
+	stx @len
+
+	lda #' '
+@l1:	sta mem::linebuffer,x
+	inx
+	cpx #40
+	bcc @l1
+@len=*+1 
+	lda #$ff
 	rts
 .endproc

@@ -7,6 +7,25 @@
 @skip:
 .endmacro
 
+; decw decrements the 16-bit value at the address w.
+; clobers .A
+.macro decw w
+.local @skip
+	lda w
+	bne @skip
+	dec w+1
+@skip:	dec w
+.endmacro
+
+; cmpw compares (YX) to the 16-bit value. The Z flag is set if the two
+; are equal
+.macro cmpw w
+	cpx w
+	bne @skip
+	cpy w+1
+@skip:
+.endmacro
+
 ; ldxy loads .X with the LSB of arg and .Y with the MSB.
 .macro ldxy arg
 	.if .match( .left( 1, {arg} ), # )

@@ -1,3 +1,5 @@
+.include "memory.inc"
+.include "text.inc"
 .include "zeropage.inc"
 
 ;--------------------------------------
@@ -57,4 +59,56 @@
 	rts
 :	dec zp::tmp0
 	jmp @l0
+.endproc
+
+;--------------------------------------
+; hextostr returns the string representation of the hex value in .A
+; .X contains the low nybble and Y contains the high nybble
+.export __util_hextostr
+.proc __util_hextostr
+	pha
+	and #$f0
+	lsr
+	lsr
+	lsr
+	lsr
+	cmp #$0a
+	bcs :+
+	adc #'0'
+	bcc :++
+:	adc #'a'-$a-1
+:	tay
+
+	pla
+	and #$0f
+	cmp #$0a
+	bcs :+
+	adc #'0'
+	bcc :++
+:	adc #'a'-$a-1
+:	tax
+	rts
+.endproc
+
+;--------------------------------------
+; hline draws a horizontal line at the row given in .A
+.export __util_hline
+.proc __util_hline
+	pha
+	lda #$00
+	sta text::colstart
+	lda #40
+	sta text::len
+	sta zp::tmp0
+	
+	ldx #<mem::spare
+	ldy #>mem::spare
+	lda #132
+	jsr __util_memset
+
+	pla
+	ldx #<mem::spare
+	ldy #>mem::spare
+	jsr text::puts
+	rts
 .endproc
