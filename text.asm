@@ -208,25 +208,18 @@ blinkcur:
 ; text linebuffer.
 .export __text_putch
 .proc __text_putch
+	ldx zp::curx
+	sta mem::linebuffer,x
 	cmp #$0d
 	bne @left
 @return:
+	jmp @done
 	ldx zp::curx
 	lda #' '
-	sta mem::linebuffer,x
 	lda #0
 	sta __text_colstart
 	lda #40
 	sta __text_len
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-	lda zp::cury
-	jsr __text_puts
-
-	lda #$00
-	sta zp::curx
-	inc zp::cury
-	jsr __text_clrline
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	lda zp::cury
@@ -267,8 +260,6 @@ blinkcur:
 	jmp @done
 
 @printable:
-	ldx zp::curx
-	sta mem::linebuffer,x
 	lda #0
 	sta __text_colstart
 	lda #40
@@ -279,8 +270,24 @@ blinkcur:
 	inc zp::curx
 
 @redraw: 
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
+	lda #40
+	sta zp::tmp0
+	ldx #<mem::spare
+	ldy #>mem::spare
+	lda #' '
+	jsr util::memset
+
+	ldx #39
+@l0:	lda mem::linebuffer,x
+	bmi :+
+	cmp #' '
+	bcc :+
+	sta mem::spare,x
+:	dex
+	bpl @l0
+
+	ldx #<mem::spare
+	ldy #>mem::spare
 	lda zp::cury
         jsr __text_puts
 
@@ -520,6 +527,3 @@ hicolor=*+1
 	sta hicolor
 	rts
 .endproc
-
-curx: .byte 0
-cury: .byte 0

@@ -62,10 +62,9 @@ main:
 
 :	cmp #$91	; up arrow?
 	bne :+
-	jmp uparrow	; RETURN?
+	jmp uparrow
 :	pha
 	jsr insert
-	jsr text::putch
 	pla
 	cmp #$0d
 	beq @linedone
@@ -227,21 +226,34 @@ uparrow:
 	lda #$0d
 @l0:	inx
 	cmp mem::linebuffer,x
+	cpx #40
+	bcs @done
 	bne @l0
-	rts
+@done:	rts
 .endproc
 
 ;------------------------------------------------------------------------------
-; insert makes room for a character according to the cursor position.
+; insert adds a character at the cursor position.
 .proc insert
+	cmp #$80
+	bcs :+
+	cmp #' '
+	bcs @printable
+:	jsr text::putch
+	rts
+
+@printable:
 	pha
 	jsr linelen
-@bump:	lda mem::linebuffer,x
+@l0:	lda mem::linebuffer,x
 	sta mem::linebuffer+1,x
-	dex
 	cpx zp::curx
-	bne @bump
+	beq @ins
+	dex
+	bpl @l0
+
 @ins:	pla
+	jsr text::putch
 	rts
 .endproc
 
