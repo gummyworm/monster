@@ -1,5 +1,6 @@
 .include "asm.inc"
 .include "bitmap.inc"
+.include "cursor.inc"
 .include "memory.inc"
 .include "irq.inc"
 .include "util.inc"
@@ -12,6 +13,35 @@ STATUS_LINE = 23
 STATUS_COL  = 0
 
 .CODE
+
+L_INSERT_MASK=$80
+R_INSERT_MASK=$08
+
+L_REPLACE_MASK=$f0
+R_REPLACE_MASK=$0f
+
+;--------------------------------------
+; mask returnst the mask used to draw the cursor
+.proc mask
+	lda __text_insertmode
+	beq @replace
+@insert:
+	lda zp::curx
+	and #$01
+	beq :+
+	lda #R_INSERT_MASK
+	rts
+:	lda #L_INSERT_MASK
+	rts
+@replace:
+	lda zp::curx
+	and #$01
+	beq :+
+	lda #R_REPLACE_MASK
+	rts
+:	lda #L_REPLACE_MASK
+	rts
+.endproc
 
 ;--------------------------------------
 .export __text_refresh
@@ -67,6 +97,13 @@ STATUS_COL  = 0
 	sty mem::statusline+STATUS_COL+8
 	stx mem::statusline+STATUS_COL+9
 
+	; current edit mode (insert or replace)
+	ldx #'r'
+	lda __text_insertmode
+	beq :+
+	ldx #'i'
+:	stx mem::statusline+STATUS_COL+11
+
 @blink: dec curtmr
 curtmr=*+1
 	lda #40
@@ -80,12 +117,8 @@ curtmr=*+1
 
 ;--------------------------------------
 blinkcur:
-	lda zp::curx
-	lsr
-	lda #$f0
-	bcc :+
-	lda #$0f
-:	sta @mask
+	jsr mask
+	sta @mask
 
 	lda zp::cury
 	asl
@@ -122,7 +155,7 @@ blinkcur:
 ; clrline clears the text linebuffer.
 .export __text_clrline
 .proc __text_clrline
-	lda #' '
+	lda #$00
 	ldx #39
 :	sta mem::linebuffer,x
 	dex
@@ -174,7 +207,7 @@ blinkcur:
 @sub=*+1
 @l1:	lda $ffff
 	beq @cont
-	cmp #$20
+	cmp #' '
 	beq @cont
 	sta mem::spare,x
 	inc @sub
@@ -208,24 +241,15 @@ blinkcur:
 ; text linebuffer.
 .export __text_putch
 .proc __text_putch
-	ldx zp::curx
-	sta mem::linebuffer,x
 	cmp #$0d
-	bne @left
-@return:
-	jmp @done
-	ldx zp::curx
-	lda #' '
-	lda #0
-	sta __text_colstart
-	lda #40
-	sta __text_len
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-	lda zp::cury
-	jsr __text_puts
-	jmp @done
+	beq @printable
+	cmp #' '
+	bcc @controlcode
+	cmp #$80
+	bcs @controlcode
+	jmp @printable
 
+@controlcode:
 @left:	cmp #$9d
 	bne @right
 	ldx zp::curx
@@ -235,7 +259,7 @@ blinkcur:
 :	jmp @redraw
 
 @right: cmp #$1d
-	bne @delete
+	bne @update
 	ldx zp::curx
 	cpx #40
 	bcs :+
@@ -243,23 +267,14 @@ blinkcur:
 	stx zp::curx
 :	jmp @redraw
 
-@delete:
-	cmp #$14
-	bne @printable
-	dec zp::curx
-	bpl :+
-	inc zp::curx
-	rts
-:	lda #' '
-	ldx zp::curx
-	sta mem::linebuffer+1,x
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-	lda zp::cury
-	jsr __text_puts
-	jmp @done
-
 @printable:
+	ldx zp::curx
+	sta mem::linebuffer,x
+	cmp #$0d
+	bne @left
+@return: jmp @done
+
+@update:
 	lda #0
 	sta __text_colstart
 	lda #40
@@ -270,6 +285,15 @@ blinkcur:
 	inc zp::curx
 
 @redraw: 
+	jsr __text_drawline
+
+@done:	rts
+.endproc
+
+;--------------------------------------
+; drawline renders the text in mem::linebuffer at the cursor position
+.export __text_drawline
+.proc __text_drawline
 	lda #40
 	sta zp::tmp0
 	ldx #<mem::spare
@@ -277,21 +301,24 @@ blinkcur:
 	lda #' '
 	jsr util::memset
 
-	ldx #39
+	ldx #$00
 @l0:	lda mem::linebuffer,x
 	bmi :+
+	beq @done
+	cmp #$0d
+	beq @done
 	cmp #' '
 	bcc :+
 	sta mem::spare,x
-:	dex
-	bpl @l0
+:	inx
+	cpx #40
+	bcc @l0
 
-	ldx #<mem::spare
+@done:	ldx #<mem::spare
 	ldy #>mem::spare
 	lda zp::cury
         jsr __text_puts
-
-@done:	rts
+	rts
 .endproc
 
 ;--------------------------------------
@@ -527,3 +554,6 @@ hicolor=*+1
 	sta hicolor
 	rts
 .endproc
+
+.export __text_insertmode
+__text_insertmode: .byte 1

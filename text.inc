@@ -10,6 +10,8 @@
 .import __text_puterr
 .import __text_hiline
 .import __text_hioff
+.import __text_drawline
+.import __text_insertmode
 
 .scope text
         len      = __text_len
@@ -23,4 +25,6 @@
 	update   = __text_update
 	hiline   = __text_hiline
 	hioff    = __text_hioff
+	drawline = __text_drawline
+	insertmode = __text_insertmode
 .endscope

@@ -56,17 +56,12 @@
 
 :	ldx #$00
 @l0:	lda mem::linebuffer,x
-	inx
-	cmp #$0d
-	bne @l0
-	dex
-	stx @len
-
-	lda #' '
-@l1:	sta mem::linebuffer,x
+	beq :+
 	inx
 	cpx #40
-	bcc @l1
+	bcc @l0
+:	stx @len
+
 @len=*+1 
 	lda #$ff
 	rts

@@ -42,9 +42,6 @@ enter:
 	sta zp::cury
 
 	;jsr test
-	lda #$0d
-	sta mem::linebuffer
-	jmp main
 
 ;------------------------------------------------------------------------------
 ; lineedit is the main loop for editing a line.
@@ -68,7 +65,7 @@ main:
 	pla
 	cmp #$0d
 	beq @linedone
-	jmp maindone
+	jmp done
 
 @linedone:
 	ldx #<mem::linebuffer
@@ -89,10 +86,12 @@ main:
 :	jsr fmt::line
 
 	; copy line to source buffer
+	pha
+	jsr text::drawline
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
+	pla
 	jsr src::puts
-
 	jsr text::hioff
 
 	; display memory (if view is enabled)
@@ -100,12 +99,9 @@ main:
 	ldy #>src::buffer
 	jsr view::mem
 
-@noerr: ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-	lda #$00
-	sta text::colstart
-	lda zp::cury
-	jsr text::puts
+@noerr: jsr text::drawline
+	lda #$01
+	sta text::insertmode
 	jmp @newl
 	
 	jsr text::clrline
@@ -125,6 +121,8 @@ main:
 	lda zp::cury
 	ldx #$2a
 	jsr text::hiline
+	lda #$00
+	sta text::insertmode
 	jmp @txtdone
 	
 @newl:	ldy zp::cury
@@ -136,8 +134,12 @@ main:
 	sta zp::tmp0
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
-	lda #' '
+	lda #$00
 	jsr util::memset
+
+	jsr text::update
+	jsr text::status
+	jmp lineedit
 
 @txtdone:
 maindone:
@@ -159,10 +161,10 @@ uparrow:
 	bne @noscroll
 @scroll:
 	jsr refresh
-	jmp maindone
+	jmp done
 @noscroll:
 	dec zp::cury
-	jmp maindone
+	jmp done 
 
 ;------------------------------------------------------------------------------
 ; refresh redraws all the visible lines.
@@ -209,13 +211,17 @@ uparrow:
 	ldy src::cur+1
 	stx @cur
 	sty @cur+1
+
 	; copy the contents of the line to the linebuffer
 	ldy #$00
-@l0:	lda (@cur),y
+@l1:	lda (@cur),y
+	beq @done
 	sta mem::linebuffer,y
 	iny
 	cmp #$0d
-	bne @l0
+	bne @l1
+@done:	lda #$00
+	sta mem::linebuffer,y
 	rts
 .endproc
 
@@ -223,9 +229,9 @@ uparrow:
 ; linelen returns the length of mem::linebuffer in .X
 .proc linelen
 	ldx #$ff
-	lda #$0d
 @l0:	inx
-	cmp mem::linebuffer,x
+	lda mem::linebuffer,x
+	beq @done
 	cpx #40
 	bcs @done
 	bne @l0
@@ -238,23 +244,45 @@ uparrow:
 	cmp #$80
 	bcs :+
 	cmp #' '
-	bcs @printable
-:	jsr text::putch
-	rts
+	bcs printable
+:	
+controlcodes:
+	cmp #$14
+	beq del
+	jmp put
+del:	lda zp::curx
+	beq done
+	lda text::insertmode
+	beq @deldone
+	jsr linelen
+	stx zp::tmp0
+	ldx zp::curx
+	dex
+@l0:	lda mem::linebuffer+1,x
+	sta mem::linebuffer,x
+	inx
+	cpx zp::tmp0
+	bcc @l0
+	jsr text::drawline
+@deldone:
+	dec zp::curx
+	jmp done
 
-@printable:
+printable:
+	ldx text::insertmode
+	beq put ; 0 = replace, skip bumping the buffer
 	pha
 	jsr linelen
 @l0:	lda mem::linebuffer,x
 	sta mem::linebuffer+1,x
 	cpx zp::curx
-	beq @ins
+	beq ins
 	dex
 	bpl @l0
 
-@ins:	pla
-	jsr text::putch
-	rts
+ins:	pla
+put:	jsr text::putch
+done:	rts
 .endproc
 
 ;------------------------------------------------------------------------------

@@ -1,5 +1,33 @@
 .include "bitmap.inc"
 .include "zeropage.inc"
+.include "text.inc"
+
+L_INSERT_MASK=$80
+R_INSERT_MASK=$08
+
+L_REPLACE_MASK=$f0
+R_REPLACE_MASK=$0f
+
+;--------------------------------------
+; mask returnst the mask used to draw the cursor
+.proc mask
+	lda text::insertmode
+	beq @replace
+@insert:
+	lda zp::curx
+	beq :+
+	lda #R_INSERT_MASK
+	rts
+:	lda #L_INSERT_MASK
+	rts
+@replace:
+	lda zp::curx
+	beq :+
+	lda #R_REPLACE_MASK
+	rts
+:	lda #L_REPLACE_MASK
+	rts
+.endproc
 
 ;--------------------------------------
 .export __cur_on
@@ -18,11 +46,7 @@
 	adc bm::columns+1,x
 	sta @dst+1
 
-	lda zp::curx
-	and #$01
-	beq :+
-	lda #$ff
-:	eor #$f0
+	jsr mask
 	sta @mask
 
 	ldy #7

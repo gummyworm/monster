@@ -14,16 +14,12 @@ __mem_spare:
 
 .export __linebuffer
 __linebuffer:
-	.res 40,' '
+	.res 40
 
 .export __statusline
 __statusline:
 	.res 40,' '
 
-.export __mem_filebuffer1
-__mem_filebuffer1:
-	.byte $18,"hello world",0
-	.res 1000,0
 
 .endscope
 

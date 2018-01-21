@@ -2,12 +2,10 @@
 .import __mem_spare
 .import __linebuffer
 .import __statusline
-.import __mem_filebuffer1
 
 .scope mem
 	init 		= __mem_init
         spare           = __mem_spare
 	linebuffer      = __linebuffer
 	statusline	= __statusline
-	filebuffer1 	= __mem_filebuffer1
 .endscope

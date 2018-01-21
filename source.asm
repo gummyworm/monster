@@ -355,7 +355,6 @@ gapend:	   .word buffer+GAPSIZE  ; end pointer of the gap buffer
 .export __src_buffer
 __src_buffer:
 buffer:    
-	.byte $0d
 	.res 1024*4 ; buffer of the active procedure's tokens
 
 buffend:   .word buffer+GAPSIZE
