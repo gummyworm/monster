@@ -62,7 +62,7 @@
 	bcc @l0
 :	stx @len
 
-@len=*+1 
+@len=*+1
 	lda #$ff
 	rts
 .endproc

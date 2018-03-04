@@ -1,6 +1,7 @@
 .include "asm.inc"
 .include "bitmap.inc"
 .include "cursor.inc"
+.include "source.inc"
 .include "memory.inc"
 .include "irq.inc"
 .include "util.inc"
@@ -103,6 +104,35 @@ R_REPLACE_MASK=$0f
 	beq :+
 	ldx #'i'
 :	stx mem::statusline+STATUS_COL+11
+
+	; cursor position in file
+	jsr src::pos
+	txa
+	pha
+	tya
+	jsr util::hextostr
+	sty mem::statusline+STATUS_COL+13
+	stx mem::statusline+STATUS_COL+14
+	pla
+	jsr util::hextostr
+	sty mem::statusline+STATUS_COL+15
+	stx mem::statusline+STATUS_COL+16
+
+	lda #'/'
+	sta mem::statusline+STATUS_COL+17
+
+	; file size
+	jsr src::size
+	txa
+	pha
+	tya
+	jsr util::hextostr
+	sty mem::statusline+STATUS_COL+18
+	stx mem::statusline+STATUS_COL+19
+	pla
+	jsr util::hextostr
+	sty mem::statusline+STATUS_COL+20
+	stx mem::statusline+STATUS_COL+21
 
 @blink: dec curtmr
 curtmr=*+1
@@ -241,39 +271,11 @@ blinkcur:
 ; text linebuffer.
 .export __text_putch
 .proc __text_putch
-	cmp #$0d
-	beq @printable
-	cmp #' '
-	bcc @controlcode
-	cmp #$80
-	bcs @controlcode
-	jmp @printable
-
-@controlcode:
-@left:	cmp #$9d
-	bne @right
-	ldx zp::curx
-	beq :+
-	dex
-	stx zp::curx
-:	jmp @redraw
-
-@right: cmp #$1d
-	bne @update
-	ldx zp::curx
-	cpx #40
-	bcs :+
-	inx
-	stx zp::curx
-:	jmp @redraw
-
-@printable:
 	ldx zp::curx
 	sta mem::linebuffer,x
 	cmp #$0d
-	bne @left
-@return: jmp @done
-
+	bne @update
+	rts
 @update:
 	lda #0
 	sta __text_colstart
@@ -283,10 +285,9 @@ blinkcur:
 	cmp #40
 	bcs @redraw
 	inc zp::curx
-
-@redraw: 
+@redraw:
+	lda zp::cury
 	jsr __text_drawline
-
 @done:	rts
 .endproc
 
@@ -294,6 +295,8 @@ blinkcur:
 ; drawline renders the text in mem::linebuffer at the cursor position
 .export __text_drawline
 .proc __text_drawline
+	pha
+
 	lda #40
 	sta zp::tmp0
 	ldx #<mem::spare
@@ -316,7 +319,7 @@ blinkcur:
 
 @done:	ldx #<mem::spare
 	ldy #>mem::spare
-	lda zp::cury
+	pla
         jsr __text_puts
 	rts
 .endproc
@@ -398,7 +401,7 @@ l1:     lda (txtleft),y
         sta (txtdst),y
         iny
         cpy #8
-        bne l1 
+        bne l1
         pla
         tay
         clc

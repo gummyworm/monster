@@ -29,7 +29,7 @@
 	lda zp::tmp4+1
 	adc zp::tmp0+1
 	sta zp::tmp4+1
-	
+
 	lda zp::tmp2
 	clc
 	adc zp::tmp0
@@ -91,6 +91,22 @@
 .endproc
 
 ;--------------------------------------
+; strncmp compares the strings in (tmp0) and (tmp2) up to a length of .A
+; If the strings are equal, 0 is returned in .A.
+.export __util_strncmp
+.proc __util_strncmp
+	tay
+@l0:	lda (zp::tmp0),y
+	cmp (zp::tmp2),y
+	beq :+
+	rts
+:	dey
+	bpl @l0
+	lda#$00
+	rts
+.endproc
+
+;--------------------------------------
 ; hline draws a horizontal line at the row given in .A
 .export __util_hline
 .proc __util_hline
@@ -100,7 +116,7 @@
 	lda #40
 	sta text::len
 	sta zp::tmp0
-	
+
 	ldx #<mem::spare
 	ldy #>mem::spare
 	lda #132

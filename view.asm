@@ -9,7 +9,7 @@ ROW_STOP=23
 COL_STOP=8
 
 ;--------------------------------------
-; mem displays the contents of memory in a large block beginning with the 
+; mem displays the contents of memory in a large block beginning with the
 ; address in (YX).
 .export __view_mem
 .proc __view_mem

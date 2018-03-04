@@ -20,6 +20,5 @@ __linebuffer:
 __statusline:
 	.res 40,' '
 
-
 .endscope
 

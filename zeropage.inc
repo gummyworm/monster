@@ -5,7 +5,8 @@ arg0 = $20
 arg1 = $21
 arg2 = $22
 arg3 = $23
-arg4 = $24
+err = $24 ; 1 byte error that procedures may set in the case of an error
+
 ;--------------------------------------
 ;temporary storage
 tmp0 = $f0
@@ -41,5 +42,8 @@ irq4 = $ea
 ; cursor
 curx = $eb
 cury = $ec
+
+gap=$ed 	; the pointer for the cursor in the source buffer
+gapsize=$ef 	; offset to the end of gap buffer
 
 .endscope

@@ -8,7 +8,7 @@
 .endmacro
 
 ; decw decrements the 16-bit value at the address w.
-; clobers .A
+; clobbers .A
 .macro decw w
 .local @skip
 	lda w
@@ -20,6 +20,7 @@
 ; cmpw compares (YX) to the 16-bit value. The Z flag is set if the two
 ; are equal
 .macro cmpw w
+.local @skip
 	cpx w
 	bne @skip
 	cpy w+1
@@ -37,3 +38,7 @@
 	.endif
 .endmacro
 
+; skw skips execution of the next word (equivalent to .byte $2C (bit ABS))
+.macro skw
+	.byte $2c
+.endmacro

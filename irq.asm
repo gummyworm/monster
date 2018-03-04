@@ -2,8 +2,8 @@
 LINES           = 312
 CYCLES_PER_LINE = 71
 .else ;NTSC
-LINES           = 261   
-CYCLES_PER_LINE = 65                 
+LINES           = 261
+CYCLES_PER_LINE = 65
 .endif
 
 TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster int.
@@ -34,7 +34,7 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
         ldx #21
         dex
         bne *-1         ; spend some time (so the whole loop will be 2 raster lines)
-        cmp $9004       
+        cmp $9004
         bcs *+2
         dey
         bne :-
@@ -61,7 +61,7 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
         bne *-1
         stx $9115       ; start the reference timer
 @pointers:
-        lda #$c0  
+        lda #$c0
         sta $912e       ; enable timer A underflow interrupts
         cli
         rts

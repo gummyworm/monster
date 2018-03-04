@@ -1,6 +1,7 @@
 .include "zeropage.inc"
 .include "macros.inc"
 .include "test.inc"
+.include "util.inc"
 
 GAPSIZE = 40	; size of gap in gap buffer
 
@@ -57,119 +58,83 @@ GAPSIZE = 40	; size of gap in gap buffer
 @src=zp::tmp0
 @dst=zp::tmp2
 @stop=zp::tmp4
-	; get copy src/destination
+	; move all the data from the cursor position up GAPSIZE bytes
+	; copy from memmove(zp::gap+GAPSIZE, zp::gap, buffend - zp::gap)
 	lda buffend
 	sta @src
 	clc
 	adc #GAPSIZE
 	sta @dst
 	sta buffend
+
 	lda buffend+1
 	sta @src+1
 	adc #$00
 	sta @dst+1
 	sta buffend+1
 
-	; get address to stop copy
-	lda gapend
-	sta @stop
-	lda gapend+1
-	sta @stop+1
-
-	; copy (buffer) to (buffer+GAPSIZE)
-@l0:    ldx @src
+@l0:	; move one byte from (src) to (dst) until src == zp::gap
+	ldx @src
 	ldy @src+1
-	cmpw @stop
+	cmpw zp::gap
 	beq @done
-
-	ldy #$00
 	lda (@src),y
 	sta (@dst),y
 	decw @src
 	decw @dst
 	jmp @l0
 
-@done:	; update gap end pointer
-	lda #GAPSIZE
-	clc
-	adc gapend
-	sta gapend 
-	lda gapend+1
-	adc #$00
-	sta gapend+1
+@done:	lda #GAPSIZE
+	sta zp::gapsize
 	rts
 .endproc
 
 ;--------------------------------------
-; moveb moves the cursor .A bytes backward moving the text between cur and
-; the new location to the second buffer.
-.export __src_moveb
-.proc __src_moveb
-@src=zp::tmp0
-@dst=zp::tmp2
-@sz=zp::tmp4
-	tay
-	sta @sz
+; next moves the cursor up one character in the gap buffer.
+.export __src_next
+.proc __src_next
+	lda #$00
+	sta zp::err
 
-	lda gapend
-	sec
-	sbc @sz
-	sta @dst
-	sta gapend
-	lda gapend+1
-	sbc #$00
-	sta @dst+1
-	sta gapend+1
+	ldx #<buffend
+	ldy #>buffend
+	cmpw zp::gap
+	bne @ok
 
-	lda cur
-	sbc @sz
-	sta @src
-	sta cur
-	lda cur+1
-	sbc #$00
-	sta @dst+1
-	sta cur+1
+@err:	dec zp::err	; already at end of buffer
+	rts
 
-	dey
-@l0:	lda (@src),y
-	sta (@dst),y
-	dey
-	bpl @l0
+@ok:	; move character from end of gap to the start
+	ldy zp::gapsize
+	lda (zp::gap),y
+	ldy #$00
+	sta (zp::gap),y
+	incw zp::gap
 	rts
 .endproc
 
 ;--------------------------------------
-; movef moves the cursor .A bytes forward moving the text between cur and 
-; the new location to the first buffer.
-.export __src_movef
-.proc __src_movef
-@src=zp::tmp0
-@dst=zp::tmp2
-@sz=zp::tmp4
-	tay
-	sta @sz
+; prev moves the cursor up one character back in the gap buffer.
+.export __src_prev
+.proc __src_prev
+	lda #$00
+	sta zp::err
 
-	lda gapend
-	clc
-	adc @sz
-	sta @dst
-	lda gapend+1
-	adc #$00
-	sta @dst+1
+	ldx #<buffer
+	ldy #>buffer
+	cmpw zp::gap
+	bne @ok
 
-	lda cur
-	adc @sz
-	sta @src
-	lda cur+1
-	adc #$00
-	sta @dst+1
-
-	dey
-@l0:	lda (@src),y
-	sta (@dst),y
-	dey
-	bpl @l0
+@err:	dec zp::err	; already at start of buffer
 	rts
+
+@ok:	; move char from start of gap to the end of the gap
+	decw zp::gap
+	ldy #$00
+	lda (zp::gap),y
+	ldy zp::gapsize
+	sta (zp::gap),y
+ 	rts
 .endproc
 
 ;--------------------------------------
@@ -181,43 +146,34 @@ GAPSIZE = 40	; size of gap in gap buffer
 @cnt=zp::tmp2
 @stop=zp::tmp3
 	sta @cnt
-	lda #$00
-	sec
-	sbc @cnt
-	sta @cnt
-
-	lda #$02
+	lda #$02	; # of $0d characters to read past
 	sta @stop
 
-	lda cur
-	sta @cur
-	lda cur+1
-	sta @cur+1
-
 	; find start of previous line (2 $0d bytes back)+1
-@l0:	ldy #$00
-	lda (@cur),y
-	cmp #$0d
-	bne :+
-	dec @stop
-	beq @done
-:	inc @cnt
-	decw @cur
-	ldx #<buffer
-	ldy #>buffer
-	cmpw @cur
-	bne @l0
-	inc $900f
-	rts ; reached the beginning of the text buffer (cannot lineup)
+@l0:	jsr __src_prev
+	lda zp::err
+	beq @cont
+	rts
 
-@done:	lda @cnt
-	jsr __src_moveb
+@cont:	ldy #$00
+	lda (zp::gap),y
+	cmp #$0d
+	bne @l0
+	dec @stop
+	bne @l0
+
+@l1:	dec @cnt
+	bmi @done
+	jsr __src_next
+	lda zp::err
+	bne @l1
+@done:	jsr __src_next
 	rts
 .endproc
 
 ;--------------------------------------
-; puts adds the string in (YX) of length .A to the buffer. A newline is
-; also appended.
+; puts adds the string in (YX) of length .A to the buffer at the cursor's
+; position
 .export __src_puts
 .proc __src_puts
 @cnt=zp::tmp2
@@ -230,8 +186,6 @@ GAPSIZE = 40	; size of gap in gap buffer
 	incw @src
 	dec @cnt
 	bne @l0
-	lda #$0d
-	jsr __src_insert
 	rts
 .endproc
 
@@ -240,9 +194,9 @@ GAPSIZE = 40	; size of gap in gap buffer
 .export __src_rewind
 .proc __src_rewind
 	lda #<buffer
-	sta cur
+	sta zp::gap
 	lda #>buffer
-	sta cur+1
+	sta zp::gap+1
 	rts
 .endproc
 
@@ -251,61 +205,129 @@ GAPSIZE = 40	; size of gap in gap buffer
 ; $ff is returned if there is no more data to get.
 .export __src_getline
 .proc __src_getline
-@src=zp::tmp0
-	lda cur
-	sta @src
-	lda cur+1
-	sta @src+1
-
-	ldy #$ff
-	sty @eof
-	iny
-@l0:	lda (@src),y
-	incw @src
-	ldx buffend
-	ldy buffend+1	; EOF
-	cmpw @src
-	beq @done
+@l0:	lda (zp::gap),y
 	cmp #$0d
-	bne @l0
-	inc @eof
-	
-@done:	lda @src
-	sta cur
-	lda @src+1
-	sta cur+1
-@eof=*+1
-	lda #$00
+	beq @done
+	jsr __src_next
+	lda zp::err
+	beq @l0
+	rts
+@done:	lda #$00
 	rts
 .endproc
 
 ;--------------------------------------
-; insert adds the character in .A to the buffer
+; getrow returns the text at the row number given in (YX). zp::err is non-zero
+; if the row does not exist
+.export __src_getrow
+.proc __src_getrow
+@src=zp::tmp0
+@cnt=zp::tmp2
+	stx @cnt
+	sty @cnt+1
+
+	lda #<buffer
+	sta @src
+	lda #>buffer
+	sta @src+1
+
+	lda #$00
+	sta zp::err
+
+@l0:	; if we've reached or passed the end of the buffer, err
+	lda @src+1
+	cmp buffend+1
+	bcc :+
+	lda @src
+	cmp buffend
+	bcc :+
+	dec zp::err
+	rts
+
+:	; if the count has reached zero, we're done
+	lda @cnt
+	bne :+
+	lda @cnt+1
+	bne :+
+	ldx @src
+	ldy @src+1
+	rts
+
+	; if we've reached the gap, skip over it
+:	ldx @src
+	ldy @src+1
+	cmpw zp::gap
+	bne :+
+	lda @src
+	clc
+	adc zp::gapsize
+	sta @src
+	lda @src+1
+	adc #$00
+	sta @src+1
+	jmp @l0
+
+:	; check if we're at the end of a line
+	ldy #$00
+	lda (@src),y
+	cmp #$0d
+	bne :+
+	decw @cnt
+
+:	incw @src
+	jmp @l0
+.endproc
+
+;--------------------------------------
+; insert adds the character in .A to the buffer at the gap position (zp::gap).
 .export __src_insert
 .proc __src_insert
 	pha
-	lda cur
-	cmp gapend
+	lda zp::gapsize
 	bne @ins
-	lda cur+1
-	cmp gapend+1
-	bne @ins
-
-	; cursor is at end of gap, open a new gap
-	jsr opengap
-
-@ins:	pla
-	ldx cur
-	ldy cur+1
-	stx zp::tmp0
-	sty zp::tmp0+1
-	ldy #$00
-	sta (zp::tmp0),y
-
-	inc cur
+	jsr opengap ; cursor is at end of gap, open a new gap
+@ins:	ldy #$00
+	pla
+	sta (zp::gap),y
+	incw zp::gap
+	dec zp::gapsize
 	bne :+
-	inc cur+1
+	jsr opengap
 :	rts
+.endproc
+
+;--------------------------------------
+; delete deletes the character immediately after the current cursor position.
+.export __src_delete
+.proc __src_delete
+	; if (gap + gapsize) == buffend, nothing to delete (at end of buffer)
+	lda zp::gap
+	clc
+	adc zp::gapsize
+	tax
+	lda zp::gap+1
+	adc #$00
+	tay
+	cmpw buffend
+	beq @skip
+
+	inc zp::gapsize
+@skip:	rts
+.endproc
+
+;--------------------------------------
+; backspace deletes the character immediately before the current cursor position.
+.export __src_backspace
+.proc __src_backspace
+	; if gap == buffer, nothing to delete (at the start of the buffer)
+	ldx zp::gap
+	ldy zp::gap+1
+	cmpw buffer
+	beq @skip
+
+	decw zp::gap
+	inc zp::gapsize
+@skip:	rts
 .endproc
 
 ;--------------------------------------
@@ -315,13 +337,9 @@ GAPSIZE = 40	; size of gap in gap buffer
 .export __src_replaceline
 .proc __src_replaceline
 @line=zp::tmp0
-@buff=zp::tmp2
+@buff=zp::gap
 	stx @line
 	sty @line
-	lda cur
-	sta @buff
-	lda cur+1
-	sta @buff+1
 
 	ldy #$00
 @l0:	lda (@buff),y
@@ -344,79 +362,58 @@ GAPSIZE = 40	; size of gap in gap buffer
 .endproc
 
 ;--------------------------------------
+; pos returns the position of the cursor in the source buffer in (YX)
+.export __src_pos
+.proc __src_pos
+	lda zp::gap
+	sec
+	sbc #<buffer
+	tax
+	lda zp::gap+1
+	sbc #>buffer
+	tay
+	rts
+.endproc
+
+;--------------------------------------
+; size returns the size of the file in (YX)
+.export __src_size
+.proc __src_size
+	lda zp::gapsize
+	adc #<buffer
+	sta @lsb
+	lda #>buffer
+	adc #$00
+	sta @msb
+
+	lda buffend
+	sec
+@lsb=*+1
+	sbc #$00
+	tax
+	lda buffend+1
+@msb=*+1
+	sbc #$00
+	tay
+	rts
+.endproc
+
+;--------------------------------------
 name:      .res 16  ; the name of the active procedure
-
-.export __src_cur
-__src_cur:
-cur:       .word buffer  ; current position to insert tokens at
-
-gapend:	   .word buffer+GAPSIZE  ; end pointer of the gap buffer
 
 .export __src_buffer
 __src_buffer:
-buffer:    
-	.res 1024*4 ; buffer of the active procedure's tokens
+buffer:	.res 1024*4 ; buffer of the active procedure's tokens
+buffend: .word buffer+GAPSIZE
 
-buffend:   .word buffer+GAPSIZE
 
 ;--------------------------------------
 .ifdef TEST
+testtext: .byte "hello world",$0d,"line 2",$0d,"line 3",$0d
+testtextlen=*-testtext
+
 .export __src_test
 .proc __src_test
-	jsr testaddtxt
-	jsr testmovecur	; move cursor back 4 chars
-	jsr testaddtxt	; more text (make new gap)
 	rts
-.endproc
-
-.proc testaddtxt
-	; insert test text
-	lda #$00
-	sta @cnt
-@l0:	ldx @cnt
-	lda @text,x
-	jsr __src_insert
-	inc @cnt
-	lda @cnt
-	cmp #@textlen
-	bcc @l0
-	rts
-@text: .byte "hello world",$0d,"line 2",$0d,"line 3",$0d
-@textlen=*-@text
-@cnt: .byte 0
-.endproc
-
-.proc testmovecur
-	lda #$04
-	jsr __src_moveb
-
-	ldx gapend
-	ldy gapend+1
-	stx zp::tmp0
-	sty zp::tmp0+1
-
-	ldy #$00
-	lda (zp::tmp0),y
-	cmp #'e'
-	bne @fail
-	iny
-	lda (zp::tmp0),y
-	cmp #' '
-	bne @fail
-	iny
-	lda (zp::tmp0),y
-	cmp #'3'
-	bne @fail
-	iny
-	lda (zp::tmp0),y
-	cmp #$0d
-	bne @fail
-	rts
-
-@fail:	inc $900f
-	jmp *-3
-.endproc
-
-.proc testmoveu
 .endproc
 .endif

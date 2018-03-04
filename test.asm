@@ -11,6 +11,7 @@ TEST = 1
 
 .export test
 .proc test
+	rts
 	jsr src::test
 	jsr test_labels
 	jsr test_tokenize
