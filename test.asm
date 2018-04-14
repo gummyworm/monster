@@ -2,6 +2,7 @@
 .include "codes.inc"
 .include "zeropage.inc"
 .include "source.inc"
+.include "test_macros.inc"
 
 TEST = 1
 
@@ -11,8 +12,8 @@ TEST = 1
 
 .export test
 .proc test
-	rts
 	jsr src::test
+	rts
 	jsr test_labels
 	jsr test_tokenize
 	jsr test_getaddrmode
@@ -46,78 +47,68 @@ test_tokenize:
 	jsr asm::tokenize
 	lda asm::result
 	cmp #$a9
-	beq :+
-	jmp @fail
-:	lda asm::result+1
+	assertz
+	lda asm::result+1
 	cmp #$00
-	beq :+
-	jmp @fail
-:
+	assertz
+
 	; test RTI
 	ldx #<@testop2
 	ldy #>@testop2
 	jsr asm::tokenize
 	lda asm::result
 	cmp #$40
-	beq :+
-	jmp @fail
+	assertz
 
-:	; test STA ($a2,x)
+	; test STA ($a2,x)
 	ldx #<@testop3
 	ldy #>@testop3
 	jsr asm::tokenize
 	lda asm::result
 	cmp #$81
-	beq :+
-	jmp @fail
-:	lda asm::result+1
+	assertz
+	lda asm::result+1
 	cmp #$a2
-	beq :+
-	jmp @fail
+	assertz
 
-:	; test ORA ($f0),y
+	; test ORA ($f0),y
 	ldx #<@testop4
 	ldy #>@testop4
 	jsr asm::tokenize
 	lda asm::result
 	cmp #$11
-	beq :+
-	jmp @fail
-:	lda asm::result+1
+	assertz
+	lda asm::result+1
 	cmp #$f0
-	beq :+
-	jmp @fail
+	assertz
 
-:	; test AND $f193,y
+	; test AND $f193,y
 	ldx #<@testop5
 	ldy #>@testop5
 	jsr asm::tokenize
 	lda asm::result
 	cmp #$39
-	beq :+
-	jmp @fail
-:	lda asm::result+1
+	assertz
+	lda asm::result+1
 	cmp #$93
-	beq :+
-	jmp @fail
-:	lda asm::result+2
+	assertz
+	lda asm::result+2
 	cmp #$f1
-	beq :+
-	jmp @fail
+	assertz
 
-:	; test JMP ($0120)
+	; test JMP ($0120)
 	ldx #<@testop6
 	ldy #>@testop6
 	jsr asm::tokenize
 	lda asm::result
 	cmp #$6c
-	bne @fail
+	assertz
 	lda asm::result+1
 	cmp #$20
-	bne @fail
+	assertz
 	lda asm::result+2
 	cmp #$01
-	bne @fail
+	assertz
 
 	; test JSR $1234
 	ldx #<@testop7
@@ -125,13 +116,13 @@ test_tokenize:
 	jsr asm::tokenize
 	lda asm::result
 	cmp #$20
-	bne @fail
+	assertz
 	lda asm::result+1
 	cmp #$34
-	bne @fail
+	assertz
 	lda asm::result+2
 	cmp #$12
-	bne @fail
+	assertz
 
 	; instruction + comment
 	ldx #<$9000
@@ -144,36 +135,31 @@ test_tokenize:
 	jsr asm::tokenize
 	lda asm::result
 	cmp #$a9
-	beq :+
-	jmp @fail
-:	lda asm::result+1
+	assertz
+	lda asm::result+1
 	cmp #$12
-	beq :+
-	jmp @fail
+	assertz
 
-:	jsr asm::advancepc
+	jsr asm::advancepc
 	lda asm::pc
 	cmp #$02
-	beq :+
-	jmp @fail
+	assertz
 
 	; comment should exist at $1234
-:	ldx #<$9000
+	ldx #<$9000
 	ldy #>$9000
 	jsr asm::labelat
 	cmp #$00
-	beq :+
-	jmp @fail
+	assertz
 
-:	; label
+	; label
 	ldx #<@testlabel
 	ldy #>@testlabel
 	jsr asm::tokenize
 	cmp #$00
-	bne @fail
+	assertz
 
 	rts
-@fail:  jmp fail
 
 @testop: .byte "lda #$00",$0d
 @testop2: .byte "rti",$0d
@@ -195,9 +181,9 @@ test_getvalue:
 	sty @line+1
 	jsr getvalue
 	cmp #1
-	bne @fail
+	assertz
 	cpx #$a9
-	bne @fail
+	assertz
 
 	ldx #<@test2
 	ldy #>@test2
@@ -205,14 +191,12 @@ test_getvalue:
 	sty @line+1
 	jsr getvalue
 	cmp #2
-	bne @fail
+	assertz
 	cpx #$24
-	bne @fail
+	assertz
 	cpy #$42
-	bne @fail
+	assertz
 	rts
-
-@fail:	jmp fail
 
 @test1: .byte "$a9 "
 @test2: .byte "$4224 "
@@ -233,18 +217,16 @@ test_getaddrmode:
 	; implied/accumulator
 	jsr getaddrmode
 	cmp #$00
-	beq :+
-	ldx #$00
-	jmp @fail
+	assertz
 
 	; immediate
-:	lda #1
+	lda #1
 	sta @operandsz
 	sta @immediate
 	jsr getaddrmode
 	ldx #1
 	cmp #1
-	bne @fail
+	assertz
 
 	; zp
 	lda #0
@@ -252,7 +234,7 @@ test_getaddrmode:
 	jsr getaddrmode
 	ldx #2
 	cmp #2
-	bne @fail
+	assertz
 
 	; zp,x
 	lda #1
@@ -260,7 +242,7 @@ test_getaddrmode:
 	jsr getaddrmode
 	ldx #3
 	cmp #3
-	bne @fail
+	assertz
 
 	; (zp,x)
 	lda #1
@@ -269,7 +251,7 @@ test_getaddrmode:
 	jsr getaddrmode
 	ldx #4
 	cmp #4
-	bne @fail
+	assertz
 
 	; (zp),y
 	lda #2
@@ -277,7 +259,7 @@ test_getaddrmode:
 	jsr getaddrmode
 	ldx #5
 	cmp #5
-	bne @fail
+	assertz
 
 	; abs
 	lda #0
@@ -288,7 +270,7 @@ test_getaddrmode:
 	jsr getaddrmode
 	ldx #6
 	cmp #6
-	bne @fail
+	assertz
 
 	; abs,x
 	lda #1
@@ -296,7 +278,7 @@ test_getaddrmode:
 	jsr getaddrmode
 	ldx #7
 	cmp #7
-	bne @fail
+	assertz
 
 	; abs,y
 	lda #2
@@ -304,7 +286,7 @@ test_getaddrmode:
 	jsr getaddrmode
 	ldx #8
 	cmp #8
-	bne @fail
+	assertz
 
 	; (abs)
 	lda #1
@@ -314,11 +296,8 @@ test_getaddrmode:
 	jsr getaddrmode
 	ldx #9
 	cmp #9
-	bne @fail
+	assertz
 	rts
-
-@fail:  txa
-	jmp fail
 
 ;--------------------------------------
 .export test_labels
@@ -352,9 +331,9 @@ test_labels:
 
 	; assert address matches expected address
 	cpx #<@test_addr
-	bne @fail
+	assertz
 	cpy #>@test_addr
-	bne @fail
+	assertz
 
 	; assert second address matches expected address
 	ldx #<@test2
@@ -363,9 +342,9 @@ test_labels:
 	sty @line+1
 	jsr getlabel
 	cpx #<@test_addr2
-	bne @fail
+	assertz
 	cpy #>@test_addr2
-	bne @fail
+	assertz
 
 	; assert that the labels can be found from their addresses
 	ldx #<@test_addr
@@ -378,15 +357,9 @@ test_labels:
 
 	rts
 
-@fail:	jmp fail
-
 @test: .byte "test "
 @test2: .byte "another "
 @testlabel: .byte "test"
 @testlabel_len=*-@testlabel
 @testlabel2: .byte "another"
 @testlabel2_len=*-@testlabel2
-
-;--------------------------------------
-fail:	inc $900f
-	jmp fail

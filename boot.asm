@@ -30,13 +30,7 @@ start:
         ldy #>irq_handler
         lda #$20
         jsr irq::raster
-	lda #<src::buffer
-	sta zp::gap
-	lda #>src::buffer
-	sta zp::gap+1
-
-	lda #GAPSIZE
-	sta zp::gapsize
+	jsr src::new
 
         jmp enter
 
@@ -53,6 +47,8 @@ enter:
 	jsr cur::set
 
 	jsr test
+	jsr src::new
+
 	jsr startline
 
 ;------------------------------------------------------------------------------
@@ -156,19 +152,18 @@ enter:
 	ldx #$00
 	jsr cur::set
 
-	; clear (zero out) the line buffer
+	; redraw the cleared status line
+	jsr text::update
+	jsr text::status
+	jsr startline
+
+	jsr refresh
 	lda #39
 	sta zp::tmp0
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	lda #$00
 	jsr util::memset
-
-	; redraw the cleared status line
-	jsr text::update
-	jsr text::status
-	jsr startline
-	jsr refresh
 	rts
 
 @err:	lda #$ff
@@ -284,20 +279,24 @@ enter:
 
 ;------------------------------------------------------------------------------
 .proc startline
-@cur=zp::tmp0
-	ldx zp::gap
-	ldy zp::gap+1
-	stx @cur
-	sty @cur+1
-
+@l=zp::tmp0
 	; copy the contents of the line to the linebuffer
+	ldx zp::cury
 	ldy #$00
-@l1:	lda (@cur),y
+	jsr src::getrow
+	lda zp::err
+	bne @done
+	stx @l
+	sty @l+1
+
+	ldy #$00
+@l1:	lda (@l),y
 	beq @done
 	sta mem::linebuffer,y
 	iny
 	cmp #$0d
 	bne @l1
+
 @done:	lda #$00
 	sta mem::linebuffer,y
 	rts

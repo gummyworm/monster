@@ -92,17 +92,19 @@
 
 ;--------------------------------------
 ; strncmp compares the strings in (tmp0) and (tmp2) up to a length of .A
-; If the strings are equal, 0 is returned in .A.
+; If the strings are equal, 0 is returned in .A. and the zero flag is set.
 .export __util_strncmp
 .proc __util_strncmp
 	tay
+	dey
+	bmi @match
 @l0:	lda (zp::tmp0),y
 	cmp (zp::tmp2),y
 	beq :+
 	rts
 :	dey
 	bpl @l0
-	lda#$00
+@match:	lda #$00
 	rts
 .endproc
 

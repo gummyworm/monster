@@ -1,9 +1,10 @@
 .include "zeropage.inc"
 .include "macros.inc"
 .include "test.inc"
+.include "test_macros.inc"
 .include "util.inc"
 
-GAPSIZE = 40	; size of gap in gap buffer
+GAPSIZE = 20	; size of gap in gap buffer
 
 ;--------------------------------------
 ; load loads the given file into the buffer.
@@ -16,6 +17,33 @@ GAPSIZE = 40	; size of gap in gap buffer
 .export __src_save
 .proc __src_save
 .endproc
+
+;--------------------------------------
+;  new initializes the source buffer
+.export __src_new
+.proc __src_new
+	lda #<__src_buffer
+	sta zp::gap
+
+	lda #GAPSIZE
+	sta zp::gapsize
+	clc
+	adc #<__src_buffer
+	sta buffend
+
+	lda #>__src_buffer
+	sta zp::gap+1
+	adc #$00
+	sta buffend+1
+
+	lda #$00
+	ldy #GAPSIZE-1
+@l0:	sta __src_buffer,y
+	dey
+	bpl @l0
+	rts
+.endproc
+
 
 ;--------------------------------------
 ; line returns the address of the line whose number is given in (YX) in (YX).
@@ -57,7 +85,7 @@ GAPSIZE = 40	; size of gap in gap buffer
 .proc opengap
 @src=zp::tmp0
 @dst=zp::tmp2
-@stop=zp::tmp4
+@cnt=zp::tmp4
 	; move all the data from the cursor position up GAPSIZE bytes
 	; copy from memmove(zp::gap+GAPSIZE, zp::gap, buffend - zp::gap)
 	lda buffend
@@ -74,15 +102,16 @@ GAPSIZE = 40	; size of gap in gap buffer
 	sta buffend+1
 
 @l0:	; move one byte from (src) to (dst) until src == zp::gap
-	ldx @src
-	ldy @src+1
-	cmpw zp::gap
-	beq @done
+	ldy #$00
 	lda (@src),y
 	sta (@dst),y
+
+	ldx @src
+	ldy @src+1
 	decw @src
 	decw @dst
-	jmp @l0
+	cmpw zp::gap
+	bne @l0
 
 @done:	lda #GAPSIZE
 	sta zp::gapsize
@@ -176,7 +205,6 @@ GAPSIZE = 40	; size of gap in gap buffer
 ; position
 .export __src_puts
 .proc __src_puts
-@cnt=zp::tmp2
 	sta @cnt
 	stx @src
 	sty @src+1
@@ -187,6 +215,7 @@ GAPSIZE = 40	; size of gap in gap buffer
 	dec @cnt
 	bne @l0
 	rts
+@cnt: .byte 0
 .endproc
 
 ;--------------------------------------
@@ -244,15 +273,6 @@ GAPSIZE = 40	; size of gap in gap buffer
 	dec zp::err
 	rts
 
-:	; if the count has reached zero, we're done
-	lda @cnt
-	bne :+
-	lda @cnt+1
-	bne :+
-	ldx @src
-	ldy @src+1
-	rts
-
 	; if we've reached the gap, skip over it
 :	ldx @src
 	ldy @src+1
@@ -266,6 +286,15 @@ GAPSIZE = 40	; size of gap in gap buffer
 	adc #$00
 	sta @src+1
 	jmp @l0
+
+:	; if the count has reached zero, we're done
+	lda @cnt
+	bne :+
+	lda @cnt+1
+	bne :+
+	ldx @src
+	ldy @src+1
+	rts
 
 :	; check if we're at the end of a line
 	ldy #$00
@@ -409,11 +438,98 @@ buffend: .word buffer+GAPSIZE
 
 ;--------------------------------------
 .ifdef TEST
-testtext: .byte "hello world",$0d,"line 2",$0d,"line 3",$0d
-testtextlen=*-testtext
+testtext:
+line1: .byte "hello world",$0d
+line1_len = *-line1
+line2: .byte "line 2",$0d
+line2_len = *-line2
+line3: .byte "line 3",$0d
+line3_len = *-line3
+testtextlen = *-testtext
+
+testinsert: .byte "insert",$0d
+testinsertlen = *-testinsert
+testinsert2: .byte "wwwutttt",$0d
+testinsert2len = *-testinsert2
 
 .export __src_test
 .proc __src_test
-	rts
+	ldx #<testtext
+	ldy #>testtext
+	lda #testtextlen
+	jsr __src_puts
+
+test_getrow:
+	ldx #0
+	ldy #0
+	jsr __src_getrow
+	streq line1, line1_len
+	assertz
+
+	ldx #1
+	ldy #0
+	jsr __src_getrow
+	streq line2, line2_len
+	assertz
+
+	ldx #2
+	ldy #0
+	jsr __src_getrow
+	streq line3, line3_len
+	assertz
+
+test_lineup:
+	jsr __src_lineup
+	; verify the gap is correctly positioned after moving up a line
+	ldx zp::gap
+	ldy zp::gap+1
+	streq line3, line3_len
+	assertz
+
+test_insert_after_lineup:
+	ldx #<testinsert
+	ldy #>testinsert
+	lda #testinsertlen
+	jsr __src_puts
+
+	; the newly inserted row should appear as row 2
+	ldx #2
+	ldy #0
+	jsr __src_getrow
+	streq testinsert, testinsertlen
+	assertz
+
+	; line3 should now be in row 3.
+	ldx #3
+	ldy #0
+	jsr __src_getrow
+	streq line3, line3_len
+	assertz
+
+	; getrow should fail when line 4 is requested
+	ldx #4
+	ldy #0
+	jsr __src_getrow
+	lda zp::err
+	assertnz
+
+	; do another insert (it should be placed between lines 2 and 3)
+	ldx #<testinsert2
+	ldy #>testinsert2
+	lda #testinsert2len
+	jsr __src_puts
+	ldx #3
+	ldy #0
+	jsr __src_getrow
+	streq testinsert2, testinsert2len
+	assertz
+
+	ldx #4
+	ldy #0
+	jsr __src_getrow
+	streq line3, line3_len
+	assertz
+
+ok:	rts
 .endproc
 .endif

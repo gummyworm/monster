@@ -1,3 +1,6 @@
+.ifndef ZEROPAGE_INC
+ZEROPAGE_INC = 1
+
 .scope zp
 ;--------------------------------------
 ;reserved for routines' arguments
@@ -47,3 +50,4 @@ gap=$ed 	; the pointer for the cursor in the source buffer
 gapsize=$ef 	; offset to the end of gap buffer
 
 .endscope
+.endif
