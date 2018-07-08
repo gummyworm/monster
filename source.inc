@@ -1,31 +1,37 @@
+.import __src_backspace
+.import __src_delete
 .import __src_insert
-.import __src_lineup
-.import __src_getline
+.import __src_replace
 .import __src_puts
-.import __src_replaceline
 .import __src_test
 .import __src_buffer
 .import __src_next
 .import __src_new
 .import __src_prev
-.import __src_size
-.import __src_pos
-.import __src_getrow
+.import __src_up
+.import __src_down
+.import __src_get
+.import __src_save
+.import __src_rename
+.import __src_name
 
 GAPSIZE = 20	; size of gap in gap buffer
 
 .scope src
-	getline = __src_getline
+	backspace = __src_backspace
+	delete = __src_delete
 	insert = __src_insert
-	lineup = __src_lineup
-	replaceline = __src_replaceline
+	replace = __src_replace
 	puts = __src_puts
 	test = __src_test
 	buffer = __src_buffer
 	next = __src_next
 	new = __src_new
 	prev = __src_prev
-	size = __src_size
-	pos = __src_pos
-	getrow = __src_getrow
+	up = __src_up
+	down = __src_down
+	get = __src_get
+	save = __src_save
+	rename = __src_rename
+	name = __src_name
 .endscope

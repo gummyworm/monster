@@ -1,9 +1,11 @@
 .include "asm.inc"
 .include "bitmap.inc"
 .include "cursor.inc"
-.include "source.inc"
-.include "memory.inc"
+.include "key.inc"
 .include "irq.inc"
+.include "macros.inc"
+.include "memory.inc"
+.include "source.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
@@ -45,9 +47,10 @@ R_REPLACE_MASK=$0f
 .endproc
 
 ;--------------------------------------
+; refresh the entire display
 .export __text_refresh
 .proc __text_refresh
-
+	jsr src::get
 .endproc
 
 ;--------------------------------------
@@ -106,7 +109,9 @@ R_REPLACE_MASK=$0f
 :	stx mem::statusline+STATUS_COL+11
 
 	; cursor position in file
-	jsr src::pos
+	;jsr src::pos
+	ldx #$ab
+	ldy #$cd
 	txa
 	pha
 	tya
@@ -122,7 +127,9 @@ R_REPLACE_MASK=$0f
 	sta mem::statusline+STATUS_COL+17
 
 	; file size
-	jsr src::size
+	;jsr src::size
+	ldx #$ab
+	ldy #$cd
 	txa
 	pha
 	tya
@@ -134,52 +141,23 @@ R_REPLACE_MASK=$0f
 	sty mem::statusline+STATUS_COL+20
 	stx mem::statusline+STATUS_COL+21
 
+	; filename
+	ldx #39-23
+:	lda src::name,x
+	sta mem::statusline+23,x
+	dex
+	bpl :-
+
 @blink: dec curtmr
 curtmr=*+1
 	lda #40
 	bne @done
-	jsr blinkcur
+	jsr cur::toggle
 
 	lda #40
 	sta curtmr
 @done:	rts
 .endproc
-
-;--------------------------------------
-blinkcur:
-	jsr mask
-	sta @mask
-
-	lda zp::cury
-	asl
-	asl
-	asl
-	sta @add
-
-	lda zp::curx
-	and #$fe
-	tax
-	lda bm::columns,x
-@add=*+1
-	adc #$00
-	sta @dst1
-	sta @dst2
-	lda bm::columns+1,x
-	adc #$00
-	sta @dst1+1
-	sta @dst2+1
-
-	ldy #$07
-@l0:
-@dst1=*+1
-	lda $ffff,y
-@mask=*+1
-	eor #$f0
-@dst2=*+1
-	sta $ffff,y
-	dey
-	bpl @l0
-	rts
 
 ;--------------------------------------
 ; clrline clears the text linebuffer.
@@ -271,11 +249,33 @@ blinkcur:
 ; text linebuffer.
 .export __text_putch
 .proc __text_putch
+	cmp #$14
+	bne :+
+
+	; backspace
+	lda zp::curx
+	beq @done	; cannot delete (cursor is at left side of screen)
+	lda __text_insertmode
+	beq @movex
+	jsr __text_linelen
+	stx zp::tmp0
+	ldx zp::curx
+	dex
+@l0:	lda mem::linebuffer+1,x
+	sta mem::linebuffer,x
+	inx
+	cpx zp::tmp0
+	bcc @l0
+@movex: ldx #-1
+	ldy #0
+	jsr cur::move
+	jmp @redraw
+
+:	pha
+	jsr cur::off
+	pla
 	ldx zp::curx
 	sta mem::linebuffer,x
-	cmp #$0d
-	bne @update
-	rts
 @update:
 	lda #0
 	sta __text_colstart
@@ -284,7 +284,9 @@ blinkcur:
 	lda zp::curx
 	cmp #40
 	bcs @redraw
-	inc zp::curx
+	ldx #1
+	ldy #0
+	jsr cur::move
 @redraw:
 	lda zp::cury
 	jsr __text_drawline
@@ -321,6 +323,54 @@ blinkcur:
 	ldy #>mem::spare
 	pla
         jsr __text_puts
+	rts
+.endproc
+
+;--------------------------------------
+; scroll scrolls all lines including and below row .A
+.proc __text_scroll
+.export __text_scroll
+@rowstop=zp::tmp0
+@src=zp::tmp1
+@dst=zp::tmp3
+	asl
+	asl
+	asl
+	sta @rowstop
+
+	ldxy #BITMAP_ADDR+8
+	stx @dst
+	sty @dst+1
+	ldxy #BITMAP_ADDR
+	stx @src
+	sty @src+1
+
+	ldx #19
+@l0:	ldy #8*14
+@l1:	lda #$00
+	cpy #$08
+	bcc :+
+	lda (@src),y
+:	sta (@dst),y
+	dey
+	cpy @rowstop
+	bne @l1
+	lda @src
+	clc
+	adc #$c0
+	sta @src
+	lda @src+1
+	adc #$00
+	sta @src+1
+	lda @dst
+	clc
+	adc #$c0
+	sta @dst
+	lda @dst+1
+	adc #$00
+	sta @dst+1
+	dex
+	bpl @l0
 	rts
 .endproc
 
@@ -550,6 +600,36 @@ hicolor=*+1
 	jmp $eabf
 
 ;--------------------------------------
+; linelen returns the length of mem::linebuffer in .X
+.proc __text_linelen
+.export __text_linelen
+	ldx #$ff
+@l0:	inx
+	lda mem::linebuffer,x
+	beq @done
+	cpx #40
+	bcs @done
+	bne @l0
+@done:	rts
+.endproc
+
+;--------------------------------------
+; get reads text (up to .A bytes) into (zp::tmp0)
+.export __text_get
+.proc __text_get
+@len=zp::tmp0
+	sta @len
+@l0:    jsr key::getch
+	cmp #$00
+	beq @l0
+	cmp #$0d
+	bne :+
+	rts
+:	jsr __text_putch
+	jmp @l0
+.endproc
+
+;--------------------------------------
 ; hioff clears any active line highlight
 .export __text_hioff
 .proc __text_hioff
@@ -560,3 +640,27 @@ hicolor=*+1
 
 .export __text_insertmode
 __text_insertmode: .byte 1
+
+;--------------------------------------
+; savebuff stores the contents of linbuffer in spare memory.
+.export __text_savebuff
+.proc __text_savebuff
+	ldy #39
+:	lda mem::linebuffer,y
+	sta mem::linebuffer2,y
+	dey
+	bpl :-
+	rts
+.endproc
+
+;--------------------------------------
+; restorebuff restores the linebuffer from the contents of spare memory.
+.export __text_restorebuff
+.proc __text_restorebuff
+	ldy #39
+:	lda mem::linebuffer2,y
+	sta mem::linebuffer,y
+	dey
+	bpl :-
+	rts
+.endproc

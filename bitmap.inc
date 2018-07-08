@@ -1,3 +1,5 @@
+BITMAP_ADDR = $1100
+COLMEM_ADDR = $9400
 
 ;inializes the screen to a MINIGRAFIK bitmap
 .import __bm_init

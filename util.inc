@@ -14,6 +14,16 @@
 	strncmp = __util_strncmp
 .endscope
 
+.macro copy dst, src, len
+	ldxy src
+	stxy zp::tmp2
+	ldxy dst
+	stxy zp::tmp4
+	ldxy len
+	stxy zp::tmp0
+	jsr util::memcpy
+.endmacro
+
 ; compares the the string in (YX) to the string s.
 .macro streq s, len
 	stx zp::tmp0

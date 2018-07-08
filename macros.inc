@@ -19,23 +19,52 @@
 
 ; cmpw compares (YX) to the 16-bit value. The Z flag is set if the two
 ; are equal
-.macro cmpw w
+.macro cmpw arg
 .local @skip
-	cpx w
-	bne @skip
-	cpy w+1
+	.if .match( .left( 1, {arg} ), # )
+		cpx #<(.right( .tcount( {arg} )-1, {arg} ))
+		bne @skip
+		cpy #>(.right( .tcount( {arg} )-1, {arg} ))
+	.else
+		cpx arg
+		bne @skip
+		cpy arg+1
+	.endif
 @skip:
 .endmacro
 
 ; ldxy loads .X with the LSB of arg and .Y with the MSB.
 .macro ldxy arg
 	.if .match( .left( 1, {arg} ), # )
-		ldy #<(.right( .tcount( {arg} )-1, {arg} ))
-		ldx #>(.right( .tcount( {arg} )-1, {arg} ))
+		ldx #<(.right( .tcount( {arg} )-1, {arg} ))
+		ldy #>(.right( .tcount( {arg} )-1, {arg} ))
 	.else
-		ldy (arg)
-		ldx (arg)+1
+		ldx arg
+		ldy arg+1
 	.endif
+.endmacro
+
+.macro stxy arg
+	stx arg
+	sty arg+1
+.endmacro
+
+.macro add16 arg
+	txa
+	clc
+	.if .match( .left( 1, {arg} ), # )
+		adc #<(.right( .tcount( {arg} )-1, {arg} ))
+	.else
+		adc arg
+	.endif
+	tax
+	tya
+	.if .match( .left( 1, {arg} ), # )
+		adc #>(.right( .tcount( {arg} )-1, {arg} ))
+	.else
+		adc arg+1
+	.endif
+	tay
 .endmacro
 
 ; skw skips execution of the next word (equivalent to .byte $2C (bit ABS))

@@ -12,6 +12,9 @@
 __mem_spare:
         .res 256
 
+.export __linebuffer2
+__linebuffer2:
+	.res 40
 .export __linebuffer
 __linebuffer:
 	.res 40

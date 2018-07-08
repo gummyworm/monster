@@ -17,11 +17,9 @@
 .endproc
 
 ;--------------------------------------
-; memmove moves zp::tmp0 bytes from (zp::tmp2) to (zp::tmp4).
+; memcpy moves zp::tmp0 bytes from (zp::tmp2) to (zp::tmp4).
 .export __util_memcpy
 .proc __util_memcpy
-	ldy #$00
-
 	lda zp::tmp4
 	clc
 	adc zp::tmp0

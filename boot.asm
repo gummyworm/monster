@@ -16,25 +16,25 @@
 
 .import test
 
-;------------------------------------------------------------------------------
+;--------------------------------------
 .segment "SETUP"
-.word head
-head: .word @Next
+.word @head
+@head: .word @next
 .word .version
 .byte $9e
 .asciiz "4621"
-@Next: .word 0
-;------------------------------------------------------------------------------
+@next: .word 0
+
+;--------------------------------------
 start:
         ldx #<irq_handler
         ldy #>irq_handler
         lda #$20
         jsr irq::raster
 	jsr src::new
-
         jmp enter
 
-;------------------------------------------------------------------------------
+;--------------------------------------
 .CODE
 irq_handler:
 	jmp $eabf
@@ -46,12 +46,10 @@ enter:
 	ldy #$00
 	jsr cur::set
 
-	jsr test
+	;jsr test
 	jsr src::new
 
-	jsr startline
-
-;------------------------------------------------------------------------------
+;--------------------------------------
 ; main is the main loop for editing a line.
 .proc main
         lda #$05
@@ -61,41 +59,66 @@ enter:
 	jsr key::getch
 	cmp #$00
 	beq @done
-	jsr insert
-	jsr cur::on
+	jsr onkey
 
 @done:	jsr text::update
 	jsr text::status
 	jmp main
 .endproc
 
-;--------------------------------------------------------------------------------
-.proc controlcode_del
-	lda zp::curx
-	beq @done	; cannot delete (cursor is at left side of screen)
-	lda text::insertmode
-	beq @deldone
-	jsr linelen
-	stx zp::tmp0
-	ldx zp::curx
-	dex
-@l0:	lda mem::linebuffer+1,x
-	sta mem::linebuffer,x
-	inx
-	cpx zp::tmp0
-	bcc @l0
-	lda zp::cury
-	jsr text::drawline
-@deldone:
-	ldx #$ff
-	ldy #0
-	jsr cur::move
-@done:	rts
+;--------------------------------------
+; onkey is called upon the user pressing a key.
+.proc onkey
+	cmp #$85
+	bne :+
+	jsr saveas
+	rts
+:	pha
+	pla
+	jsr insert
+	jsr cur::off
+	jsr cur::on
+	rts
 .endproc
 
-;--------------------------------------------------------------------------------
+;--------------------------------------
+; saveas allows the user to name the current buffer- then writes it to a file
+; of the same name.
+.proc saveas
+	jsr text::savebuff
+	jsr text::clrline
+	lda zp::curx
+	pha
+	lda zp::cury
+	pha
+
+	getinput mem::statusline+23,0,23,(40-16)
+	ldxy #mem::linebuffer
+	jsr src::rename
+
+	; set cursor to the buffer name
+	ldx #23
+	ldy #23
+	jsr cur::set
+	jsr src::save
+
+	pla
+	tay
+	pla
+	tax
+	jsr cur::set
+	jsr text::restorebuff
+	lda zp::cury
+	jsr text::drawline
+	rts
+.endproc
+
+;--------------------------------------
 ; linedone attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
+	lda #$0d
+	jsr src::insert
+	jsr text::putch
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	jsr asm::tokenize
@@ -113,7 +136,7 @@ enter:
 	lda #ASM_LABEL
 	skw
 :	lda #ASM_OPCODE
-	jsr fmt::line
+	;jsr fmt::line
 
 	; copy line to source buffer
 	pha
@@ -122,7 +145,6 @@ enter:
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	pla
-	jsr src::puts
 	jsr text::hioff
 
 	; update memory display (if view is enabled)
@@ -136,17 +158,22 @@ enter:
 	lda #$01
 	sta text::insertmode
 
+	; scroll lines below cursor position
+	ldx zp::cury
+	inx
+	txa
+	jsr text::scroll
+
 	; clear any error message
 	jsr text::clrline
 	lda #ERROR_ROW
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
+	ldxy #mem::linebuffer
 	jsr text::puts
 	ldx #$08
 	lda zp::cury
 	jsr text::hiline
 
-	; move the curosr to the next line
+	; move the cursor to the next line
 	ldy zp::cury
 	iny
 	ldx #$00
@@ -155,167 +182,43 @@ enter:
 	; redraw the cleared status line
 	jsr text::update
 	jsr text::status
-	jsr startline
-
 	jsr refresh
-	lda #39
-	sta zp::tmp0
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-	lda #$00
-	jsr util::memset
+
+	; redraw everything from <cursor> to EOL on next line
+	jsr src::get
+	ldxy #mem::linebuffer
+	lda zp::cury
+	jsr text::print
+
 	rts
 
 @err:	lda #$ff
 	jsr fmt::line
 
 	; move cursor back to start of the line
-	ldx #$00
-	ldy zp::cury
-	jsr cur::set
+@l0:	ldx #-1
+	ldy #0
+	jsr cur::move
+	jsr src::prev
+	ldx zp::curx
+	bne @l0
 
-	; set current mode to REPLACE and highlight the error line
+:	; set current mode to REPLACE and highlight the error line
 	ldx #$2a
+	lda zp::cury
 	jsr text::hiline
 	lda #$00
 	sta text::insertmode
 	rts
 .endproc
 
-;------------------------------------------------------------------------------
-.proc uparrow
-	jsr cur::off
-	lda zp::curx
-	lda #$00	; TODO: delete
-	jsr src::lineup ; move up a line in the buffer
-
-	; check if cursor is at the start of the text buffer, don't update the
-	; cursor's y position if it is.
-	ldx #<src::buffer
-	ldy #>src::buffer
-	cpx zp::gap
-	bne @updatey
-	cpy zp::gap+1
-	bne @updatey
-@updatex:
-	ldx #$00
-	ldy zp::cury
-	jsr cur::set
-	rts
-
-@updatey:
-	lda zp::cury
-	bne @noscroll
-
-@scroll:
-	jsr refresh
-	skw
-@noscroll:
-	dec zp::cury
-
-@getline:
-	; read the line that was moved to's contents into the linebuffer
-	ldx zp::cury
-	ldy #$00
-	jsr src::getrow
-	stx zp::tmp0
-	sty zp::tmp0+1
-
-	ldy #$00
-@l0:	lda (zp::tmp0),y
-	sta mem::linebuffer,y
-	iny
-	cpy #40
-	bcs @done
-	cmp #$0d
-	bne @l0
-
-@done:	rts
-.endproc
-
-;------------------------------------------------------------------------------
+;--------------------------------------
 ; refresh redraws all the visible lines.
 .proc refresh
-@src=zp::tmp4
-@row=zp::tmp6
-	lda #$00
-	sta @row
-
-@l0:	ldx @row
-	ldy #$00
-	jsr src::getrow
-	lda zp::err
-	bne @done
-	stx @src
-	sty @src+1
-
-	lda #40
-	sta zp::tmp0
-	lda #' '
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-
-	ldy #$00
-@l1:	lda (@src),y
-	sta mem::linebuffer,y
-	cmp #$0d
-	beq @next
-	iny
-	cpy #40
-	bcc @l1	; if past col 40, we can't draw the rest of the line
-
-@next:	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-	lda @row
-	jsr text::drawline
-
-	inc @row
-	lda @row
-	cmp #23
-	bcc @l0
-
-@done:	rts
-.endproc
-
-;------------------------------------------------------------------------------
-.proc startline
-@l=zp::tmp0
-	; copy the contents of the line to the linebuffer
-	ldx zp::cury
-	ldy #$00
-	jsr src::getrow
-	lda zp::err
-	bne @done
-	stx @l
-	sty @l+1
-
-	ldy #$00
-@l1:	lda (@l),y
-	beq @done
-	sta mem::linebuffer,y
-	iny
-	cmp #$0d
-	bne @l1
-
-@done:	lda #$00
-	sta mem::linebuffer,y
 	rts
 .endproc
 
-;------------------------------------------------------------------------------
-; linelen returns the length of mem::linebuffer in .X
-.proc linelen
-	ldx #$ff
-@l0:	inx
-	lda mem::linebuffer,x
-	beq @done
-	cpx #40
-	bcs @done
-	bne @l0
-@done:	rts
-.endproc
-
-;------------------------------------------------------------------------------
+;--------------------------------------
 ; insert adds a character at the cursor position.
 .proc insert
 	cmp #$80
@@ -324,60 +227,98 @@ enter:
 	bcs @printable
 
 @controlcodes:
-@left:	cmp #$9d
-	bne @right
-	ldx zp::curx
-	beq :+
+	ldx #numccodes-1
+:	cmp controlcodes,x
+	beq @cc
 	dex
-	stx zp::curx
-	jsr src::prev
-:	jmp @done
+	bpl :-
+	jmp @put
 
-@right: cmp #$1d
-	bne @up
-	ldx zp::curx
-	cpx #40
-	bcs :+
-	inx
-	stx zp::curx
-	jsr src::next
-:	jmp @done
-
-@up:	cmp #$91	; up arrow?
-	bne @del
-	jsr uparrow
-	rts
-
-@del:	cmp #$14	; delete?
-	bne :+
-	jsr controlcode_del
-	rts
-
-:	cmp #$0d	; RETURN?
-	bne :+
-	jsr text::putch	; add the newline character for linedone
-	jsr linedone
-	rts
-:	jmp @put
+@cc:	txa
+	asl
+	tax
+	lda ccvectors,x
+	sta @j
+	lda ccvectors+1,x
+	sta @j+1
+@j=*+1
+	jmp $0000
 
 @printable:
 	ldx text::insertmode
-	beq @put ; 0 = replace, skip bumping the buffer
-	pha
-	jsr linelen
+	bne :+
+@replace:
+	jsr src::replace
+	jsr text::putch
+	rts
+
+:	pha
+	jsr text::linelen
 @l0:	lda mem::linebuffer,x
 	sta mem::linebuffer+1,x
 	cpx zp::curx
-	beq @ins
+	beq :+
 	dex
 	bpl @l0
 
-@ins:	pla
-@put:	jsr text::putch
+:	pla
+@put:	jsr src::insert
+	jsr text::putch
+@done:	rts
+
+;--------------------------------------
+.proc ccup
+	jsr cur::up
+	jsr src::up
+	jsr src::get
+	rts
+.endproc
+
+;--------------------------------------
+.proc ccleft
+	jsr cur::left
+	jsr src::prev
+	rts
+.endproc
+
+;--------------------------------------
+.proc ccright
+	jsr cur::right
+	jsr src::next
+	rts
+.endproc
+
+;--------------------------------------
+.proc ccdown
+	jsr src::down
+	bcc :+
+	jsr cur::down
+:	rts
+.endproc
+
+;--------------------------------------
+.proc ccdel
+	lda #$14
+	jsr text::putch
+	jsr src::backspace
 @done:	rts
 .endproc
 
-;------------------------------------------------------------------------------
-; printline prints the line at the cursor position.
-.proc printline
+;--------------------------------------
+controlcodes:
+.byte $9d	; left
+.byte $1d	; right
+.byte $91	; up arrow
+.byte $11	; down
+.byte $14	; delete
+.byte $0d	; RETURN
+numccodes=*-controlcodes
+
+ccvectors:
+.word ccleft    ; left
+.word ccright	; right
+.word ccup      ; up
+.word ccdown	; down
+.word ccdel 	; delete
+.word linedone	; RETURN
 .endproc
