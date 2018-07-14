@@ -14,6 +14,8 @@
 .include "zeropage.inc"
 .include "macros.inc"
 
+STATUS_LINE = 23
+
 .import test
 
 ;--------------------------------------
@@ -69,9 +71,17 @@ enter:
 ;--------------------------------------
 ; onkey is called upon the user pressing a key.
 .proc onkey
-	cmp #$85
+	cmp #$85	; F1
 	bne :+
 	jsr saveas
+	rts
+:	cmp #$86	; F3
+	bne :+
+	jsr save
+	rts
+:	cmp #$87	; F5
+	bne :+
+	jsr load
 	rts
 :	pha
 	pla
@@ -110,7 +120,53 @@ enter:
 	jsr text::restorebuff
 	lda zp::cury
 	jsr text::drawline
+
+	jsr save
 	rts
+.endproc
+
+;--------------------------------------
+; save writes the source buffer to a file.
+.proc save
+	ldxy #savingmsg
+	lda #STATUS_LINE
+	jsr text::print
+	jsr src::save
+	rts
+savingmsg:
+	.byte "saving...",0
+.endproc
+
+;--------------------------------------
+; load loads the file from disk into the source buffer
+.proc load
+	ldxy #loadingmsg
+	lda #STATUS_LINE
+	jsr text::print
+	sei
+	jsr src::load
+	cli
+	ldx #0
+	ldy #0
+	jsr cur::set
+@redraw:
+	jsr src::readline
+	pha
+	lda zp::cury
+	jsr text::drawline
+	pla
+	cmp #$0d
+	bne @done
+	ldy #1
+	ldx #0
+	jsr cur::move
+	lda zp::cury
+	cmp #23
+	bne @redraw
+@done:	rts
+
+loadingmsg:
+	.byte "loading...",0
 .endproc
 
 ;--------------------------------------
@@ -203,7 +259,7 @@ enter:
 	ldx zp::curx
 	bne @l0
 
-:	; set current mode to REPLACE and highlight the error line
+	; set current mode to REPLACE and highlight the error line
 	ldx #$2a
 	lda zp::cury
 	jsr text::hiline
@@ -293,7 +349,8 @@ enter:
 	jsr src::down
 	bcc :+
 	jsr cur::down
-:	rts
+:	jsr src::get
+	rts
 .endproc
 
 ;--------------------------------------

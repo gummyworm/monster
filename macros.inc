@@ -67,6 +67,25 @@
 	tay
 .endmacro
 
+.macro sub16 arg
+	txa
+	sec
+	.if .match( .left( 1, {arg} ), # )
+		sbc #<(.right( .tcount( {arg} )-1, {arg} ))
+	.else
+		sbc arg
+	.endif
+	tax
+	tya
+	.if .match( .left( 1, {arg} ), # )
+		sbc #>(.right( .tcount( {arg} )-1, {arg} ))
+	.else
+		sbc arg+1
+	.endif
+	tay
+.endmacro
+
+
 ; skw skips execution of the next word (equivalent to .byte $2C (bit ABS))
 .macro skw
 	.byte $2c

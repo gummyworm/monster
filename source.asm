@@ -32,13 +32,103 @@ data:
 ; load loads the given file into the buffer.
 .export __src_load
 .proc __src_load
+@dst=zp::tmp0
+@dev=$ba
+	lda #$09
+	sta @dev
+	lda #namelen
+	ldxy #name
+	jsr $ffbd	; SETNAM
+
+	lda #$02	; file #2
+	ldx @dev	; last used device number
+	bne :+
+	ldx #$08 	; default to device 8
+:	ldy #$02	; SA 2
+	jsr $ffba 	; SETLFS
+
+	jsr $ffc0 	; call OPEN
+	bcs @error 	; if carry set, the file could not be opened
+
+	ldx #$02      ; filenumber 2
+	jsr $ffc6     ; CHKIN (file 2 now used as input)
+
+	ldxy #__src_buffer
+	stxy @dst
+
+	ldy #$00
+	sty len
+	sty len+1
+	sty post
+	sty post+1
+	sty pre
+	sty pre+1
+
+	; read load address
+	jsr $ffb7
+	bne @error
+	jsr $ffcf
+	jsr $ffb7
+	bne @error
+	jsr $ffcf
+
+@l0: 	jsr $ffb7     ; call READST (read status byte)
+	cmp #$00
+	bne @eof      ; either EOF or read error
+	jsr $ffcf     ; call CHRIN (get a byte from file)
+	ldy #$00
+	sta (@dst),y  ; write byte to memory
+	incw pre
+	incw len
+	incw @dst
+	jmp @l0
+@eof:
+	and #$40      ; end of file?
+	beq @error
+	jsr __src_rewind
+@close:
+	lda #$02      ; filenumber 2
+	jsr $ffc3     ; call CLOSE
+	jsr $ffcc     ; call CLRCHN
 	rts
+@error:
+	jsr @close
+	inc $900f
+	jmp *-3
 .endproc
 
 ;--------------------------------------
 ; save saves the buffer to the given file.
 .export __src_save
 .proc __src_save
+@tmp=zp::tmp0
+@sz=zp::tmp2
+@dev=$ba
+	lda #$09
+	sta @dev
+	jsr __src_getall
+	stxy @sz
+
+	lda #namelen
+	ldxy #name
+	jsr $ffbd 	; SETNAM
+	lda #$00
+	ldx @dev 	; last used device number
+	bne :+
+	ldx #$08	; default to device 8
+:	ldy #$00
+	jsr $ffba	; SETLFS
+
+	ldxy #mem::spare
+	stxy @tmp
+	add16 @sz
+	lda #@tmp
+	jsr $ffd8	; SAVE
+	bcs @err	; if carry set, a load error has happened
+	rts
+
+@err:	inc $900f
+	jmp @err
 	rts
 .endproc
 
@@ -68,23 +158,23 @@ data:
 ; next moves the cursor up one character in the gap buffer.
 .export __src_next
 .proc __src_next
-src=zp::tmp0
-dst=zp::tmp2
+@src=zp::tmp0
+@dst=zp::tmp2
 	ldxy post
 	cmpw #$0000
 	beq @skip
 
 	; move char from start of gap to the end of the gap
 	jsr cursor
-	stx dst
-	sty dst+1
+	stx @dst
+	sty @dst+1
 	jsr poststart
-	stx src
-	sty src+1
+	stx @src
+	sty @src+1
 
 	ldy #$00
-	lda (src),y
-	sta (dst),y
+	lda (@src),y
+	sta (@dst),y
 
 	incw pre
 	decw post
@@ -146,17 +236,16 @@ dst=zp::tmp2
 ; .C is set if the end of the buffer was reached (cannot move "down")
 .export __src_down
 .proc __src_down
-@l0:	jsr atcursor
-	pha
-	jsr __src_next
-	pla
+@l0:	jsr __src_next
+	jsr atcursor
 	cmp #$0d
 	beq :+
 	ldxy post
 	cmpw #0
 	bne @l0
 	clc
-:	rts
+:	jsr __src_next
+	rts
 .endproc
 
 ;--------------------------------------
@@ -173,29 +262,21 @@ dst=zp::tmp2
 
 	; copy data[poststart] to data[poststart + len]
 	jsr poststart
-	stx @src
-	sty @src+1
-	txa
-	clc
-	adc len
-	sta @dst
-	tya
-	adc len+1
-	sta @dst+1
+	stxy @src
+	add16 len
+	stxy @dst
 
 	; get size to copy (len)
 	ldxy len
-	stx @len
-	sty @len+1
-
+	stxy @len
 	jsr util::memcpy
+
+	; double size of buffer (new gap size is the size of the old buffer)
 	asl len
 	rol len+1
 
 @ins:	jsr cursor
-	stx @dst
-	sty @dst+1
-
+	stxy @dst
 	ldy #$00
 	pla
 	sta (@dst),y
@@ -218,21 +299,9 @@ dst=zp::tmp2
 ;--------------------------------------
 ; gaplen returns the length of the gap buffer in (>Y,<X)
 .proc gaplen
-	lda len
-	sec
-	sbc post
-	tax
-	lda len+1
-	sbc post+1
-	tay
-
-	txa
-	sec
-	sbc pre
-	tax
-	tya
-	sbc pre+1
-	tay
+	ldxy len
+	sub16 post
+	sub16 pre
 	rts
 .endproc
 
@@ -259,14 +328,7 @@ dst=zp::tmp2
 .proc poststart
 	ldxy #data
 	add16 len
-
-	txa
-	sec
-	sbc post
-	tax
-	tya
-	sbc post+1
-	tay
+	sub16 post
 	rts
 .endproc
 
@@ -311,24 +373,108 @@ dst=zp::tmp2
 .endproc
 
 ;--------------------------------------
-; cursor returns the text at the current cursor position in mem::linebuffer
+; getall sets mem::spare to the entire buffer (without gap).
+; YX contains the length of the buffer upon return.
+.export __src_getall
+.proc __src_getall
+@len=zp::tmp0
+@src=zp::tmp2
+@dst=zp::tmp4
+	; copy "pre" section of gap buffer
+	copy #mem::spare, #data, pre
+
+	; copy "post" section
+	jsr poststart
+	stxy @src
+	ldxy mem::spare
+	add16 pre
+	stxy @dst
+	ldxy post
+	stxy @len
+	jsr util::memcpy
+
+	ldxy post
+	add16 pre
+	rts
+.endproc
+
+;--------------------------------------
+; rewind moves the cursor back to the start of the buffer
+.export __src_rewind
+.proc __src_rewind
+@l0:	jsr __src_prev
+	ldxy pre
+	cmpw #$0000
+	bne @l0
+	rts
+.endproc
+
+;--------------------------------------
+; readb reads one byte at the cursor positon and advances the cursor
+; Out:
+;  .A: the byte that was read
+;
+.export __src_readb
+.proc __src_readb
+	jsr atcursor
+	pha
+	jsr __src_next
+	pla
+	rts
+.endproc
+
+;--------------------------------------
+; readline reads one line (including $0d) at the cursor positon and advances
+; the cursor
+; Out:
+;  mem::linebuffer: the line that was read
+;  .A is $0d if the last character read
+;
+.export __src_readline
+.proc __src_readline
+@cnt=zp::tmp4
+	lda #$00
+	sta @cnt
+@l0:	jsr __src_readb
+	ldx @cnt
+	sta mem::linebuffer,x
+	cmp #$0d
+	beq @done
+	inc @cnt
+	ldxy post
+	cmpw #$0000
+	bne @l0
+@done:	rts
+.endproc
+
+;--------------------------------------
+; get returns the text at the current cursor position in mem::linebuffer
 .export __src_get
 .proc __src_get
-@pre=zp::tmp1
+@cnt=zp::tmp1
 @src=zp::tmp3
-@buffend=zp::tmp7
 	jsr gaplen
 	add16 pre
 	add16 #data
 	stxy @src
+
+	ldxy post
+	cmpw #$00
+	beq @done
+	stxy @cnt
+
 	ldy #$00
-@l0:
-	lda (@src),y
+@l0:	lda (@src),y
 	beq @done
 	cmp #$0d
 	beq @done
 	sta mem::linebuffer,y
-	iny
+	decw @cnt
+	lda @cnt+1
+	bne :+
+	lda @cnt
+	beq @done
+:	iny
 	cpy #39
 	bcc @l0
 
@@ -340,7 +486,8 @@ dst=zp::tmp2
 ;--------------------------------------
 .export __src_name
 __src_name:
-name:      .byte "hello world!     " ; the name of the active procedure
+name:      .byte "aa" ; the name of the active procedure
+namelen=*-name
 
 ;--------------------------------------
 .ifdef TEST

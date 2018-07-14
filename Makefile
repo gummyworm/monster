@@ -4,7 +4,7 @@ monster.prg: $(SRC)
 	rm *.o
 
 test:
-	xvic +warp -memory all -ntsc monster.prg
+	xvic +warp -memory all -ntsc -9 testdisk.d81 -autostart monster.prg 
 clean:
 	rm monster.prg
 	rm *.o

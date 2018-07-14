@@ -2,6 +2,8 @@
 .include "text.inc"
 .include "zeropage.inc"
 
+.include "macros.inc"
+
 ;--------------------------------------
 ; memset sets zp::tmp0 bytes of the memory at (YX) to .A.
 .export __util_memset
@@ -20,43 +22,31 @@
 ; memcpy moves zp::tmp0 bytes from (zp::tmp2) to (zp::tmp4).
 .export __util_memcpy
 .proc __util_memcpy
-	lda zp::tmp4
-	clc
-	adc zp::tmp0
-	sta zp::tmp4
-	lda zp::tmp4+1
-	adc zp::tmp0+1
-	sta zp::tmp4+1
+@src=zp::tmp2
+@dst=zp::tmp4
+@len=zp::tmp0
+	ldxy @len
+	cmpw #$0000
+	beq @done
 
-	lda zp::tmp2
-	clc
-	adc zp::tmp0
-	sta zp::tmp2
-	lda zp::tmp2+1
-	adc zp::tmp0+1
-	sta zp::tmp2+1
+	ldxy @dst
+	add16 @len
+	stxy @dst
+
+	ldxy @src
+	add16 @len
+	stxy @src
 
 	ldy #$00
 @l0:	lda (zp::tmp2),y
 	sta (zp::tmp4),y
-
-	lda zp::tmp2
-	bne :+
-	dec zp::tmp2+1
-:	dec zp::tmp2
-
-	lda zp::tmp4
-	bne :+
-	dec zp::tmp4+1
-:	dec zp::tmp4
-
-	lda zp::tmp0
-	bne :+
-	dec zp::tmp0+1
-	bpl :+
-	rts
-:	dec zp::tmp0
-	jmp @l0
+	decw @src
+	decw @dst
+	decw @len
+	ldxy @len
+	cmpw #$ffff
+	bne @l0
+@done:  rts
 .endproc
 
 ;--------------------------------------

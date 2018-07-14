@@ -11,9 +11,13 @@
 .import __src_up
 .import __src_down
 .import __src_get
+.import __src_load
 .import __src_save
 .import __src_rename
 .import __src_name
+.import __src_rewind
+.import __src_readb
+.import __src_readline
 
 GAPSIZE = 20	; size of gap in gap buffer
 
@@ -32,6 +36,10 @@ GAPSIZE = 20	; size of gap in gap buffer
 	down = __src_down
 	get = __src_get
 	save = __src_save
+	load = __src_load
 	rename = __src_rename
 	name = __src_name
+	rewind = __src_rewind
+	readb = __src_readb
+	readline = __src_readline
 .endscope
