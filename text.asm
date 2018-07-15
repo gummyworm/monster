@@ -23,6 +23,8 @@ R_INSERT_MASK=$08
 L_REPLACE_MASK=$f0
 R_REPLACE_MASK=$0f
 
+DIR_ROW=1
+
 ;--------------------------------------
 ; mask returnst the mask used to draw the cursor
 .proc mask
@@ -59,7 +61,7 @@ R_REPLACE_MASK=$0f
 	ldx #<mem::statusline
 	ldy #>mem::statusline
 	lda #STATUS_LINE
-	jsr __text_puts
+	jsr __text_print
 	rts
 .endproc
 
@@ -142,10 +144,12 @@ R_REPLACE_MASK=$0f
 	stx mem::statusline+STATUS_COL+21
 
 	; filename
-	ldx #39-23
+	ldx #0
 :	lda src::name,x
 	sta mem::statusline+23,x
-	dex
+	cmp #$00
+	beq @blink
+	inx
 	bpl :-
 
 @blink: dec curtmr
@@ -247,12 +251,15 @@ curtmr=*+1
 ;--------------------------------------
 ; putch adds the character in .A to the current cursor position in the
 ; text linebuffer.
+; Returns:
+;  .C: set if character was unsuccessfully put
 .export __text_putch
 .proc __text_putch
 	cmp #$14
 	bne :+
 
 	; backspace
+	sec
 	lda zp::curx
 	beq @done	; cannot delete (cursor is at left side of screen)
 	lda __text_insertmode
@@ -290,6 +297,7 @@ curtmr=*+1
 @redraw:
 	lda zp::cury
 	jsr __text_drawline
+	clc	; "put" was successful
 @done:	rts
 .endproc
 
@@ -613,6 +621,7 @@ hicolor=*+1
 @done:	rts
 .endproc
 
+
 ;--------------------------------------
 ; get reads text (up to .A bytes) into (zp::tmp0)
 .export __text_get
@@ -624,6 +633,8 @@ hicolor=*+1
 	beq @l0
 	cmp #$0d
 	bne :+
+	lda #$00
+	jsr __text_putch
 	rts
 :	jsr __text_putch
 	jmp @l0
@@ -664,3 +675,71 @@ __text_insertmode: .byte 1
 	bpl :-
 	rts
 .endproc
+
+;--------------------------------------
+; dir lists the directory of the attached disk
+.export __text_dir
+.proc __text_dir
+@line=zp::tmp8
+	ldx #$00
+	ldy #$01
+	jsr cur::set
+
+	ldxy #@dir
+	lda #$01     ; filename length
+	jsr $ffbd    ; set filename
+	lda #$60
+	sta $b9      ; set secondary address
+	jsr $f495    ; OPEN (IEC bus version)
+	jsr $f2d2    ; set default input device
+	ldy #$04     ; skip 4 bytes (load address and link pointer)
+
+	; read header data
+@l0:	jsr $ffa5    ; CHKIN read byte
+	dey
+	bne @l0
+
+	lda $90
+	jmp *
+	bne @done    ; check end of file
+	jsr $ffa5    ; read byte (block count low)
+	tax
+	jsr $ffa5    ; read byte (block count high)
+	tay
+
+	ldxy #mem::linebuffer
+	stxy @line
+
+	; # blocks
+	jsr util::hextostr
+	tya
+	pha
+	ldy #$00
+	txa
+	sta (@line),y
+	incw @line
+	pla
+	sta (@line),y
+
+	; filename
+@l1:	jsr $ffa5    ; read character
+	incw @line
+	sta (@line),y
+	bne @l1
+
+	ldy #1
+	ldx #0
+	jsr cur::move
+	ldxy #mem::linebuffer
+	lda zp::cury
+	jmp *
+	jsr __text_print
+
+	ldy #$02
+	bne @l0      ; skip 2 bytes next time (link pointer)
+@done:	jsr $ffc3    ; CLOSE
+	jmp $ffcc    ; reset default input device
+	rts
+@dir: .byte "$"
+.endproc
+

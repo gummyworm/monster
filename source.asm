@@ -364,11 +364,8 @@ data:
 	sta name,y
 	cpy #(40-23)
 	bcc :-
-@done:	lda #' '
-:	sta name,y
-	iny
-	cpy #(40-23)
-	bcc :-
+@done:	lda #$00
+	sta name,y
 	rts
 .endproc
 
@@ -486,7 +483,7 @@ data:
 ;--------------------------------------
 .export __src_name
 __src_name:
-name:      .byte "aa" ; the name of the active procedure
+name:      .byte "test.s",0 ; the name of the active procedure
 namelen=*-name
 
 ;--------------------------------------

@@ -17,6 +17,7 @@
 .import help
 
 STATUS_LINE = 23
+FEATURE_VIEW = $01
 
 .import test
 
@@ -95,9 +96,22 @@ enter:
 :	cmp #$87	; F5
 	bne :+
 	jmp load
-:	cmp #$b4 	; C= + <H>
+:	cmp #$b4 	; C=<H>
 	bne :+
 	jmp help
+:	cmp #$b2	; C=<R>
+	bne :+
+	jmp rename
+:	cmp #$be	; C=<V>
+	bne :+
+	lda features
+	eor #FEATURE_VIEW
+	sta features
+	jmp memview
+:	cmp #$b6 	; C=<L>
+	bne :+
+	jmp text::dir
+
 :	jsr insert
 	jsr cur::off
 	jsr cur::on
@@ -105,35 +119,24 @@ enter:
 .endproc
 
 ;--------------------------------------
-; saveas allows the user to name the current buffer- then writes it to a file
-; of the same name.
-.proc saveas
+; rename gets user input to rename the buffer and applies the new name.
+.proc rename
 	jsr text::savebuff
 	jsr text::clrline
-	lda zp::curx
-	pha
-	lda zp::cury
-	pha
-
 	getinput mem::statusline+23,0,23,(40-16)
 	ldxy #mem::linebuffer
 	jsr src::rename
-
-	; set cursor to the buffer name
-	ldx #23
-	ldy #23
-	jsr cur::set
-	jsr src::save
-
-	pla
-	tay
-	pla
-	tax
-	jsr cur::set
 	jsr text::restorebuff
 	lda zp::cury
 	jsr text::drawline
+	rts
+.endproc
 
+;--------------------------------------
+; saveas allows the user to name the current buffer- then writes it to a file
+; of the same name.
+.proc saveas
+	jsr rename
 	jmp save
 .endproc
 
@@ -227,9 +230,7 @@ loadingmsg:
 	jsr text::hioff
 
 	; update memory display (if view is enabled)
-	ldx #<src::buffer
-	ldy #>src::buffer
-	jsr view::mem
+	jsr memview
 
 	; redraw the current (formatted) line
 	lda zp::cury
@@ -245,9 +246,9 @@ loadingmsg:
 
 	; clear any error message
 	jsr text::clrline
-	lda #ERROR_ROW
 	ldxy #mem::linebuffer
-	jsr text::puts
+	lda #ERROR_ROW
+	jsr text::print
 	ldx #$08
 	lda zp::cury
 	jsr text::hiline
@@ -288,6 +289,18 @@ loadingmsg:
 	lda #$00
 	sta text::insertmode
 	rts
+.endproc
+
+;--------------------------------------
+; memview displays the memory view (if enabled)
+.proc memview
+	lda features
+	and #FEATURE_VIEW
+	beq :+
+	ldx #<src::buffer
+	ldy #>src::buffer
+	jmp view::mem
+:	rts
 .endproc
 
 ;--------------------------------------
@@ -379,6 +392,7 @@ loadingmsg:
 .proc ccdel
 	lda #$14
 	jsr text::putch
+	bcs @done
 	jsr src::backspace
 @done:	rts
 .endproc
@@ -401,3 +415,6 @@ ccvectors:
 .word ccdel 	; delete
 .word linedone	; RETURN
 .endproc
+
+features:
+.byte 0

@@ -17,9 +17,14 @@
 .import __text_linelen
 .import __text_savebuff
 .import __text_restorebuff
+.import __text_dir
 
 ; getinput sets the cursor to (X,Y) and reads input into arg (up to sz bytes)
 .macro getinput arg, xpos, ypos, sz
+	lda zp::curx
+	pha
+	lda zp::cury
+	pha
 	ldxy arg
 	stxy zp::tmp0
 	ldx #xpos
@@ -31,6 +36,11 @@
 	jsr cur::setmax
 	lda #sz
 	jsr __text_get
+	pla
+	tay
+	pla
+	tax
+	jsr cur::set
 .endmacro
 
 .scope text
@@ -51,4 +61,5 @@
 	linelen  = __text_linelen
 	savebuff = __text_savebuff
 	restorebuff = __text_restorebuff
+	dir = __text_dir
 .endscope
