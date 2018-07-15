@@ -273,7 +273,7 @@ curtmr=*+1
 	inx
 	cpx zp::tmp0
 	bcc @l0
-@movex: ldx #-1
+@movex: ldx #$ff
 	ldy #0
 	jsr cur::move
 	jmp @redraw

@@ -82,7 +82,7 @@ __cur_toggle:
 	ldx #$00
 	jsr __cur_set
 	rts
-:	ldy #-1
+:	ldy #$ff
 	ldx #$00
 	jsr __cur_move
 	rts
@@ -118,7 +118,7 @@ __cur_toggle:
 	lda zp::curx
 	beq @done
 	ldy #0
-	ldx #-1
+	ldx #$ff
 	jsr __cur_move
 @done:	rts
 .endproc

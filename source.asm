@@ -355,7 +355,7 @@ data:
 .proc __src_rename
 @src=zp::tmp0
 	stxy @src
-	ldy #-1
+	ldy #$ff
 :	iny
 	lda (@src),y
 	beq @done

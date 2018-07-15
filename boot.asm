@@ -275,7 +275,7 @@ loadingmsg:
 	jsr fmt::line
 
 	; move cursor back to start of the line
-@l0:	ldx #-1
+@l0:	ldx #$ff
 	ldy #0
 	jsr cur::move
 	jsr src::prev
