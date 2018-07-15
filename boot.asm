@@ -14,6 +14,8 @@
 .include "zeropage.inc"
 .include "macros.inc"
 
+.import help
+
 STATUS_LINE = 23
 
 .import test
@@ -38,18 +40,29 @@ start:
 
 ;--------------------------------------
 .CODE
+titlebar:
+.byte "monster                      c=<h>: help"
+
 irq_handler:
 	jmp $eabf
 enter:
         jsr bm::init
         jsr bm::clr
 
+	jsr edit
+
 	ldx #$00
-	ldy #$00
+	ldy #$01
 	jsr cur::set
 
 	;jsr test
 	jsr src::new
+
+	ldxy #titlebar
+	lda #$00
+	jsr text::puts
+	lda #$00
+	jsr bm::rvsline
 
 ;--------------------------------------
 ; main is the main loop for editing a line.
@@ -65,6 +78,8 @@ enter:
 
 @done:	jsr text::update
 	jsr text::status
+	lda #23
+	jsr bm::rvsline
 	jmp main
 .endproc
 
@@ -73,19 +88,17 @@ enter:
 .proc onkey
 	cmp #$85	; F1
 	bne :+
-	jsr saveas
-	rts
+	jmp saveas
 :	cmp #$86	; F3
 	bne :+
-	jsr save
-	rts
+	jmp save
 :	cmp #$87	; F5
 	bne :+
-	jsr load
-	rts
-:	pha
-	pla
-	jsr insert
+	jmp load
+:	cmp #$b4 	; C= + <H>
+	bne :+
+	jmp help
+:	jsr insert
 	jsr cur::off
 	jsr cur::on
 	rts
@@ -121,8 +134,18 @@ enter:
 	lda zp::cury
 	jsr text::drawline
 
-	jsr save
-	rts
+	jmp save
+.endproc
+
+;--------------------------------------
+; edit configures the cursor/screen/etc. for editing
+.proc edit
+	ldx #$00
+	ldy #$01
+	jsr cur::setmin
+	ldx #20
+	ldy #23
+	jmp cur::setmax
 .endproc
 
 ;--------------------------------------
@@ -245,7 +268,6 @@ loadingmsg:
 	ldxy #mem::linebuffer
 	lda zp::cury
 	jsr text::print
-
 	rts
 
 @err:	lda #$ff

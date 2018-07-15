@@ -1,4 +1,6 @@
+.include "macros.inc"
 .include "zeropage.inc"
+
 BITMAP_ADDR = $1100
 COLMEM_ADDR = $9400
 
@@ -144,6 +146,36 @@ COLMEM_ADDR = $9400
         sta @dy
 @2dy = *+1
         adc #$00
+.endproc
+
+;--------------------------------------
+.export __bm_rvsline
+.proc __bm_rvsline
+@dst=zp::tmp0
+	asl
+	asl
+	asl
+	adc #<BITMAP_ADDR
+	sta @dst
+	lda #>BITMAP_ADDR
+	sta @dst+1
+	ldx #20
+@l0:	ldy #$07
+@l1: 	lda (@dst),y
+	eor #$ff
+	sta (@dst),y
+	dey
+	bpl @l1
+	lda @dst
+	clc
+	adc #$c0
+	sta @dst
+	lda @dst+1
+	adc #$00
+	sta @dst+1
+	dex
+	bne @l0
+	rts
 .endproc
 
 ;--------------------------------------

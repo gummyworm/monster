@@ -25,6 +25,8 @@ COLMEM_ADDR = $9400
 ;contains the address of each column within the bitmap
 .import __bm_columns
 
+.import __bm_rvsline
+
 .scope bm
         init        = __bm_init
         clr         = __bm_clr
@@ -32,5 +34,6 @@ COLMEM_ADDR = $9400
         clrpixel    = __bm_clrpixel
         togglepixel = __bm_togglepixel
         columns     = __bm_columns
+	rvsline     = __bm_rvsline
 .endscope
 
