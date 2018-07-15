@@ -24,4 +24,20 @@
 	setmin = __cur_setmin
 	setmax = __cur_setmax
 	unlimit = __cur_unlimit
+
 .endscope
+
+.macro pushcur
+	lda zp::curx
+	pha
+	lda zp::cury
+	pha
+.endmacro
+
+.macro popcur
+	pla
+	tay
+	pla
+	tax
+	jsr cur::set
+.endmacro

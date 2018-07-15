@@ -681,50 +681,18 @@ __text_insertmode: .byte 1
 .export __text_dir
 .proc __text_dir
 @line=zp::tmp8
-	ldx #$00
-	ldy #$01
-	jsr cur::set
-
-	ldxy #@dir
-	lda #$01     ; filename length
-	jsr $ffbd    ; set filename
-	lda #$60
-	sta $b9      ; set secondary address
-	jsr $f495    ; OPEN (IEC bus version)
-	jsr $f2d2    ; set default input device
-	ldy #$04     ; skip 4 bytes (load address and link pointer)
-
-	; read header data
-@l0:	jsr $ffa5    ; CHKIN read byte
-	dey
-	bne @l0
-
-	lda $90
-	jmp *
-	bne @done    ; check end of file
-	jsr $ffa5    ; read byte (block count low)
-	tax
-	jsr $ffa5    ; read byte (block count high)
-	tay
-
-	ldxy #mem::linebuffer
+	pushcur
+	jsr src::loaddir
+	ldxy #mem::spare
 	stxy @line
 
-	; # blocks
-	jsr util::hextostr
-	tya
-	pha
-	ldy #$00
-	txa
-	sta (@line),y
+@l0:	ldx #$ff
+@l1:	ldy #$00
+	inx
+	lda (@line),y
+	sta mem::linebuffer,x
 	incw @line
-	pla
-	sta (@line),y
-
-	; filename
-@l1:	jsr $ffa5    ; read character
-	incw @line
-	sta (@line),y
+	tay
 	bne @l1
 
 	ldy #1
@@ -732,13 +700,17 @@ __text_insertmode: .byte 1
 	jsr cur::move
 	ldxy #mem::linebuffer
 	lda zp::cury
-	jmp *
 	jsr __text_print
 
-	ldy #$02
-	bne @l0      ; skip 2 bytes next time (link pointer)
-@done:	jsr $ffc3    ; CLOSE
-	jmp $ffcc    ; reset default input device
+	incw @line
+	incw @line
+	ldy #$00
+	lda (@line),y
+	bne @l0
+	iny
+	lda (@line),y
+	bne @l0
+	popcur
 	rts
 @dir: .byte "$"
 .endproc

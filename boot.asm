@@ -173,7 +173,7 @@ savingmsg:
 	jsr src::load
 	cli
 	ldx #0
-	ldy #0
+	ldy #1
 	jsr cur::set
 @redraw:
 	jsr src::readline

@@ -29,30 +29,27 @@ data:
 .endproc
 
 ;--------------------------------------
+; loaddir loads the directory listing into mem::spare
+.export __src_loaddir
+.proc __src_loaddir
+@dst=zp::tmp0
+	lda #$00
+	sta secondaryaddr
+	ldxy #mem::spare
+	stxy @dst
+	ldxy #@dir
+	lda #$01
+	jmp load
+@dir: .byte "$"
+.endproc
+
+;--------------------------------------
 ; load loads the given file into the buffer.
 .export __src_load
 .proc __src_load
 @dst=zp::tmp0
-@dev=$ba
-	lda #$09
-	sta @dev
-	lda #namelen
-	ldxy #name
-	jsr $ffbd	; SETNAM
-
-	lda #$02	; file #2
-	ldx @dev	; last used device number
-	bne :+
-	ldx #$08 	; default to device 8
-:	ldy #$02	; SA 2
-	jsr $ffba 	; SETLFS
-
-	jsr $ffc0 	; call OPEN
-	bcs @error 	; if carry set, the file could not be opened
-
-	ldx #$02      ; filenumber 2
-	jsr $ffc6     ; CHKIN (file 2 now used as input)
-
+	lda #$02
+	sta secondaryaddr
 	ldxy #__src_buffer
 	stxy @dst
 
@@ -63,6 +60,37 @@ data:
 	sty post+1
 	sty pre
 	sty pre+1
+
+	lda #namelen
+	ldxy #name
+	jsr load
+	jmp __src_rewind
+.endproc
+
+;--------------------------------------
+; load loads the filename given in (YX) (of length given in .A)
+; into the address contained by zp::tmp0
+.proc load
+@dst=zp::tmp0
+@dev=$ba
+	pha
+	lda #$09
+	sta @dev
+	pla
+	jsr $ffbd	; SETNAM
+
+	lda #$02	; file #2
+	ldx @dev	; last used device number
+	bne :+
+	ldx #$0a 	; default to device 10
+:	ldy secondaryaddr ; SA 2
+	jsr $ffba 	; SETLFS
+
+	jsr $ffc0 	; call OPEN
+	bcs @error 	; if carry set, the file could not be opened
+
+	ldx #$02      ; filenumber 2
+	jsr $ffc6     ; CHKIN (file 2 now used as input)
 
 	; read load address
 	jsr $ffb7
@@ -78,14 +106,16 @@ data:
 	jsr $ffcf     ; call CHRIN (get a byte from file)
 	ldy #$00
 	sta (@dst),y  ; write byte to memory
+
+	lda secondaryaddr ; if loading directory, don't updated cursor
+	beq :+
 	incw pre
 	incw len
-	incw @dst
+:	incw @dst
 	jmp @l0
 @eof:
 	and #$40      ; end of file?
 	beq @error
-	jsr __src_rewind
 @close:
 	lda #$02      ; filenumber 2
 	jsr $ffc3     ; call CLOSE
@@ -485,6 +515,7 @@ data:
 __src_name:
 name:      .byte "test.s",0 ; the name of the active procedure
 namelen=*-name
+secondaryaddr: .byte 0
 
 ;--------------------------------------
 .ifdef TEST
