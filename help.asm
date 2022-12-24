@@ -3,6 +3,7 @@
 .include "text.inc"
 .include "ui.inc"
 .include "zeropage.inc"
+.CODE
 
 HELP_START_ROW=1
 ;--------------------------------------

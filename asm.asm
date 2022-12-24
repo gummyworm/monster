@@ -4,6 +4,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "layout.inc"
+.CODE
 
 ERR_OK=0
 ERR_UNALIGNED_LABEL=$ff
@@ -35,7 +36,6 @@ errors: .word 0	 ; no error
 	.word err_illegal_directive
 
 ;--------------------------------------
-.CODE
 .proc mkerr
 	cmp #$00
 	bne :+
@@ -370,7 +370,7 @@ __asm_tokenize:
 	jmp @noerr
 @jmpabs:
 	cpx #ABS
-	beq @err 	; only ABS supported for JMP XXXX
+	bne @err 	; only ABS supported for JMP XXXX
 	lda #$4c
 	sta __asm_result
 	jmp @noerr
@@ -390,7 +390,7 @@ __asm_tokenize:
 	jmp @noerr
 
 :	; check if opcode was a branch
-	and #$10
+	and #$1f
 	cmp #$10
 	bne :+
 	cpx #ABS	; only ABS/ZP supported for branches

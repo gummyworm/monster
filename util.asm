@@ -3,6 +3,7 @@
 .include "zeropage.inc"
 
 .include "macros.inc"
+.CODE
 
 ;--------------------------------------
 ; memset sets zp::tmp0 bytes of the memory at (YX) to .A.
@@ -25,28 +26,22 @@
 @src=zp::tmp2
 @dst=zp::tmp4
 @len=zp::tmp0
+	sei
 	ldxy @len
 	cmpw #$0000
 	beq @done
 
-	ldxy @dst
-	add16 @len
-	stxy @dst
-
-	ldxy @src
-	add16 @len
-	stxy @src
-
-	ldy #$00
-@l0:	lda (zp::tmp2),y
-	sta (zp::tmp4),y
-	decw @src
-	decw @dst
+@l0:	ldy #$00
+	lda (@src),y
+	sta (@dst),y
+	incw @src
+	incw @dst
 	decw @len
 	ldxy @len
-	cmpw #$ffff
+	cmpw #$0000
 	bne @l0
-@done:  rts
+@done:  cli
+	rts
 .endproc
 
 ;--------------------------------------

@@ -1,8 +1,6 @@
 .include "zeropage.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "test.inc"
-.include "test_macros.inc"
 .include "util.inc"
 
 GAPSIZE = 20	; size of gap in gap buffer
@@ -20,7 +18,7 @@ buffer:
 data:
 .res 1024*4 ; buffer of the active procedure's tokens
 
-.segment "CODE"
+.CODE
 ;--------------------------------------
 ;  new initializes the source buffer
 .export __src_new
@@ -256,8 +254,7 @@ data:
 	rts
 :	dec @cnt
 	bne @l0
-	jsr __src_next
-	rts
+	jmp __src_next
 .endproc
 
 ;--------------------------------------
@@ -274,6 +271,8 @@ data:
 	cmpw #0
 	bne @l0
 	clc
+	rts	; end of the buffer
+
 :	jsr __src_next
 	rts
 .endproc
@@ -287,9 +286,10 @@ data:
 @dst=zp::tmp4
 	pha
 	jsr gaplen
-	cmpw #$0000
-	bne @ins
+	cmpw #$0000 ; is gap closed?
+	bne @ins    ; no, insert as usual
 
+	; gap is closed, create a new one
 	; copy data[poststart] to data[poststart + len]
 	jsr poststart
 	stxy @src
@@ -297,9 +297,7 @@ data:
 	stxy @dst
 
 	; get size to copy (len)
-	ldxy len
-	stxy @len
-	jsr util::memcpy
+	copy @dst, @src, len
 
 	; double size of buffer (new gap size is the size of the old buffer)
 	asl len
@@ -455,7 +453,7 @@ data:
 ; the cursor
 ; Out:
 ;  mem::linebuffer: the line that was read
-;  .A is $0d if the last character read
+;  .A is $0d if the last character read was a RETURN ($0d)
 ;
 .export __src_readline
 .proc __src_readline
@@ -516,28 +514,3 @@ __src_name:
 name:      .byte "test.s",0 ; the name of the active procedure
 namelen=*-name
 secondaryaddr: .byte 0
-
-;--------------------------------------
-.ifdef TEST
-testtext:
-line1: .byte "hello world",$0d
-line1_len = *-line1
-line2: .byte "line 2",$0d
-line2_len = *-line2
-line3: .byte "line 3",$0d
-line3_len = *-line3
-testtextlen = *-testtext
-
-testinsert: .byte "insert",$0d
-testinsertlen = *-testinsert
-testinsert2: .byte "wwwutttt",$0d
-testinsert2len = *-testinsert2
-
-.export __src_test
-.proc __src_test
-	ldx #<testtext
-	ldy #>testtext
-	lda #testtextlen
-	jsr __src_puts
-.endproc
-.endif

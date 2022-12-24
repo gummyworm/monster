@@ -1,10 +1,11 @@
 .include "macros.inc"
+.include "memory.inc"
+.include "util.inc"
 .include "zeropage.inc"
+.CODE
 
 BITMAP_ADDR = $1100
 COLMEM_ADDR = $9400
-
-.CODE
 
 ;--------------------------------------
 ;init
@@ -175,6 +176,20 @@ COLMEM_ADDR = $9400
 	sta @dst+1
 	dex
 	bne @l0
+	rts
+.endproc
+
+;--------------------------------------
+.export __bm_save
+.proc __bm_save
+	copy #mem::backbuff, #BITMAP_ADDR, #(20*192)
+	rts
+.endproc
+
+;--------------------------------------
+.export __bm_restore
+.proc __bm_restore
+	copy #BITMAP_ADDR, #mem::backbuff, #(20*192)
 	rts
 .endproc
 

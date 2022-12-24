@@ -7,6 +7,7 @@
 .include "key.inc"
 .include "layout.inc"
 .include "memory.inc"
+.include "screen.inc"
 .include "source.inc"
 .include "text.inc"
 .include "util.inc"
@@ -68,53 +69,69 @@ enter:
 ;--------------------------------------
 ; main is the main loop for editing a line.
 .proc main
-        lda #$05
+        lda #$70
         cmp $9004
         bne *-3
 
 	jsr key::getch
 	cmp #$00
 	beq @done
-	jsr onkey
 
-@done:	jsr text::update
-	jsr text::status
-	lda #23
-	jsr bm::rvsline
+	sei
+	jsr onkey
+	cli
+
+@done:	jsr scr::update
 	jmp main
 .endproc
 
 ;--------------------------------------
 ; onkey is called upon the user pressing a key.
 .proc onkey
-	cmp #$85	; F1
+	cmp #$85	; F1 (Save As)
 	bne :+
 	jmp saveas
-:	cmp #$86	; F3
+:	cmp #$86	; F3 (Save)
 	bne :+
 	jmp save
-:	cmp #$87	; F5
+:	cmp #$87	; F5 (Load)
 	bne :+
 	jmp load
-:	cmp #$b4 	; C=<H>
+:	cmp #$b4 	; C=<H> (Help)
 	bne :+
 	jmp help
-:	cmp #$b2	; C=<R>
+:	cmp #$b2	; C=<R> (Rename)
 	bne :+
 	jmp rename
-:	cmp #$be	; C=<V>
+:	cmp #$be	; C=<V> (View)
 	bne :+
 	lda features
 	eor #FEATURE_VIEW
 	sta features
 	jmp memview
-:	cmp #$b6 	; C=<L>
+:	cmp #$b6 	; C=<L> (Dir)
 	bne :+
-	jmp text::dir
+	jsr dir
+	rts
 
 :	jsr insert
 	jsr cur::off
 	jsr cur::on
+	rts
+.endproc
+
+;--------------------------------------
+; dir lists the directory
+.proc dir
+	jsr text::savebuff
+	jsr text::clrline
+	jsr bm::save
+	jsr text::dir
+:	jsr key::getch
+	cmp #$0d
+	bne :-
+	jsr text::restorebuff
+	jsr bm::restore
 	rts
 .endproc
 
@@ -198,9 +215,15 @@ loadingmsg:
 ;--------------------------------------
 ; linedone attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
+	lda zp::curx
+	pha
 	lda #$0d
 	jsr src::insert
 	jsr text::putch
+
+	pla
+	beq @nextline ; we're at column 0, scroll the screen and return
+
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	jsr asm::tokenize
@@ -218,9 +241,9 @@ loadingmsg:
 	lda #ASM_LABEL
 	skw
 :	lda #ASM_OPCODE
-	;jsr fmt::line
+	jsr fmt::line
 
-	; copy line to source buffer
+	; redraw the current (formatted) line
 	pha
 	lda zp::cury
 	jsr text::drawline
@@ -232,26 +255,18 @@ loadingmsg:
 	; update memory display (if view is enabled)
 	jsr memview
 
-	; redraw the current (formatted) line
-	lda zp::cury
-	jsr text::drawline
+	; reset flags
 	lda #$01
 	sta text::insertmode
-
+@nextline:
 	; scroll lines below cursor position
-	ldx zp::cury
-	inx
-	txa
-	jsr text::scroll
+	ldy zp::cury
+	iny
+	tya
+	ldx #ERROR_ROW-1
+	jsr text::scrolldown
 
-	; clear any error message
-	jsr text::clrline
-	ldxy #mem::linebuffer
-	lda #ERROR_ROW
-	jsr text::print
-	ldx #$08
-	lda zp::cury
-	jsr text::hiline
+	jsr clrerror
 
 	; move the cursor to the next line
 	ldy zp::cury
@@ -301,6 +316,18 @@ loadingmsg:
 	ldy #>src::buffer
 	jmp view::mem
 :	rts
+.endproc
+
+;-------------------------------------
+.proc clrerror
+	; clear any error message
+	jsr text::clrline
+	ldxy #mem::linebuffer
+	lda #ERROR_ROW
+	jsr text::print
+	ldx #$08
+	lda zp::cury
+	jmp text::hiline
 .endproc
 
 ;--------------------------------------
@@ -362,6 +389,9 @@ loadingmsg:
 	jsr cur::up
 	jsr src::up
 	jsr src::get
+	lda zp::cury
+	ldxy #mem::linebuffer
+	jsr text::drawline
 	rts
 .endproc
 

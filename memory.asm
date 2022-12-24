@@ -10,7 +10,11 @@
 .align 256
 .export __mem_spare
 __mem_spare:
-        .res 1024
+	.res 1000
+
+.export __mem_backbuff
+__mem_backbuff:
+        .res $f00
 
 .export __linebuffer2
 __linebuffer2:

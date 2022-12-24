@@ -15,6 +15,7 @@
 .endscope
 
 .macro copy dst, src, len
+	sei
 	ldxy src
 	stxy zp::tmp2
 	ldxy dst

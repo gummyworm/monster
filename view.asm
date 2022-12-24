@@ -3,6 +3,7 @@
 .include "text.inc"
 .include "util.inc"
 .include "zeropage.inc"
+.CODE
 
 ROW_START=15
 ROW_STOP=23

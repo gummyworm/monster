@@ -4,6 +4,7 @@
 .include "memory.inc"
 .include "text.inc"
 .include "zeropage.inc"
+.CODE
 
 save_sp: .word mem::spare+40 ; stack ptr for save/restore stack
 stack_depth: .byte 0
@@ -89,7 +90,7 @@ stack_depth: .byte 0
 
 ;--------------------------------------
 ; msgbox displays .A rows of text given in (zp::tmp0) at the position
-; in (zp::tmp0, zp::tmp1).
+; in (zp::tmp0, zp::tmp1) and waits for the user to press <RETURN>
 .export __ui_msgbox
 .proc __ui_msgbox
 @lines=zp::tmp0
@@ -122,9 +123,11 @@ stack_depth: .byte 0
 	dec @cnt
 	bne @l0
 
+	cli
 @l1:	jsr key::getch
-	cmp #$0d
-	bne @l1
+	cmp #$00
+	beq @l1
+	sei
 
 	; restore screen
 :	dec @row

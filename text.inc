@@ -13,6 +13,7 @@
 .import __text_drawline
 .import __text_insertmode
 .import __text_scroll
+.import __text_scrolldown
 .import __text_get
 .import __text_linelen
 .import __text_savebuff
@@ -57,6 +58,7 @@
 	hioff    = __text_hioff
 	drawline = __text_drawline
 	scroll   = __text_scroll
+	scrolldown = __text_scrolldown
 	insertmode = __text_insertmode
 	linelen  = __text_linelen
 	savebuff = __text_savebuff

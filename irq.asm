@@ -1,3 +1,5 @@
+.CODE
+
 .ifdef PAL
 LINES           = 312
 CYCLES_PER_LINE = 71
@@ -8,7 +10,6 @@ CYCLES_PER_LINE = 65
 
 TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster int.
 
-.CODE
 ;--------------------------------------
 .export __irq_raster
 .proc __irq_raster

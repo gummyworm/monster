@@ -8,14 +8,13 @@
 .include "source.inc"
 .include "util.inc"
 .include "zeropage.inc"
+.CODE
 
 ESCAPE_CHARACTER = $ff
 ESCAPE_RVS_ON = $01
 ESCAPE_RVS_OFF = $02
 STATUS_LINE = 23
 STATUS_COL  = 0
-
-.CODE
 
 L_INSERT_MASK=$80
 R_INSERT_MASK=$08
@@ -182,6 +181,7 @@ curtmr=*+1
 @str = zp::tmp0
 @row = zp::tmp2
 @savex = zp::tmp3
+@buff = @printbuffer
         stx @str
         sty @str+1
 	sta @row
@@ -194,10 +194,10 @@ curtmr=*+1
 	cmp #$18	; TAB
 	bne :+
 	lda #' '
-	sta mem::spare,x
-	sta mem::spare+1,x
-	sta mem::spare+2,x
-	sta mem::spare+3,x
+	sta @buff,x
+	sta @buff+1,x
+	sta @buff+2,x
+	sta @buff+3,x
 	inx
 	inx
 	inx
@@ -221,31 +221,32 @@ curtmr=*+1
 	beq @cont
 	cmp #' '
 	beq @cont
-	sta mem::spare,x
+	sta @buff,x
 	inc @sub
 	bne :+
 	inc @sub+1
 :	inx
 	bne @l1
 
-@ch:    sta mem::spare,x
+@ch:    sta @buff,x
 	inx
 
 @cont:	iny
         jmp @l0
 
 @disp:  lda #' '
-:	sta mem::spare,x
+:	sta @buff,x
 	inx
 	cpx #40
 	bcc :-
 
-	ldx #<mem::spare
-	ldy #>mem::spare
+	ldx #<@buff
+	ldy #>@buff
 	lda @row
         jsr __text_puts
 
         rts
+@printbuffer: .res 40
 .endproc
 
 ;--------------------------------------
@@ -335,28 +336,31 @@ curtmr=*+1
 .endproc
 
 ;--------------------------------------
-; scroll scrolls all lines including and below row .A
+; scroll scrolls all lines including and below row .A UP
 .proc __text_scroll
 .export __text_scroll
 @rowstop=zp::tmp0
 @src=zp::tmp1
 @dst=zp::tmp3
+@startline=1
+@stopline=@startline+14
 	asl
 	asl
 	asl
+	adc #(@startline*8)
 	sta @rowstop
 
-	ldxy #BITMAP_ADDR+8
+	ldxy #BITMAP_ADDR+(8*(@startline+1))
 	stx @dst
 	sty @dst+1
-	ldxy #BITMAP_ADDR
+	ldxy #BITMAP_ADDR+(8*@startline)
 	stx @src
 	sty @src+1
 
 	ldx #19
-@l0:	ldy #8*14
-@l1:	lda #$00
-	cpy #$08
+@l0:	ldy #8*(@stopline-@startline)
+@l1:    lda #$00
+	cpy #8+(@startline*8)
 	bcc :+
 	lda (@src),y
 :	sta (@dst),y
@@ -383,6 +387,66 @@ curtmr=*+1
 .endproc
 
 ;--------------------------------------
+.export __text_scrolldown
+; scrolls all rows from .A to .X
+.proc __text_scrolldown
+@rowstart=zp::tmp0
+@rowstop=zp::tmp2
+@rows=zp::tmp2
+@src=zp::tmp3
+@dst=zp::tmp5
+	sta @rowstart
+	stx @rowstop
+
+	lda @rowstop
+	sec
+	sbc @rowstart
+	asl
+	asl
+	asl
+	sta @rows
+
+	lda @rowstart
+	asl
+	asl
+	asl
+	sta @src
+	adc #$08
+	sta @dst
+
+	lda #$11
+	sta @src+1
+	sta @dst+1
+
+@l0:
+	ldy @rows
+@l1:	lda (@src),y
+	sta (@dst),y
+	dey
+	bne @l1
+	lda (@src),y
+	sta (@dst),y
+
+	lda @src
+	clc
+	adc #$c0
+	sta @src
+	bcc :+
+	inc @src+1
+
+:	lda @dst
+	clc
+	adc #$c0
+	sta @dst
+	bcc :+
+	inc @dst+1
+:	lda @dst+1
+	cmp #$20
+	bcc @l0
+	rts
+.endproc
+
+;--------------------------------------
 .export __text_colstart
 .export __text_len
 .export __text_puts
@@ -392,7 +456,6 @@ txtleft  = $25
 txtright = $27
 txtdst   = $29
 txtsrc   = $4e
-flags = $50
         stx txtsrc
         sty txtsrc+1
         asl
@@ -407,12 +470,14 @@ __text_colstart=*+1
         adc txtdst
         sta txtdst
         lda #$00
+	sta rvs
         adc bm::columns+1,x
         sta txtdst+1
 
         ldy #$00
 l0:     lda (txtsrc),y
-        iny
+	jsr handlecc
+	iny
         sta txtleft
         lda #$00
         asl txtleft
@@ -429,7 +494,10 @@ l0:     lda (txtsrc),y
         lda txtleft+1
         adc #<((__text_charmap-256) / 256)
         sta txtleft+1
+
+@right:
         lda (txtsrc),y
+	jsr handlecc
         iny
         sta txtright
         lda #$00
@@ -451,9 +519,11 @@ l0:     lda (txtsrc),y
         pha
         ldy #$00
 l1:     lda (txtleft),y
+	eor rvs
         and #$f0
         sta txtbyte
         lda (txtright),y
+	eor rvs
         and #$0f
         ora txtbyte
         sta (txtdst),y
@@ -469,10 +539,29 @@ l1:     lda (txtleft),y
         lda txtdst+1
         adc #0
         sta txtdst+1
+nextch:
 __text_len=*+1
         cpy #40
-        bne l0
+	bcc l0
         rts
+
+.proc handlecc
+	cmp #$12	; RVS on?
+	bne :+
+	lda #$ff
+	bne @setrvs
+:	cmp #$92	; RVS off
+	bne @done
+	lda #$00
+@setrvs: sta rvs
+	iny
+	pla
+	pla
+	inc __text_len
+	jmp nextch
+@done:  rts
+.endproc
+rvs: .byte 0
 
 .export __text_charmap
 __text_charmap:
@@ -682,35 +771,70 @@ __text_insertmode: .byte 1
 .proc __text_dir
 @line=zp::tmp8
 	pushcur
-	jsr src::loaddir
-	ldxy #mem::spare
-	stxy @line
-
-@l0:	ldx #$ff
-@l1:	ldy #$00
-	inx
-	lda (@line),y
-	sta mem::linebuffer,x
-	incw @line
-	tay
-	bne @l1
-
 	ldy #1
 	ldx #0
-	jsr cur::move
+	jsr cur::set
+
+	jsr src::loaddir
+	ldxy #mem::spare+2
+	stxy @line
+
+@l0:	jsr __text_clrline
+
+	; print line #
+	ldy #$00
+	lda (@line),y
+	pha
+	incw @line
+	lda (@line),y
+	tay
+	incw @line
+	pla
+	jsr $d391
+	jsr $dddd
+
+	ldx #$00
+@l1:	lda $101,x
+	beq @space
+	sta mem::linebuffer,x
+	inx
+	bne @l1
+
+@space: ; print space
+	lda #$20
+	sta mem::linebuffer,x
+	inx
+
+@fname: ; print filename
+@l2:	ldy #$00
+	lda (@line),y
+	incw @line
+	tay
+	beq @next
+	sta mem::linebuffer,x
+	inx
+	bne @l2
+
+@next:	ldy zp::cury
+	iny
+	ldx #0
+	jsr cur::set
 	ldxy #mem::linebuffer
 	lda zp::cury
 	jsr __text_print
 
-	incw @line
-	incw @line
+	; read line link
 	ldy #$00
 	lda (@line),y
-	bne @l0
+	bne :+
 	iny
 	lda (@line),y
+	beq @done
+:	incw @line
+	incw @line
 	bne @l0
-	popcur
+
+@done:  popcur
 	rts
 @dir: .byte "$"
 .endproc

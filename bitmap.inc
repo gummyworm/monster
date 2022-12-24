@@ -26,6 +26,9 @@ COLMEM_ADDR = $9400
 .import __bm_columns
 
 .import __bm_rvsline
+.import __bm_save
+.import __bm_restore
+
 
 .scope bm
         init        = __bm_init
@@ -35,5 +38,7 @@ COLMEM_ADDR = $9400
         togglepixel = __bm_togglepixel
         columns     = __bm_columns
 	rvsline     = __bm_rvsline
+	save        = __bm_save
+	restore     = __bm_restore
 .endscope
 

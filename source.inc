@@ -3,7 +3,6 @@
 .import __src_insert
 .import __src_replace
 .import __src_puts
-.import __src_test
 .import __src_buffer
 .import __src_next
 .import __src_new
@@ -28,7 +27,6 @@ GAPSIZE = 20	; size of gap in gap buffer
 	insert = __src_insert
 	replace = __src_replace
 	puts = __src_puts
-	test = __src_test
 	buffer = __src_buffer
 	next = __src_next
 	new = __src_new

@@ -1,6 +1,7 @@
 .include "bitmap.inc"
 .include "zeropage.inc"
 .include "text.inc"
+.CODE
 
 L_INSERT_MASK=$80
 R_INSERT_MASK=$08

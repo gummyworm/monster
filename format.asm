@@ -1,5 +1,7 @@
 .include "codes.inc"
 .include "memory.inc"
+.include "source.inc"
+.CODE
 
 ;--------------------------------------
 ; label formats linebuffer as a label.
@@ -35,9 +37,22 @@
 	bpl @l0
 	dey
 	bne @l1
+	; add 2 spaces to the linebuffer
 	lda #' '
 	sta mem::linebuffer
 	sta mem::linebuffer+1
+	; return to start of line and add 2 spaces to the source
+	jsr src::up
+	;jsr src::up
+	lda #' '
+	jsr src::insert
+	lda #' '
+	jsr src::insert
+
+	; move to the next line
+	jsr src::down
+	jsr src::next
+	jsr src::next
 	rts
 .endproc
 
