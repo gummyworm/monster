@@ -209,8 +209,14 @@ __asm_tokenize:
 	jsr getopcode
 	cmp #ASM_OPCODE
 	bne @label
-	stx __asm_result
 	ldy #$00
+	lda (line),y	; must be followed by whitespace
+	cmp #' '
+	beq :+
+	cmp #$0d
+	beq :+
+	jmp @err
+:	stx __asm_result
 	jmp @getws1
 
 @label:
@@ -799,8 +805,7 @@ bbb00:
 	tax
 	lda opcodetab,x
 	tax
-	lda #ASM_OPCODE
-	rts
+	jmp @return
 
 @setcc:	asl
 	asl
@@ -808,6 +813,16 @@ bbb00:
 	asl
 	asl
 	tax
+
+@return:
+	; update line ptr and return
+	lda line
+	clc
+	adc #$03
+	sta line
+	bcc :+
+	inc line+1
+:	lda #ASM_OPCODE
 	lda #ASM_OPCODE
 	rts
 

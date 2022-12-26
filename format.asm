@@ -43,17 +43,13 @@
 	sta mem::linebuffer+1
 	; return to start of line and add 2 spaces to the source
 	jsr src::up
-	;jsr src::up
 	lda #' '
 	jsr src::insert
 	lda #' '
 	jsr src::insert
 
 	; move to the next line
-	jsr src::down
-	jsr src::next
-	jsr src::next
-	rts
+	jmp src::down
 .endproc
 
 ;--------------------------------------

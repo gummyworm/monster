@@ -241,20 +241,14 @@ data:
 ; already on the first line
 .export __src_up
 .proc __src_up
-@cnt=zp::tmp4
-	lda #$02
-	sta @cnt
 @l0:	jsr __src_prev
-	jsr atcursor
+	jsr atcursor_rep
 	cmp #$0d
 	beq :+
 	jsr cursor
 	cmpw #data
 	bne @l0
-	rts
-:	dec @cnt
-	bne @l0
-	jmp __src_next
+:	rts
 .endproc
 
 ;--------------------------------------
@@ -264,17 +258,15 @@ data:
 .export __src_down
 .proc __src_down
 @l0:	jsr __src_next
-	jsr atcursor
+	jsr atcursor_rep
 	cmp #$0d
 	beq :+
 	ldxy post
 	cmpw #0
 	bne @l0
 	clc
-	rts	; end of the buffer
+:	rts	; end of the buffer
 
-:	jsr __src_next
-	rts
 .endproc
 
 ;--------------------------------------
@@ -345,6 +337,18 @@ data:
 ; atcursor returns the character at the cursor position.
 .proc atcursor
 	jsr cursor
+	sub16 #1
+	stxy zp::tmp0
+	ldy #$00
+	lda (zp::tmp0),y
+	rts
+.endproc
+
+;--------------------------------------
+; atcursor returns the character at the cursor position.
+.proc atcursor_rep
+	jsr cursor
+	sub16 #1
 	stxy zp::tmp0
 	ldy #$00
 	lda (zp::tmp0),y
