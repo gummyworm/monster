@@ -252,13 +252,8 @@ loadingmsg:
 	tax
 	bmi @err
 
-@noerr: ; compilation was successful, update memory and copy line to source
-	; buffer
-	pha
-	jsr asm::advancepc
-
+@noerr: ; compilation was successful, update memory and copy line to source buffer
 	; format line
-	pla
 	bne :+
 	lda #ASM_LABEL
 	skw
@@ -436,8 +431,8 @@ loadingmsg:
 	jsr src::down
 	bcc :+
 	jsr cur::down
-:	jsr src::get
-	rts
+	jsr src::get
+:	rts
 .endproc
 
 ;--------------------------------------

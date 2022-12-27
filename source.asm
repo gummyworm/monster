@@ -266,6 +266,9 @@ data:
 ; .C is set if the end of the buffer was reached (cannot move "down")
 .export __src_down
 .proc __src_down
+	ldxy post
+	cmpw #0
+	beq @endofbuff
 @l0:	jsr __src_next
 	jsr atcursor
 	cmp #$0d
@@ -273,6 +276,7 @@ data:
 	ldxy post
 	cmpw #0
 	bne @l0
+@endofbuff:
 	clc
 :	rts	; end of the buffer
 .endproc

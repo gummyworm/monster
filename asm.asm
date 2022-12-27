@@ -209,14 +209,7 @@ __asm_tokenize:
 	jsr getopcode
 	cmp #ASM_OPCODE
 	bne @label
-	ldy #$00
-	lda (line),y	; must be followed by whitespace
-	cmp #' '
-	beq :+
-	cmp #$0d
-	beq :+
-	jmp @err
-:	stx __asm_result
+	stx __asm_result
 	jmp @getws1
 
 @label:
@@ -229,13 +222,14 @@ __asm_tokenize:
 
 ; from here onwards we are either reading a comment or an operand
 @getws1:
+	ldy #$00
 	lda (line),y
 	incw line
 	cmp #$0d
 	bne :+
 	jmp @done
 :	cmp #' '
-	bne @getws1
+	beq @getws1
 
 	lda (line),y
 	cmp #'('
@@ -411,6 +405,9 @@ __asm_tokenize:
 @noerr: ldx zp::tmp5
 	inx
 	txa
+	pha
+	jsr __asm_advancepc
+	pla
 	rts
 
 @validate_cc:
@@ -787,6 +784,15 @@ bbb00:
 	bne @next
 	dey
 	bpl @l1
+
+	; make sure there are no trailing characters
+	ldy #$03
+	lda (line),y
+	cmp #$0d
+	beq @done
+	cmp #' '
+	beq @done
+	jmp @err
 
 @done:	lda @op
 	tax
