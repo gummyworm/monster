@@ -111,7 +111,7 @@ __cur_toggle:
 	bcs @done
 	ldy #1
 	ldx #$00
-	jsr __cur_move
+	jmp __cur_move
 @done:	rts
 .endproc
 
@@ -123,7 +123,7 @@ __cur_toggle:
 	bcs @done
 	ldy #0
 	ldx #1
-	jsr __cur_move
+	jmp __cur_move
 @done:	rts
 .endproc
 
@@ -134,10 +134,9 @@ __cur_toggle:
 	beq @done
 	ldy #0
 	ldx #$ff
-	jsr __cur_move
+	jmp __cur_move
 @done:	rts
 .endproc
-
 
 ;--------------------------------------
 ; move updates the cursor's (x,y) position by the offsets given in (.X,.Y).

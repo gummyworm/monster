@@ -69,21 +69,22 @@ DIR_ROW=1
 .export __text_update
 .proc __text_update
 	lda zp::curx
-	and #$f0
-	lsr
-	lsr
-	lsr
-	lsr
-	tax
-	cmp #1
-	adc #'0'
+	ldx #$ff
+:	sec
+	sbc #10
+	inx
+	bcs :-
+
+	sta zp::tmp0
+	lda #'9'+1
+	clc
+	adc zp::tmp0
 	sta mem::statusline+STATUS_COL+1
 
-	lda zp::curx
-	and #$0f
-	cmp #10
-	adc mem::statusline+STATUS_COL+1
-	sta mem::statusline+STATUS_COL+1
+	txa
+	clc
+	adc #'0'
+	sta mem::statusline+STATUS_COL
 
 	; add current PC - "*=$XXXX"
 	lda #'*'

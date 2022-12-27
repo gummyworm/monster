@@ -186,8 +186,8 @@ enter:
 	ldx #$00
 	ldy #$01
 	jsr cur::setmin
-	ldx #20
-	ldy #23
+	ldx #40
+	ldy #STATUS_LINE-1
 	jmp cur::setmax
 .endproc
 
