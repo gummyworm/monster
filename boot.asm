@@ -48,23 +48,10 @@ titlebar:
 irq_handler:
 	jmp $eabf
 enter:
-        jsr bm::init
-        jsr bm::clr
-
-	jsr edit
-
-	ldx #$00
-	ldy #$01
-	jsr cur::set
+	jsr initscr
 
 	;jsr test
 	jsr src::new
-
-	ldxy #titlebar
-	lda #$00
-	jsr text::puts
-	lda #$00
-	jsr bm::rvsline
 
 ;--------------------------------------
 ; main is the main loop for editing a line.
@@ -86,6 +73,27 @@ enter:
 .endproc
 
 ;--------------------------------------
+.proc initscr
+        jsr bm::init
+        jsr bm::clr
+
+	jsr edit
+
+	ldxy #titlebar
+	lda #$00
+	jsr text::puts
+	lda #$00
+	jsr bm::rvsline
+
+	ldx #$00
+	ldy #$01
+	jsr cur::set
+
+	rts
+.endproc
+
+
+;--------------------------------------
 ; onkey is called upon the user pressing a key.
 .proc onkey
 	cmp #$85	; F1 (Save As)
@@ -97,6 +105,9 @@ enter:
 :	cmp #$87	; F5 (Load)
 	bne :+
 	jmp load
+:	cmp #$bc	;C=<C> (Refresh)
+	bne :+
+	jmp refresh
 :	cmp #$b4 	; C=<H> (Help)
 	bne :+
 	jmp help
@@ -111,12 +122,23 @@ enter:
 	jmp memview
 :	cmp #$b6 	; C=<L> (Dir)
 	bne :+
-	jsr dir
-	rts
+	jmp dir
 
 :	jsr insert
 	jsr cur::off
-	jsr cur::on
+	jmp cur::on
+.endproc
+
+;--------------------------------------
+; refresh redraws the screen
+.proc refresh
+	jsr initscr
+	jsr src::rewind
+@l0:
+	jsr src::readline
+	jsr drawline
+	jsr src::end
+	bne @l0
 	rts
 .endproc
 
@@ -243,14 +265,8 @@ loadingmsg:
 :	lda #ASM_OPCODE
 	jsr fmt::line
 
-	; redraw the current (formatted) line
-	pha
-	lda zp::cury
-	jsr text::drawline
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-	pla
-	jsr text::hioff
+@nextline:
+	jsr drawline
 
 	; update memory display (if view is enabled)
 	jsr memview
@@ -258,26 +274,12 @@ loadingmsg:
 	; reset flags
 	lda #$01
 	sta text::insertmode
-@nextline:
-	; scroll lines below cursor position
-	ldy zp::cury
-	iny
-	tya
-	ldx #ERROR_ROW-1
-	jsr text::scrolldown
 
 	jsr clrerror
-
-	; move the cursor to the next line
-	ldy zp::cury
-	iny
-	ldx #$00
-	jsr cur::set
 
 	; redraw the cleared status line
 	jsr text::update
 	jsr text::status
-	jsr refresh
 
 	; redraw everything from <cursor> to EOL on next line
 	jsr src::get
@@ -307,6 +309,32 @@ loadingmsg:
 .endproc
 
 ;--------------------------------------
+; drawline draws the line in mem::linebuffer at the current cursor position.
+; The cursor is then updated and the screen scrolled.
+.proc drawline
+	lda zp::cury
+	jsr text::drawline
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	jsr text::hioff
+@nextline:
+	; scroll lines below cursor position
+	ldy zp::cury
+	iny
+	tya
+	ldx #ERROR_ROW-1
+	jsr text::scrolldown
+
+	jsr clrerror
+
+	; move the cursor to the next line
+	ldy zp::cury
+	iny
+	ldx #$00
+	jmp cur::set
+.endproc
+
+;--------------------------------------
 ; memview displays the memory view (if enabled)
 .proc memview
 	lda features
@@ -328,12 +356,6 @@ loadingmsg:
 	ldx #$08
 	lda zp::cury
 	jmp text::hiline
-.endproc
-
-;--------------------------------------
-; refresh redraws all the visible lines.
-.proc refresh
-	rts
 .endproc
 
 ;--------------------------------------

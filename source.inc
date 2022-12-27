@@ -1,5 +1,6 @@
 .import __src_backspace
 .import __src_delete
+.import __src_end
 .import __src_insert
 .import __src_replace
 .import __src_puts
@@ -24,6 +25,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 .scope src
 	backspace = __src_backspace
 	delete = __src_delete
+	end = __src_end
 	insert = __src_insert
 	replace = __src_replace
 	puts = __src_puts

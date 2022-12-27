@@ -27,6 +27,15 @@ data:
 .endproc
 
 ;--------------------------------------
+;  end returns .Z set if the cursor is at the end of the buffer.
+.export __src_end
+.proc __src_end
+	ldxy post
+	cmpw #$0000
+	rts
+.endproc
+
+;--------------------------------------
 ; loaddir loads the directory listing into mem::spare
 .export __src_loaddir
 .proc __src_loaddir
@@ -242,7 +251,7 @@ data:
 .export __src_up
 .proc __src_up
 @l0:	jsr __src_prev
-	jsr atcursor_rep
+	jsr atcursor
 	cmp #$0d
 	beq :+
 	jsr cursor
@@ -258,7 +267,7 @@ data:
 .export __src_down
 .proc __src_down
 @l0:	jsr __src_next
-	jsr atcursor_rep
+	jsr atcursor
 	cmp #$0d
 	beq :+
 	ldxy post
@@ -266,7 +275,6 @@ data:
 	bne @l0
 	clc
 :	rts	; end of the buffer
-
 .endproc
 
 ;--------------------------------------
@@ -336,17 +344,6 @@ data:
 ;--------------------------------------
 ; atcursor returns the character at the cursor position.
 .proc atcursor
-	jsr cursor
-	sub16 #1
-	stxy zp::tmp0
-	ldy #$00
-	lda (zp::tmp0),y
-	rts
-.endproc
-
-;--------------------------------------
-; atcursor returns the character at the cursor position.
-.proc atcursor_rep
 	jsr cursor
 	sub16 #1
 	stxy zp::tmp0
@@ -433,7 +430,7 @@ data:
 .proc __src_rewind
 @l0:	jsr __src_prev
 	ldxy pre
-	cmpw #$0000
+	cmpw #1
 	bne @l0
 	rts
 .endproc
@@ -471,7 +468,7 @@ data:
 	beq @done
 	inc @cnt
 	ldxy post
-	cmpw #$0000
+	cmpw #0
 	bne @l0
 @done:	rts
 .endproc

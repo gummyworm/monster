@@ -46,10 +46,19 @@ __cur_on:
 .export __cur_toggle
 __cur_toggle:
 @dst=zp::tmp0
-	lda zp::curx
+	ldx zp::curx
+	ldy zp::cury
+	lda curstatus
+	beq :+		; cursor is being turned on
+	ldx prev_x
+	ldy prev_y
+	cpx #$ff	; old cursor is undefined, don't clear
+	beq @done
+
+:	txa
 	and #$fe
 	tax
-	lda zp::cury
+	tya
 	asl
 	asl
 	asl
@@ -72,6 +81,11 @@ __cur_toggle:
 	lda #1
 	eor curstatus
 	sta curstatus
+
+@done:  lda zp::curx
+	sta prev_x
+	lda zp::cury
+	sta prev_y
 	rts
 
 ;--------------------------------------
@@ -208,3 +222,5 @@ minx: .byte 0
 maxx: .byte 40
 miny: .byte 0
 maxy: .byte 24
+prev_x: .byte $ff
+prev_y: .byte $ff
