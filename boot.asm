@@ -132,6 +132,7 @@ enter:
 ;--------------------------------------
 ; refresh redraws the screen
 .proc refresh
+	jsr cur::off
 	jsr initscr
 	jsr src::rewind
 @l0:

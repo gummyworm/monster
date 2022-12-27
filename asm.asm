@@ -210,21 +210,29 @@ __asm_tokenize:
 	cmp #ASM_OPCODE
 	bne @label
 	stx __asm_result
-	jmp @getws1
+	jmp @getopws
 
 @label:
 	jsr islabel
 	bpl :+
 	jmp @err
-:	jsr __asm_addlabel
+:	ldx line
+	ldy line+1
+	jsr __asm_addlabel
 	lda #$00
 	rts
 
 ; from here onwards we are either reading a comment or an operand
-@getws1:
+@getopws:
 	ldy #$00
 	lda (line),y
+	cmp #$0d
+	bne @getws1
+	jmp @done
+
+@getws1:
 	incw line
+	lda (line),y
 	cmp #$0d
 	bne :+
 	jmp @done
@@ -254,8 +262,11 @@ __asm_tokenize:
 	cmp #$ff
 	bne @cont
 	jsr getlabel
+	sta @operandsz
+	stx __asm_result+1
+	sty __asm_result+2
 	cmp #$ff
-	beq :+
+	bne :+
 	pla
 	jmp @err
 :
@@ -289,7 +300,8 @@ __asm_tokenize:
 	beq @index
 	jmp @err
 
-@index:	lda (line),y
+@index:
+	lda (line),y
 	cmp #','
 	bne @getws2
 	incw line
@@ -316,7 +328,7 @@ __asm_tokenize:
 	cmp #$0d
 	beq @done
 	cmp #' '
-	bne @getws2
+	beq @getws2
 
 @comment:
 	lda (line),y
@@ -420,7 +432,11 @@ __asm_tokenize:
 :	cpy #$02
 	bne :+
 	lda bbb10,x
-:	asl
+
+:	cmp #$ff
+	beq @err
+
+	asl
 	asl
 	ora @cc
 	ora __asm_result
@@ -626,10 +642,12 @@ bbb00:
 
 ;--------------------------------------
 ; getlabel returns the address of the label in (line) in (<X,>Y).
+; The size of the label is returned in .A (1 if zeropage, 2 if not)
+; line is updated to the character after the label.
 .export getlabel
 .proc getlabel
-@l=zp::tmp2
-@num=zp::tmp4
+@l=zp::tmp6
+@num=zp::tmp8
 	lda #$ff
 	sta @num
 
@@ -668,13 +686,26 @@ bbb00:
 	cmp #$0d
 	bne @err
 
-@done:	lda @num
+@done:	tya
+	clc
+	adc line
+	sta line
+	bcc :+
+	inc line+1
+
+:	lda @num
 	asl
 	tax
 	lda label_addresses,x
 	ldy label_addresses+1,x
 	tax
-	rts
+
+	; get the size of the label
+	lda #2
+	cpy #0
+	bne :+
+	lda #1
+:	rts
 
 @err:	lda #$ff
 	rts
@@ -937,14 +968,15 @@ bbb00:
 .endproc
 
 ;--------------------------------------
-; addlabel adds a label of .A len in (YX) to the label table.  The address of
-; the label is provided in zp::tmp0 (line)
+; addlabel adds a ':' terminated label of in (YX) to the label table.  The address of
 .export __asm_addlabel
 .proc __asm_addlabel
 @label=zp::tmp6
 @savey=zp::tmp8
 @src=zp::tmpa
-	pha
+@len=zp::tmpc
+	lda #$00
+	sta @len
 	stx @src
 	sty @src+1
 
@@ -960,18 +992,29 @@ bbb00:
 	incw @label
 	bne @l0
 
-	; free label location found
-@found: pla
+@found:
+	; get the label length
+:	lda (@src),y
+	iny
+	cmp #':'
+	bne :-
+	dey
+
+	; free label location found, write the length
+	tya
+	ldy #$00
 	sta (@label),y
 	tay
 	dey
 	incw @label
 
+	; write the label
 :	lda (@src),y
 	sta (@label),y
 	dey
 	bpl :-
 
+@done:
 	; store the address of the label in the label_addresses table
 	lda numlabels
 	asl
