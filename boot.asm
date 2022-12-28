@@ -271,7 +271,7 @@ loadingmsg:
 	lda #$01
 	sta text::insertmode
 
-	jsr clrerror
+	;jsr clrerror
 
 	; redraw the cleared status line
 	jsr text::update
@@ -281,8 +281,7 @@ loadingmsg:
 	jsr src::get
 	ldxy #mem::linebuffer
 	lda zp::cury
-	jsr text::print
-	rts
+	jmp text::print
 
 @err:	lda #$ff
 	jsr fmt::line
@@ -317,12 +316,18 @@ loadingmsg:
 	; scroll lines below cursor position
 	ldy zp::cury
 	iny
-	tya
+	cpy #ERROR_ROW-1
+	bcc :+
+	; we're at the bottom, scroll whole screen up
+	jsr text::scrollup
+	jmp @done
+
+:	tya
 	ldx #ERROR_ROW-1
 	jsr text::scrolldown
 
+@done:
 	jsr clrerror
-
 	; move the cursor to the next line
 	ldy zp::cury
 	iny
@@ -404,36 +409,54 @@ loadingmsg:
 
 ;--------------------------------------
 .proc ccup
+	lda zp::cury
+	pha
 	jsr cur::up
 	jsr src::up
-	jsr src::get
+	pla
+	bcc :+		; if at start of buffer, don't scroll
+
+	cmp zp::cury
+	bne :+
+	lda #$01
+	ldx #STATUS_LINE-1
+	jsr text::scrolldown	; cursor wasn't moved, scroll
+
+:	jsr src::get
 	lda zp::cury
 	ldxy #mem::linebuffer
-	jsr text::drawline
-	rts
+	jmp text::drawline
 .endproc
 
 ;--------------------------------------
 .proc ccleft
 	jsr cur::left
-	jsr src::prev
-	rts
+	jmp src::prev
 .endproc
 
 ;--------------------------------------
 .proc ccright
 	jsr cur::right
-	jsr src::next
-	rts
+	jmp src::next
 .endproc
 
 ;--------------------------------------
 .proc ccdown
 	jsr src::down
-	bcc :+
+	bcc @done
+	lda zp::cury
+	pha
 	jsr cur::down
-	jsr src::get
-:	rts
+	pla
+	cmp zp::cury
+	bne :+
+	jsr text::scrollup	; cursor wasn't moved, scroll
+:	jsr src::get
+	lda zp::cury
+	ldxy #mem::linebuffer
+	jsr text::drawline
+@done:
+	rts
 .endproc
 
 ;--------------------------------------

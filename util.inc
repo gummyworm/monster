@@ -5,6 +5,8 @@
 .import __util_memset
 .import __util_memcpy
 .import __util_strncmp
+.import __util_strlen
+.import __util_todec
 
 .scope util
 	hextostr = __util_hextostr
@@ -12,6 +14,8 @@
 	memset = __util_memset
 	memcpy = __util_memcpy
 	strncmp = __util_strncmp
+	strlen = __util_strlen
+	todec = __util_todec
 .endscope
 
 .macro copy dst, src, len

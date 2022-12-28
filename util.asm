@@ -74,6 +74,53 @@
 .endproc
 
 ;--------------------------------------
+; todec returns a ptr to a decimal representation of the value given in .XY
+; in mem::spare
+.export __util_todec
+.proc __util_todec
+result=mem::spare
+	lda #'0'
+	sta result
+	sta result+1
+	sta result+2
+	sta result+3
+	sta result+4
+@l1000s:
+	sub16 #1000
+	bcc @do100s
+	inc result+1
+	lda result+1
+	cmp #'9'+1
+	bcc @l1000s
+	lda #'0'
+	sta result+1
+	inc result
+	bne @l1000s
+
+@do100s:
+	add16 #1000
+@l100s:
+	sub16 #100
+	bcc @do10s
+	inc result+2
+	bne @l100s
+
+@do10s:
+	add16 #100
+@l10s:
+	sub16 #10
+	bcc @do1s
+	inc result+3
+	bne @l10s
+@do1s:
+	txa
+	clc
+	adc #10+'0'
+	sta result+4
+	rts
+.endproc
+
+;--------------------------------------
 ; strncmp compares the strings in (tmp0) and (tmp2) up to a length of .A
 ; If the strings are equal, 0 is returned in .A. and the zero flag is set.
 .export __util_strncmp
@@ -88,6 +135,22 @@
 :	dey
 	bpl @l0
 @match:	lda #$00
+	rts
+.endproc
+
+;--------------------------------------
+; strlen returns the length of the string in .YX in .A
+.export __util_strlen
+.proc __util_strlen
+@str=zp::tmp0
+	stx @str
+	sty @str+1
+	ldy #$00
+@l0:	lda (@str),y
+	beq @done
+	iny
+	bne @l0
+@done:	tya
 	rts
 .endproc
 

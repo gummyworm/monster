@@ -68,88 +68,66 @@ DIR_ROW=1
 ; update updates the statusline according to the current cursor position.
 .export __text_update
 .proc __text_update
-	lda zp::curx
-	ldx #$ff
-:	sec
-	sbc #10
-	inx
-	bcs :-
+COLUMN_START=STATUS_COL+2
+LINE_START=STATUS_COL+5
+SIZE_START=STATUS_COL+13
+MODE_START=STATUS_COL
+	ldy #$00
+	ldx zp::curx
+	jsr util::todec
 
-	sta zp::tmp0
-	lda #'9'+1
-	clc
-	adc zp::tmp0
-	sta mem::statusline+STATUS_COL+1
+	lda mem::spare+3
+	sta mem::statusline+COLUMN_START
+	lda mem::spare+4
+	sta mem::statusline+COLUMN_START+1
+	lda #','
+	sta mem::statusline+COLUMN_START+2
 
-	txa
-	clc
-	adc #'0'
-	sta mem::statusline+STATUS_COL
+	ldxy src::line
+	jsr util::todec
+	ldx #4
+:	lda mem::spare,x
+	sta mem::statusline+LINE_START,x
+	dex
+	bpl :-
 
 	; add current PC - "*=$XXXX"
+	lda #'['
+	sta mem::statusline+SIZE_START
 	lda #'*'
-	sta mem::statusline+STATUS_COL+3
+	sta mem::statusline+SIZE_START+1
 	lda #'='
-	sta mem::statusline+STATUS_COL+4
+	sta mem::statusline+SIZE_START+2
 	lda #'$'
-	sta mem::statusline+STATUS_COL+5
+	sta mem::statusline+SIZE_START+3
 
 	lda asm::pc+1
 	jsr util::hextostr
-	sty mem::statusline+STATUS_COL+6
-	stx mem::statusline+STATUS_COL+7
+	sty mem::statusline+SIZE_START+4
+	stx mem::statusline+SIZE_START+5
 	lda asm::pc
 	jsr util::hextostr
-	sty mem::statusline+STATUS_COL+8
-	stx mem::statusline+STATUS_COL+9
+	sty mem::statusline+SIZE_START+6
+	stx mem::statusline+SIZE_START+7
+	lda #']'
+	sta mem::statusline+SIZE_START+8
 
 	; current edit mode (insert or replace)
 	ldx #'r'
 	lda __text_insertmode
 	beq :+
 	ldx #'i'
-:	stx mem::statusline+STATUS_COL+11
-
-	; cursor position in file
-	;jsr src::pos
-	ldx #$ab
-	ldy #$cd
-	txa
-	pha
-	tya
-	jsr util::hextostr
-	sty mem::statusline+STATUS_COL+13
-	stx mem::statusline+STATUS_COL+14
-	pla
-	jsr util::hextostr
-	sty mem::statusline+STATUS_COL+15
-	stx mem::statusline+STATUS_COL+16
-
-	lda #'/'
-	sta mem::statusline+STATUS_COL+17
-
-	; file size
-	;jsr src::size
-	ldx #$ab
-	ldy #$cd
-	txa
-	pha
-	tya
-	jsr util::hextostr
-	sty mem::statusline+STATUS_COL+18
-	stx mem::statusline+STATUS_COL+19
-	pla
-	jsr util::hextostr
-	sty mem::statusline+STATUS_COL+20
-	stx mem::statusline+STATUS_COL+21
+:	stx mem::statusline+MODE_START
 
 	; filename
-	ldx #0
-:	lda src::name,x
-	sta mem::statusline+23,x
-	cmp #$00
-	beq @blink
-	inx
+	ldxy #src::name
+	jsr util::strlen
+	tay
+	ldx #39
+:	lda src::name,y
+	sta mem::statusline,x
+	dex
+	dey
 	bpl :-
 
 @blink: dec curtmr
@@ -338,13 +316,13 @@ curtmr=*+1
 
 ;--------------------------------------
 ; scroll scrolls all lines including and below row .A UP
-.proc __text_scroll
-.export __text_scroll
+.proc __text_scrollup
+.export __text_scrollup
 @rowstop=zp::tmp0
 @src=zp::tmp1
 @dst=zp::tmp3
 @startline=1
-@stopline=@startline+14
+@stopline=@startline+21
 	asl
 	asl
 	asl
@@ -352,37 +330,37 @@ curtmr=*+1
 	sta @rowstop
 
 	ldxy #BITMAP_ADDR+(8*(@startline+1))
-	stx @dst
-	sty @dst+1
-	ldxy #BITMAP_ADDR+(8*@startline)
 	stx @src
 	sty @src+1
+	ldxy #BITMAP_ADDR+(8*@startline)
+	stx @dst
+	sty @dst+1
 
 	ldx #19
-@l0:	ldy #8*(@stopline-@startline)
+@l0:	ldy #$00
 @l1:    lda #$00
-	cpy #8+(@startline*8)
+	cpy #8
 	bcc :+
 	lda (@src),y
 :	sta (@dst),y
-	dey
-	cpy @rowstop
-	bne @l1
+	iny
+	cpy #8*(@stopline-@startline)
+	bcc @l1
+
 	lda @src
 	clc
 	adc #$c0
 	sta @src
-	lda @src+1
-	adc #$00
-	sta @src+1
-	lda @dst
+	bcc :+
+	inc @src+1
+:	lda @dst
 	clc
 	adc #$c0
 	sta @dst
-	lda @dst+1
-	adc #$00
-	sta @dst+1
-	dex
+	bcc :+
+	inc @dst+1
+
+:	dex
 	bpl @l0
 	rts
 .endproc

@@ -2,6 +2,7 @@
 .import __src_delete
 .import __src_end
 .import __src_insert
+.import __src_line
 .import __src_replace
 .import __src_puts
 .import __src_buffer
@@ -27,6 +28,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	delete = __src_delete
 	end = __src_end
 	insert = __src_insert
+	line = __src_line
 	replace = __src_replace
 	puts = __src_puts
 	buffer = __src_buffer

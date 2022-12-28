@@ -92,22 +92,21 @@ __cur_toggle:
 .export __cur_up
 .proc __cur_up
 	lda zp::cury
-	bne :+
-	tay
+	cmp miny
+	bcs :+
+	ldy miny
 	ldx #$00
-	jsr __cur_set
-	rts
+	jmp __cur_set
 :	ldy #$ff
 	ldx #$00
-	jsr __cur_move
-	rts
+	jmp __cur_move
 .endproc
 
 ;--------------------------------------
 .export __cur_down
 .proc __cur_down
 	lda zp::cury
-	cmp #19
+	cmp maxy
 	bcs @done
 	ldy #1
 	ldx #$00
@@ -172,8 +171,17 @@ __cur_toggle:
 ; set sets the cursor position (x,y) to the values given in (.X,.Y)
 .export __cur_set
 .proc __cur_set
-	stx zp::tmp2
-	sty zp::tmp3
+	cpx maxx
+	bcc :+
+	ldx maxx
+	dex
+:	stx zp::tmp2
+
+	cpy maxy
+	bcc :+
+	ldy maxy
+	dey
+:	sty zp::tmp3
 	jsr __cur_off
 
 	ldx zp::tmp2

@@ -12,6 +12,10 @@ pre:  .word 0       ; # of bytes before the gap
 post: .word 0       ; # of bytes after the gap
 len:  .word GAPSIZE ; size of the buffer (pre+post+gap)
 
+.export __src_line
+__src_line:
+line: .word 0       ; the current line # of the cursor
+
 .export __src_buffer
 __src_buffer:
 buffer:
@@ -248,16 +252,25 @@ data:
 ;--------------------------------------
 ; up moves the cursor back one line or to the start of the buffer if it is
 ; already on the first line
+; .C is set if cursor is at the start of the buffer
 .export __src_up
 .proc __src_up
+	ldxy pre
+	cmpw #0
+	bne @l0
+	clc
+	rts
+
 @l0:	jsr __src_prev
 	jsr atcursor
 	cmp #$0d
 	beq :+
-	jsr cursor
-	cmpw #data
+	ldxy pre
+	cmpw #0
 	bne @l0
-:	rts
+	clc
+:	decw line
+	rts
 .endproc
 
 ;--------------------------------------
@@ -278,7 +291,10 @@ data:
 	bne @l0
 @endofbuff:
 	clc
-:	rts	; end of the buffer
+	rts
+
+:	incw line
+	rts	; end of the buffer
 .endproc
 
 ;--------------------------------------
@@ -312,7 +328,10 @@ data:
 	ldy #$00
 	pla
 	sta (@dst),y
-	incw pre
+	cmp #$0d
+	bne :+
+	incw line
+:	incw pre
 	rts
 .endproc
 
@@ -447,7 +466,9 @@ data:
 .export __src_readb
 .proc __src_readb
 	jsr atcursor
-	pha
+	cmp #$0d
+	bne :+
+:	pha
 	jsr __src_next
 	pla
 	rts
