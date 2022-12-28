@@ -228,6 +228,6 @@ curstatus: .byte 0
 minx: .byte 0
 maxx: .byte 40
 miny: .byte 0
-maxy: .byte 24
+maxy: .byte 23
 prev_x: .byte $ff
 prev_y: .byte $ff

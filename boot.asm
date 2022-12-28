@@ -187,7 +187,7 @@ enter:
 	ldy #$01
 	jsr cur::setmin
 	ldx #40
-	ldy #STATUS_LINE-1
+	ldy #STATUS_LINE
 	jmp cur::setmax
 .endproc
 
@@ -318,9 +318,11 @@ loadingmsg:
 	iny
 	cpy #ERROR_ROW-1
 	bcc :+
-	; we're at the bottom, scroll whole screen up
+	; if we're at the bottom, scroll whole screen up
 	jsr text::scrollup
-	jmp @done
+	ldy zp::cury
+	ldx #$00
+	jmp cur::set
 
 :	tya
 	ldx #ERROR_ROW-1
@@ -409,15 +411,18 @@ loadingmsg:
 
 ;--------------------------------------
 .proc ccup
+	ldxy src::line
+	cmpw #0
+	beq :+		; at line 0, don't scroll
+
 	lda zp::cury
 	pha
 	jsr cur::up
 	jsr src::up
 	pla
-	bcc :+		; if at start of buffer, don't scroll
-
 	cmp zp::cury
 	bne :+
+
 	lda #$01
 	ldx #STATUS_LINE-1
 	jsr text::scrolldown	; cursor wasn't moved, scroll

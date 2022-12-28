@@ -68,8 +68,8 @@ DIR_ROW=1
 ; update updates the statusline according to the current cursor position.
 .export __text_update
 .proc __text_update
-COLUMN_START=STATUS_COL+2
-LINE_START=STATUS_COL+5
+COLUMN_START=STATUS_COL+3
+LINE_START=STATUS_COL+6
 SIZE_START=STATUS_COL+13
 MODE_START=STATUS_COL
 	ldy #$00
