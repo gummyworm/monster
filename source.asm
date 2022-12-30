@@ -228,7 +228,11 @@ data:
 	lda (@src),y
 	sta (@dst),y
 
-	incw pre
+	cmp #$0d
+	bne :+
+	incw line
+
+:	incw pre
 	decw post
  @skip:	jmp atcursor
 .endproc
@@ -278,7 +282,11 @@ data:
 	lda (@src),y
 	sta (@dst),y
 
-	decw pre
+	cmp #$0d
+	bne :+
+	decw line
+
+:	decw pre
 	incw post
  @skip:	jmp atcursor
 .endproc
@@ -291,20 +299,20 @@ data:
 .proc __src_up
 	ldxy pre
 	cmpw #0
-	bne :+
-	clc
+	bne @l0
+	sec
 	rts
 
-:	decw line
 @l0:	jsr __src_prev
-	jsr atcursor
 	cmp #$0d
 	beq :+
 	ldxy pre
 	cmpw #0
 	bne @l0
-	clc
-:	rts
+	sec
+	rts
+:	clc
+	rts
 .endproc
 
 ;--------------------------------------
@@ -315,11 +323,10 @@ data:
 .proc __src_down
 	ldxy post
 	cmpw #0
-	bne :+
+	bne @l0
 	clc
 	rts
 
-:	incw line
 @l0:	jsr __src_next
 	cmp #$0d
 	beq :+

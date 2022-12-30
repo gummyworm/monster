@@ -414,10 +414,12 @@ loadingmsg:
 	ldxy src::line
 	cmpw #0
 	bne :+		; at line 0, don't scroll
-	rts
+	jsr src::up
+	ldx #$00
+	ldy zp::cury
+	jmp cur::set
 
 :	jsr src::up
-
 	lda zp::cury
 	pha
 	jsr cur::up
@@ -430,14 +432,7 @@ loadingmsg:
 	lda zp::curx	; leftmost column
 	beq @redraw
 
-	; if we weren't left-aligned, we only reset the line, move up again
-@lalign:
-	jsr src::start
-	beq :+
-	jsr src::prev
-	cmp #$0d
-	bne @lalign
-	;jsr src::next
+	jsr src::up
 
 :	jsr src::get	; for rendering get source from start of line
 
@@ -472,6 +467,7 @@ loadingmsg:
 ;--------------------------------------
 .proc ccleft
 	lda zp::curx
+	beq :+
 	pha
 	jsr cur::left
 	pla
