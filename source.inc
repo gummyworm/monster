@@ -15,7 +15,9 @@
 .import __src_load
 .import __src_loaddir
 .import __src_save
+.import __src_start
 .import __src_rename
+.import __src_right
 .import __src_name
 .import __src_rewind
 .import __src_readb
@@ -39,9 +41,11 @@ GAPSIZE = 20	; size of gap in gap buffer
 	down = __src_down
 	get = __src_get
 	save = __src_save
+	start = __src_start
 	load = __src_load
 	loaddir = __src_loaddir
 	rename = __src_rename
+	right = __src_right
 	name = __src_name
 	rewind = __src_rewind
 	readb = __src_readb

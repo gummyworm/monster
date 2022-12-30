@@ -40,6 +40,16 @@ data:
 .endproc
 
 ;--------------------------------------
+;  start returns .Z set if the cursor is at the start of the buffer.
+.export __src_start
+.proc __src_start
+	ldxy pre
+	cmpw #$0000
+	rts
+.endproc
+
+
+;--------------------------------------
 ; loaddir loads the directory listing into mem::spare
 .export __src_loaddir
 .proc __src_loaddir
@@ -197,6 +207,7 @@ data:
 
 ;--------------------------------------
 ; next moves the cursor up one character in the gap buffer.
+; Returns the character at the new cursor position in .A
 .export __src_next
 .proc __src_next
 @src=zp::tmp0
@@ -219,11 +230,34 @@ data:
 
 	incw pre
 	decw post
- @skip:	rts
+ @skip:	jmp atcursor
+.endproc
+
+;--------------------------------------
+; right moves to the next character unless it is a newline
+; .C is set if the cursor was moved, clear if not
+.export __src_right
+.proc __src_right
+	ldxy post
+	cmpw #0
+	bne :+
+	clc
+	rts
+
+:	jsr __src_next
+	cmp #$0d
+	bne :+
+	jsr __src_prev
+	clc
+	rts
+
+:	sec
+	rts
 .endproc
 
 ;--------------------------------------
 ; prev moves the cursor back one character in the gap buffer.
+; The character at the new position is returned in .A
 .export __src_prev
 .proc __src_prev
 @src=zp::tmp0
@@ -246,7 +280,7 @@ data:
 
 	decw pre
 	incw post
- @skip:	rts
+ @skip:	jmp atcursor
 .endproc
 
 ;--------------------------------------
@@ -257,10 +291,11 @@ data:
 .proc __src_up
 	ldxy pre
 	cmpw #0
-	bne @l0
+	bne :+
 	clc
 	rts
 
+:	decw line
 @l0:	jsr __src_prev
 	jsr atcursor
 	cmp #$0d
@@ -269,8 +304,7 @@ data:
 	cmpw #0
 	bne @l0
 	clc
-:	decw line
-	rts
+:	rts
 .endproc
 
 ;--------------------------------------
@@ -281,20 +315,19 @@ data:
 .proc __src_down
 	ldxy post
 	cmpw #0
-	beq @endofbuff
+	bne :+
+	clc
+	rts
+
+:	incw line
 @l0:	jsr __src_next
-	jsr atcursor
 	cmp #$0d
 	beq :+
 	ldxy post
 	cmpw #0
 	bne @l0
-@endofbuff:
-	clc
-	rts
-
-:	incw line
-	rts	; end of the buffer
+	clc	; end of the buffer
+:	rts
 .endproc
 
 ;--------------------------------------
@@ -306,8 +339,8 @@ data:
 @dst=zp::tmp4
 	pha
 	jsr gaplen
-	cmpw #$0000 ; is gap closed?
-	bne @ins    ; no, insert as usual
+	cmpw #0		; is gap closed?
+	bne @ins	; no, insert as usual
 
 	; gap is closed, create a new one
 	; copy data[poststart] to data[poststart + len]
@@ -466,10 +499,11 @@ data:
 .export __src_readb
 .proc __src_readb
 	jsr atcursor
+	pha
 	cmp #$0d
 	bne :+
-:	pha
-	jsr __src_next
+	incw line
+:	jsr __src_next
 	pla
 	rts
 .endproc
@@ -513,6 +547,7 @@ data:
 	cmpw #$00
 	beq @done
 	stxy @cnt
+	incw @cnt
 
 	ldy #$00
 @l0:	lda (@src),y

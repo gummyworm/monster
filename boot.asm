@@ -413,21 +413,57 @@ loadingmsg:
 .proc ccup
 	ldxy src::line
 	cmpw #0
-	beq :+		; at line 0, don't scroll
+	bne :+		; at line 0, don't scroll
+	rts
+
+:	jsr src::up
 
 	lda zp::cury
 	pha
 	jsr cur::up
-	jsr src::up
 	pla
 	cmp zp::cury
-	bne :+
+	beq @scroll
 
+@noscroll:
+@cnt=zp::tmp6
+	lda zp::curx	; leftmost column
+	beq @redraw
+
+	; if we weren't left-aligned, we only reset the line, move up again
+@lalign:
+	jsr src::start
+	beq :+
+	jsr src::prev
+	cmp #$0d
+	bne @lalign
+	;jsr src::next
+
+:	jsr src::get	; for rendering get source from start of line
+
+	; go til lesser of curx or newline ($0d)
+	lda #$ff
+	sta @cnt
+:	inc @cnt
+	lda @cnt
+	cmp zp::curx
+	bcs @redraw2
+	jsr src::next
+	cmp #$0d
+	bne :-
+	ldx @cnt
+	ldy zp::cury
+	jsr cur::set
+	jmp @redraw2
+
+@scroll:
 	lda #$01
 	ldx #STATUS_LINE-1
 	jsr text::scrolldown	; cursor wasn't moved, scroll
 
-:	jsr src::get
+@redraw:
+	jsr src::get
+@redraw2:
 	lda zp::cury
 	ldxy #mem::linebuffer
 	jmp text::drawline
@@ -435,21 +471,31 @@ loadingmsg:
 
 ;--------------------------------------
 .proc ccleft
+	lda zp::curx
+	pha
 	jsr cur::left
+	pla
+	cmp zp::curx
+	beq :+
 	jmp src::prev
+:	rts
 .endproc
 
 ;--------------------------------------
 .proc ccright
-	jsr cur::right
-	jmp src::next
+	jsr src::right
+	bcc :+
+	jmp cur::right
+:	rts
 .endproc
 
 ;--------------------------------------
 .proc ccdown
 	jsr src::down
-	bcc @done
-	lda zp::cury
+	bcs :+
+	rts
+
+:	lda zp::cury
 	pha
 	jsr cur::down
 	pla
@@ -457,11 +503,17 @@ loadingmsg:
 	bne :+
 	jsr text::scrollup	; cursor wasn't moved, scroll
 :	jsr src::get
-	lda zp::cury
 	ldxy #mem::linebuffer
-	jsr text::drawline
-@done:
-	rts
+
+	lda zp::curx
+	beq @draw
+	sta zp::tmp6
+:	jsr src::right
+	dec zp::tmp6
+	bne :-
+@draw:
+	lda zp::cury
+	jmp text::drawline
 .endproc
 
 ;--------------------------------------
