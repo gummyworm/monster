@@ -433,8 +433,7 @@ loadingmsg:
 	beq @redraw
 
 	jsr src::up
-
-:	jsr src::get	; for rendering get source from start of line
+	jsr src::get	; for rendering get source from start of line
 
 	; go til lesser of curx or newline ($0d)
 	lda #$ff
@@ -446,6 +445,7 @@ loadingmsg:
 	jsr src::next
 	cmp #$0d
 	bne :-
+	jsr src::prev
 	ldx @cnt
 	ldy zp::cury
 	jsr cur::set
@@ -487,27 +487,68 @@ loadingmsg:
 
 ;--------------------------------------
 .proc ccdown
-	jsr src::down
-	bcs :+
+@cnt=zp::tmp6
+@newy=zp::tmp7
+@xend=zp::tmp8
+	jsr src::end
+	bne :+
 	rts
 
-:	lda zp::cury
+:	lda #$00
+	sta @cnt
+	lda zp::cury
+	sta @newy
+
+	jsr src::down
+	bcs :+
+	jsr src::up
+	jsr src::get
+	lda #$ff
+	sta @xend
+	jmp @movex
+
+:	inc @newy
+	lda zp::curx
+	sta @xend
+	jsr src::get
+
+	; if the cursor is on a newline, we're done
+	;jsr src::next
+	jsr src::end
+	beq @movecur
+	jsr src::next
+	jsr src::atcursor
+	cmp #$0d
+	php
+	jsr src::prev
+	plp
+	beq @movecur
+
+@movex:
+	jsr src::next
+	cmp #$0d
+	beq @movecur
+	inc @cnt
+	lda @cnt
+	cmp @xend
+	bcs @movecur
+	jsr src::end
+	bne @movex
+
+@movecur:
+	ldx @cnt
+	lda @newy
+	tay
 	pha
-	jsr cur::down
+	jsr cur::set
 	pla
 	cmp zp::cury
-	bne :+
-	jsr text::scrollup	; cursor wasn't moved, scroll
-:	jsr src::get
-	ldxy #mem::linebuffer
+	beq @redraw
 
-	lda zp::curx
-	beq @draw
-	sta zp::tmp6
-:	jsr src::right
-	dec zp::tmp6
-	bne :-
-@draw:
+	jsr text::scrollup	; cursor wasn't moved, scroll
+
+@redraw:
+	ldxy #mem::linebuffer
 	lda zp::cury
 	jmp text::drawline
 .endproc

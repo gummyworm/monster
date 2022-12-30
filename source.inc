@@ -1,3 +1,4 @@
+.import __src_atcursor
 .import __src_backspace
 .import __src_delete
 .import __src_end
@@ -26,6 +27,7 @@
 GAPSIZE = 20	; size of gap in gap buffer
 
 .scope src
+	atcursor = __src_atcursor
 	backspace = __src_backspace
 	delete = __src_delete
 	end = __src_end

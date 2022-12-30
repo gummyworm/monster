@@ -406,6 +406,8 @@ data:
 
 ;--------------------------------------
 ; atcursor returns the character at the cursor position.
+.export __src_atcursor
+__src_atcursor:
 .proc atcursor
 	jsr cursor
 	sub16 #1
