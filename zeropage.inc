@@ -43,6 +43,7 @@ irq3 = $e9
 irq4 = $ea
 ;--------------------------------------
 ; cursor
+asmresult = $e9	; pointer where code is assembled
 curx = $eb
 cury = $ec
 

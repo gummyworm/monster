@@ -3,6 +3,7 @@
 .import __mem_backbuff
 .import __linebuffer
 .import __linebuffer2
+.import __mem_program
 .import __statusline
 
 .scope mem
@@ -11,5 +12,6 @@
 	backbuff        = __mem_backbuff
 	linebuffer      = __linebuffer
 	linebuffer2     = __linebuffer2
+	program		= __mem_program
 	statusline	= __statusline
 .endscope

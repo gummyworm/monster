@@ -24,11 +24,6 @@ err_illegal_directive:
 line = zp::tmp0
 
 ;--------------------------------------
-.export __asm_result
-__asm_result: .res 3
-.export __asm_pc
-__asm_pc:
-pc: .word 0
 errors: .word 0	 ; no error
 	.word err_unaligned_label
 	.word err_illegal_opcode
@@ -148,6 +143,15 @@ opcodetab:
 .byt $18, $38, $58, $78, $98, $B8, $D8, $F8
 .byt $8A, $9A, $AA, $BA, $CA, $EA
 
+; directives
+directives:
+.byte "db",0,"dw",0
+directives_len=*-directives
+
+directive_vectors:
+.word definebyte
+.word defineword
+
 ;--------------------------------------
 ; report error prints the error in .A
 .export __asm_reporterr
@@ -186,6 +190,7 @@ __asm_tokenize:
 @immediate=zp::tmp4 ; 1=immediate, 0=not immediate
 @operandsz=zp::tmp5 ; size of the operand (in bytes)
 @cc=zp::tmp9
+@resulttype=zp::tmpa
 	stx line
 	sty line+1
 
@@ -194,8 +199,6 @@ __asm_tokenize:
 	sta @indexed
 	sta @operandsz
 	sta @immediate
-	lda #$ff
-	sta __asm_result
 
 	ldy #$00
 @getws0:
@@ -209,18 +212,30 @@ __asm_tokenize:
 	jsr getopcode
 	cmp #ASM_OPCODE
 	bne @label
-	stx __asm_result
+	sta @resulttype
+	txa
+	ldy #$00
+	sta (zp::asmresult),y
 	jmp @getopws
 
 @label:
 	jsr islabel
-	bpl :+
-	jmp @err
-:	ldx line
+	bmi @directive
+	sta @resulttype
+	ldx line
 	ldy line+1
 	jsr __asm_addlabel
 	lda #$00
 	rts
+
+@directive:
+	jsr getdirective
+	cmp #$ff
+	bne :+
+	jmp @err
+:	lda #ASM_DIRECTIVE
+	sta @resulttype
+	jmp @getws2
 
 ; from here onwards we are either reading a comment or an operand
 @getopws:
@@ -256,20 +271,35 @@ __asm_tokenize:
 	tya
 	pha
 	jsr getvalue
+	bcs @notvalue
 	sta @operandsz
-	stx __asm_result+1
-	sty __asm_result+2
-	cmp #$ff
-	bne @cont
+	tya
+	ldy #$02
+	sta (zp::asmresult),y
+	dey
+	txa
+	sta (zp::asmresult),y
+	jmp @cont
+
+@notvalue:
 	jsr getlabel
-	sta @operandsz
-	stx __asm_result+1
-	sty __asm_result+2
 	cmp #$ff
 	bne :+
 	pla
 	jmp @err
-:
+
+:	sta @operandsz
+	tya
+	pha
+	txa
+	ldy #$01
+	sta (zp::asmresult),y
+	pla
+	cpy @operandsz
+	beq @cont 		; zeropage label
+	iny
+	sta (zp::asmresult),y
+
 ; TODO: use address of label
 
 @cont:	pla
@@ -323,6 +353,7 @@ __asm_tokenize:
 	inc @indexed
 
 @getws2:
+	ldy #$00
 	lda (line),y
 	incw line
 	cmp #$0d
@@ -345,28 +376,25 @@ __asm_tokenize:
 	cmp #$0d
 	bne :-
 
-	tya
-	pha
 	ldx line
 	ldy line+1
-
-	lda pc
-	sta line
-	lda pc+1
-	sta line+1
-
-	pla
 	jsr addcomment
 
 ; done, create the assembled result based upon the opcode, operand, and addr mode
 @done:
-	jsr getaddrmode
+	lda @resulttype
+	cmp #ASM_OPCODE
+	beq :+
+	rts		; if not an instruction, we're done
+
+:	jsr getaddrmode
 	cmp #$ff
 	beq @err
 	tax
 
 	; JMP (xxxx) has a different opcode than JMP
-	lda __asm_result
+	ldy #$00
+	lda (zp::asmresult),y
 	cmp #$40
 	bne @getbbb
 	lda @cc
@@ -378,13 +406,13 @@ __asm_tokenize:
 	cpx #ABS_IND	; only abs-indirect is supported for JMP (XXXX)
 	bne @err
 	lda #$6c
-	sta __asm_result
+	sta (zp::asmresult),y
 	jmp @noerr
 @jmpabs:
 	cpx #ABS
 	bne @err 	; only ABS supported for JMP XXXX
 	lda #$4c
-	sta __asm_result
+	sta (zp::asmresult),y
 	jmp @noerr
 
 @getbbb:
@@ -394,7 +422,7 @@ __asm_tokenize:
 	bne @validate_cc
 
 	; check if opcode was a JSR
-	lda __asm_result
+	lda (zp::asmresult),y
 	cmp #$20
 	bne :+
 	cpx #ABS
@@ -414,12 +442,19 @@ __asm_tokenize:
 	beq @noerr
 @err:	lda #$ff
 	rts
-@noerr: ldx zp::tmp5
+
+@noerr: ldx @operandsz
 	inx
 	txa
 	pha
-	jsr __asm_advancepc
-	pla
+
+	; update asm::result pointer by (1 + operand size)
+	clc
+	adc zp::asmresult
+	sta zp::asmresult
+	bcc :+
+	inc zp::asmresult+1
+:	pla
 	rts
 
 @validate_cc:
@@ -439,7 +474,8 @@ __asm_tokenize:
 	asl
 	asl
 	ora @cc
-	ora __asm_result
+	ldy #$00
+	ora (zp::asmresult),y
 
 @final_validate:
 	; check for invalid instructions ("gaps" in the ISA)
@@ -449,7 +485,7 @@ __asm_tokenize:
 	dex
 	bpl :-
 
-	sta __asm_result
+	sta (zp::asmresult),y
 	jmp @noerr
 
 @illegal_opcodes:
@@ -481,20 +517,6 @@ __asm_tokenize:
 
 @num_illegals = *-@illegal_opcodes
 
-.endproc
-
-;---------------------------------------
-; advancepc updates the PC based on the operand size.
-.export __asm_advancepc
-.proc __asm_advancepc
-@operandsz=zp::tmp5
-	lda @operandsz
-	sec
-	adc pc
-	sta pc
-	bcc :+
-	inc pc+1
-:	rts
 .endproc
 
 ;---------------------------------------
@@ -596,6 +618,7 @@ bbb00:
 ; getvalue parses (line) for a hexadecimal value.  If it succeeds, the size
 ; is returned in .A and the value in (<.X/>.Y) and line is updated to point
 ; after the value.
+; .C is set on error and clear if a value was extracted.
 .export getvalue
 .proc getvalue
 @val=zp::tmp6
@@ -604,7 +627,7 @@ bbb00:
 	sta @val+1
 	lda (line),y
 	cmp #'$'
-	bne :+
+	bne @convertchar
 	iny
 
 @l0:	lda (line),y
@@ -619,12 +642,13 @@ bbb00:
 	cmp #'0'
 	bcc @err
 	cmp #'9'+1
-	bcs :+
+	bcs @convertchar
 	sec
 	sbc #'0'
 	jmp @next
 
-:	cmp #'a'
+@convertchar:
+	cmp #'a'
 	bcc @err
 	cmp #'f'+1
 	bcs @err
@@ -664,18 +688,40 @@ bbb00:
 :	pla
 	ldx @val
 	ldy @val+1
+	clc
 	rts
 
-@err:	lda #$ff
+@err:	sec
 	rts
 .endproc
 
 ;--------------------------------------
-; __asm_setpc sets the address to be assembled to to (YX)
-.export __asm_setpc
-.proc __asm_setpc
-	stx pc
-	sty pc+1
+; gettext parses an enquoted text string and returns it in mem::spare
+; returns the length in .A ($ff if no string was found)
+.proc gettext
+	ldy #$00
+	lda (line),y
+	cmp #'"'
+	bne @err
+
+	ldx #$00
+@l0:
+	incw line
+	lda (line),y
+	cmp #'"'
+	beq @done
+	cmp #$0d
+	beq @err	; no closing quote
+	sta mem::spare,x
+	inx
+	bne @l0
+@done:
+	incw line
+	txa
+	clc
+	rts
+@err:
+	sec
 	rts
 .endproc
 
@@ -899,7 +945,6 @@ bbb00:
 	bcc :+
 	inc line+1
 :	lda #ASM_OPCODE
-	lda #ASM_OPCODE
 	rts
 
 @next:	lda @optab
@@ -918,9 +963,132 @@ bbb00:
 .endproc
 
 ;--------------------------------------
-; getmode returns the addressing mode of the operand given in (line)
-.proc getmode
+.proc getdirective
+@cnt=zp::tmp2
+	ldy #$00
+	lda (line),y
+	cmp #'.'
+	beq :+
+	lda #$ff	; not a directive
+	rts
 
+:	ldx #$00
+	stx @cnt
+@l0:	ldy #$00
+@l1:	lda directives,x
+	beq @found
+	inx
+	iny
+	cmp (line),y
+	beq @l1
+
+	cpx #directives_len
+	bne :+
+	lda #$ff	; no match
+	rts
+
+:	inc @cnt
+@l2:	lda directives,x ; move to next directive
+	inx
+	cmp #$00
+	beq @l0
+
+@found:
+	tya
+	sec
+	adc line
+	sta line
+	bcc :+
+	inc line+1
+:	jsr processws
+
+	lda @cnt
+	asl
+	tax
+	lda directive_vectors,x
+	sta @vec
+	lda directive_vectors+1,x
+	sta @vec+1
+@vec=*+1
+	jmp $fadd
+.endproc
+
+;--------------------------------------
+.proc processws
+	ldy #$00
+	lda (line),y
+	cmp #' '
+	bne @done
+@l0:
+	incw line
+	lda (line),y
+	cmp #' '
+	beq @l0
+@done:
+	rts
+.endproc
+
+;--------------------------------------
+; defines 0 or more bytes and stores them in (asmresult)
+; Returns the number of bytes written in .A
+.proc definebyte
+	jsr getvalue
+	bcs @text
+	cmp #$01
+	bne @err	; over/undersized value
+	; store the extracted value
+	ldy #$00
+	txa
+	sta (zp::asmresult),y
+	incw zp::asmresult
+	jmp @commaorws
+
+@text:	jsr gettext
+	bcs @err
+	; store the extracted text
+	tay
+	tax
+	beq @done
+	dex
+	dey
+:	lda mem::spare,y
+	sta (zp::asmresult),y
+	dey
+	bpl :-
+	txa
+	sec
+	adc zp::asmresult
+	sta zp::asmresult
+	bcc :+
+	inc zp::asmresult+1
+:	txa
+	rts
+
+@commaorws:
+	ldy #$00
+	lda (line),y
+	cmp #$0d
+	beq @done
+	incw line
+	cmp #','
+	beq definebyte
+	cmp #' '
+	beq @commaorws
+	; unexpected character
+@err:
+	lda #$ff
+	rts
+
+@done:
+	rts
+
+.endproc
+
+;--------------------------------------
+.proc defineword
+	; TODO
+	lda #$ff
+	rts
 .endproc
 
 ;--------------------------------------

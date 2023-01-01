@@ -495,7 +495,7 @@ __src_atcursor:
 .proc __src_rewind
 @l0:	jsr __src_prev
 	ldxy pre
-	cmpw #1
+	cmpw #0
 	bne @l0
 	rts
 .endproc

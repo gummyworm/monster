@@ -50,6 +50,10 @@ irq_handler:
 enter:
 	jsr initscr
 
+	; set address to assemble to
+	ldxy #mem::program
+	stxy zp::asmresult
+
 	;jsr test
 	jsr src::new
 
@@ -583,3 +587,6 @@ ccvectors:
 
 features:
 .byte 0
+
+prog_ptr:
+.word mem::program
