@@ -48,14 +48,17 @@ titlebar:
 irq_handler:
 	jmp $eabf
 enter:
-	jsr initscr
-
 	; set address to assemble to
 	ldxy #mem::program
 	stxy zp::asmresult
 
 	;jsr test
 	jsr src::new
+
+reenter:
+	jsr initscr
+	ldx #$ff
+	txs
 
 ;--------------------------------------
 ; main is the main loop for editing a line.
@@ -98,14 +101,91 @@ enter:
 
 
 ;--------------------------------------
+.proc command_go
+	jsr asm::label_address
+	stxy @target
+@target=*+1
+	jmp $f00d
+	jmp reenter
+.endproc
+
+;--------------------------------------
+; command_asm assembles the entire source into mem::program
+.export command_asm
+.proc command_asm
+	lda src::line	; save line #
+	pha
+	lda src::line+1
+	pha
+
+	jsr src::rewind
+	jsr asm::reset
+@doline:
+	jsr src::readline
+	ldxy #mem::linebuffer
+	jsr asm::tokenize
+	jsr src::end
+	bne @doline
+
+	pla
+	tax
+	pla
+	tay
+	; jsr src::goto
+	rts
+.endproc
+
+;--------------------------------------
+.proc docommand
+; .A contains the command
+	lda zp::curx
+	pha
+	lda zp::cury
+	pha
+
+	; get a line of input
+	ldx #$00
+	ldy #STATUS_LINE
+	jsr cur::set
+	cli
+@getkey:
+	jsr key::getch
+	cmp #$0d
+	beq @done
+	cmp #$00
+	beq @getkey
+	sei
+	jsr text::putch
+	cli
+	jmp @getkey
+@done:
+	jsr text::putch	; add the newline
+	pla
+	tax
+	pla
+	tay
+	jsr cur::set
+	pla
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	cmp #'g'
+	bne :+
+	jsr command_go
+:	rts
+.endproc
+
+;--------------------------------------
 ; onkey is called upon the user pressing a key.
 .proc onkey
-	cmp #$85	; F1 (Save As)
-	bne :+
-	jmp saveas
-:	cmp #$86	; F3 (Save)
+	cmp #$85	; F1 (save)
 	bne :+
 	jmp save
+:	cmp #$89	; F2 (save as)
+	bne :+
+	jmp saveas
+:	cmp #$86	; F3 (assemble)
+	bne :+
+	jmp command_asm
 :	cmp #$87	; F5 (Load)
 	bne :+
 	jmp load
@@ -120,17 +200,28 @@ enter:
 	jmp rename
 :	cmp #$be	; C=<V> (View)
 	bne :+
-	lda features
-	eor #FEATURE_VIEW
-	sta features
-	jmp memview
+	jsr toggle_memview
 :	cmp #$b6 	; C=<L> (Dir)
 	bne :+
 	jmp dir
-
+:	cmp #$a5	; C=<G> (GO)
+	bne :+
+	lda #'g'
+	jmp docommand
 :	jsr insert
 	jsr cur::off
 	jmp cur::on
+.endproc
+
+;--------------------------------------
+.proc toggle_memview
+	lda features
+	eor #FEATURE_VIEW
+	sta features
+	beq :+
+	inc $900f
+	jmp bm::restore
+:	jmp bm::save
 .endproc
 
 ;--------------------------------------
@@ -565,6 +656,7 @@ loadingmsg:
 	jsr src::backspace
 @done:	rts
 .endproc
+
 
 ;--------------------------------------
 controlcodes:

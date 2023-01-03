@@ -1,3 +1,4 @@
+.include "bitmap.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "text.inc"
@@ -8,6 +9,13 @@
 ROW_START=15
 ROW_STOP=23
 COL_STOP=8
+
+;--------------------------------------
+; off turns off the memory view window
+.export __view_off
+.proc __view_off
+	jmp bm::restore
+.endproc
 
 ;--------------------------------------
 ; mem displays the contents of memory in a large block beginning with the

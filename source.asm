@@ -542,6 +542,58 @@ __src_atcursor:
 .endproc
 
 ;--------------------------------------
+; goto goes to the line given in .YX
+.export __src_goto
+.proc __src_goto
+@dest=zp::tmp4
+	stxy @dest
+	cmpw line
+	beq @done
+	bcc @backwards
+@forwards:
+	jsr __src_nextline
+	ldxy line
+	cmpw @dest
+	bne @forwards
+	rts
+@backwards:
+	jsr __src_backline
+	ldxy line
+	cmpw @dest
+	bne @backwards
+@done:
+	rts
+.endproc
+
+;--------------------------------------
+; backline retreats the source to the beginning of the line
+.export __src_backline
+.proc __src_backline
+@l0:
+	jsr __src_prev
+	cmp #$0d
+	beq @done
+	jsr __src_start
+	bne @l0
+@done:
+	rts
+.endproc
+
+;--------------------------------------
+; nextline moves the cursor to the next line
+.export __src_nextline
+.proc __src_nextline
+@l0:
+	jsr __src_next
+	cmp #$0d
+	beq @done
+	jsr __src_end
+	bne @l0
+@done:
+	rts
+.endproc
+
+;--------------------------------------
 ; get returns the text at the current cursor position in mem::linebuffer
 .export __src_get
 .proc __src_get

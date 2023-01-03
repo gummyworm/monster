@@ -65,9 +65,7 @@ DIR_ROW=1
 .endproc
 
 ;--------------------------------------
-; update updates the statusline according to the current cursor position.
-.export __text_update
-.proc __text_update
+.proc draw_statusline
 COLUMN_START=STATUS_COL+3
 LINE_START=STATUS_COL+6
 SIZE_START=STATUS_COL+13
@@ -134,6 +132,14 @@ MODE_START=STATUS_COL
 	dex
 	dey
 	bpl :-
+	rts
+.endproc
+
+;--------------------------------------
+; update updates the statusline according to the current cursor position.
+.export __text_update
+.proc __text_update
+	jsr draw_statusline
 
 @blink: dec curtmr
 curtmr=*+1

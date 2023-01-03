@@ -368,7 +368,8 @@ __asm_tokenize:
 	beq @done
 	cmp #';'
 	; error- trailing garbage
-	bne @err
+	beq :+
+	jmp @err
 
 	; get length of comment
 :	iny
@@ -432,12 +433,36 @@ __asm_tokenize:
 :	; check if opcode was a branch
 	and #$1f
 	cmp #$10
-	bne :+
+	bne @verifyimm
+
 	cpx #ABS	; only ABS/ZP supported for branches
 	bne @err
-	jmp @noerr ; TODO: get relative address for branch instruction
+	; convert operand to relative address
+	ldy #$01
+	lda (zp::asmresult),y
+	sec
+	sbc zp::asmresult
+	iny
+	tax
+	lda (zp::asmresult),y
+	sbc zp::asmresult+1
+	beq :+
+	cmp #$ff
+	beq :+
+	bne @err		; address out of range
 
-:	; remaining opcodes are single byte- implied/accumulator only
+	; replace 2 byte operand with 1 byte relative address
+:	txa
+	sec
+	sbc #$02	; offset is -2 from current instruction's address
+	dey
+	sta (zp::asmresult),y
+	lda #$01
+	sta @operandsz
+	jmp @noerr
+
+@verifyimm:
+	; remaining opcodes are single byte- implied/accumulator only
 	cpx #IMPLIED
 	beq @noerr
 @err:	lda #$ff
@@ -726,6 +751,17 @@ bbb00:
 .endproc
 
 ;--------------------------------------
+; label_address returns the address of the label in (.YX)
+; The size of the label is returned in .A (1 if zeropage, 2 if not)
+; line is updated to the character after the label.
+.export __asm_label_address
+.proc __asm_label_address
+	stx line
+	sty line+1
+	jmp getlabel
+.endproc
+
+;--------------------------------------
 ; getlabel returns the address of the label in (line) in (<X,>Y).
 ; The size of the label is returned in .A (1 if zeropage, 2 if not)
 ; line is updated to the character after the label.
@@ -767,6 +803,8 @@ bbb00:
 	bne @l1
 	lda (line),y
 	cmp #' '
+	beq @done
+	cmp #','
 	beq @done
 	cmp #$0d
 	bne @err
@@ -1226,9 +1264,9 @@ bbb00:
 	lda numlabels
 	asl
 	tax
-	lda line
+	lda zp::asmresult
 	sta label_addresses,x
-	lda line+1
+	lda zp::asmresult+1
 	sta label_addresses+1,x
 
 	inc numlabels
@@ -1272,6 +1310,17 @@ bbb00:
 	rts
 .endproc
 
+;--------------------------------------
+; reset resets the internal assembly context (labels and pointer to target)
+.export __asm_reset
+.proc __asm_reset
+	ldxy #mem::program
+	stxy zp::asmresult
+
+	lda #$00
+	sta numlabels
+	rts
+.endproc
 
 ;--------------------------------------
 .export __asm_labels
