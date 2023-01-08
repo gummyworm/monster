@@ -38,6 +38,10 @@ start:
         lda #$20
         jsr irq::raster
 	jsr src::new
+	lda #<brkhandler
+	sta $0316
+	lda #>brkhandler
+	sta $0317
         jmp enter
 
 ;--------------------------------------
@@ -45,6 +49,12 @@ start:
 titlebar:
 .byte "monster                      c=<h>: help"
 
+;--------------------------------------
+.proc brkhandler
+	jmp reenter
+.endproc
+
+;--------------------------------------
 irq_handler:
 	jmp $eabf
 enter:
@@ -59,6 +69,7 @@ reenter:
 	ldx #$ff
 	txs
 	jsr initscr
+	jsr text::clrline
 
 ;--------------------------------------
 ; main is the main loop for editing a line.
@@ -105,7 +116,7 @@ reenter:
 	jsr asm::label_address
 	stxy @target
 @target=*+1
-	jmp $f00d
+	jsr $f00d
 	jmp reenter
 .endproc
 
@@ -144,13 +155,18 @@ reenter:
 	jsr text::clrline
 	rts
 
-success_msg: .byte "done. ", $fe, "  bytes", 0
+success_msg: .byte "done. ", $fe, " bytes", 0
 .endproc
 
 ;--------------------------------------
 .proc docommand
 ; .A contains the command
 	pha
+	sta @cmd
+
+	ldx #$02
+	ldy #$01
+	jsr cur::setmin
 
 	lda zp::curx
 	pha
@@ -158,10 +174,20 @@ success_msg: .byte "done. ", $fe, "  bytes", 0
 	pha
 
 	; get a line of input
-	ldx #$00
+	ldx #$02
 	ldy #STATUS_LINE
 	jsr cur::set
 	jsr text::clrline
+
+@cmd=*+1
+	lda #$00
+	sta mem::linebuffer
+	lda #':'
+	sta mem::linebuffer+1
+
+	ldxy #mem::linebuffer
+	lda #STATUS_LINE-1
+	jsr text::drawline
 	cli
 @getkey:
         lda #$70
@@ -187,8 +213,8 @@ success_msg: .byte "done. ", $fe, "  bytes", 0
 	jsr cur::set
 
 	pla
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
+	ldx #<(mem::linebuffer+2)
+	ldy #>(mem::linebuffer+2)
 	cmp #'g'
 	bne :+
 	jsr command_go

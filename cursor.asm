@@ -225,9 +225,19 @@ __cur_toggle:
 .endproc
 
 curstatus: .byte 0
+
+.export __cur_minx
+__cur_minx:
 minx: .byte 0
+.export __cur_maxx
+__cur_maxx:
 maxx: .byte 40
+.export __cur_miny
+__cur_miny:
 miny: .byte 0
+.export __cur_maxy
+__cur_maxy:
 maxy: .byte 23
+
 prev_x: .byte $ff
 prev_y: .byte $ff

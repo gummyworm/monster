@@ -10,10 +10,18 @@
 .import __cur_setmin
 .import __cur_setmax
 .import __cur_unlimit
+.import __cur_maxx
+.import __cur_minx
+.import __cur_maxy
+.import __cur_miny
 
 .scope cur
 	on = __cur_on
 	off = __cur_off
+	maxx = __cur_maxx
+	minx = __cur_minx
+	maxy = __cur_maxy
+	miny = __cur_miny
 	move = __cur_move
 	set = __cur_set
 	up = __cur_up

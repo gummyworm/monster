@@ -299,6 +299,9 @@ curtmr=*+1
 	sec
 	lda zp::curx
 	beq @done	; cannot delete (cursor is at left side of screen)
+	cmp cur::minx
+	bcc @done	; cursor is limited
+	beq @done
 	lda __text_insertmode
 	beq @movex
 	jsr __text_linelen

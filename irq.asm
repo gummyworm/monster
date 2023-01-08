@@ -11,6 +11,14 @@ CYCLES_PER_LINE = 65
 TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster int.
 
 ;--------------------------------------
+.export __irq_brk
+.proc __irq_brk
+	stx $0316
+	sty $0315
+	rts
+.endproc
+
+;--------------------------------------
 .export __irq_raster
 .proc __irq_raster
         sei
