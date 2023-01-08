@@ -10,7 +10,8 @@
 .include "zeropage.inc"
 .CODE
 
-ESCAPE_CHARACTER = $ff
+ESCAPE_STRING = $ff
+ESCAPE_VALUE = $fe
 ESCAPE_RVS_ON = $01
 ESCAPE_RVS_OFF = $02
 STATUS_LINE = 23
@@ -171,17 +172,26 @@ curtmr=*+1
 @str = zp::tmp0
 @row = zp::tmp2
 @savex = zp::tmp3
+@savey = zp::tmp4
+@ret = zp::tmp5
 @buff = @printbuffer
         stx @str
         sty @str+1
 	sta @row
 
+	pla
+	sta @ret
+	pla
+	sta @ret+1
+
         ldx #$00
         ldy #$00
 ;copy the string (substituting escaped characters)
 @l0:    lda (@str),y
-        beq @disp
-	cmp #$18	; TAB
+	bne :+
+	jmp @disp
+
+:	cmp #$18	; TAB
 	bne :+
 	lda #' '
 	sta @buff,x
@@ -194,22 +204,52 @@ curtmr=*+1
 	inx
 	jmp @cont
 
-:	cmp #ESCAPE_CHARACTER
+:	cmp #ESCAPE_STRING
+	beq @string
+	cmp #ESCAPE_VALUE
         bne @ch
 
-;substitute escape character with string from stack
-@esc:	stx @savex
-	tsx
-	lda $103,x
-	sta @sub
-	lda $104,x
-	sta @sub+1
-	ldx @savex
+;substitute escape character with value from stack
+@value:
+	stx @savex
+	sty @savey
 
+	pla
+	jsr util::hextostr
+	txa
+	ldx @savex
+	sta @buff+1,x
+	tya
+	sta @buff,x
+
+	inc $900f
+	pla
+	jsr util::hextostr
+	txa
+	ldx @savex
+	sta @buff+3,x
+	tya
+	sta @buff+2,x
+
+	inx
+	inx
+	inx
+	inx
+	ldy @savey
+	jmp @cont
+
+;substitute escape character with string from stack
+@string:
+	pla
+	sta @sub
+	pla
+	sta @sub+1
 @sub=*+1
 @l1:	lda $ffff
 	beq @cont
 	cmp #' '
+	beq @cont
+	cmp #$0d
 	beq @cont
 	sta @buff,x
 	inc @sub
@@ -218,24 +258,30 @@ curtmr=*+1
 :	inx
 	bne @l1
 
-@ch:    sta @buff,x
+@ch:
+	sta @buff,x
 	inx
 
-@cont:	iny
+@cont:
+	iny
         jmp @l0
 
-@disp:  lda #' '
+@disp:
+	lda #' '
 :	sta @buff,x
 	inx
 	cpx #40
 	bcc :-
 
+	lda @ret+1
+	pha
+	lda @ret
+	pha
+
 	ldx #<@buff
 	ldy #>@buff
 	lda @row
-        jsr __text_puts
-
-        rts
+	jmp __text_puts
 @printbuffer: .res 40
 .endproc
 
@@ -321,8 +367,7 @@ curtmr=*+1
 @done:	ldx #<mem::spare
 	ldy #>mem::spare
 	pla
-        jsr __text_puts
-	rts
+	jmp __text_puts
 .endproc
 
 ;--------------------------------------

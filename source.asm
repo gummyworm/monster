@@ -7,6 +7,10 @@ GAPSIZE = 20	; size of gap in gap buffer
 
 .segment "DATA"
 .export src_debug
+
+sp: .byte 0
+stack: .res 32
+
 src_debug:
 pre:  .word 0       ; # of bytes before the gap
 post: .word 0       ; # of bytes after the gap
@@ -27,6 +31,49 @@ data:
 ;  new initializes the source buffer
 .export __src_new
 .proc __src_new
+	lda #$00
+	sta sp
+	rts
+.endproc
+
+;--------------------------------------
+; pushp pushes the current source position to an internal stack.
+.export __src_pushp
+.proc __src_pushp
+	lda pre
+	pha
+	lda pre+1
+	tay
+
+	lda sp
+	asl
+	tax
+	inc sp
+
+	pla
+	sta stack,x
+	tya
+	sta stack+1,x
+	rts
+.endproc
+
+;--------------------------------------
+; popp returns the the most recent source position pushed in .YX
+.export __src_popp
+.proc __src_popp
+	lda sp
+	beq :+
+
+	dec sp
+	lda sp
+	asl
+	tax
+	lda stack+1,x
+	tay
+	lda stack,x
+	tax
+
+:
 	rts
 .endproc
 
@@ -495,7 +542,7 @@ __src_atcursor:
 .proc __src_rewind
 @l0:	jsr __src_prev
 	ldxy pre
-	cmpw #0
+	cmpw #1
 	bne @l0
 	rts
 .endproc
@@ -509,10 +556,7 @@ __src_atcursor:
 .proc __src_readb
 	jsr atcursor
 	pha
-	cmp #$0d
-	bne :+
-	incw line
-:	jsr __src_next
+	jsr __src_next
 	pla
 	rts
 .endproc
@@ -538,27 +582,31 @@ __src_atcursor:
 	ldxy post
 	cmpw #0
 	bne @l0
+	; null terminate if end of source
+	lda #$00
+	ldx @cnt
+	sta mem::linebuffer,x
 @done:	rts
 .endproc
 
 ;--------------------------------------
-; goto goes to the line given in .YX
+; goto goes to the source position given in .YX
 .export __src_goto
 .proc __src_goto
 @dest=zp::tmp4
 	stxy @dest
-	cmpw line
+	cmpw pre
 	beq @done
 	bcc @backwards
 @forwards:
-	jsr __src_nextline
-	ldxy line
+	jsr __src_next
+	ldxy pre
 	cmpw @dest
 	bne @forwards
 	rts
 @backwards:
-	jsr __src_backline
-	ldxy line
+	jsr __src_prev
+	ldxy pre
 	cmpw @dest
 	bne @backwards
 @done:

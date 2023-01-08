@@ -56,9 +56,9 @@ enter:
 	jsr src::new
 
 reenter:
-	jsr initscr
 	ldx #$ff
 	txs
+	jsr initscr
 
 ;--------------------------------------
 ; main is the main loop for editing a line.
@@ -113,10 +113,7 @@ reenter:
 ; command_asm assembles the entire source into mem::program
 .export command_asm
 .proc command_asm
-	lda src::line	; save line #
-	pha
-	lda src::line+1
-	pha
+	jsr src::pushp
 
 	jsr src::rewind
 	jsr asm::reset
@@ -124,20 +121,37 @@ reenter:
 	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
+	inc @ll
 	jsr src::end
 	bne @doline
+@ll=*+1
+	lda #$00
 
-	pla
-	tax
-	pla
-	tay
-	; jsr src::goto
+	;jsr src::popp
+	;jsr src::goto
+
+@printresult:
+	ldxy zp::asmresult
+	sub16 #mem::program
+	txa
+	pha
+	tya
+	pha
+
+	ldxy #success_msg
+	lda #STATUS_LINE-1
+	jsr text::print
+	jsr text::clrline
 	rts
+
+success_msg: .byte "done. ", $fe, "  bytes", 0
 .endproc
 
 ;--------------------------------------
 .proc docommand
 ; .A contains the command
+	pha
+
 	lda zp::curx
 	pha
 	lda zp::cury
@@ -147,8 +161,14 @@ reenter:
 	ldx #$00
 	ldy #STATUS_LINE
 	jsr cur::set
+	jsr text::clrline
 	cli
 @getkey:
+        lda #$70
+        cmp $9004
+        bne *-3
+	jsr text::update
+
 	jsr key::getch
 	cmp #$0d
 	beq @done
@@ -165,6 +185,7 @@ reenter:
 	pla
 	tay
 	jsr cur::set
+
 	pla
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer

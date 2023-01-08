@@ -241,14 +241,17 @@ __asm_tokenize:
 @getopws:
 	ldy #$00
 	lda (line),y
+	beq :+
 	cmp #$0d
 	bne @getws1
-	jmp @done
+:	jmp @done
 
 @getws1:
 	incw line
 	lda (line),y
-	cmp #$0d
+	bne :+
+	jmp @done
+:	cmp #$0d
 	bne :+
 	jmp @done
 :	cmp #' '
@@ -299,8 +302,6 @@ __asm_tokenize:
 	beq @cont 		; zeropage label
 	iny
 	sta (zp::asmresult),y
-
-; TODO: use address of label
 
 @cont:	pla
 	tay
@@ -355,6 +356,7 @@ __asm_tokenize:
 @getws2:
 	ldy #$00
 	lda (line),y
+	beq @done
 	incw line
 	cmp #$0d
 	beq @done
@@ -363,6 +365,7 @@ __asm_tokenize:
 
 @comment:
 	lda (line),y
+	beq @done
 	incw line
 	cmp #$0d
 	beq @done
@@ -374,10 +377,11 @@ __asm_tokenize:
 	; get length of comment
 :	iny
 	lda (line),y
+	beq :+
 	cmp #$0d
 	bne :-
 
-	ldx line
+:	ldx line
 	ldy line+1
 	jsr addcomment
 
@@ -656,6 +660,7 @@ bbb00:
 	iny
 
 @l0:	lda (line),y
+	beq @done
 	cmp #' '
 	beq @done
 	cmp #$0d
@@ -733,6 +738,7 @@ bbb00:
 @l0:
 	incw line
 	lda (line),y
+	beq @err	; no closing quote
 	cmp #'"'
 	beq @done
 	cmp #$0d
@@ -802,6 +808,7 @@ bbb00:
 	dex
 	bne @l1
 	lda (line),y
+	beq @done
 	cmp #' '
 	beq @done
 	cmp #','
@@ -942,6 +949,7 @@ bbb00:
 	; make sure there are no trailing characters
 	ldy #$03
 	lda (line),y
+	beq @done
 	cmp #$0d
 	beq @done
 	cmp #' '
@@ -1105,6 +1113,7 @@ bbb00:
 @commaorws:
 	ldy #$00
 	lda (line),y
+	beq @done
 	cmp #$0d
 	beq @done
 	incw line
