@@ -769,7 +769,7 @@ bbb00:
 
 ;--------------------------------------
 ; getlabel returns the address of the label in (line) in (<X,>Y).
-; The size of the label is returned in .A (1 if zeropage, 2 if not)
+; The size of the label is returned in .A (1 if zeropage, 2 if not, $ff if no label found)
 ; line is updated to the character after the label.
 .export getlabel
 .proc getlabel

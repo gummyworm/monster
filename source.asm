@@ -237,7 +237,11 @@ data:
 	ldxy pre
 	cmpw #$0000
 	beq @skip
-	decw pre
+	jsr atcursor
+	cmp #$0d
+	bne :+
+	decw line
+:	decw pre
 @skip:	rts
 .endproc
 
@@ -342,6 +346,7 @@ data:
 ; up moves the cursor back one line or to the start of the buffer if it is
 ; already on the first line
 ; .C is set if cursor is at the start of the buffer
+; .A contains the character at the cursor position
 .export __src_up
 .proc __src_up
 	ldxy pre

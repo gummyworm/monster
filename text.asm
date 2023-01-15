@@ -374,26 +374,48 @@ curtmr=*+1
 .endproc
 
 ;--------------------------------------
-; scroll scrolls all lines including and below row .A UP
+; scroll scrolls all lines from .X to .A up
 .proc __text_scrollup
 .export __text_scrollup
-@rowstop=zp::tmp0
 @src=zp::tmp1
 @dst=zp::tmp3
-@startline=1
-@stopline=@startline+21
+@startline=zp::tmp5
+@stopline=zp::tmp6
+@numrows=zp::tmp7
+	stx @numrows
+	pha
+	sec
+	sbc @numrows
 	asl
 	asl
 	asl
-	adc #(@startline*8)
-	sta @rowstop
+	sta @numrows
+	pla
 
-	ldxy #BITMAP_ADDR+(8*(@startline+1))
-	stx @src
-	sty @src+1
-	ldxy #BITMAP_ADDR+(8*@startline)
-	stx @dst
-	sty @dst+1
+	asl
+	asl
+	asl
+	sta @stopline
+
+	txa
+	asl
+	asl
+	asl
+	sta @startline
+
+	lda #<BITMAP_ADDR
+	adc @startline
+	sta @dst
+	lda #>BITMAP_ADDR
+	adc #$00
+	sta @dst+1
+
+	lda @dst
+	adc #8
+	sta @src
+	lda @dst+1
+	adc #$00
+	sta @src+1
 
 	ldx #19
 @l0:	ldy #$00
@@ -403,7 +425,7 @@ curtmr=*+1
 	lda (@src),y
 :	sta (@dst),y
 	iny
-	cpy #8*(@stopline-@startline)
+	cpy @numrows
 	bcc @l1
 
 	lda @src

@@ -114,9 +114,12 @@ reenter:
 ;--------------------------------------
 .proc command_go
 	jsr asm::label_address
+	cmp #$ff
+	beq @not_found
 	stxy @target
 @target=*+1
 	jsr $f00d
+@not_found:
 	jmp reenter
 .endproc
 
@@ -167,6 +170,9 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	ldx #$02
 	ldy #$01
 	jsr cur::setmin
+	ldx #40
+	ldy #STATUS_LINE+1
+	jsr cur::setmax
 
 	lda zp::curx
 	pha
@@ -186,7 +192,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	sta mem::linebuffer+1
 
 	ldxy #mem::linebuffer
-	lda #STATUS_LINE-1
+	lda #STATUS_LINE
 	jsr text::drawline
 	cli
 @getkey:
@@ -198,7 +204,19 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr key::getch
 	cmp #$0d
 	beq @done
-	cmp #$00
+	cmp #$5f	; <- (done)
+	bne :+
+
+	jsr text::clrline
+	jsr edit
+	pla
+	tay
+	pla
+	tax
+	pla
+	jmp cur::set
+
+:	cmp #$00
 	beq @getkey
 	sei
 	jsr text::putch
@@ -207,10 +225,11 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 @done:
 	jsr text::putch	; add the newline
 	pla
-	tax
-	pla
 	tay
+	pla
+	tax
 	jsr cur::set
+	jsr edit
 
 	pla
 	ldx #<(mem::linebuffer+2)
@@ -218,7 +237,8 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	cmp #'g'
 	bne :+
 	jsr command_go
-:	rts
+:	jsr text::clrline
+	rts
 .endproc
 
 ;--------------------------------------
@@ -266,7 +286,6 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	eor #FEATURE_VIEW
 	sta features
 	beq :+
-	inc $900f
 	jmp bm::restore
 :	jmp bm::save
 .endproc
@@ -460,7 +479,10 @@ loadingmsg:
 	iny
 	cpy #ERROR_ROW-1
 	bcc :+
+
 	; if we're at the bottom, scroll whole screen up
+	ldx #1
+	lda #STATUS_LINE-2
 	jsr text::scrollup
 	ldy zp::cury
 	ldx #$00
@@ -687,6 +709,8 @@ loadingmsg:
 	cmp zp::cury
 	beq @redraw
 
+	ldx #1
+	lda #STATUS_LINE-2
 	jsr text::scrollup	; cursor wasn't moved, scroll
 
 @redraw:
@@ -697,11 +721,45 @@ loadingmsg:
 
 ;--------------------------------------
 .proc ccdel
+	jsr src::start
+	bne :+
+	rts
+:	jsr src::backspace
 	lda #$14
 	jsr text::putch
-	bcs @done
-	jsr src::backspace
-@done:	rts
+	bcs @prevline
+	rts
+
+@prevline:
+	; scroll everything from up from below the line we deleted
+	ldx zp::cury
+	dex
+	lda #STATUS_LINE-2
+	jsr text::scrollup
+
+	ldy #-1
+	ldx #0
+	jsr cur::move
+
+	jsr text::clrline
+	jsr src::atcursor
+	cmp #$0d
+	beq :+
+	jsr src::up
+	jsr src::get
+	dec zp::curx
+@endofline:
+	inc zp::curx
+	jsr src::next
+	cmp #$0d
+	beq :+
+	jsr src::end
+	bne @endofline
+
+:	lda zp::cury
+	ldx #<mem::linebuffer
+	ldy #>mem::linebuffer
+	jmp text::drawline
 .endproc
 
 
