@@ -2,6 +2,7 @@
 .import __text_clrline
 .import __text_colstart
 .import __text_puts
+.import __text_putz
 .import __text_charmap
 .import __text_putch
 .import __text_status
@@ -49,6 +50,7 @@
 	clrline  = __text_clrline
         colstart = __text_colstart
         puts     = __text_puts
+	putz   	 = __text_putz
 	putch    = __text_putch
 	print    = __text_print
         charmap  = __text_charmap

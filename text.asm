@@ -61,8 +61,7 @@ DIR_ROW=1
 	ldx #<mem::statusline
 	ldy #>mem::statusline
 	lda #STATUS_LINE
-	jsr __text_print
-	rts
+	jmp __text_putz
 .endproc
 
 ;--------------------------------------
@@ -157,7 +156,7 @@ curtmr=*+1
 ; clrline clears the text linebuffer.
 .export __text_clrline
 .proc __text_clrline
-	lda #$00
+	lda #0
 	ldx #39
 :	sta mem::linebuffer,x
 	dex
@@ -256,6 +255,8 @@ curtmr=*+1
 	bne :+
 	inc @sub+1
 :	inx
+	cpx #40
+	bcs @disp
 	bne @l1
 
 @ch:
@@ -504,6 +505,36 @@ curtmr=*+1
 	cmp #$20
 	bcc @l0
 	rts
+.endproc
+
+
+;--------------------------------------
+.export __text_putz
+.proc __text_putz
+; prints a full width (40 column) string, terminated by a 0.
+;
+@src = $24
+	pha
+	stxy @src
+
+	ldy #39
+	lda #' '
+:	sta mem::spare,y
+	dey
+	bpl :-
+
+	iny
+@l0:
+	lda (@src),y
+	beq @done
+	sta mem::spare,y
+	iny
+	cpy #40
+	bcc @l0
+@done:
+	ldxy #mem::spare
+	pla
+	jmp __text_puts
 .endproc
 
 ;--------------------------------------

@@ -51,6 +51,8 @@ titlebar:
 
 ;--------------------------------------
 .proc brkhandler
+	inc $900f
+	jmp *-3
 	jmp reenter
 .endproc
 
@@ -479,7 +481,6 @@ loadingmsg:
 	iny
 	cpy #ERROR_ROW-1
 	bcc :+
-
 	; if we're at the bottom, scroll whole screen up
 	ldx #1
 	lda #STATUS_LINE-2
@@ -518,8 +519,8 @@ loadingmsg:
 	; clear any error message
 	jsr text::clrline
 	ldxy #mem::linebuffer
-	lda #ERROR_ROW
-	jsr text::print
+	lda #ERROR_ROW-1
+	jsr text::putz
 	ldx #$08
 	lda zp::cury
 	jmp text::hiline
@@ -721,9 +722,11 @@ loadingmsg:
 
 ;--------------------------------------
 .proc ccdel
+@cnt=zp::tmp6
 	jsr src::start
 	bne :+
 	rts
+
 :	jsr src::backspace
 	lda #$14
 	jsr text::putch
@@ -742,21 +745,42 @@ loadingmsg:
 	jsr cur::move
 
 	jsr text::clrline
+	jsr src::next
 	jsr src::atcursor
 	cmp #$0d
-	beq :+
+	bne :+
 	jsr src::up
 	jsr src::get
+	jmp @redraw
+:
+	; get the length of the line we're moving up
+	jsr src::get
+	ldxy #mem::linebuffer
+	jsr util::strlen
+	sta @line2len
+
+	jsr src::up
+	jsr src::get
+
+
+	; get the new cursor position
+	; new_line_len - (old_line2_len)
+	ldxy #mem::linebuffer
+	jsr util::strlen
+	sec
+@line2len=*+1
+	sbc #$00
+	sta @cnt
 	dec zp::curx
 @endofline:
 	inc zp::curx
 	jsr src::next
-	cmp #$0d
-	beq :+
-	jsr src::end
+	dec @cnt
 	bne @endofline
+	jsr src::prev
 
-:	lda zp::cury
+@redraw:
+	lda zp::cury
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	jmp text::drawline

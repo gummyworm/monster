@@ -97,8 +97,7 @@ __scr_redraw:
 	jsr text::update
 	jsr text::status
 	lda #23
-	jsr bm::rvsline
-	rts
+	jmp bm::rvsline
 .endproc
 
 ;--------------------------------------
