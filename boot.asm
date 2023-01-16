@@ -1,6 +1,7 @@
 .include "asm.inc"
 .include "bitmap.inc"
 .include "codes.inc"
+.include "config.inc"
 .include "cursor.inc"
 .include "format.inc"
 .include "irq.inc"
@@ -458,7 +459,7 @@ loadingmsg:
 	bne @l0
 
 	; set current mode to REPLACE and highlight the error line
-	ldx #$2a
+	ldx #ERROR_COLOR
 	lda zp::cury
 	jsr text::hiline
 	lda #$00
@@ -519,11 +520,9 @@ loadingmsg:
 	; clear any error message
 	jsr text::clrline
 	ldxy #mem::linebuffer
-	lda #ERROR_ROW-1
+	lda #ERROR_ROW
 	jsr text::putz
-	ldx #$08
-	lda zp::cury
-	jmp text::hiline
+	jmp text::hioff
 .endproc
 
 ;--------------------------------------
@@ -776,8 +775,7 @@ loadingmsg:
 	inc zp::curx
 	jsr src::next
 	dec @cnt
-	bne @endofline
-	jsr src::prev
+	bpl @endofline
 
 @redraw:
 	lda zp::cury

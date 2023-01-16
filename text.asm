@@ -1,5 +1,6 @@
 .include "asm.inc"
 .include "bitmap.inc"
+.include "config.inc"
 .include "cursor.inc"
 .include "key.inc"
 .include "irq.inc"
@@ -783,7 +784,7 @@ hicolor=*+1
 :	dex
 	bne :-
 	nop
-	lda #$08
+	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
 	sta $900f
 	jmp $eabf
 
@@ -824,7 +825,7 @@ hicolor=*+1
 ; hioff clears any active line highlight
 .export __text_hioff
 .proc __text_hioff
-	lda #$08
+	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
 	sta hicolor
 	rts
 .endproc

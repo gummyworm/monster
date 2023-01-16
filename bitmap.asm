@@ -1,3 +1,4 @@
+.include "config.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "util.inc"
@@ -31,7 +32,7 @@ COLMEM_ADDR = $9400
         dey
         bpl @2
 
-	lda #$08
+	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
 	sta $900f
         rts
 @inittab: .byte $02,$fe,$fe,$eb,$00,$0c
@@ -54,7 +55,7 @@ COLMEM_ADDR = $9400
         inc zp::tmp0+1
         dex
         bne @l0
-	lda #$07
+	lda #TEXT_COLOR
 ;clear the color memory
 @l1:    sta COLMEM_ADDR,y
         dey
