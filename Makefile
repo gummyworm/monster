@@ -2,7 +2,7 @@ SRC_FILES=$(wildcard *.asm)
 SRC=$(filter-out boot.asm test.asm, $(SRC_FILES))
 TESTS=$(wildcard tests/*.asm )
 
-monster.prg: boot.asm $(SRC) 
+monster.prg: boot.asm $(SRC)
 	cl65 -o $@ -C link.config $^ -Ln labels.txt
 	rm *.o
 

@@ -45,6 +45,27 @@
 .endproc
 
 ;--------------------------------------
+; chtohex returns the binary representation of the character given in .A
+.export __util_chtohex
+.proc __util_chtohex
+	cmp #'f'+1
+	bcs @done
+	cmp #'a'
+	bcc @numeric
+	sbc #'a'-$a
+	rts
+@numeric:
+	cmp #'9'+1
+	bcs @done
+	cmp #'0'
+	bcc @done
+	sbc #'0'
+@done:
+	rts
+.endproc
+
+
+;--------------------------------------
 ; hextostr returns the string representation of the hex value in .A
 ; .X contains the low nybble and Y contains the high nybble
 .export __util_hextostr

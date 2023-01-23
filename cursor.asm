@@ -175,17 +175,33 @@ __cur_toggle:
 	bcc :+
 	ldx maxx
 	dex
+:	cpx minx
+	bcs :+
+	ldx minx
 :	stx zp::tmp2
 
 	cpy maxy
 	bcc :+
 	ldy maxy
 	dey
+:	cpy miny
+	bcs :+
+	ldy miny
 :	sty zp::tmp3
+
 	jsr __cur_off
 
 	ldx zp::tmp2
 	ldy zp::tmp3
+	stx zp::curx
+	sty zp::cury
+	rts
+.endproc
+
+;--------------------------------------
+; forceset sets the cursor X and Y without respecting limts
+.export __cur_forceset
+.proc __cur_forceset
 	stx zp::curx
 	sty zp::cury
 	rts

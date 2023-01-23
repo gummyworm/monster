@@ -18,37 +18,6 @@ ESCAPE_RVS_OFF = $02
 STATUS_LINE = 23
 STATUS_COL  = 0
 
-L_INSERT_MASK=$80
-R_INSERT_MASK=$08
-
-L_REPLACE_MASK=$f0
-R_REPLACE_MASK=$0f
-
-DIR_ROW=1
-
-;--------------------------------------
-; mask returnst the mask used to draw the cursor
-.proc mask
-	lda __text_insertmode
-	beq @replace
-@insert:
-	lda zp::curx
-	and #$01
-	beq :+
-	lda #R_INSERT_MASK
-	rts
-:	lda #L_INSERT_MASK
-	rts
-@replace:
-	lda zp::curx
-	and #$01
-	beq :+
-	lda #R_REPLACE_MASK
-	rts
-:	lda #L_REPLACE_MASK
-	rts
-.endproc
-
 ;--------------------------------------
 ; refresh the entire display
 .export __text_refresh

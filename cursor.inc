@@ -1,3 +1,4 @@
+.import  __cur_forceset
 .import __cur_on
 .import __cur_off
 .import __cur_move
@@ -26,6 +27,7 @@
 	set = __cur_set
 	up = __cur_up
 	down = __cur_down
+	forceset = __cur_forceset
 	right = __cur_right
 	left = __cur_left
 	toggle = __cur_toggle
@@ -46,5 +48,5 @@
 	tay
 	pla
 	tax
-	jsr cur::set
+	jsr cur::forceset
 .endmacro

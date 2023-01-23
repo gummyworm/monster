@@ -270,7 +270,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jmp rename
 :	cmp #$be	; C=<V> (View)
 	bne :+
-	jsr toggle_memview
+	jmp toggle_memview
 :	cmp #$b6 	; C=<L> (Dir)
 	bne :+
 	jmp dir
@@ -288,9 +288,10 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	lda features
 	eor #FEATURE_VIEW
 	sta features
-	beq :+
+	bne :+
 	jmp bm::restore
-:	jmp bm::save
+:	jsr bm::save
+	jmp memview
 .endproc
 
 ;--------------------------------------
@@ -347,6 +348,8 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 ;--------------------------------------
 ; edit configures the cursor/screen/etc. for editing
 .proc edit
+	lda #$01
+	sta text::insertmode
 	ldx #$00
 	ldy #$01
 	jsr cur::setmin
@@ -428,9 +431,6 @@ loadingmsg:
 @nextline:
 	jsr drawline
 
-	; update memory display (if view is enabled)
-	jsr memview
-
 	; reset flags
 	lda #$01
 	sta text::insertmode
@@ -506,13 +506,10 @@ loadingmsg:
 ;--------------------------------------
 ; memview displays the memory view (if enabled)
 .proc memview
-	lda features
-	and #FEATURE_VIEW
-	beq :+
 	ldx #<src::buffer
 	ldy #>src::buffer
-	jmp view::mem
-:	rts
+	jsr view::edit ;mem
+	jmp edit
 .endproc
 
 ;-------------------------------------
@@ -748,7 +745,6 @@ loadingmsg:
 	jsr src::atcursor
 	cmp #$0d
 	bne :+
-	jsr src::up
 	jsr src::get
 	jmp @redraw
 :
