@@ -8,17 +8,21 @@ GAPSIZE = 20	; size of gap in gap buffer
 .segment "DATA"
 .export src_debug
 
+;--------------------------------------
+data_start:
+
 sp: .byte 0
 stack: .res 32
+
 
 src_debug:
 pre:  .word 0       ; # of bytes before the gap
 post: .word 0       ; # of bytes after the gap
 len:  .word GAPSIZE ; size of the buffer (pre+post+gap)
 
-.export __src_line
-__src_line:
-line: .word 0       ; the current line # of the cursor
+
+data_end:
+;--------------------------------------
 
 .export __src_buffer
 __src_buffer:
@@ -26,13 +30,20 @@ buffer:
 data:
 .res 1024*4 ; buffer of the active procedure's tokens
 
+.export __src_line
+__src_line:
+line: .word 0       ; the current line # of the cursor
+
 .CODE
 ;--------------------------------------
 ;  new initializes the source buffer
 .export __src_new
 .proc __src_new
+	ldx #data_end-data_start-1
 	lda #$00
-	sta sp
+:	sta data_start,x
+	dex
+	bpl :-
 	rts
 .endproc
 
@@ -116,23 +127,29 @@ data:
 .export __src_load
 .proc __src_load
 @dst=zp::tmp0
+	stxy @dst
+	ldy #$00
+@copyname:
+	lda (@dst),y
+	sta name,y
+	iny
+	cpy #$0d
+	bne @copyname
+	lda #$00
+	sta name,y
+
+	dey
+	sty namelen
+
 	lda #$02
 	sta secondaryaddr
 	ldxy #__src_buffer
 	stxy @dst
 
-	ldy #$00
-	sty len
-	sty len+1
-	sty post
-	sty post+1
-	sty pre
-	sty pre+1
-
-	lda #namelen
 	ldxy #name
+	lda namelen
 	jsr load
-	jmp __src_rewind
+	jmp __src_new
 .endproc
 
 ;--------------------------------------
@@ -199,35 +216,108 @@ data:
 ; save saves the buffer to the given file.
 .export __src_save
 .proc __src_save
-@tmp=zp::tmp0
+@name=zp::tmp0
+@src=zp::tmp0
 @sz=zp::tmp2
+@pre=zp::tmpb
+@cnt=zp::tmpd
 @dev=$ba
-	lda #$09
-	sta @dev
-	jsr __src_getall
+	stxy @name
+	ldy #$00
+	sty @cnt
+	sty @cnt+1
+@setname:
+	lda (@name),y
+	cmp #$0d
+	beq @add_p_w
+	sta name,y
+	iny
+	bne @setname
+
+@add_p_w:
+	ldx #$00
+:	lda @p_w,x
+	sta name,y
+	iny
+	inx
+	cpx #@p_w_len
+	bcc :-
+
+	sty namelen
+
+	ldxy #__src_buffer
+	stxy @src
+	ldxy pre
+	stxy @pre
+	ldxy len
 	stxy @sz
 
-	lda #namelen
+	lda #$09
+	sta @dev
+
+	lda namelen
 	ldxy #name
 	jsr $ffbd 	; SETNAM
-	lda #$00
+	lda #$03
 	ldx @dev 	; last used device number
 	bne :+
 	ldx #$08	; default to device 8
-:	ldy #$00
+:	ldy #$03
+	ldx #$08
 	jsr $ffba	; SETLFS
 
-	ldxy #mem::spare
-	stxy @tmp
-	add16 @sz
-	lda #@tmp
-	jsr $ffd8	; SAVE
-	bcs @err	; if carry set, a load error has happened
+	jsr $ffc0 	; call OPEN
+	bcs @error 	; if carry set, the file could not be opened
+
+	ldx #$03      ; filenumber 2
+	jsr $ffc9     ; CHKOUT (file 3 now used as output)
+
+@save:
+	jsr $ffb7     ; READST (read status byte)
+	cmp #$00
+	bne @werr     ; write error
+	incw @cnt
+	ldy #$00
+	lda (@src),y
+	jsr $ffd2     ; CHROUT (write byte to file)
+	incw @src
+
+	decw @sz
+	ldxy @sz
+	cmpw #0
+	beq @done
+	decw @pre
+	ldxy @pre
+	cmpw #0
+	bne @save
+
+	; move past the gap
+	jsr gaplen
+	sty zp::tmp4
+	txa
+	clc
+	adc @src
+	sta @src
+	lda @src+1
+	adc zp::tmp4
+	sta @src+1
+	jmp @save 	; next byte
+
+@done:
+	ldxy @sz
+	lda #$03      ; filenumber 2
+	jsr $ffc3     ; CLOSE
+
+	jsr $ffcc     ; call CLRCHN
+	lda #$00
 	rts
 
-@err:	inc $900f
-	jmp @err
+@error:
+@werr:
 	rts
+@p_w:
+	.byte ",p,w"
+@p_w_len=*-@p_w
 .endproc
 
 ;--------------------------------------
@@ -686,6 +776,7 @@ __src_atcursor:
 ;--------------------------------------
 .export __src_name
 __src_name:
-name:      .byte "test.s",0 ; the name of the active procedure
-namelen=*-name
+name:      .byte "test.s" ; the name of the active procedure
+.res 13
+namelen: .byte 6
 secondaryaddr: .byte 0

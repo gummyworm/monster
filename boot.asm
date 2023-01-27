@@ -47,6 +47,14 @@ start:
 
 ;--------------------------------------
 .CODE
+.proc draw_titlebar
+	ldxy #titlebar
+	lda #$00
+	jsr text::puts
+	lda #$00
+	jmp bm::rvsline
+.endproc
+
 titlebar:
 .byte "monster                      c=<h>: help"
 
@@ -100,11 +108,7 @@ reenter:
 
 	jsr edit
 
-	ldxy #titlebar
-	lda #$00
-	jsr text::puts
-	lda #$00
-	jsr bm::rvsline
+	jsr draw_titlebar
 
 	ldx #$00
 	ldy #$01
@@ -206,7 +210,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 
 	jsr key::getch
 	cmp #$0d
-	beq @done
+	beq @run
 	cmp #$5f	; <- (done)
 	bne :+
 
@@ -225,7 +229,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr text::putch
 	cli
 	jmp @getkey
-@done:
+@run:
 	jsr text::putch	; add the newline
 	pla
 	tay
@@ -235,13 +239,40 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr edit
 
 	pla
+	ldx #@num_commands-1
+:	cmp @command_codes,x
+	beq @found
+	dex
+	bpl :-
+	bmi @done
+
+@found:
+	txa
+	asl
+	tax
+	lda @command_table,x
+	sta @cmd_vec
+	lda @command_table+1,x
+	sta @cmd_vec+1
+
 	ldx #<(mem::linebuffer+2)
 	ldy #>(mem::linebuffer+2)
-	cmp #'g'
-	bne :+
-	jsr command_go
-:	jsr text::clrline
+@cmd_vec=*+1
+	jsr $0000
+@done:
+	jsr text::clrline
 	rts
+
+; commands
+@command_codes:
+.byte 'g'
+.byte 'o'
+.byte 's'
+@num_commands=*-@command_codes
+@command_table:
+.word command_go
+.word load
+.word save
 .endproc
 
 ;--------------------------------------
@@ -274,9 +305,17 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 :	cmp #$b6 	; C=<L> (Dir)
 	bne :+
 	jmp dir
-:	cmp #$a5	; C=<G> (GO)
+:	cmp #$a5	; C=<G> (Go)
 	bne :+
 	lda #'g'
+	jmp docommand
+:	cmp #$b9	; C=<O> (Open)
+	bne :+
+	lda #'o'
+	jmp docommand
+:	cmp #$ae	; C=<S> (Save)
+	bne :+
+	lda #'s'
 	jmp docommand
 :	jsr insert
 	jsr cur::off
@@ -361,24 +400,62 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 ;--------------------------------------
 ; save writes the source buffer to a file.
 .proc save
-	ldxy #savingmsg
+	txa
+	pha
+	tya
+	pha
+
+	ldxy #@savingmsg
 	lda #STATUS_LINE
 	jsr text::print
+
+	pla
+	tay
+	pla
+	tax
+
+	sei
 	jsr src::save
+	cli
+	cmp #$00
+	bne @err
+	rts	; no error
+@err:
+	pha
+	lda #$00
+	pha
+	ldxy #@errmsg
+	lda #STATUS_LINE
+	jsr text::print
+	jmp *
 	rts
-savingmsg:
+@savingmsg:
 	.byte "saving...",0
+@errmsg:
+.byte "failed to save file; error ", $fe, 0
 .endproc
 
 ;--------------------------------------
 ; load loads the file from disk into the source buffer
 .proc load
+	txa
+	pha
+	tya
+	pha
+
 	ldxy #loadingmsg
 	lda #STATUS_LINE
 	jsr text::print
+
+	pla
+	tay
+	pla
+	tax
+
 	sei
 	jsr src::load
 	cli
+
 	ldx #0
 	ldy #1
 	jsr cur::set
@@ -730,11 +807,12 @@ loadingmsg:
 	rts
 
 @prevline:
-	; scroll everything from up from below the line we deleted
+	; scroll everything up from below the line we deleted
 	ldx zp::cury
 	dex
 	lda #STATUS_LINE-2
 	jsr text::scrollup
+	jsr draw_titlebar
 
 	ldy #-1
 	ldx #0
@@ -756,7 +834,6 @@ loadingmsg:
 
 	jsr src::up
 	jsr src::get
-
 
 	; get the new cursor position
 	; new_line_len - (old_line2_len)
