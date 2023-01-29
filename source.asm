@@ -18,10 +18,14 @@ stack: .res 32
 src_debug:
 pre:  .word 0       ; # of bytes before the gap
 post: .word 0       ; # of bytes after the gap
-len:  .word GAPSIZE ; size of the buffer (pre+post+gap)
 
+.export __src_line
+__src_line:
+line: .word 0       ; the current line # of the cursor
 
 data_end:
+
+len:  .word GAPSIZE ; size of the buffer (pre+post+gap)
 ;--------------------------------------
 
 .export __src_buffer
@@ -29,10 +33,6 @@ __src_buffer:
 buffer:
 data:
 .res 1024*4 ; buffer of the active procedure's tokens
-
-.export __src_line
-__src_line:
-line: .word 0       ; the current line # of the cursor
 
 .CODE
 ;--------------------------------------
@@ -111,11 +111,13 @@ line: .word 0       ; the current line # of the cursor
 ; loaddir loads the directory listing into mem::spare
 .export __src_loaddir
 .proc __src_loaddir
-@dst=zp::tmp0
+@dst=zp::tmpb
 	lda #$00
 	sta secondaryaddr
-	ldxy #mem::spare
-	stxy @dst
+	ldx #<mem::spare
+	ldy #>mem::spare
+	stx @dst
+	sty @dst+1
 	ldxy #@dir
 	lda #$01
 	jmp load
@@ -148,15 +150,16 @@ line: .word 0       ; the current line # of the cursor
 
 	ldxy #name
 	lda namelen
-	jsr load
-	jmp __src_new
+	jsr __src_new
+	jmp load
 .endproc
 
 ;--------------------------------------
 ; load loads the filename given in (YX) (of length given in .A)
 ; into the address contained by zp::tmp0
 .proc load
-@dst=zp::tmp0
+@dst=zp::tmpb
+@errcode=zp::tmpb
 @dev=$ba
 	pha
 	lda #$09
@@ -168,7 +171,7 @@ line: .word 0       ; the current line # of the cursor
 	ldx @dev	; last used device number
 	bne :+
 	ldx #$0a 	; default to device 10
-:	ldy secondaryaddr ; SA 2
+:	ldy secondaryaddr ; SA
 	jsr $ffba 	; SETLFS
 
 	jsr $ffc0 	; call OPEN
@@ -199,17 +202,19 @@ line: .word 0       ; the current line # of the cursor
 :	incw @dst
 	jmp @l0
 @eof:
+	sta @errcode
 	and #$40      ; end of file?
 	beq @error
 @close:
 	lda #$02      ; filenumber 2
 	jsr $ffc3     ; call CLOSE
 	jsr $ffcc     ; call CLRCHN
+	lda #$00
 	rts
 @error:
 	jsr @close
-	inc $900f
-	jmp *-3
+	lda @errcode
+	rts
 .endproc
 
 ;--------------------------------------

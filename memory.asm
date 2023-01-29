@@ -9,8 +9,7 @@
 
 .align 256
 .export __mem_spare
-__mem_spare:
-	.res 768
+__mem_spare=$0400
 
 .export __mem_backbuff
 __mem_backbuff:

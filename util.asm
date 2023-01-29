@@ -183,7 +183,6 @@ result=mem::spare
 	lda #$00
 	sta text::colstart
 	lda #40
-	sta text::len
 	sta zp::tmp0
 
 	ldx #<mem::spare

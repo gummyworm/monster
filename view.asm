@@ -95,7 +95,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 
 :	jsr key::ishex
 	bcs @replace_val
-	jmp @edit
+	bcc @edit
 @done:
 	jsr cur::off
 	popcur

@@ -32,6 +32,8 @@ STATUS_COL  = 0
 	ldy #>mem::statusline
 	lda #STATUS_LINE
 	jmp __text_putz
+	lda #STATUS_LINE
+	jmp bm::rvsline
 .endproc
 
 ;--------------------------------------
@@ -191,7 +193,6 @@ curtmr=*+1
 	tya
 	sta @buff,x
 
-	inc $900f
 	pla
 	jsr util::hextostr
 	txa
@@ -523,6 +524,9 @@ txtsrc   = $4e
         asl
         asl
         sta txtdst
+
+	lda #40
+	sta __text_len
 __text_colstart=*+1
         lda #$00
         asl
@@ -614,7 +618,8 @@ __text_len=*+1
 :	cmp #$92	; RVS off
 	bne @done
 	lda #$00
-@setrvs: sta rvs
+@setrvs:
+	sta rvs
 	iny
 	pla
 	pla
@@ -831,16 +836,18 @@ __text_insertmode: .byte 1
 .export __text_dir
 .proc __text_dir
 @line=zp::tmp8
+	jsr src::loaddir
+
+	ldxy #mem::spare+2
+	stxy @line
+
 	pushcur
 	ldy #1
 	ldx #0
 	jsr cur::set
 
-	jsr src::loaddir
-	ldxy #mem::spare+2
-	stxy @line
-
-@l0:	jsr __text_clrline
+@l0:
+	jsr __text_clrline
 
 	; print line #
 	ldy #$00
@@ -851,15 +858,16 @@ __text_insertmode: .byte 1
 	tay
 	incw @line
 	pla
-	jsr $d391
-	jsr $dddd
+	jsr $d391	; int to FLPT
+	jsr $dddd	; FLPT to string
 
 	ldx #$00
 @l1:	lda $101,x
 	beq @space
 	sta mem::linebuffer,x
 	inx
-	bne @l1
+	cpx #38
+	bcc @l1
 
 @space: ; print space
 	lda #$20
@@ -874,7 +882,8 @@ __text_insertmode: .byte 1
 	beq @next
 	sta mem::linebuffer,x
 	inx
-	bne @l2
+	cpx #39
+	bcc @l2
 
 @next:	ldy zp::cury
 	iny
@@ -897,6 +906,5 @@ __text_insertmode: .byte 1
 
 @done:  popcur
 	rts
-@dir: .byte "$"
 .endproc
 

@@ -113,8 +113,9 @@ reenter:
 	ldx #$00
 	ldy #$01
 	jsr cur::set
+	jsr text::update
+	jmp text::status
 
-	rts
 .endproc
 
 
@@ -127,7 +128,7 @@ reenter:
 @target=*+1
 	jsr $f00d
 @not_found:
-	jmp reenter
+	rts
 .endproc
 
 ;--------------------------------------
@@ -301,7 +302,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jmp rename
 :	cmp #$be	; C=<V> (View)
 	bne :+
-	jmp toggle_memview
+	jmp memview
 :	cmp #$b6 	; C=<L> (Dir)
 	bne :+
 	jmp dir
@@ -323,17 +324,6 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 .endproc
 
 ;--------------------------------------
-.proc toggle_memview
-	lda features
-	eor #FEATURE_VIEW
-	sta features
-	bne :+
-	jmp bm::restore
-:	jsr bm::save
-	jmp memview
-.endproc
-
-;--------------------------------------
 ; refresh redraws the screen
 .proc refresh
 	jsr cur::off
@@ -350,16 +340,15 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 ;--------------------------------------
 ; dir lists the directory
 .proc dir
-	jsr text::savebuff
-	jsr text::clrline
 	jsr bm::save
+	jsr text::clrline
 	jsr text::dir
+	cli
 :	jsr key::getch
 	cmp #$0d
 	bne :-
-	jsr text::restorebuff
-	jsr bm::restore
-	rts
+	sei
+	jmp bm::restore
 .endproc
 
 ;--------------------------------------
@@ -372,8 +361,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr src::rename
 	jsr text::restorebuff
 	lda zp::cury
-	jsr text::drawline
-	rts
+	jmp text::drawline
 .endproc
 
 ;--------------------------------------
@@ -421,13 +409,13 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	bne @err
 	rts	; no error
 @err:
+	rts
 	pha
 	lda #$00
 	pha
 	ldxy #@errmsg
 	lda #STATUS_LINE
 	jsr text::print
-	jmp *
 	rts
 @savingmsg:
 	.byte "saving...",0
@@ -443,7 +431,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	tya
 	pha
 
-	ldxy #loadingmsg
+	ldxy #@loadingmsg
 	lda #STATUS_LINE
 	jsr text::print
 
@@ -455,28 +443,22 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	sei
 	jsr src::load
 	cli
+	cmp #$00
+	bne @err
 
-	ldx #0
-	ldy #1
-	jsr cur::set
-@redraw:
-	jsr src::readline
+	jmp refresh
+@err:
 	pha
-	lda zp::cury
-	jsr text::drawline
-	pla
-	cmp #$0d
-	bne @done
-	ldy #1
-	ldx #0
-	jsr cur::move
-	lda zp::cury
-	cmp #23
-	bne @redraw
-@done:	rts
-
-loadingmsg:
+	lda #$00
+	pha
+	ldxy #@errmsg
+	lda #STATUS_LINE
+	jsr text::print
+	rts
+@loadingmsg:
 	.byte "loading...",0
+@errmsg:
+.byte "failed to load file; error ", $fe, 0
 .endproc
 
 ;--------------------------------------
@@ -585,7 +567,7 @@ loadingmsg:
 .proc memview
 	ldx #<src::buffer
 	ldy #>src::buffer
-	jsr view::edit ;mem
+	jsr view::edit
 	jmp edit
 .endproc
 
@@ -644,8 +626,7 @@ loadingmsg:
 
 :	pla
 @put:	jsr src::insert
-	jsr text::putch
-@done:	rts
+	jmp text::putch
 
 ;--------------------------------------
 .proc ccup
