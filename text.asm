@@ -31,7 +31,7 @@ STATUS_COL  = 0
 	ldx #<mem::statusline
 	ldy #>mem::statusline
 	lda #STATUS_LINE
-	jmp __text_putz
+	jsr __text_putz
 	lda #STATUS_LINE
 	jmp bm::rvsline
 .endproc
@@ -849,30 +849,10 @@ __text_insertmode: .byte 1
 @l0:
 	jsr __text_clrline
 
-	; print line #
-	ldy #$00
-	lda (@line),y
-	pha
-	incw @line
-	lda (@line),y
-	tay
-	incw @line
-	pla
-	jsr $d391	; int to FLPT
-	jsr $dddd	; FLPT to string
 
+	incw @line	; skip line #
+	incw @line
 	ldx #$00
-@l1:	lda $101,x
-	beq @space
-	sta mem::linebuffer,x
-	inx
-	cpx #38
-	bcc @l1
-
-@space: ; print space
-	lda #$20
-	sta mem::linebuffer,x
-	inx
 
 @fname: ; print filename
 @l2:	ldy #$00
@@ -885,14 +865,7 @@ __text_insertmode: .byte 1
 	cpx #39
 	bcc @l2
 
-@next:	ldy zp::cury
-	iny
-	ldx #0
-	jsr cur::set
-	ldxy #mem::linebuffer
-	lda zp::cury
-	jsr __text_print
-
+@next:
 	; read line link
 	ldy #$00
 	lda (@line),y
@@ -902,9 +875,22 @@ __text_insertmode: .byte 1
 	beq @done
 :	incw @line
 	incw @line
-	bne @l0
+	beq @done
 
-@done:  popcur
-	rts
+	ldxy #mem::linebuffer
+	lda zp::cury
+	jsr __text_print
+
+	ldy zp::cury
+	iny
+	ldx #0
+	jsr cur::set
+	jmp @l0
+
+@done:
+	lda zp::cury
+	jsr util::hline
+	popcur
+	jmp __text_clrline
 .endproc
 

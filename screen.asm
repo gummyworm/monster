@@ -94,11 +94,8 @@ __scr_redraw:
 ;--------------------------------------
 .export __scr_update
 .proc __scr_update
-	rts
 	jsr text::update
-	jsr text::status
-	lda #23
-	jmp bm::rvsline
+	jmp text::status
 .endproc
 
 ;--------------------------------------

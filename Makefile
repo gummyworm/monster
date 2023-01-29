@@ -13,7 +13,7 @@ test.prg: test.asm $(SRC) $(TESTS)
 test: test.prg
 	xvic +warp -memory all -ntsc -drive9type 1581 -9 testdisk.d81 -autostart test.prg 
 start: monster.prg
-	xvic +warp -memory all -ntsc -drive9type 1581 -9 testdisk.d81 -autostart monster.prg 
+	xvic +warp -memory all -ntsc -drive9type 1541 -truedrive -9 test.d64 -autostart monster.prg 
 clean:
 	rm monster.prg
 	rm *.o

@@ -29,6 +29,5 @@ __linebuffer:
 .export __statusline
 __statusline:
 	.res 40,' '
-
 .endscope
 

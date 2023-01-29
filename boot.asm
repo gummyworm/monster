@@ -112,10 +112,7 @@ reenter:
 
 	ldx #$00
 	ldy #$01
-	jsr cur::set
-	jsr text::update
-	jmp text::status
-
+	jmp cur::set
 .endproc
 
 
@@ -344,6 +341,8 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr text::clrline
 	jsr text::dir
 	cli
+
+	; get a selection
 :	jsr key::getch
 	cmp #$0d
 	bne :-
@@ -498,7 +497,6 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 
 	; redraw the cleared status line
 	jsr text::update
-	jsr text::status
 
 	; redraw everything from <cursor> to EOL on next line
 	jsr src::get
