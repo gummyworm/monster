@@ -96,7 +96,6 @@ stack_depth: .byte 0
 @lines=zp::tmp0
 @line=zp::tmpa
 @cnt=zp::tmp8
-	stx text::colstart
 	sta @cnt
 	sty @row
 	ldxy @lines

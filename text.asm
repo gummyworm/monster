@@ -2,6 +2,7 @@
 .include "bitmap.inc"
 .include "config.inc"
 .include "cursor.inc"
+.include "draw.inc"
 .include "key.inc"
 .include "irq.inc"
 .include "macros.inc"
@@ -265,7 +266,7 @@ curtmr=*+1
 .export __text_putch
 .proc __text_putch
 	cmp #$14
-	bne :+
+	bne @printing
 
 	; backspace
 	sec
@@ -275,7 +276,8 @@ curtmr=*+1
 	bcc @done	; cursor is limited
 	beq @done
 	lda __text_insertmode
-	beq @movex
+	beq @moveback
+@shift_left:
 	jsr __text_linelen
 	stx zp::tmp0
 	ldx zp::curx
@@ -285,32 +287,99 @@ curtmr=*+1
 	inx
 	cpx zp::tmp0
 	bcc @l0
-@movex: ldx #$ff
+@moveback:
+	ldx #$ff
 	ldy #0
 	jsr cur::move
-	jmp @redraw
-
-:	pha
-	jsr cur::off
-	pla
-	ldx zp::curx
-	sta mem::linebuffer,x
-@update:
-	lda #0
-	sta __text_colstart
-	lda #40
-	sta __text_len
-	lda zp::curx
-	cmp #40
-	bcs @redraw
-	ldx #1
-	ldy #0
-	jsr cur::move
-@redraw:
 	lda zp::cury
 	jsr __text_drawline
 	clc	; "put" was successful
-@done:	rts
+@done:
+	rts
+
+@printing:
+	pha
+	lda __text_insertmode
+	beq @fastput
+
+@slowput:
+@shift_right:
+	jsr __text_linelen
+	cpx zp::curx
+	beq @fastput
+	lda #$00
+	sta mem::linebuffer+2,x
+@shr:	lda mem::linebuffer,x
+	sta mem::linebuffer+1,x
+	cpx zp::curx
+	beq :+
+	dex
+	bpl @shr
+:	jsr cur::off
+	pla
+	ldx zp::curx
+	sta mem::linebuffer,x
+	ldxy #mem::linebuffer
+	lda zp::cury
+	jsr __text_print
+	jmp @updatecur
+
+@fastput:
+	jsr cur::off
+	ldx zp::curx
+	lda #$00
+	sta mem::linebuffer+1,x
+	pla
+	sta mem::linebuffer,x
+	cmp #$0d
+	bne :+
+	rts
+
+:	jsr get_char_addr	; zp::tmp0 contains char address
+
+	; get destination
+	lda zp::cury
+	asl
+	asl
+	asl
+	sta zp::tmp2
+
+	lda zp::curx
+	lsr
+	asl
+	tax
+	lda bm::columns,x
+	clc
+	adc zp::tmp2
+	sta zp::tmp2
+	lda bm::columns+1,x
+	adc #$00
+	sta zp::tmp2+1
+
+	lda zp::curx
+	and #$01
+	bne @right
+@left:
+	lda #$f0
+	.byte $2c
+@right:
+	lda #$0f
+	sta @mask
+	ldy #$07
+@blit:
+@mask=*+1
+	lda #$00
+	and (zp::tmp0),y
+	ora (zp::tmp2),y
+	sta (zp::tmp2),y
+	dey
+	bpl @blit
+@updatecur:
+	ldx #1
+	ldy #0
+	jsr cur::move
+	clc	; "put" was successful
+	rts
 .endproc
 
 ;--------------------------------------
@@ -478,7 +547,6 @@ curtmr=*+1
 	rts
 .endproc
 
-
 ;--------------------------------------
 .export __text_putz
 .proc __text_putz
@@ -509,7 +577,6 @@ curtmr=*+1
 .endproc
 
 ;--------------------------------------
-.export __text_colstart
 .export __text_len
 .export __text_puts
 __text_puts:
@@ -527,19 +594,16 @@ txtsrc   = $4e
 
 	lda #40
 	sta __text_len
-__text_colstart=*+1
-        lda #$00
-        asl
-        tax
-        lda bm::columns,x
+        lda #<BITMAP_ADDR
         adc txtdst
         sta txtdst
         lda #$00
 	sta rvs
-        adc bm::columns+1,x
+        adc #>BITMAP_ADDR
         sta txtdst+1
 
         ldy #$00
+
 l0:     lda (txtsrc),y
 	jsr handlecc
 	iny
@@ -628,6 +692,29 @@ __text_len=*+1
 @done:  rts
 .endproc
 rvs: .byte 0
+
+;--------------------------------------
+; get_char_addr returns the address of the character in .A
+.proc get_char_addr
+@ch=zp::tmp0
+	sta @ch
+        lda #$00
+	asl @ch
+        rol
+	asl @ch
+        rol
+	asl @ch
+        rol
+	sta @ch+1
+        clc
+	lda @ch
+        adc #<((__text_charmap-256) .mod 256)
+	sta @ch
+	lda @ch+1
+        adc #<((__text_charmap-256) / 256)
+	sta @ch+1
+	rts
+.endproc
 
 .export __text_charmap
 __text_charmap:
@@ -776,7 +863,6 @@ hicolor=*+1
 @done:	rts
 .endproc
 
-
 ;--------------------------------------
 ; get reads text (up to .A bytes) into (zp::tmp0)
 .export __text_get
@@ -889,7 +975,7 @@ __text_insertmode: .byte 1
 
 @done:
 	lda zp::cury
-	jsr util::hline
+	jsr draw::hline
 	popcur
 	jmp __text_clrline
 .endproc

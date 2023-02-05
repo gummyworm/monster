@@ -83,9 +83,7 @@ data:
 	tay
 	lda stack,x
 	tax
-
-:
-	rts
+:	rts
 .endproc
 
 ;--------------------------------------
@@ -530,8 +528,7 @@ data:
 	pha
 	jsr __src_delete
 	pla
-	jsr __src_insert
-	rts
+	jmp __src_insert
 .endproc
 
 ;--------------------------------------

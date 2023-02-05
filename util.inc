@@ -1,7 +1,6 @@
 .include "zeropage.inc"
 
 .import __util_chtohex
-.import __util_hline
 .import __util_hextostr
 .import __util_memset
 .import __util_memcpy
@@ -12,7 +11,6 @@
 .scope util
 	chtohex = __util_chtohex
 	hextostr = __util_hextostr
-	hline = __util_hline
 	memset = __util_memset
 	memcpy = __util_memcpy
 	strncmp = __util_strncmp

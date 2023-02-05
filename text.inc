@@ -1,6 +1,5 @@
 .import __text_len
 .import __text_clrline
-.import __text_colstart
 .import __text_puts
 .import __text_putz
 .import __text_charmap
@@ -48,7 +47,6 @@
 .scope text
         len      = __text_len
 	clrline  = __text_clrline
-        colstart = __text_colstart
         puts     = __text_puts
 	putz   	 = __text_putz
 	putch    = __text_putch

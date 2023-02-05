@@ -1,5 +1,6 @@
 .include "bitmap.inc"
 .include "cursor.inc"
+.include "draw.inc"
 .include "key.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -219,7 +220,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	sty @src+1
 
 	lda #ROW_START
-	jsr util::hline
+	jsr draw::hline
 
 	lda #40
 	sta zp::tmp0

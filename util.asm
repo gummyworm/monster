@@ -175,24 +175,3 @@ result=mem::spare
 	rts
 .endproc
 
-;--------------------------------------
-; hline draws a horizontal line at the row given in .A
-.export __util_hline
-.proc __util_hline
-	pha
-	lda #$00
-	sta text::colstart
-	lda #40
-	sta zp::tmp0
-
-	ldx #<mem::spare
-	ldy #>mem::spare
-	lda #132
-	jsr __util_memset
-
-	pla
-	ldx #<mem::spare
-	ldy #>mem::spare
-	jsr text::puts
-	rts
-.endproc
