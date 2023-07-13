@@ -57,6 +57,22 @@
 ; returned in .A
 .export __fmt_line
 .proc __fmt_line
+	pha
+	; remove spaces from start of line
+@remove_spaces:
+	lda mem::linebuffer
+	cmp #' '
+	bne @left_aligned
+	ldx #$00
+:	lda mem::linebuffer+1,x
+	sta mem::linebuffer,x
+	inx
+	cpx #39
+	bne :-
+	beq @remove_spaces
+
+@left_aligned:
+	pla
 	cmp #ASM_LABEL
 	bne :+
 	jsr __fmt_label

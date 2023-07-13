@@ -13,6 +13,7 @@
 .include "util.inc"
 .include "view.inc"
 .include "zeropage.inc"
+
 .include "macros.inc"
 .import help
 
@@ -68,6 +69,29 @@ main:
 .endproc
 
 ;--------------------------------------
+.proc save_state
+	jsr bm::save
+	ldx #zp::app_vars_size-1
+:	lda zp::app_vars,x
+	sta mem::spare,x
+	dex
+	bpl :-
+	rts
+.endproc
+
+;--------------------------------------
+.proc restore_state
+	jsr bm::restore
+	ldx #zp::app_vars_size-1
+:	lda mem::spare,x
+	sta zp::app_vars,x
+	dex
+	bpl :-
+	rts
+.endproc
+
+
+;--------------------------------------
 .proc command_go
 	jsr asm::label_address
 	cmp #$ff
@@ -75,6 +99,7 @@ main:
 	stxy @target
 @target=*+1
 	jsr $f00d
+	jmp restore_state
 @not_found:
 	rts
 .endproc
@@ -737,24 +762,16 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr cur::move
 
 	jsr text::clrline
-	jsr src::next
-	jsr src::atcursor
-	cmp #$0d
-	bne :+
-	jsr src::get
-	jmp @redraw
-:
 	; get the length of the line we're moving up
 	jsr src::get
 	ldxy #mem::linebuffer
 	jsr util::strlen
 	sta @line2len
 
-	jsr src::up
-	jsr src::get
-
 	; get the new cursor position
 	; new_line_len - (old_line2_len)
+	jsr src::up
+	jsr src::get
 	ldxy #mem::linebuffer
 	jsr util::strlen
 	sec

@@ -2,6 +2,19 @@
 ZEROPAGE_INC = 1
 
 .scope zp
+
+;--------------------------------------
+app_vars = $e9
+app_vars_size=$ec-app_vars
+
+;--------------------------------------
+asmresult = $e9	; pointer where code is assembled
+
+;--------------------------------------
+; cursor
+curx = $eb
+cury = $ec
+
 ;--------------------------------------
 ;reserved for routines' arguments
 arg0 = $20
@@ -41,14 +54,7 @@ irq1 = $e7
 irq2 = $e8
 irq3 = $e9
 irq4 = $ea
-;--------------------------------------
-; cursor
-asmresult = $e9	; pointer where code is assembled
-curx = $eb
-cury = $ec
 
-gap=$ed 	; the pointer for the cursor in the source buffer
-gapsize=$ef 	; offset to the end of gap buffer
 
 .endscope
 .endif
