@@ -771,6 +771,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	; get the new cursor position
 	; new_line_len - (old_line2_len)
 	jsr src::up
+	jsr src::next	; 'up' ends on a \n, advance 1 more char for drawing
 	jsr src::get
 	ldxy #mem::linebuffer
 	jsr util::strlen
@@ -789,7 +790,8 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	lda zp::cury
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
-	jmp text::drawline
+	jsr text::drawline
+	jmp src::prev	; revert to the actual cursor position
 .endproc
 
 ;--------------------------------------

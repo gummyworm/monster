@@ -438,6 +438,8 @@ data:
 ;--------------------------------------
 ; up moves the cursor back one line or to the start of the buffer if it is
 ; already on the first line
+; this will leave the cursor on the first newline character encountered while
+; going backwards through the source.
 ; .C is set if cursor is at the start of the buffer
 ; .A contains the character at the cursor position
 .export __src_up
