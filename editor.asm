@@ -490,6 +490,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr src::prev
 	ldx zp::curx
 	bne @l0
+	jsr src::prev	; retreat one more character
 
 	; set current mode to REPLACE and highlight the error line
 	ldx #ERROR_COLOR
