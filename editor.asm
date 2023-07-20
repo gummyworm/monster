@@ -759,7 +759,6 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 
 	; scroll everything up from below the line we deleted
 	ldx zp::cury
-	dex
 	lda #STATUS_LINE-2
 	jsr text::scrollup
 	jsr draw_titlebar
@@ -767,6 +766,12 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr text::clrline
 	; get the length of the line we're moving up
 	jsr src::get
+
+	; if the current char is a newline, we're done
+	jsr src::atcursor
+	cmp #$0d
+	beq @redraw
+
 	ldxy #mem::linebuffer
 	jsr util::strlen
 	sta @line2len
@@ -774,8 +779,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	; get the new cursor position
 	; new_line_len - (old_line2_len)
 	jsr src::up
-	jsr src::next	; 'up' ends on a \n, advance 1 more char for drawing
-
+	;jsr src::next	; 'up' ends on a \n, advance 1 more char for drawing
 	jsr src::get
 	ldxy #mem::linebuffer
 	jsr util::strlen
@@ -795,9 +799,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	jsr text::drawline
-	jsr src::end
-	beq @deldone	; if we're at the end of the buffer, we're done
-	jmp src::prev	; revert to the actual cursor position
+	jmp src::end
 .endproc
 
 ;--------------------------------------
