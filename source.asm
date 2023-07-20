@@ -713,6 +713,20 @@ __src_atcursor:
 .endproc
 
 ;--------------------------------------
+; gotoend goes to the last line, last character in the buffer
+.export __src_gotoend
+.proc __src_gotoend
+	; TODO:
+.endproc
+
+;--------------------------------------
+; gotolastline goes to the last line, first character in the buffer
+.export __src_gotolastline
+.proc __src_gotolastline
+	; TODO:
+.endproc
+
+;--------------------------------------
 ; backline retreats the source to the beginning of the line
 .export __src_backline
 .proc __src_backline

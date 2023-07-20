@@ -748,19 +748,21 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	lda #$14
 	jsr text::putch
 	bcs @prevline
+@deldone:
 	rts
 
 @prevline:
+	; move the cursor
+	ldy #$ff
+	ldx #0
+	jsr cur::move
+
 	; scroll everything up from below the line we deleted
 	ldx zp::cury
 	dex
 	lda #STATUS_LINE-2
 	jsr text::scrollup
 	jsr draw_titlebar
-
-	ldy #$ff
-	ldx #0
-	jsr cur::move
 
 	jsr text::clrline
 	; get the length of the line we're moving up
@@ -773,6 +775,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	; new_line_len - (old_line2_len)
 	jsr src::up
 	jsr src::next	; 'up' ends on a \n, advance 1 more char for drawing
+
 	jsr src::get
 	ldxy #mem::linebuffer
 	jsr util::strlen
@@ -792,6 +795,8 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	jsr text::drawline
+	jsr src::end
+	beq @deldone	; if we're at the end of the buffer, we're done
 	jmp src::prev	; revert to the actual cursor position
 .endproc
 
