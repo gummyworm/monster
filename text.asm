@@ -265,6 +265,7 @@ curtmr=*+1
 ;  .C: set if character was unsuccessfully put
 .export __text_putch
 .proc __text_putch
+@mask=zp::tmp4
 	cmp #$14
 	bne @printing
 
@@ -366,9 +367,14 @@ curtmr=*+1
 	lda #$0f
 	sta @mask
 	ldy #$07
+
 @blit:
-@mask=*+1
-	lda #$00
+	lda @mask
+	eor #$ff
+	and (zp::tmp2),y
+	sta (zp::tmp2),y
+
+	lda @mask
 	and (zp::tmp0),y
 	ora (zp::tmp2),y
 	sta (zp::tmp2),y
