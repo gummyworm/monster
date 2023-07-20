@@ -573,23 +573,6 @@ __src_atcursor:
 .endproc
 
 ;--------------------------------------
-; puts adds the string in (YX) of length .A to the buffer at the cursor's
-; position
-.export __src_puts
-.proc __src_puts
-	sta @cnt
-	stxy @src
-@src=*+1
-@l0:	lda $ffff
-	jsr __src_insert
-	incw @src
-	dec @cnt
-	bne @l0
-	rts
-@cnt: .byte 0
-.endproc
-
-;--------------------------------------
 ; rename names the buffer to the string in (YX)
 .export __src_rename
 .proc __src_rename
@@ -724,34 +707,6 @@ __src_atcursor:
 .export __src_gotolastline
 .proc __src_gotolastline
 	; TODO:
-.endproc
-
-;--------------------------------------
-; backline retreats the source to the beginning of the line
-.export __src_backline
-.proc __src_backline
-@l0:
-	jsr __src_prev
-	cmp #$0d
-	beq @done
-	jsr __src_start
-	bne @l0
-@done:
-	rts
-.endproc
-
-;--------------------------------------
-; nextline moves the cursor to the next line
-.export __src_nextline
-.proc __src_nextline
-@l0:
-	jsr __src_next
-	cmp #$0d
-	beq @done
-	jsr __src_end
-	bne @l0
-@done:
-	rts
 .endproc
 
 ;--------------------------------------

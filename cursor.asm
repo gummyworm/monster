@@ -226,20 +226,6 @@ __cur_toggle:
 	rts
 .endproc
 
-;--------------------------------------
-; unlimit allows the cursor to move anywhwere on the display
-.export __cur_unlimit
-.proc __cur_unlimit
-	lda #$00
-	sta minx
-	sta miny
-	lda #40
-	sta maxx
-	lda #23
-	sta maxy
-	rts
-.endproc
-
 curstatus: .byte 0
 
 .export __cur_minx

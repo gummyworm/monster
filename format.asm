@@ -59,10 +59,12 @@
 .proc __fmt_line
 	pha
 	; remove spaces from start of line
+	;jsr src::up
 @remove_spaces:
 	lda mem::linebuffer
 	cmp #' '
 	bne @left_aligned
+	;jsr src::delete
 	ldx #$00
 :	lda mem::linebuffer+1,x
 	sta mem::linebuffer,x
@@ -72,24 +74,13 @@
 	beq @remove_spaces
 
 @left_aligned:
+	;jmp src::down
 	pla
 	cmp #ASM_LABEL
 	bne :+
-	jsr __fmt_label
-	rts
+	jmp __fmt_label
 :	cmp #ASM_OPCODE
 	bne :+
-	jsr __fmt_opcode
-
-:	ldx #$00
-@l0:	lda mem::linebuffer,x
-	beq :+
-	inx
-	cpx #40
-	bcc @l0
-:	stx @len
-
-@len=*+1
-	lda #$ff
-	rts
+	jmp __fmt_opcode
+:	rts
 .endproc

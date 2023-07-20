@@ -7,7 +7,6 @@
 .include "key.inc"
 .include "layout.inc"
 .include "memory.inc"
-.include "screen.inc"
 .include "source.inc"
 .include "text.inc"
 .include "util.inc"
@@ -64,7 +63,8 @@ main:
 	jsr onkey
 	cli
 
-@done:	jsr scr::update
+@done:	jsr text::update
+	jsr text::status
 	jmp main
 .endproc
 
@@ -454,8 +454,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	tax
 	bmi @err
 
-@noerr: ; compilation was successful, update memory and copy line to source buffer
-	; format line
+@noerr: ; compilation was successful, format line
 	bne :+
 	lda #ASM_LABEL
 	skw
@@ -468,8 +467,6 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	; reset flags
 	lda #$01
 	sta text::insertmode
-
-	;jsr clrerror
 
 	; redraw the cleared status line
 	jsr text::update

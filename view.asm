@@ -55,12 +55,14 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	ldy @src+1
 	jsr __view_mem
 
-; until user exits (<-), get input and update memory
+; until user exits (<- or RETURN), get input and update memory
 @edit:
 	jsr key::getch
 	beq @edit
 
 	cmp #$5f	; <- (done)
+	beq @done
+	cmp #$0d	; RETURN (done)
 	beq @done
 
 	cmp #$91	; up arrow

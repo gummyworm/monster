@@ -17,7 +17,6 @@
 .import __src_popp
 .import __src_prev
 .import __src_pushp
-.import __src_puts
 .import __src_rename
 .import __src_replace
 .import __src_right
@@ -49,7 +48,6 @@ GAPSIZE = 20	; size of gap in gap buffer
 	popp = __src_popp
 	pushp = __src_pushp
 	prev = __src_prev
-	puts = __src_puts
 	rename = __src_rename
 	rewind = __src_rewind
 	readb = __src_readb
