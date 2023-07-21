@@ -65,69 +65,6 @@ COLMEM_ADDR = $9400
 .endproc
 
 ;--------------------------------------
-.export __bm_clrpixel
-.proc __bm_clrpixel
-        txa
-        and #$07
-        sta @xtab_off
-        txa
-        lsr
-        tax
-        lda __bm_columns,x
-        sta zp::tmp0
-        lda __bm_columns+1,x
-        sta zp::tmp0+1
-@xtab_off=*+1
-        lda pixel_table
-        and (zp::tmp0),y
-        sta (zp::tmp0),y
-        rts
-.endproc
-
-;--------------------------------------
-.export __bm_setpixel
-.proc __bm_setpixel
-        txa
-        and #$07
-        sta @xtab_off
-        txa
-        lsr
-        lsr
-        lsr
-        tax
-        lda __bm_columns,x
-        sta zp::tmp0+1
-        lda __bm_columns+1,x
-        sta zp::tmp0
-@xtab_off=*+1
-        lda pixel_table
-        ora (zp::tmp0),y
-        sta (zp::tmp0),y
-        rts
-.endproc
-
-;--------------------------------------
-.export __bm_togglepixel
-.proc __bm_togglepixel
-        txa
-        and #$07
-        sta @xtab_off
-        lda pixel_table,x
-        pha
-        txa
-        lsr
-        lda __bm_columns,x
-        sta zp::tmp0
-        lda __bm_columns+1,x
-        sta zp::tmp0+1
-@xtab_off=*+1
-        lda pixel_table
-        eor (zp::tmp0),y
-        sta (zp::tmp0),y
-        rts
-.endproc
-
-;--------------------------------------
 .export __bm_line
 .proc __bm_line
 @x0 = zp::arg0
@@ -193,16 +130,6 @@ COLMEM_ADDR = $9400
 	copy #BITMAP_ADDR, #mem::backbuff, #(20*192)
 	rts
 .endproc
-
-;--------------------------------------
-;these tables are aligned so that it can be effeciently accessed
-;TODO: lots of free room between them
-.align 256
-pixel_table:
-.byte $80,$40,$20,$10,$08,$04,$02,$01
-.align 256
-pixel_table_inverted:
-.byte $7f,$bf,$df,$ef,$f7,$fb,$fd,$fe
 
 .export __bm_columns
 __bm_columns:
