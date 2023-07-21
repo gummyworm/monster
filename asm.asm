@@ -336,21 +336,15 @@ __asm_tokenize:
 	cmp #','
 	bne @getws2
 	incw line
-@getindex:
+@getindexx:
 	lda (line),y
 	cmp #'x'
 	bne @getindexy
-	lda @indirect
-	bne :+
 	inc @indexed
-	jmp @getws2
-:	inc @indexed
 @getindexy:
 	cmp #'y'
 	bne @getws2
-	lda @indirect
-	beq :+
-:	inc @indexed
+	inc @indexed
 	inc @indexed
 
 @getws2:
@@ -813,6 +807,8 @@ bbb00:
 	beq @done
 	cmp #','
 	beq @done
+	cmp #')'
+	beq @done
 	cmp #$0d
 	bne @err
 
@@ -1212,6 +1208,14 @@ bbb00:
 	and labelflags,y
 	sta labelflags,y
 	rts
+.endproc
+
+;--------------------------------------
+; remlabel removes the label given in (YX) to the label table.
+; if the label doesn't exist, this is a no-op
+.export __asm_remlabel
+.proc __asm_remlabel
+
 .endproc
 
 ;--------------------------------------

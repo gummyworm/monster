@@ -62,31 +62,6 @@ MODE_START=STATUS_COL
 	dex
 	bpl :-
 
-	; add current PC - "*=$XXXX"
-	lda #'['
-	sta mem::statusline+SIZE_START
-	lda #'*'
-	sta mem::statusline+SIZE_START+1
-	lda #'='
-	sta mem::statusline+SIZE_START+2
-	lda #'$'
-	sta mem::statusline+SIZE_START+3
-
-	lda zp::asmresult
-	sec
-	sbc #<mem::program
-	php
-	jsr util::hextostr
-	sty mem::statusline+SIZE_START+6
-	stx mem::statusline+SIZE_START+7
-	lda zp::asmresult+1
-	plp
-	sbc #>mem::program
-	jsr util::hextostr
-	sty mem::statusline+SIZE_START+4
-	stx mem::statusline+SIZE_START+5
-	lda #']'
-	sta mem::statusline+SIZE_START+8
 
 	; current edit mode (insert or replace)
 	ldx #'r'
