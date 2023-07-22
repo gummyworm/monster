@@ -7,7 +7,6 @@
 
 .scope asm
 	addlabel = __asm_addlabel
-	;remlabel = __asm_remlabel
 	labelat = __asm_labelat
 	label_address = __asm_label_address
 	; assembles the line of code in (>Y/<X)

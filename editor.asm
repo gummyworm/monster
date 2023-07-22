@@ -479,23 +479,11 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 
 @err:	lda #$ff
 	jsr fmt::line
-
-	; move cursor back to start of the line
-@l0:	ldx #$ff
-	ldy #0
-	jsr cur::move
-	jsr src::prev
-	ldx zp::curx
-	bne @l0
-	jsr src::prev	; retreat one more character
-
-	; set current mode to REPLACE and highlight the error line
+	jsr src::backspace
+	; highlight the error line
 	ldx #ERROR_COLOR
 	lda zp::cury
-	jsr text::hiline
-	lda #$00
-	sta text::insertmode
-	rts
+	jmp text::hiline
 .endproc
 
 ;--------------------------------------

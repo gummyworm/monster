@@ -176,6 +176,15 @@ directive_vectors:
 .endproc
 
 ;--------------------------------------
+; validate verifies that the string at (YX) is a valid instrcution
+; The size of the assembled operation is returned in .A (negative indicates an error occurred).
+; If the instruction contains a label, this proc will check that it is a valid label, but
+; it does not require that the label is defined.
+.export __asm_validate
+__asm_validate:
+	jmp tokenize
+
+;--------------------------------------
 ; tokenize assembles the string at (YX) into an instruction in (asm::result)
 ; if (YX) contains an instruction.  Any labels or comments encountered are
 ; saved at the address in (pc).
@@ -200,13 +209,7 @@ __asm_tokenize:
 	sta @operandsz
 	sta @immediate
 
-	ldy #$00
-@getws0:
-	lda (line),y
-	cmp #' '
-	bne @opcode
-	incw line
-	jmp @getws0
+	jsr process_ws
 
 @opcode:
 	jsr getopcode
@@ -239,25 +242,11 @@ __asm_tokenize:
 
 ; from here onwards we are either reading a comment or an operand
 @getopws:
-	ldy #$00
-	lda (line),y
-	beq :+
-	cmp #$0d
-	bne @getws1
-:	jmp @done
-
-@getws1:
-	incw line
-	lda (line),y
+	jsr process_ws
 	bne :+
 	jmp @done
-:	cmp #$0d
-	bne :+
-	jmp @done
-:	cmp #' '
-	beq @getws1
 
-	lda (line),y
+:	lda (line),y
 	cmp #'('
 	bne @pound
 @lparen:
@@ -348,14 +337,8 @@ __asm_tokenize:
 	inc @indexed
 
 @getws2:
-	ldy #$00
-	lda (line),y
+	jsr process_ws
 	beq @done
-	incw line
-	cmp #$0d
-	beq @done
-	cmp #' '
-	beq @getws2
 
 @comment:
 	lda (line),y
@@ -638,31 +621,29 @@ bbb00:
 	.byte $ff ; (abs)
 
 ;--------------------------------------
-; getvalue parses (line) for a hexadecimal value.  If it succeeds, the size
+; getvalue parses (line) for a hexadecimal value up to 16 bits in size.
+; If it succeeds, the size
 ; is returned in .A and the value in (<.X/>.Y) and line is updated to point
 ; after the value.
 ; .C is set on error and clear if a value was extracted.
 .export getvalue
 .proc getvalue
 @val=zp::tmp6
+@ishex=zp::tmp8
 	ldy #$00
+	sty @ishex
 	sty @val
-	sta @val+1
+	sty @val+1
 	lda (line),y
 	cmp #'$'
 	bne @convertchar
+	inc @ishex
 	iny
 
 @l0:	lda (line),y
+	jsr is_null_return_space_comma_closingparen_newline
 	beq @done
-	cmp #' '
-	beq @done
-	cmp #$0d
-	beq @done
-	cmp #','
-	beq @done
-	cmp #')'
-	beq @done
+
 	cmp #'0'
 	bcc @err
 	cmp #'9'+1
@@ -695,7 +676,11 @@ bbb00:
 	asl
 	rol @val
 	rol @val+1
-	iny
+	bcc :+
+	; oversized value
+	sec
+	rts
+:	iny
 	bne @l0
 
 @done:	lda #$02
@@ -762,6 +747,34 @@ bbb00:
 .endproc
 
 ;--------------------------------------
+; validlabel returns with .Z set if the string at (line) contains valid
+; characters for a label.
+; line is updated to the character after the label.
+.export validlabel
+.proc validlabel
+@l0:
+	; first character must be a letter
+	lda (line),y
+	cmp #'a'
+	bcc @err
+	cmp #'z'+1
+	bcs @err
+@findend:
+	incw line
+	lda (line),y
+	cmp #' '
+	beq @done
+	cmp #$0d
+	beq @done
+	cmp #')'
+	beq @done
+@err:
+	lda #$ff
+@done:
+	rts
+.endproc
+
+;--------------------------------------
 ; getlabel returns the address of the label in (line) in (<X,>Y).
 ; The size of the label is returned in .A (1 if zeropage, 2 if not, $ff if no label found)
 ; line is updated to the character after the label.
@@ -802,14 +815,7 @@ bbb00:
 	dex
 	bne @l1
 	lda (line),y
-	beq @done
-	cmp #' '
-	beq @done
-	cmp #','
-	beq @done
-	cmp #')'
-	beq @done
-	cmp #$0d
+	jsr is_null_return_space_comma_closingparen_newline
 	bne @err
 
 @done:	tya
@@ -1118,12 +1124,8 @@ bbb00:
 	cmp #' '
 	beq @commaorws
 	; unexpected character
-@err:
-	lda #$ff
-	rts
-
-@done:
-	rts
+@err:	lda #$ff
+@done:	rts
 
 .endproc
 
@@ -1211,14 +1213,6 @@ bbb00:
 .endproc
 
 ;--------------------------------------
-; remlabel removes the label given in (YX) to the label table.
-; if the label doesn't exist, this is a no-op
-.export __asm_remlabel
-.proc __asm_remlabel
-
-.endproc
-
-;--------------------------------------
 ; addcomment adds a comment of .A len in (YX) to the label table.  The address
 ; of the comment is provided in zp::tmp0
 .proc addcomment
@@ -1238,6 +1232,39 @@ bbb00:
 	ora labelflags,y
 	sta labelflags,y
 	rts
+.endproc
+
+;--------------------------------------
+; process_ws reads (line) and updates it to point past ' ' chars.
+; .A contains the last character processed on return
+; .Z is set if we're at the end of the line ($0d or $00)
+.proc process_ws
+	ldy #$00
+	lda (line),y
+	beq @done
+	cmp #$0d
+	beq @done
+	cmp #' '
+	bne @done
+	incw line
+	jmp process_ws
+@done:	rts
+.endproc
+
+;--------------------------------------
+; is_null_space_comma_closingparen returns .Z set if the char in .A is:
+; 0,$0d,' ', ',', or ')'
+.proc is_null_return_space_comma_closingparen_newline
+	cmp #$00
+	beq @done
+	cmp #' '
+	beq @done
+	cmp #','
+	beq @done
+	cmp #')'
+	beq @done
+	cmp #$0d
+@done:	rts
 .endproc
 
 ;--------------------------------------
