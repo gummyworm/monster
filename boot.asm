@@ -43,12 +43,12 @@ start:
 
 ;--------------------------------------
 .proc nmihandler
-	jmp $eabf
+	jmp $eb15	; ack timer and rti
 .endproc
 
 ;--------------------------------------
 irq_handler:
-	jmp $eabf
+	jmp $eb15	; ack timer and rti
 
 ;--------------------------------------
 enter:

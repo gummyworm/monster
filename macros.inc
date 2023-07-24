@@ -85,6 +85,9 @@
 	tay
 .endmacro
 
+.macro skb
+	.byte $24
+.endmacro
 
 ; skw skips execution of the next word (equivalent to .byte $2C (bit ABS))
 .macro skw
