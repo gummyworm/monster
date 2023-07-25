@@ -1,4 +1,5 @@
 .include "codes.inc"
+.include "errors.inc"
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -7,62 +8,9 @@
 .include "zeropage.inc"
 .CODE
 
-ERR_OK=0
-ERR_UNALIGNED_LABEL=$ff
-err_unaligned_label:
-	.byte "label not in leftmost column",0
-ERR_ILLEGAL_OPCODE=$ff-2
-err_illegal_opcode:
-	.byte "unknown opcode:",$ff,0
-ERR_ILLEGAL_ADDRMODE=$ff-3
-err_illegal_addrmode:
-	.byte "invalid addressing mode: ",$ff,0
-ERR_ILLEGAL_DIRECTIVE=$ff-4
-err_illegal_directive:
-	.byte "unknown directive: ",$ff,0
-
 ;--------------------------------------
 line = zp::tmp0
 label_value = zp::tmp8	; param to addlabel
-
-;--------------------------------------
-errors: .word 0	 ; no error
-	.word err_unaligned_label
-	.word err_illegal_opcode
-	.word err_illegal_addrmode
-	.word err_illegal_directive
-
-;--------------------------------------
-.proc mkerr
-	cmp #$00
-	bne :+
-	jsr text::clrline
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-	lda #ERROR_ROW
-	jsr text::puts
-	rts
-
-:	sta zp::tmp0
-	tya
-	pha
-	txa
-	pha
-
-	lda zp::tmp0
-	asl
-	tax
-	lda errors+1,x
-	tay
-	lda errors,x
-	tax
-
-	lda #ERROR_ROW
-	jsr text::print
-	pla
-	pla
-	rts
-.endproc
 
 ;--------------------------------------
 NUM_OPCODES = 58
@@ -156,29 +104,6 @@ directive_vectors:
 .word definebyte
 .word defineconst
 .word defineword
-
-;--------------------------------------
-; report error prints the error in .A
-.export __asm_reporterr
-.proc __asm_reporterr
-	cmp #$00
-	bne :+
-	jsr text::clrline
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
-	lda #ERROR_ROW
-	jsr text::puts
-	rts
-:	asl
-	tax
-	lda errors+1,x
-	tay
-	lda errors,x
-	tax
-	lda #ERROR_ROW
-	jsr text::print
-	rts
-.endproc
 
 ;--------------------------------------
 ; validate verifies that the string at (YX) is a valid instrcution
@@ -563,7 +488,9 @@ __asm_tokenize:
 	adc #ZEROPAGE
 	rts
 
-@abs:   lda @indirect
+@abs:   lda @immediate
+	bne @err	; error- immediate abs illegal (operand too large)
+	lda @indirect
 	beq :+
 	lda @indexed
 	bne @err 	; error- indirect absolute doesn't support indexing
@@ -585,6 +512,7 @@ __asm_tokenize:
 @done:	rts
 .endproc
 
+;--------------------------------------
 IMPLIED=0
 IMMEDIATE=1
 ABS=6
@@ -864,30 +792,6 @@ bbb00:
 .endproc
 
 ;--------------------------------------
-; getstring returns the string at (line) $100 up to the first whitespace.
-; .A contains the length of the string or $ff if it was too long/invalid
-; The maximum allowed length is 16.
-; line is updated to point to the end of the string
-.proc getstring
-	ldy #$00
-	ldx #$00
-:	lda (line),y
-	jsr is_whitespace
-	beq @done
-	sta $100,x
-	inx
-	incw line
-	cpx #16
-	bcc :-
-	lda #$ff
-	rts
-
-@done:	lda #$00
-	sta $100,x
-	rts
-.endproc
-
-;--------------------------------------
 ; labelat returns the label at the address in (YX), if .A is $ff, no label
 ; was found at the given address.
 .export __asm_labelat
@@ -953,12 +857,25 @@ bbb00:
 .endproc
 
 ;--------------------------------------
+; returns ASM_LABEL if the contents on (line) are a valid label
 .proc islabel
+	jsr getopcode	; make sure string is not an opcode
+	cmp #ERR_ILLEGAL_OPCODE
+	beq @cont
+	lda #ERR_ILLEGAL_LABEL
+	rts
+
+@cont:
 	ldy #$00
+	lda (line),y
+	cmp #'.'	; label cannot have '.' prefix
+	beq @notlabel
 :	lda (line),y
 	iny
 	cpy #40
 	bcs @notlabel
+	cmp #' '
+	beq @done
 	cmp #':'
 	bne :-
 
@@ -971,7 +888,10 @@ bbb00:
 
 ;--------------------------------------
 ; getopcode returns ASM_OPCODE if (line) contains an opcode.
-; The opcode's ID is returned in .X
+; Returns:
+;  - .A contains ASM_OPCODE (on success) else error
+;  - .X contains the opcode's ID
+;  - tmp9 is updated with the .CC part of the opcode
 .proc getopcode
 @optab = zp::tmp6
 @op = zp::tmp8
@@ -1092,7 +1012,7 @@ bbb00:
 
 @found:
 	tya
-	sec
+	sec		; +1
 	adc line
 	sta line
 	bcc :+
@@ -1204,6 +1124,9 @@ bbb00:
 
 ;--------------------------------------
 .proc defineconst
+	jsr islabel
+	cmp #ASM_LABEL
+	bne @err
 	lda line	; save label name's address
 	pha
 	lda line+1
@@ -1211,15 +1134,19 @@ bbb00:
 	jsr processstring
 	jsr processws
 	jsr getvalue
-	stx label_value
+	bcc :+
+	pla
+	pla
+@err:
+	lda #$ff
+	rts
+:	stx label_value
 	sty label_value+1
 	pla
 	tay
 	pla
 	tax
 	jmp __asm_addlabel
-@err:	lda #$ff
-	rts
 .endproc
 
 ;--------------------------------------

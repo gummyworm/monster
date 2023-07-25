@@ -97,6 +97,7 @@
 ;--------------------------------------
 ; atoi returns the value of the decimal string given in .XY
 ; the string must be terminated by a \0 or a $0d (newline)
+; On success, .A contains $00, $ff on failure
 .export atoi
 .proc atoi
 @tmp=zp::tmp2
@@ -135,6 +136,7 @@
 	ldx @scale
 	beq @muldone
 @l1:	jsr @mul10
+	bcs @err
 	dex
 	bne @l1
 @muldone:
@@ -145,6 +147,7 @@
 	lda @val+1
 	adc @tmp+1
 	sta @val+1
+	bcs @err	; oversized value
 	dey
 	bpl @l0
 
@@ -158,6 +161,7 @@
 
 @mul10:
 ; multiply (in place) word in @tmp by 10
+; .C is clear on success, set on failure
 	lda @tmp+1
 	sta @tmp2+1
 	lda @tmp
@@ -165,15 +169,19 @@
 
 	asl		; *2
 	rol @tmp+1
+	bcs @mulerr
 	asl		; *4
 	rol @tmp+1
+	bcs @mulerr
 	asl		; *8
 	rol @tmp+1
+	bcs @mulerr
 
 	adc @tmp2	; *9
 	sta @tmp
 	lda @tmp+1
 	adc @tmp2+1
+	bcs @mulerr
 	sta @tmp+1
 
 	lda @tmp	; *10
@@ -181,7 +189,10 @@
 	sta @tmp
 	lda @tmp+1
 	adc @tmp2+1
+	bcs @mulerr
 	sta @tmp+1
+	rts
+@mulerr:
 	rts
 .endproc
 

@@ -21,7 +21,6 @@ arg0 = $20
 arg1 = $21
 arg2 = $22
 arg3 = $23
-err = $24 ; 1 byte error that procedures may set in the case of an error
 
 ;--------------------------------------
 ;temporary storage

@@ -916,7 +916,6 @@ __text_insertmode: .byte 1
 @l0:
 	jsr __text_clrline
 
-
 	incw @line	; skip line #
 	incw @line
 	ldx #$00

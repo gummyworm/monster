@@ -1,3 +1,4 @@
+.include "irq.inc"
 .include "zeropage.inc"
 .include "macros.inc"
 .include "memory.inc"

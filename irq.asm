@@ -1,3 +1,5 @@
+.include "macros.inc"
+
 .CODE
 
 .ifdef PAL

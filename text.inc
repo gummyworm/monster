@@ -20,6 +20,11 @@
 .import __text_restorebuff
 .import __text_dir
 
+ESCAPE_STRING = $ff
+ESCAPE_VALUE = $fe
+ESCAPE_RVS_ON = $01
+ESCAPE_RVS_OFF = $02
+
 ; getinput sets the cursor to (X,Y) and reads input into arg (up to sz bytes)
 .macro getinput arg, xpos, ypos, sz
 	lda zp::curx

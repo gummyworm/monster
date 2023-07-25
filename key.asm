@@ -14,11 +14,26 @@ CURSOR_LR_MASK=2
 .proc __key_getch
 @x=zp::tmp0
 	jsr Keyboard
+
+	pha
+	; restore DDR
+	lda #$00
+	sta $9112
+	lda #$80
+	sta $9113
+	pla
+
 	bcs @nokey
-	cmp #' '
+	cmp #$ff
+	beq @nokey
+	cmp #$04
+	bcc @nokey
+	cmp #$8d	; treat SHIFT+RETURN as RETURN
+	bne :+
+	lda #$0d
+:	cmp #' '
 	bcc @ccodes
-	cmp #'z'+1
-	bcc @done
+	rts
 @ccodes:
 	cmp #$0d
 	beq @done
@@ -40,7 +55,7 @@ CURSOR_LR_MASK=2
 ;--------------------------------------
 .export __key_gethex
 .proc __key_gethex
-	jsr $ffe4
+	jsr __key_getch
 	jsr __key_ishex
 	bcs @done
 	lda #$00
