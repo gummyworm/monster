@@ -136,8 +136,7 @@ main:
 	ldxy #success_msg
 	lda #STATUS_LINE-1
 	jsr text::print
-	jsr text::clrline
-	rts
+	jmp text::clrline
 
 success_msg: .byte "done. ", $fe, " bytes", 0
 .endproc
@@ -440,7 +439,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 ; linedone attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
 	lda zp::curx
-	beq @nextline ; we're at column 0, scroll the screen and return
+	beq @format	; @ column 0, skip to insert (format will be ignored)
 
 	; check if the current line is valid
 	ldx #<mem::linebuffer
@@ -448,12 +447,12 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr asm::tokenize
 	tax
 	bmi @err
+@format:
 	pha
 
 	; insert \n into source and text buffers
 	lda #$0d
 	jsr src::insert
-	lda #$0d
 	jsr text::putch
 
 	; format the line
@@ -497,18 +496,19 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	; scroll lines below cursor position
 	ldy zp::cury
 	iny
-	cpy #ERROR_ROW-1
+	cpy #STATUS_LINE-1
 	bcc :+
 	; if we're at the bottom, scroll whole screen up
 	ldx #1
-	lda #STATUS_LINE-2
+	lda #STATUS_LINE-1
 	jsr text::scrollup
+
 	ldy zp::cury
 	ldx #$00
 	jmp cur::set
 
 :	tya
-	ldx #ERROR_ROW-1
+	ldx #STATUS_LINE-1
 	jsr text::scrolldown
 
 @done:
@@ -678,7 +678,6 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr src::get
 
 	; if the cursor is on a newline, we're done
-	;jsr src::next
 	jsr src::end
 	beq @movecur
 	jsr src::next
@@ -711,7 +710,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	beq @redraw
 
 	ldx #1
-	lda #STATUS_LINE-2
+	lda #STATUS_LINE-1
 	jsr text::scrollup	; cursor wasn't moved, scroll
 
 @redraw:
@@ -742,7 +741,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 
 	; scroll everything up from below the line we deleted
 	ldx zp::cury
-	lda #STATUS_LINE-2
+	lda #STATUS_LINE-1
 	jsr text::scrollup
 	jsr draw_titlebar
 

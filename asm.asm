@@ -133,13 +133,22 @@ __asm_tokenize:
 	stx line
 	sty line+1
 
-	lda #$00
-	sta @indirect
-	sta @indexed
-	sta @operandsz
-	sta @immediate
-
 	jsr process_ws
+
+	ldy #$00
+	sty @indirect
+	sty @indexed
+	sty @operandsz
+	sty @immediate
+
+@full_line_comment:
+	lda (line),y
+	cmp #';'
+	bne @opcode
+	; rest of the line is a comment, we're done
+	lda #ASM_COMMENT
+	sta @resulttype
+	rts
 
 @opcode:
 	jsr getopcode

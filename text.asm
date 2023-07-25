@@ -404,22 +404,14 @@ curtmr=*+1
 @src=zp::tmp1
 @dst=zp::tmp3
 @startline=zp::tmp5
-@stopline=zp::tmp6
 @numrows=zp::tmp7
 	stx @numrows
-	pha
 	sec
 	sbc @numrows
 	asl
 	asl
 	asl
 	sta @numrows
-	pla
-
-	asl
-	asl
-	asl
-	sta @stopline
 
 	txa
 	asl
@@ -475,14 +467,12 @@ curtmr=*+1
 ; scrolls all rows from .A to .X
 .proc __text_scrolldown
 @rowstart=zp::tmp0
-@rowstop=zp::tmp2
 @rows=zp::tmp2
 @src=zp::tmp3
 @dst=zp::tmp5
 	sta @rowstart
-	stx @rowstop
 
-	lda @rowstop
+	txa
 	sec
 	sbc @rowstart
 	asl
@@ -498,7 +488,7 @@ curtmr=*+1
 	adc #$08
 	sta @dst
 
-	lda #$11
+	lda #>BITMAP_ADDR
 	sta @src+1
 	sta @dst+1
 
@@ -508,7 +498,7 @@ curtmr=*+1
 	sta (@dst),y
 	dey
 	bne @l1
-	lda (@src),y
+	lda (@src),y	; do last row
 	sta (@dst),y
 
 	lda @src
