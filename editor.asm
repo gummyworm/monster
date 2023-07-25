@@ -457,9 +457,10 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 @noerr: ; compilation was successful, format line
 	bne :+
 	lda #ASM_LABEL
-	skw
-:	lda #ASM_OPCODE
-	jsr fmt::line
+	bne @fmt
+:	cmp #ASM_OPCODE
+	bne @nextline	; no formatting
+@fmt:	jsr fmt::line
 
 @nextline:
 	jsr drawline

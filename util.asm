@@ -95,6 +95,97 @@
 .endproc
 
 ;--------------------------------------
+; atoi returns the value of the decimal string given in .XY
+; the string must be terminated by a \0 or a $0d (newline)
+.export atoi
+.proc atoi
+@tmp=zp::tmp2
+@str=zp::tmp4
+@scale=zp::tmp6
+@val=zp::tmp7
+@tmp2=zp::tmp9
+	stxy @str
+	lda #$00
+	sta @val
+	sta @val+1
+
+	; find terminating char (0 or $0d)
+	ldy #$ff
+:	iny
+	lda (@str),y
+	beq @endfound
+	cmp #$0d
+	bne :-
+@endfound:
+	dey
+
+	ldx #$ff
+	stx @scale
+@l0:	inc @scale
+	lda (@str),y
+	cmp #'9'+1
+	bcs @err
+	cmp #'0'
+	bcc @err
+	sec
+	sbc #'0'
+	sta @tmp
+	lda #$00
+	sta @tmp+1
+	ldx @scale
+	beq @muldone
+@l1:	jsr @mul10
+	dex
+	bne @l1
+@muldone:
+	clc
+	lda @tmp
+	adc @val	; add the digit*(10**x)
+	sta @val
+	lda @val+1
+	adc @tmp+1
+	sta @val+1
+	dey
+	bpl @l0
+
+	ldx @val
+	ldy @val+1
+	lda #$00
+	rts
+@err:
+	lda #$ff
+	rts
+
+@mul10:
+; multiply (in place) word in @tmp by 10
+	lda @tmp+1
+	sta @tmp2+1
+	lda @tmp
+	sta @tmp2
+
+	asl		; *2
+	rol @tmp+1
+	asl		; *4
+	rol @tmp+1
+	asl		; *8
+	rol @tmp+1
+
+	adc @tmp2	; *9
+	sta @tmp
+	lda @tmp+1
+	adc @tmp2+1
+	sta @tmp+1
+
+	lda @tmp	; *10
+	adc @tmp2
+	sta @tmp
+	lda @tmp+1
+	adc @tmp2+1
+	sta @tmp+1
+	rts
+.endproc
+
+;--------------------------------------
 ; todec returns a ptr to a decimal representation of the value given in .XY
 ; in mem::spare
 .export __util_todec

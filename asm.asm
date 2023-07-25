@@ -1,9 +1,10 @@
 .include "codes.inc"
-.include "text.inc"
-.include "zeropage.inc"
+.include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "layout.inc"
+.include "text.inc"
+.include "util.inc"
+.include "zeropage.inc"
 .CODE
 
 ERR_OK=0
@@ -22,6 +23,7 @@ err_illegal_directive:
 
 ;--------------------------------------
 line = zp::tmp0
+label_value = zp::tmp8	; param to addlabel
 
 ;--------------------------------------
 errors: .word 0	 ; no error
@@ -145,11 +147,14 @@ opcodetab:
 
 ; directives
 directives:
-.byte "db",0,"dw",0
+.byte "db",0
+.byte "eq",0
+.byte "dw",0
 directives_len=*-directives
 
 directive_vectors:
 .word definebyte
+.word defineconst
 .word defineword
 
 ;--------------------------------------
@@ -199,7 +204,7 @@ __asm_tokenize:
 @immediate=zp::tmp4 ; 1=immediate, 0=not immediate
 @operandsz=zp::tmp5 ; size of the operand (in bytes)
 @cc=zp::tmp9
-@resulttype=zp::tmpa
+@resulttype=zp::tmpf
 	stx line
 	sty line+1
 
@@ -227,6 +232,10 @@ __asm_tokenize:
 	sta @resulttype
 	ldx line
 	ldy line+1
+	lda zp::asmresult
+	sta label_value
+	lda zp::asmresult+1
+	sta label_value+1
 	jsr __asm_addlabel
 	lda #$00
 	rts
@@ -338,7 +347,7 @@ __asm_tokenize:
 
 @getws2:
 	jsr process_ws
-	beq @done
+	jmp @done
 
 @comment:
 	lda (line),y
@@ -449,18 +458,15 @@ __asm_tokenize:
 @err:	lda #$ff
 	rts
 
-@noerr: ldx @operandsz
-	inx
-	txa
-	pha
-
+@noerr:
 	; update asm::result pointer by (1 + operand size)
+	lda @operandsz
 	clc
 	adc zp::asmresult
 	sta zp::asmresult
 	bcc :+
 	inc zp::asmresult+1
-:	pla
+:	lda #ASM_OPCODE
 	rts
 
 @validate_cc:
@@ -629,17 +635,27 @@ bbb00:
 .export getvalue
 .proc getvalue
 @val=zp::tmp6
-@ishex=zp::tmp8
 	ldy #$00
-	sty @ishex
 	sty @val
 	sty @val+1
 	lda (line),y
 	cmp #'$'
-	bne @convertchar
-	inc @ishex
-	iny
+	beq @hex
 
+@decimal:
+	ldxy line
+	jsr atoi	; convert to binary
+	cmp #$00
+	beq :+
+	sec		; error
+	rts
+:	stx @val
+	sty @val+1
+	jsr processstring ; read past the string
+	jmp @success
+
+@hex:
+	iny
 @l0:	lda (line),y
 	jsr is_null_return_space_comma_closingparen_newline
 	beq @done
@@ -695,8 +711,14 @@ bbb00:
 	bcc :+
 	inc line+1
 :	pla
+@success:
 	ldx @val
 	ldy @val+1
+	cpy #$00
+	beq :+
+	lda #$02	; 2 bytes
+	skw
+:	lda #$01	; 1 byte
 	clc
 	rts
 
@@ -762,9 +784,7 @@ bbb00:
 @findend:
 	incw line
 	lda (line),y
-	cmp #' '
-	beq @done
-	cmp #$0d
+	jsr is_whitespace
 	beq @done
 	cmp #')'
 	beq @done
@@ -840,6 +860,30 @@ bbb00:
 :	rts
 
 @err:	lda #$ff
+	rts
+.endproc
+
+;--------------------------------------
+; getstring returns the string at (line) $100 up to the first whitespace.
+; .A contains the length of the string or $ff if it was too long/invalid
+; The maximum allowed length is 16.
+; line is updated to point to the end of the string
+.proc getstring
+	ldy #$00
+	ldx #$00
+:	lda (line),y
+	jsr is_whitespace
+	beq @done
+	sta $100,x
+	inx
+	incw line
+	cpx #16
+	bcc :-
+	lda #$ff
+	rts
+
+@done:	lda #$00
+	sta $100,x
 	rts
 .endproc
 
@@ -952,9 +996,7 @@ bbb00:
 	ldy #$03
 	lda (line),y
 	beq @done
-	cmp #$0d
-	beq @done
-	cmp #' '
+	jsr is_whitespace
 	beq @done
 	jmp @err
 
@@ -1022,7 +1064,9 @@ bbb00:
 
 :	ldx #$00
 	stx @cnt
+	dex
 @l0:	ldy #$00
+	inx
 @l1:	lda directives,x
 	beq @found
 	inx
@@ -1031,15 +1075,20 @@ bbb00:
 	beq @l1
 
 	cpx #directives_len
-	bne :+
+	bcc :+
 	lda #$ff	; no match
 	rts
 
 :	inc @cnt
-@l2:	lda directives,x ; move to next directive
+	dex
+@l2:
 	inx
-	cmp #$00
+	lda directives,x ; move to next directive
 	beq @l0
+	cpx #directives_len
+	bcc @l2
+	lda #$ff	; no match
+	rts
 
 @found:
 	tya
@@ -1075,6 +1124,23 @@ bbb00:
 @done:
 	rts
 .endproc
+
+;--------------------------------------
+; processstring reads all characters until the next whitespace
+.proc processstring
+	ldy #$00
+	lda (line),y
+	jsr is_whitespace
+	beq @done
+@l0:
+	incw line
+	lda (line),y
+	jsr is_whitespace
+	bne @l0
+@done:
+	rts
+.endproc
+
 
 ;--------------------------------------
 ; defines 0 or more bytes and stores them in (asmresult)
@@ -1137,15 +1203,32 @@ bbb00:
 .endproc
 
 ;--------------------------------------
-; addlabel adds a ':' terminated label of in (YX) to the label table.  The address of
+.proc defineconst
+	lda line	; save label name's address
+	pha
+	lda line+1
+	pha
+	jsr processstring
+	jsr processws
+	jsr getvalue
+	stx label_value
+	sty label_value+1
+	pla
+	tay
+	pla
+	tax
+	jmp __asm_addlabel
+@err:	lda #$ff
+	rts
+.endproc
+
+;--------------------------------------
+; addlabel adds a ':' terminated label in (YX) to the label table.
+; the current value of asm::result is used to define its address
 .export __asm_addlabel
 .proc __asm_addlabel
 @label=zp::tmp6
-@savey=zp::tmp8
 @src=zp::tmpa
-@len=zp::tmpc
-	lda #$00
-	sta @len
 	stx @src
 	sty @src+1
 
@@ -1162,14 +1245,19 @@ bbb00:
 	bne @l0
 
 @found:
-	; get the label length
+	; get the label length (we look for whitespace because this routine is
+	; also used to read constants)
 :	lda (@src),y
 	iny
+	jsr is_whitespace
+	beq @length_found
 	cmp #':'
 	bne :-
+
+@length_found:
 	dey
 
-	; free label location found, write the length
+	; write the length
 	tya
 	ldy #$00
 	sta (@label),y
@@ -1188,9 +1276,9 @@ bbb00:
 	lda numlabels
 	asl
 	tax
-	lda zp::asmresult
+	lda label_value
 	sta label_addresses,x
-	lda zp::asmresult+1
+	lda label_value+1
 	sta label_addresses+1,x
 
 	inc numlabels
@@ -1257,14 +1345,21 @@ bbb00:
 .proc is_null_return_space_comma_closingparen_newline
 	cmp #$00
 	beq @done
-	cmp #' '
+	jsr is_whitespace
 	beq @done
 	cmp #','
 	beq @done
 	cmp #')'
-	beq @done
-	cmp #$0d
 @done:	rts
+.endproc
+
+;--------------------------------------
+; is_whitespace returns .Z set if the character in .A is whitespace
+.proc is_whitespace
+	cmp #$0d
+	beq :+
+	cmp #' '
+:	rts
 .endproc
 
 ;--------------------------------------
@@ -1283,6 +1378,7 @@ bbb00:
 .export __asm_labels
 __asm_labels: .res 256 * 16
 numlabels: .byt 0
+.export label_addresses
 label_addresses: .res 256 * 2
 
 ; if corresponding bit is 0- label represents a label, 1- comment

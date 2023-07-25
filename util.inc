@@ -7,6 +7,7 @@
 .import __util_strncmp
 .import __util_strlen
 .import __util_todec
+.import atoi
 
 .scope util
 	chtohex = __util_chtohex

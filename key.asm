@@ -15,11 +15,23 @@ CURSOR_LR_MASK=2
 @x=zp::tmp0
 	jsr Keyboard
 	bcs @nokey
-	cmp #$ff
-	beq @nokey
+	cmp #' '
+	bcc @ccodes
+	cmp #'z'+1
+	bcc @done
+@ccodes:
 	cmp #$0d
-	bcc @nokey
-	rts
+	beq @done
+	cmp #$14
+	beq @done
+	cmp #$1d
+	beq @done
+	cmp #$9d
+	beq @done
+	cmp #$11
+	beq @done
+	cmp #$91
+	beq @done
 @nokey:
 	lda #$00
 @done:	rts
