@@ -440,34 +440,32 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 ; linedone attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
 	lda zp::curx
-	pha
-	lda #$0d
-	jsr src::insert
-	jsr text::putch
-
-	pla
 	beq @nextline ; we're at column 0, scroll the screen and return
 
+	; check if the current line is valid
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	jsr asm::tokenize
 	tax
 	bmi @err
+	pha
 
-@noerr: ; compilation was successful, format line
-	bne :+
-	lda #ASM_LABEL
-	bne @fmt
-:	cmp #ASM_OPCODE
+	; insert \n into source and text buffers
+	lda #$0d
+	jsr src::insert
+	lda #$0d
+	jsr text::putch
+
+	; format the line
+	pla
+	cmp #ASM_LABEL
+	beq @fmt
+	cmp #ASM_OPCODE
 	bne @nextline	; no formatting
 @fmt:	jsr fmt::line
 
 @nextline:
 	jsr drawline
-
-	; reset flags
-	lda #$01
-	sta text::insertmode
 
 	; redraw the cleared status line
 	jsr text::update
@@ -480,7 +478,6 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 
 @err:	lda #$ff
 	jsr fmt::line
-	jsr src::backspace
 	; highlight the error line
 	ldx #ERROR_COLOR
 	lda zp::cury

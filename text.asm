@@ -196,7 +196,7 @@ curtmr=*+1
 	cmp #' '
 	beq @cont
 	cmp #$0d
-	beq @cont
+	beq @disp
 	sta @buff,x
 	inc @sub
 	bne :+
@@ -280,6 +280,7 @@ curtmr=*+1
 
 @slowput:
 @shift_right:
+	; insert a new char and redraw the line
 	jsr __text_linelen
 	cpx zp::curx
 	beq @fastput
@@ -301,6 +302,7 @@ curtmr=*+1
 	jmp @updatecur
 
 @fastput:
+	; replace the underlying character
 	jsr cur::off
 	ldx zp::curx
 	lda #$00

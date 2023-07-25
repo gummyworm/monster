@@ -26,7 +26,7 @@ CURSOR_LR_MASK=2
 	bcs @nokey
 	cmp #$ff
 	beq @nokey
-	cmp #$04
+	cmp #$0d
 	bcc @nokey
 	cmp #$8d	; treat SHIFT+RETURN as RETURN
 	bne :+
