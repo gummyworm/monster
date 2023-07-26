@@ -9,6 +9,7 @@ app_vars_size=$ec-app_vars
 
 ;--------------------------------------
 asmresult = $e9	; pointer where code is assembled
+asm=$40
 
 ;--------------------------------------
 ; cursor

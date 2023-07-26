@@ -109,9 +109,9 @@ main:
 .export command_asm
 .proc command_asm
 	jsr src::pushp
-
 	jsr src::rewind
 	jsr asm::reset
+
 @doline:
 	jsr src::readline
 	ldxy #mem::linebuffer
@@ -758,7 +758,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 @line2len=*+1
 	sbc #$00
 	sta @cnt
-	dec zp::curx
+	dec @cnt
 @endofline:
 	inc zp::curx
 	jsr src::next

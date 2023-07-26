@@ -1,3 +1,4 @@
+.include "asm.inc"
 .include "edit.inc"
 .include "irq.inc"
 .include "macros.inc"
@@ -52,10 +53,7 @@ irq_handler:
 
 ;--------------------------------------
 enter:
-	; set address to assemble to
-	ldxy #mem::program
-	stxy zp::asmresult
-
+	jsr asm::reset
 	jsr src::new
 
 reenter:

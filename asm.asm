@@ -9,8 +9,14 @@
 .CODE
 
 ;--------------------------------------
-line = zp::tmp0
-label_value = zp::tmp8	; param to addlabel
+indirect=zp::asm ; 1=indirect, 0=absolute
+indexed=zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
+immediate=zp::asm+2 ; 1=immediate, 0=not immediate
+operandsz=zp::asm+3 ; size of the operand (in bytes)
+cc=zp::asm+4
+resulttype=zp::asm+5
+label_value = zp::asm+6 ; param to addlabel
+line = zp::asm+8
 
 ;--------------------------------------
 NUM_OPCODES = 58
@@ -124,22 +130,16 @@ __asm_validate:
 __asm_tokenize:
 .proc tokenize
 ;flags
-@indirect=zp::tmp2  ; 1=indirect, 0=absolute
-@indexed=zp::tmp3   ; 1=x-indexed, 2=y-indexed, 0=not indexed
-@immediate=zp::tmp4 ; 1=immediate, 0=not immediate
-@operandsz=zp::tmp5 ; size of the operand (in bytes)
-@cc=zp::tmp9
-@resulttype=zp::tmpf
 	stx line
 	sty line+1
 
 	jsr process_ws
 
 	ldy #$00
-	sty @indirect
-	sty @indexed
-	sty @operandsz
-	sty @immediate
+	sty indirect
+	sty indexed
+	sty operandsz
+	sty immediate
 
 @full_line_comment:
 	lda (line),y
@@ -147,14 +147,14 @@ __asm_tokenize:
 	bne @opcode
 	; rest of the line is a comment, we're done
 	lda #ASM_COMMENT
-	sta @resulttype
+	sta resulttype
 	rts
 
 @opcode:
 	jsr getopcode
-	cmp #ASM_OPCODE
-	bne @label
-	sta @resulttype
+	cmp #ERR_ILLEGAL_OPCODE
+	beq @label
+	sta resulttype
 	txa
 	ldy #$00
 	sta (zp::asmresult),y
@@ -163,7 +163,7 @@ __asm_tokenize:
 @label:
 	jsr islabel
 	bmi @directive
-	sta @resulttype
+	sta resulttype
 	ldx line
 	ldy line+1
 	lda zp::asmresult
@@ -180,7 +180,7 @@ __asm_tokenize:
 	bne :+
 	jmp @err
 :	lda #ASM_DIRECTIVE
-	sta @resulttype
+	sta resulttype
 	jmp @getws2
 
 ; from here onwards we are either reading a comment or an operand
@@ -193,21 +193,19 @@ __asm_tokenize:
 	cmp #'('
 	bne @pound
 @lparen:
-	inc @indirect
+	inc indirect
 	incw line
 	jmp @abslabelorvalue
 
 @pound: cmp #'#'
 	bne @abslabelorvalue
-	inc @immediate
+	inc immediate
 	incw line
 
 @abslabelorvalue:
-	tya
-	pha
 	jsr getvalue
 	bcs @notvalue
-	sta @operandsz
+	sta operandsz
 	tya
 	ldy #$02
 	sta (zp::asmresult),y
@@ -220,24 +218,23 @@ __asm_tokenize:
 	jsr getlabel
 	cmp #$ff
 	bne :+
-	pla
 	jmp @err
 
-:	sta @operandsz
+:	sta operandsz
 	tya
 	pha
 	txa
 	ldy #$01
 	sta (zp::asmresult),y
 	pla
-	cpy @operandsz
+	cpy operandsz
 	beq @cont 		; zeropage label
 	iny
 	sta (zp::asmresult),y
 
-@cont:	pla
+@cont:
 	tay
-	lda @indirect
+	lda indirect
 	beq @index
 @rparen:
 ; look for closing paren or ",X"
@@ -255,7 +252,7 @@ __asm_tokenize:
 	cmp #')'
 	beq :+
 	jmp @err
-:	inc @indexed
+:	inc indexed
 	jmp @getws2
 
 @rparen_noprex:
@@ -264,6 +261,7 @@ __asm_tokenize:
 	jmp @err
 
 @index:
+	ldy #$00
 	lda (line),y
 	cmp #','
 	bne @getws2
@@ -272,21 +270,21 @@ __asm_tokenize:
 	lda (line),y
 	cmp #'x'
 	bne @getindexy
-	inc @indexed
+	inc indexed
+	incw line
 @getindexy:
 	cmp #'y'
 	bne @getws2
-	inc @indexed
-	inc @indexed
+	inc indexed
+	inc indexed
+	incw line
 
 @getws2:
 	jsr process_ws
-	jmp @done
 
 @comment:
 	lda (line),y
 	beq @done
-	incw line
 	cmp #$0d
 	beq @done
 	cmp #';'
@@ -307,7 +305,7 @@ __asm_tokenize:
 
 ; done, create the assembled result based upon the opcode, operand, and addr mode
 @done:
-	lda @resulttype
+	lda resulttype
 	cmp #ASM_OPCODE
 	beq :+
 	rts		; if not an instruction, we're done
@@ -322,9 +320,9 @@ __asm_tokenize:
 	lda (zp::asmresult),y
 	cmp #$40
 	bne @getbbb
-	lda @cc
+	lda cc
 	bne @getbbb
-	lda @indirect
+	lda indirect
 	beq @jmpabs
 
 @jmpind:
@@ -342,7 +340,7 @@ __asm_tokenize:
 
 @getbbb:
 ; get bbb bits based upon the address mode and @cc
-	lda @cc
+	lda cc
 	cmp #$03
 	bne @validate_cc
 
@@ -382,7 +380,7 @@ __asm_tokenize:
 	dey
 	sta (zp::asmresult),y
 	lda #$01
-	sta @operandsz
+	sta operandsz
 	jmp @noerr
 
 @verifyimm:
@@ -394,8 +392,8 @@ __asm_tokenize:
 
 @noerr:
 	; update asm::result pointer by (1 + operand size)
-	lda @operandsz
-	clc
+	lda operandsz
+	sec
 	adc zp::asmresult
 	sta zp::asmresult
 	bcc :+
@@ -404,7 +402,7 @@ __asm_tokenize:
 	rts
 
 @validate_cc:
-	ldy @cc
+	ldy cc
 	bne :+
 	lda bbb00,x
 :	cpy #$01
@@ -419,7 +417,7 @@ __asm_tokenize:
 
 	asl
 	asl
-	ora @cc
+	ora cc
 	ldy #$00
 	ora (zp::asmresult),y
 
@@ -469,12 +467,8 @@ __asm_tokenize:
 ; getaddrmode returns the address mode according to the provided flags
 .export getaddrmode
 .proc getaddrmode
-@indirect=zp::tmp2  ; 1=indirect, 0=absolute
-@indexed=zp::tmp3   ; 1=x-indexed, 2=y-indexed, 0=not indexed
-@immediate=zp::tmp4 ; 1=immediate, 0=not immediate
-@operandsz=zp::tmp5
 	; get addressing mode index for bbb tables
-	lda @operandsz
+	lda operandsz
 	beq @impl
 	cmp #2
 	beq @abs
@@ -483,36 +477,36 @@ __asm_tokenize:
 @err:   lda #$ff		; error- oversized operand
 	rts
 
-@zp:	lda @immediate
+@zp:	lda immediate
 	bne @imm
-	ldx @indexed
-	lda @indirect
+	ldx indexed
+	lda indirect
 	beq :+
 	dex
 	bmi @err 	; error- indirect zeropage not a valid addressing mode
 :	txa
 	clc
-	adc @indirect
-	adc @indirect
+	adc indirect
+	adc indirect
 	adc #ZEROPAGE
 	rts
 
-@abs:   lda @immediate
+@abs:   lda immediate
 	bne @err	; error- immediate abs illegal (operand too large)
-	lda @indirect
+	lda indirect
 	beq :+
-	lda @indexed
+	lda indexed
 	bne @err 	; error- indirect absolute doesn't support indexing
 	lda #ABS_IND
 	rts
-:	lda @indexed
+:	lda indexed
 	clc
 	adc #ABS
 	rts
 
-@imm:	lda @indirect
+@imm:	lda indirect
 	bne @err	; error- immediate doesn't support indirection
-	lda @indexed
+	lda indexed
 	bne @err	; error- immediate doesn't support indexing
 	lda #IMMEDIATE
 	rts
@@ -736,6 +730,7 @@ bbb00:
 .proc getlabel
 @l=zp::tmp6
 @num=zp::tmp8
+@sz=zp::tmp9
 	lda #$ff
 	sta @num
 
@@ -743,36 +738,40 @@ bbb00:
 	sta @l
 	lda #>__asm_labels
 	sta @l+1
-	ldx #$00
+
+	lda #$00
+	sta @sz
+
 @l0:	inc @num
 	lda @num
 	cmp numlabels
 	bcs @err
 
-	txa
-	clc
+	; add label size to label pointer
+	lda @sz
 	adc @l
+	sta @l
 	bcc :+
 	inc @l+1
-:	sta @l
-	ldy #$00
-	lda (@l),y
+
+:	ldy #$00
+	lda (@l),y	; get new size of label
+	sta @sz
 	tax
 
-	inc @l
-	bne @l1
-	inc @l+1
+	incw @l
 @l1:	lda (line),y
 	cmp (@l),y
 	bne @l0
 	iny
 	dex
 	bne @l1
+
 	lda (line),y
 	jsr is_null_return_space_comma_closingparen_newline
 	bne @err
 
-@done:	tya
+@done:	lda @sz
 	clc
 	adc line
 	sta line
@@ -901,10 +900,9 @@ bbb00:
 .proc getopcode
 @optab = zp::tmp6
 @op = zp::tmp8
-@cc = zp::tmp9
 	lda #$00
 	sta @op
-	sta @cc
+	sta cc
 
 	ldx #<opcodes
 	ldy #>opcodes
@@ -930,13 +928,13 @@ bbb00:
 	tax
 	cmp #CC_01
 	bcc @setcc
-	inc @cc
+	inc cc
 	cmp #CC_10
 	bcc @setcc
-	inc @cc
+	inc cc
 	cmp #CC_IMP
 	bcc @setcc
-	inc @cc
+	inc cc
 
 	; look up the opcode from a table
 	sbc #CC_IMP
@@ -1303,7 +1301,13 @@ bbb00:
 	stxy zp::asmresult
 
 	lda #$00
-	sta numlabels
+	tax
+	stx numlabels
+@clrlabels:
+	sta __asm_labels,x
+	sta __asm_labels+$100,x
+	dex
+	bne @clrlabels
 	rts
 .endproc
 
