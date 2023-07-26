@@ -26,7 +26,6 @@
 @src=zp::tmp2
 @dst=zp::tmp4
 @len=zp::tmp0
-	sei
 	ldxy @len
 	cmpw #$0000
 	beq @done
@@ -40,8 +39,7 @@
 	ldxy @len
 	cmpw #$0000
 	bne @l0
-@done:  cli
-	rts
+@done:  rts
 .endproc
 
 ;--------------------------------------
@@ -96,15 +94,16 @@
 
 ;--------------------------------------
 ; atoi returns the value of the decimal string given in .XY
-; the string must be terminated by a \0 or a $0d (newline)
-; On success, .A contains $00, $ff on failure
+; the string must be terminated by a \0, $0d (newline), or ','
+; On success carry is clear and .A contains the index after the last character
+; used in the given string
 .export atoi
 .proc atoi
-@tmp=zp::tmp2
-@str=zp::tmp4
-@scale=zp::tmp6
-@val=zp::tmp7
-@tmp2=zp::tmp9
+@tmp=zp::tmp10
+@str=zp::tmp12
+@scale=zp::tmp14
+@val=zp::tmp15
+@tmp2=zp::tmp17
 	stxy @str
 	lda #$00
 	sta @val
@@ -115,9 +114,12 @@
 :	iny
 	lda (@str),y
 	beq @endfound
+	cmp #','
+	beq @endfound
 	cmp #$0d
 	bne :-
 @endfound:
+	sty @offset
 	dey
 
 	ldx #$ff
@@ -153,10 +155,12 @@
 
 	ldx @val
 	ldy @val+1
+	clc
+@offset=*+1
 	lda #$00
 	rts
 @err:
-	lda #$ff
+	sec
 	rts
 
 @mul10:

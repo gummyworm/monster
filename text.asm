@@ -137,6 +137,9 @@ curtmr=*+1
 @l0:    lda (@str),y
 	bne :+
 	jmp @disp
+	cmp #$0d
+	bne :+
+	jmp @disp
 
 :	cmp #$18	; TAB
 	bne :+
@@ -403,8 +406,7 @@ curtmr=*+1
 .export __text_scrollup
 @src=zp::tmp1
 @dst=zp::tmp3
-@startline=zp::tmp5
-@numrows=zp::tmp7
+@numrows=zp::tmp5
 	stx @numrows
 	sec
 	sbc @numrows
@@ -412,28 +414,20 @@ curtmr=*+1
 	asl
 	asl
 	sta @numrows
+	dec @numrows
 
 	txa
 	asl
 	asl
 	asl
-	sta @startline
-
-	lda #<BITMAP_ADDR
-	adc @startline
 	sta @dst
-	lda #>BITMAP_ADDR
-	adc #$00
-	sta @dst+1
-
-	lda @dst
-	adc #8
+	adc #$08
 	sta @src
-	lda @dst+1
-	adc #$00
+
+	lda #>BITMAP_ADDR
+	sta @dst+1
 	sta @src+1
 
-	ldx #19
 @l0:	ldy #$00
 @l1:    lda #$00
 	cpy #8
@@ -442,7 +436,7 @@ curtmr=*+1
 :	sta (@dst),y
 	iny
 	cpy @numrows
-	bcc @l1
+	bne @l1
 
 	lda @src
 	clc
@@ -454,11 +448,12 @@ curtmr=*+1
 	clc
 	adc #$c0
 	sta @dst
-	bcc :+
-	inc @dst+1
 
-:	dex
-	bpl @l0
+	lda @dst+1
+	adc #$00
+	sta @dst+1
+	cmp #$1f
+	bne @l0
 	rts
 .endproc
 
@@ -467,9 +462,10 @@ curtmr=*+1
 ; scrolls all rows from .A to .X
 .proc __text_scrolldown
 @rowstart=zp::tmp0
-@rows=zp::tmp2
-@src=zp::tmp3
-@dst=zp::tmp5
+@rows=zp::tmp1
+@src=zp::tmp2
+@dst=zp::tmp4
+	sei
 	sta @rowstart
 
 	txa
@@ -479,6 +475,7 @@ curtmr=*+1
 	asl
 	asl
 	sta @rows
+	dec @rows	; -1 because we will do the last row separately
 
 	lda @rowstart
 	asl
@@ -492,8 +489,7 @@ curtmr=*+1
 	sta @src+1
 	sta @dst+1
 
-@l0:
-	ldy @rows
+@l0:	ldy @rows
 @l1:	lda (@src),y
 	sta (@dst),y
 	dey
@@ -512,11 +508,12 @@ curtmr=*+1
 	clc
 	adc #$c0
 	sta @dst
-	bcc :+
-	inc @dst+1
-:	lda @dst+1
-	cmp #$20
+	lda @dst+1
+	adc #$00
+	sta @dst+1
+	cmp #$1f
 	bcc @l0
+	cli
 	rts
 .endproc
 

@@ -582,13 +582,15 @@ bbb00:
 @decimal:
 	ldxy line
 	jsr atoi	; convert to binary
-	cmp #$00
-	beq :+
+	bcc :+
 	sec		; error
 	rts
+:	adc line
+	sta line
+	bcc :+
+	inc line+1
 :	stx @val
 	sty @val+1
-	jsr processstring ; read past the string
 	jmp @success
 
 @hex:
@@ -636,18 +638,13 @@ bbb00:
 :	iny
 	bne @l0
 
-@done:	lda #$02
-	ldx @val+1
-	bne :+
-	lda #$01
-:	pha
+@done:
 	tya
 	clc
 	adc line
 	sta line
-	bcc :+
+	bcc @success
 	inc line+1
-:	pla
 @success:
 	ldx @val
 	ldy @val+1

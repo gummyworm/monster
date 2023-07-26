@@ -122,11 +122,9 @@ stack_depth: .byte 0
 	dec @cnt
 	bne @l0
 
-	cli
 @l1:	jsr key::getch
 	cmp #$00
 	beq @l1
-	sei
 
 	; restore screen
 :	dec @row

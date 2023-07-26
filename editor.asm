@@ -51,19 +51,19 @@ titlebar:
 .proc __edit_run
 ; run is the main loop for the editor
 main:
+
         lda #$70
         cmp $9004
         bne *-3
 
+	sei
 	jsr key::getch
 	cmp #$00
 	beq @done
-
-	sei
 	jsr onkey
-	cli
 
-@done:	jsr text::update
+@done:	cli
+	jsr text::update
 	jsr text::status
 	jmp main
 .endproc
@@ -174,7 +174,6 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	ldxy #mem::linebuffer
 	lda #STATUS_LINE
 	jsr text::drawline
-	cli
 @getkey:
         lda #$70
         cmp $9004
@@ -198,9 +197,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 
 :	cmp #$00
 	beq @getkey
-	sei
 	jsr text::putch
-	cli
 	jmp @getkey
 @run:
 	jsr text::putch	; add the newline
@@ -315,13 +312,11 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr bm::save
 	jsr text::clrline
 	jsr text::dir
-	cli
 
 	; get a selection
 :	jsr key::getch
 	cmp #$0d
 	bne :-
-	sei
 	jmp bm::restore
 .endproc
 
@@ -376,9 +371,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	pla
 	tax
 
-	sei
 	jsr src::save
-	cli
 	cmp #$00
 	bne @err
 	rts	; no error
@@ -414,9 +407,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	pla
 	tax
 
-	sei
 	jsr src::load
-	cli
 	cmp #$00
 	bne @err
 
@@ -438,6 +429,11 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 ;--------------------------------------
 ; linedone attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
+	; insert \n into source and text buffers
+	lda #$0d
+	jsr src::insert
+	jsr text::putch
+
 	lda zp::curx
 	beq @format	; @ column 0, skip to insert (format will be ignored)
 
@@ -448,15 +444,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	tax
 	bmi @err
 @format:
-	pha
-
-	; insert \n into source and text buffers
-	lda #$0d
-	jsr src::insert
-	jsr text::putch
-
 	; format the line
-	pla
 	cmp #ASM_LABEL
 	beq @fmt
 	cmp #ASM_OPCODE
@@ -473,14 +461,15 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr src::get
 	ldxy #mem::linebuffer
 	lda zp::cury
-	jmp text::print
+	jsr text::print
+	rts
 
 @err:	lda #$ff
-	jsr fmt::line
 	; highlight the error line
 	ldx #ERROR_COLOR
 	lda zp::cury
-	jmp text::hiline
+	jsr text::hiline
+	jmp @nextline
 .endproc
 
 ;--------------------------------------

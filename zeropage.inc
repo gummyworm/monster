@@ -46,6 +46,8 @@ tmp12= $e2
 tmp13= $e3
 tmp14= $e4
 tmp15= $e5
+tmp16= $e6
+tmp17= $e7
 ;--------------------------------------
 ;storage for IRQ handlers
 irq0 = $e6
