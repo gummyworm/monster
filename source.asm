@@ -1,3 +1,4 @@
+.include "io.inc"
 .include "irq.inc"
 .include "zeropage.inc"
 .include "macros.inc"
@@ -124,38 +125,25 @@ data:
 .endproc
 
 ;--------------------------------------
-; load loads the given file into the buffer.
-.export __src_load
-.proc __src_load
-@dst=zp::tmp0
-	stxy @dst
-	ldy #$00
-@copyname:
-	lda (@dst),y
-	sta name,y
-	iny
-	cpy #$0d
-	bne @copyname
-	lda #$00
-	sta name,y
-
-	dey
-	sty namelen
-
-	lda #$02
+; loadfile loads the file given in .YX length in .A
+.export __src_loadfile
+.proc __src_loadfile
+	pha
+	lda #$03
 	sta secondaryaddr
-	ldxy #__src_buffer
-	stxy @dst
+	lda #$00
+	sta post
+	lda #GAPSIZE
+	sta len
+	pla
 
-	ldxy #name
-	lda namelen
-	jsr __src_new
-	jmp load
+	; fallthrough
 .endproc
 
 ;--------------------------------------
 ; load loads the filename given in (YX) (of length given in .A)
 ; into the address contained by zp::tmp0
+__src_load:
 .proc load
 @dst=zp::tmpb
 @errcode=zp::tmpb
@@ -166,17 +154,17 @@ data:
 	pla
 	jsr $ffbd	; SETNAM
 
-	lda #$02	; file #2
+	lda #$03	; file #3
 	ldx @dev	; last used device number
 	bne :+
-	ldx #$0a 	; default to device 10
+	ldx #$09 	; default to device 9
 :	ldy secondaryaddr ; SA
 	jsr $ffba 	; SETLFS
 
 	jsr $ffc0 	; call OPEN
 	bcs @error 	; if carry set, the file could not be opened
 
-	ldx #$02      ; filenumber 2
+	ldx #$03      ; filenumber 3
 	jsr $ffc6     ; CHKIN (file 2 now used as input)
 
 	; read load address
@@ -184,6 +172,7 @@ data:
 	bne @error
 	jsr $ffcf
 	jsr $ffb7
+	and #$40
 	bne @error
 	jsr $ffcf
 
@@ -194,24 +183,25 @@ data:
 	ldy #$00
 	sta (@dst),y  ; write byte to memory
 
-	lda secondaryaddr ; if loading directory, don't updated cursor
-	beq :+
-	incw pre
-	incw len
-:	incw @dst
+	ldx secondaryaddr ; if loading directory, don't update source pointers
+	beq @filedone
+	jsr __src_insert
+@filedone:
+	incw @dst
 	jmp @l0
 @eof:
-	sta @errcode
+	pha
 	and #$40      ; end of file?
 	beq @error
-@close:
-	lda #$02      ; filenumber 2
+	pla
+	lda #$00
+	skb
+@error:
+	pla
+	sta @errcode
+	lda #$03      ; filenumber 3
 	jsr $ffc3     ; call CLOSE
 	jsr $ffcc     ; call CLRCHN
-	lda #$00
-	rts
-@error:
-	jsr @close
 	lda @errcode
 	rts
 .endproc
@@ -232,6 +222,7 @@ data:
 	sty @cnt+1
 @setname:
 	lda (@name),y
+	beq @add_p_w
 	cmp #$0d
 	beq @add_p_w
 	sta name,y
@@ -265,24 +256,27 @@ data:
 	lda #$03
 	ldx @dev 	; last used device number
 	bne :+
-	ldx #$08	; default to device 8
+	ldx #$09	; default to device 9
 :	ldy #$03
-	ldx #$08
+	ldx #$09
 	jsr $ffba	; SETLFS
 
 	jsr $ffc0 	; call OPEN
 	bcs @error 	; if carry set, the file could not be opened
 
-	ldx #$03      ; filenumber 2
+	;jsr io::readerr
+
+	ldx #$03      ; filenumber 3
 	jsr $ffc9     ; CHKOUT (file 3 now used as output)
 
 @save:
 	jsr $ffb7     ; READST (read status byte)
-	cmp #$00
 	bne @werr     ; write error
 	incw @cnt
 	ldy #$00
 	lda (@src),y
+	beq @done	; A $00 in the buffer indicates EOF
+	ldx @cnt
 	jsr $ffd2     ; CHROUT (write byte to file)
 	incw @src
 
@@ -309,16 +303,17 @@ data:
 
 @done:
 	ldxy @sz
-	lda #$03      ; filenumber 2
+@close:
+	lda #$03      ; filenumber 3
 	jsr $ffc3     ; CLOSE
-
 	jsr $ffcc     ; call CLRCHN
 	lda #$00
 	rts
 
 @error:
 @werr:
-	rts
+	jsr @close
+	jmp io::readerr
 @p_w:
 	.byte ",p,w"
 @p_w_len=*-@p_w
@@ -753,4 +748,4 @@ __src_name:
 name:      .byte "test.s" ; the name of the active procedure
 .res 13
 namelen: .byte 6
-secondaryaddr: .byte 0
+secondaryaddr: .byte 3

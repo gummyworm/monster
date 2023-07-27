@@ -12,8 +12,8 @@
 .import __src_next
 .import __src_new
 .import __src_up
-.import __src_load
 .import __src_loaddir
+.import __src_loadfile
 .import __src_popp
 .import __src_prev
 .import __src_pushp
@@ -38,8 +38,8 @@ GAPSIZE = 20	; size of gap in gap buffer
 	get = __src_get
 	goto = __src_goto
 	insert = __src_insert
-	load = __src_load
 	loaddir = __src_loaddir
+	loadfile = __src_loadfile
 	line = __src_line
 	new = __src_new
 	next = __src_next

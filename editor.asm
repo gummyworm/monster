@@ -257,9 +257,9 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 :	cmp #$86	; F3 (assemble)
 	bne :+
 	jmp command_asm
-:	cmp #$87	; F5 (Load)
+:	cmp #$87	; F5 (nop)
 	bne :+
-	jmp load
+	rts
 :	cmp #$bc	;C=<C> (Refresh)
 	bne :+
 	jmp refresh
@@ -393,8 +393,20 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 ;--------------------------------------
 ; load loads the file from disk into the source buffer
 .proc load
-	txa
-	pha
+@file=zp::tmp9
+@dst=zp::tmpb
+	stx @file
+	sty @file+1
+
+	; get the file length
+	ldy #$00
+:	lda (@file),y
+	cmp #$0d
+	beq @found
+	iny
+	bne :-
+
+@found:
 	tya
 	pha
 
@@ -402,12 +414,13 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	lda #STATUS_LINE
 	jsr text::print
 
-	pla
-	tay
-	pla
-	tax
+	; set the address to load file into
+	ldxy #src::buffer
+	stxy @dst
 
-	jsr src::load
+	ldxy @file
+	pla
+	jsr src::loadfile
 	cmp #$00
 	bne @err
 
@@ -423,7 +436,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 @loadingmsg:
 	.byte "loading...",0
 @errmsg:
-.byte "failed to load file; error ", $fe, 0
+.byte "failed to load file; error $", $fe, 0
 .endproc
 
 ;--------------------------------------

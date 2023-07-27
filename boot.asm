@@ -30,6 +30,7 @@ start:
 	sta $0318
 	lda #>nmihandler
 	sta $0319
+	jsr $ffe7	; CLALL (close all files)
         jmp enter
 
 ;#######################################
@@ -49,10 +50,12 @@ start:
 
 ;--------------------------------------
 irq_handler:
-	jmp $eb15	; ack timer and rti
+	jmp $eabf
+	;jmp $eb15	; ack timer and rti
 
 ;--------------------------------------
 enter:
+
 	jsr asm::reset
 	jsr src::new
 
@@ -61,3 +64,5 @@ reenter:
 	txs
 	jsr edit::init
 	jmp edit::run
+
+testname: .byte "hmmm",0

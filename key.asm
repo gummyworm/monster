@@ -28,9 +28,13 @@ CURSOR_LR_MASK=2
 	beq @nokey
 	cmp #$0d
 	bcc @nokey
+
 	cmp #$8d	; treat SHIFT+RETURN as RETURN
 	bne :+
 	lda #$0d
+:	cmp #$94	; treat SHIFT+DEL as DEL
+	bne :+
+	lda #$14
 :	cmp #' '
 	bcc @ccodes
 	rts
