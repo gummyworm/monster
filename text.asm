@@ -465,10 +465,13 @@ curtmr=*+1
 @rows=zp::tmp1
 @src=zp::tmp2
 @dst=zp::tmp4
-	sei
 	sta @rowstart
 
-	txa
+	cpx @rowstart
+	bcs :+
+	rts		; nothing to scroll
+
+:	txa
 	sec
 	sbc @rowstart
 	asl
@@ -490,7 +493,8 @@ curtmr=*+1
 	sta @dst+1
 
 @l0:	ldy @rows
-@l1:	lda (@src),y
+@l1:
+	lda (@src),y
 	sta (@dst),y
 	dey
 	bne @l1
@@ -513,7 +517,6 @@ curtmr=*+1
 	sta @dst+1
 	cmp #$1f
 	bcc @l0
-	cli
 	rts
 .endproc
 
@@ -817,7 +820,7 @@ hicolor=*+1
 	nop
 	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
 	sta $900f
-	jmp $eabf
+	jmp $eb15
 
 ;--------------------------------------
 ; linelen returns the length of mem::linebuffer in .X

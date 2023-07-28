@@ -46,6 +46,8 @@ data:
 :	sta data_start,x
 	dex
 	bpl :-
+	lda #GAPSIZE
+	sta len
 	rts
 .endproc
 
@@ -129,12 +131,19 @@ data:
 .export __src_loadfile
 .proc __src_loadfile
 	pha
+	txa
+	pha
+	tya
+	pha
+
+	jsr __src_new
+
 	lda #$03
 	sta secondaryaddr
-	lda #$00
-	sta post
-	lda #GAPSIZE
-	sta len
+	pla
+	tay
+	pla
+	tax
 	pla
 
 	; fallthrough
@@ -167,7 +176,9 @@ __src_load:
 	ldx #$03      ; filenumber 3
 	jsr $ffc6     ; CHKIN (file 2 now used as input)
 
-	; read load address
+	; if dir, read load address
+	lda secondaryaddr
+	bne @l0
 	jsr $ffb7
 	bne @error
 	jsr $ffcf

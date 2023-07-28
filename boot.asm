@@ -50,8 +50,7 @@ start:
 
 ;--------------------------------------
 irq_handler:
-	jmp $eabf
-	;jmp $eb15	; ack timer and rti
+	jmp $eb15	; ack timer and rti
 
 ;--------------------------------------
 enter:

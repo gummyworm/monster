@@ -62,9 +62,10 @@ main:
 	beq @done
 	jsr onkey
 
-@done:	cli
+@done:
 	jsr text::update
 	jsr text::status
+	cli
 	jmp main
 .endproc
 
@@ -372,6 +373,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	tax
 
 	jsr src::save
+	sei
 	cmp #$00
 	bne @err
 	rts	; no error
@@ -421,8 +423,10 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	ldxy @file
 	pla
 	jsr src::loadfile
+	sei	; re-set I flag
 	cmp #$00
 	bne @err
+	jsr asm::reset
 
 	jmp refresh
 @err:
