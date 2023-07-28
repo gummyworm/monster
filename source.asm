@@ -221,16 +221,11 @@ __src_load:
 ; save saves the buffer to the given file.
 .export __src_save
 .proc __src_save
-@name=zp::tmp0
-@src=zp::tmp0
-@sz=zp::tmp2
-@pre=zp::tmpb
-@cnt=zp::tmpd
+@name=zp::tmp4
 @dev=$ba
+	sta namelen
 	stxy @name
 	ldy #$00
-	sty @cnt
-	sty @cnt+1
 @setname:
 	lda (@name),y
 	beq @add_p_w
@@ -248,86 +243,124 @@ __src_load:
 	inx
 	cpx #@p_w_len
 	bcc :-
-
-	sty namelen
-
-	ldxy #__src_buffer
-	stxy @src
-	ldxy pre
-	stxy @pre
-	ldxy len
-	stxy @sz
-
-	lda #$09
-	sta @dev
-
-	lda namelen
+	tya		; .A = name length
 	ldxy #name
 	jsr $ffbd 	; SETNAM
 	lda #$03
-	ldx @dev 	; last used device number
-	bne :+
-	ldx #$09	; default to device 9
-:	ldy #$03
+	tay
 	ldx #$09
 	jsr $ffba	; SETLFS
 
 	jsr $ffc0 	; call OPEN
 	bcs @error 	; if carry set, the file could not be opened
 
-	;jsr io::readerr
+	jsr @chk_drive_err
+	cpx #$00
+	beq @drive_ok
+	cpx #63		; FILE EXISTS
+	beq @retry
+	bne @error
 
-	ldx #$03      ; filenumber 3
-	jsr $ffc9     ; CHKOUT (file 3 now used as output)
+@drive_ok:
+	ldx #$03	; filenumber 3
+	jsr $ffc9	; CHKOUT (file 3 now used as output)
 
+	jsr __src_rewind
 @save:
 	jsr $ffb7     ; READST (read status byte)
-	bne @werr     ; write error
-	incw @cnt
-	ldy #$00
-	lda (@src),y
-	beq @done	; A $00 in the buffer indicates EOF
-	ldx @cnt
-	jsr $ffd2     ; CHROUT (write byte to file)
-	incw @src
-
-	decw @sz
-	ldxy @sz
-	cmpw #0
-	beq @done
-	decw @pre
-	ldxy @pre
-	cmpw #0
+	bne @done
+@chout:
+	jsr __src_next
+	jsr $ffd2	; CHROUT (write byte to file)
+	jsr __src_end	; done yet?
 	bne @save
 
-	; move past the gap
-	jsr gaplen
-	sty zp::tmp4
-	txa
-	clc
-	adc @src
-	sta @src
-	lda @src+1
-	adc zp::tmp4
-	sta @src+1
-	jmp @save 	; next byte
-
 @done:
-	ldxy @sz
-@close:
+@error:
+	jsr @chk_drive_err
 	lda #$03      ; filenumber 3
 	jsr $ffc3     ; CLOSE
 	jsr $ffcc     ; call CLRCHN
 	lda #$00
 	rts
 
-@error:
-@werr:
-	jsr @close
-	jmp io::readerr
-@p_w:
-	.byte ",p,w"
+@retry:
+	lda #$03	; filenumber 3
+	jsr $ffc3	; CLOSE 3
+	lda #$0f	; filenumber 15
+	jsr $ffc3	; CLOSE 15
+	jsr $ffcc	; CLRCHN
+
+	; delete old file
+	ldxy @name
+	lda namelen
+	jsr __src_scratchfile
+	beq :+
+	rts		; scratch failed, leave error from io:readerr for user
+
+	; retry the save
+:	ldxy @name
+	lda namelen
+	jmp __src_save
+
+;------------------
+@chk_drive_err:
+	jsr io::readerr
+	ldxy #$0100
+	jmp util::atoi
+
+;------------------
+@p_w:	.byte ",p,w"
 @p_w_len=*-@p_w
+.endproc
+
+;--------------------------------------
+; scratch deletes the filename given in .YX, length in .A
+.export __src_scratchfile
+.proc __src_scratchfile
+@sname=mem::linebuffer2
+@name=zp::tmp0
+
+	pha
+	stxy @name
+	lda #'s'
+	sta @sname
+	lda #':'
+	sta @sname+1
+
+	pla
+	tay
+	tax
+	dey
+:	lda (@name),y
+	sta @sname+2,y
+	dey
+	bpl :-
+
+	txa
+	clc
+	adc #$02
+	ldxy #@sname
+	jsr $ffbd 	; SETNAM
+	lda #$0f
+	ldy #$0f
+	ldx #$09
+	jsr $ffba	; SETLFS
+	jsr $ffc0 	; OPEN 15,9,15 "S:FILE"
+	bcs @err
+
+@close:
+	lda #15		; filenumber 3
+	jsr $ffc3	; CLOSE 15
+	jsr $ffcc	; CLRCHN
+	lda #$00	; no error
+	rts
+@err:
+	jsr io::readerr
+	inc $900f
+	ldxy #$0100
+	jmp *-3
+	jmp @close
 .endproc
 
 ;--------------------------------------
@@ -631,8 +664,9 @@ __src_atcursor:
 .proc __src_rewind
 @l0:	jsr __src_prev
 	ldxy pre
-	cmpw #1
+	cmpw #0
 	bne @l0
+@done:
 	rts
 .endproc
 

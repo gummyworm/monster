@@ -96,6 +96,7 @@
 ; atoi returns the value of the decimal string given in .XY
 ; the string must be terminated by a \0, $0d (newline), or ','
 ; On success carry is clear and .A contains the index after the last character
+; .XY contains the 16 bit value
 ; used in the given string
 .export atoi
 .proc atoi
@@ -274,6 +275,8 @@ result=mem::spare
 	sty @str+1
 	ldy #$00
 @l0:	lda (@str),y
+	beq @done
+	cmp #$0d
 	beq @done
 	iny
 	bne @l0

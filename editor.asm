@@ -139,7 +139,7 @@ main:
 	jsr text::print
 	jmp text::clrline
 
-success_msg: .byte "done. ", $fe, " bytes", 0
+success_msg: .byte "done $", $fe, " bytes", 0
 .endproc
 
 ;--------------------------------------
@@ -239,11 +239,13 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 .byte 'g'
 .byte 'o'
 .byte 's'
+.byte 'x'
 @num_commands=*-@command_codes
 @command_table:
 .word command_go
 .word load
 .word save
+.word scratch
 .endproc
 
 ;--------------------------------------
@@ -288,6 +290,10 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	bne :+
 	lda #'s'
 	jmp docommand
+:	cmp #$bd	; C=<X> (Scratch)
+	bne :+
+	lda #'x'
+	jmp docommand
 :	jsr insert
 	jsr cur::off
 	jmp cur::on
@@ -299,6 +305,7 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 	jsr cur::off
 	jsr __edit_init
 	jsr src::rewind
+	jsr src::next	; first character index is 1
 @l0:
 	jsr src::readline
 	jsr drawline
@@ -358,20 +365,21 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 ;--------------------------------------
 ; save writes the source buffer to a file.
 .proc save
-	txa
-	pha
-	tya
+@file=zp::tmp9
+	stx @file
+	sty @file+1
+
+	; get the file length
+	jsr util::strlen
 	pha
 
 	ldxy #@savingmsg
 	lda #STATUS_LINE
 	jsr text::print
 
+	ldx @file
+	ldy @file+1
 	pla
-	tay
-	pla
-	tax
-
 	jsr src::save
 	sei
 	cmp #$00
@@ -393,12 +401,50 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 .endproc
 
 ;--------------------------------------
+.proc scratch
+@file=zp::tmp9
+	stx @file
+	sty @file+1
+
+	; get the file length
+	jsr util::strlen
+	pha
+
+	ldxy #@savingmsg
+	lda #STATUS_LINE
+	jsr text::print
+
+	ldx @file
+	ldy @file+1
+	pla
+	jsr src::scratch
+	cmp #$00
+	bne @err
+	rts	; no error
+@err:
+	jmp *
+	pha
+	lda #$00
+	pha
+	ldxy #@errmsg
+	lda #STATUS_LINE
+	jmp text::print
+@savingmsg:
+	.byte "deleting...",0
+@errmsg:
+	.byte "failed to delete file; error ", $fe, 0
+.endproc
+
+;--------------------------------------
 ; load loads the file from disk into the source buffer
 .proc load
 @file=zp::tmp9
 @dst=zp::tmpb
 	stx @file
 	sty @file+1
+
+	; reinitialize the editor (clear screen, etc.)
+	jsr __edit_init
 
 	; get the file length
 	ldy #$00
@@ -697,8 +743,10 @@ success_msg: .byte "done. ", $fe, " bytes", 0
 @movex:
 	jsr src::next
 	cmp #$0d
-	beq @movecur
-	inc @cnt
+	bne :+
+	jsr src::prev	; don't pass the newline
+	jmp @movecur
+:	inc @cnt
 	lda @cnt
 	cmp @xend
 	bcs @movecur

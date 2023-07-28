@@ -24,6 +24,7 @@
 .import __src_readb
 .import __src_readline
 .import __src_save
+.import __src_scratchfile
 .import __src_start
 
 GAPSIZE = 20	; size of gap in gap buffer
@@ -54,6 +55,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	readline = __src_readline
 	right = __src_right
 	save = __src_save
+	scratch = __src_scratchfile
 	start = __src_start
 	up = __src_up
 .endscope
