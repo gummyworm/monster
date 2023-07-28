@@ -104,12 +104,14 @@ directives:
 .byte "db",0
 .byte "eq",0
 .byte "dw",0
+.byte "inc",0
 directives_len=*-directives
 
 directive_vectors:
 .word definebyte
 .word defineconst
 .word defineword
+.word includefile
 
 ;--------------------------------------
 ; validate verifies that the string at (YX) is a valid instrcution
@@ -1116,14 +1118,40 @@ bbb00:
 	; unexpected character
 @err:	lda #$ff
 @done:	rts
-
 .endproc
 
 ;--------------------------------------
 .proc defineword
-	; TODO
-	lda #$ff
-	rts
+	jsr getvalue
+	bcs @err
+	; store the extracted value
+	tya
+	ldy #$01
+	sta (zp::asmresult),y
+	txa
+	dey
+	sta (zp::asmresult),y
+	incw zp::asmresult
+	incw zp::asmresult
+@commaorws:
+	ldy #$00
+	lda (line),y
+	beq @done
+	cmp #$0d
+	beq @done
+	incw line
+	cmp #','
+	beq defineword
+	cmp #' '
+	beq @commaorws
+	; unexpected character
+@err:	lda #$ff
+@done:	rts
+.endproc
+
+;--------------------------------------
+.proc includefile
+
 .endproc
 
 ;--------------------------------------
