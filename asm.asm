@@ -235,7 +235,7 @@ __asm_tokenize:
 	sta (zp::asmresult),y
 
 @cont:
-	tay
+	ldy #$00
 	lda indirect
 	beq @index
 @rparen:
