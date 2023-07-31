@@ -815,7 +815,8 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	; get the new cursor position
 	; new_line_len - (old_line2_len)
 	jsr src::up
-	;jsr src::next	; 'up' ends on a \n, advance 1 more char for drawing
+	jsr src::start
+	beq @redraw
 	jsr src::get
 	ldxy #mem::linebuffer
 	jsr util::strlen
