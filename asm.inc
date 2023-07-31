@@ -1,4 +1,5 @@
 .import __asm_addlabel
+.import __asm_disassemble
 .import __asm_labelat
 .import __asm_tokenize
 .import __asm_label_address
@@ -6,6 +7,7 @@
 
 .scope asm
 	addlabel = __asm_addlabel
+	disassemble = __asm_disassemble
 	labelat = __asm_labelat
 	label_address = __asm_label_address
 	; assembles the line of code in (>Y/<X)

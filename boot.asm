@@ -54,7 +54,6 @@ irq_handler:
 
 ;--------------------------------------
 enter:
-
 	jsr asm::reset
 	jsr src::new
 

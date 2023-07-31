@@ -54,6 +54,7 @@ opcodes:
 .byt "ldx" ; 101
 .byt "dec" ; 110
 .byt "inc" ; 111
+opcode_branches:
 ; branch $10, $30, $50...
 .byt "bpl"
 .byt "bmi"
@@ -459,8 +460,6 @@ __asm_tokenize:
 .byte %11011100 ; CPY abs,x
 .byte %11110100 ; CPX zp,x
 .byte %11111100 ; CPX abs,x
-
-
 @num_illegals = *-@illegal_opcodes
 
 .endproc
@@ -523,6 +522,7 @@ IMMEDIATE=1
 ABS=6
 ABS_IND=9
 ZEROPAGE=2
+
 bbb01:
 	.byte $ff ; implied/accumulator
 	.byte $02 ; immediate
@@ -558,6 +558,44 @@ bbb00:
 	.byte $07 ; abs,x
 	.byte $ff ; abs,y
 	.byte $ff ; (abs)
+
+MODE_IMMEDIATE=$01
+MODE_ZP=$02
+MODE_ABS=$04
+MODE_INDIRECT=$08
+MODE_X_INDEXED=$10
+MODE_Y_INDEXED=$20
+MODE_IMPLIED=$40
+
+bbb_modes:
+bbb00_modes:
+	.byte MODE_IMMEDIATE | MODE_ZP	; 000
+	.byte MODE_ZP		; 001
+	.byte $ff		; 010
+	.byte MODE_ABS		; 011
+	.byte $ff		; 100
+	.byte MODE_ZP | MODE_X_INDEXED ; 101
+	.byte $ff		; 110
+	.byte MODE_ABS | MODE_X_INDEXED	; 111
+bbb01_modes:
+	.byte MODE_ZP | MODE_X_INDEXED | MODE_INDIRECT
+	.byte MODE_ZP
+	.byte MODE_IMMEDIATE | MODE_ZP
+	.byte MODE_ABS
+	.byte MODE_ZP | MODE_INDIRECT | MODE_Y_INDEXED
+	.byte MODE_ZP | MODE_X_INDEXED
+	.byte MODE_ABS | MODE_Y_INDEXED
+	.byte MODE_ABS | MODE_X_INDEXED
+
+bbb10_modes:
+	.byte MODE_IMMEDIATE 	; 000
+	.byte MODE_ZP		; 001
+	.byte MODE_IMPLIED	; 010
+	.byte MODE_ABS		; 011
+	.byte $ff		; 100
+	.byte MODE_ZP | MODE_X_INDEXED ; 101
+	.byte $ff		; 110
+	.byte ABS | MODE_X_INDEXED	; 111
 
 ;--------------------------------------
 ; getvalue parses (line) for a hexadecimal value up to 16 bits in size.
@@ -1336,6 +1374,268 @@ bbb00:
 	sta __asm_labels+$100,x
 	dex
 	bne @clrlabels
+	rts
+.endproc
+
+;--------------------------------------
+; disassemble disassembles the instruction given at .YX
+; the target buffer to write to is given in zp::tmp0
+.export __asm_disassemble
+.proc __asm_disassemble
+@dst=zp::tmp0
+@cc=zp::tmp2
+@op=zp::tmp3
+@operand=zp::tmp4
+
+@optab=zp::tmp7
+@cc8=zp::tmp7
+@xxy=zp::tmp7
+@cc8_plus_aaa=zp::tmp7
+@modes=zp::tmp7
+
+@bbb=zp::tmp8
+@aaa=zp::tmp9
+@opaddr=zp::tmpa
+	stxy @opaddr
+	ldy #$00
+	lda (@opaddr),y
+	sta @op
+	iny
+	lda (@opaddr),y
+	sta @operand
+	iny
+	lda (@opaddr),y
+	sta @operand+1
+
+; check for branches/exceptions
+	lda @op
+	and #$0f
+	bne @not_branch
+@branch:
+	; get bits 5, 6 and 7 to determine branch type
+	lda @op
+	asl
+	rol
+	rol
+	rol
+	and #$07
+	clc
+	adc #$01
+	sta @xxy
+	asl
+	adc @xxy
+	tax
+	ldy #$02
+:	dex
+	lda opcode_branches,x
+	sta (@dst),y
+	dey
+	bpl :-
+
+	lda @dst
+	clc
+	adc #$03
+	sta @dst
+	bcc @get_branch_target
+	inc @dst+1
+
+@get_branch_target:
+	; calculate target address PC+2+operand
+	; sign extend the operand
+	lda @operand
+	and #$80
+	beq :+
+	lda #$ff
+	skw
+:	lda #$00
+	sta @operand+1
+
+	; operand + opaddr + 2
+	lda @operand
+	clc
+	adc @opaddr
+	sta @operand
+	lda @operand+1
+	adc @opaddr+1
+	sta @operand+1
+	lda #$02
+	clc
+	adc @operand
+	sta @operand
+	lda @operand+1
+	adc #$00
+	sta @operand+1
+	lda #MODE_ABS
+	sta @modes
+	jmp @cont ; @operand now contains absolute address, display it
+
+@not_branch:
+	lda @op
+	and #$03	; get cc
+	sta @cc
+	; get opcodes table offset (each block is 8 opcodes)
+	asl
+	asl
+	asl
+	sta @cc8
+
+	; get aaa - opcode offset (each mneumonic is 3 bytes)
+	lda @op
+	asl
+	rol
+	rol
+	rol
+	and #$07
+	adc @cc8
+	sta @cc8_plus_aaa
+	asl
+	adc @cc8_plus_aaa
+	adc #<opcodes
+	sta @optab
+	lda #>opcodes
+	adc #$00
+	sta @optab+1
+
+	; write the opcode (optab),aaa to the destination
+	ldy #$02
+:	lda (@optab),y
+	sta (@dst),y
+	dey
+	bpl :-
+
+	lda @dst
+	clc
+	adc #$03
+	sta @dst
+	bcc @get_addrmode
+	inc @dst+1
+
+@get_addrmode:
+	; get bbb and find the addressing mode for the instruction
+	lsr
+	lsr
+	and #$03
+	sta @bbb
+
+	; get the cc offset into the bbb_modes table
+	lda @cc
+	asl
+	asl
+	asl
+	adc @bbb	; add bbb to get the table position of our instruction
+	tax
+
+	; if implied, we're done
+	lda bbb_modes,x
+	sta @modes
+	and #IMPLIED
+	beq @cont
+@implied:
+	rts
+
+@cont:
+	; add a space before operand
+	ldy #$00
+	lda #' '
+	sta (@dst),y
+	incw @dst
+
+	; draw the opcode
+	ldy #$00
+@drawop:
+	lda @modes
+	and #MODE_INDIRECT
+	beq :+
+@indirect:
+	lda #'('
+	sta (@dst),y
+	incw @dst
+
+:	lda @modes
+	and #MODE_IMMEDIATE
+	beq :+
+@immediate:
+	lda #'#'
+	sta (@dst),y
+	incw @dst
+
+:	lda @modes
+	and #MODE_ZP
+	beq :+
+@zeropage:
+	ldy #$00
+	lda #'$'
+	sta (@dst),y
+	incw @dst
+	lda @operand
+	jsr util::hextostr
+	tya
+	ldy #$00
+	sta (@dst),y
+	txa
+	iny
+	sta (@dst),y
+	incw @dst
+	incw @dst
+
+:	lda @modes
+	and #MODE_ABS
+	beq :+
+@absolute:
+	ldy #$00
+	lda #'$'
+	sta (@dst),y
+	incw @dst
+	lda @operand+1
+	jsr util::hextostr
+	tya
+	ldy #$00
+	sta (@dst),y
+	txa
+	iny
+	sta (@dst),y
+	incw @dst
+	incw @dst
+	lda @operand
+	jsr util::hextostr
+	tya
+	ldy #$00
+	sta (@dst),y
+	txa
+	iny
+	sta (@dst),y
+	incw @dst
+	incw @dst
+
+:	lda @modes
+	and #MODE_X_INDEXED
+	beq :+
+@xindexed:
+	lda #','
+	sta (@dst),y
+	incw @dst
+	lda #'x'
+	sta (@dst),y
+	incw @dst
+
+:	lda @modes
+	and #MODE_INDIRECT
+	beq :+
+@indirect2:
+	lda #')'
+	sta (@dst),y
+	incw @dst
+
+:	lda @modes
+	and #MODE_Y_INDEXED
+	beq @done
+@yindexed:
+	lda #','
+	sta (@dst),y
+	incw @dst
+	lda #'y'
+	sta (@dst),y
+@done:
 	rts
 .endproc
 
