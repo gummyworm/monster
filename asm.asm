@@ -1486,6 +1486,7 @@ bbb10_modes:
 	rol
 	rol
 	and #$07
+	clc
 	adc @cc8
 	sta @cc8_plus_aaa
 	asl
@@ -1512,9 +1513,10 @@ bbb10_modes:
 
 @get_addrmode:
 	; get bbb and find the addressing mode for the instruction
+	lda @op
 	lsr
 	lsr
-	and #$03
+	and #$07
 	sta @bbb
 
 	; get the cc offset into the bbb_modes table
