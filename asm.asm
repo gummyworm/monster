@@ -17,6 +17,8 @@ cc=zp::asm+4
 resulttype=zp::asm+5
 label_value = zp::asm+6 ; param to addlabel
 line = zp::asm+8
+lsb = zp::asm+$a
+msb = zp::asm+$b
 
 ;--------------------------------------
 NUM_OPCODES = 58
@@ -143,6 +145,8 @@ __asm_tokenize:
 	sty indexed
 	sty operandsz
 	sty immediate
+	sty lsb
+	sty msb
 
 @full_line_comment:
 	lda (line),y
@@ -198,42 +202,56 @@ __asm_tokenize:
 @lparen:
 	inc indirect
 	incw line
-	jmp @abslabelorvalue
+	jmp @hi_or_low_byte
 
 @pound: cmp #'#'
-	bne @abslabelorvalue
+	bne @hi_or_low_byte
 	inc immediate
+	incw line
+	lda (line),y
+
+@hi_or_low_byte:
+	cmp #'<'
+	bne :+
+	inc lsb
+	incw line
+:	cmp #'>'
+	bne @abslabelorvalue
+	inc msb
 	incw line
 
 @abslabelorvalue:
 	jsr getvalue
 	bcs @notvalue
+@store_value:
 	sta operandsz
+	lda lsb
+	beq :+
+	lda #$01
+	sta operandsz
+	bne @store_lsb
+:	lda msb
+	beq @store_msb
+	lda #$01
+	sta operandsz
+	tya
+	tax
+	jmp @store_lsb
+@store_msb:
 	tya
 	ldy #$02
 	sta (zp::asmresult),y
-	dey
+@store_lsb:
 	txa
+	ldy #$01
 	sta (zp::asmresult),y
 	jmp @cont
 
 @notvalue:
 	jsr getlabel
 	cmp #$ff
-	bne :+
+	bne @store_value
 	jmp @err
-
-:	sta operandsz
-	tya
-	pha
-	txa
-	ldy #$01
-	sta (zp::asmresult),y
-	pla
-	cpy operandsz
-	beq @cont 		; zeropage label
-	iny
-	sta (zp::asmresult),y
 
 @cont:
 	ldy #$00
