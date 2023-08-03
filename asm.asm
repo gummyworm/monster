@@ -613,10 +613,11 @@ bbb10_modes:
 	.byte ABS | MODE_X_INDEXED	; 111
 
 ;--------------------------------------
-; getvalue parses (line) for a hexadecimal value up to 16 bits in size.
+; getvalue parses (line) for a decimal or hexadecimal value up to 16 bits in size.
 ; If it succeeds, the size
 ; is returned in .A and the value in (<.X/>.Y) and line is updated to point
 ; after the value.
+; The character '*' is also parsed and results in the value of zp::asmresult
 ; .C is set on error and clear if a value was extracted.
 .export getvalue
 .proc getvalue
@@ -628,13 +629,27 @@ bbb10_modes:
 	cmp #'$'
 	beq @hex
 
+	cmp #'*'
+	bne @decimal
+	iny
+	lda (zp::line),y
+	jsr util::is_null_return_space_comma_closingparen_newline
+	clc
+	bne @err
+	incw zp::line
+	ldx zp::asmresult
+	ldy zp::asmresult+1
+	beq *+3
+	lda #$02
+	skw
+	lda #$01
+	rts
+
 @decimal:
 	ldxy zp::line
 	jsr atoi	; convert to binary
-	bcc :+
-	sec		; error
-	rts
-:	adc zp::line
+	bcs @err
+	adc zp::line
 	sta zp::line
 	bcc :+
 	inc zp::line+1
@@ -680,11 +695,8 @@ bbb10_modes:
 	asl
 	rol @val
 	rol @val+1
-	bcc :+
-	; oversized value
-	sec
-	rts
-:	iny
+	bcs @err	; oversized value
+	iny
 	bne @l0
 
 @done:
@@ -697,7 +709,6 @@ bbb10_modes:
 @success:
 	ldx @val
 	ldy @val+1
-	cpy #$00
 	beq :+
 	lda #$02	; 2 bytes
 	skw

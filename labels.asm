@@ -285,8 +285,7 @@ label_addresses: .res 256 * 2
 	bcc :+
 	rts		; not found
 
-:
-	txa
+:	txa
 	asl
 	sta @table
 	tya
