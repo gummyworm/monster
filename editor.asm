@@ -107,12 +107,20 @@ main:
 .endproc
 
 ;--------------------------------------
+; reset clears all state relating to the assembly of the active file.
+.proc reset
+	jsr asm::reset
+	jmp lbl::clr
+.endproc
+
+;--------------------------------------
 ; command_asm assembles the entire source into mem::program
 .export command_asm
 .proc command_asm
 	jsr src::pushp
 	jsr src::rewind
-	jsr asm::reset
+	jsr src::next
+	jsr reset
 
 @doline:
 	jsr src::readline
@@ -423,7 +431,6 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	bne @err
 	rts	; no error
 @err:
-	jmp *
 	pha
 	lda #$00
 	pha
@@ -473,7 +480,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	sei	; re-set I flag
 	cmp #$00
 	bne @err
-	jsr asm::reset
+	jsr reset
 
 	jmp refresh
 @err:
@@ -496,11 +503,11 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	; insert \n into source and text buffers
 	lda #$0d
 	jsr src::insert
+	lda #$00
 	jsr text::putch
 
-	lda zp::curx
-	beq @format	; @ column 0, skip to insert (format will be ignored)
-
+	ldx zp::curx
+	beq @nextline ; @ column 0, skip to insert
 	; check if the current line is valid
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
@@ -747,7 +754,9 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	bne :+
 	jsr src::prev	; don't pass the newline
 	jmp @movecur
-:	inc @cnt
+:	lda @xend
+	beq @movecur
+	inc @cnt
 	lda @cnt
 	cmp @xend
 	bcs @movecur
@@ -800,7 +809,6 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jsr text::scrollup
 	jsr draw_titlebar
 
-	jsr text::clrline
 	; get the length of the line we're moving up
 	jsr src::get
 
@@ -816,9 +824,8 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	; get the new cursor position
 	; new_line_len - (old_line2_len)
 	jsr src::up
-	jsr src::start
-	beq @redraw
 	jsr src::get
+	jsr src::start
 	ldxy #mem::linebuffer
 	jsr util::strlen
 	sec

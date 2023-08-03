@@ -14,9 +14,8 @@ MAX_LABEL_LEN = 16
 numlabels: .word 0
 
 ;--------------------------------------
-; sorted BST of all labels
-;  - "find" performs a search on this table and returns the id given a name
-;  - "add" inserts a name into this table at the appropriate position
+; table of label names. each entry corresponds to an entry in label_addresses,
+; which contains the value for the label name.
 .export labels
 labels: .res MAX_LABELS * MAX_LABEL_LEN
 labels_end=*
@@ -113,6 +112,7 @@ label_addresses: .res 256 * 2
 ;--------------------------------------
 ; add adds a ':' terminated label in (YX) to the label table.
 ; the current value of zp::label_value is used to define its address
+; .C is set on error or clear if the label was successfully added
 .export __label_add
 .proc __label_add
 @id=zp::tmp0
@@ -132,8 +132,7 @@ label_addresses: .res 256 * 2
 	ldxy @name
 	jsr find
 	bcs @insert
-	inc $900f
-	jmp *-3
+	sec
 	rts	; label already exists
 
 @insert:

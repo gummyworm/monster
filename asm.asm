@@ -305,8 +305,6 @@ __asm_tokenize:
 @comment:
 	lda (zp::line),y
 	beq @done
-	cmp #$0d
-	beq @done
 	cmp #';'
 	; error- trailing garbage
 	beq :+
@@ -315,11 +313,9 @@ __asm_tokenize:
 	; get length of comment
 :	iny
 	lda (zp::line),y
-	beq :+
-	cmp #$0d
 	bne :-
 
-:	ldx zp::line
+	ldx zp::line
 	ldy zp::line+1
 	; TODO: jsr addcomment
 
@@ -727,8 +723,6 @@ bbb10_modes:
 	beq @err	; no closing quote
 	cmp #'"'
 	beq @done
-	cmp #$0d
-	beq @err	; no closing quote
 	sta mem::spare,x
 	inx
 	bne @l0
@@ -988,8 +982,6 @@ bbb10_modes:
 	ldy #$00
 	lda (zp::line),y
 	beq @done
-	cmp #$0d
-	beq @done
 	incw zp::line
 	cmp #','
 	beq definebyte
@@ -1016,8 +1008,6 @@ bbb10_modes:
 @commaorws:
 	ldy #$00
 	lda (zp::line),y
-	beq @done
-	cmp #$0d
 	beq @done
 	incw zp::line
 	cmp #','
@@ -1064,12 +1054,10 @@ bbb10_modes:
 ;--------------------------------------
 ; process_ws reads (line) and updates it to point past ' ' chars.
 ; .A contains the last character processed on return
-; .Z is set if we're at the end of the line ($0d or $00)
+; .Z is set if we're at the end of the line ($00)
 .proc process_ws
 	ldy #$00
 	lda (zp::line),y
-	beq @done
-	cmp #$0d
 	beq @done
 	cmp #' '
 	bne @done

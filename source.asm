@@ -108,7 +108,6 @@ data:
 	rts
 .endproc
 
-
 ;--------------------------------------
 ; loaddir loads the directory listing into mem::spare
 .export __src_loaddir
@@ -228,8 +227,6 @@ __src_load:
 	ldy #$00
 @setname:
 	lda (@name),y
-	beq @add_p_w
-	cmp #$0d
 	beq @add_p_w
 	sta name,y
 	iny
@@ -622,13 +619,10 @@ __src_atcursor:
 :	iny
 	lda (@src),y
 	beq @done
-	cmp #$0d
-	beq @done
 	sta name,y
 	cpy #(40-23)
 	bcc :-
-@done:	lda #$00
-	sta name,y
+@done:	sta name,y
 	rts
 .endproc
 
@@ -685,10 +679,9 @@ __src_atcursor:
 .endproc
 
 ;--------------------------------------
-; readline reads one line (including $0d) at the cursor positon and advances
-; the cursor
+; readline reads one line at the cursor positon and advances the cursor
 ; Out:
-;  mem::linebuffer: the line that was read
+;  mem::linebuffer: the line that was read will be 0-terminated
 ;  .A is $0d if the last character read was a RETURN ($0d)
 ;
 .export __src_readline
@@ -698,8 +691,10 @@ __src_atcursor:
 	sta @cnt
 @l0:	jsr __src_readb
 	ldx @cnt
-	sta mem::linebuffer,x
 	cmp #$0d
+	bne :+
+	lda #$00
+:	sta mem::linebuffer,x
 	beq @done
 	inc @cnt
 	ldxy post

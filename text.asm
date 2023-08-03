@@ -20,13 +20,6 @@ STATUS_LINE = 23
 STATUS_COL  = 0
 
 ;--------------------------------------
-; refresh the entire display
-.export __text_refresh
-.proc __text_refresh
-	jsr src::get
-.endproc
-
-;--------------------------------------
 .export __text_status
 .proc __text_status
 	ldx #<mem::statusline
@@ -137,9 +130,6 @@ curtmr=*+1
 @l0:    lda (@str),y
 	bne :+
 	jmp @disp
-	cmp #$0d
-	bne :+
-	jmp @disp
 
 :	cmp #$18	; TAB
 	bne :+
@@ -198,8 +188,6 @@ curtmr=*+1
 	beq @cont
 	cmp #' '
 	beq @cont
-	cmp #$0d
-	beq @disp
 	sta @buff,x
 	inc @sub
 	bne :+
@@ -250,10 +238,10 @@ curtmr=*+1
 	; backspace
 	sec
 	lda zp::curx
-	beq @done	; cannot delete (cursor is at left side of screen)
+	beq @err	; cannot delete (cursor is at left side of screen)
 	cmp cur::minx
-	bcc @done	; cursor is limited
-	beq @done
+	bcc @err	; cursor is limited
+	beq @err
 	lda __text_insertmode
 	beq @moveback
 @shift_left:
@@ -273,7 +261,7 @@ curtmr=*+1
 	lda zp::cury
 	jsr __text_drawline
 	clc	; "put" was successful
-@done:
+@err:
 	rts
 
 @printing:
@@ -297,11 +285,14 @@ curtmr=*+1
 	bpl @shr
 :	jsr cur::off
 	pla
+	pha
 	ldx zp::curx
 	sta mem::linebuffer,x
 	ldxy #mem::linebuffer
 	lda zp::cury
 	jsr __text_print
+	pla
+	beq @done
 	jmp @updatecur
 
 @fastput:
@@ -312,9 +303,8 @@ curtmr=*+1
 	sta mem::linebuffer+1,x
 	pla
 	sta mem::linebuffer,x
-	cmp #$0d
 	bne :+
-	rts
+	rts			; terminating 0, we're done
 
 :	jsr get_char_addr	; zp::tmp0 contains char address
 
@@ -364,6 +354,7 @@ curtmr=*+1
 	ldx #1
 	ldy #0
 	jsr cur::move
+@done:
 	clc	; "put" was successful
 	rts
 .endproc
@@ -384,8 +375,6 @@ curtmr=*+1
 	ldx #$00
 @l0:	lda mem::linebuffer,x
 	bmi :+
-	beq @done
-	cmp #$0d
 	beq @done
 	cmp #' '
 	bcc :+
