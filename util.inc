@@ -10,6 +10,8 @@
 .import __util_strlen
 .import __util_todec
 .import atoi
+.import __util_isoperator
+.import __util_is_separator
 
 .scope util
 	chtohex = __util_chtohex
@@ -21,6 +23,8 @@
 	todec = __util_todec
 	is_whitespace = __util_is_whitespace
 	is_null_return_space_comma_closingparen_newline = __util_is_null_return_space_comma_closingparen_newline
+	isoperator = __util_isoperator
+	isseparator = __util_is_separator
 .endscope
 
 .macro copy dst, src, len

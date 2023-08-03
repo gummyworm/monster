@@ -223,8 +223,8 @@ __asm_tokenize:
 	incw zp::line
 
 @abslabelorvalue:
-	jsr getvalue
-	bcs @notvalue
+	jsr eval
+	bcs @cont
 @store_value:
 	sta operandsz
 	lda lsb
@@ -247,12 +247,6 @@ __asm_tokenize:
 	txa
 	ldy #$01
 	sta (zp::asmresult),y
-	jmp @cont
-
-@notvalue:
-	jsr get_label
-	bcc @store_value
-	jmp @err
 
 @cont:
 	ldy #$00
@@ -633,7 +627,7 @@ bbb10_modes:
 	bne @decimal
 	iny
 	lda (zp::line),y
-	jsr util::is_null_return_space_comma_closingparen_newline
+	jsr util::isseparator
 	clc
 	bne @err
 	incw zp::line
@@ -660,7 +654,7 @@ bbb10_modes:
 @hex:
 	iny
 @l0:	lda (zp::line),y
-	jsr util::is_null_return_space_comma_closingparen_newline
+	jsr util::isseparator
 	beq @done
 
 	cmp #'0'
@@ -1107,7 +1101,6 @@ bbb10_modes:
 	beq :+
 	incw zp::line
 	bne @l0
-	jmp *
 
 :	pla
 	tay
@@ -1386,5 +1379,154 @@ bbb10_modes:
 	lda #'y'
 	sta (@dst),y
 @done:
+	rts
+.endproc
+
+;--------------------------------------
+; eval resolves the contents of (line) to a value in .YX
+; The size is returned in .A
+; .C is clear on success or set on failure
+.proc eval
+@val1=zp::tmp0
+@val2=zp::tmp2
+@num_operators=zp::tmp4
+@num_operands=zp::tmp5
+@operators=$100
+@operands=$120
+	lda #$00
+	sta @num_operators
+	sta @num_operands
+@l0:
+	ldy #$00
+	lda (zp::line),y
+	beq @loop	; done if end of line, comma, or semicolon
+	cmp #','
+	beq @loop
+	cmp #';'
+	beq @loop
+
+	jsr util::isoperator
+	bne @getoperand
+	; push the operator
+	jsr @pushop
+	incw zp::line
+	jmp @l0
+
+@getoperand:
+	jsr getvalue	; is this a value?
+	bcc :+
+	jsr get_label	; is it a label?
+	bcs @err
+
+:	jsr @pushval
+	jmp @l0
+
+@loop:
+	jsr @popop
+	ldx @num_operators
+	bmi @done		; no more operators
+	cmp #')'
+	bne @eval_cont
+@eval_paren:
+	; evaluate until we encounter a '(' or run out of operators
+	jsr @popval
+	stxy @val1
+	jsr @popval
+	stxy @val2
+
+	jsr @popop
+	ldx @num_operators
+	bmi @err	; unmatched paren
+	cmp #'('
+	beq @loop	; done with this paren block
+
+	jsr @eval
+	jsr @pushval	; store the result back as an operand
+	jmp @loop
+
+@err:	sec
+	rts
+
+@done:	ldx @operands
+	lda #$01
+	ldy @operands+1
+	beq :+
+	lda #$02
+:	clc
+	rts
+
+@eval_cont:
+	pha
+	jsr @popval
+	stxy @val1
+	jsr @popval
+	stxy @val2
+	pla
+	jsr @eval
+	jsr @pushval
+	jmp @loop
+
+;------------------
+@popval:
+	dec @num_operands
+	dec @num_operands
+	ldx @num_operands
+	lda @operands+1,x
+	tay
+	lda @operands,x
+	tax
+	rts
+
+;------------------
+@pushval:
+	txa
+	ldx @num_operands
+	sta @operands,x
+	tya
+	sta @operands+1,x
+	inc @num_operands
+	inc @num_operands
+	rts
+
+;------------------
+@popop:
+	dec @num_operators
+	ldx @num_operators
+	lda @operators,x
+	rts
+
+;------------------
+@pushop:
+	ldx @num_operators
+	sta @operators,x
+	inc @num_operators
+	rts
+
+;------------------
+; returns the evaluation of the operator in .A on the operands @val1 and @val2
+@eval:
+	cmp #'+'
+	bne :+
+@add:
+	lda @val1
+	clc
+	adc @val2
+	tax
+	lda @val1+1
+	adc @val2+1
+	tay
+	rts
+:	cmp #'-'
+	bne @unknown_op
+@sub:
+	lda @val2
+	sec
+	sbc @val1
+	tax
+	lda @val2+1
+	sbc @val1+1
+	tay
+	rts
+@unknown_op:
 	rts
 .endproc

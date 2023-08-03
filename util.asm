@@ -110,14 +110,11 @@
 	sta @val
 	sta @val+1
 
-	; find terminating char (0 or $0d)
+	; find terminating char
 	ldy #$ff
 :	iny
 	lda (@str),y
-	beq @endfound
-	cmp #','
-	beq @endfound
-	cmp #$0d
+	jsr __util_is_separator
 	bne :-
 @endfound:
 	sty @offset
@@ -307,4 +304,26 @@ result=mem::spare
 	beq @done
 	cmp #')'
 @done:	rts
+.endproc
+
+;------------------
+.export __util_isoperator
+.proc __util_isoperator
+	cmp #'('
+	beq :+
+	cmp #')'
+	beq :+
+	cmp #'+'
+	beq :+
+	cmp #'-'
+:	rts
+.endproc
+
+;------------------
+.export __util_is_separator
+.proc __util_is_separator
+	jsr __util_is_null_return_space_comma_closingparen_newline
+	beq :+
+	jsr __util_isoperator
+:	rts
 .endproc
