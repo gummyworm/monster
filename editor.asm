@@ -92,12 +92,10 @@ main:
 	rts
 .endproc
 
-
 ;--------------------------------------
 .proc command_go
 	jsr lbl::addr
-	cmp #$ff
-	beq @not_found
+	bcs @not_found
 	stxy @target
 @target=*+1
 	jsr $f00d
@@ -500,14 +498,15 @@ success_msg: .byte "done $", $fe, " bytes", 0
 ;--------------------------------------
 ; linedone attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
-	; insert \n into source and text buffers
+	; insert \n into source buffer and terminate text buffer
 	lda #$0d
 	jsr src::insert
 	lda #$00
 	jsr text::putch
 
-	ldx zp::curx
-	beq @nextline ; @ column 0, skip to insert
+	lda zp::curx
+	beq @format	; @ column 0, skip to insert (format will be ignored)
+
 	; check if the current line is valid
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
@@ -754,9 +753,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	bne :+
 	jsr src::prev	; don't pass the newline
 	jmp @movecur
-:	lda @xend
-	beq @movecur
-	inc @cnt
+:	inc @cnt
 	lda @cnt
 	cmp @xend
 	bcs @movecur
@@ -809,6 +806,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jsr text::scrollup
 	jsr draw_titlebar
 
+	jsr text::clrline
 	; get the length of the line we're moving up
 	jsr src::get
 
@@ -824,8 +822,9 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	; get the new cursor position
 	; new_line_len - (old_line2_len)
 	jsr src::up
+	;jsr src::start
+	;beq @redraw
 	jsr src::get
-	jsr src::start
 	ldxy #mem::linebuffer
 	jsr util::strlen
 	sec
@@ -833,6 +832,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	sbc #$00
 	sta @cnt
 	dec @cnt
+	bmi @redraw
 @endofline:
 	inc zp::curx
 	jsr src::next

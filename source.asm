@@ -364,8 +364,7 @@ __src_load:
 ; backspace deletes the character immediately before the current cursor position.
 .export __src_backspace
 .proc __src_backspace
-	ldxy pre
-	cmpw #$0000
+	jsr __src_start
 	beq @skip
 	jsr atcursor
 	cmp #$0d
