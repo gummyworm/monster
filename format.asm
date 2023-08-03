@@ -10,7 +10,7 @@
 	ldx #$00
 :	lda mem::linebuffer,x
 	inx
-	cmp #$0d
+	cmp #$00
 	beq :-
 	dex
 
