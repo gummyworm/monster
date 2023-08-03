@@ -108,6 +108,7 @@ directives:
 .byte "eq",0
 .byte "dw",0
 .byte "inc",0
+.byte "org",0
 directives_len=*-directives
 
 directive_vectors:
@@ -115,6 +116,7 @@ directive_vectors:
 .word defineconst
 .word defineword
 .word includefile
+.word defineorg
 
 ;--------------------------------------
 ; validate verifies that the string at (YX) is a valid instrcution
@@ -1022,6 +1024,15 @@ bbb10_modes:
 ;--------------------------------------
 .proc includefile
 
+.endproc
+
+;--------------------------------------
+.proc defineorg
+	jsr processws
+	jsr getvalue
+	bcs :+
+	stxy zp::asmresult
+:	rts
 .endproc
 
 ;--------------------------------------
