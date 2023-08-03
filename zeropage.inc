@@ -8,8 +8,13 @@ app_vars = $e9
 app_vars_size=$ec-app_vars
 
 ;--------------------------------------
+; $40-$50 are used during assembly
+asm=$40		; base address of assembly tmp vars
+line=$4c	; ptr to text being processed
+label_value=$50	; arguments to label functions
+
+;--------------------------------------
 asmresult = $e9	; pointer where code is assembled
-asm=$40
 
 ;--------------------------------------
 ; cursor
@@ -49,6 +54,7 @@ tmp14= $e4
 tmp15= $e5
 tmp16= $e6
 tmp17= $e7
+
 ;--------------------------------------
 ;storage for IRQ handlers
 irq0 = $e6
@@ -56,7 +62,6 @@ irq1 = $e7
 irq2 = $e8
 irq3 = $e9
 irq4 = $ea
-
 
 .endscope
 .endif

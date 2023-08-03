@@ -1,6 +1,7 @@
 .include "codes.inc"
 .include "errors.inc"
 .include "layout.inc"
+.include "labels.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "text.inc"
@@ -16,7 +17,6 @@ operandsz=zp::asm+3 ; size of the operand (in bytes)
 cc=zp::asm+4
 resulttype=zp::asm+5
 label_value = zp::asm+6 ; param to addlabel
-line = zp::asm+8
 lsb = zp::asm+$a
 msb = zp::asm+$b
 
@@ -135,8 +135,8 @@ __asm_validate:
 __asm_tokenize:
 .proc tokenize
 ;flags
-	stx line
-	sty line+1
+	stx zp::line
+	sty zp::line+1
 
 	jsr process_ws
 
@@ -149,7 +149,7 @@ __asm_tokenize:
 	sty msb
 
 @full_line_comment:
-	lda (line),y
+	lda (zp::line),y
 	cmp #';'
 	bne @opcode
 	; rest of the line is a comment, we're done
@@ -171,13 +171,13 @@ __asm_tokenize:
 	jsr islabel
 	bmi @directive
 	sta resulttype
-	ldx line
-	ldy line+1
+	ldx zp::line
+	ldy zp::line+1
 	lda zp::asmresult
-	sta label_value
+	sta zp::label_value
 	lda zp::asmresult+1
-	sta label_value+1
-	jsr __asm_addlabel
+	sta zp::label_value+1
+	jsr lbl::add
 	lda #$00
 	rts
 
@@ -196,29 +196,29 @@ __asm_tokenize:
 	bne :+
 	jmp @done
 
-:	lda (line),y
+:	lda (zp::line),y
 	cmp #'('
 	bne @pound
 @lparen:
 	inc indirect
-	incw line
+	incw zp::line
 	jmp @hi_or_low_byte
 
 @pound: cmp #'#'
 	bne @hi_or_low_byte
 	inc immediate
-	incw line
-	lda (line),y
+	incw zp::line
+	lda (zp::line),y
 
 @hi_or_low_byte:
 	cmp #'<'
 	bne :+
 	inc lsb
-	incw line
+	incw zp::line
 :	cmp #'>'
 	bne @abslabelorvalue
 	inc msb
-	incw line
+	incw zp::line
 
 @abslabelorvalue:
 	jsr getvalue
@@ -248,9 +248,8 @@ __asm_tokenize:
 	jmp @cont
 
 @notvalue:
-	jsr getlabel
-	cmp #$ff
-	bne @store_value
+	jsr get_label
+	bcc @store_value
 	jmp @err
 
 @cont:
@@ -259,17 +258,17 @@ __asm_tokenize:
 	beq @index
 @rparen:
 ; look for closing paren or ",X"
-	lda (line),y
-	incw line
+	lda (zp::line),y
+	incw zp::line
 	cmp #','
 	bne @rparen_noprex
-	lda (line),y
-	incw line
+	lda (zp::line),y
+	incw zp::line
 	cmp #'x'
 	beq :+
 	jmp @err
-:	lda (line),y
-	incw line
+:	lda (zp::line),y
+	incw zp::line
 	cmp #')'
 	beq :+
 	jmp @err
@@ -283,28 +282,28 @@ __asm_tokenize:
 
 @index:
 	ldy #$00
-	lda (line),y
+	lda (zp::line),y
 	cmp #','
 	bne @getws2
-	incw line
+	incw zp::line
 @getindexx:
-	lda (line),y
+	lda (zp::line),y
 	cmp #'x'
 	bne @getindexy
 	inc indexed
-	incw line
+	incw zp::line
 @getindexy:
 	cmp #'y'
 	bne @getws2
 	inc indexed
 	inc indexed
-	incw line
+	incw zp::line
 
 @getws2:
 	jsr process_ws
 
 @comment:
-	lda (line),y
+	lda (zp::line),y
 	beq @done
 	cmp #$0d
 	beq @done
@@ -315,14 +314,14 @@ __asm_tokenize:
 
 	; get length of comment
 :	iny
-	lda (line),y
+	lda (zp::line),y
 	beq :+
 	cmp #$0d
 	bne :-
 
-:	ldx line
-	ldy line+1
-	jsr addcomment
+:	ldx zp::line
+	ldy zp::line+1
+	; TODO: jsr addcomment
 
 ; done, create the assembled result based upon the opcode, operand, and addr mode
 @done:
@@ -627,28 +626,28 @@ bbb10_modes:
 	ldy #$00
 	sty @val
 	sty @val+1
-	lda (line),y
+	lda (zp::line),y
 	cmp #'$'
 	beq @hex
 
 @decimal:
-	ldxy line
+	ldxy zp::line
 	jsr atoi	; convert to binary
 	bcc :+
 	sec		; error
 	rts
-:	adc line
-	sta line
+:	adc zp::line
+	sta zp::line
 	bcc :+
-	inc line+1
+	inc zp::line+1
 :	stx @val
 	sty @val+1
 	jmp @success
 
 @hex:
 	iny
-@l0:	lda (line),y
-	jsr is_null_return_space_comma_closingparen_newline
+@l0:	lda (zp::line),y
+	jsr util::is_null_return_space_comma_closingparen_newline
 	beq @done
 
 	cmp #'0'
@@ -693,10 +692,10 @@ bbb10_modes:
 @done:
 	tya
 	clc
-	adc line
-	sta line
+	adc zp::line
+	sta zp::line
 	bcc @success
-	inc line+1
+	inc zp::line+1
 @success:
 	ldx @val
 	ldy @val+1
@@ -717,14 +716,14 @@ bbb10_modes:
 ; returns the length in .A ($ff if no string was found)
 .proc gettext
 	ldy #$00
-	lda (line),y
+	lda (zp::line),y
 	cmp #'"'
 	bne @err
 
 	ldx #$00
 @l0:
-	incw line
-	lda (line),y
+	incw zp::line
+	lda (zp::line),y
 	beq @err	; no closing quote
 	cmp #'"'
 	beq @done
@@ -734,7 +733,7 @@ bbb10_modes:
 	inx
 	bne @l0
 @done:
-	incw line
+	incw zp::line
 	txa
 	clc
 	rts
@@ -743,181 +742,6 @@ bbb10_modes:
 	rts
 .endproc
 
-;--------------------------------------
-; label_address returns the address of the label in (.YX)
-; The size of the label is returned in .A (1 if zeropage, 2 if not)
-; line is updated to the character after the label.
-.export __asm_label_address
-.proc __asm_label_address
-	stx line
-	sty line+1
-	jmp getlabel
-.endproc
-
-;--------------------------------------
-; validlabel returns with .Z set if the string at (line) contains valid
-; characters for a label.
-; line is updated to the character after the label.
-.export validlabel
-.proc validlabel
-@l0:
-	; first character must be a letter
-	lda (line),y
-	cmp #'a'
-	bcc @err
-	cmp #'z'+1
-	bcs @err
-@findend:
-	incw line
-	lda (line),y
-	jsr is_whitespace
-	beq @done
-	cmp #')'
-	beq @done
-@err:
-	lda #$ff
-@done:
-	rts
-.endproc
-
-;--------------------------------------
-; getlabel returns the address of the label in (line) in (<X,>Y).
-; The size of the label is returned in .A (1 if zeropage, 2 if not, $ff if no label found)
-; line is updated to the character after the label.
-.export getlabel
-.proc getlabel
-@l=zp::tmp6
-@num=zp::tmp8
-@sz=zp::tmp9
-	lda #$ff
-	sta @num
-
-	lda #<__asm_labels
-	sta @l
-	lda #>__asm_labels
-	sta @l+1
-
-	lda #$00
-	sta @sz
-
-@l0:	inc @num
-	lda @num
-	cmp numlabels
-	bcs @err
-
-	; add label size to label pointer
-	lda @sz
-	adc @l
-	sta @l
-	bcc :+
-	inc @l+1
-
-:	ldy #$00
-	lda (@l),y	; get new size of label
-	sta @sz
-	tax
-
-	incw @l
-@l1:	lda (line),y
-	cmp (@l),y
-	bne @l0
-	iny
-	dex
-	bne @l1
-
-	lda (line),y
-	jsr is_null_return_space_comma_closingparen_newline
-	bne @err
-
-@done:	lda @sz
-	clc
-	adc line
-	sta line
-	bcc :+
-	inc line+1
-
-:	lda @num
-	asl
-	tax
-	lda label_addresses,x
-	ldy label_addresses+1,x
-	tax
-
-	; get the size of the label
-	lda #2
-	cpy #0
-	bne :+
-	lda #1
-:	rts
-
-@err:	lda #$ff
-	rts
-.endproc
-
-;--------------------------------------
-; labelat returns the label at the address in (YX), if .A is $ff, no label
-; was found at the given address.
-.export __asm_labelat
-.proc __asm_labelat
-@msb=zp::tmp4
-@num=zp::tmp5
-	lda #<(label_addresses+1)
-	sta zp::tmp0
-	lda #>(label_addresses+1)
-	sta zp::tmp0+1
-	lda #<label_addresses
-	sta zp::tmp2
-	lda #>label_addresses
-	sta zp::tmp2+1
-
-	sty @msb
-	ldy #$00
-	sty @num
-
-@l0:	lda @num
-	cmp numlabels
-	bcc :+
-	lda #$ff
-	rts
-
-:	inc @num
-	; compare MSB
-	lda @msb
-	cmp (zp::tmp0),y
-	bne @next
-	; compare LSB
-	txa
-	cmp (zp::tmp2),y
-	beq @found
-@next:	incw zp::tmp0
-	incw zp::tmp0
-	incw zp::tmp2
-	incw zp::tmp2
-	bne @l0
-
-@found: ; get the label name
-	lda #<__asm_labels
-	sta zp::tmp0
-	lda #>__asm_labels
-	sta zp::tmp0+1
-
-	ldy #$00
-@l1:	dec @num
-	beq @done
-	lda (zp::tmp0),y
-	; move ptr to the next length prefixed label
-	sec
-	adc zp::tmp0
-	sta zp::tmp0
-	bcc @l1
-	inc zp::tmp0+1
-	bne @l1
-
-@done:	ldx zp::tmp0
-	ldy zp::tmp0+1
-	lda #$00
-	rts
-.endproc
 
 ;--------------------------------------
 ; returns ASM_LABEL if the contents on (line) are a valid label
@@ -930,10 +754,10 @@ bbb10_modes:
 
 @cont:
 	ldy #$00
-	lda (line),y
+	lda (zp::line),y
 	cmp #'.'	; label cannot have '.' prefix
 	beq @notlabel
-:	lda (line),y
+:	lda (zp::line),y
 	iny
 	cpy #40
 	bcs @notlabel
@@ -968,7 +792,7 @@ bbb10_modes:
 	sty @optab+1
 
 @l0:	ldy #$02
-@l1:	lda (line),y
+@l1:	lda (zp::line),y
 	cmp (@optab),y
 	bne @next
 	dey
@@ -976,9 +800,9 @@ bbb10_modes:
 
 	; make sure there are no trailing characters
 	ldy #$03
-	lda (line),y
+	lda (zp::line),y
 	beq @done
-	jsr is_whitespace
+	jsr util::is_whitespace
 	beq @done
 	jmp @err
 
@@ -1010,12 +834,12 @@ bbb10_modes:
 
 @return:
 	; update line ptr and return
-	lda line
+	lda zp::line
 	clc
 	adc #$03
-	sta line
+	sta zp::line
 	bcc :+
-	inc line+1
+	inc zp::line+1
 :	lda #ASM_OPCODE
 	rts
 
@@ -1038,7 +862,7 @@ bbb10_modes:
 .proc getdirective
 @cnt=zp::tmp2
 	ldy #$00
-	lda (line),y
+	lda (zp::line),y
 	cmp #'.'
 	beq :+
 	lda #$ff	; not a directive
@@ -1053,7 +877,7 @@ bbb10_modes:
 	beq @found
 	inx
 	iny
-	cmp (line),y
+	cmp (zp::line),y
 	beq @l1
 
 	cpx #directives_len
@@ -1075,10 +899,10 @@ bbb10_modes:
 @found:
 	tya
 	sec		; +1
-	adc line
-	sta line
+	adc zp::line
+	sta zp::line
 	bcc :+
-	inc line+1
+	inc zp::line+1
 :	jsr processws
 
 	lda @cnt
@@ -1095,12 +919,12 @@ bbb10_modes:
 ;--------------------------------------
 .proc processws
 	ldy #$00
-	lda (line),y
+	lda (zp::line),y
 	cmp #' '
 	bne @done
 @l0:
-	incw line
-	lda (line),y
+	incw zp::line
+	lda (zp::line),y
 	cmp #' '
 	beq @l0
 @done:
@@ -1111,13 +935,13 @@ bbb10_modes:
 ; processstring reads all characters until the next whitespace
 .proc processstring
 	ldy #$00
-	lda (line),y
-	jsr is_whitespace
+	lda (zp::line),y
+	jsr util::is_whitespace
 	beq @done
 @l0:
-	incw line
-	lda (line),y
-	jsr is_whitespace
+	incw zp::line
+	lda (zp::line),y
+	jsr util::is_whitespace
 	bne @l0
 @done:
 	rts
@@ -1162,11 +986,11 @@ bbb10_modes:
 
 @commaorws:
 	ldy #$00
-	lda (line),y
+	lda (zp::line),y
 	beq @done
 	cmp #$0d
 	beq @done
-	incw line
+	incw zp::line
 	cmp #','
 	beq definebyte
 	cmp #' '
@@ -1191,11 +1015,11 @@ bbb10_modes:
 	incw zp::asmresult
 @commaorws:
 	ldy #$00
-	lda (line),y
+	lda (zp::line),y
 	beq @done
 	cmp #$0d
 	beq @done
-	incw line
+	incw zp::line
 	cmp #','
 	beq defineword
 	cmp #' '
@@ -1215,9 +1039,9 @@ bbb10_modes:
 	jsr islabel
 	cmp #ASM_LABEL
 	bne @err
-	lda line	; save label name's address
+	lda zp::line	; save label name's address
 	pha
-	lda line+1
+	lda zp::line+1
 	pha
 	jsr processstring
 	jsr processws
@@ -1228,113 +1052,13 @@ bbb10_modes:
 @err:
 	lda #$ff
 	rts
-:	stx label_value
-	sty label_value+1
+:	stx zp::label_value
+	sty zp::label_value+1
 	pla
 	tay
 	pla
 	tax
-	jmp __asm_addlabel
-.endproc
-
-;--------------------------------------
-; addlabel adds a ':' terminated label in (YX) to the label table.
-; the current value of asm::result is used to define its address
-.export __asm_addlabel
-.proc __asm_addlabel
-@label=zp::tmp6
-@src=zp::tmpa
-	stx @src
-	sty @src+1
-
-	lda #<__asm_labels
-	sta @label
-	lda #>__asm_labels
-	sta @label+1
-
-	; find the next free label location (0 byte in the label table)
-	ldy #$00
-@l0:	lda (@label),y
-	beq @found
-	incw @label
-	bne @l0
-
-@found:
-	; get the label length (we look for whitespace because this routine is
-	; also used to read constants)
-:	lda (@src),y
-	iny
-	jsr is_whitespace
-	beq @length_found
-	cmp #':'
-	bne :-
-
-@length_found:
-	dey
-
-	; write the length
-	tya
-	ldy #$00
-	sta (@label),y
-	tay
-	dey
-	incw @label
-
-	; write the label
-:	lda (@src),y
-	sta (@label),y
-	dey
-	bpl :-
-
-@done:
-	; store the address of the label in the label_addresses table
-	lda numlabels
-	asl
-	tax
-	lda label_value
-	sta label_addresses,x
-	lda label_value+1
-	sta label_addresses+1,x
-
-	inc numlabels
-	lda numlabels
-	lsr
-	lsr
-	lsr
-	tay
-	lda numlabels
-	and #$07
-	tax
-	lda #$fe
-:	sec
-	rol
-	dex
-	bpl :-
-	and labelflags,y
-	sta labelflags,y
-	rts
-.endproc
-
-;--------------------------------------
-; addcomment adds a comment of .A len in (YX) to the label table.  The address
-; of the comment is provided in zp::tmp0
-.proc addcomment
-	jsr __asm_addlabel
-	lda numlabels
-	lsr
-	lsr
-	lsr
-	tay
-	lda numlabels
-	and #$07
-	tax
-	lda #$01
-:	asl
-	dex
-	bpl :-
-	ora labelflags,y
-	sta labelflags,y
-	rts
+	jmp lbl::add
 .endproc
 
 ;--------------------------------------
@@ -1343,38 +1067,43 @@ bbb10_modes:
 ; .Z is set if we're at the end of the line ($0d or $00)
 .proc process_ws
 	ldy #$00
-	lda (line),y
+	lda (zp::line),y
 	beq @done
 	cmp #$0d
 	beq @done
 	cmp #' '
 	bne @done
-	incw line
+	incw zp::line
 	jmp process_ws
 @done:	rts
 .endproc
 
 ;--------------------------------------
-; is_null_space_comma_closingparen returns .Z set if the char in .A is:
-; 0,$0d,' ', ',', or ')'
-.proc is_null_return_space_comma_closingparen_newline
-	cmp #$00
-	beq @done
-	jsr is_whitespace
-	beq @done
-	cmp #','
-	beq @done
-	cmp #')'
-@done:	rts
-.endproc
+; get_label reads (line) and returns the address of the label found there (if there
+; is one).
+; .C is set if no label is found
+.proc get_label
+	ldxy zp::line
+	jsr lbl::addr
+	bcs @done
+	pha
+	tya
+	pha
 
-;--------------------------------------
-; is_whitespace returns .Z set if the character in .A is whitespace
-.proc is_whitespace
-	cmp #$0d
+	ldy #$00
+@l0:	lda (zp::line),y
 	beq :+
-	cmp #' '
-:	rts
+	jsr util::is_whitespace
+	beq :+
+	incw zp::line
+	bne @l0
+	jmp *
+
+:	pla
+	tay
+	pla
+	clc
+@done:	rts
 .endproc
 
 ;--------------------------------------
@@ -1383,16 +1112,7 @@ bbb10_modes:
 .proc __asm_reset
 	ldxy #mem::program
 	stxy zp::asmresult
-
-	lda #$00
-	tax
-	stx numlabels
-@clrlabels:
-	sta __asm_labels,x
-	sta __asm_labels+$100,x
-	dex
-	bne @clrlabels
-	rts
+	jmp lbl::clr
 .endproc
 
 ;--------------------------------------
@@ -1658,14 +1378,3 @@ bbb10_modes:
 @done:
 	rts
 .endproc
-
-;--------------------------------------
-.export __asm_labels
-__asm_labels: .res 256 * 16
-numlabels: .byt 0
-.export label_addresses
-label_addresses: .res 256 * 2
-
-; if corresponding bit is 0- label represents a label, 1- comment
-labelflags:
-.res 256/8

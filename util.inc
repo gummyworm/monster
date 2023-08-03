@@ -2,6 +2,8 @@
 
 .import __util_chtohex
 .import __util_hextostr
+.import __util_is_whitespace
+.import __util_is_null_return_space_comma_closingparen_newline
 .import __util_memset
 .import __util_memcpy
 .import __util_strncmp
@@ -17,6 +19,8 @@
 	strncmp = __util_strncmp
 	strlen = __util_strlen
 	todec = __util_todec
+	is_whitespace = __util_is_whitespace
+	is_null_return_space_comma_closingparen_newline = __util_is_null_return_space_comma_closingparen_newline
 .endscope
 
 .macro copy dst, src, len

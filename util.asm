@@ -284,3 +284,27 @@ result=mem::spare
 	rts
 .endproc
 
+;--------------------------------------
+; is_whitespace returns .Z set if the character in .A is whitespace
+.export __util_is_whitespace
+.proc __util_is_whitespace
+	cmp #$0d
+	beq :+
+	cmp #' '
+:	rts
+.endproc
+
+;--------------------------------------
+; is_null_space_comma_closingparen returns .Z set if the char in .A is:
+; 0,$0d,' ', ',', or ')'
+.export __util_is_null_return_space_comma_closingparen_newline
+.proc __util_is_null_return_space_comma_closingparen_newline
+	cmp #$00
+	beq @done
+	jsr __util_is_whitespace
+	beq @done
+	cmp #','
+	beq @done
+	cmp #')'
+@done:	rts
+.endproc

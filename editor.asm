@@ -6,6 +6,7 @@
 .include "format.inc"
 .include "key.inc"
 .include "layout.inc"
+.include "labels.inc"
 .include "memory.inc"
 .include "source.inc"
 .include "text.inc"
@@ -94,7 +95,7 @@ main:
 
 ;--------------------------------------
 .proc command_go
-	jsr asm::label_address
+	jsr lbl::addr
 	cmp #$ff
 	beq @not_found
 	stxy @target

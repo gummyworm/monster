@@ -22,13 +22,13 @@
 .macro cmpw arg
 .local @skip
 	.if .match( .left( 1, {arg} ), # )
-		cpx #<(.right( .tcount( {arg} )-1, {arg} ))
-		bne @skip
 		cpy #>(.right( .tcount( {arg} )-1, {arg} ))
-	.else
-		cpx arg
 		bne @skip
+		cpx #<(.right( .tcount( {arg} )-1, {arg} ))
+	.else
 		cpy arg+1
+		bne @skip
+		cpx arg
 	.endif
 @skip:
 .endmacro
@@ -92,4 +92,11 @@
 ; skw skips execution of the next word (equivalent to .byte $2C (bit ABS))
 .macro skw
 	.byte $2c
+.endmacro
+
+; iszero sets the .Z flag if the operand is 0
+; .A is destroyed
+.macro iszero arg
+	lda arg
+	ora arg+1
 .endmacro

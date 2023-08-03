@@ -1,6 +1,7 @@
 .include "asm.inc"
 .include "edit.inc"
 .include "irq.inc"
+.include "labels.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "source.inc"
