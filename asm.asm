@@ -1393,78 +1393,87 @@ bbb10_modes:
 @num_operands=zp::tmp5
 @operators=$100
 @operands=$120
+@priorities=$130
 	lda #$00
 	sta @num_operators
 	sta @num_operands
 @l0:
 	ldy #$00
 	lda (zp::line),y
-	beq @loop	; done if end of line, comma, or semicolon
-	cmp #','
-	beq @loop
+	beq @done
 	cmp #';'
-	beq @loop
+	beq @done
+	cmp #','
+	beq @done
 
+@rparen:
+	cmp #'('
+	bne @lparen
+	jsr @pushop
+	jmp @l0
+
+@lparen:
+	cmp #')'
+	bne @checkop
+	ldx @num_operators
+	dex
+	lda @operators,x
+	cmp #'('
+	beq @l0		;if we found the matching paren, we're done
+@paren_eval:
+	jsr @eval	; evaluate the top 2 operands
+	ldx @num_operators
+	bne @lparen
+
+@checkop:
 	jsr util::isoperator
 	bne @getoperand
-	; push the operator
-	jsr @pushop
 	incw zp::line
+
+	pha
+	jsr @priority		; get the priority of this operator
+@process_ops:
+	ldx @num_operators	; any operators to the left?
+	beq @process_ops_done
+	dex
+	; if the operator to the left has >= priority, process it
+	cmp @priorities,x
+	bcc @process_ops_done
+	pha
+	jsr @eval	; evaluate the top 2 elements of the operand stack
+	pla
+	jmp @process_ops	; continue until the op to the left has lower priority
+
+@process_ops_done:
+	pla
+	jsr @pushop
 	jmp @l0
 
 @getoperand:
 	jsr getvalue	; is this a value?
 	bcc :+
 	jsr get_label	; is it a label?
-	bcs @err
-
+	bcs @err	; unrecognized string
 :	jsr @pushval
 	jmp @l0
-
-@loop:
-	jsr @popop
-	ldx @num_operators
-	bmi @done		; no more operators
-	cmp #')'
-	bne @eval_cont
-@eval_paren:
-	; evaluate until we encounter a '(' or run out of operators
-	jsr @popval
-	stxy @val1
-	jsr @popval
-	stxy @val2
-
-	jsr @popop
-	ldx @num_operators
-	bmi @err	; unmatched paren
-	cmp #'('
-	beq @loop	; done with this paren block
-
-	jsr @eval
-	jsr @pushval	; store the result back as an operand
-	jmp @loop
 
 @err:	sec
 	rts
 
-@done:	ldx @operands
+@done:
+	ldx @num_operators
+	beq @getresult
+	jsr @eval
+	jmp @done
+
+@getresult:
+	ldx @operands
 	lda #$01
 	ldy @operands+1
 	beq :+
 	lda #$02
 :	clc
 	rts
-
-@eval_cont:
-	pha
-	jsr @popval
-	stxy @val1
-	jsr @popval
-	stxy @val2
-	pla
-	jsr @eval
-	jsr @pushval
-	jmp @loop
 
 ;------------------
 @popval:
@@ -1499,12 +1508,33 @@ bbb10_modes:
 @pushop:
 	ldx @num_operators
 	sta @operators,x
+	pha
+	jsr @priority
+	sta @priorities,x
+	pla
 	inc @num_operators
+	rts
+
+;------------------
+@priority:
+	cmp #'+'
+	beq @prio1
+	cmp '-'
+	beq @prio1
+	lda #$00
+	rts
+@prio1:	lda #$01
 	rts
 
 ;------------------
 ; returns the evaluation of the operator in .A on the operands @val1 and @val2
 @eval:
+	jsr @popval
+	stxy @val1
+	jsr @popval
+	stxy @val2
+
+	jsr @popop
 	cmp #'+'
 	bne :+
 @add:
@@ -1515,7 +1545,8 @@ bbb10_modes:
 	lda @val1+1
 	adc @val2+1
 	tay
-	rts
+	jmp @pushres
+
 :	cmp #'-'
 	bne @unknown_op
 @sub:
@@ -1526,7 +1557,9 @@ bbb10_modes:
 	lda @val2+1
 	sbc @val1+1
 	tay
-	rts
+
+@pushres:
+	jmp @pushval	; push the result back
 @unknown_op:
 	rts
 .endproc
