@@ -195,20 +195,22 @@ __asm_tokenize:
 ; from here onwards we are either reading a comment or an operand
 @getopws:
 	jsr process_ws
-	bne :+
+	bne @pound
 	jmp @done
 
-:	lda (zp::line),y
-	cmp #'('
-	bne @pound
-@lparen:
-	inc indirect
-	incw zp::line
-	jmp @hi_or_low_byte
-
-@pound: cmp #'#'
-	bne @hi_or_low_byte
+@pound:
+	ldy #$00
+	lda (zp::line),y
+	cmp #'#'
+	bne @lparen
 	inc immediate
+	incw zp::line
+	lda (zp::line),y
+	jmp @hi_or_low_byte	; if immediate, skip parentheses (treat as part of expression)
+@lparen:
+	cmp #'('
+	bne @hi_or_low_byte
+	inc indirect
 	incw zp::line
 	lda (zp::line),y
 
@@ -1400,35 +1402,37 @@ bbb10_modes:
 @l0:
 	ldy #$00
 	lda (zp::line),y
-	beq @done
-	cmp #';'
-	beq @done
-	cmp #','
+	jsr @isterminator
 	beq @done
 
 @rparen:
 	cmp #'('
 	bne @lparen
 	jsr @pushop
+	incw zp::line
 	jmp @l0
 
 @lparen:
 	cmp #')'
 	bne @checkop
+
+@paren_eval:
 	ldx @num_operators
 	dex
+	bmi @err	; no parentheses found
 	lda @operators,x
 	cmp #'('
-	beq @l0		;if we found the matching paren, we're done
-@paren_eval:
-	jsr @eval	; evaluate the top 2 operands
-	ldx @num_operators
-	bne @lparen
+	bne :+
+	jsr @popop	; pop the parentheses
+	incw zp::line
+	jmp @l0		; and we're done evaluating this () block
+
+:	jsr @eval	; evaluate the top 2 operands
+	jmp @paren_eval
 
 @checkop:
 	jsr util::isoperator
 	bne @getoperand
-	incw zp::line
 
 	pha
 	jsr @priority		; get the priority of this operator
@@ -1439,14 +1443,15 @@ bbb10_modes:
 	; if the operator to the left has >= priority, process it
 	cmp @priorities,x
 	bcc @process_ops_done
-	pha
+	pha		; save priority
 	jsr @eval	; evaluate the top 2 elements of the operand stack
-	pla
+	pla		; get priority
 	jmp @process_ops	; continue until the op to the left has lower priority
 
 @process_ops_done:
 	pla
 	jsr @pushop
+	incw zp::line
 	jmp @l0
 
 @getoperand:
@@ -1457,7 +1462,11 @@ bbb10_modes:
 :	jsr @pushval
 	jmp @l0
 
-@err:	sec
+@err:
+	; check if this is parentheses (could be indirect addressing)
+	cmp #')'
+	beq @done
+	sec
 	rts
 
 @done:
@@ -1474,6 +1483,17 @@ bbb10_modes:
 	lda #$02
 :	clc
 	rts
+
+;------------------
+; isterminator returns .Z set if the character in .A is
+; one that should end the evaluation of the expression
+@isterminator:
+	cmp #$00
+	beq :+
+	cmp #';'
+	beq :+
+	cmp #','
+:	rts
 
 ;------------------
 @popval:
@@ -1521,7 +1541,7 @@ bbb10_modes:
 	beq @prio1
 	cmp '-'
 	beq @prio1
-	lda #$00
+	lda #$ff
 	rts
 @prio1:	lda #$01
 	rts

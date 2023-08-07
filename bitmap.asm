@@ -65,29 +65,6 @@ COLMEM_ADDR = $9400
 .endproc
 
 ;--------------------------------------
-.export __bm_line
-.proc __bm_line
-@x0 = zp::arg0
-@y0 = zp::arg1
-@x1 = zp::arg2
-@y1 = zp::arg3
-@dx = zp::tmp0
-@dy = zp::tmp1
-;-
-@d   = zp::tmp0
-        lda @x1
-        sec
-        sbc @x0
-        sta @dx
-        lda @y1
-        sec
-        sbc @y0
-        sta @dy
-@2dy = *+1
-        adc #$00
-.endproc
-
-;--------------------------------------
 .export __bm_rvsline
 .proc __bm_rvsline
 @dst=zp::tmp0

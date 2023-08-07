@@ -55,19 +55,14 @@ data:
 ; pushp pushes the current source position to an internal stack.
 .export __src_pushp
 .proc __src_pushp
-	lda pre
-	pha
-	lda pre+1
-	tay
-
 	lda sp
 	asl
 	tax
 	inc sp
 
-	pla
+	lda pre
 	sta stack,x
-	tya
+	lda pre+1
 	sta stack+1,x
 	rts
 .endproc
@@ -681,8 +676,7 @@ __src_atcursor:
 ; readline reads one line at the cursor positon and advances the cursor
 ; Out:
 ;  mem::linebuffer: the line that was read will be 0-terminated
-;  .A is $0d if the last character read was a RETURN ($0d)
-;
+;  .C is set if the end of the source was reached
 .export __src_readline
 .proc __src_readline
 @cnt=zp::tmp4
@@ -703,7 +697,10 @@ __src_atcursor:
 	lda #$00
 	ldx @cnt
 	sta mem::linebuffer,x
-@done:	rts
+	sec
+	rts
+@done:	clc
+	rts
 .endproc
 
 ;--------------------------------------
@@ -727,6 +724,42 @@ __src_atcursor:
 	cmpw @dest
 	bne @backwards
 @done:
+	rts
+.endproc
+
+;--------------------------------------
+; downn advances the source by the number of lines in .YX
+; .C is set if the end was reached before the total lines requested could be reached
+; .YX contains the number of lines that were not read
+.export __src_downn
+.proc __src_downn
+@cnt=zp::tmp4
+	stxy @cnt
+@loop:	ldxy @cnt
+	decw @cnt
+	cmpw #$0000
+	beq @done
+	jsr __src_down
+	bcc @loop
+@done:	ldxy @cnt
+	rts
+.endproc
+
+;--------------------------------------
+; upn advances the source by the number of lines in .YX
+; .C is set if the beginning was reached before the total lines requested could be reached
+; .YX contains the number of lines that were not read
+.export __src_upn
+.proc __src_upn
+@cnt=zp::tmp4
+	stxy @cnt
+@loop:	ldxy @cnt
+	decw @cnt
+	cmpw #$0000
+	beq @done
+	jsr __src_up
+	bcc @loop
+@done:	ldxy @cnt
 	rts
 .endproc
 

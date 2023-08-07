@@ -22,13 +22,6 @@ curx = $eb
 cury = $ec
 
 ;--------------------------------------
-;reserved for routines' arguments
-arg0 = $20
-arg1 = $21
-arg2 = $22
-arg3 = $23
-
-;--------------------------------------
 ;temporary storage
 tmp0 = $f0
 tmp1 = $f1
@@ -54,14 +47,6 @@ tmp14= $e4
 tmp15= $e5
 tmp16= $e6
 tmp17= $e7
-
-;--------------------------------------
-;storage for IRQ handlers
-irq0 = $e6
-irq1 = $e7
-irq2 = $e8
-irq3 = $e9
-irq4 = $ea
 
 .endscope
 .endif

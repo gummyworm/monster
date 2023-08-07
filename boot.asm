@@ -58,6 +58,7 @@ enter:
 	jsr asm::reset
 	jsr src::new
 
+;--------------------------------------
 reenter:
 	ldx #$ff
 	txs

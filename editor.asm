@@ -17,9 +17,6 @@
 .include "macros.inc"
 .import help
 
-STATUS_LINE = 23
-FEATURE_VIEW = $01
-
 ;--------------------------------------
 .proc draw_titlebar
 	ldxy #titlebar
@@ -130,8 +127,8 @@ main:
 @ll=*+1
 	lda #$00
 
-	;jsr src::popp
-	;jsr src::goto
+	jsr src::popp
+	jsr src::goto
 
 @printresult:
 	ldxy zp::asmresult
@@ -142,7 +139,7 @@ main:
 	pha
 
 	ldxy #success_msg
-	lda #STATUS_LINE-1
+	lda #STATUS_ROW-1
 	jsr text::print
 	jmp text::clrline
 
@@ -150,37 +147,60 @@ success_msg: .byte "done $", $fe, " bytes", 0
 .endproc
 
 ;--------------------------------------
-.proc docommand
-; .A contains the command
+; readinput reads command input and returns it (0-terminated) in mem::linebuffer
+; a prompt may be given in the address XY. If XY is 0, a ':' will be
+; used
+; .C is set if no input was read (the user pressed <-)
+.proc readinput
+@prompt=zp::tmp0
+@result_offset=zp::tmp8
+	txa
 	pha
-	sta @cmd
+	tya
+	pha
+	jsr text::savebuff
+	jsr text::clrline
+	pla
+	tay
+	pla
+	tax
 
-	ldx #$02
-	ldy #$01
-	jsr cur::setmin
-	ldx #40
-	ldy #STATUS_LINE+1
-	jsr cur::setmax
+	cmpw #0
+	beq @terminate_prompt
+	stxy @prompt
+	ldy #$00
+:	lda (@prompt),y
+	beq @terminate_prompt
+	sta mem::linebuffer,y
+	iny
+	bne :-
+@terminate_prompt:
+	lda #':'
+	sta mem::linebuffer,y
 
 	lda zp::curx
 	pha
 	lda zp::cury
 	pha
 
-	; get a line of input
-	ldx #$02
-	ldy #STATUS_LINE
-	jsr cur::set
-	jsr text::clrline
+	iny
+	sty @result_offset
 
-@cmd=*+1
-	lda #$00
-	sta mem::linebuffer
-	lda #':'
-	sta mem::linebuffer+1
+	; set cursor limit for the prompt
+	ldx @result_offset
+	ldy #STATUS_ROW-1
+	jsr cur::setmin
+	ldx #40
+	ldy #STATUS_ROW+1
+	jsr cur::setmax
+
+	; set the cursor
+	ldx @result_offset
+	ldy #STATUS_ROW
+	jsr cur::set
 
 	ldxy #mem::linebuffer
-	lda #STATUS_LINE
+	lda #STATUS_ROW
 	jsr text::drawline
 @getkey:
         lda #$70
@@ -190,39 +210,65 @@ success_msg: .byte "done $", $fe, " bytes", 0
 
 	jsr key::getch
 	cmp #$0d
-	beq @run
+	beq @done
 	cmp #$5f	; <- (done)
-	bne :+
-
-	jsr text::clrline
-	jsr edit
-	pla
-	tay
-	pla
-	tax
-	pla
-	jmp cur::set
-
-:	cmp #$00
+	beq @exit
+	cmp #$00
 	beq @getkey
 	jsr text::putch
 	jmp @getkey
-@run:
-	jsr text::putch	; add the newline
+
+@done:
+	clc	; clear carry for success
+@exit:		; carry is implicitly set by CMP for ==
+	php
+	jsr edit
+	plp
 	pla
 	tay
 	pla
 	tax
+	php	; save success state
+	; restore curosr/editor
 	jsr cur::set
-	jsr edit
+	; move the read text into $100
+	ldx @result_offset
+@saveres:
+	lda mem::linebuffer,x
+	sta $100,x
+	beq :+
+	inx
+	bne @saveres
 
-	pla
-	ldx #@num_commands-1
+:	jsr text::restorebuff
+	ldx @result_offset
+	ldy #$01
+	plp	; get success state
+	rts
+.endproc
+
+;--------------------------------------
+.proc docommand
+; .A contains the command
+@prompt=$100
+@cmd=@prompt
+	sta @prompt
+
+	; construct the prompt
+	lda #$00
+	sta $101
+	ldxy #@prompt
+	jsr readinput
+	bcc :+
+	rts
+
+:	ldx #@num_commands-1
+	lda @cmd
 :	cmp @command_codes,x
 	beq @found
 	dex
 	bpl :-
-	bmi @done
+	rts
 
 @found:
 	txa
@@ -233,13 +279,10 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	lda @command_table+1,x
 	sta @cmd_vec+1
 
-	ldx #<(mem::linebuffer+2)
-	ldy #>(mem::linebuffer+2)
+	ldx #<$102
+	ldy #>$102
 @cmd_vec=*+1
-	jsr $0000
-@done:
-	jsr text::clrline
-	rts
+	jmp $0000
 
 ; commands
 @command_codes:
@@ -258,34 +301,15 @@ success_msg: .byte "done $", $fe, " bytes", 0
 ;--------------------------------------
 ; onkey is called upon the user pressing a key.
 .proc onkey
-	cmp #$85	; F1 (save)
-	bne :+
-	jmp save
-:	cmp #$89	; F2 (save as)
-	bne :+
-	jmp saveas
-:	cmp #$86	; F3 (assemble)
-	bne :+
-	jmp command_asm
-:	cmp #$87	; F5 (nop)
-	bne :+
-	rts
-:	cmp #$bc	;C=<C> (Refresh)
-	bne :+
-	jmp refresh
-:	cmp #$b4 	; C=<H> (Help)
-	bne :+
-	jmp help
-:	cmp #$b2	; C=<R> (Rename)
-	bne :+
-	jmp rename
-:	cmp #$be	; C=<V> (View)
-	bne :+
-	jmp memview
-:	cmp #$b6 	; C=<L> (Dir)
-	bne :+
-	jmp dir
-:	cmp #$a5	; C=<G> (Go)
+	ldx #@num_special_keys-1
+
+@l0:	cmp @specialkeys,x
+	beq @special
+	dex
+	bpl @l0
+
+	; handle the "docommand" functions
+	cmp #$a5	; C=<G> (Go)
 	bne :+
 	lda #'g'
 	jmp docommand
@@ -298,12 +322,54 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	lda #'s'
 	jmp docommand
 :	cmp #$bd	; C=<X> (Scratch)
-	bne :+
+	bne @insert
 	lda #'x'
 	jmp docommand
-:	jsr insert
+
+@insert:
+	jsr insert
 	jsr cur::off
 	jmp cur::on
+
+@special:
+	txa
+	asl
+	tax
+	lda @specialkeys_vectors,x
+	sta @vec
+	lda @specialkeys_vectors+1,x
+	sta @vec+1
+@vec=*+1
+	jmp $f00d
+
+@specialkeys:
+	.byte $85	; F1 (save)
+	.byte $89	; F2 (save as)
+	.byte $86	; F3 (assemble)
+	.byte $87	; F5 (nop)
+	.byte $bc	; C=<C> (refresh)
+	.byte $b4	; C=<H> (HELP)
+	.byte $b2	; C=<R> (rename)
+	.byte $be	; C=<V> (view)
+	.byte $b6	; C=<L> (dir)
+	.byte $a7	; C=<M> (gotoline)
+@num_special_keys=*-@specialkeys
+@specialkeys_vectors:
+	.word save
+	.word saveas
+	.word command_asm
+	.word command_nop
+	.word refresh
+	.word help
+	.word rename
+	.word memview
+	.word dir
+	.word command_gotoline
+.endproc
+
+;--------------------------------------
+.proc command_nop
+	rts
 .endproc
 
 ;--------------------------------------
@@ -365,7 +431,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldy #$01
 	jsr cur::setmin
 	ldx #40
-	ldy #STATUS_LINE
+	ldy #STATUS_ROW
 	jmp cur::setmax
 .endproc
 
@@ -381,7 +447,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	pha
 
 	ldxy #@savingmsg
-	lda #STATUS_LINE
+	lda #STATUS_ROW
 	jsr text::print
 
 	ldx @file
@@ -398,7 +464,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	lda #$00
 	pha
 	ldxy #@errmsg
-	lda #STATUS_LINE
+	lda #STATUS_ROW
 	jsr text::print
 	rts
 @savingmsg:
@@ -418,7 +484,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	pha
 
 	ldxy #@savingmsg
-	lda #STATUS_LINE
+	lda #STATUS_ROW
 	jsr text::print
 
 	ldx @file
@@ -433,7 +499,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	lda #$00
 	pha
 	ldxy #@errmsg
-	lda #STATUS_LINE
+	lda #STATUS_ROW
 	jmp text::print
 @savingmsg:
 	.byte "deleting...",0
@@ -453,19 +519,15 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jsr __edit_init
 
 	; get the file length
-	ldy #$00
-:	lda (@file),y
-	cmp #$0d
-	beq @found
-	iny
-	bne :-
+	ldxy @file
+	jsr util::strlen
 
 @found:
 	tya
 	pha
 
 	ldxy #@loadingmsg
-	lda #STATUS_LINE
+	lda #STATUS_ROW
 	jsr text::print
 
 	; set the address to load file into
@@ -486,7 +548,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	lda #$00
 	pha
 	ldxy #@errmsg
-	lda #STATUS_LINE
+	lda #STATUS_ROW
 	jsr text::print
 	rts
 @loadingmsg:
@@ -555,11 +617,11 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	; scroll lines below cursor position
 	ldy zp::cury
 	iny
-	cpy #STATUS_LINE-1
+	cpy #STATUS_ROW-1
 	bcc :+
 	; if we're at the bottom, scroll whole screen up
 	ldx #1
-	lda #STATUS_LINE-1
+	lda #STATUS_ROW-1
 	jsr text::scrollup
 
 	ldy zp::cury
@@ -567,7 +629,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jmp cur::set
 
 :	tya
-	ldx #STATUS_LINE-1
+	ldx #STATUS_ROW-1
 	jsr text::scrolldown
 
 @done:
@@ -632,6 +694,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jmp text::putch
 @put:	jsr src::insert
 	jmp text::putch
+.endproc
 
 ;--------------------------------------
 .proc ccup
@@ -677,7 +740,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 
 @scroll:
 	lda #$01
-	ldx #STATUS_LINE-1
+	ldx #STATUS_ROW-1
 	jsr text::scrolldown	; cursor wasn't moved, scroll
 
 @redraw:
@@ -771,7 +834,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	beq @redraw
 
 	ldx #1
-	lda #STATUS_LINE-1
+	lda #STATUS_ROW-1
 	jsr text::scrollup	; cursor wasn't moved, scroll
 
 @redraw:
@@ -802,7 +865,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 
 	; scroll everything up from below the line we deleted
 	ldx zp::cury
-	lda #STATUS_LINE-1
+	lda #STATUS_ROW-1
 	jsr text::scrollup
 	jsr draw_titlebar
 
@@ -865,7 +928,127 @@ ccvectors:
 .word ccdown	; down
 .word ccdel 	; delete
 .word linedone	; RETURN
+
+;--------------------------------------
+.proc command_gotoline
+	jsr readinput
+	jsr atoi	; convert (YX) to line #
+	; TODO:
 .endproc
+
+;--------------------------------------
+; gotoline sets the editor to the line in .YX and refreshes the screen.
+.proc gotoline
+@target=zp::tmp6
+@row=zp::tmp8
+@seekforward=zp::tmp9	; 0=backwards 1=forwards
+@diff=zp::tmpa		; lines to move up or down
+@startline=zp::tmpc
+@endline=zp::tmpe
+	stxy @target
+
+	lda #$00
+	sta @seekforward
+
+	cmpw src::line	; is the target forward or backward?
+	bcc :+
+	inc @seekforward
+
+	; get the number of lines to move forwards
+	lda @target
+	sec
+	sbc src::line
+	sta @diff
+	lda @target+1
+	sbc src::line+1
+	sta @diff+1
+	jmp @cont
+
+:	; get the number of lines to move backwards
+	lda src::line
+	sec
+	sbc @target
+	sta @diff
+	lda src::line+1
+	sbc @target+1
+	sta @diff+1
+
+@cont:
+	; if we're moving less than a screen away, just behave as if the user
+	; moved up/down (diff) many times
+	ldxy @diff
+	cmpw #EDITOR_HEIGHT
+	;bcs @longmove
+	jmp @longmove	; TODO
+
+@shortmove:
+	lda @seekforward
+	beq :+
+	jsr ccup
+	jmp :++
+:	jsr ccdown
+:	dec @diff	; (can treat diff as an 8 bit value now)
+	bpl @shortmove
+	rts
+
+@longmove:
+	; get first line of source buffer to render (target +/- EDITOR_HEIGHT)
+	ldx @diff
+	ldy @diff+1
+	lda @seekforward
+	beq @longb
+@longf:
+	jsr src::downn ; go to the first line to render
+	lda #EDITOR_ROW_START+EDITOR_HEIGHT
+	sta @row
+	jmp @longmove_cont
+
+@longb:
+	jsr src::upn ; go to the first line to render
+	lda #EDITOR_ROW_START
+	sta @row
+
+@longmove_cont:
+	; the first line to render is the target line we're going to minus the
+	; cursor's Y position
+
+@l0:
+	jsr src::readline
+	php
+	ldxy #mem::linebuffer
+	lda @row
+	jsr text::drawline
+	plp
+	beq @renderdone
+
+	lda @seekforward
+	beq :+
+
+	; backwards
+	jsr src::up
+	dec @row
+	lda @row
+	cmp #EDITOR_ROW_START
+	bcs @l0
+	bcc @renderdone
+
+	; forwards
+:	jsr src::down
+	inc @row
+	lda @row
+	cmp #EDITOR_ROW_START + EDITOR_HEIGHT
+	bcc @l0
+
+@renderdone:
+	; move back to the start of the last line read
+	jsr src::up
+
+	; move the cursor to the top if we searched backwards or bottomif forward
+	ldy @row
+	ldx #$00
+	jmp cur::set
+.endproc
+
 
 ;--------------------------------------
 features: .byte 0

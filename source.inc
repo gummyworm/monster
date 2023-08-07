@@ -3,6 +3,7 @@
 .import __src_buffer
 .import __src_delete
 .import __src_down
+.import __src_downn
 .import __src_end
 .import __src_get
 .import __src_goto
@@ -12,6 +13,7 @@
 .import __src_next
 .import __src_new
 .import __src_up
+.import __src_upn
 .import __src_loaddir
 .import __src_loadfile
 .import __src_popp
@@ -35,6 +37,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	buffer = __src_buffer
 	delete = __src_delete
 	down = __src_down
+	downn = __src_downn
 	end = __src_end
 	get = __src_get
 	goto = __src_goto
@@ -58,4 +61,5 @@ GAPSIZE = 20	; size of gap in gap buffer
 	scratch = __src_scratchfile
 	start = __src_start
 	up = __src_up
+	upn = __src_upn
 .endscope
