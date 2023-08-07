@@ -502,7 +502,7 @@ __src_load:
 	ldxy post
 	cmpw #0
 	bne @l0
-	clc
+	sec
 	rts
 
 @l0:	jsr __src_next
@@ -511,8 +511,10 @@ __src_load:
 	ldxy post
 	cmpw #0
 	bne @l0
-	clc	; end of the buffer
-:	rts
+	sec	; end of the buffer
+	rts
+:	clc
+	rts
 .endproc
 
 ;--------------------------------------
@@ -779,6 +781,7 @@ __src_atcursor:
 
 ;--------------------------------------
 ; get returns the text at the current cursor position in mem::linebuffer
+; .C is set if the end of the buffer was reached as we were reading
 .export __src_get
 .proc __src_get
 @cnt=zp::tmp1
@@ -790,7 +793,7 @@ __src_atcursor:
 
 	ldxy post
 	cmpw #$00
-	beq @done
+	beq @eof
 	stxy @cnt
 	incw @cnt
 
@@ -808,8 +811,11 @@ __src_atcursor:
 :	iny
 	cpy #39
 	bcc @l0
-
-@done:	lda #$00
+@eof:
+	sec
+	skb
+@done:	clc
+	lda #$00
 	sta mem::linebuffer,y
 	rts
 .endproc

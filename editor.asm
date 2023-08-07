@@ -787,7 +787,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	sta @newy
 
 	jsr src::down
-	bcs :+
+	bcc :+
 	jsr src::up
 	jsr src::get
 	lda #$ff
@@ -911,29 +911,10 @@ success_msg: .byte "done $", $fe, " bytes", 0
 .endproc
 
 ;--------------------------------------
-controlcodes:
-.byte $9d	; left
-.byte $1d	; right
-.byte $91	; up arrow
-.byte $11	; down
-.byte $14	; delete
-.byte $0d	; RETURN
-numccodes=*-controlcodes
-
-;--------------------------------------
-ccvectors:
-.word ccleft    ; left
-.word ccright	; right
-.word ccup      ; up
-.word ccdown	; down
-.word ccdel 	; delete
-.word linedone	; RETURN
-
-;--------------------------------------
 .proc command_gotoline
 	jsr readinput
 	jsr atoi	; convert (YX) to line #
-	; TODO:
+	jmp gotoline
 .endproc
 
 ;--------------------------------------
@@ -962,7 +943,14 @@ ccvectors:
 	lda @target+1
 	sbc src::line+1
 	sta @diff+1
-	jmp @cont
+
+	bne @long
+	lda zp::cury
+	clc
+	adc @diff
+	cmp #EDITOR_HEIGHT
+	bcs @long
+	jmp @short
 
 :	; get the number of lines to move backwards
 	lda src::line
@@ -973,39 +961,52 @@ ccvectors:
 	sbc @target+1
 	sta @diff+1
 
-@cont:
-	; if we're moving less than a screen away, just behave as if the user
-	; moved up/down (diff) many times
-	ldxy @diff
-	cmpw #EDITOR_HEIGHT
-	;bcs @longmove
-	jmp @longmove	; TODO
+	bne @long
+	lda zp::cury
+	sec
+	sbc @diff
+	bmi @long
 
-@shortmove:
+@short:
+	jsr src::up
 	lda @seekforward
-	beq :+
-	jsr ccup
-	jmp :++
-:	jsr ccdown
-:	dec @diff	; (can treat diff as an 8 bit value now)
-	bpl @shortmove
-	rts
+	bne :+
 
-@longmove:
-	; get first line of source buffer to render (target +/- EDITOR_HEIGHT)
-	ldx @diff
-	ldy @diff+1
+	; move up and move cursor
+	ldxy @diff
+	jsr src::upn
+	lda #$00
+	sec
+	sbc @diff
+	tay
+	dey
+	ldx #$00
+	jmp cur::move
+
+:	; move down and move cursor
+	ldxy @diff
+	jsr src::downn
+	ldy @diff
+	dey
+	ldx #$00
+	jmp cur::move
+
+@long:
+	jsr src::up
+	; get first line of source buffer to render (target +/- (EDITOR_HEIGHT - cury)
+	ldxy @diff
+	sub16 #EDITOR_HEIGHT
 	lda @seekforward
 	beq @longb
 @longf:
 	jsr src::downn ; go to the first line to render
-	lda #EDITOR_ROW_START+EDITOR_HEIGHT
+	lda #EDITOR_ROW_START
 	sta @row
 	jmp @longmove_cont
 
 @longb:
 	jsr src::upn ; go to the first line to render
-	lda #EDITOR_ROW_START
+	lda #EDITOR_ROW_START+EDITOR_HEIGHT
 	sta @row
 
 @longmove_cont:
@@ -1013,43 +1014,60 @@ ccvectors:
 	; cursor's Y position
 
 @l0:
-	jsr src::readline
+	jsr src::get
 	php
 	ldxy #mem::linebuffer
 	lda @row
 	jsr text::drawline
 	plp
-	beq @renderdone
+	bcs @renderdone
 
 	lda @seekforward
-	beq :+
+	bne :+
 
 	; backwards
-	jsr src::up
 	dec @row
 	lda @row
 	cmp #EDITOR_ROW_START
-	bcs @l0
 	bcc @renderdone
+	jsr src::up
+	jmp @l0
 
-	; forwards
-:	jsr src::down
+:	; forwards
 	inc @row
 	lda @row
 	cmp #EDITOR_ROW_START + EDITOR_HEIGHT
-	bcc @l0
+	bcs @renderdone
+	jsr src::down
+	jmp @l0
 
 @renderdone:
-	; move back to the start of the last line read
-	jsr src::up
-
 	; move the cursor to the top if we searched backwards or bottomif forward
 	ldy @row
 	ldx #$00
 	jmp cur::set
 .endproc
 
-
 ;--------------------------------------
 features: .byte 0
 prog_ptr: .word mem::program
+
+;--------------------------------------
+controlcodes:
+.byte $9d	; left
+.byte $1d	; right
+.byte $91	; up arrow
+.byte $11	; down
+.byte $14	; delete
+.byte $0d	; RETURN
+numccodes=*-controlcodes
+
+;--------------------------------------
+ccvectors:
+.word ccleft    ; left
+.word ccright	; right
+.word ccup      ; up
+.word ccdown	; down
+.word ccdel 	; delete
+.word linedone	; RETURN
+

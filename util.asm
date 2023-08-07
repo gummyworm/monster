@@ -193,7 +193,6 @@
 	adc @tmp2+1
 	bcs @mulerr
 	sta @tmp+1
-	rts
 @mulerr:
 	rts
 .endproc
@@ -323,7 +322,7 @@ result=mem::spare
 .export __util_is_separator
 .proc __util_is_separator
 	jsr __util_is_null_return_space_comma_closingparen_newline
-	beq :+
-	jsr __util_isoperator
-:	rts
+	bne :+
+	rts
+:	jmp __util_isoperator
 .endproc

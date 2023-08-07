@@ -64,5 +64,3 @@ reenter:
 	txs
 	jsr edit::init
 	jmp edit::run
-
-testname: .byte "hmmm",0
