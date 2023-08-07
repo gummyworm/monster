@@ -927,12 +927,23 @@ success_msg: .byte "done $", $fe, " bytes", 0
 @startline=zp::tmpc
 @endline=zp::tmpe
 	stxy @target
+	lda zp::curx
+	beq :+
+	jsr src::up	; if we're not already, move to the start of the line
 
+:	ldy zp::cury
+	ldx #$00
+	jsr cur::set
+
+	jsr src::up
 	lda #$00
 	sta @seekforward
 
+	ldxy @target
 	cmpw src::line	; is the target forward or backward?
-	bcc :+
+	bne :+
+	rts
+:	bcc :+
 	inc @seekforward
 
 	; get the number of lines to move forwards
@@ -968,12 +979,12 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	bmi @long
 
 @short:
-	jsr src::up
+	ldy #$00
 	lda @seekforward
 	bne :+
 
 	; move up and move cursor
-	ldxy @diff
+	ldx @diff
 	jsr src::upn
 	lda #$00
 	sec
@@ -984,7 +995,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jmp cur::move
 
 :	; move down and move cursor
-	ldxy @diff
+	ldx @diff
 	jsr src::downn
 	ldy @diff
 	dey
@@ -992,24 +1003,41 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jmp cur::move
 
 @long:
-	jsr src::up
 	; get first line of source buffer to render (target +/- (EDITOR_HEIGHT - cury)
 	ldxy @diff
 	sub16 #EDITOR_HEIGHT
+	bpl @movesrc
+	; diff-EDITOR_HEIGHT < 0, need to move in the opposite direction
+	stxy @diff
+	lda #$00
+	sec
+	sbc @diff
+	tax
+	ldy #$00		; can't be < -EDITOR_HEIGHT
+	lda @seekforward
+	beq :+
+	inx
+	jsr src::upn		; move up before we render downward
+	jmp @longf_cont
+:	jsr src::downn		; move down before we we render upward
+	jmp @longb_cont
+
+@movesrc:
 	lda @seekforward
 	beq @longb
+
 @longf:
 	jsr src::downn ; go to the first line to render
+@longf_cont:
 	lda #EDITOR_ROW_START
-	sta @row
-	jmp @longmove_cont
-
+	bne @longmove_cont
 @longb:
 	jsr src::upn ; go to the first line to render
+@longb_cont:
 	lda #EDITOR_ROW_START+EDITOR_HEIGHT
-	sta @row
 
 @longmove_cont:
+	sta @row
 	; the first line to render is the target line we're going to minus the
 	; cursor's Y position
 
@@ -1036,16 +1064,14 @@ success_msg: .byte "done $", $fe, " bytes", 0
 :	; forwards
 	inc @row
 	lda @row
-	cmp #EDITOR_ROW_START + EDITOR_HEIGHT
+	cmp #EDITOR_ROW_START + EDITOR_HEIGHT + 1
 	bcs @renderdone
 	jsr src::down
 	jmp @l0
 
 @renderdone:
 	; move the cursor to the top if we searched backwards or bottomif forward
-	ldy @row
-	ldx #$00
-	jmp cur::set
+	rts
 .endproc
 
 ;--------------------------------------
