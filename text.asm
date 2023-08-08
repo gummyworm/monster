@@ -11,7 +11,6 @@
 .include "source.inc"
 .include "util.inc"
 .include "zeropage.inc"
-.CODE
 
 ESCAPE_STRING = $ff
 ESCAPE_VALUE = $fe
@@ -20,6 +19,7 @@ ESCAPE_RVS_OFF = $02
 STATUS_LINE = 23
 STATUS_COL  = 0
 
+.CODE
 ;--------------------------------------
 .export __text_status
 .proc __text_status
@@ -37,6 +37,12 @@ COLUMN_START=STATUS_COL+3
 LINE_START=STATUS_COL+6
 SIZE_START=STATUS_COL+13
 MODE_START=STATUS_COL
+	lda #' '
+	ldx #39
+:	sta mem::statusline,x
+	dex
+	bpl :-
+
 	ldy #$00
 	ldx zp::curx
 	jsr util::todec
@@ -55,7 +61,6 @@ MODE_START=STATUS_COL
 	sta mem::statusline+LINE_START,x
 	dex
 	bpl :-
-
 
 	; current edit mode (insert or replace)
 	ldx #'r'

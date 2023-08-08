@@ -63,7 +63,6 @@ main:
 @done:
 	jsr text::update
 	jsr text::status
-	cli
 	jmp main
 .endproc
 

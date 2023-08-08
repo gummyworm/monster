@@ -20,6 +20,7 @@ label_value = zp::asm+6 ; param to addlabel
 lsb = zp::asm+$a
 msb = zp::asm+$b
 
+.DATA
 ;--------------------------------------
 NUM_OPCODES = 58
 CC_00=0
@@ -118,6 +119,7 @@ directive_vectors:
 .word includefile
 .word defineorg
 
+.CODE
 ;--------------------------------------
 ; validate verifies that the string at (YX) is a valid instrcution
 ; The size of the assembled operation is returned in .A (negative indicates an error occurred).

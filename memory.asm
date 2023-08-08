@@ -1,13 +1,15 @@
 .CODE
 .scope mem
 
-.DATA
+.CODE
 ;--------------------------------------
 .export __mem_init
 .proc __mem_init
 	rts
 .endproc
 
+.BSS
+;--------------------------------------
 .align 256
 .export __mem_spare
 __mem_spare=$0400
@@ -29,6 +31,5 @@ __linebuffer=$110
 
 .export __statusline
 __statusline:
-	.res 40,' '
+	.res 40
 .endscope
-

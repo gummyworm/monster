@@ -9,7 +9,7 @@
 GAPSIZE = 20	; size of gap in gap buffer
 
 ;.segment "SOURCE"
-.DATA
+.BSS
 
 ;--------------------------------------
 data_start:
@@ -26,7 +26,7 @@ __src_line:
 line: .word 0       ; the current line # of the cursor
 data_end:
 
-len:  .word GAPSIZE ; size of the buffer (pre+post+gap)
+len:  .word 0	; size of the buffer (pre+post+gap)
 bank: .byte 0
 
 ;--------------------------------------
