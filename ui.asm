@@ -4,11 +4,13 @@
 .include "memory.inc"
 .include "text.inc"
 .include "zeropage.inc"
-.CODE
 
+.DATA
+;--------------------------------------
 save_sp: .word mem::spare+40 ; stack ptr for save/restore stack
 stack_depth: .byte 0
 
+.CODE
 ;--------------------------------------
 ; saverow
 ; saverow saves the row .A of text to the UI's save stack

@@ -15,7 +15,6 @@
 @l0:	sta (zp::tmp1),y
 	dey
 	bpl @l0
-
 	rts
 .endproc
 

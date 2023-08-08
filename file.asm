@@ -255,6 +255,10 @@
 	jmp @close
 .endproc
 
+;--------------------------------------
+.DATA
+
+;--------------------------------------
 .export __file_name
 __file_name:
 name:      .byte "test.s" ; the name of the active procedure

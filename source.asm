@@ -10,16 +10,13 @@ GAPSIZE = 20	; size of gap in gap buffer
 
 ;.segment "SOURCE"
 .DATA
-.export src_debug
 
 ;--------------------------------------
-bank: .byte 0
-
 data_start:
-
 sp: .byte 0
 stack: .res 32
 
+.export src_debug
 src_debug:
 pre:  .word 0       ; # of bytes before the gap
 post: .word 0       ; # of bytes after the gap
@@ -27,12 +24,12 @@ post: .word 0       ; # of bytes after the gap
 .export __src_line
 __src_line:
 line: .word 0       ; the current line # of the cursor
-
 data_end:
 
 len:  .word GAPSIZE ; size of the buffer (pre+post+gap)
-;--------------------------------------
+bank: .byte 0
 
+;--------------------------------------
 .export __src_buffer
 __src_buffer:
 data:

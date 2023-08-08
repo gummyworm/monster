@@ -18,6 +18,7 @@
 .include "macros.inc"
 .import help
 
+.CODE
 ;--------------------------------------
 .proc draw_titlebar
 	ldxy #titlebar
@@ -26,9 +27,6 @@
 	lda #$00
 	jmp bm::rvsline
 .endproc
-
-titlebar:
-.byte "monster                      c=<h>: help"
 
 ;--------------------------------------
 .export __edit_init
@@ -1077,10 +1075,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jmp cur::set
 .endproc
 
-;--------------------------------------
-features: .byte 0
-prog_ptr: .word mem::program
-
+.DATA
 ;--------------------------------------
 controlcodes:
 .byte $9d	; left
@@ -1100,3 +1095,6 @@ ccvectors:
 .word ccdel 	; delete
 .word linedone	; RETURN
 
+;--------------------------------------
+titlebar:
+.byte "monster                      c=<h>: help"

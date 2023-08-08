@@ -8,7 +8,7 @@ CBM_KEY_TABLE=$ece0
 CTRL_KEY_TABLE=$EDA3
 CURSOR_LR_MASK=2
 
-
+.CODE
 ;--------------------------------------
 .export __key_getch
 .proc __key_getch
@@ -150,13 +150,13 @@ KeyInRow:
 	lsr
 	bcs *+5
 	jsr KeyFound
-	.repeat 7, I
-		inx
-		lsr
-		bcs *+5
-		jsr KeyFound
-	.endrepeat
-	rts
+.repeat 7, I
+	inx
+	lsr
+	bcs *+5
+	jsr KeyFound
+.endrepeat
+rts
 
 ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ; Routine for handling: Key Found
@@ -232,12 +232,12 @@ ScanMatrix:
 	ldy $9121
 	sty ScanResult+7
 	sec
-	.repeat 7, I
-		ror
-		sta $9120
-		ldy $9121
-		sty ScanResult+6-I
-	.endrepeat
+.repeat 7, I
+	ror
+	sta $9120
+	ldy $9121
+	sty ScanResult+6-I
+.endrepeat
 
 ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ; Initialize Buffer, Flags and Max Keys
@@ -342,12 +342,12 @@ ScanMatrix:
 	cmp #$ff
 	beq *+5
 	jsr KeyInRow
-	.repeat 7, I
-		ldx #(I+1)*8
-		lda ScanResult+I+1
-		beq *+5
-		jsr KeyInRow
-	.endrepeat
+.repeat 7, I
+	ldx #(I+1)*8
+	lda ScanResult+I+1
+	beq *+5
+	jsr KeyInRow
+.endrepeat
 
 ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ; Key Scan Completed
@@ -411,6 +411,8 @@ TooManyNewKeys:
 	lda #$04
 	rts
 
+;--------------------------------------
+.DATA
 BufferOld:
 	.byte $ff, $ff, $ff
 Buffer:

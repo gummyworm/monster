@@ -1,6 +1,7 @@
 .CODE
 .scope mem
 
+.DATA
 ;--------------------------------------
 .export __mem_init
 .proc __mem_init

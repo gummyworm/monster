@@ -792,7 +792,7 @@ hicolor=*+1
 	incw @line
 	ldx #$00
 
-@fname: ; print filename
+@fname: ; add filename to buffer
 @l2:	ldy #$00
 	lda (@line),y
 	incw @line
@@ -813,16 +813,16 @@ hicolor=*+1
 	beq @done
 :	incw @line
 	incw @line
-	beq @done
 
+	; print the line
 	ldxy #mem::linebuffer
 	lda zp::cury
 	jsr __text_print
 
-	ldy zp::cury
-	iny
+	; next line
+	ldy #$01
 	ldx #0
-	jsr cur::set
+	jsr cur::move
 	jmp @l0
 
 @done:
