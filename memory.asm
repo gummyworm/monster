@@ -26,7 +26,7 @@ __linebuffer2:
 	.res 40
 
 .export __linebuffer
-__linebuffer=$110
+__linebuffer=$140
 
 .export __statusline
 __statusline:

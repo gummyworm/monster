@@ -342,6 +342,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jmp $f00d
 
 @specialkeys:
+	.byte $13	; HOME
 	.byte $85	; F1 (save)
 	.byte $89	; F2 (save as)
 	.byte $86	; F3 (assemble)
@@ -354,6 +355,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	.byte $a7	; C=<M> (gotoline)
 @num_special_keys=*-@specialkeys
 @specialkeys_vectors:
+	.word home
 	.word save
 	.word saveas
 	.word command_asm
@@ -364,6 +366,17 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	.word memview
 	.word dir
 	.word command_gotoline
+.endproc
+
+;--------------------------------------
+.proc home
+	ldx zp::curx
+	beq :+
+	jsr src::up
+	ldx #$00
+	ldy zp::cury
+	jsr cur::set
+:	rts
 .endproc
 
 ;--------------------------------------

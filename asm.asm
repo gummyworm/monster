@@ -1435,7 +1435,6 @@ bbb10_modes:
 @checkop:
 	jsr util::isoperator
 	bne @getoperand
-
 	pha
 	jsr @priority		; get the priority of this operator
 @process_ops:
@@ -1541,7 +1540,7 @@ bbb10_modes:
 @priority:
 	cmp #'+'
 	beq @prio1
-	cmp '-'
+	cmp #'-'
 	beq @prio1
 	lda #$ff
 	rts
