@@ -86,7 +86,10 @@
 	bne @eof      ; either EOF or read error
 	jsr $ffcf     ; call CHRIN (get a byte from file)
 	ldy #$00
-	sta (@dst),y  ; write byte to memory
+	cmp #$0a	; convert LF to CR
+	bne :+
+	lda #$0d
+:	sta (@dst),y  ; write byte to memory
 
 	ldx secondaryaddr ; if loading directory, don't update source pointers
 	beq @filedone

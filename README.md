@@ -9,6 +9,7 @@ Features include:
  - memory viewer/editor
  - file support (save/load)
  - directory viewer
+ - auto-formatter and realtime syntax checking
 
 The source buffer is stored in a gap buffer to allow for efficient insertion/deletion.
 
