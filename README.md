@@ -1,4 +1,4 @@
-#### MONster
+# MONster
 MONster is an all-in-one editor/assembler/memory editor for the Commodore Vic-20.
 In its current form it is primarily intended for native development of applications for the
 unexpanded Commodore Vic-20.
@@ -12,7 +12,7 @@ Features include:
 
 The source buffer is stored in a gap buffer to allow for efficient insertion/deletion.
 
-#### Requirements
+## Requirements
 MONster requires a _completely_ expanded (BLK 2,3, and 5) RAM configuration to function.
 
 I do plan to support configurations with banked memory so that one can isolate the 
@@ -20,7 +20,7 @@ development memory from the programs, however there are limited hardware options
 this available (only the discontinued Ultimem to my knowledge). 
 
 
-### Usage
+## Usage
 The builtin HELP menu (C= + H) provides basic usage details
 Here are some of the supported commands.  When given a prompt the '<-' key
 will exit the prompt and cancel the command
@@ -44,13 +44,13 @@ Navigation keys
 | C= + M | prompts for a line number and moves the cursor to that line           |
 
 
-### Assembler Syntax
+## Assembler Syntax
 The assembler syntax is very similar to any other major assembler.  For basic
 instructions, the canonical 6502 assembly syntax is supported.  That means '$'
 denotes a hex value, '#' and immediate operand, parentheses an indirect address,
 etc.
 
-##### Expressions
+### Expressions
 Operands, in addition to basic values and labels, may contain an expression,
 which is evaluated to a value to generate the operand for the generated
 binary.
@@ -71,14 +71,14 @@ Immediate-addressing makes no sense with indirect addressing mode, so the assemb
 will allow you to enclose the whole expression in parentheses for expressions
 that are defined with a '#' prefix (e.g. `LDA #(2+4)`)
 
-##### Formatting
+### Formatting
 Spacing is not important, but instructions are auto-formatted to be indented
 by two spaces.  Labels and directives are, by convention, not indented.  The
 formatter will also take care of this.
 
-#### Directives
+## Directives
 The following directives are supported
-##### .DB      
+### .DB      
 Defines a sequence of bytes from the comma-separated list that follows.
 
 Examples:
@@ -87,7 +87,7 @@ Examples:
  | .DB $00, $01, $02 | $00 $01 $02          |
  | .DB "HI",0	     | $48 $49 $00          |
 
-##### .DW
+### .DW
 deines a sequence of words from the comma-separated list that      |
 
 Examples:
@@ -95,12 +95,12 @@ Examples:
  |-------------------|-------------------------|
  | .DW $00, $01, $02 | $00 $00 $01 $00 $02 $00 |
 
-##### .ORG
+### .ORG
 Sets the address to assemble code to 
 `.ORG $1000`
 
 
-### Example program
+## Example program
 Here is a basic hello world program to demonstrate some of the assembler's
 features
 ```
