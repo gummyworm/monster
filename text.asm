@@ -3,8 +3,9 @@
 .include "config.inc"
 .include "cursor.inc"
 .include "draw.inc"
-.include "key.inc"
+.include "file.inc"
 .include "irq.inc"
+.include "key.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "source.inc"
@@ -64,11 +65,11 @@ MODE_START=STATUS_COL
 :	stx mem::statusline+MODE_START
 
 	; filename
-	ldxy #src::name
+	ldxy #file::name
 	jsr util::strlen
 	tay
 	ldx #39
-:	lda src::name,y
+:	lda file::name,y
 	sta mem::statusline,x
 	dex
 	dey
@@ -114,7 +115,7 @@ curtmr=*+1
 @savex = zp::tmp3
 @savey = zp::tmp4
 @ret = zp::tmp5
-@buff = @printbuffer
+@buff = mem::linebuffer2
         stx @str
         sty @str+1
 	sta @row
@@ -221,7 +222,6 @@ curtmr=*+1
 	ldy #>@buff
 	lda @row
 	jmp __text_puts
-@printbuffer: .res 40
 .endproc
 
 ;--------------------------------------
@@ -653,7 +653,6 @@ __text_len=*+1
 	jmp nextch
 @done:  rts
 .endproc
-rvs: .byte 0
 
 ;--------------------------------------
 ; get_char_addr returns the address of the character in .A
@@ -677,6 +676,167 @@ rvs: .byte 0
 	sta @ch+1
 	rts
 .endproc
+
+;--------------------------------------
+; hiline highlights the row in .A with the color in .X
+.export __text_hiline
+.proc __text_hiline
+	stx hicolor
+	ldx #<hiirq
+	ldy #>hiirq
+	asl
+	asl
+	adc #13
+	jsr irq::raster
+	rts
+.endproc
+
+hiirq: ldx #65/5-1
+	dex
+	bne *-1
+hicolor=*+1
+	lda #$00
+	sta $900f
+	ldx #(65)/5*8-3
+:	dex
+	bne :-
+	nop
+	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
+	sta $900f
+	jmp $eb15
+
+;--------------------------------------
+; linelen returns the length of mem::linebuffer in .X
+.proc __text_linelen
+.export __text_linelen
+	ldx #$ff
+@l0:	inx
+	lda mem::linebuffer,x
+	beq @done
+	cpx #40
+	bcs @done
+	bne @l0
+@done:	rts
+.endproc
+
+;--------------------------------------
+; get reads text (up to .A bytes) into (zp::tmp0)
+.export __text_get
+.proc __text_get
+@len=zp::tmp0
+	sta @len
+@l0:    jsr key::getch
+	cmp #$00
+	beq @l0
+	cmp #$0d
+	bne :+
+	lda #$00
+	jsr __text_putch
+	rts
+:	jsr __text_putch
+	jmp @l0
+.endproc
+
+;--------------------------------------
+; hioff clears any active line highlight
+.export __text_hioff
+.proc __text_hioff
+	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
+	sta hicolor
+	rts
+.endproc
+
+;--------------------------------------
+; savebuff stores the contents of linbuffer in spare memory.
+.export __text_savebuff
+.proc __text_savebuff
+	ldy #39
+:	lda mem::linebuffer,y
+	sta mem::linebuffer2,y
+	dey
+	bpl :-
+	rts
+.endproc
+
+;--------------------------------------
+; restorebuff restores the linebuffer from the contents of spare memory.
+.export __text_restorebuff
+.proc __text_restorebuff
+	ldy #39
+:	lda mem::linebuffer2,y
+	sta mem::linebuffer,y
+	dey
+	bpl :-
+	rts
+.endproc
+
+;--------------------------------------
+; dir lists the directory of the attached disk
+.export __text_dir
+.proc __text_dir
+@line=zp::tmp8
+	jsr file::loaddir
+
+	ldxy #mem::spare+2
+	stxy @line
+
+	pushcur
+	ldy #1
+	ldx #0
+	jsr cur::set
+
+@l0:
+	jsr __text_clrline
+
+	incw @line	; skip line #
+	incw @line
+	ldx #$00
+
+@fname: ; print filename
+@l2:	ldy #$00
+	lda (@line),y
+	incw @line
+	tay
+	beq @next
+	sta mem::linebuffer,x
+	inx
+	cpx #39
+	bcc @l2
+
+@next:
+	; read line link
+	ldy #$00
+	lda (@line),y
+	bne :+
+	iny
+	lda (@line),y
+	beq @done
+:	incw @line
+	incw @line
+	beq @done
+
+	ldxy #mem::linebuffer
+	lda zp::cury
+	jsr __text_print
+
+	ldy zp::cury
+	iny
+	ldx #0
+	jsr cur::set
+	jmp @l0
+
+@done:
+	lda zp::cury
+	jsr draw::hline
+	popcur
+	jmp __text_clrline
+.endproc
+
+;--------------------------------------
+.DATA
+.export __text_insertmode
+__text_insertmode: .byte 1
+rvs: .byte 0
 
 .export __text_charmap
 __text_charmap:
@@ -782,162 +942,4 @@ __text_charmap:
 .byte   $88,$88,$88,$88,$88,$88,$88,$88
 .byte   $ff,$00,$00,$00,$00,$00,$00,$00
 .byte   $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff	; cursor
-
-;--------------------------------------
-; hiline highlights the row in .A with the color in .X
-.export __text_hiline
-.proc __text_hiline
-	stx hicolor
-	ldx #<hiirq
-	ldy #>hiirq
-	asl
-	asl
-	adc #13
-	jsr irq::raster
-	rts
-.endproc
-
-hiirq: ldx #65/5-1
-	dex
-	bne *-1
-hicolor=*+1
-	lda #$00
-	sta $900f
-	ldx #(65)/5*8-3
-:	dex
-	bne :-
-	nop
-	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
-	sta $900f
-	jmp $eb15
-
-;--------------------------------------
-; linelen returns the length of mem::linebuffer in .X
-.proc __text_linelen
-.export __text_linelen
-	ldx #$ff
-@l0:	inx
-	lda mem::linebuffer,x
-	beq @done
-	cpx #40
-	bcs @done
-	bne @l0
-@done:	rts
-.endproc
-
-;--------------------------------------
-; get reads text (up to .A bytes) into (zp::tmp0)
-.export __text_get
-.proc __text_get
-@len=zp::tmp0
-	sta @len
-@l0:    jsr key::getch
-	cmp #$00
-	beq @l0
-	cmp #$0d
-	bne :+
-	lda #$00
-	jsr __text_putch
-	rts
-:	jsr __text_putch
-	jmp @l0
-.endproc
-
-;--------------------------------------
-; hioff clears any active line highlight
-.export __text_hioff
-.proc __text_hioff
-	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
-	sta hicolor
-	rts
-.endproc
-
-.export __text_insertmode
-__text_insertmode: .byte 1
-
-;--------------------------------------
-; savebuff stores the contents of linbuffer in spare memory.
-.export __text_savebuff
-.proc __text_savebuff
-	ldy #39
-:	lda mem::linebuffer,y
-	sta mem::linebuffer2,y
-	dey
-	bpl :-
-	rts
-.endproc
-
-;--------------------------------------
-; restorebuff restores the linebuffer from the contents of spare memory.
-.export __text_restorebuff
-.proc __text_restorebuff
-	ldy #39
-:	lda mem::linebuffer2,y
-	sta mem::linebuffer,y
-	dey
-	bpl :-
-	rts
-.endproc
-
-;--------------------------------------
-; dir lists the directory of the attached disk
-.export __text_dir
-.proc __text_dir
-@line=zp::tmp8
-	jsr src::loaddir
-
-	ldxy #mem::spare+2
-	stxy @line
-
-	pushcur
-	ldy #1
-	ldx #0
-	jsr cur::set
-
-@l0:
-	jsr __text_clrline
-
-	incw @line	; skip line #
-	incw @line
-	ldx #$00
-
-@fname: ; print filename
-@l2:	ldy #$00
-	lda (@line),y
-	incw @line
-	tay
-	beq @next
-	sta mem::linebuffer,x
-	inx
-	cpx #39
-	bcc @l2
-
-@next:
-	; read line link
-	ldy #$00
-	lda (@line),y
-	bne :+
-	iny
-	lda (@line),y
-	beq @done
-:	incw @line
-	incw @line
-	beq @done
-
-	ldxy #mem::linebuffer
-	lda zp::cury
-	jsr __text_print
-
-	ldy zp::cury
-	iny
-	ldx #0
-	jsr cur::set
-	jmp @l0
-
-@done:
-	lda zp::cury
-	jsr draw::hline
-	popcur
-	jmp __text_clrline
-.endproc
 

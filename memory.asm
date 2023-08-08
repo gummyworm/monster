@@ -17,14 +17,14 @@ __mem_backbuff:
 
 .export __mem_program
 __mem_program:
-	.res $1000
+	.res $400
 
 .export __linebuffer2
 __linebuffer2:
 	.res 40
+
 .export __linebuffer
-__linebuffer:
-	.res 40
+__linebuffer=$110
 
 .export __statusline
 __statusline:

@@ -4,16 +4,29 @@
 ; where the bank-switch code lives
 BANK_CODE_ADDRESS=$2000
 
+.import __SOURCE_START__
+.import __SOURCE_SIZE__
+
+;--------------------------------------
+.export __final_mode_ram2
+ .proc __final_mode_ram2
+	; enable RAM 2 MODE
+	; reads come from RAM block 2
+	; writes go to RAM block 1
+	lda #$c0
+	sta $9c02
+	rts
+ .endproc
+
 ;--------------------------------------
 ; init inializes the Final Expansion memory by writing the code needed to
 ; switch banks regardless of which bank we are in
 .export __final_init
 __final_init:
-	ldx #bank_code_size-1
 
+	ldx #bank_code_size-1
 	; store to zeropage
-@l0:
-	lda __final_bank,x
+@l0:	lda __final_bank,x
 	sta zp::tmp0,x
 	dex
 	bpl @l0
@@ -25,12 +38,14 @@ __final_init:
 	lda bank_code,x
 	sta BANK_CODE_ADDRESS,x
 
+	; copy the source-editing code to all source buffers
+
 	rts
 
 ;--------------------------------------
 ; the below code is written to all banks at BANK_CODE_ADDRESS
 bank_code:
-.segment "BANKCODE"
+.CODE
 
 ;--------------------------------------
 ; memcpy writes the memory from (tmp0) to (tmp2)
@@ -62,6 +77,7 @@ memcpy:
 	rts
 
 ;--------------------------------------
+; store_byte stores the byte given in zp::tmp0 toa address .YX in bank .A
 store_byte:
 	stxy zp::tmp1
 	ora #%10100000
@@ -72,6 +88,7 @@ store_byte:
 	rts
 
 ;--------------------------------------
+; read the byte in bank .A at address .YX
 read_byte:
 	stxy zp::tmp0
 	ora #%10100000

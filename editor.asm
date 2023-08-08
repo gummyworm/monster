@@ -3,6 +3,7 @@
 .include "codes.inc"
 .include "config.inc"
 .include "cursor.inc"
+.include "file.inc"
 .include "format.inc"
 .include "key.inc"
 .include "layout.inc"
@@ -38,6 +39,7 @@ titlebar:
 	jsr edit
 
 	jsr draw_titlebar
+	jsr text::clrline
 
 	ldx #$00
 	ldy #$01
@@ -408,7 +410,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jsr text::clrline
 	getinput mem::statusline+23,0,23,(40-16)
 	ldxy #mem::linebuffer
-	jsr src::rename
+	; TODO: jsr file::rename
 	jsr text::restorebuff
 	lda zp::cury
 	jmp text::drawline
@@ -418,7 +420,6 @@ success_msg: .byte "done $", $fe, " bytes", 0
 ; saveas allows the user to name the current buffer- then writes it to a file
 ; of the same name.
 .proc saveas
-	jsr rename
 	jmp save
 .endproc
 
@@ -453,7 +454,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldx @file
 	ldy @file+1
 	pla
-	jsr src::save
+	jsr file::save
 	sei
 	cmp #$00
 	bne @err
@@ -490,7 +491,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldx @file
 	ldy @file+1
 	pla
-	jsr src::scratch
+	jsr file::scratch
 	cmp #$00
 	bne @err
 	rts	; no error
@@ -536,7 +537,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 
 	ldxy @file
 	pla
-	jsr src::loadfile
+	jsr file::load
 	sei	; re-set I flag
 	cmp #$00
 	bne @err
@@ -942,7 +943,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldxy @target
 	cmpw src::line	; is the target forward or backward?
 	bne :+
-	rts
+	rts		; already on the target line
 :	bcc :+
 	inc @seekforward
 
@@ -1013,7 +1014,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	sec
 	sbc @diff
 	tax
-	ldy #$00		; can't be < -EDITOR_HEIGHT
+	ldy #$00		; hi byte is 0, can't be < -EDITOR_HEIGHT
 	lda @seekforward
 	beq :+
 	inx
@@ -1071,7 +1072,9 @@ success_msg: .byte "done $", $fe, " bytes", 0
 
 @renderdone:
 	; move the cursor to the top if we searched backwards or bottomif forward
-	rts
+	ldy @row
+	ldx #$00
+	jmp cur::set
 .endproc
 
 ;--------------------------------------
