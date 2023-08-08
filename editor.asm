@@ -912,7 +912,9 @@ success_msg: .byte "done $", $fe, " bytes", 0
 .proc command_gotoline
 	jsr readinput
 	jsr atoi	; convert (YX) to line #
+	bcs :+
 	jmp gotoline
+:	rts
 .endproc
 
 ;--------------------------------------
@@ -931,11 +933,8 @@ success_msg: .byte "done $", $fe, " bytes", 0
 
 :	ldy zp::cury
 	ldx #$00
+	stx @seekforward
 	jsr cur::set
-
-	jsr src::up
-	lda #$00
-	sta @seekforward
 
 	ldxy @target
 	cmpw src::line	; is the target forward or backward?
@@ -957,7 +956,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	lda zp::cury
 	clc
 	adc @diff
-	cmp #EDITOR_HEIGHT
+	cmp #EDITOR_HEIGHT+EDITOR_ROW_START
 	bcs @long
 	jmp @short
 
@@ -971,7 +970,9 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	sta @diff+1
 
 	bne @long
-	lda zp::cury
+	ldy zp::cury
+	dey
+	tya
 	sec
 	sbc @diff
 	bmi @long
@@ -988,7 +989,6 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	sec
 	sbc @diff
 	tay
-	dey
 	ldx #$00
 	jmp cur::move
 
@@ -996,7 +996,6 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldx @diff
 	jsr src::downn
 	ldy @diff
-	dey
 	ldx #$00
 	jmp cur::move
 
@@ -1014,7 +1013,6 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldy #$00		; hi byte is 0, can't be < -EDITOR_HEIGHT
 	lda @seekforward
 	beq :+
-	inx
 	jsr src::upn		; move up before we render downward
 	jmp @longf_cont
 :	jsr src::downn		; move down before we we render upward

@@ -14,7 +14,7 @@
 .import __final_bank
 .import __final_store_byte
 
-USE_FINAL = 1	; enable final expansion
+; USE_FINAL = 1	; enable final expansion
 
 ;--------------------------------------
 ; memory banks
@@ -59,25 +59,17 @@ USE_FINAL = 1	; enable final expansion
 	jsr __final_get_byte
 .endmacro
 
-.macro bank_read_word bank, addr
-	ldxy addr
-	lda bank
-	jsr __final_get_byte
+; writes the byte in .A to addr in zp::bank
+.macro BANK_WRITE addr
 	pha
-	ldxy addr+1
-	jsr __final_get_byte
-	tay
+	lda bank
+	ora #%10100000
+	sta $9c02
+	sta 
+
 	pla
-	tax
+	.if .match( .left( 1, {val} ), # )
+		lda #val
+	.endif
 .endmacro
 
-.macro bank_read_word_yx bank, addr
-	lda bank
-	jsr __final_get_byte
-	pha
-	ldxy addr+1
-	jsr __final_get_byte
-	tay
-	pla
-	tax
-.endmacro

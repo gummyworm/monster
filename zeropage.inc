@@ -15,6 +15,7 @@ label_value=$50	; arguments to label functions
 
 ;--------------------------------------
 asmresult = $e9	; pointer where code is assembled
+bank      = $eb ; the current bank in the final expansion being worked on
 
 ;--------------------------------------
 ; cursor

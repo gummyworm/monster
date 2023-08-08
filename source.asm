@@ -1,4 +1,3 @@
-.include "io.inc"
 .include "irq.inc"
 .include "zeropage.inc"
 .include "macros.inc"
@@ -8,8 +7,7 @@
 
 GAPSIZE = 20	; size of gap in gap buffer
 
-;.segment "SOURCE"
-.BSS
+.segment "SOURCE"
 
 ;--------------------------------------
 data_start:
@@ -33,7 +31,7 @@ bank: .byte 0
 .export __src_buffer
 __src_buffer:
 data:
-.res 1024*2
+.res 1024*4
 
 .CODE
 ;--------------------------------------
@@ -147,8 +145,13 @@ data:
 	sty @src+1
 
 	ldy #$00
+.IFDEF USE_FINAL
+	READ_BANKED @src
+	WRITE_BANKED @dst
+.ELSE
 	lda (@src),y
 	sta (@dst),y
+.ENDIF
 
 	cmp #$0d
 	bne :+
@@ -200,10 +203,14 @@ data:
 
 	decw @src
 	decw @dst
+.IFDEF USE_FINAL
+	READ_BANKED @src
+	WRITE_BANKED @dst
+.ELSE
 	ldy #$00
 	lda (@src),y
 	sta (@dst),y
-
+.ENDIF
 	cmp #$0d
 	bne :+
 	decw line
@@ -292,9 +299,13 @@ data:
 
 @ins:	jsr cursor
 	stxy @dst
-	ldy #$00
 	pla
+.IFDEF USE_FINAL
+	WRITE_BANKED @dst
+.ELSE
+	ldy #$00
 	sta (@dst),y
+.ENDIF
 	cmp #$0d
 	bne :+
 	incw line
@@ -338,8 +349,12 @@ __src_atcursor:
 	jsr cursor
 	sub16 #1
 	stxy zp::tmp0
+.IFDEF USE_FINAL
+	READ_BANKED zp::tmp0
+.ELSE
 	ldy #$00
 	lda (zp::tmp0),y
+.ENDIF
 	rts
 .endproc
 
@@ -433,6 +448,52 @@ __src_atcursor:
 .endproc
 
 ;--------------------------------------
+; get returns the text at the current cursor position in mem::linebuffer
+; .C is set if the end of the buffer was reached as we were reading
+.export __src_get
+.proc __src_get
+@cnt=zp::tmp1
+@src=zp::tmp3
+	jsr gaplen
+	add16 pre
+	add16 #data
+	stxy @src
+
+	ldxy post
+	cmpw #$00
+	beq @eof
+	stxy @cnt
+	incw @cnt
+
+	ldy #$00
+@l0:
+.IFDEF USE_FINAL
+	READ_BANKED_VEC_Y @src
+.ELSE
+	lda (@src),y
+.ENDIF
+	beq @done
+	cmp #$0d
+	beq @done
+	sta mem::linebuffer,y
+	decw @cnt
+	lda @cnt+1
+	bne :+
+	lda @cnt
+	beq @done
+:	iny
+	cpy #39
+	bcc @l0
+@eof:
+	sec
+	skb
+@done:	clc
+	lda #$00
+	sta mem::linebuffer,y
+	rts
+.endproc
+
+;--------------------------------------
 ; downn advances the source by the number of lines in .YX
 ; .C is set if the end was reached before the total lines requested could be reached
 ; .YX contains the number of lines that were not read
@@ -465,60 +526,5 @@ __src_atcursor:
 	jsr __src_up
 	bcc @loop
 @done:	ldxy @cnt
-	rts
-.endproc
-
-;--------------------------------------
-; gotoend goes to the last line, last character in the buffer
-.export __src_gotoend
-.proc __src_gotoend
-	; TODO:
-.endproc
-
-;--------------------------------------
-; gotolastline goes to the last line, first character in the buffer
-.export __src_gotolastline
-.proc __src_gotolastline
-	; TODO:
-.endproc
-
-;--------------------------------------
-; get returns the text at the current cursor position in mem::linebuffer
-; .C is set if the end of the buffer was reached as we were reading
-.export __src_get
-.proc __src_get
-@cnt=zp::tmp1
-@src=zp::tmp3
-	jsr gaplen
-	add16 pre
-	add16 #data
-	stxy @src
-
-	ldxy post
-	cmpw #$00
-	beq @eof
-	stxy @cnt
-	incw @cnt
-
-	ldy #$00
-@l0:	lda (@src),y
-	beq @done
-	cmp #$0d
-	beq @done
-	sta mem::linebuffer,y
-	decw @cnt
-	lda @cnt+1
-	bne :+
-	lda @cnt
-	beq @done
-:	iny
-	cpy #39
-	bcc @l0
-@eof:
-	sec
-	skb
-@done:	clc
-	lda #$00
-	sta mem::linebuffer,y
 	rts
 .endproc

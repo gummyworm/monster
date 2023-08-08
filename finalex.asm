@@ -8,17 +8,6 @@ BANK_CODE_ADDRESS=$2000
 .import __SOURCE_SIZE__
 
 ;--------------------------------------
-.export __final_mode_ram2
- .proc __final_mode_ram2
-	; enable RAM 2 MODE
-	; reads come from RAM block 2
-	; writes go to RAM block 1
-	lda #$c0
-	sta $9c02
-	rts
- .endproc
-
-;--------------------------------------
 ; init inializes the Final Expansion memory by writing the code needed to
 ; switch banks regardless of which bank we are in
 .export __final_init
