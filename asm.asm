@@ -3,6 +3,7 @@
 .include "layout.inc"
 .include "labels.inc"
 .include "macros.inc"
+.include "math.inc"
 .include "memory.inc"
 .include "text.inc"
 .include "util.inc"
@@ -1443,8 +1444,9 @@ bbb10_modes:
 	dex
 	; if the operator to the left has >= priority, process it
 	cmp @priorities,x
-	bcc @process_ops_done
-	pha		; save priority
+	beq :+
+	bcs @process_ops_done
+:	pha		; save priority
 	jsr @eval	; evaluate the top 2 elements of the operand stack
 	pla		; get priority
 	jmp @process_ops	; continue until the op to the left has lower priority
@@ -1460,7 +1462,8 @@ bbb10_modes:
 	bcc :+
 	jsr get_label	; is it a label?
 	bcs @err	; unrecognized string
-:	jsr @pushval
+:
+	jsr @pushval
 	jmp @l0
 
 @err:
@@ -1480,6 +1483,8 @@ bbb10_modes:
 	ldx @operands
 	lda #$01
 	ldy @operands+1
+	beq :+
+	cpy #$ff	; 1 byte negative
 	beq :+
 	lda #$02
 :	clc
@@ -1542,9 +1547,15 @@ bbb10_modes:
 	beq @prio1
 	cmp #'-'
 	beq @prio1
-	lda #$ff
+	cmp #'*'
+	beq @prio2
+	cmp #'/'
+	beq @prio2
+	lda #$00
 	rts
 @prio1:	lda #$01
+	rts
+@prio2: lda #$02
 	rts
 
 ;------------------
@@ -1566,10 +1577,10 @@ bbb10_modes:
 	lda @val1+1
 	adc @val2+1
 	tay
-	jmp @pushres
+	jmp @pushval
 
 :	cmp #'-'
-	bne @unknown_op
+	bne :+
 @sub:
 	lda @val2
 	sec
@@ -1578,9 +1589,21 @@ bbb10_modes:
 	lda @val2+1
 	sbc @val1+1
 	tay
+	jmp @pushval
 
-@pushres:
-	jmp @pushval	; push the result back
+:	cmp #'*'
+	bne :+
+	; get the product TODO: 32-bit precision expressions?
+	jsr m::mul16
+	jmp @pushval
+
+:	cmp #'/'
+	bne @unknown_op
+	jsr m::div16
+	ldx @val1
+	ldy @val1+1
+	jmp @pushval
+
 @unknown_op:
 	rts
 .endproc

@@ -314,6 +314,10 @@ result=mem::spare
 	cmp #'+'
 	beq :+
 	cmp #'-'
+	beq :+
+	cmp #'*'
+	beq :+
+	cmp #'/'
 :	rts
 .endproc
 
