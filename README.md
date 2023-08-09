@@ -100,7 +100,21 @@ Examples:
 
 ### .ORG
 Sets the address to assemble code to 
-`.ORG $1000`
+```
+.ORG $1000
+; start up code
+
+.ORG $2000
+; main code
+```
+
+### .EQU
+Defines a constant which may be used in expressions
+```
+.EQU BITMAP $1100
+  LDA #$00
+  STA BITMAP+20
+```
 
 
 ## Example program
