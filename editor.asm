@@ -923,6 +923,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 
 ;--------------------------------------
 .proc command_gotoline
+	ldxy #$0000
 	jsr readinput
 	jsr atoi	; convert (YX) to line #
 	bcs :+
@@ -1057,7 +1058,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	lda @row
 	jsr text::drawline
 	plp
-	bcs @renderdone
+	bcs @clearextra
 
 	lda @seekforward
 	bne :+
@@ -1076,8 +1077,31 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	cmp #EDITOR_ROW_START + EDITOR_HEIGHT + 1
 	bcs @renderdone
 	jsr src::down
-	jmp @l0
+	bcc @l0
 
+@clearextra:
+	jsr text::clrline
+	lda @row
+	bne :+
+	lda #$01
+	sta @row
+:	pha
+@clrloop:
+	ldxy #mem::linebuffer
+	jsr text::drawline
+	lda @seekforward
+	bne :+
+	dec @row
+	bpl @clrnext
+:	inc @row
+@clrnext:
+	lda @row
+	cmp #EDITOR_ROW_START
+	bcc @renderdone
+	cmp #EDITOR_ROW_START + EDITOR_HEIGHT + 1
+	bcc @clrloop
+	pla
+	sta @row
 @renderdone:
 	; move the cursor to the top if we searched backwards or bottomif forward
 	ldy @row

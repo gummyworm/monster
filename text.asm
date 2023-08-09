@@ -423,11 +423,9 @@ curtmr=*+1
 	sta @src+1
 
 @l0:	ldy #$00
-@l1:    lda #$00
-	cpy #8
-	bcc :+
+@l1:
 	lda (@src),y
-:	sta (@dst),y
+	sta (@dst),y
 	iny
 	cpy @numrows
 	bne @l1

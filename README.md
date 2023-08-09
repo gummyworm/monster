@@ -10,6 +10,8 @@ Features include:
  - file support (save/load)
  - directory viewer
  - auto-formatter and realtime syntax checking
+ - improved keyboard routine (3-key rollover)
+ - many more...
 
 The source buffer is stored in a gap buffer to allow for efficient insertion/deletion.
 
@@ -108,6 +110,7 @@ features
 .ORG $1400
 MSG:
 .DB "HELLO WORLD!",0
+START:
   JSR $E5B5
   LDX #$00
   LDA #' '
@@ -116,12 +119,13 @@ CLR:
   STA $1100,X
   DEX
   BNE CLR
-MSG:
+DISP:
   LDA MSG,X
   BEQ DONE
   JSR $FFD2
   INX
-  BNE MSG
+  BNE DISP
 DONE:
   JMP DONE
 ```
+
