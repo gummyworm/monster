@@ -22,6 +22,16 @@ I do plan to support configurations with banked memory so that one can isolate t
 development memory from the programs, however there are limited hardware options that support
 this available (only the discontinued Ultimem to my knowledge). 
 
+## Building
+ 1. Clone this repo `git clone https://github.com/gummyworm/monster.git`
+ 2. `cd` to the directory you cloned to and run `make` 
+
+## Running
+The Makefile will generate a PRG. You may write this to your disk of choice
+and load it as you would any other program on your Vic-20: `LOAD "MONSTER.PRG",8,1`
+
+If you wish to run it in an emulator (VICE), ensure that VICE is installed on your 
+machine and run `make start` from the root of the project.
 
 ## Usage
 The builtin HELP menu (C= + H) provides basic usage details
