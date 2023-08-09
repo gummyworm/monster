@@ -108,6 +108,24 @@ Examples:
  |-------------------|-------------------------|
  | .DW $00, $01, $02 | $00 $00 $01 $00 $02 $00 |
 
+### .EQU
+Defines a constant which may be used in expressions
+```
+.EQU BITMAP $1100
+  LDA #$00
+  STA BITMAP+20
+```
+
+### .INC
+Includes a file at the line of the directive. The file is loaded line-by-line
+from disk and assembled as if the code was copy/pasted in place of the include directive.
+```
+.INC "KERNAL.INC"
+  LDA #$00
+  JSR CHROUT
+```
+
+
 ### .ORG
 Sets the address to assemble code to 
 ```
@@ -116,14 +134,6 @@ Sets the address to assemble code to
 
 .ORG $2000
 ; main code
-```
-
-### .EQU
-Defines a constant which may be used in expressions
-```
-.EQU BITMAP $1100
-  LDA #$00
-  STA BITMAP+20
 ```
 
 

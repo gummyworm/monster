@@ -9,6 +9,7 @@
 .import __src_goto
 .import __src_insert
 .import __src_line
+.import __src_lines
 .import __src_next
 .import __src_new
 .import __src_up
@@ -37,6 +38,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	goto = __src_goto
 	insert = __src_insert
 	line = __src_line
+	lines = __src_lines
 	new = __src_new
 	next = __src_next
 	replace = __src_replace

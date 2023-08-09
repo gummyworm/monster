@@ -7,6 +7,9 @@
 .include "source.inc"
 .include "zeropage.inc"
 
+.import __BSS_LOAD__
+.import __BSS_SIZE__
+
 ;#######################################
 .segment "SETUP"
 .word @head
@@ -18,6 +21,16 @@
 
 ;--------------------------------------
 start:
+	ldxy #__BSS_LOAD__
+	stxy zp::tmp0
+	ldy #$00
+@zeromem:
+	sta (zp::tmp0),y
+	incw zp::tmp0
+	ldxy zp::tmp0
+	cmpw #(__BSS_LOAD__+__BSS_SIZE__)
+	bne @zeromem
+
         ldx #<irq_handler
         ldy #>irq_handler
         lda #$20
@@ -32,6 +45,8 @@ start:
 	lda #>nmihandler
 	sta $0319
 	jsr $ffe7	; CLALL (close all files)
+	lda #9
+	sta zp::device
         jmp enter
 
 ;#######################################
@@ -46,6 +61,7 @@ start:
 
 ;--------------------------------------
 .proc nmihandler
+	inc $900f
 	jmp $eb15	; ack timer and rti
 .endproc
 

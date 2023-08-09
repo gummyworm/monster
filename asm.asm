@@ -1,5 +1,6 @@
 .include "codes.inc"
 .include "errors.inc"
+.include "file.inc"
 .include "layout.inc"
 .include "labels.inc"
 .include "macros.inc"
@@ -1032,8 +1033,50 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
+; include file assembles the contents of the given file
 .proc includefile
+@filename=$100
+	jsr processws
+	ldy #$00
+@quote1:
+	lda (zp::line),y
+	cmp #'"'
+	bne @err
+	ldx #$00
+	incw zp::line
+@getfilename:
+	lda (zp::line),y
+	jsr util::is_whitespace
+	beq @err
+	cmp #'"'
+	beq @readfile
+	sta @filename,x
+	incw zp::line
+	inx
+	bne @getfilename
 
+@readfile:
+	lda #$00
+	sta @filename,x
+	ldxy #@filename
+	jsr file::open
+	sta zp::file
+
+@doline:
+	ldxy #mem::spare
+	lda zp::file
+	jsr file::getline
+	bcs @err
+	cmp #$00
+	beq @done
+	ldxy #mem::spare
+	jsr __asm_tokenize
+	jmp @doline
+
+@done:
+@err:
+	lda zp::file
+	jmp file::close
 .endproc
 
 ;--------------------------------------

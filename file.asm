@@ -5,6 +5,9 @@
 .include "util.inc"
 .include "zeropage.inc"
 
+MAX_OPEN_FILES = 10
+FIRST_FILE_ID = 3
+
 ;--------------------------------------
 ; loaddir loads the directory listing into mem::spare
 .export __file_loaddir
@@ -43,7 +46,6 @@
 	pla
 	; fallthrough
 .endproc
-
 ;--------------------------------------
 ; load loads the filename given in (YX) (of length given in .A)
 ; into the address contained by zp::tmp0
@@ -259,12 +261,102 @@
 .endproc
 
 ;--------------------------------------
-.DATA
+; getline reads the file handle given in .A until EOF or a newline ($0d or $0a) is
+; encountered and stores the data at the address given in .XY
+; will read a maximum of 255 bytes
+; returns:
+;  .A contains the # of bytes read
+;  .C is set if an error occurred
+.export __file_getline
+.proc __file_getline
+@dst=zp::tmp0
+	stxy @dst
+	tax
+	jsr $ffc6     ; CHKIN (file in .A now used as input)
+	ldy #$00
+:	jsr $ffb7     ; call READST (read status byte)
+	cmp #$00
+	bne @eof      ; either EOF or read error
+	jsr $ffcf     ; call CHRIN (get a byte from file)
+	cmp #$0d
+	beq @done
+	cmp #$0a
+	beq @done
+	sta (@dst),y
+	iny
+	bne :-
+@done:
+	lda #$00
+	sta (@dst),y
+	tya
+	clc
+	rts
+@eof:
+	and #$20	; EOF?
+	bne @done	; yes, return okay
+	sec		; erorr
+	rts
+.endproc
 
+;--------------------------------------
+; open opens a file from disk, opens a channel and returns the handle to it.
+; you may call the read and write operations withe returned handle to interact
+; with it.
+; returns:
+;  .A containing the file handle
+;  .C set on error
+.export __file_open
+.proc __file_open
+@file=zp::tmp2
+@filename=zp::tmp3
+	stxy @filename
+	jsr util::strlen
+	pha
+	ldx #FIRST_FILE_ID
+:	lda files-FIRST_FILE_ID,x
+	beq @found
+	inx
+	cpx #MAX_OPEN_FILES
+	bcc :-
+	sec	; no available files
+	rts
+
+@found:
+	txa
+	sta @file
+	pla
+	ldxy @filename
+	jsr $ffbd	; SETNAM
+
+	lda @file
+	ldx zp::device	; last used device number
+	bne :+
+	ldx #$09 	; default to device 9
+:	ldy #$03	; SA
+	jsr $ffba 	; SETLFS
+	jsr $ffc0 	; call OPEN
+	lda @file
+	rts
+.endproc
+
+;--------------------------------------
+; close closes the file with the given handle.
+.export __file_close
+.proc __file_close
+@file=zp::tmp0
+	tax
+	lda #$00
+	sta files-FIRST_FILE_ID,x
+	txa
+	jmp $ffc3
+.endproc
+
+
+.BSS
 ;--------------------------------------
 .export __file_name
 __file_name:
-name:      .byte "test.s" ; the name of the active procedure
-.res 13
-namelen: .byte 6
-secondaryaddr: .byte 3
+name:  .res 16
+namelen: .byte 0
+secondaryaddr: .byte 0
+files: .res 10 ; handles to all open files (1 indicates open, 0 indicates available)

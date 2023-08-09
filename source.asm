@@ -22,6 +22,9 @@ post: .word 0       ; # of bytes after the gap
 .export __src_line
 __src_line:
 line: .word 0       ; the current line # of the cursor
+.export __src_lines
+__src_lines:
+lines: .word 0      ; total lines of source
 data_end:
 
 len:  .word 0	; size of the buffer (pre+post+gap)
@@ -45,6 +48,7 @@ data:
 	bpl :-
 	lda #GAPSIZE
 	sta len
+	inc line
 	rts
 .endproc
 
@@ -110,6 +114,7 @@ data:
 	cmp #$0d
 	bne :+
 	decw line
+	decw lines
 :	decw pre
 @skip:	rts
 .endproc
@@ -309,6 +314,7 @@ data:
 	cmp #$0d
 	bne :+
 	incw line
+	incw lines
 :	incw pre
 	rts
 .endproc

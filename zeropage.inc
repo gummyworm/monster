@@ -4,6 +4,10 @@ ZEROPAGE_INC = 1
 .scope zp
 
 ;--------------------------------------
+device = $ba	; the last used drive #
+file = $bb	; the most recently accessed file
+
+;--------------------------------------
 app_vars = $e9
 app_vars_size=$ec-app_vars
 

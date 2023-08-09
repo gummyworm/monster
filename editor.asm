@@ -710,8 +710,8 @@ success_msg: .byte "done $", $fe, " bytes", 0
 ;--------------------------------------
 .proc ccup
 	ldxy src::line
-	cmpw #0
-	bne :+		; at line 0, don't scroll
+	cmpw #1
+	bne :+		; at line 1, don't scroll
 	jsr src::up
 	ldx #$00
 	ldy zp::cury
@@ -940,7 +940,10 @@ success_msg: .byte "done $", $fe, " bytes", 0
 @diff=zp::tmpa		; lines to move up or down
 @startline=zp::tmpc
 @endline=zp::tmpe
-	stxy @target
+	cmpw src::lines
+	bcc :+
+	ldxy src::lines
+:	stxy @target
 	lda zp::curx
 	beq :+
 	jsr src::up	; if we're not already, move to the start of the line
