@@ -1154,7 +1154,8 @@ bbb10_modes:
 	tay
 	pla
 	clc
-@done:	rts
+@done:
+	rts
 .endproc
 
 ;--------------------------------------
@@ -1527,8 +1528,8 @@ bbb10_modes:
 	lda #$01
 	ldy @operands+1
 	beq :+
-	cpy #$ff	; 1 byte negative
-	beq :+
+	;cpy #$ff	; 1 byte negative
+	;beq :+
 	lda #$02
 :	clc
 	rts

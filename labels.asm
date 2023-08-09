@@ -55,6 +55,7 @@ label_addresses: .res 256 * 2
 ; .C is set if no label is found
 ; if no label is found, .YX contain the address of the label alphabetically
 ; AFTER the label we were looking for
+; .A contains the length of the label because why not
 .proc find
 @cnt=zp::tmp6
 @search=zp::tmp8
@@ -104,6 +105,7 @@ label_addresses: .res 256 * 2
 	rts
 
 @found:
+	tya
 	ldxy @cnt
 	clc
 	rts
@@ -249,6 +251,8 @@ label_addresses: .res 256 * 2
 	ldy #$00
 	; write the label
 :	lda (@name),y
+	beq @storeaddr
+	cmp #' '
 	beq @storeaddr
 	cmp #':'
 	beq @storeaddr
