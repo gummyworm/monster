@@ -10,6 +10,7 @@
 .include "labels.inc"
 .include "memory.inc"
 .include "source.inc"
+.include "string.inc"
 .include "text.inc"
 .include "util.inc"
 .include "view.inc"
@@ -68,24 +69,12 @@ main:
 
 ;--------------------------------------
 .proc save_state
-	jsr bm::save
-	ldx #zp::app_vars_size-1
-:	lda zp::app_vars,x
-	sta mem::spare,x
-	dex
-	bpl :-
-	rts
+	jmp bm::save
 .endproc
 
 ;--------------------------------------
 .proc restore_state
-	jsr bm::restore
-	ldx #zp::app_vars_size-1
-:	lda mem::spare,x
-	sta zp::app_vars,x
-	dex
-	bpl :-
-	rts
+	jmp bm::restore
 .endproc
 
 ;--------------------------------------
@@ -454,7 +443,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	sty @file+1
 
 	; get the file length
-	jsr util::strlen
+	jsr str::len
 	pha
 
 	ldxy #@savingmsg
@@ -491,7 +480,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	sty @file+1
 
 	; get the file length
-	jsr util::strlen
+	jsr str::len
 	pha
 
 	ldxy #@savingmsg
@@ -531,7 +520,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 
 	; get the file length
 	ldxy @file
-	jsr util::strlen
+	jsr str::len
 
 @found:
 	tya
@@ -890,7 +879,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	beq @redraw
 
 	ldxy #mem::linebuffer
-	jsr util::strlen
+	jsr str::len
 	sta @line2len
 
 	; get the new cursor position
@@ -900,7 +889,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	;beq @redraw
 	jsr src::get
 	ldxy #mem::linebuffer
-	jsr util::strlen
+	jsr str::len
 	sec
 @line2len=*+1
 	sbc #$00
@@ -926,9 +915,13 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldxy #$0000
 	jsr readinput
 	jsr atoi	; convert (YX) to line #
-	bcs :+
-	jmp gotoline
-:	rts
+	bcs @done
+	cmpw #$0000
+	bne :+
+	ldxy #$0001
+:	jmp gotoline
+@done:
+	rts
 .endproc
 
 ;--------------------------------------

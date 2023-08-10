@@ -134,8 +134,27 @@ label_addresses: .res 256 * 2
 	ldxy @name
 	jsr find
 	bcs @insert
-	sec
-	rts	; label already exists
+	; label exists, overwrite its old value
+	txa
+	asl
+	sta @addr
+	tya
+	rol
+	sta @addr+1
+	lda @addr
+	adc #<label_addresses
+	sta @addr
+	lda @addr+1
+	adc #>label_addresses
+	sta @addr+1
+
+	ldy #$00
+	lda zp::label_value
+	sta (@addr),y
+	iny
+	lda zp::label_value+1
+	sta (@addr),y
+	rts
 
 @insert:
 	stxy @id
@@ -311,6 +330,88 @@ label_addresses: .res 256 * 2
 	lda #$01
 	skw
 :	lda #$02
+	clc
+	rts
+.endproc
+
+;--------------------------------------
+; del deletes the label name given in .YX
+.export __label_del
+.proc __label_del
+@id=zp::tmp6
+@cnt=zp::tmp8
+@cnt2=zp::tmpa
+@cnt16=zp::tmpc
+@src=zp::tmpe
+@dst=zp::tmp10
+@asrc=zp::tmp12
+@adst=zp::tmp14
+	jsr find
+	bcc @del
+	rts
+
+@del:
+	; get address source (2*id)
+	stxy @id
+	lda @id
+	asl
+	sta @src
+	sta @asrc
+	lda @id+1
+	rol
+	sta @src+1
+	sta @asrc+1
+
+	; shift label source 3 more times (2*2*2)
+	asl @src
+	rol @src+1
+	asl @src
+	rol @src+1
+	asl @src
+	rol @src+1
+
+	; length to shift is 16*(numlabels - id)
+	lda numlabels
+	sec
+	sbc @id
+	sta @cnt2
+	sta @cnt16
+	lda numlabels+1
+	sbc @id+1
+	sta @cnt2+1
+	sta @cnt16+1
+
+	lda @cnt16
+	asl
+	rol @cnt16+1
+	asl
+	rol @cnt16+1
+	asl
+	rol @cnt16+1
+	asl
+	rol @cnt16+1
+	sta @cnt16
+
+	lda @src
+	adc #<labels
+	sta @src
+	lda @src+1
+	adc #>labels
+	sta @src+1
+
+	lda @src
+	adc #16
+	sta @dst
+	lda @src+1
+	adc #$00
+	sta @dst+1
+	copy @dst, @src, @cnt16
+
+	lda @cnt2
+	asl
+	sta @cnt2
+	rol @cnt2+1
+	copy @dst, @src, @cnt2
 	clc
 	rts
 .endproc

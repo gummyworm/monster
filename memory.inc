@@ -1,3 +1,4 @@
+.import __mem_asmctx
 .import __mem_init
 .import __mem_spare
 .import __mem_backbuff
@@ -14,4 +15,5 @@
 	linebuffer2     = __linebuffer2
 	program		= __mem_program
 	statusline	= __statusline
+	asmctx 		= __mem_asmctx
 .endscope

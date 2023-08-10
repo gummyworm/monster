@@ -2,6 +2,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "source.inc"
+.include "string.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
@@ -310,7 +311,7 @@ FIRST_FILE_ID = 3
 @file=zp::tmp2
 @filename=zp::tmp3
 	stxy @filename
-	jsr util::strlen
+	jsr str::len
 	pha
 	ldx #FIRST_FILE_ID
 :	lda files-FIRST_FILE_ID,x

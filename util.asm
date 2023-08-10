@@ -244,42 +244,6 @@ result=mem::spare
 .endproc
 
 ;--------------------------------------
-; strncmp compares the strings in (tmp0) and (tmp2) up to a length of .A
-; If the strings are equal, 0 is returned in .A. and the zero flag is set.
-.export __util_strncmp
-.proc __util_strncmp
-	tay
-	dey
-	bmi @match
-@l0:	lda (zp::tmp0),y
-	cmp (zp::tmp2),y
-	beq :+
-	rts
-:	dey
-	bpl @l0
-@match:	lda #$00
-	rts
-.endproc
-
-;--------------------------------------
-; strlen returns the length of the string in .YX in .A
-.export __util_strlen
-.proc __util_strlen
-@str=zp::tmp0
-	stx @str
-	sty @str+1
-	ldy #$00
-@l0:	lda (@str),y
-	beq @done
-	cmp #$0d
-	beq @done
-	iny
-	bne @l0
-@done:	tya
-	rts
-.endproc
-
-;--------------------------------------
 ; is_whitespace returns .Z set if the character in .A is whitespace
 .export __util_is_whitespace
 .proc __util_is_whitespace

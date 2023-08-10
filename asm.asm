@@ -1,3 +1,4 @@
+.include "asm_ctx.inc"
 .include "codes.inc"
 .include "errors.inc"
 .include "file.inc"
@@ -6,8 +7,10 @@
 .include "macros.inc"
 .include "math.inc"
 .include "memory.inc"
+.include "string.inc"
 .include "text.inc"
 .include "util.inc"
+.include "source.inc"
 .include "zeropage.inc"
 .CODE
 
@@ -21,6 +24,8 @@ resulttype=zp::asm+5
 label_value = zp::asm+6 ; param to addlabel
 lsb = zp::asm+$a
 msb = zp::asm+$b
+
+ctx: .byte 0
 
 .DATA
 ;--------------------------------------
@@ -112,6 +117,7 @@ directives:
 .byte "dw",0
 .byte "inc",0
 .byte "org",0
+.byte "rep",0
 directives_len=*-directives
 
 directive_vectors:
@@ -120,6 +126,7 @@ directive_vectors:
 .word defineword
 .word includefile
 .word defineorg
+.word repeat
 
 .CODE
 ;--------------------------------------
@@ -143,6 +150,8 @@ __asm_tokenize:
 ;flags
 	stx zp::line
 	sty zp::line+1
+
+	jsr handle_ctx
 
 	jsr process_ws
 
@@ -924,6 +933,82 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
+.proc handle_repeat
+	ldxy #mem::linebuffer
+	streq @endrep, 7	; are we at .endrep?
+	beq @do_repeat		; yes, assemble the REP block
+	; copy the line to the context
+	lda mem::asmctx+repctx::linenum
+	asl
+	asl
+	asl
+	asl
+	tax
+:	lda mem::linebuffer,x
+	sta mem::asmctx+repctx::lines,x
+	beq @copydone
+	inx
+	cpx #40
+	bcc :-
+	sec	; oversized line
+	rts
+@copydone:
+	rts
+
+@do_repeat:
+@l0:
+	jsr src::pushp
+
+	; define a label with the value of the iteration
+	ldxy mem::asmctx+repctx::iter
+	stxy zp::label_value
+	ldxy #mem::asmctx+repctx::param
+	jsr lbl::add
+
+@l1:	; assemble the lines until .endrep
+	jsr src::readline
+	bcs @err		; end of source
+	ldxy #mem::linebuffer
+	streq @endrep, 7	; are we at .endrep?
+	beq @next		; yep, do next iteration
+	jsr __asm_tokenize	; nope, assemble and repeat
+	jmp @l1
+
+@next:
+	jsr src::popp
+	incw mem::asmctx+repctx::iter
+	ldxy mem::asmctx+repctx::iter
+	cmpw mem::asmctx + repctx::iter_end
+	beq @done
+	jmp *
+	jsr src::goto
+	jmp @l0
+
+@err:
+	sec
+	rts
+@done:
+	ldxy mem::asmctx+repctx::param
+	jmp lbl::del	; delete the iterator label
+
+@endrep: .byte ".endrep"
+.endproc
+
+;--------------------------------------
+.proc handle_ctx
+	lda ctx
+	beq @done
+	bit CTX_MACRO
+	bne :+
+	rts		; TODO:
+:	bit CTX_REPEAT
+	bne @done
+	jmp handle_repeat
+@done:
+	rts
+.endproc
+
+;--------------------------------------
 .proc processws
 	ldy #$00
 	lda (zp::line),y
@@ -1116,6 +1201,52 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
+; repeat generates assembly for the parameterized code between this directive
+; and the lines that follow until '.endrep'
+; .rep 10,I
+;   asl
+; .endrep
+; will produce 10 'asl's
+.proc repeat
+@param=$100
+@iter=zp::tmp1a
+@iterstop=zp::tmp1c
+	jsr eval ; get the number of times to repeat the code
+	bcc @ok
+@err:
+	sec
+	rts
+
+@ok:
+	stxy mem::asmctx + repctx::iter_end
+	jsr process_ws
+	lda (zp::line),y
+	cmp #','
+	bne @err	; comma must follow the # of times to repeat
+
+	; get the name of the parameter
+	incw zp::line
+	ldy #$00
+:	lda (zp::line),y
+	sta mem::asmctx+repctx::param,y
+	beq @cont
+	jsr util::is_whitespace
+	beq @cont
+	iny
+	bne :-
+	sec
+	rts		; oversized line
+
+@cont:
+	lda #$00
+	sta mem::asmctx+repctx::iter
+	sta mem::asmctx+repctx::iter+1
+	sta mem::asmctx+repctx::param,y
+	clc
+	rts
+.endproc
+
+;--------------------------------------
 ; process_ws reads (line) and updates it to point past ' ' chars.
 ; .A contains the last character processed on return
 ; .Z is set if we're at the end of the line ($00)
@@ -1128,6 +1259,34 @@ bbb10_modes:
 	incw zp::line
 	jmp process_ws
 @done:	rts
+.endproc
+
+;--------------------------------------
+; process_end_of_Line reads (line) and updates it to point to the terminating 0
+; .C is set if any invalid characters were encountered
+.proc process_end_of_line
+@l0:
+	ldy #$00
+	lda (zp::line),y
+	beq @done
+	cmp #' '
+	beq @next
+	cmp #';'
+	bne @err
+@cmnt:
+	; read comment
+	lda (zp::line),y
+	beq @done
+	incw zp::line
+	jmp @cmnt
+@next:
+	incw zp::line
+	jmp @l0
+
+@err:	sec
+	rts
+@done:	clc
+	rts
 .endproc
 
 ;--------------------------------------
@@ -1650,4 +1809,16 @@ bbb10_modes:
 
 @unknown_op:
 	rts
+.endproc
+
+;--------------------------------------
+; substitute replaces any occurrences in (line) of a the string given in .XY
+; with the value given in zp::tmp0
+.proc substitute
+@val=zp::tmp0
+	stxy zp::tmp2	; replace .YX
+	ldxy zp::tmp0
+	stxy zp::tmp4	; with tmp0
+	ldxy zp::line
+	jmp str::replace
 .endproc

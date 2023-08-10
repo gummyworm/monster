@@ -31,4 +31,8 @@ __linebuffer=$140
 .export __statusline
 __statusline:
 	.res 40
+
+.export __mem_asmctx
+__mem_asmctx:
+	.res 16*40+22	; see asm_ctx.inc
 .endscope

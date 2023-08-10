@@ -9,6 +9,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "source.inc"
+.include "string.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
@@ -71,7 +72,7 @@ MODE_START=STATUS_COL
 
 	; filename
 	ldxy #file::name
-	jsr util::strlen
+	jsr str::len
 	tay
 	ldx #39
 :	lda file::name,y
