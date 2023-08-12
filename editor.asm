@@ -40,6 +40,10 @@
 	jsr draw_titlebar
 	jsr text::clrline
 
+	; don't assemble code, just verify it
+	lda #$01
+	sta asm::verify
+
 	ldx #$00
 	ldy #$01
 	jmp cur::set
@@ -105,6 +109,9 @@ main:
 	jsr src::next
 	jsr reset
 
+	; disable verify - actually assemble the code
+	lda #$00
+	sta asm::verify
 @doline:
 	jsr src::readline
 	ldxy #mem::linebuffer

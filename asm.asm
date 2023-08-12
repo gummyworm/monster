@@ -14,6 +14,11 @@
 .include "zeropage.inc"
 .CODE
 
+.BSS
+;--------------------------------------
+.export __asm_verify
+__asm_verify: .byte 0
+
 ;--------------------------------------
 indirect=zp::asm ; 1=indirect, 0=absolute
 indexed=zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
@@ -24,8 +29,6 @@ resulttype=zp::asm+5
 label_value = zp::asm+6 ; param to addlabel
 lsb = zp::asm+$a
 msb = zp::asm+$b
-
-ctx: .byte 0
 
 .DATA
 ;--------------------------------------
@@ -152,7 +155,10 @@ __asm_tokenize:
 	sty zp::line+1
 
 	jsr handle_ctx
+	bcc @noctx
+	rts
 
+@noctx:
 	jsr process_ws
 
 	ldy #$00
@@ -933,78 +939,76 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
+; HANDLE_REPEAT
+; context handler for .rep/.endrep blocks
 .proc handle_repeat
 	ldxy #mem::linebuffer
+	jsr ctx::write		; copy the linebuffer to the context
+	ldxy #mem::linebuffer
 	streq @endrep, 7	; are we at .endrep?
-	beq @do_repeat		; yes, assemble the REP block
-	; copy the line to the context
-	lda mem::asmctx+repctx::linenum
-	asl
-	asl
-	asl
-	asl
-	tax
-:	lda mem::linebuffer,x
-	sta mem::asmctx+repctx::lines,x
-	beq @copydone
-	inx
-	cpx #40
-	bcc :-
-	sec	; oversized line
-	rts
-@copydone:
+	beq @do_rep		; yes, assemble the REP block
 	rts
 
-@do_repeat:
-@l0:
-	jsr src::pushp
+@do_rep:
+	; disable the context for assembling
+	lda #$00
+	sta ctx::type
 
-	; define a label with the value of the iteration
-	ldxy mem::asmctx+repctx::iter
+@l0:	; define a label with the value of the iteration
+	jsr ctx::rewind
+	ldxy zp::ctx+repctx::iter
 	stxy zp::label_value
-	ldxy #mem::asmctx+repctx::param
+	ldxy zp::ctx+repctx::param
 	jsr lbl::add
 
 @l1:	; assemble the lines until .endrep
-	jsr src::readline
-	bcs @err		; end of source
-	ldxy #mem::linebuffer
-	streq @endrep, 7	; are we at .endrep?
+	jsr ctx::getline
+	bcc :+
+	rts			; error, exit
+:	streq @endrep, 7	; are we at .endrep?
 	beq @next		; yep, do next iteration
-	jsr __asm_tokenize	; nope, assemble and repeat
+	ldxy #mem::ctxbuffer
+	jsr __asm_tokenize ; nope, assemble and repeat
 	jmp @l1
 
-@next:
-	jsr src::popp
-	incw mem::asmctx+repctx::iter
-	ldxy mem::asmctx+repctx::iter
-	cmpw mem::asmctx + repctx::iter_end
-	beq @done
-	jmp *
-	jsr src::goto
-	jmp @l0
+@next:	; increment iterator and repeat if there are more iterations left
+	incw zp::ctx+repctx::iter
+	ldxy zp::ctx+repctx::iter
+	cmpw zp::ctx+repctx::iter_end
+	bne @l0
 
-@err:
-	sec
-	rts
 @done:
-	ldxy mem::asmctx+repctx::param
-	jmp lbl::del	; delete the iterator label
+	;ldxy zp::ctx+repctx::param
+	;jsr lbl::del	; delete the iterator label
+	;jmp ctx::pop	; pop the context
+	rts
 
 @endrep: .byte ".endrep"
 .endproc
 
 ;--------------------------------------
+; HANDLE_CTX
+; out:
+;  - .C: set if the line was handled by this handler
 .proc handle_ctx
-	lda ctx
-	beq @done
-	bit CTX_MACRO
-	bne :+
-	rts		; TODO:
-:	bit CTX_REPEAT
+	; if verifying, don't handle context at all
+	lda __asm_verify
 	bne @done
-	jmp handle_repeat
-@done:
+
+	lda ctx::type
+	beq @done
+
+	and #CTX_MACRO
+	beq :+
+	rts		; TODO:
+
+:	lda ctx::type
+	and #CTX_REPEAT
+	beq @done
+	jsr handle_repeat
+	sec
+	rts
+@done:	clc
 	rts
 .endproc
 
@@ -1211,39 +1215,44 @@ bbb10_modes:
 @param=$100
 @iter=zp::tmp1a
 @iterstop=zp::tmp1c
+	jsr ctx::push	; push a new context
+
 	jsr eval ; get the number of times to repeat the code
 	bcc @ok
-@err:
-	sec
-	rts
+	rts	 ; error
 
 @ok:
-	stxy mem::asmctx + repctx::iter_end
+	stxy zp::ctx+repctx::iter_end
 	jsr process_ws
+	ldy #$00
 	lda (zp::line),y
 	cmp #','
-	bne @err	; comma must follow the # of times to repeat
+	beq :+
+	RETURN_ERR ERR_SYNTAX_ERROR ; comma must follow the # of times to repeat
 
-	; get the name of the parameter
+:	; get the name of the parameter
 	incw zp::line
 	ldy #$00
-:	lda (zp::line),y
-	sta mem::asmctx+repctx::param,y
+@saveparam:
+	lda (zp::line),y
+	sta (zp::ctx+repctx::param),y
 	beq @cont
 	jsr util::is_whitespace
 	beq @cont
 	iny
-	bne :-
-	sec
-	rts		; oversized line
+	bne @saveparam
+	RETURN_ERR ERR_LINE_TOO_LONG
 
 @cont:
+	; 0-terminate string (if it isn't already) and init the iterator to 0
 	lda #$00
-	sta mem::asmctx+repctx::iter
-	sta mem::asmctx+repctx::iter+1
-	sta mem::asmctx+repctx::param,y
-	clc
-	rts
+	sta zp::ctx+repctx::iter
+	sta zp::ctx+repctx::iter+1
+	sta (zp::ctx+repctx::param),y
+
+	lda #CTX_REPEAT
+	sta ctx::type
+	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -1323,6 +1332,7 @@ bbb10_modes:
 .proc __asm_reset
 	ldxy #mem::program
 	stxy zp::asmresult
+	jsr ctx::init
 	jmp lbl::clr
 .endproc
 
@@ -1816,9 +1826,6 @@ bbb10_modes:
 ; with the value given in zp::tmp0
 .proc substitute
 @val=zp::tmp0
-	stxy zp::tmp2	; replace .YX
-	ldxy zp::tmp0
-	stxy zp::tmp4	; with tmp0
-	ldxy zp::line
-	jmp str::replace
+	strep zp::line, zp::tmp0
+	rts
 .endproc

@@ -24,7 +24,19 @@ stra = $3a
 ; $40-$50 are used during assembly
 asm=$40		; base address of assembly tmp vars
 line=$4c	; ptr to text being processed
+
+;--------------------------------------
+; $50-$60 are used for labels
 label_value=$50	; arguments to label functions
+labeltmp0=$52
+labeltmp1=$53
+labeltmp2=$54
+labeltmp3=$55
+labeltmp4=$56
+
+;--------------------------------------
+; $60-$70 are used by the "context" during assembly
+ctx=$60
 
 ;--------------------------------------
 ; $b0-$c0 reserved for file stuff

@@ -1,4 +1,5 @@
 .import __mem_asmctx
+.import __mem_ctxbuffer
 .import __mem_init
 .import __mem_spare
 .import __mem_backbuff
@@ -9,6 +10,7 @@
 
 .scope mem
 	init 		= __mem_init
+	ctxbuffer       = __mem_ctxbuffer
         spare           = __mem_spare
 	backbuff        = __mem_backbuff
 	linebuffer      = __linebuffer

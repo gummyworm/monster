@@ -1,12 +1,44 @@
+;--------------------------------------
+; assembly errors
 ERR_UNALIGNED_LABEL=$ff
 ERR_ILLEGAL_OPCODE=$ff-2
 ERR_ILLEGAL_ADDRMODE=$ff-3
 ERR_ILLEGAL_DIRECTIVE=$ff-4
 ERR_OVERSIZED_OPERAND=$ff-5
 ERR_ILLEGAL_LABEL=$ff-6
+ERR_SYNTAX_ERROR=$ff-7
+
+;--------------------------------------
+; stack errors
+ERR_STACK_UNDERFLOW=1
+ERR_STACK_OVERFLOW=2
+
+;--------------------------------------
+; string errors
+ERR_LINE_TOO_LONG=3
 
 .import __err_print
 .import __err_print_with_arg
+
+;--------------------------------------
+; RETURN_ERR
+; Executes an RTS after loading .A with the given code and setting the carry flag
+; - .C - set
+; - .A - the error code
+;
+.macro RETURN_ERR code
+	lda #code
+	sec
+	rts
+.endmacro
+
+;--------------------------------------
+; RETURN_OK
+; Clears the carry and returns (RTS)
+.macro RETURN_OK
+	clc
+	rts
+.endmacro
 
 ;--------------------------------------
 ; err is a macro to display an error.

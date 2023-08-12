@@ -112,7 +112,7 @@ label_addresses: .res 256 * 2
 .endproc
 
 ;--------------------------------------
-; add adds a ':' terminated label in (YX) to the label table.
+; add adds a ':',' ', or 0 terminated label in (YX) to the label table.
 ; the current value of zp::label_value is used to define its address
 ; .C is set on error or clear if the label was successfully added
 .export __label_add
@@ -135,19 +135,8 @@ label_addresses: .res 256 * 2
 	jsr find
 	bcs @insert
 	; label exists, overwrite its old value
-	txa
-	asl
-	sta @addr
-	tya
-	rol
-	sta @addr+1
-	lda @addr
-	adc #<label_addresses
-	sta @addr
-	lda @addr+1
-	adc #>label_addresses
-	sta @addr+1
 
+	jsr labeladdr ; get the address of the label
 	ldy #$00
 	lda zp::label_value
 	sta (@addr),y
@@ -341,7 +330,6 @@ label_addresses: .res 256 * 2
 @id=zp::tmp6
 @cnt=zp::tmp8
 @cnt2=zp::tmpa
-@cnt16=zp::tmpc
 @src=zp::tmpe
 @dst=zp::tmp10
 @asrc=zp::tmp12
@@ -351,67 +339,83 @@ label_addresses: .res 256 * 2
 	rts
 
 @del:
-	; get address source (2*id)
 	stxy @id
-	lda @id
-	asl
+	jsr labeladdr
+	stxy @dst
+
+	; get the destination (dst - 2)
+	lda @src
+	clc
+	adc #$02
 	sta @src
-	sta @asrc
-	lda @id+1
-	rol
+	lda @dst+1
+	adc #$00
 	sta @src+1
-	sta @asrc+1
 
-	; shift label source 3 more times (2*2*2)
-	asl @src
-	rol @src+1
-	asl @src
-	rol @src+1
-	asl @src
-	rol @src+1
-
-	; length to shift is 16*(numlabels - id)
+	; get the number of addresses to shift
 	lda numlabels
 	sec
 	sbc @id
+	sta @cnt
 	sta @cnt2
-	sta @cnt16
 	lda numlabels+1
 	sbc @id+1
+	sta @cnt+1
 	sta @cnt2+1
-	sta @cnt16+1
 
-	lda @cnt16
-	asl
-	rol @cnt16+1
-	asl
-	rol @cnt16+1
-	asl
-	rol @cnt16+1
-	asl
-	rol @cnt16+1
-	sta @cnt16
+	; move the addresses down
+:	ldy #$00
+	lda (@src),y
+	sta (@dst),y
+	incw @src
+	incw @dst
+	lda (@src),y
+	sta (@dst),y
+	incw @src
+	incw @dst
+	decw @cnt
+	ldxy @cnt
+	cmpw #0
+	bne :-
 
-	lda @src
-	adc #<labels
+	; get the source (destination + 16)
+	ldxy @id
+	jsr labelnameaddr
+	stxy @dst
+	lda @dst
+	clc
+	adc #16
 	sta @src
-	lda @src+1
-	adc #>labels
+	lda @dst+1
+	adc #$00
 	sta @src+1
 
+	; move the names down
+@nameloop:
+	ldy #15
+:	lda (@src),y
+	sta (@dst),y
+	dey
+	bpl :-
 	lda @src
+	clc
+	adc #16
+	sta @src
+	bcc :+
+	inc @src+1
+:	lda @dst
+	clc
 	adc #16
 	sta @dst
-	lda @src+1
-	adc #$00
-	sta @dst+1
-	copy @dst, @src, @cnt16
+	bcc :+
+	inc @dst+1
+	bne @nameloop
+:	decw @cnt2
+	ldxy @cnt2
+	cmpw #0
+	bne @nameloop
 
-	lda @cnt2
-	asl
-	sta @cnt2
-	rol @cnt2+1
-	copy @dst, @src, @cnt2
+	decw numlabels
 	clc
 	rts
 .endproc
@@ -512,5 +516,59 @@ label_addresses: .res 256 * 2
 @done:	ldx zp::tmp0
 	ldy zp::tmp0+1
 	lda #$00
+	rts
+.endproc
+
+
+;--------------------------------------
+; LABELADDR
+; returns the address of the label ID in .YX in .YX
+; in:
+;  - .XY: the id of the label to get the address of
+; out:
+;  - .XY: the address of the given label id
+.proc labeladdr
+@addr=zp::tmpc
+	txa
+	asl
+	sta @addr
+	tya
+	rol
+	sta @addr+1
+	lda @addr
+	adc #<label_addresses
+	sta @addr
+	tax
+	lda @addr+1
+	adc #>label_addresses
+	sta @addr+1
+	tay
+	rts
+.endproc
+
+;--------------------------------------
+; LABELNAMEADDR
+; returns the address name of the label ID in .YX in .YX
+; in:
+;  - .XY: the id of the label to get the address of
+; out:
+;  - .XY: the address of the name for the given label id
+.proc labelnameaddr
+@addr=zp::labeltmp0
+	sty @addr+1
+	txa
+	asl
+	rol @addr+1
+	asl
+	rol @addr+1
+	asl
+	rol @addr+1
+	asl
+	rol @addr+1
+	adc #<labels
+	tax
+	lda @addr+1
+	adc #>labels
+	tay
 	rts
 .endproc
