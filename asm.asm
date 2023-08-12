@@ -121,6 +121,7 @@ directives:
 .byte "inc",0
 .byte "org",0
 .byte "rep",0
+.byte "mac",0
 directives_len=*-directives
 
 directive_vectors:
@@ -130,7 +131,7 @@ directive_vectors:
 .word includefile
 .word defineorg
 .word repeat
-
+.word macro
 .CODE
 ;--------------------------------------
 ; validate verifies that the string at (YX) is a valid instrcution
@@ -1251,6 +1252,24 @@ bbb10_modes:
 	sta (zp::ctx+repctx::param),y
 
 	lda #CTX_REPEAT
+	sta ctx::type
+	RETURN_OK
+.endproc
+
+;--------------------------------------
+; macro begins the definition of a macro, which will
+; continue until '.endmac' is found
+; and the lines that follow until '.endrep'
+; .mac add8 A, B
+;   lda #A
+;   clc
+;   adc #B
+; .endmac
+; will define a macro that can be used like:
+;   add8 10, 20
+.proc mac
+
+	lda #CTX_MACRO
 	sta ctx::type
 	RETURN_OK
 .endproc

@@ -136,6 +136,38 @@ Sets the address to assemble code to
 ; main code
 ```
 
+### .REP
+Assembles the code between this directive and `.ENDREP` for the given number of 
+times.
+```
+.REP 3
+  ASL
+.ENDREP
+```
+Becomes
+```
+  ASL
+  ASL
+  ASL
+```
+
+An optional parameter can be given that will be assigned the value of
+the current iteration of repetition during assembly.
+```
+.REP 5,I
+   INC $F0+I
+.ENDREP
+```
+Becomes
+```
+  INC $F0
+  INC $F1
+  INC $F2
+  INC $F3
+  INC $F4
+```
+
+
 
 ## Example program
 Here is a basic hello world program to demonstrate some of the assembler's
