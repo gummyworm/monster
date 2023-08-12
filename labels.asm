@@ -76,10 +76,7 @@ label_addresses: .res 256 * 2
 	ldy #$00
 @l0:
 	lda (@label),y
-	beq @found
-	cmp #':'
-	beq @found
-	jsr util::is_whitespace
+	jsr  util::isseparator
 	beq @found
 	cmp (@search),y
 	beq :+

@@ -126,6 +126,9 @@ main:
 	jsr src::goto
 
 @printresult:
+	lda #$00
+	sta asm::verify	; re-enable verify
+
 	ldxy zp::asmresult
 	sub16 #mem::program
 	txa

@@ -1312,8 +1312,7 @@ bbb10_modes:
 
 	ldy #$00
 @l0:	lda (zp::line),y
-	beq :+
-	jsr util::is_whitespace
+	jsr util::isseparator
 	beq :+
 	incw zp::line
 	bne @l0
