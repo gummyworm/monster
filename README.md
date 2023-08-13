@@ -125,6 +125,21 @@ from disk and assembled as if the code was copy/pasted in place of the include d
   JSR CHROUT
 ```
 
+### .MAC
+Defines a macro
+```
+.MAC ADD VAL
+  CLC
+  ADC #VAL
+.ENDMAC
+
+  ADD 16
+```
+Will generate the following code:
+```
+  CLC
+  ADC #$10
+```
 
 ### .ORG
 Sets the address to assemble code to 
