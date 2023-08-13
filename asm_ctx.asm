@@ -7,6 +7,7 @@
 ;--------------------------------------
 CONTEXT_SIZE = $200	; size of buffer per context
 PARAM_LENGTH = 16	; size of param (stored after the context data)
+MAX_PARAMS   = 4	; max params for a context
 MAX_CONTEXTS = 3	; $1000-$400 / $200
 
 ;--------------------------------------
@@ -28,9 +29,10 @@ ctx=zp::ctx+0		; address of context
 iter=zp::ctx+2		; (REP) iterator's current value
 iterend=zp::ctx+4	; (REP) iterator's end value
 cur=zp::ctx+6		; cursor to current ctx data
-param=zp::ctx+8		; address of param (CONTEXT+$200-PARAM_LENGTH)
+params=zp::ctx+8	; address of params (grows down from CONTEXT+$200-PARAM_LENGTH)
+numparams=zp::ctx+10	; the number of parameters for the context
 
-CTX_LINES_START = 8
+CTX_LINES_START = 9
 
 .CODE
 ;--------------------------------------
@@ -40,6 +42,7 @@ CTX_LINES_START = 8
 .proc __ctx_init
 	lda #$00
 	sta activectx
+	sta numparams
 	sta type
 	rts
 .endproc
@@ -113,6 +116,23 @@ CTX_LINES_START = 8
 .endproc
 
 ;--------------------------------------
+; GETDATA
+; returns the address of the data for the active context.
+; out:
+;  - .XY: the address of the data for the current context
+.export __ctx_getdata
+.proc __ctx_getdata
+	lda ctx
+	clc
+	adc #CTX_LINES_START
+	tax
+	lda ctx+1
+	adc #$00
+	tay
+	rts
+.endproc
+
+;--------------------------------------
 ; WRITE
 ; writes the line in .YX to the context at its activectxent position
 ; out:
@@ -137,6 +157,56 @@ CTX_LINES_START = 8
 	bcc :+
 	inc cur+1
 :	RETURN_OK
+.endproc
+
+;--------------------------------------
+; ADDPARAM
+; adds the parameter in .YX to the active context
+; in:
+;  - .XY: the 0 terminated parameter to add to the active context
+; out:
+;  - .XY: the rest of the string after the parameter that was extracted
+.export __ctx_addparam
+.proc __ctx_addparam
+@param=zp::tmp0
+	stxy @param
+
+	; move pointer to next open param
+	lda params
+	sec
+	sbc #PARAM_LENGTH
+	sta params
+	bcs :+
+	dec params+1
+
+:	ldy #$00
+@copy:
+	lda (@param),y
+	sta (params),y
+	beq @done
+	cmp #','
+	beq @done
+	cmp #' '
+	beq @done
+	iny
+	cpy #PARAM_LENGTH
+	bne @copy
+	RETURN_ERR ERR_LINE_TOO_LONG
+
+@done:	inc numparams
+	lda #$00
+	sta (params),y	; 0-terminate
+
+	; get addr of rest of string for caller
+	tya
+	clc
+	adc @param
+	tax
+	lda @param+1
+	adc #$00
+	tay
+
+	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -186,11 +256,11 @@ CTX_LINES_START = 8
 
 	; get address of param buffer
 	lda ctx
-	adc #<(CONTEXT_SIZE-PARAM_LENGTH)
-	sta param
+	adc #<(CONTEXT_SIZE)
+	sta params
 	lda ctx+1
-	adc #>(CONTEXT_SIZE-PARAM_LENGTH)
-	sta param+1
+	adc #>(CONTEXT_SIZE)
+	sta params+1
 
 	rts
 .endproc

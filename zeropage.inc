@@ -39,6 +39,11 @@ labeltmp4=$56
 ctx=$60
 
 ;--------------------------------------
+; $80-$90 are used for macro related things during assembly
+macros=$80
+
+
+;--------------------------------------
 ; $b0-$c0 reserved for file stuff
 device = $ba	; the last used drive #
 file = $bb	; the most recently accessed file

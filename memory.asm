@@ -11,7 +11,9 @@
 .BSS
 ;--------------------------------------
 .export __mem_spare
+.export __mem_spareend
 __mem_spare=$0400
+__mem_spareend = $1000
 
 .export __mem_backbuff
 __mem_backbuff:

@@ -4,6 +4,7 @@
 .include "file.inc"
 .include "layout.inc"
 .include "labels.inc"
+.include "macro.inc"
 .include "macros.inc"
 .include "math.inc"
 .include "memory.inc"
@@ -182,12 +183,17 @@ __asm_tokenize:
 @opcode:
 	jsr getopcode
 	cmp #ERR_ILLEGAL_OPCODE
-	beq @label
+	beq @macro
 	sta resulttype
 	txa
 	ldy #$00
 	sta (zp::asmresult),y
 	jmp @getopws
+
+@macro:
+	jsr mac::get
+	bcs @label
+	jmp assemble_macro
 
 @label:
 	jsr islabel
@@ -959,7 +965,7 @@ bbb10_modes:
 	jsr ctx::rewind
 	ldxy zp::ctx+repctx::iter
 	stxy zp::label_value
-	ldxy zp::ctx+repctx::param
+	ldxy zp::ctx+repctx::params
 	jsr lbl::add
 
 @l1:	; assemble the lines until .endrep
@@ -998,15 +1004,16 @@ bbb10_modes:
 
 	lda ctx::type
 	beq @done
-
-	and #CTX_MACRO
-	beq :+
-	rts		; TODO:
-
-:	lda ctx::type
+	lda ctx::type
 	and #CTX_REPEAT
-	beq @done
+	beq :+
 	jsr handle_repeat
+	sec
+	rts
+:	lda ctx::type
+	and #CTX_MACRO
+	beq @done
+	jsr handle_macro
 	sec
 	rts
 @done:	clc
@@ -1235,22 +1242,16 @@ bbb10_modes:
 	incw zp::line
 	ldy #$00
 @saveparam:
-	lda (zp::line),y
-	sta (zp::ctx+repctx::param),y
-	beq @cont
-	jsr util::is_whitespace
-	beq @cont
-	iny
-	bne @saveparam
-	RETURN_ERR ERR_LINE_TOO_LONG
+	ldxy zp::line
+	jsr ctx::addparam
+	bcc @cont
+	rts		; err
 
 @cont:
-	; 0-terminate string (if it isn't already) and init the iterator to 0
+	stxy zp::line
 	lda #$00
 	sta zp::ctx+repctx::iter
 	sta zp::ctx+repctx::iter+1
-	sta (zp::ctx+repctx::param),y
-
 	lda #CTX_REPEAT
 	sta ctx::type
 	RETURN_OK
@@ -1267,11 +1268,50 @@ bbb10_modes:
 ; .endmac
 ; will define a macro that can be used like:
 ;   add8 10, 20
-.proc mac
+.proc macro
+	jsr ctx::push	; push a new context
 
+@getparams:
+	jsr process_ws
+	ldy #$00
+	lda (zp::line),y
+	beq @done
+	ldxy zp::line
+	jsr ctx::addparam
+	stxy zp::line
+	bcc @getparams
+	rts		; err
+
+@done:
 	lda #CTX_MACRO
 	sta ctx::type
 	RETURN_OK
+.endproc
+
+;--------------------------------------
+; HANDLE_MACRO
+; when the macro context is active, reads the the current line into the
+; context buffer until .ENDMAC is encountered.
+; Upon encountering .ENDMAC, the macro is saved into
+; (macros)
+.proc handle_macro
+	ldxy #mem::linebuffer
+	jsr ctx::write		; copy the linebuffer to the context
+	ldxy #mem::linebuffer
+	streq @endmac, 7	; are we at .endmac?
+	beq @createmac
+	rts			; nope, we're done
+
+@createmac:
+	jsr ctx::getdata
+	lda zp::ctx+repctx::params
+	sta zp::tmp0
+	lda zp::ctx+repctx::params+1
+	sta zp::tmp0+1
+	lda zp::ctx+repctx::numparams
+	jmp mac::add
+
+@endmac: .byte ".endmac"
 .endproc
 
 ;--------------------------------------
@@ -1351,6 +1391,7 @@ bbb10_modes:
 	ldxy #mem::program
 	stxy zp::asmresult
 	jsr ctx::init
+	jsr mac::init
 	jmp lbl::clr
 .endproc
 
@@ -1648,7 +1689,7 @@ bbb10_modes:
 
 @lparen:
 	cmp #')'
-	bne @checkop
+	bne @getoperand
 
 @paren_eval:
 	ldx @num_operators
@@ -1664,9 +1705,20 @@ bbb10_modes:
 :	jsr @eval	; evaluate the top 2 operands
 	jmp @paren_eval
 
+
+@getoperand:
+	jsr getvalue	; is this a value?
+	bcc :+
+	jsr get_label	; is it a label?
+	bcs @checkop	; not a value or label, try operators
+:	jsr @pushval
+	jmp @l0
+
 @checkop:
+	ldy #$00
+	lda (zp::line),y
 	jsr util::isoperator
-	bne @getoperand
+	bne @err
 	pha
 	jsr @priority		; get the priority of this operator
 @process_ops:
@@ -1686,15 +1738,6 @@ bbb10_modes:
 	pla
 	jsr @pushop
 	incw zp::line
-	jmp @l0
-
-@getoperand:
-	jsr getvalue	; is this a value?
-	bcc :+
-	jsr get_label	; is it a label?
-	bcs @err	; unrecognized string
-:
-	jsr @pushval
 	jmp @l0
 
 @err:
@@ -1840,10 +1883,25 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
-; substitute replaces any occurrences in (line) of a the string given in .XY
-; with the value given in zp::tmp0
-.proc substitute
-@val=zp::tmp0
-	strep zp::line, zp::tmp0
-	rts
+; ASSEMBLE_MACRO
+; takes the contents of (line) and expands it to the corresponding
+; macro.
+.proc assemble_macro
+@params=$100
+	ldy #$00
+	ldx #$fe
+:	inx
+	inx
+	lda (zp::line),y
+	beq @done
+	cmp #' '	; TODO: commas?
+	bne :-
+
+	lda zp::line
+	sta @params,x
+	lda zp::line+1
+	sta @params+1,x
+	jmp :-
+@done:
+	jmp mac::asm
 .endproc
