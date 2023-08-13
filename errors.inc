@@ -21,6 +21,10 @@ ERR_LINE_TOO_LONG=3
 ; expression errors
 ERR_INVALID_EXPRESSION = 4
 
+;--------------------------------------
+; macro errors
+ERR_INVALID_MACRO_ARGS = 5
+
 .import __err_print
 .import __err_print_with_arg
 

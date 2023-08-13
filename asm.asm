@@ -1928,15 +1928,14 @@ bbb10_modes:
 @l1:	lda (zp::line),y
 	beq @done
 	iny
-	cmp #' '	; TODO: commas?
+	cmp #' '
 	bne @l1
 
 	stx @cnt
-	ldxy zp::line
 	jsr process_ws
+	ldxy zp::line
 	jsr eval
 	bcc :+
-	jmp *
 	RETURN_ERR ERR_INVALID_EXPRESSION
 
 :	txa
@@ -1944,6 +1943,21 @@ bbb10_modes:
 	sta @params,x
 	tya
 	sta @params+1,x
+
+	ldy #$00
+@nextparam:
+	lda (zp::line),y ; read unitl comma or endline
+	beq @done
+	cmp #';'
+	beq @done
+	incw zp::line
+	cmp #','
+	beq :+
+	cmp #' '
+	beq @nextparam
+	RETURN_ERR ERR_INVALID_MACRO_ARGS
+
+:	jmp @l0
 
 @done:	pla
 	jmp mac::asm

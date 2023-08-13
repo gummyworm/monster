@@ -145,6 +145,7 @@ macros: .res 1024
 .export __mac_asm
 .proc __mac_asm
 @params=zp::macros
+@cnt=zp::macros+$0c
 @macro=zp::macros+$0d
 @numparams=zp::macros+$0f
 	asl
@@ -166,13 +167,14 @@ macros: .res 1024
 	sta @numparams
 	incw @macro
 
+	lda #$00
+	sta @cnt
 @setparams:
-	lda @numparams
+	lda @cnt
+	cmp @numparams
 	beq @paramsdone
 	asl
 	tax
-	dex
-	dex
 	; get the value to set the parameter to
 	lda @params,x
 	sta zp::label_value
@@ -187,8 +189,8 @@ macros: .res 1024
 	incw @macro
 	jsr lbl::add	; set the parameter to its value
 
-	dec @numparams
-	bne @setparams	; repeat for all params
+	inc @cnt
+	jmp @setparams	; repeat for all params
 
 @paramsdone:
 	; assemble the macro line by line
