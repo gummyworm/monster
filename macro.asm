@@ -21,6 +21,7 @@ macros: .res 1024
 ; |  0-16 | parameter 0 name          |
 ; |  ...  | parameter n name          |
 ; | 0-255 | macro definition          |
+; |   1   | terminating 0             |
 ; -------------------------------------
 
 .CODE
@@ -144,9 +145,23 @@ macros: .res 1024
 .export __mac_asm
 .proc __mac_asm
 @params=zp::macros
-@macro=zp::macros+2
-@numparams=zp::macros+4
+@macro=zp::macros+$0d
+@numparams=zp::macros+$0f
+	asl
+	tax
+	lda macro_addresses,x
+	sta @macro
+	lda macro_addresses+1,x
+	sta @macro+1
+
+	; read past the macro name
+	ldy #$00
+:	incw @macro
+	lda (@macro),y
+	bne :-
+
 	; define the macro params
+	incw @macro
 	lda (@macro),y
 	sta @numparams
 	incw @macro
@@ -166,14 +181,10 @@ macros: .res 1024
 
 	; get the name of the parameter to set the value for
 	ldy #$00
-	lda (@macro),y
+	ldx @macro
+	ldy @macro+1
 	incw @macro
-	pha
-	lda (@macro),y
 	incw @macro
-	tax
-	pla
-	tay
 	jsr lbl::add	; set the parameter to its value
 
 	dec @numparams
@@ -191,13 +202,9 @@ macros: .res 1024
 	bne :-
 
 	incw @macro
-	ldxy @macro
-	streq @endmac, 7	; are we at .endmac?
+	lda (@macro),y		; at the end?
 	bne @asm		; no, continue
-
-@done:
-	rts
-@endmac: .byte ".endmac"
+@done:	rts
 .endproc
 
 ;--------------------------------------
@@ -234,6 +241,8 @@ macros: .res 1024
 @compare:
 	lda (@tofind),y
 	beq :+		; end of the string we're trying to find
+	cmp #' '
+	beq :+
 	cmp (@name),y
 	bne @next
 	iny
@@ -251,7 +260,6 @@ macros: .res 1024
 @notfound:
 	sec		; not found
 	rts
-
 @found:
 	ldy #$00
 	RETURN_OK

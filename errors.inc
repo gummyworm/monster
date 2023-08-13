@@ -17,6 +17,10 @@ ERR_STACK_OVERFLOW=2
 ; string errors
 ERR_LINE_TOO_LONG=3
 
+;--------------------------------------
+; expression errors
+ERR_INVALID_EXPRESSION = 4
+
 .import __err_print
 .import __err_print_with_arg
 

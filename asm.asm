@@ -191,10 +191,16 @@ __asm_tokenize:
 	jmp @getopws
 
 @macro:
-	ldxy #zp::line
+	ldxy zp::line
 	jsr mac::get
 	bcs @label
-	jmp assemble_macro
+	pha
+	jsr process_word	; read past macro name
+	pla
+	jsr assemble_macro
+	lda #ASM_MACRO
+	sta resulttype
+	rts
 
 @label:
 	jsr islabel
@@ -1304,6 +1310,10 @@ bbb10_modes:
 	rts			; nope, we're done
 
 @createmac:
+	; done with this context, disable it
+	lda #$00
+	sta ctx::type
+
 	ldxy #$100
 	jsr ctx::getparams
 	ldxy #$100
@@ -1330,6 +1340,22 @@ bbb10_modes:
 	jmp process_ws
 @done:	rts
 .endproc
+
+;--------------------------------------
+; process_word reads (line) and updates it to point past non whitespace chars.
+; .A contains the last character processed on return
+; .Z is set if we're at the end of the line ($00)
+.proc process_word
+	ldy #$00
+	lda (zp::line),y
+	beq @done
+	cmp #' '
+	beq @done
+	incw zp::line
+	jmp process_word
+@done:	rts
+.endproc
+
 
 ;--------------------------------------
 ; process_end_of_Line reads (line) and updates it to point to the terminating 0
@@ -1888,8 +1914,13 @@ bbb10_modes:
 ; ASSEMBLE_MACRO
 ; takes the contents of (line) and expands it to the corresponding
 ; macro.
+; in:
+;  - .A the id of the macro to assemble
 .proc assemble_macro
-@params=$100
+@cnt=zp::macros+$0e
+@params=zp::macros
+	pha
+
 	ldx #$fe
 @l0:	ldy #$00
 	inx
@@ -1900,17 +1931,20 @@ bbb10_modes:
 	cmp #' '	; TODO: commas?
 	bne @l1
 
-	lda zp::line
+	stx @cnt
+	ldxy zp::line
+	jsr process_ws
+	jsr eval
+	bcc :+
+	jmp *
+	RETURN_ERR ERR_INVALID_EXPRESSION
+
+:	txa
+	ldx @cnt
 	sta @params,x
-	lda zp::line+1
+	tya
 	sta @params+1,x
 
-	tya
-	clc
-	adc zp::line
-	sta zp::line
-	bcc @l0
-	inc zp::line+1
-	bne @l0
-@done:	jmp mac::asm
+@done:	pla
+	jmp mac::asm
 .endproc
