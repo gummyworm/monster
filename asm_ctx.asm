@@ -116,6 +116,65 @@ CTX_LINES_START = 9
 .endproc
 
 ;--------------------------------------
+; GETPARAMS
+; returns a list of the parameters for the active context
+; in:
+;  - .XY: address of buffer to store params in
+; out:
+;  - .A: the number of parameters
+;  - (.XY): the updated buffer filled with 0-separated params
+.export __ctx_getparams
+.proc __ctx_getparams
+@buff=zp::tmp0
+@cnt=zp::tmp2
+@params=zp::tmp3
+	stxy @buff
+	ldx numparams
+	beq @done
+	stx @cnt
+
+	; *16
+	dex
+	txa
+	asl
+	asl
+	asl
+	asl
+	adc params
+	sta @params
+	lda params+1
+	adc #$00
+	sta @params+1
+
+@l0:
+	ldy #$00
+@l1:	lda (@params),y
+	sta (@buff),y
+	beq @next
+	iny
+	cpy #$0f
+	bne @l1
+@next:
+	tya
+	sec		; +1
+	adc @buff
+	sta @buff
+	bcc :+
+	inc @buff+1
+:	lda @params
+	sec
+	sbc #$10
+	sta @params
+	bcs :+
+	dec @params+1
+:	dec @cnt
+	bne @l0
+@done:
+	lda numparams
+	rts
+.endproc
+
+;--------------------------------------
 ; GETDATA
 ; returns the address of the data for the active context.
 ; out:

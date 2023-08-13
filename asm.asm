@@ -191,6 +191,7 @@ __asm_tokenize:
 	jmp @getopws
 
 @macro:
+	ldxy #zp::line
 	jsr mac::get
 	bcs @label
 	jmp assemble_macro
@@ -1303,12 +1304,13 @@ bbb10_modes:
 	rts			; nope, we're done
 
 @createmac:
+	ldxy #$100
+	jsr ctx::getparams
+	ldxy #$100
+	stxy zp::tmp0
+	pha
 	jsr ctx::getdata
-	lda zp::ctx+repctx::params
-	sta zp::tmp0
-	lda zp::ctx+repctx::params+1
-	sta zp::tmp0+1
-	lda zp::ctx+repctx::numparams
+	pla
 	jmp mac::add
 
 @endmac: .byte ".endmac"
@@ -1888,20 +1890,27 @@ bbb10_modes:
 ; macro.
 .proc assemble_macro
 @params=$100
-	ldy #$00
 	ldx #$fe
-:	inx
+@l0:	ldy #$00
 	inx
-	lda (zp::line),y
+	inx
+@l1:	lda (zp::line),y
 	beq @done
+	iny
 	cmp #' '	; TODO: commas?
-	bne :-
+	bne @l1
 
 	lda zp::line
 	sta @params,x
 	lda zp::line+1
 	sta @params+1,x
-	jmp :-
-@done:
-	jmp mac::asm
+
+	tya
+	clc
+	adc zp::line
+	sta zp::line
+	bcc @l0
+	inc zp::line+1
+	bne @l0
+@done:	jmp mac::asm
 .endproc

@@ -80,6 +80,7 @@ macros: .res 1024
 	bne @copyname
 
 	; store the number of parameters
+	dec @numparams	; decrement to get the # without the macro name
 	lda @numparams
 	sta (@dst),y
 	incw @dst
@@ -94,7 +95,7 @@ macros: .res 1024
 	incw @dst
 	incw @params
 	plp
-	bne @l0
+	bne @copyparams
 	dec @numparams
 	bne @copyparams
 
@@ -124,10 +125,10 @@ macros: .res 1024
 	sta @addr+1
 	ldy #$00
 	lda @dst
-	sta (@dst),y
+	sta (@addr),y
 	iny
 	lda @dst+1
-	sta (@dst),y
+	sta (@addr),y
 	RETURN_OK
 
 @endmac: .byte ".endmac"
@@ -217,10 +218,11 @@ macros: .res 1024
 	lda #<macro_addresses
 	sta @addr
 	lda #>macro_addresses
-	sta @addr+6
+	sta @addr+1
 	lda #$00
 	sta @cnt
-
+	cmp nummacros
+	beq @notfound
 @find:
 	ldy #$00
 	lda (@addr),y
@@ -246,6 +248,7 @@ macros: .res 1024
 	ldx @cnt
 	cpx nummacros
 	bne @find
+@notfound:
 	sec		; not found
 	rts
 

@@ -1,4 +1,5 @@
 .import __ctx_addparam
+.import __ctx_getparams
 .import __ctx_push
 .import __ctx_pop
 .import __ctx_getdata
@@ -36,6 +37,7 @@ CONTEXT_REPEAT_SIZE = 16*40+4
 
 .scope ctx
 	addparam = __ctx_addparam
+	getparams = __ctx_getparams
 	init = __ctx_init
 	push = __ctx_push
 	pop = __ctx_pop
