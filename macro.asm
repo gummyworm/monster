@@ -192,6 +192,11 @@ macros: .res 1024
 	ldy #$00
 	ldx @macro
 	ldy @macro+1
+	; save the label name for later removal
+	txa
+	pha
+	tya
+	pha
 	jsr lbl::add	; set the parameter to its value
 
 	; read past the param name
@@ -218,6 +223,15 @@ macros: .res 1024
 	incw @macro
 	lda (@macro),y		; at the end?
 	bne @asm		; no, continue
+@cleanup:
+	pla
+	tay
+	pla
+	tax
+	jsr lbl::del
+	dec @cnt
+	bne @cleanup
+
 @done:	rts
 .endproc
 
