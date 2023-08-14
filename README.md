@@ -11,6 +11,7 @@ Features include:
  - directory viewer
  - auto-formatter and realtime syntax checking
  - improved keyboard routine (3-key rollover)
+ - macro support
  - many more...
 
 The source buffer is stored in a gap buffer to allow for efficient insertion/deletion.
@@ -128,18 +129,24 @@ from disk and assembled as if the code was copy/pasted in place of the include d
 ### .MAC
 Defines a macro
 ```
-.MAC ADD VAL
-  CLC
-  ADC #VAL
+.MAC LDXY VAL
+  LDX #<VAL
+  LDY #>VAL
 .ENDMAC
 
-  ADD 16
+  LDXY $1234
 ```
 Will generate the following code:
 ```
-  CLC
-  ADC #$10
+  LDX #$34
+  LDY #$12
 ```
+Macro definitions begin with the `.MAC` directive followed by the name of the 
+macro and a space-separated list of the parameters for the macro.
+
+Macros are invoked with the name of the macro followed by a comma-separated
+list of the parameters.
+
 
 ### .ORG
 Sets the address to assemble code to 
