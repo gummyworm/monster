@@ -115,6 +115,13 @@ macros: .res 1024
 	bne @l0
 
 @done:
+	; 0-terminate the macro definition
+	lda #$00
+	tay
+	sta (@dst),y
+	incw @dst
+	sta (@dst),y
+
 	; done copying use the end address as the start address for the next macro
 	inc nummacros
 	lda nummacros
@@ -220,7 +227,7 @@ macros: .res 1024
 ; in:
 ;  - .XY: pointer to the text
 ; out:
-;  - .XY: the id of the macro (if any)
+;  - .A: the id of the macro (if any)
 ;  - .C: set if there is no macro for the given text, clear if there is
 .export __mac_get
 .proc __mac_get
@@ -269,5 +276,6 @@ macros: .res 1024
 	rts
 @found:
 	ldy #$00
+	lda @cnt
 	RETURN_OK
 .endproc
