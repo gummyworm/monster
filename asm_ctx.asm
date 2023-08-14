@@ -42,6 +42,15 @@ CTX_LINES_START = 9
 .proc __ctx_init
 	lda #$00
 	sta activectx
+
+	; fallthrough
+.endproc
+
+;--------------------------------------
+; RESET
+; resets the state for the active context
+.proc reset
+	lda #$00
 	sta numparams
 	sta type
 	rts
@@ -65,6 +74,7 @@ CTX_LINES_START = 9
 
 @push:  inc activectx
 @ok:	jsr getctx
+	jsr reset
 	jmp __ctx_rewind
 @err:	lda #ERR_STACK_OVERFLOW
 	rts

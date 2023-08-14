@@ -589,6 +589,8 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	; format the line
 	cmp #ASM_LABEL
 	beq @fmt
+	cmp #ASM_MACRO
+	beq @fmt
 	cmp #ASM_OPCODE
 	bne @nextline	; no formatting
 @fmt:	jsr fmt::line

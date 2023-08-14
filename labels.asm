@@ -123,9 +123,9 @@ label_addresses: .res 256 * 2
 @addr=zp::tmpc
 @skip_shift=zp::tmpe
 	stxy @name
-	;jsr isvalid
-	;beq @seek
-	;rts	; invalid label
+	jsr isvalid
+	bcc @seek
+	rts		; invalid label
 
 @seek:
 	ldxy @name

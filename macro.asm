@@ -185,9 +185,14 @@ macros: .res 1024
 	ldy #$00
 	ldx @macro
 	ldy @macro+1
-	incw @macro
-	incw @macro
 	jsr lbl::add	; set the parameter to its value
+
+	; read past the param name
+	ldy #$00
+:	incw @macro
+	lda (@macro),y
+	bne :-
+	incw @macro
 
 	inc @cnt
 	jmp @setparams	; repeat for all params

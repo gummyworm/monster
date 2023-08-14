@@ -24,7 +24,7 @@ __asm_verify: .byte 0
 indirect=zp::asm ; 1=indirect, 0=absolute
 indexed=zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
 immediate=zp::asm+2 ; 1=immediate, 0=not immediate
-operandsz=zp::asm+3 ; size of the operand (in bytes)
+operandsz=zp::asm+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
 cc=zp::asm+4
 resulttype=zp::asm+5
 label_value = zp::asm+6 ; param to addlabel
@@ -439,6 +439,8 @@ __asm_tokenize:
 
 @noerr:
 	; update asm::result pointer by (1 + operand size)
+	lda __asm_verify
+	bne :+
 	lda operandsz
 	sec
 	adc zp::asmresult
@@ -1391,13 +1393,20 @@ bbb10_modes:
 ;--------------------------------------
 ; get_label reads (line) and returns the address of the label found there (if there
 ; is one).
-; .C is set if no label is found
+; out:
+;  - .C is set if no label is found
+;  - .A: the size of the label's address
+;  - .XY: the value of the label
 .proc get_label
 	lda  __asm_verify
 	beq :+
 	jsr islabel	; if we're verifying, let this pass if its a valid label
+	lda #$ff	; flag that we don't know the size of the label
+	ldxy #$00	; assume smallest possible value
 	bcc @updateline
-	ldxy zp::line
+	rts
+
+:	ldxy zp::line
 	jsr lbl::addr
 	bcs @done
 
@@ -1418,7 +1427,7 @@ bbb10_modes:
 	pla
 	clc
 @done:
-:	rts
+	rts
 .endproc
 
 ;--------------------------------------
