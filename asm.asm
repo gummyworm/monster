@@ -204,7 +204,7 @@ __asm_tokenize:
 
 @label:
 	jsr islabel
-	bmi @directive
+	bcs @directive
 	sta resulttype
 	ldx zp::line
 	ldy zp::line+1
@@ -780,12 +780,15 @@ bbb10_modes:
 
 
 ;--------------------------------------
-; returns ASM_LABEL if the contents on (line) are a valid label
+; ISLABEL
+; checks if the contents of zp::line is a valid label name
+; out:
+;  - .C: set if contents of (line) are NOT a valid label
 .proc islabel
 	jsr getopcode	; make sure string is not an opcode
 	cmp #ERR_ILLEGAL_OPCODE
 	beq @cont
-	lda #ERR_ILLEGAL_LABEL
+	sec
 	rts
 
 @cont:
@@ -794,6 +797,7 @@ bbb10_modes:
 	cmp #'.'	; label cannot have '.' prefix
 	beq @notlabel
 :	lda (zp::line),y
+	beq @done
 	iny
 	cpy #40
 	bcs @notlabel
@@ -802,10 +806,10 @@ bbb10_modes:
 	cmp #':'
 	bne :-
 
-@done:	lda #ASM_LABEL
+@done:	clc
 	rts
 @notlabel:
-	lda #$ff
+	sec
 	rts
 .endproc
 
@@ -1195,8 +1199,7 @@ bbb10_modes:
 ;--------------------------------------
 .proc defineconst
 	jsr islabel
-	cmp #ASM_LABEL
-	bne @err
+	bcs @err
 	lda zp::line	; save label name's address
 	pha
 	lda zp::line+1
@@ -1390,9 +1393,15 @@ bbb10_modes:
 ; is one).
 ; .C is set if no label is found
 .proc get_label
+	lda  __asm_verify
+	beq :+
+	jsr islabel	; if we're verifying, let this pass if its a valid label
+	bcc @updateline
 	ldxy zp::line
 	jsr lbl::addr
 	bcs @done
+
+@updateline:
 	pha
 	tya
 	pha
@@ -1409,7 +1418,7 @@ bbb10_modes:
 	pla
 	clc
 @done:
-	rts
+:	rts
 .endproc
 
 ;--------------------------------------
@@ -1936,6 +1945,7 @@ bbb10_modes:
 	ldxy zp::line
 	jsr eval
 	bcc :+
+	pla	; clean stack
 	RETURN_ERR ERR_INVALID_EXPRESSION
 
 :	txa

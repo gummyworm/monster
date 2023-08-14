@@ -83,5 +83,8 @@
 :	cmp #ASM_OPCODE
 	bne :+
 	jmp __fmt_opcode
+	cmp #ASM_MACRO
+	bne :+
+	jmp __fmt_opcode
 :	rts
 .endproc
