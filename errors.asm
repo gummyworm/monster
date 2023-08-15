@@ -3,18 +3,6 @@
 
 .DATA
 ;--------------------------------------
-err_unaligned_label:
-	.byte "label is not left-aligned",0
-err_illegal_opcode:
-	.byte "invalid opcode:",ESCAPE_STRING,0
-err_illegal_addrmode:
-	.byte "invalid addressing mode: ",ESCAPE_STRING,0
-err_illegal_directive:
-	.byte "invalid directive: ",ESCAPE_STRING,0
-err_oversized_operand:
-	.byte "oversized operand", 0
-err_illegal_label:
-	.byte "invalid label ",ESCAPE_STRING,0
 
 err_stack_underflow:
 	.byte "stack underflow",0
@@ -31,7 +19,19 @@ err_syntax:
 err_invalid_directive:
 	.byte "invalid directive",0
 err_undefined_label:
-	.byte "label undefined"
+	.byte "label undefined",0
+
+;------------------
+err_unaligned_label:
+	.byte "label is not left-aligned",0
+err_illegal_opcode:
+	.byte "invalid opcode",0
+err_illegal_addrmode:
+	.byte "invalid addressing mode",0
+err_oversized_operand:
+	.byte "oversized operand", 0
+err_illegal_label:
+	.byte "invalid label",0
 
 ;--------------------------------------
 errors: .word 0	 ; no error
@@ -44,10 +44,14 @@ errors: .word 0	 ; no error
 	.word err_invalid_directive
 	.word err_undefined_label
 
+	.word 0
+	.word 0
+
 	.word err_unaligned_label
 	.word err_illegal_opcode
 	.word err_illegal_addrmode
-	.word err_illegal_directive
+	.word err_oversized_operand
+	.word err_illegal_label
 
 .CODE
 ;--------------------------------------

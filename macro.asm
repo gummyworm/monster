@@ -212,7 +212,24 @@ macros: .res 1024
 @paramsdone:
 	; assemble the macro line by line
 @asm:	ldxy @macro
+	; save state that may be clobbered if we assemble another macro
+	txa
+	pha
+	tya
+	pha
+	lda @cnt
+	pha
+
 	jsr asm::tokenize
+
+	; restore state
+	pla
+	sta @cnt
+	pla
+	sta @macro+1
+	pla
+	sta @macro
+
 
 	; move to the next line
 	ldy #$00

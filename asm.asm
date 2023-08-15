@@ -161,7 +161,7 @@ __asm_tokenize:
 
 	jsr handle_ctx
 	bcc @noctx
-	rts
+	RETURN_OK
 
 @noctx:
 	jsr process_ws
@@ -362,10 +362,11 @@ __asm_tokenize:
 	RETURN_OK	; if not an instruction, we're done
 
 :	jsr getaddrmode
-	cmp #$ff
-	beq @err
-	tax
+	bcc @checkjmp
+	rts
 
+@checkjmp:
+	tax
 	; JMP (xxxx) has a different opcode than JMP
 	ldy #$00
 	lda (zp::asmresult),y
@@ -544,7 +545,7 @@ __asm_tokenize:
 	RETURN_OK
 
 @abs:   lda immediate
-	bne @err	; error- immediate abs illegal (operand too large)
+	bne @oversized	; error- immediate abs illegal (operand too large)
 	lda indirect
 	beq :+
 	lda indexed
@@ -565,6 +566,8 @@ __asm_tokenize:
 
 @impl:	lda #IMPLIED
 @done:	RETURN_OK
+@oversized:
+	RETURN_ERR ERR_OVERSIZED_OPERAND
 .endproc
 
 ;--------------------------------------

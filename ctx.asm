@@ -15,6 +15,7 @@ MAX_CONTEXTS = 3	; $1000-$400 / $200
 ; assembly of a program.
 ; The number of contexts is limited by the size of a context (defined as
 ; CONTEXT_SIZE).
+.export contexts
 contexts = mem::spare
 
 .BSS

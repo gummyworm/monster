@@ -121,7 +121,19 @@ main:
 	bcc :+
 
 	jsr reporterr
-	jmp @asmdone
+	; save the failed line, get the screen and source back in sync and
+	; goto the line that failed
+	lda src::line
+	pha
+	lda src::line+1
+	pha
+	jsr src::popp
+	jsr src::goto
+	pla
+	tay
+	pla
+	tax
+	jmp gotoline
 
 :	jsr src::end
 	bne @doline
@@ -587,8 +599,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
 	jsr asm::tokenize
-	tax
-	bmi @err
+	bcs @err
 @format:
 	; format the line
 	cmp #ASM_LABEL
