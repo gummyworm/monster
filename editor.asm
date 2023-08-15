@@ -3,6 +3,7 @@
 .include "codes.inc"
 .include "config.inc"
 .include "cursor.inc"
+.include "errors.inc"
 .include "file.inc"
 .include "format.inc"
 .include "key.inc"
@@ -117,7 +118,10 @@ main:
 	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
-	inc @ll
+	bcc :+
+	jmp reporterr
+
+:	inc @ll
 	jsr src::end
 	bne @doline
 @ll=*+1
@@ -1116,6 +1120,15 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldy @row
 	ldx #$00
 	jmp cur::set
+.endproc
+
+;--------------------------------------
+; REPORTERR
+; reports the given error
+; in:
+;  -A: the error code
+.proc reporterr
+	jmp err::print
 .endproc
 
 .DATA

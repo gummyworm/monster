@@ -109,9 +109,13 @@ label_addresses: .res 256 * 2
 .endproc
 
 ;--------------------------------------
-; add adds a ':',' ', or 0 terminated label in (YX) to the label table.
-; the current value of zp::label_value is used to define its address
-; .C is set on error or clear if the label was successfully added
+; ADD
+; Adds a label to the internal label state.
+;  - .XY: the name of the label to add
+;  - zp::label_value: the value to assign to the given label name
+; out:
+;  - .C: set on error or clear if the label was successfully added
+;
 .export __label_add
 .proc __label_add
 @id=zp::tmp0

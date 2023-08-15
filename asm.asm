@@ -1,4 +1,4 @@
-.include "asm_ctx.inc"
+.include "ctx.inc"
 .include "codes.inc"
 .include "errors.inc"
 .include "expr.inc"
@@ -146,8 +146,12 @@ __asm_validate:
 ; tokenize assembles the string at (YX) into an instruction in (asm::result)
 ; if (YX) contains an instruction.  Any labels or comments encountered are
 ; saved at the address in (pc).
-; The size of the assembled operation is returned in .A (negative indicates
-; an error occurred).
+; in:
+;  - .XY: the string to assemble
+;  - zp::asmresult: pointer to the location to assemble the instruction
+; out:
+;  - .A: the type of the result e.g. ASM_OPCODE or the error code
+;  - .C: set if an error occurred
 .export __asm_tokenize
 __asm_tokenize:
 .proc tokenize
@@ -177,7 +181,7 @@ __asm_tokenize:
 	; rest of the line is a comment, we're done
 	lda #ASM_COMMENT
 	sta resulttype
-	rts
+	RETURN_OK
 
 @opcode:
 	jsr getopcode
@@ -197,9 +201,11 @@ __asm_tokenize:
 	jsr process_word	; read past macro name
 	pla
 	jsr assemble_macro
+	bcs :+			; error
 	lda #ASM_MACRO
 	sta resulttype
-	rts
+	clc
+:	rts
 
 @label:
 	jsr lbl::isvalid
@@ -212,8 +218,7 @@ __asm_tokenize:
 	lda zp::asmresult+1
 	sta zp::label_value+1
 	jsr lbl::add
-	lda #$00
-	rts
+	rts			; propagate error if any
 
 @directive:
 	jsr getdirective
@@ -257,7 +262,6 @@ __asm_tokenize:
 	incw zp::line
 
 @abslabelorvalue:
-	ldxy zp::line
 	jsr expr::eval
 	bcs @cont
 @store_value:
@@ -355,7 +359,7 @@ __asm_tokenize:
 	lda resulttype
 	cmp #ASM_OPCODE
 	beq :+
-	rts		; if not an instruction, we're done
+	RETURN_OK	; if not an instruction, we're done
 
 :	jsr getaddrmode
 	cmp #$ff
@@ -434,8 +438,7 @@ __asm_tokenize:
 	; remaining opcodes are single byte- implied/accumulator only
 	cpx #IMPLIED
 	beq @noerr
-@err:	lda #$ff
-	rts
+@err:	RETURN_ERR ERR_ILLEGAL_ADDRMODE
 
 @noerr:
 	; update asm::result pointer by (1 + operand size)
@@ -448,7 +451,7 @@ __asm_tokenize:
 	bcc :+
 	inc zp::asmresult+1
 :	lda #ASM_OPCODE
-	rts
+	RETURN_OK
 
 @validate_cc:
 	ldy cc
@@ -1099,7 +1102,6 @@ bbb10_modes:
 @iterstop=zp::tmp1c
 	jsr ctx::push	; push a new context
 
-	ldxy zp::line
 	jsr expr::eval ; get the number of times to repeat the code
 	bcc @ok
 	rts	 ; error
@@ -1551,7 +1553,6 @@ bbb10_modes:
 
 	stx @cnt
 	jsr process_ws
-	ldxy zp::line
 	jsr expr::eval
 	bcc :+
 	pla	; clean stack

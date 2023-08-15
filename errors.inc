@@ -6,7 +6,6 @@ ERR_ILLEGAL_ADDRMODE=$ff-3
 ERR_ILLEGAL_DIRECTIVE=$ff-4
 ERR_OVERSIZED_OPERAND=$ff-5
 ERR_ILLEGAL_LABEL=$ff-6
-ERR_SYNTAX_ERROR=$ff-7
 
 ;--------------------------------------
 ; stack errors
@@ -25,8 +24,14 @@ ERR_INVALID_EXPRESSION = 4
 ; macro errors
 ERR_INVALID_MACRO_ARGS = 5
 
+ERR_SYNTAX_ERROR=6
+
 .import __err_print
 .import __err_print_with_arg
+
+.scope err
+	print = __err_print
+.endscope
 
 ;--------------------------------------
 ; RETURN_ERR

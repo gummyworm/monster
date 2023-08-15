@@ -27,8 +27,6 @@ MAX_OPERANDS=$10/2
 @operators=$100
 @operands=$120
 @priorities=$130
-	stxy zp::line
-
 	lda #$00
 	sta @num_operators
 	sta @num_operands
