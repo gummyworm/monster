@@ -119,31 +119,30 @@ main:
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
 	bcc :+
-	jmp reporterr
 
-:	inc @ll
-	jsr src::end
+	jsr reporterr
+	jmp @asmdone
+
+:	jsr src::end
 	bne @doline
-@ll=*+1
-	lda #$00
-
-	jsr src::popp
-	jsr src::goto
-
 @printresult:
 	lda #$00
 	sta state::verify	; re-enable verify
 
+	; get the size of the assembled program and print it
 	ldxy zp::asmresult
 	sub16 #mem::program
 	txa
 	pha
 	tya
 	pha
-
 	ldxy #success_msg
 	lda #STATUS_ROW-1
 	jsr text::print
+
+@asmdone:
+	jsr src::popp
+	jsr src::goto
 	jmp text::clrline
 
 success_msg: .byte "done $", $fe, " bytes", 0

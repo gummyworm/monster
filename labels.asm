@@ -144,6 +144,7 @@ label_addresses: .res 256 * 2
 	iny
 	lda zp::label_value+1
 	sta (@addr),y
+	clc
 	rts
 
 @insert:

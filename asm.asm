@@ -185,8 +185,8 @@ __asm_tokenize:
 
 @opcode:
 	jsr getopcode
-	cmp #ERR_ILLEGAL_OPCODE
-	beq @macro
+	bcs @macro
+	lda #ASM_OPCODE
 	sta resulttype
 	txa
 	ldy #$00
@@ -217,13 +217,11 @@ __asm_tokenize:
 	sta zp::label_value
 	lda zp::asmresult+1
 	sta zp::label_value+1
-	jsr lbl::add
-	rts			; propagate error if any
+	jmp lbl::add
 
 @directive:
 	jsr getdirective
-	cmp #$ff
-	bne :+
+	bcc :+
 	jmp @err
 :	lda #ASM_DIRECTIVE
 	sta resulttype
@@ -263,7 +261,9 @@ __asm_tokenize:
 
 @abslabelorvalue:
 	jsr expr::eval
-	bcs @cont
+	bcc @store_value
+	rts
+
 @store_value:
 	sta operandsz
 	lda lsb
@@ -524,8 +524,7 @@ __asm_tokenize:
 	beq @abs
 	cmp #1
 	beq @zp
-@err:   lda #$ff		; error- oversized operand
-	rts
+@err:   RETURN_ERR ERR_OVERSIZED_OPERAND
 
 @zp:	lda immediate
 	bne @imm
@@ -533,13 +532,16 @@ __asm_tokenize:
 	lda indirect
 	beq :+
 	dex
-	bmi @err 	; error- indirect zeropage not a valid addressing mode
+	bpl :+
+	; error- indirect zeropage not a valid addressing mode
+@illegalmode:
+	RETURN_ERR ERR_ILLEGAL_ADDRMODE
 :	txa
 	clc
 	adc indirect
 	adc indirect
 	adc #ZEROPAGE
-	rts
+	RETURN_OK
 
 @abs:   lda immediate
 	bne @err	; error- immediate abs illegal (operand too large)
@@ -548,21 +550,21 @@ __asm_tokenize:
 	lda indexed
 	bne @err 	; error- indirect absolute doesn't support indexing
 	lda #ABS_IND
-	rts
+	RETURN_OK
 :	lda indexed
 	clc
 	adc #ABS
-	rts
+	RETURN_OK
 
 @imm:	lda indirect
-	bne @err	; error- immediate doesn't support indirection
+	bne @illegalmode ; error- immediate doesn't support indirection
 	lda indexed
-	bne @err	; error- immediate doesn't support indexing
+	bne @illegalmode ; error- immediate doesn't support indexing
 	lda #IMMEDIATE
-	rts
+	RETURN_OK
 
 @impl:	lda #IMPLIED
-@done:	rts
+@done:	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -668,11 +670,8 @@ bbb10_modes:
 @done:
 	incw zp::line
 	txa
-	clc
-	rts
-@err:
-	sec
-	rts
+	RETURN_OK
+@err:	RETURN_ERR ERR_SYNTAX_ERROR
 .endproc
 
 
@@ -744,8 +743,7 @@ bbb10_modes:
 	sta zp::line
 	bcc :+
 	inc zp::line+1
-:	lda #ASM_OPCODE
-	RETURN_OK
+:	RETURN_OK
 
 @next:	lda @optab
 	clc
@@ -762,14 +760,17 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
+; GETDIRECTIVE
+; checks if (zp::line) contains a directive and handles it if it does.
+; out:
+;  - .C: if set, the contents of zp::line is not a directive
 .proc getdirective
 @cnt=zp::tmp2
 	ldy #$00
 	lda (zp::line),y
 	cmp #'.'
 	beq :+
-	lda #$ff	; not a directive
-	rts
+	RETURN_ERR ERR_INVALID_DIRECTIVE
 
 :	ldx #$00
 	stx @cnt
@@ -786,7 +787,7 @@ bbb10_modes:
 	cpx #directives_len
 	bcc :+
 	lda #$ff	; no match
-	rts
+	RETURN_ERR ERR_INVALID_DIRECTIVE
 
 :	inc @cnt
 	dex
@@ -796,8 +797,7 @@ bbb10_modes:
 	beq @l0
 	cpx #directives_len
 	bcc @l2
-	lda #$ff	; no match
-	rts
+	RETURN_ERR ERR_INVALID_DIRECTIVE
 
 @found:
 	tya
@@ -828,7 +828,7 @@ bbb10_modes:
 	ldxy #mem::linebuffer
 	streq @endrep, 7	; are we at .endrep?
 	beq @do_rep		; yes, assemble the REP block
-	rts
+	RETURN_OK
 
 @do_rep:
 	; disable the context for assembling
@@ -845,7 +845,7 @@ bbb10_modes:
 @l1:	; assemble the lines until .endrep
 	jsr ctx::getline
 	bcc :+
-	rts			; error, exit
+	rts			; propagate error, exit
 :	streq @endrep, 7	; are we at .endrep?
 	beq @next		; yep, do next iteration
 	ldxy #mem::ctxbuffer
@@ -862,7 +862,7 @@ bbb10_modes:
 	;ldxy zp::ctx+repctx::param
 	;jsr lbl::del	; delete the iterator label
 	;jmp ctx::pop	; pop the context
-	rts
+	RETURN_OK
 
 @endrep: .byte ".endrep"
 .endproc
@@ -882,13 +882,13 @@ bbb10_modes:
 	and #CTX_REPEAT
 	beq :+
 	jsr handle_repeat
-	sec
+	sec		; flag context handled
 	rts
 :	lda ctx::type
 	and #CTX_MACRO
 	beq @done
 	jsr handle_macro
-	sec
+	sec		; flag context handled
 	rts
 @done:	clc
 	rts
@@ -1047,8 +1047,7 @@ bbb10_modes:
 	jmp @doline
 
 @done:
-@err:
-	lda zp::file
+@err:	lda zp::file
 	jmp file::close
 .endproc
 
@@ -1070,15 +1069,13 @@ bbb10_modes:
 	pha
 	lda zp::line+1
 	pha
-	jsr processstring
-	jsr processws
-	ldxy zp::line
-	jsr expr::getval
+	jsr processstring	; move past label name
+	jsr processws		; eat whitespace
+	jsr expr::getval	; get constant value
 	bcc :+
 	pla
 	pla
 @err:
-	lda #$ff
 	rts
 :	stx zp::label_value
 	sty zp::label_value+1
@@ -1249,10 +1246,8 @@ bbb10_modes:
 	incw zp::line
 	jmp @l0
 
-@err:	sec
-	rts
-@done:	clc
-	rts
+@err:	RETURN_ERR ERR_SYNTAX_ERROR
+@done:	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -1422,7 +1417,7 @@ bbb10_modes:
 	and #IMPLIED
 	beq @cont
 @implied:
-	rts
+	RETURN_OK
 
 @cont:
 	; add a space before operand
@@ -1527,7 +1522,7 @@ bbb10_modes:
 	lda #'y'
 	sta (@dst),y
 @done:
-	rts
+	RETURN_OK
 .endproc
 
 ;--------------------------------------

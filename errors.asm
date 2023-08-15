@@ -17,7 +17,7 @@ err_illegal_label:
 	.byte "invalid label ",ESCAPE_STRING,0
 
 err_stack_underflow:
-	.byte "stack overflow",0
+	.byte "stack underflow",0
 err_stack_overflow:
 	.byte "stack overflow",0
 err_line_too_long:
@@ -28,6 +28,10 @@ err_invalid_args_for_macro:
 	.byte "invalid macro arguments",0
 err_syntax:
 	.byte "syntax error",0
+err_invalid_directive:
+	.byte "invalid directive",0
+err_undefined_label:
+	.byte "label undefined"
 
 ;--------------------------------------
 errors: .word 0	 ; no error
@@ -37,6 +41,8 @@ errors: .word 0	 ; no error
 	.word err_invalid_expression
 	.word err_invalid_args_for_macro
 	.word err_syntax
+	.word err_invalid_directive
+	.word err_undefined_label
 
 	.word err_unaligned_label
 	.word err_illegal_opcode

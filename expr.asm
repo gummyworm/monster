@@ -1,3 +1,4 @@
+.include "errors.inc"
 .include "labels.inc"
 .include "macros.inc"
 .include "math.inc"
@@ -45,7 +46,7 @@ MAX_OPERANDS=$10/2
 
 @lparen:
 	cmp #')'
-	bne @getoperand
+	bne @checkop
 
 @paren_eval:
 	ldx @num_operators
@@ -61,21 +62,11 @@ MAX_OPERANDS=$10/2
 :	jsr @eval	; evaluate the top 2 operands
 	jmp @paren_eval
 
-
-@getoperand:
-	jsr __expr_getval	; is this a value?
-	bcc :+
-	ldxy zp::line
-	jsr get_label	; is it a label?
-	bcs @checkop	; not a value or label, try operators
-:	jsr @pushval
-	jmp @l0
-
 @checkop:
 	ldy #$00
 	lda (zp::line),y
 	jsr util::isoperator
-	bne @err
+	bne @getoperand
 	pha			; save the operator
 	jsr @priority		; get the priority of this operator
 @process_ops:
@@ -97,12 +88,20 @@ MAX_OPERANDS=$10/2
 	incw zp::line
 	jmp @l0
 
+@getoperand:
+	jsr __expr_getval	; is this a value?
+	bcc :+
+	ldxy zp::line
+	jsr get_label	; is it a label?
+	bcs @err
+:	jsr @pushval
+	jmp @l0
+
 @err:
 	; check if this is parentheses (could be indirect addressing)
 	cmp #')'
 	beq @done
-	sec
-	rts
+	RETURN_ERR ERR_LABEL_UNDEFINED
 
 @done:
 	ldx @num_operators
