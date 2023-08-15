@@ -551,7 +551,7 @@ label_addresses: .res 256 * 2
 ; out:
 ;  - .XY: the address of the name for the given label id
 .proc labelnameaddr
-@addr=zp::labeltmp0
+@addr=zp::labels
 	sty @addr+1
 	txa
 	asl
@@ -567,5 +567,44 @@ label_addresses: .res 256 * 2
 	lda @addr+1
 	adc #>labels
 	tay
+	rts
+.endproc
+
+;--------------------------------------
+; ISVALID
+; checks if the label name in (zp::line) is a valid label name
+; out:
+;  - .C: set if the label is NOT valid
+.export __label_isvalid
+.proc __label_isvalid
+	ldy #$00
+	lda (zp::line),y
+	jsr util::isoperator
+	beq @notlabel
+
+	;jsr getopcode	; make sure string is not an opcode
+	;bcs @cont
+	;sec
+	;rts
+
+@cont:
+	ldy #$00
+	lda (zp::line),y
+	cmp #'.'	; label cannot have '.' prefix
+	beq @notlabel
+:	lda (zp::line),y
+	beq @done
+	iny
+	cpy #40
+	bcs @notlabel
+	cmp #' '
+	beq @done
+	cmp #':'
+	bne :-
+
+@done:	clc
+	rts
+@notlabel:
+	sec
 	rts
 .endproc

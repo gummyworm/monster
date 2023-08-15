@@ -10,6 +10,7 @@
 .include "labels.inc"
 .include "memory.inc"
 .include "source.inc"
+.include "state.inc"
 .include "string.inc"
 .include "text.inc"
 .include "util.inc"
@@ -42,7 +43,7 @@
 
 	; don't assemble code, just verify it
 	lda #$01
-	sta asm::verify
+	sta state::verify
 
 	ldx #$00
 	ldy #$01
@@ -111,7 +112,7 @@ main:
 
 	; disable verify - actually assemble the code
 	lda #$00
-	sta asm::verify
+	sta state::verify
 @doline:
 	jsr src::readline
 	ldxy #mem::linebuffer
@@ -127,7 +128,7 @@ main:
 
 @printresult:
 	lda #$00
-	sta asm::verify	; re-enable verify
+	sta state::verify	; re-enable verify
 
 	ldxy zp::asmresult
 	sub16 #mem::program

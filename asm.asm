@@ -1,6 +1,7 @@
 .include "asm_ctx.inc"
 .include "codes.inc"
 .include "errors.inc"
+.include "expr.inc"
 .include "file.inc"
 .include "layout.inc"
 .include "labels.inc"
@@ -12,14 +13,11 @@
 .include "text.inc"
 .include "util.inc"
 .include "source.inc"
+.include "state.inc"
 .include "zeropage.inc"
 .CODE
 
 .BSS
-;--------------------------------------
-.export __asm_verify
-__asm_verify: .byte 0
-
 ;--------------------------------------
 indirect=zp::asm ; 1=indirect, 0=absolute
 indexed=zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
@@ -31,8 +29,6 @@ label_value = zp::asm+6 ; param to addlabel
 lsb = zp::asm+$a
 msb = zp::asm+$b
 
-MAX_OPERATORS=$10
-MAX_OPERANDS=$10/2
 
 .DATA
 ;--------------------------------------
@@ -206,7 +202,7 @@ __asm_tokenize:
 	rts
 
 @label:
-	jsr islabel
+	jsr lbl::isvalid
 	bcs @directive
 	sta resulttype
 	ldx zp::line
@@ -261,7 +257,8 @@ __asm_tokenize:
 	incw zp::line
 
 @abslabelorvalue:
-	jsr eval
+	ldxy zp::line
+	jsr expr::eval
 	bcs @cont
 @store_value:
 	sta operandsz
@@ -442,7 +439,7 @@ __asm_tokenize:
 
 @noerr:
 	; update asm::result pointer by (1 + operand size)
-	lda __asm_verify
+	lda state::verify
 	bne :+
 	lda operandsz
 	sec
@@ -647,116 +644,6 @@ bbb10_modes:
 	.byte ABS | MODE_X_INDEXED	; 111
 
 ;--------------------------------------
-; getvalue parses (line) for a decimal or hexadecimal value up to 16 bits in size.
-; If it succeeds, the size
-; is returned in .A and the value in (<.X/>.Y) and line is updated to point
-; after the value.
-; The character '*' is also parsed and results in the value of zp::asmresult
-; .C is set on error and clear if a value was extracted.
-.export getvalue
-.proc getvalue
-@val=zp::tmp6
-	ldy #$00
-	sty @val
-	sty @val+1
-	lda (zp::line),y
-	cmp #'$'
-	beq @hex
-
-	cmp #'*'
-	bne @decimal
-	iny
-	lda (zp::line),y
-	jsr util::isseparator
-	beq :+
-	jmp @err
-
-:	incw zp::line
-	ldx zp::asmresult
-	ldy zp::asmresult+1
-	beq *+3
-	lda #$02
-	skw
-	lda #$01
-	clc
-	rts
-
-@decimal:
-	ldxy zp::line
-	jsr atoi	; convert to binary
-	bcs @err
-	adc zp::line
-	sta zp::line
-	bcc :+
-	inc zp::line+1
-:	stx @val
-	sty @val+1
-	jmp @success
-
-@hex:
-	iny
-@l0:	lda (zp::line),y
-	jsr util::isseparator
-	beq @done
-
-	cmp #'0'
-	bcc @err
-	cmp #'9'+1
-	bcs @convertchar
-	sec
-	sbc #'0'
-	jmp @next
-
-@convertchar:
-	cmp #'a'
-	bcc @err
-	cmp #'f'+1
-	bcs @err
-	sec
-	sbc #'a'-$a
-
-@next:	asl
-	asl
-	asl
-	asl
-	asl
-	rol @val
-	rol @val+1
-	asl
-	rol @val
-	rol @val+1
-	asl
-	rol @val
-	rol @val+1
-	asl
-	rol @val
-	rol @val+1
-	bcs @err	; oversized value
-	iny
-	bne @l0
-
-@done:
-	tya
-	clc
-	adc zp::line
-	sta zp::line
-	bcc @success
-	inc zp::line+1
-@success:
-	ldx @val
-	ldy @val+1
-	beq :+
-	lda #$02	; 2 bytes
-	skw
-:	lda #$01	; 1 byte
-	clc
-	rts
-
-@err:	sec
-	rts
-.endproc
-
-;--------------------------------------
 ; gettext parses an enquoted text string and returns it in mem::spare
 ; returns the length in .A ($ff if no string was found)
 .proc gettext
@@ -787,49 +674,12 @@ bbb10_modes:
 
 
 ;--------------------------------------
-; ISLABEL
-; checks if the contents of zp::line is a valid label name
-; out:
-;  - .C: set if contents of (line) are NOT a valid label
-.proc islabel
-	ldy #$00
-	lda (zp::line),y
-	jsr util::isoperator
-	beq @notlabel
-	jsr getopcode	; make sure string is not an opcode
-	cmp #ERR_ILLEGAL_OPCODE
-	beq @cont
-	sec
-	rts
-
-@cont:
-	ldy #$00
-	lda (zp::line),y
-	cmp #'.'	; label cannot have '.' prefix
-	beq @notlabel
-:	lda (zp::line),y
-	beq @done
-	iny
-	cpy #40
-	bcs @notlabel
-	cmp #' '
-	beq @done
-	cmp #':'
-	bne :-
-
-@done:	clc
-	rts
-@notlabel:
-	sec
-	rts
-.endproc
-
-;--------------------------------------
 ; getopcode returns ASM_OPCODE if (line) contains an opcode.
 ; Returns:
-;  - .A contains ASM_OPCODE (on success) else error
-;  - .X contains the opcode's ID
-;  - tmp9 is updated with the .CC part of the opcode
+;  - .A: ASM_OPCODE (on success) else error
+;  - .X: the opcode's ID
+;  - .C: set if (line) is not an opcode
+;  - tmp9: updated with the .CC part of the opcode
 .proc getopcode
 @optab = zp::tmp6
 @op = zp::tmp8
@@ -892,7 +742,7 @@ bbb10_modes:
 	bcc :+
 	inc zp::line+1
 :	lda #ASM_OPCODE
-	rts
+	RETURN_OK
 
 @next:	lda @optab
 	clc
@@ -905,8 +755,7 @@ bbb10_modes:
 	cmp #NUM_OPCODES
 	bcc @l0
 
-@err:	lda #ERR_ILLEGAL_OPCODE
-	rts
+@err:	RETURN_ERR ERR_ILLEGAL_OPCODE
 .endproc
 
 ;--------------------------------------
@@ -1021,7 +870,7 @@ bbb10_modes:
 ;  - .C: set if the line was handled by this handler
 .proc handle_ctx
 	; if verifying, don't handle context at all
-	lda __asm_verify
+	lda state::verify
 	bne @done
 
 	lda ctx::type
@@ -1078,7 +927,8 @@ bbb10_modes:
 ; defines 0 or more bytes and stores them in (asmresult)
 ; Returns the number of bytes written in .A
 .proc definebyte
-	jsr getvalue
+	ldxy zp::line
+	jsr expr::getval
 	bcs @text
 	cmp #$01
 	bne @err	; over/undersized value
@@ -1126,7 +976,8 @@ bbb10_modes:
 
 ;--------------------------------------
 .proc defineword
-	jsr getvalue
+	ldxy zp::line
+	jsr expr::getval
 	bcs @err
 	; store the extracted value
 	tya
@@ -1201,7 +1052,8 @@ bbb10_modes:
 ;--------------------------------------
 .proc defineorg
 	jsr processws
-	jsr getvalue
+	ldxy zp::line
+	jsr expr::getval
 	bcs :+
 	stxy zp::asmresult
 :	rts
@@ -1209,7 +1061,7 @@ bbb10_modes:
 
 ;--------------------------------------
 .proc defineconst
-	jsr islabel
+	jsr lbl::isvalid
 	bcs @err
 	lda zp::line	; save label name's address
 	pha
@@ -1217,7 +1069,8 @@ bbb10_modes:
 	pha
 	jsr processstring
 	jsr processws
-	jsr getvalue
+	ldxy zp::line
+	jsr expr::getval
 	bcc :+
 	pla
 	pla
@@ -1246,7 +1099,8 @@ bbb10_modes:
 @iterstop=zp::tmp1c
 	jsr ctx::push	; push a new context
 
-	jsr eval ; get the number of times to repeat the code
+	ldxy zp::line
+	jsr expr::eval ; get the number of times to repeat the code
 	bcc @ok
 	rts	 ; error
 
@@ -1397,47 +1251,6 @@ bbb10_modes:
 	rts
 @done:	clc
 	rts
-.endproc
-
-;--------------------------------------
-; get_label reads (line) and returns the address of the label found there (if there
-; is one).
-; out:
-;  - .C is set if no label is found
-;  - .A: the size of the label's address
-;  - .XY: the value of the label
-.proc get_label
-	jsr islabel	; if we're verifying, let this pass if its a valid label
-	bcs @done
-
-	lda  __asm_verify
-	beq :+
-
-	lda #$ff	; flag that we don't know the size of the label
-	ldxy #$00	; assume smallest possible value
-	beq @updateline
-
-:	ldxy zp::line
-	jsr lbl::addr
-	bcs @done
-
-@updateline:
-	pha
-	tya
-	pha
-
-	ldy #$00
-@l0:	lda (zp::line),y
-	jsr util::isseparator
-	beq :+
-	incw zp::line
-	bne @l0
-
-:	pla
-	tay
-	pla
-	clc
-@done:	rts
 .endproc
 
 ;--------------------------------------
@@ -1716,233 +1529,6 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
-; eval resolves the contents of (line) to a value in .YX
-; The size is returned in .A
-; .C is clear on success or set on failure
-.proc eval
-@val1=zp::expr
-@val2=zp::expr+2
-@num_operators=zp::expr+4
-@num_operands=zp::expr+5
-@operators=$100
-@operands=$120
-@priorities=$130
-	lda #$00
-	sta @num_operators
-	sta @num_operands
-@l0:
-	ldy #$00
-	lda (zp::line),y
-	jsr @isterminator
-	beq @done
-
-@rparen:
-	cmp #'('
-	bne @lparen
-	jsr @pushop
-	incw zp::line
-	jmp @l0
-
-@lparen:
-	cmp #')'
-	bne @getoperand
-
-@paren_eval:
-	ldx @num_operators
-	dex
-	bmi @err	; no parentheses found
-	lda @operators,x
-	cmp #'('
-	bne :+
-	jsr @popop	; pop the parentheses
-	incw zp::line
-	jmp @l0		; and we're done evaluating this () block
-
-:	jsr @eval	; evaluate the top 2 operands
-	jmp @paren_eval
-
-
-@getoperand:
-	jsr getvalue	; is this a value?
-	bcc :+
-	jsr get_label	; is it a label?
-	bcs @checkop	; not a value or label, try operators
-:	jsr @pushval
-	jmp @l0
-
-@checkop:
-	ldy #$00
-	lda (zp::line),y
-	jsr util::isoperator
-	bne @err
-	pha			; save the operator
-	jsr @priority		; get the priority of this operator
-@process_ops:
-	ldx @num_operators	; any operators to the left?
-	beq @process_ops_done
-	dex
-	; if the operator to the left has >= priority, process it
-	cmp @priorities,x
-	beq :+
-	bcs @process_ops_done
-:	pha		; save priority
-	jsr @eval	; evaluate the top 2 elements of the operand stack
-	pla		; get priority
-	jmp @process_ops	; continue until the op to the left has lower priority
-
-@process_ops_done:
-	pla
-	jsr @pushop
-	incw zp::line
-	jmp @l0
-
-@err:
-	; check if this is parentheses (could be indirect addressing)
-	cmp #')'
-	beq @done
-	sec
-	rts
-
-@done:
-	ldx @num_operators
-	beq @getresult
-	jsr @eval
-	jmp @done
-
-@getresult:
-	ldx @operands
-	lda #$01
-	ldy @operands+1
-	beq :+
-	;cpy #$ff	; 1 byte negative
-	;beq :+
-	lda #$02
-:	clc
-	rts
-
-;------------------
-; isterminator returns .Z set if the character in .A is
-; one that should end the evaluation of the expression
-@isterminator:
-	cmp #$00
-	beq :+
-	cmp #';'
-	beq :+
-	cmp #','
-:	rts
-
-;------------------
-@popval:
-	dec @num_operands
-	dec @num_operands
-	ldx @num_operands
-	lda @operands+1,x
-	tay
-	lda @operands,x
-	tax
-	rts
-
-;------------------
-@pushval:
-	txa
-	ldx @num_operands
-	cpx #MAX_OPERANDS
-	bcc :+
-:	sta @operands,x
-	tya
-	sta @operands+1,x
-	inc @num_operands
-	inc @num_operands
-	rts
-
-;------------------
-@popop:
-	dec @num_operators
-	ldx @num_operators
-	lda @operators,x
-	rts
-
-;------------------
-@pushop:
-	ldx @num_operators
-	cpx #MAX_OPERATORS
-	bcc :+
-:	sta @operators,x
-	pha
-	jsr @priority
-	sta @priorities,x
-	pla
-	inc @num_operators
-	rts
-
-;------------------
-@priority:
-	cmp #'+'
-	beq @prio1
-	cmp #'-'
-	beq @prio1
-	cmp #'*'
-	beq @prio2
-	cmp #'/'
-	beq @prio2
-	lda #$00
-	rts
-@prio1:	lda #$01
-	rts
-@prio2: lda #$02
-	rts
-
-;------------------
-; returns the evaluation of the operator in .A on the operands @val1 and @val2
-@eval:
-	jsr @popval
-	stxy @val1
-	jsr @popval
-	stxy @val2
-
-	jsr @popop
-	cmp #'+'
-	bne :+
-@add:
-	lda @val1
-	clc
-	adc @val2
-	tax
-	lda @val1+1
-	adc @val2+1
-	tay
-	jmp @pushval
-
-:	cmp #'-'
-	bne :+
-@sub:
-	lda @val2
-	sec
-	sbc @val1
-	tax
-	lda @val2+1
-	sbc @val1+1
-	tay
-	jmp @pushval
-
-:	cmp #'*'
-	bne :+
-	; get the product TODO: 32-bit precision expressions?
-	jsr m::mul16
-	jmp @pushval
-
-:	cmp #'/'
-	bne @unknown_op
-	jsr m::div16
-	ldx @val1
-	ldy @val1+1
-	jmp @pushval
-
-@unknown_op:
-	rts
-.endproc
-
-;--------------------------------------
 ; ASSEMBLE_MACRO
 ; takes the contents of (line) and expands it to the corresponding
 ; macro.
@@ -1966,7 +1552,7 @@ bbb10_modes:
 	stx @cnt
 	jsr process_ws
 	ldxy zp::line
-	jsr eval
+	jsr expr::eval
 	bcc :+
 	pla	; clean stack
 	RETURN_ERR ERR_INVALID_EXPRESSION

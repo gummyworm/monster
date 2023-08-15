@@ -28,11 +28,7 @@ line=$4c	; ptr to text being processed
 ;--------------------------------------
 ; $50-$60 are used for labels
 label_value=$50	; arguments to label functions
-labeltmp0=$52
-labeltmp1=$53
-labeltmp2=$54
-labeltmp3=$55
-labeltmp4=$56
+labels=$52
 
 ;--------------------------------------
 ; $60-$70 are used by the "context" during assembly
@@ -55,6 +51,7 @@ file = $bb	; the most recently accessed file
 ; $d0-$d2 assembly state
 asmresult = $d0	; pointer where code is assembled
 bank      = $d2 ; the current bank in the final expansion being worked on
+verify = $d3
 
 ;--------------------------------------
 ; $d3-$d4 cursor state
