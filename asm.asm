@@ -31,6 +31,9 @@ label_value = zp::asm+6 ; param to addlabel
 lsb = zp::asm+$a
 msb = zp::asm+$b
 
+MAX_OPERATORS=$10
+MAX_OPERANDS=$10/2
+
 .DATA
 ;--------------------------------------
 NUM_OPCODES = 58
@@ -665,15 +668,17 @@ bbb10_modes:
 	iny
 	lda (zp::line),y
 	jsr util::isseparator
-	clc
-	bne @err
-	incw zp::line
+	beq :+
+	jmp @err
+
+:	incw zp::line
 	ldx zp::asmresult
 	ldy zp::asmresult+1
 	beq *+3
 	lda #$02
 	skw
 	lda #$01
+	clc
 	rts
 
 @decimal:
@@ -787,6 +792,10 @@ bbb10_modes:
 ; out:
 ;  - .C: set if contents of (line) are NOT a valid label
 .proc islabel
+	ldy #$00
+	lda (zp::line),y
+	jsr util::isoperator
+	beq @notlabel
 	jsr getopcode	; make sure string is not an opcode
 	cmp #ERR_ILLEGAL_OPCODE
 	beq @cont
@@ -1398,13 +1407,15 @@ bbb10_modes:
 ;  - .A: the size of the label's address
 ;  - .XY: the value of the label
 .proc get_label
+	jsr islabel	; if we're verifying, let this pass if its a valid label
+	bcs @done
+
 	lda  __asm_verify
 	beq :+
-	jsr islabel	; if we're verifying, let this pass if its a valid label
+
 	lda #$ff	; flag that we don't know the size of the label
 	ldxy #$00	; assume smallest possible value
-	bcc @updateline
-	rts
+	beq @updateline
 
 :	ldxy zp::line
 	jsr lbl::addr
@@ -1426,8 +1437,7 @@ bbb10_modes:
 	tay
 	pla
 	clc
-@done:
-	rts
+@done:	rts
 .endproc
 
 ;--------------------------------------
@@ -1710,10 +1720,10 @@ bbb10_modes:
 ; The size is returned in .A
 ; .C is clear on success or set on failure
 .proc eval
-@val1=zp::tmp0
-@val2=zp::tmp2
-@num_operators=zp::tmp4
-@num_operands=zp::tmp5
+@val1=zp::expr
+@val2=zp::expr+2
+@num_operators=zp::expr+4
+@num_operands=zp::expr+5
 @operators=$100
 @operands=$120
 @priorities=$130
@@ -1765,7 +1775,7 @@ bbb10_modes:
 	lda (zp::line),y
 	jsr util::isoperator
 	bne @err
-	pha
+	pha			; save the operator
 	jsr @priority		; get the priority of this operator
 @process_ops:
 	ldx @num_operators	; any operators to the left?
@@ -1836,7 +1846,9 @@ bbb10_modes:
 @pushval:
 	txa
 	ldx @num_operands
-	sta @operands,x
+	cpx #MAX_OPERANDS
+	bcc :+
+:	sta @operands,x
 	tya
 	sta @operands+1,x
 	inc @num_operands
@@ -1853,7 +1865,9 @@ bbb10_modes:
 ;------------------
 @pushop:
 	ldx @num_operators
-	sta @operators,x
+	cpx #MAX_OPERATORS
+	bcc :+
+:	sta @operators,x
 	pha
 	jsr @priority
 	sta @priorities,x

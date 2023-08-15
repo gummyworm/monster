@@ -42,6 +42,9 @@ ctx=$60
 ; $80-$90 are used for macro related things during assembly
 macros=$80
 
+;--------------------------------------
+; $90-$a0 used for expression evaluation
+expr=$90
 
 ;--------------------------------------
 ; $b0-$c0 reserved for file stuff
