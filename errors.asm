@@ -46,7 +46,6 @@ errors: .word err_no_err	 ; no error
 	.word err_undefined_label
 
 	.word 0
-	.word 0
 
 	.word err_unaligned_label
 	.word err_illegal_opcode

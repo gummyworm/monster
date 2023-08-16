@@ -436,7 +436,7 @@ label_addresses: .res 256 * 2
 	beq :-
 	cmp #'a'
 	bcc @err
-	cmp #'z'+1
+	cmp #'Z'+1
 	bcs @err
 
 ; following characters are between '0' and ')'
@@ -449,7 +449,7 @@ label_addresses: .res 256 * 2
 	bcc @err
 	cmp #')'
 	iny
-	bcc @l0
+	bne @l0
 @err:
 	RETURN_ERR ERR_ILLEGAL_LABEL
 @done:
@@ -597,6 +597,7 @@ label_addresses: .res 256 * 2
 	lda (zp::line),y
 	cmp #'.'	; label cannot have '.' prefix
 	beq @notlabel
+
 :	lda (zp::line),y
 	beq @done
 	iny

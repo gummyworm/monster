@@ -116,10 +116,10 @@ main:
 	lda #$00
 	sta state::verify
 @doline:
-	jsr src::readline
-
 	ldxy src::line	; set the line we're assembling
 	stxy @line
+	jsr src::readline
+
 
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
@@ -129,18 +129,10 @@ main:
 	ldxy @line
 	jsr reporterr
 
-	; save the failed line, get the screen and source back in sync and
 	; goto the line that failed
-	lda src::line
-	pha
-	lda src::line+1
-	pha
 	jsr src::popp
 	jsr src::goto
-	pla
-	tay
-	pla
-	tax
+	ldxy @line
 	jmp gotoline
 
 @ok:

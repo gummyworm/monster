@@ -521,6 +521,15 @@ __asm_tokenize:
 .proc getaddrmode
 	; get addressing mode index for bbb tables
 	lda operandsz
+	cmp #$ff
+	bne :+
+	; if we don't know the size yet, check both zp and abs
+	jsr @zp
+	bcc @ok
+	jmp @abs
+
+
+:	cmp #$00
 	beq @impl
 	cmp #2
 	beq @abs
@@ -528,6 +537,7 @@ __asm_tokenize:
 	beq @zp
 @err:   RETURN_ERR ERR_OVERSIZED_OPERAND
 
+;------------------
 @zp:	lda immediate
 	bne @imm
 	ldx indexed
@@ -543,8 +553,10 @@ __asm_tokenize:
 	adc indirect
 	adc indirect
 	adc #ZEROPAGE
+@ok:
 	RETURN_OK
 
+;------------------
 @abs:   lda immediate
 	bne @oversized	; error- immediate abs illegal (operand too large)
 	lda indirect
