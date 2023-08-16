@@ -68,7 +68,7 @@ CTX_LINES_START = 9
 
 	; save the active context's state
 	ldy #CTX_LINES_START-1
-:	lda ctx+2,y
+:	lda ctx,y
 	sta (ctx),y
 	dey
 	bpl :-
@@ -318,9 +318,9 @@ CTX_LINES_START = 9
 
 	; TODO: support types other than REP
 	; get the ctx metadata (iter, iterend, cur, and param)
-	ldy #CTX_LINES_START-3
+	ldy #CTX_LINES_START-1
 @l0:	lda (ctx),y
-	sta ctx+2,y
+	sta ctx,y
 	dey
 	bpl @l0
 

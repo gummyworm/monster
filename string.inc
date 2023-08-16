@@ -1,9 +1,11 @@
+.import __str_cat
 .import __str_compare
 .import __str_find
 .import __str_len
 .import __str_replace
 
 .scope str
+	cat = __str_cat
 	compare = __str_compare
 	find = __str_find
 	len = __str_len

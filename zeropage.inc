@@ -55,8 +55,12 @@ verify = $d3
 
 ;--------------------------------------
 ; $d3-$d4 cursor state
-curx = $d3
-cury = $d4
+curx = $d4
+cury = $d5
+
+;--------------------------------------
+; $d5-$e0 editor state
+editor = $d6
 
 ;--------------------------------------
 ; $e0-$ff temporary storage

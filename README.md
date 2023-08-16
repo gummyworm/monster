@@ -189,7 +189,27 @@ Becomes
   INC $F4
 ```
 
+## Macros
+Macros offer a conveinient way to abstract patterns that you find yourself
+frequently writing.
 
+They may be recursive as in this example:
+```
+.MAC LDXY VAL
+	LDX VAL
+	LDY VAL+1
+.ENDMAC
+
+.MAC STXY ADDR
+	STX ADDR
+	STY ADDR+1
+.ENDMAC
+
+.MAC SET DST SRC
+	LDXY SRC
+	STXY DST
+.ENDMAC
+```
 
 ## Example program
 Here is a basic hello world program to demonstrate some of the assembler's

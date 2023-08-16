@@ -1,3 +1,4 @@
+.include "errors.inc"
 .include "macros.inc"
 .include "util.inc"
 .include "zeropage.inc"
@@ -30,7 +31,8 @@ label_addresses: .res 256 * 2
 .CODE
 ;**************************************
 ;--------------------------------------
-; clr removes all labels
+; CLR
+; removes all labels effectively resetting the label state
 .export __label_clr
 .proc __label_clr
 	lda #$00
@@ -51,11 +53,14 @@ label_addresses: .res 256 * 2
 .endproc
 
 ;--------------------------------------
-; find returns the id of the 0 or ':' terminated label in (YX) in .YX
-; .C is set if no label is found
-; if no label is found, .YX contain the address of the label alphabetically
-; AFTER the label we were looking for
-; .A contains the length of the label because why not
+; FIND
+; looks for the ID corresponding to the given label and returns it.
+; in:
+;  - .XY: the name of the label to look for
+; out:
+;  - .C: set if label is not found
+;  - .A: contains the length of the label because why not
+;  - .XY: the id of the label
 .proc find
 @cnt=zp::tmp6
 @search=zp::tmp8
@@ -64,8 +69,7 @@ label_addresses: .res 256 * 2
 	iszero numlabels
 	bne :+
 	ldxy #$00
-	sec	; no labels exist
-	rts
+	RETURN_ERR ERR_LABEL_UNDEFINED ; no labels exist
 
 :	lda #$00
 	sta @cnt
@@ -98,14 +102,12 @@ label_addresses: .res 256 * 2
 	bne @seek
 @notfound:
 	ldxy @cnt
-	sec
-	rts
+	RETURN_ERR ERR_LABEL_UNDEFINED
 
 @found:
 	tya
 	ldxy @cnt
-	clc
-	rts
+	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -129,7 +131,7 @@ label_addresses: .res 256 * 2
 	stxy @name
 	jsr isvalid
 	bcc @seek
-	rts		; invalid label
+	RETURN_ERR ERR_ILLEGAL_LABEL
 
 @seek:
 	ldxy @name
@@ -144,8 +146,7 @@ label_addresses: .res 256 * 2
 	iny
 	lda zp::label_value+1
 	sta (@addr),y
-	clc
-	rts
+	RETURN_OK
 
 @insert:
 	stxy @id
@@ -282,8 +283,7 @@ label_addresses: .res 256 * 2
 
 	incw numlabels
 	ldxy @id
-	clc
-	rts
+	RETURN_OK
 .endproc
 
 
@@ -297,7 +297,7 @@ label_addresses: .res 256 * 2
 @table=zp::tmp0
 	jsr find	; get the id in YX
 	bcc :+
-	rts		; not found
+	RETURN_ERR ERR_LABEL_UNDEFINED
 
 :	txa
 	asl
@@ -321,8 +321,7 @@ label_addresses: .res 256 * 2
 	lda #$01
 	skw
 :	lda #$02
-	clc
-	rts
+	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -418,12 +417,14 @@ label_addresses: .res 256 * 2
 	bne @nameloop
 
 	decw numlabels
-	clc
-	rts
+	RETURN_OK
 .endproc
 
 ;--------------------------------------
-; isvalid returns with .Z set if the string at (line) contains valid
+; ISVALID
+; checks if the label in (zp::line) is valid
+;  out:
+;   - .C: set if the label is invalid, clear if valid
 ; characters for a label.
 .proc isvalid
 	ldy #$00
@@ -450,10 +451,9 @@ label_addresses: .res 256 * 2
 	iny
 	bcc @l0
 @err:
-	lda #$ff
+	RETURN_ERR ERR_ILLEGAL_LABEL
 @done:
-	lda #$00
-	rts
+	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -607,9 +607,7 @@ label_addresses: .res 256 * 2
 	cmp #':'
 	bne :-
 
-@done:	clc
-	rts
+@done:	RETURN_OK
 @notlabel:
-	sec
-	rts
+	RETURN_ERR ERR_ILLEGAL_LABEL
 .endproc

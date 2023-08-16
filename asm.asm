@@ -202,6 +202,7 @@ __asm_tokenize:
 	pla
 	jsr assemble_macro
 	bcs :+			; error
+	inc $900f
 	lda #ASM_MACRO
 	sta resulttype
 	clc
@@ -852,7 +853,23 @@ bbb10_modes:
 :	streq @endrep, 7	; are we at .endrep?
 	beq @next		; yep, do next iteration
 	ldxy #mem::ctxbuffer
+
+	; save the context
+	lda zp::ctx
+	pha
+	lda zp::ctx+1
+	pha
+
 	jsr __asm_tokenize ; nope, assemble and repeat
+	bcc :+
+	rts	; return err
+
+:	; restore the context
+	pla
+	sta zp::ctx+1
+	pla
+	sta zp::ctx
+
 	jmp @l1
 
 @next:	; increment iterator and repeat if there are more iterations left
@@ -862,9 +879,9 @@ bbb10_modes:
 	bne @l0
 
 @done:
-	;ldxy zp::ctx+repctx::param
-	;jsr lbl::del	; delete the iterator label
-	;jmp ctx::pop	; pop the context
+	ldxy zp::ctx+repctx::params
+	jsr lbl::del	; delete the iterator label
+	jsr ctx::pop	; pop the context
 	RETURN_OK
 
 @endrep: .byte ".endrep"
@@ -1097,9 +1114,6 @@ bbb10_modes:
 ; .endrep
 ; will produce 10 'asl's
 .proc repeat
-@param=$100
-@iter=zp::tmp1a
-@iterstop=zp::tmp1c
 	jsr ctx::push	; push a new context
 
 	jsr expr::eval ; get the number of times to repeat the code
@@ -1578,5 +1592,9 @@ bbb10_modes:
 :	jmp @l0
 
 @done:	pla
-	jmp mac::asm
+
+	lda state::verify
+	beq :+
+	RETURN_OK
+:	jmp mac::asm
 .endproc

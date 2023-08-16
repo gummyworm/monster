@@ -28,10 +28,12 @@ ERR_INVALID_DIRECTIVE=7
 ERR_LABEL_UNDEFINED=8
 
 .import __err_print
+.import __err_get
 .import __err_print_with_arg
 
 .scope err
 	print = __err_print
+	get = __err_get
 .endscope
 
 ;--------------------------------------

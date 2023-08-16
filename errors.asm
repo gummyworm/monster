@@ -3,7 +3,8 @@
 
 .DATA
 ;--------------------------------------
-
+err_no_err:
+	.byte 0
 err_stack_underflow:
 	.byte "stack underflow",0
 err_stack_overflow:
@@ -34,7 +35,7 @@ err_illegal_label:
 	.byte "invalid label",0
 
 ;--------------------------------------
-errors: .word 0	 ; no error
+errors: .word err_no_err	 ; no error
 	.word err_stack_underflow
 	.word err_stack_overflow
 	.word err_line_too_long
@@ -68,7 +69,7 @@ errors: .word 0	 ; no error
 	txa
 	pha
 
-	jsr geterr
+	jsr __err_get
 	lda #ERROR_ROW
 	jsr text::print
 	pla
@@ -84,14 +85,15 @@ errors: .word 0	 ; no error
 	cmp #$00
 	bne @err
 	rts
-@err:	jsr geterr
+@err:	jsr __err_get
 	lda #ERROR_ROW
 	jmp text::print
 .endproc
 
 ;--------------------------------------
 ; geterr returns the address of the error id in .A in .XY
-.proc geterr
+.export __err_get
+.proc __err_get
 	asl
 	tax
 	lda errors+1,x

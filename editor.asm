@@ -106,6 +106,7 @@ main:
 ; command_asm assembles the entire source into mem::program
 .export command_asm
 .proc command_asm
+@line=zp::editor
 	jsr src::pushp
 	jsr src::rewind
 	jsr src::next
@@ -116,11 +117,18 @@ main:
 	sta state::verify
 @doline:
 	jsr src::readline
+
+	ldxy src::line	; set the line we're assembling
+	stxy @line
+
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
-	bcc :+
+	bcc @ok
 
+@err:
+	ldxy @line
 	jsr reporterr
+
 	; save the failed line, get the screen and source back in sync and
 	; goto the line that failed
 	lda src::line
@@ -135,7 +143,8 @@ main:
 	tax
 	jmp gotoline
 
-:	jsr src::end
+@ok:
+	jsr src::end
 	bne @doline
 @printresult:
 	lda #$00
@@ -1136,9 +1145,31 @@ success_msg: .byte "done $", $fe, " bytes", 0
 ; REPORTERR
 ; reports the given error
 ; in:
-;  -A: the error code
+;  -.A: the error code
+;  -.XY: the line number of the error
 .proc reporterr
-	jmp err::print
+@err=zp::tmp0
+	sta @err
+
+	; push the line number
+	txa
+	pha
+	tya
+	pha
+
+	lda @err
+	jsr err::get	; get the address of the error
+
+	lda #<@line_err
+	sta zp::tmp0
+	lda #>@line_err
+	sta zp::tmp0+1
+	jsr str::cat
+
+	lda #ERROR_ROW
+	jsr text::print
+	rts
+@line_err: .byte " in line ", ESCAPE_VALUE,0
 .endproc
 
 .DATA

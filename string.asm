@@ -1,3 +1,4 @@
+.include "errors.inc"
 .include "macros.inc"
 .include "zeropage.inc"
 
@@ -152,5 +153,54 @@
 	bpl @l0
 @match:	lda #$00
 	rts
+.endproc
+
+;--------------------------------------
+; CAT
+; concatentates the two provided strings.
+; in:
+;  - .XY: the string to concatentate to
+;  - zp::tmp0: the string to add to the end of the first
+; out:
+;  - .XY: the address to a buffer containing the combined string
+;  - .C: set if the string is too large (>40 chars)
+.export __str_cat
+.proc __str_cat
+@buff=$100
+@str1=zp::tmp2
+@str2=zp::tmp0
+	; copy the first string to the buffer
+	stxy @str1
+	ldy #$00
+:	lda (@str1),y
+	sta @buff,y
+	beq @cat
+	iny
+	cpy #40
+	bne :-
+@toolong:
+	RETURN_ERR ERR_LINE_TOO_LONG
+
+@cat:
+	tya
+	clc
+	adc #<@buff
+	sta @str1
+	lda #>@buff
+	adc #$00
+	sta @str1+1
+
+	ldy #$00
+:	lda (@str2),y
+	sta (@str1),y
+	beq @done
+	iny
+	cpy #40
+	bcs @toolong
+	bcc :-
+@done:
+
+	ldxy #@buff
+	RETURN_OK
 .endproc
 
