@@ -422,7 +422,7 @@ label_addresses: .res 256 * 2
 
 ;--------------------------------------
 ; ISVALID
-; checks if the label in (zp::line) is valid
+; checks if the label in (zp::tmp0) is valid
 ;  out:
 ;   - .C: set if the label is invalid, clear if valid
 ; characters for a label.
@@ -430,7 +430,7 @@ label_addresses: .res 256 * 2
 	ldy #$00
 
 ; first character must be a letter
-:	lda (zp::line),y
+:	lda (zp::tmp4),y
 	iny
 	jsr util::is_whitespace
 	beq :-
@@ -441,15 +441,14 @@ label_addresses: .res 256 * 2
 
 ; following characters are between '0' and ')'
 @l0:
-	lda (zp::line),y
-	beq @done
+	lda (zp::tmp4),y
 	jsr util::is_whitespace
 	beq @done
 	cmp #' '
 	bcc @err
-	cmp #')'
+	cmp #'Z'+1
 	iny
-	bne @l0
+	bcc @l0
 @err:
 	RETURN_ERR ERR_ILLEGAL_LABEL
 @done:
