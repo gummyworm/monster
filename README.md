@@ -111,7 +111,7 @@ Examples:
 
 ### .ENDIF 
 Ends a .IF block
-see [.IF](#IF-)
+see [.IF](#if-)
 
 ### .EQU <name> <expression> 
 Defines a constant which may be used in expressions
