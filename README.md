@@ -111,7 +111,8 @@ Examples:
 
 ### .ENDIF 
 Ends a .IF block
-see [.IF](#if-)
+
+See [.IF](#if-)
 
 ### .EQU <name> <expression> 
 Defines a constant which may be used in expressions
@@ -133,6 +134,7 @@ Conditionally assembles the lines between this directive and its matching
 .EQU CYCLES_PER_LINE 71
 .EQU LINES 312
 .ENDIF
+```
 
 ### .INC <filename>
 Includes a file at the line of the directive. The file is loaded line-by-line
