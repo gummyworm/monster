@@ -245,7 +245,6 @@ __asm_tokenize:
 	pla
 	jsr assemble_macro
 	bcs :+			; error
-	inc $900f
 	lda #ASM_MACRO
 	sta resulttype
 	clc

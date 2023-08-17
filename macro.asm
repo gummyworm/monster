@@ -240,6 +240,8 @@ macros: .res 1024
 	incw @macro
 	lda (@macro),y		; at the end?
 	bne @asm		; no, continue
+	lda @cnt
+	beq @done
 @cleanup:
 	pla
 	tay
@@ -249,7 +251,7 @@ macros: .res 1024
 	dec @cnt
 	bne @cleanup
 
-@done:	rts
+@done:	RETURN_OK
 .endproc
 
 ;--------------------------------------
