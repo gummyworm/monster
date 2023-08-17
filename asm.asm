@@ -370,6 +370,8 @@ __asm_tokenize:
 	inc indexed
 	incw zp::line
 
+;------------------
+; finish the line by checking for whitespace and/or a comment
 @getws2:
 	jsr process_ws
 
@@ -1040,8 +1042,8 @@ bbb10_modes:
 	cmp #' '
 	beq @commaorws
 	; unexpected character
-@err:	lda #$ff
-@done:	rts
+@err:	RETURN_ERR ERR_SYNTAX_ERROR
+@done:	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -1068,8 +1070,8 @@ bbb10_modes:
 	cmp #' '
 	beq @commaorws
 	; unexpected character
-@err:	lda #$ff
-@done:	rts
+@err:	RETURN_ERR ERR_SYNTAX_ERROR
+@done:	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -1125,7 +1127,7 @@ bbb10_modes:
 	jsr expr::getval
 	bcs :+
 	stxy zp::asmresult
-:	rts
+:	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -1139,12 +1141,13 @@ bbb10_modes:
 	jsr processstring	; move past label name
 	jsr processws		; eat whitespace
 	jsr expr::getval	; get constant value
-	bcc :+
+	bcc @ok
 	pla
 	pla
 @err:
-	rts
-:	stx zp::label_value
+	RETURN_ERR ERR_SYNTAX_ERROR
+@ok:
+	stx zp::label_value
 	sty zp::label_value+1
 	pla
 	tay
