@@ -33,7 +33,9 @@ cur=zp::ctx+6		; cursor to current ctx data
 params=zp::ctx+8	; address of params (grows down from CONTEXT+$200-PARAM_LENGTH)
 numparams=zp::ctx+10	; the number of parameters for the context
 
-CTX_LINES_START = 9
+CTX_ITER_START = 2
+CTX_PARAMS_START = 8
+CTX_LINES_START = 11
 
 .CODE
 ;--------------------------------------
@@ -67,8 +69,8 @@ CTX_LINES_START = 9
 	beq @push
 
 	; save the active context's state
-	ldy #CTX_LINES_START-1
-:	lda ctx,y
+	ldy #CTX_LINES_START-CTX_ITER_START
+:	lda ctx+CTX_ITER_START,y
 	sta (ctx),y
 	dey
 	bpl :-
@@ -318,13 +320,13 @@ CTX_LINES_START = 9
 
 	; TODO: support types other than REP
 	; get the ctx metadata (iter, iterend, cur, and param)
-	ldy #CTX_LINES_START-1
+	ldy #CTX_PARAMS_START-CTX_ITER_START
 @l0:	lda (ctx),y
-	sta ctx,y
+	sta ctx+CTX_ITER_START,y
 	dey
 	bpl @l0
 
-	; get address of param buffer
+	; get address of param buffer (max address- will grow down)
 	lda ctx
 	adc #<(CONTEXT_SIZE)
 	sta params

@@ -17,7 +17,14 @@
 .include "zeropage.inc"
 .CODE
 
-.BSS
+;--------------------------------------
+; .IF/.ENDIF is handled differnt than other directives. It has higher
+; precedence and doesn't store anything in a context. Rather it works as a
+; simple flag that decides whether to write the result of TOKENIZE.
+; Because it doesn't use a context, we have a dedicated stack that stores the
+; TRUE/FALSE values for a given .IF
+MAX_IFS = 4	; max nesting depth for .if/.endif
+
 ;--------------------------------------
 indirect=zp::asm ; 1=indirect, 0=absolute
 indexed=zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
@@ -29,6 +36,12 @@ label_value = zp::asm+6 ; param to addlabel
 lsb = zp::asm+$a
 msb = zp::asm+$b
 
+if = zp::asm+$c	; if 0, assembly is disabled
+
+.BSS
+;--------------------------------------
+ifstack: .res MAX_IFS
+ifstacksp: .byte 0
 
 .DATA
 ;--------------------------------------
@@ -132,6 +145,7 @@ directive_vectors:
 .word defineorg
 .word repeat
 .word macro
+
 .CODE
 ;--------------------------------------
 ; validate verifies that the string at (YX) is a valid instrcution
@@ -159,13 +173,38 @@ __asm_tokenize:
 	stx zp::line
 	sty zp::line+1
 
+	jsr process_ws
+
+; check for .IF/.ENDIF
+	jsr if_endif
+	bcs :+
+	rts	; line was a .IF, .ENDIF, or .ELSE- we're done
+
+: ; check if we're in an .IF (FALSE) and if we are, return
+	ldx #$ff
+@checkifs:
+	inx
+	cpx ifstacksp
+	beq @directive
+	lda ifstack,x
+	bne @checkifs
+@false:	RETURN_OK
+
+; check if directive
+@directive:
+	jsr getdirective
+	bcs @ctx
+	lda #ASM_DIRECTIVE
+	sta resulttype
+	jmp @getws2
+
+; after directives, handle context if any
+@ctx:
 	jsr handle_ctx
 	bcc @noctx
 	RETURN_OK
 
 @noctx:
-	jsr process_ws
-
 	ldy #$00
 	sty indirect
 	sty indexed
@@ -178,6 +217,7 @@ __asm_tokenize:
 	lda (zp::line),y
 	cmp #';'
 	bne @opcode
+
 	; rest of the line is a comment, we're done
 	lda #ASM_COMMENT
 	sta resulttype
@@ -210,7 +250,7 @@ __asm_tokenize:
 
 @label:
 	jsr lbl::isvalid
-	bcs @directive
+	bcs @getopws
 	sta resulttype
 	ldx zp::line
 	ldy zp::line+1
@@ -219,14 +259,6 @@ __asm_tokenize:
 	lda zp::asmresult+1
 	sta zp::label_value+1
 	jmp lbl::add
-
-@directive:
-	jsr getdirective
-	bcc :+
-	jmp @err
-:	lda #ASM_DIRECTIVE
-	sta resulttype
-	jmp @getws2
 
 ; from here onwards we are either reading a comment or an operand
 @getopws:
@@ -1119,7 +1151,31 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
-; repeat generates assembly for the parameterized code between this directive
+; IF_ENDIF
+; check if (zp::line) is .IF or .ENDIF and handle it if so
+.proc if_endif
+	ldxy zp::line
+	streq @if, 3
+	bne :+
+	jmp do_if
+:	ldxy zp::line
+	streq @endif, 6
+	bne :+
+	jmp do_endif
+:	ldxy zp::line
+	streq @else, 5
+	bne :+
+	jmp do_else
+:	sec	; not if or endif
+	rts
+@if: .byte ".if",0
+@endif: .byte ".endif",0
+@else: .byte ".else",0
+.endproc
+
+;--------------------------------------
+; REPEAT
+; generates assembly for the parameterized code between this directive
 ; and the lines that follow until '.endrep'
 ; .rep 10,I
 ;   asl
@@ -1161,7 +1217,8 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
-; macro begins the definition of a macro, which will
+; MACRO
+; begins the definition of a macro, which will
 ; continue until '.endmac' is found
 ; and the lines that follow until '.endrep'
 ; .mac add8 A, B
@@ -1285,6 +1342,8 @@ bbb10_modes:
 .proc __asm_reset
 	ldxy #mem::program
 	stxy zp::asmresult
+	lda #$00
+	sta ifstacksp
 	jsr ctx::init
 	jsr mac::init
 	jmp lbl::clr
@@ -1609,4 +1668,58 @@ bbb10_modes:
 	beq :+
 	RETURN_OK
 :	jmp mac::asm
+.endproc
+
+;--------------------------------------
+; DO_IF
+; handles .IF during assembly
+; out:
+;  - .C: set if error
+.proc do_if
+	jsr process_word
+	jsr process_ws
+	lda ifstacksp
+	cmp #MAX_IFS
+	bcc :+
+	RETURN_ERR ERR_STACK_OVERFLOW
+
+:	; evaluate the condition for the .IF
+	jsr expr::eval
+	cmpw #$00
+	beq :+
+	ldx #$01
+:	stx if
+
+	; store the TRUE/FALSE value to the if stack
+	txa
+	ldx ifstacksp
+	sta ifstack,x
+	inc ifstacksp
+	lda #ASM_DIRECTIVE
+	RETURN_OK
+.endproc
+
+;--------------------------------------
+; DO_ENDIF
+; handles .ENDIF during assembly
+.proc do_endif
+	lda ifstacksp
+	bne :+
+	RETURN_ERR ERR_UNMATCHED_ENDIF
+
+:	dec ifstacksp
+	lda #ASM_DIRECTIVE
+	RETURN_OK
+.endproc
+
+;--------------------------------------
+; DO_ELSE
+; handles .ELSE during assembly
+.proc do_else
+	ldx ifstacksp
+	lda #$01
+	eor ifstack,x
+	sta ifstack,x
+	lda #ASM_DIRECTIVE
+	RETURN_OK
 .endproc

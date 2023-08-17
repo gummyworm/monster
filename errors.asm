@@ -22,6 +22,9 @@ err_invalid_directive:
 err_undefined_label:
 	.byte "label undefined",0
 
+err_unmatched_endif:
+	.byte ".endif with no .if",0
+
 ;------------------
 err_unaligned_label:
 	.byte "label is not left-aligned",0
@@ -45,8 +48,7 @@ errors: .word err_no_err	 ; no error
 	.word err_invalid_directive
 	.word err_undefined_label
 
-	.word 0
-
+	.word err_unmatched_endif
 	.word err_unaligned_label
 	.word err_illegal_opcode
 	.word err_illegal_addrmode
