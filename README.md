@@ -92,7 +92,7 @@ formatter will also take care of this.
 
 ## Directives
 The following directives are supported
-### .DB      
+### .DB <expression>, ..., <expression>
 Defines a sequence of bytes from the comma-separated list that follows.
 
 Examples:
@@ -101,7 +101,7 @@ Examples:
  | .DB $00, $01, $02 | $00 $01 $02          |
  | .DB "HI",0	     | $48 $49 $00          |
 
-### .DW
+### .DW <expression>, ..., <expression>
 deines a sequence of words from the comma-separated list that      |
 
 Examples:
@@ -109,7 +109,11 @@ Examples:
  |-------------------|-------------------------|
  | .DW $00, $01, $02 | $00 $00 $01 $00 $02 $00 |
 
-### .EQU
+### .ENDIF 
+Ends a .IF block
+see [.IF](#.IF)
+
+### .EQU <name> <expression> 
 Defines a constant which may be used in expressions
 ```
 .EQU BITMAP $1100
@@ -117,7 +121,20 @@ Defines a constant which may be used in expressions
   STA BITMAP+20
 ```
 
-### .INC
+### .IF <expression>
+Evaluates the expression 
+Conditionally assembles the lines between this directive and its matching
+`.ENDIF`. 
+```
+.IF NTSC
+.EQU CYCLES_PER_LINE 65
+.EQU LINES 261
+.ELSE
+.EQU CYCLES_PER_LINE 71
+.EQU LINES 312
+.ENDIF
+
+### .INC <filename>
 Includes a file at the line of the directive. The file is loaded line-by-line
 from disk and assembled as if the code was copy/pasted in place of the include directive.
 ```
@@ -126,7 +143,7 @@ from disk and assembled as if the code was copy/pasted in place of the include d
   JSR CHROUT
 ```
 
-### .MAC
+### .MAC <name> <param 1>, ..., <param n>
 Defines a macro
 ```
 .MAC LDXY VAL
@@ -148,7 +165,7 @@ Macros are invoked with the name of the macro followed by a comma-separated
 list of the parameters.
 
 
-### .ORG
+### .ORG <expression>
 Sets the address to assemble code to 
 ```
 .ORG $1000
@@ -158,7 +175,7 @@ Sets the address to assemble code to
 ; main code
 ```
 
-### .REP
+### .REP <expression> [, <iterator name>]
 Assembles the code between this directive and `.ENDREP` for the given number of 
 times.
 ```
