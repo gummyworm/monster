@@ -120,7 +120,6 @@ main:
 	stxy @line
 	jsr src::readline
 
-
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
 	bcc @ok
@@ -1139,6 +1138,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 ; in:
 ;  -.A: the error code
 ;  -.XY: the line number of the error
+;  - mem::linebuffer: the line containing the error
 .proc reporterr
 @err=zp::tmp0
 	sta @err
@@ -1148,6 +1148,11 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	pha
 	tya
 	pha
+
+	; display the line containing the error
+	ldxy #mem::linebuffer2
+	lda #ERROR_ROW+1
+	jsr text::putz
 
 	lda @err
 	jsr err::get	; get the address of the error

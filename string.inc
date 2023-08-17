@@ -1,5 +1,6 @@
 .import __str_cat
 .import __str_compare
+.import __str_copy
 .import __str_find
 .import __str_len
 .import __str_replace
@@ -7,6 +8,7 @@
 .scope str
 	cat = __str_cat
 	compare = __str_compare
+	copy = __str_copy
 	find = __str_find
 	len = __str_len
 	replace = __str_replace

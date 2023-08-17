@@ -40,6 +40,7 @@ if = zp::asm+$c	; if 0, assembly is disabled
 
 .BSS
 ;--------------------------------------
+.export ifstack
 ifstack: .res MAX_IFS
 ifstacksp: .byte 0
 
@@ -174,8 +175,10 @@ __asm_tokenize:
 	sty zp::line+1
 
 	jsr process_ws
+	bne :+
+	RETURN_OK	 ; empty line
 
-; check for .IF/.ENDIF
+: ; check for .IF/.ENDIF
 	jsr if_endif
 	bcs :+
 	rts	; line was a .IF, .ENDIF, or .ELSE- we're done
@@ -1168,9 +1171,9 @@ bbb10_modes:
 	jmp do_else
 :	sec	; not if or endif
 	rts
-@if: .byte ".if",0
-@endif: .byte ".endif",0
-@else: .byte ".else",0
+@if: .byte ".if"
+@endif: .byte ".endif"
+@else: .byte ".else"
 .endproc
 
 ;--------------------------------------
@@ -1286,7 +1289,7 @@ bbb10_modes:
 .proc process_ws
 	ldy #$00
 	lda (zp::line),y
-	beq @done
+	beq @done	; set .Z if 0
 	cmp #' '
 	bne @done
 	incw zp::line

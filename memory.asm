@@ -28,7 +28,9 @@ __linebuffer2:
 	.res 40		; backup buffer for when the linebuffer must be saved
 
 .export __linebuffer
-__linebuffer=$140	; the buffer for the line being edited
+__linebuffer:
+	.res 40
+;__linebuffer=$150	; the buffer for the line being edited
 
 .export __mem_ctxbuffer
 __mem_ctxbuffer=$140+40	; the buffer for the context during assembly

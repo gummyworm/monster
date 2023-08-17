@@ -3,6 +3,7 @@
 .include "zeropage.inc"
 
 ;--------------------------------------
+; FIND
 ; returns the address to the first occurrence of the text in .YX in the string
 ; in zp::str0
 ; returns:
@@ -34,7 +35,8 @@
 .endproc
 
 ;--------------------------------------
-; replace replaces all occurrences of the string in .XY in the string in zp::str0
+; REPLACE
+; replaces all occurrences of the string in .XY in the string in zp::str0
 ; with the string in zp::str2
 ; in zp::str0
 ; in:
@@ -138,7 +140,8 @@
 .endproc
 
 ;--------------------------------------
-; compare compares the strings in (str0) and (str2) up to a length of .A
+; COMPARE
+; compares the strings in (str0) and (str2) up to a length of .A
 ; If the strings are equal, 0 is returned in .A. and the zero flag is set.
 .export __str_compare
 .proc __str_compare
@@ -204,3 +207,22 @@
 	RETURN_OK
 .endproc
 
+;--------------------------------------
+; COPY
+; copies one 0-terminated string to another
+; in:
+;  - .XY: the source string to copy
+;  - zp::tmp0: the destination string to copy to
+.export __str_copy
+.proc __str_copy
+@src=zp::str0
+@dst=zp::tmp0
+	stxy @src
+	ldy #$00
+:	lda (@src),y
+	sta (@dst),y
+	beq @done
+	iny
+	bne :-
+@done:	RETURN_OK
+.endproc
