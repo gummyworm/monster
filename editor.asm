@@ -1150,7 +1150,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	pha
 
 	; display the line containing the error
-	ldxy #mem::linebuffer2
+	ldxy #mem::linebuffer
 	lda #ERROR_ROW+1
 	jsr text::putz
 

@@ -64,7 +64,7 @@ instructions, the canonical 6502 assembly syntax is supported.  That means '$'
 denotes a hex value, '#' and immediate operand, parentheses an indirect address,
 etc.
 
-### Expressions
+## Expressions
 Operands, in addition to basic values and labels, may contain an expression,
 which is evaluated to a value to generate the operand for the generated
 binary.
@@ -85,10 +85,19 @@ Immediate-addressing makes no sense with indirect addressing mode, so the assemb
 will allow you to enclose the whole expression in parentheses for expressions
 that are defined with a '#' prefix (e.g. `LDA #(2+4)`)
 
-### Formatting
+## Formatting
 Spacing is not important, but instructions are auto-formatted to be indented
 by two spaces.  Labels and directives are, by convention, not indented.  The
 formatter will also take care of this.
+
+## Files
+Monster holds the active source file in memory (for editing), but assembles
+all included files directly from file.
+Files are stored with $0d line endings, but if you save your file with UNIX
+style line-endings, they will be automatically converted when the file is
+read in.
+
+As with any work done with Commodore disk I/O, it is wise to regularly back up your files
 
 ## Directives
 The following directives are supported
