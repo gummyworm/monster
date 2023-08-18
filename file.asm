@@ -295,7 +295,7 @@ FIRST_FILE_ID = 3
 @eof:
 	and #$20	; EOF?
 	bne @done	; yes, return okay
-	sec		; erorr
+	sec		; error
 	rts
 .endproc
 
@@ -351,7 +351,6 @@ FIRST_FILE_ID = 3
 	txa
 	jmp $ffc3
 .endproc
-
 
 .BSS
 ;--------------------------------------

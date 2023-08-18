@@ -7,6 +7,8 @@
 
 .segment "SOURCE"
 ;--------------------------------------
+.export macro_addresses
+.export macros
 nummacros: .byte 0
 macro_addresses: .res 256
 macros: .res 1024
@@ -152,6 +154,7 @@ macros: .res 1024
 .export __mac_asm
 .proc __mac_asm
 @params=zp::macros
+@err=zp::macros+$0b
 @cnt=zp::macros+$0c
 @macro=zp::macros+$0d
 @numparams=zp::macros+$0f
@@ -164,6 +167,7 @@ macros: .res 1024
 
 	; read past the macro name
 	ldy #$00
+	sty @err	; init err to none
 :	incw @macro
 	lda (@macro),y
 	bne :-
@@ -197,16 +201,18 @@ macros: .res 1024
 	pha
 	tya
 	pha
+	inc @cnt
 	jsr lbl::add	; set the parameter to its value
+	bcc :+
+	bcs @cleanup
 
-	; read past the param name
+:	; read past the param name
 	ldy #$00
 :	incw @macro
 	lda (@macro),y
 	bne :-
 	incw @macro
 
-	inc @cnt
 	jmp @setparams	; repeat for all params
 
 @paramsdone:
@@ -221,6 +227,7 @@ macros: .res 1024
 	pha
 
 	jsr asm::tokenize
+	sta @err
 
 	; restore state
 	pla
@@ -230,8 +237,11 @@ macros: .res 1024
 	pla
 	sta @macro
 
+@chkerr:
+	bcc @ok
+	bne @cleanuploop
 
-	; move to the next line
+@ok:	; move to the next line
 	ldy #$00
 :	incw @macro
 	lda (@macro),y
@@ -240,18 +250,22 @@ macros: .res 1024
 	incw @macro
 	lda (@macro),y		; at the end?
 	bne @asm		; no, continue
+
+@cleanup:
 	lda @cnt
 	beq @done
-@cleanup:
+@cleanuploop:
 	pla
 	tay
 	pla
 	tax
 	jsr lbl::del
 	dec @cnt
-	bne @cleanup
+	bne @cleanuploop
 
-@done:	RETURN_OK
+@done:	lsr @err	; set .C if error
+	lda @err
+	rts
 .endproc
 
 ;--------------------------------------

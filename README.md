@@ -170,7 +170,7 @@ Will generate the following code:
   LDY #$12
 ```
 Macro definitions begin with the `.MAC` directive followed by the name of the 
-macro and a space-separated list of the parameters for the macro.
+macro and a comma-separated list of the parameters for the macro.
 
 Macros are invoked with the name of the macro followed by a comma-separated
 list of the parameters.
@@ -233,9 +233,28 @@ They may be recursive as in this example:
 	STY ADDR+1
 .ENDMAC
 
-.MAC SET DST SRC
+.MAC SET DST, SRC
 	LDXY SRC
 	STXY DST
+.ENDMAC
+```
+
+You may omit arguments to a macro if your macro knows how to deal with 
+less than the maximum number it expects as in this example:
+```
+.MAC SAVEBYTES A, B, C
+.IFDEF A
+	LDA A
+	PHA
+.ENDIF
+.IFDEF B
+	LDA B
+	PHA
+.ENDIF
+.IFDEF C
+	LDA C
+	PHA
+.ENDIF
 .ENDMAC
 ```
 

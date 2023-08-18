@@ -36,6 +36,12 @@ err_oversized_operand:
 	.byte "oversized operand", 0
 err_illegal_label:
 	.byte "invalid label",0
+err_unexpected_char:
+	.byte "unexpected character", 0
+err_io:
+	.byte "i/o error",0
+err_no_macro_name:
+	.byte "no macro name given",0
 
 ;--------------------------------------
 errors: .word err_no_err	 ; no error
@@ -54,6 +60,9 @@ errors: .word err_no_err	 ; no error
 	.word err_illegal_addrmode
 	.word err_oversized_operand
 	.word err_illegal_label
+	.word err_unexpected_char
+	.word err_io
+	.word err_no_macro_name
 
 .CODE
 ;--------------------------------------

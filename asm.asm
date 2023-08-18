@@ -18,11 +18,7 @@
 .CODE
 
 ;--------------------------------------
-; .IF/.ENDIF is handled differnt than other directives. It has higher
-; precedence and doesn't store anything in a context. Rather it works as a
-; simple flag that decides whether to write the result of TOKENIZE.
-; Because it doesn't use a context, we have a dedicated stack that stores the
-; TRUE/FALSE values for a given .IF
+; TRUE/FALSE values for the active IF blocks
 MAX_IFS = 4	; max nesting depth for .if/.endif
 
 ;--------------------------------------
@@ -136,6 +132,10 @@ directives:
 .byte "org",0
 .byte "rep",0
 .byte "mac",0
+.byte "if",0
+.byte "else",0
+.byte "endif",0
+
 directives_len=*-directives
 
 directive_vectors:
@@ -146,6 +146,9 @@ directive_vectors:
 .word defineorg
 .word repeat
 .word macro
+.word do_if
+.word do_else
+.word do_endif
 
 .CODE
 ;--------------------------------------
@@ -175,24 +178,18 @@ __asm_tokenize:
 	sty zp::line+1
 
 	jsr process_ws
-	bne :+
-	RETURN_OK	 ; empty line
+	beq @false	; empty line
 
-: ; check for .IF/.ENDIF
-	jsr if_endif
-	bcs :+
-	rts	; line was a .IF, .ENDIF, or .ELSE- we're done
-
-: ; check if we're in an .IF (FALSE) and if we are, return
-	ldx #$ff
+; check if we're in an .IF (FALSE) and if we are, return
 @checkifs:
-	inx
+	ldx #$ff
+:	inx
 	cpx ifstacksp
 	beq @directive
 	lda ifstack,x
-	bne @checkifs
+	bne :-
 @false:	RETURN_OK
-
+	inc $900f
 ; check if directive
 @directive:
 	jsr getdirective
@@ -376,11 +373,9 @@ __asm_tokenize:
 
 @comment:
 	lda (zp::line),y
+	jsr islineterminator
 	beq @done
-	cmp #';'
-	; error- trailing garbage
-	beq :+
-	jmp @err
+	RETURN_ERR ERR_UNEXPECTED_CHAR
 
 	; get length of comment
 :	iny
@@ -1082,13 +1077,15 @@ bbb10_modes:
 @quote1:
 	lda (zp::line),y
 	cmp #'"'
-	bne @err
-	ldx #$00
+	beq :+
+@unenquoted:
+	RETURN_ERR ERR_UNEXPECTED_CHAR
+:	ldx #$00
 	incw zp::line
 @getfilename:
 	lda (zp::line),y
 	jsr util::is_whitespace
-	beq @err
+	beq @unenquoted
 	cmp #'"'
 	beq @readfile
 	sta @filename,x
@@ -1107,16 +1104,17 @@ bbb10_modes:
 	ldxy #mem::spare
 	lda zp::file
 	jsr file::getline
-	bcs @err
-	cmp #$00
+	bcc @ok
+	RETURN_ERR ERR_IO_ERROR
+
+@ok:	cmp #$00
 	beq @done
 	ldxy #mem::spare
 	jsr __asm_tokenize
 	jmp @doline
 
-@done:
-@err:	lda zp::file
-	jmp file::close
+@done:	lda zp::file
+	jsr file::close
 .endproc
 
 ;--------------------------------------
@@ -1156,29 +1154,6 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
-; IF_ENDIF
-; check if (zp::line) is .IF or .ENDIF and handle it if so
-.proc if_endif
-	ldxy zp::line
-	streq @if, 3
-	bne :+
-	jmp do_if
-:	ldxy zp::line
-	streq @endif, 6
-	bne :+
-	jmp do_endif
-:	ldxy zp::line
-	streq @else, 5
-	bne :+
-	jmp do_else
-:	sec	; not if or endif
-	rts
-@if: .byte ".if"
-@endif: .byte ".endif"
-@else: .byte ".else"
-.endproc
-
-;--------------------------------------
 ; REPEAT
 ; generates assembly for the parameterized code between this directive
 ; and the lines that follow until '.endrep'
@@ -1200,7 +1175,7 @@ bbb10_modes:
 	lda (zp::line),y
 	cmp #','
 	beq :+
-	RETURN_ERR ERR_SYNTAX_ERROR ; comma must follow the # of times to repeat
+	RETURN_ERR ERR_UNEXPECTED_CHAR ; comma must follow the # of times to repeat
 
 :	; get the name of the parameter
 	incw zp::line
@@ -1235,18 +1210,38 @@ bbb10_modes:
 ;   add8 10, 20
 .proc macro
 	jsr ctx::push	; push a new context
+; get the first parameter (the name)
+@getname:
+	jsr process_ws	; sets .Y to 0
+	jsr islineterminator
+	bne :+
+	RETURN_ERR ERR_NO_MACRO_NAME
+:	ldxy zp::line
+	jsr ctx::addparam
+	bcc :+
+	rts
+:	stxy zp::line
 
 @getparams:
-	jsr process_ws
-	ldy #$00
+	jsr process_ws	; sets .Y to 0
 	lda (zp::line),y
+	jsr islineterminator
 	beq @done
 	ldxy zp::line
 	jsr ctx::addparam
 	stxy zp::line
-	bcc @getparams
-	rts		; err
 
+	; look for the comma or line-end
+	jsr process_ws	; sets .Y to 0
+	lda (zp::line),y
+	jsr islineterminator
+	beq @done
+	cmp #','
+	beq :+
+	RETURN_ERR ERR_UNEXPECTED_CHAR
+
+:	incw zp::line
+	bne @getparams
 @done:
 	lda #CTX_MACRO
 	sta ctx::type
@@ -1288,6 +1283,9 @@ bbb10_modes:
 ; process_ws reads (line) and updates it to point past ' ' chars.
 ; .A contains the last character processed on return
 ; .Z is set if we're at the end of the line ($00)
+; out:
+;  .Y: 0
+;  zp::line: updated to first non ' ' character
 .proc process_ws
 	ldy #$00
 	lda (zp::line),y
@@ -1681,8 +1679,6 @@ bbb10_modes:
 ; out:
 ;  - .C: set if error
 .proc do_if
-	jsr process_word
-	jsr process_ws
 	lda ifstacksp
 	cmp #MAX_IFS
 	bcc :+
@@ -1727,4 +1723,17 @@ bbb10_modes:
 	sta ifstack,x
 	lda #ASM_DIRECTIVE
 	RETURN_OK
+.endproc
+
+;--------------------------------------
+; ISLINETERMINATOR
+; in:
+;  .A: the character to check
+; out:
+;  - .Z: set if the .A is a 0 or ';'
+.proc islineterminator
+	cmp #$00
+	beq :+
+	cmp #';'
+:	rts
 .endproc

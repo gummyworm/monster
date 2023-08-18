@@ -422,15 +422,16 @@ label_addresses: .res 256 * 2
 
 ;--------------------------------------
 ; ISVALID
-; checks if the label in (zp::tmp0) is valid
+; checks if the label in (zp::tmp4) is valid
 ;  out:
 ;   - .C: set if the label is invalid, clear if valid
 ; characters for a label.
 .proc isvalid
+@name=zp::tmp4
 	ldy #$00
 
 ; first character must be a letter
-:	lda (zp::tmp4),y
+:	lda (@name),y
 	iny
 	jsr util::is_whitespace
 	beq :-
@@ -441,7 +442,8 @@ label_addresses: .res 256 * 2
 
 ; following characters are between '0' and ')'
 @l0:
-	lda (zp::tmp4),y
+	lda (@name),y
+	beq @done
 	jsr util::is_whitespace
 	beq @done
 	cmp #' '

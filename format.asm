@@ -78,13 +78,15 @@
 	jsr src::down
 	pla
 	cmp #ASM_LABEL
-	bne :+
+	bne @notlabel
 	jmp __fmt_label
-:	cmp #ASM_OPCODE
-	bne :+
-	jmp __fmt_opcode
+@notlabel:
+	cmp #ASM_OPCODE
+	beq @indent
 	cmp #ASM_MACRO
-	bne :+
+	bne @done
+@indent:
 	jmp __fmt_opcode
-:	rts
+@done:
+	rts
 .endproc

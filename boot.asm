@@ -23,8 +23,8 @@
 start:
 	ldxy #__BSS_LOAD__
 	stxy zp::tmp0
-	ldy #$00
 @zeromem:
+	ldy #$00
 	sta (zp::tmp0),y
 	incw zp::tmp0
 	ldxy zp::tmp0
