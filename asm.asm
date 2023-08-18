@@ -195,9 +195,10 @@ __asm_tokenize:
 @directive:
 	jsr getdirective
 	bcs @ctx
+
 	lda #ASM_DIRECTIVE
 	sta resulttype
-	jmp @getws2
+	jmp handle_directive
 
 ; after directives, handle context if any
 @ctx:
@@ -864,10 +865,20 @@ bbb10_modes:
 	lda @cnt
 	asl
 	tax
-	lda directive_vectors,x
-	sta @vec
 	lda directive_vectors+1,x
-	sta @vec+1
+	tay
+	lda directive_vectors,x
+	tax
+	RETURN_OK
+.endproc
+
+;--------------------------------------
+; HANDLE_DIRECTIVE
+; jumps to the given directive vector
+; in:
+;  - .XY: the directive handler to jump to
+.proc handle_directive
+	stxy @vec
 @vec=*+1
 	jmp $fadd
 .endproc
@@ -999,12 +1010,14 @@ bbb10_modes:
 ; defines 0 or more bytes and stores them in (asmresult)
 ; Returns the number of bytes written in .A
 .proc definebyte
+	jsr process_ws
 	ldxy zp::line
 	jsr expr::getval
 	bcs @text
 	cmp #$01
-	bne @err	; over/undersized value
-	; store the extracted value
+	beq @ok
+	RETURN_ERR ERR_OVERSIZED_OPERAND
+@ok:	; store the extracted value
 	ldy #$00
 	txa
 	sta (zp::asmresult),y
@@ -1248,8 +1261,7 @@ bbb10_modes:
 
 :	incw zp::line
 	bne @getparams
-@done:
-	lda #CTX_MACRO
+@done:	lda #CTX_MACRO
 	sta ctx::type
 	RETURN_OK
 .endproc
