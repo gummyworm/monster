@@ -1,7 +1,7 @@
+.include "errors.inc"
 .include "memory.inc"
 .include "text.inc"
 .include "zeropage.inc"
-
 .include "macros.inc"
 .CODE
 
@@ -124,9 +124,9 @@
 @l0:	inc @scale
 	lda (@str),y
 	cmp #'9'+1
-	bcs @err
+	bcs @unexpectedchar
 	cmp #'0'
-	bcc @err
+	bcc @unexpectedchar
 	sec
 	sbc #'0'
 	sta @tmp
@@ -135,7 +135,7 @@
 	ldx @scale
 	beq @muldone
 @l1:	jsr @mul10
-	bcs @err
+	bcs @err	; oversized value
 	dex
 	bne @l1
 @muldone:
@@ -152,14 +152,14 @@
 
 	ldx @val
 	ldy @val+1
-	clc
 @offset=*+1
 	lda #$00
-	rts
-@err:
-	sec
-	rts
+	RETURN_OK
+@unexpectedchar:
+	lda #ERR_UNEXPECTED_CHAR
+@err:	rts
 
+;------------------
 @mul10:
 ; multiply (in place) word in @tmp by 10
 ; .C is clear on success, set on failure
@@ -192,8 +192,9 @@
 	adc @tmp2+1
 	bcs @mulerr
 	sta @tmp+1
+	RETURN_OK
 @mulerr:
-	rts
+	RETURN_ERR ERR_OVERSIZED_OPERAND
 .endproc
 
 ;--------------------------------------

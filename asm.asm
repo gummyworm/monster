@@ -1061,6 +1061,7 @@ bbb10_modes:
 
 ;--------------------------------------
 .proc defineword
+	jsr process_ws
 	ldxy zp::line
 	jsr expr::getval
 	bcs @err
@@ -1133,7 +1134,7 @@ bbb10_modes:
 	jmp @doline
 
 @done:	lda zp::file
-	jsr file::close
+	jmp file::close
 .endproc
 
 ;--------------------------------------
@@ -1141,9 +1142,10 @@ bbb10_modes:
 	jsr processws
 	ldxy zp::line
 	jsr expr::getval
-	bcs :+
-	stxy zp::asmresult
-:	RETURN_OK
+	bcc :+
+	rts		; error
+:	stxy zp::asmresult
+	RETURN_OK
 .endproc
 
 ;--------------------------------------

@@ -117,8 +117,7 @@ MAX_OPERANDS=$10/2
 	;cpy #$ff	; 1 byte negative
 	;beq :+
 	lda #$02
-:	clc
-	rts
+:	RETURN_OK
 
 ;------------------
 ; isterminator returns .Z set if the character in .A is
@@ -319,9 +318,9 @@ MAX_OPERANDS=$10/2
 	lda #$02
 	skw
 	lda #$01
-	clc
-	rts
+	RETURN_OK
 
+;------------------
 @decimal:
 	ldxy zp::line
 	jsr atoi	; convert to binary
@@ -334,6 +333,7 @@ MAX_OPERANDS=$10/2
 	sty @val+1
 	jmp @success
 
+;------------------
 @hex:
 	iny
 @l0:	lda (zp::line),y
@@ -348,11 +348,14 @@ MAX_OPERANDS=$10/2
 	sbc #'0'
 	jmp @next
 
+@badhex:
+	RETURN_ERR ERR_UNEXPECTED_CHAR
+
 @convertchar:
 	cmp #'a'
-	bcc @err
+	bcc @badhex
 	cmp #'f'+1
-	bcs @err
+	bcs @badhex
 	sec
 	sbc #'a'-$a
 
@@ -390,8 +393,7 @@ MAX_OPERANDS=$10/2
 	lda #$02	; 2 bytes
 	skw
 :	lda #$01	; 1 byte
-	clc
-	rts
+	RETURN_OK
 
 @err:	sec
 	rts
