@@ -101,7 +101,7 @@ As with any work done with Commodore disk I/O, it is wise to regularly back up y
 
 ## Directives
 The following directives are supported
-### .DB <expression>, ..., <expression>
+### .DB _expression_, ..., _expression_
 Defines a sequence of bytes from the comma-separated list that follows.
 
 Examples:
@@ -110,7 +110,7 @@ Examples:
  | .DB $00, $01, $02 | $00 $01 $02          |
  | .DB "HI",0	     | $48 $49 $00          |
 
-### .DW <expression>, ..., <expression>
+### .DW _expression_, ..., _expression_
 deines a sequence of words from the comma-separated list that      |
 
 Examples:
@@ -123,7 +123,7 @@ Ends a .IF block
 
 See [.IF](#if-)
 
-### .EQU <name> <expression> 
+### .EQU _name_ _expression_
 Defines a constant which may be used in expressions
 ```
 .EQU BITMAP $1100
@@ -131,7 +131,7 @@ Defines a constant which may be used in expressions
   STA BITMAP+20
 ```
 
-### .IF <expression>
+### .IF _expression_
 Evaluates the expression 
 Conditionally assembles the lines between this directive and its matching
 `.ENDIF`. 
