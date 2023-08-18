@@ -145,12 +145,12 @@ Conditionally assembles the lines between this directive and its matching
 .ENDIF
 ```
 
-### .IFDEF <label>
-Evaluates to TRUE if <label> is defined.  This is different from .IF because
-<label> may be defined to be 0 and this will still evaluate to TRUE.
+### .IFDEF _label_
+Evaluates to TRUE if _label_ is defined.  This is different from .IF because
+_label_ may be defined to be 0 and this will still evaluate to TRUE.
 This can be useful inside macros to determine if a paramter was provided or not.
 
-### .INC <filename>
+### .INC _filename_
 Includes a file at the line of the directive. The file is loaded line-by-line
 from disk and assembled as if the code was copy/pasted in place of the include directive.
 ```
@@ -159,7 +159,7 @@ from disk and assembled as if the code was copy/pasted in place of the include d
   JSR CHROUT
 ```
 
-### .MAC <name> <param 1>, ..., <param n>
+### .MAC _name_ _param 1_, ..., _param n_
 Defines a macro
 ```
 .MAC LDXY VAL
@@ -181,7 +181,7 @@ Macros are invoked with the name of the macro followed by a comma-separated
 list of the parameters.
 
 
-### .ORG <expression>
+### .ORG _expression_
 Sets the address to assemble code to 
 ```
 .ORG $1000
@@ -191,7 +191,7 @@ Sets the address to assemble code to
 ; main code
 ```
 
-### .REP <expression> [, <iterator name>]
+### .REP _expression_ [, _iterator name_]
 Assembles the code between this directive and `.ENDREP` for the given number of 
 times.
 ```
