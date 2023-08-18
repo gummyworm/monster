@@ -61,7 +61,8 @@ label_addresses: .res 256 * 2
 ;  - .C: set if label is not found
 ;  - .A: contains the length of the label because why not
 ;  - .XY: the id of the label
-.proc find
+.export __label_find
+.proc __label_find
 @cnt=zp::tmp6
 @search=zp::tmp8
 @label=zp::tmpa
@@ -135,7 +136,7 @@ label_addresses: .res 256 * 2
 
 @seek:
 	ldxy @name
-	jsr find
+	jsr __label_find
 	bcs @insert
 	; label exists, overwrite its old value
 
@@ -295,7 +296,7 @@ label_addresses: .res 256 * 2
 .export __label_address
 .proc __label_address
 @table=zp::tmp0
-	jsr find	; get the id in YX
+	jsr __label_find	; get the id in YX
 	bcc :+
 	RETURN_ERR ERR_LABEL_UNDEFINED
 
@@ -335,7 +336,7 @@ label_addresses: .res 256 * 2
 @dst=zp::tmp10
 @asrc=zp::tmp12
 @adst=zp::tmp14
-	jsr find
+	jsr __label_find
 	bcc @del
 	rts
 

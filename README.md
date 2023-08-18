@@ -145,6 +145,11 @@ Conditionally assembles the lines between this directive and its matching
 .ENDIF
 ```
 
+### .IFDEF <label>
+Evaluates to TRUE if <label> is defined.  This is different from .IF because
+<label> may be defined to be 0 and this will still evaluate to TRUE.
+This can be useful inside macros to determine if a paramter was provided or not.
+
 ### .INC <filename>
 Includes a file at the line of the directive. The file is loaded line-by-line
 from disk and assembled as if the code was copy/pasted in place of the include directive.

@@ -32,7 +32,6 @@ label_value = zp::asm+6 ; param to addlabel
 lsb = zp::asm+$a
 msb = zp::asm+$b
 
-if = zp::asm+$c	; if 0, assembly is disabled
 
 .BSS
 ;--------------------------------------
@@ -135,6 +134,7 @@ directives:
 .byte "if",0
 .byte "else",0
 .byte "endif",0
+.byte "ifdef",0
 
 directives_len=*-directives
 
@@ -149,6 +149,7 @@ directive_vectors:
 .word do_if
 .word do_else
 .word do_endif
+.word do_ifdef
 
 .CODE
 ;--------------------------------------
@@ -821,34 +822,39 @@ bbb10_modes:
 
 :	ldx #$00
 	stx @cnt
-	dex
-@l0:	ldy #$00
-	inx
+@l0:	ldy #$01
 @l1:	lda directives,x
+	cmp #$00
 	beq @found
+	cmp (zp::line),y
+	bne @next
 	inx
 	iny
-	cmp (zp::line),y
-	beq @l1
+	bne @l1
 
+@next:
 	cpx #directives_len
-	bcc :+
-	lda #$ff	; no match
+	bcc @ok
 	RETURN_ERR ERR_INVALID_DIRECTIVE
+@ok:	inc @cnt
 
-:	inc @cnt
-	dex
-@l2:
+@l2:	lda directives,x ; move to next directive
 	inx
-	lda directives,x ; move to next directive
+	cmp #$00
 	beq @l0
 	cpx #directives_len
 	bcc @l2
 	RETURN_ERR ERR_INVALID_DIRECTIVE
 
 @found:
-	tya
-	sec		; +1
+	; make sure there are no trailing characters
+	lda (zp::line),y
+	beq :+
+	cmp #' '
+	bne @next
+
+:	tya
+	clc
 	adc zp::line
 	sta zp::line
 	bcc :+
@@ -1689,7 +1695,6 @@ bbb10_modes:
 	cmpw #$00
 	beq :+
 	ldx #$01
-:	stx if
 
 	; store the TRUE/FALSE value to the if stack
 	txa
@@ -1721,6 +1726,32 @@ bbb10_modes:
 	lda #$01
 	eor ifstack,x
 	sta ifstack,x
+	lda #ASM_DIRECTIVE
+	RETURN_OK
+.endproc
+
+;--------------------------------------
+; DO_IFDEF
+; handles the .IFDEF directive during assembly
+.proc do_ifdef
+	lda ifstacksp
+	cmp #MAX_IFS
+	bcc :+
+	RETURN_ERR ERR_STACK_OVERFLOW
+
+:	; check if the label exists
+	ldxy zp::line
+	jsr lbl::find
+	lda #$00
+	bcs :+	; label not defined
+	lda #$01
+
+:	; store TRUE/FALSE to the if stack
+	ldx ifstacksp
+	sta ifstack,x
+	inc ifstacksp
+@done:
+	jsr process_word
 	lda #ASM_DIRECTIVE
 	RETURN_OK
 .endproc
