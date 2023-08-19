@@ -1265,6 +1265,7 @@ bbb10_modes:
 	bne @getparams
 @done:	lda #CTX_MACRO
 	sta ctx::type
+	lda #ASM_DIRECTIVE
 	RETURN_OK
 .endproc
 
@@ -1313,7 +1314,7 @@ bbb10_modes:
 	cmp #' '
 	bne @done
 	incw zp::line
-	jmp process_ws
+	bne process_ws
 @done:	rts
 .endproc
 

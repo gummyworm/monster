@@ -411,7 +411,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jsr drawline
 	jsr src::end
 	bne @l0
-	rts
+	jmp src::prev
 .endproc
 
 ;--------------------------------------

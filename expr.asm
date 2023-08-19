@@ -35,7 +35,8 @@ MAX_OPERANDS=$10/2
 	ldy #$00
 	lda (zp::line),y
 	jsr @isterminator
-	beq @done
+	bne @rparen
+	jmp @done
 
 @rparen:
 	cmp #'('
@@ -89,8 +90,13 @@ MAX_OPERANDS=$10/2
 	jmp @l0
 
 @getoperand:
+	jsr isval
+	bcs @label	; not a val, try label
 	jsr __expr_getval	; is this a value?
 	bcc :+
+	rts		; return err
+
+@label:
 	ldxy zp::line
 	jsr get_label	; is it a label?
 	bcs @err
@@ -286,6 +292,45 @@ MAX_OPERANDS=$10/2
 .endproc
 
 ;--------------------------------------
+; ISVAL
+; Checks if the word in zp::line is a value or not
+; out:
+;  - .C: clear if the string is a hex or decimal value
+.proc isval
+	; allow first char to be '$'
+	ldx #$00	; 0 if decimal, 1 if hex
+	lda (zp::line),y
+	cmp #'$'
+	bne @cont
+	inx		; flag hex
+	iny
+@cont:
+	lda (zp::line),y
+	jsr util::isseparator
+	beq @done
+
+	cpx #$00
+	beq @dec
+	; check hex
+	cmp #'f'+1
+	bcs @err
+	cmp #'a'
+	bcs @ok
+
+@dec:	cmp #'0'
+	bcc @err
+	cmp #'9'+1
+	bcs @err
+@ok:	iny
+	bne @cont
+
+@done:	RETURN_OK
+@err:	sec
+	rts
+
+.endproc
+
+;--------------------------------------
 ; GETVAL
 ; parses the given string for a decimal or hexadecimal value up to 16 bits in size.
 ; If it succeeds, the size
@@ -395,6 +440,6 @@ MAX_OPERANDS=$10/2
 :	lda #$01	; 1 byte
 	RETURN_OK
 
-@err:	sec
+@err:	RETURN_ERR ERR_OVERSIZED_OPERAND
 	rts
 .endproc
