@@ -21,8 +21,9 @@ str9 = $39
 stra = $3a
 
 ;--------------------------------------
-; $40-$50 are used during assembly
+; $40-$50 are used during assembly and debug
 asm=$40		; base address of assembly tmp vars
+disasm=$40	; base address of disassembly tmp vars
 line=$4c	; ptr to text being processed
 
 ;--------------------------------------
@@ -48,19 +49,20 @@ device = $ba	; the last used drive #
 file = $bb	; the most recently accessed file
 
 ;--------------------------------------
-; $d0-$d2 assembly state
+; $d0-$d5 assembly state
 asmresult = $d0	; pointer where code is assembled
-bank      = $d2 ; the current bank in the final expansion being worked on
-verify = $d3
+virtualpc = $d2 ; pointer to address address code will live at during runtime (.RORG)
+bank      = $d4 ; the current bank in the final expansion being worked on
+verify 	  = $d5
 
 ;--------------------------------------
-; $d3-$d4 cursor state
-curx = $d4
-cury = $d5
+; $d6-$d7 cursor state
+curx = $d6
+cury = $d7
 
 ;--------------------------------------
-; $d5-$e0 editor state
-editor = $d6
+; $d8-$e0 editor state
+editor = $d8
 
 ;--------------------------------------
 ; $e0-$ff temporary storage

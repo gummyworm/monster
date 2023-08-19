@@ -953,8 +953,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	bne :+
 	ldxy #$0001
 :	jmp gotoline
-@done:
-	rts
+@done:	rts
 .endproc
 
 ;--------------------------------------

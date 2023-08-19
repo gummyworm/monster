@@ -1,5 +1,5 @@
 # MONster
-MONster is an all-in-one editor/assembler/memory editor for the Commodore Vic-20.
+MONster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
 In its current form it is primarily intended for native development of applications for the
 unexpanded Commodore Vic-20.
 
@@ -190,6 +190,22 @@ Sets the address to assemble code to
 .ORG $2000
 ; main code
 ```
+
+### .RORG _expression_
+Sets the address the code will run at when executed.
+This is useful for code that will be relocated prior to execution.
+```
+.ORG $1000
+.RORG $00
+  ; some tight loop
+  LDA #$01
+  STA *+3
+  LDA #$00
+  STA $900F
+```
+Note that the `.RORG` directive must follow the `.ORG` directive in order to
+avoid the virtual PC being overwritten.
+`.ORG` will set the virtual PC to the same location as the physical PC. 
 
 ### .REP _expression_ [, _iterator name_]
 Assembles the code between this directive and `.ENDREP` for the given number of 

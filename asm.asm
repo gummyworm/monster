@@ -129,6 +129,7 @@ directives:
 .byte "dw",0
 .byte "inc",0
 .byte "org",0
+.byte "rorg",0
 .byte "rep",0
 .byte "mac",0
 .byte "if",0
@@ -144,6 +145,7 @@ directive_vectors:
 .word defineword
 .word includefile
 .word defineorg
+.word define_psuedo_org
 .word repeat
 .word macro
 .word do_if
@@ -255,9 +257,9 @@ __asm_tokenize:
 	sta resulttype
 	ldx zp::line
 	ldy zp::line+1
-	lda zp::asmresult
+	lda zp::virtualpc
 	sta zp::label_value
-	lda zp::asmresult+1
+	lda zp::virtualpc+1
 	sta zp::label_value+1
 	jmp lbl::add
 
@@ -479,8 +481,16 @@ __asm_tokenize:
 	; update asm::result pointer by (1 + operand size)
 	lda state::verify
 	bne :+
+
 	lda operandsz
-	sec
+	sec			; +1
+	adc zp::virtualpc
+	sta zp::virtualpc
+	bcc :+
+	inc zp::virtualpc+1
+
+:	lda operandsz
+	sec			; +1
 	adc zp::asmresult
 	sta zp::asmresult
 	bcc :+
@@ -1022,6 +1032,7 @@ bbb10_modes:
 	txa
 	sta (zp::asmresult),y
 	incw zp::asmresult
+	incw zp::virtualpc
 	jmp @commaorws
 
 @text:	jsr gettext
@@ -1036,7 +1047,15 @@ bbb10_modes:
 	sta (zp::asmresult),y
 	dey
 	bpl :-
+
 	txa
+	sec
+	adc zp::virutalpc
+	sta zp::virtualpc
+	bcc :+
+	inc zp::virtualpc+1
+
+:	txa
 	sec
 	adc zp::asmresult
 	sta zp::asmresult
@@ -1074,6 +1093,8 @@ bbb10_modes:
 	sta (zp::asmresult),y
 	incw zp::asmresult
 	incw zp::asmresult
+	incw zp::virtualpc
+	incw zp::virtualpc
 @commaorws:
 	ldy #$00
 	lda (zp::line),y
@@ -1145,6 +1166,18 @@ bbb10_modes:
 	bcc :+
 	rts		; error
 :	stxy zp::asmresult
+	stxy zp::virtualpc
+	RETURN_OK
+.endproc
+
+;--------------------------------------
+.proc define_psuedo_org
+	jsr processws
+	ldxy zp::line
+	jsr expr::getval
+	bcc :+
+	rts		; error
+:	stxy zp::virtualpc
 	RETURN_OK
 .endproc
 
@@ -1366,6 +1399,7 @@ bbb10_modes:
 .proc __asm_reset
 	ldxy #mem::program
 	stxy zp::asmresult
+	stxy zp::virtualpc
 	lda #$00
 	sta ifstacksp
 	jsr ctx::init
