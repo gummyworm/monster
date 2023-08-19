@@ -23,6 +23,7 @@
 
 .CODE
 ;--------------------------------------
+.IFDEF DRAW_TITLEBAR
 .proc draw_titlebar
 	ldxy #titlebar
 	lda #$00
@@ -30,6 +31,7 @@
 	lda #$00
 	jmp bm::rvsline
 .endproc
+.ENDIF
 
 ;--------------------------------------
 .export __edit_init
@@ -39,7 +41,9 @@
 
 	jsr edit
 
+.IFDEF DRAW_TITLEBAR
 	jsr draw_titlebar
+.ENDIF
 	jsr text::clrline
 
 	; don't assemble code, just verify it
@@ -47,7 +51,7 @@
 	sta state::verify
 
 	ldx #$00
-	ldy #$01
+	ldy #EDITOR_ROW_START
 	jmp cur::set
 .endproc
 
@@ -411,7 +415,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jsr drawline
 	jsr src::end
 	bne @l0
-	jmp src::prev
+	jmp src::prev	 ; go back to last char
 .endproc
 
 ;--------------------------------------
@@ -454,7 +458,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	lda #$01
 	sta text::insertmode
 	ldx #$00
-	ldy #$01
+	ldy #EDITOR_ROW_START
 	jsr cur::setmin
 	ldx #40
 	ldy #STATUS_ROW
@@ -647,7 +651,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	cpy #STATUS_ROW-1
 	bcc :+
 	; if we're at the bottom, scroll whole screen up
-	ldx #1
+	ldx #EDITOR_ROW_START
 	lda #STATUS_ROW-1
 	jsr text::scrollup
 
@@ -766,7 +770,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	jmp @redraw2
 
 @scroll:
-	lda #$01
+	lda #EDITOR_ROW_START
 	ldx #STATUS_ROW-1
 	jsr text::scrolldown	; cursor wasn't moved, scroll
 
@@ -860,7 +864,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	cmp zp::cury
 	beq @redraw
 
-	ldx #1
+	ldx #EDITOR_ROW_START
 	lda #STATUS_ROW-1
 	jsr text::scrollup	; cursor wasn't moved, scroll
 
@@ -894,7 +898,9 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldx zp::cury
 	lda #STATUS_ROW-1
 	jsr text::scrollup
+.IFDEF DRAW_TITLEBAR
 	jsr draw_titlebar
+.ENDIF
 
 	jsr text::clrline
 	; get the length of the line we're moving up
