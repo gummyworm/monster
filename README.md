@@ -3,25 +3,25 @@ MONster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
 In its current form it is primarily intended for native development of applications for the
 unexpanded Commodore Vic-20.
 
-Features include:
+Some of its features are:
  - 40 column bitmap-based editor
  - interactive debugger
  - memory viewer/editor
- - file support (save/load)
+ - file I/O (save/load)
  - directory viewer
  - auto-formatter and realtime syntax checking
  - improved keyboard routine (3-key rollover)
  - macro support
  - many more...
 
-The source buffer is stored in a gap buffer to allow for efficient insertion/deletion.
+The source code is stored in a gap buffer to allow for efficient insertion/deletion.
 
 ## Requirements
 MONster requires a _completely_ expanded (BLK 2,3, and 5) RAM configuration to function.
 
-I do plan to support configurations with banked memory so that one can isolate the 
-development memory from the programs, however there are limited hardware options that support
-this available (only the discontinued Ultimem to my knowledge). 
+Debugging requires a [Final Expansion](https://github.com/edi-z/FE3).
+This is because it is very memory-expensive to store all the debug info.
+When this project matures to a fairly stable point, I'd like to distribute it on a cartridge based on the FE design, but for now...
 
 ## Building
  1. Clone this repo `git clone https://github.com/gummyworm/monster.git`
@@ -39,24 +39,25 @@ The builtin HELP menu (C= + H) provides basic usage details
 Here are some of the supported commands.  When given a prompt the '<-' key
 will exit the prompt and cancel the command
 
-|  Key   | Description                                                           |
-|--------|-----------------------------------------------------------------------|
-| C= + C | refrehshes the screen by redrawing the source buffer                  | 
-| C= + H | displays the help menu                                                | 
-| C= + S | save file, prompts for a filename and saves the buffer contents to it |
-| C= + L | list directory, shows the files on the current disk                   |
-| C= + O | prompts for a filename and loads the buffer with its contents         |
-| C= + V | enters the memory viewer/editor (press <- to exit)                    |
-| C= + X | prompts for a filename and deletes the file                           |
-| C= + G | prompts for a label name and executes the program at its address      | 
-|   F3   | assembles the code in the buffer to memory                            |
+#### Command shortcuts
+|  Key   | Name    |   Description                                                         |
+|--------|---------------------------------------------------------------------------------|
+| C= + C | Refresh | refrehshes the screen by redrawing the source buffer                  | 
+| C= + H | Help    | displays the help menu                                                | 
+| C= + S | Save    | save file, prompts for a filename and saves the buffer contents to it |
+| C= + L | List    | list directory, shows the files on the current disk                   |
+| C= + O | Ope     | prompts for a filename and loads the buffer with its contents         |
+| C= + V | MemView | enters the memory viewer/editor (press <- to exit)                    |
+| C= + X | Scratch | prompts for a filename and deletes the file                           |
+| C= + G | Goto    | prompts for a label name and executes the program at its address      | 
+|   F3   | Assemble| assembles the code in the buffer to memory                            |
+|   F4   | Debug   | assembles the code in the buffer to memory _with_ debug info          |
 
-Navigation keys
-|  Key   | Description                                                           |
-|--------|-----------------------------------------------------------------------|
-| HOME   | moves the cursor to column 0                                          | 
-| C= + M | prompts for a line number and moves the cursor to that line           |
-
+#### Navigation keys
+|  Key   | Name      | Description                                                           |
+|--------|-----------------------------------------------------------------------------------|
+| HOME   | Home      |moves the cursor to column 0                                           | 
+| C= + M | Goto line | prompts for a line number and moves the cursor to that line           |
 
 ## Assembler Syntax
 The assembler syntax is very similar to any other major assembler.  For basic
@@ -100,13 +101,13 @@ read in.
 As with any work done with Commodore disk I/O, it is wise to regularly back up your files
 
 ## Directives
-Directives begin with a '.' character and instead of being directly assembled,
-as with an instruction, are tell the assembler to generate some special code or data
+Directives begin with a `.` character and instead of being directly assembled,
+as with an instruction, tell the assembler to generate some special code or data
 based on the operands.
 
 Some directives (`.MAC` and `.REP`) generate a variable amount of code or data based on the value
 of their operands. 
-For these directives, the expressions used as arguments to them must be resolvable
+For these directives, the expressions used as arguments must be resolvable
 in pass 1 of the assembler.  This means any labels used in the expression
 must be declared before the directive.
 
@@ -117,14 +118,14 @@ The following example illustrates why this is necessary:
   .ENDREP
 .EQU NUM 5
 ```
-Note that NUM is not declared until after the `.REP` directive. Because of this
-the macro does not know how many times to repeat the `ASL`. We could assume
+Note that `NUM` is not declared until after the `.REP` directive. Because of this
+the assembler does not know how many times to repeat the `ASL`. We could assume
 the label is an arbitrary 16-bit value as we do with labels that are undefined
 in pass 1, but any subsequent labels would have the wrong address if we guessed 
 any number other than 5.
 
 
-#### List of Directives
+## List of Directives
 ### .DB _expression_, ..., _expression_
 Defines a sequence of bytes from the comma-separated list that follows.
 
