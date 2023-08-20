@@ -21,6 +21,7 @@
 
 ;--------------------------------------
 start:
+	sei
 	ldxy #__BSS_LOAD__
 	stxy zp::tmp0
 @zeromem:
@@ -47,6 +48,7 @@ start:
 	jsr $ffe7	; CLALL (close all files)
 	lda #9
 	sta zp::device
+
         jmp enter
 
 ;#######################################

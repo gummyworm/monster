@@ -6,6 +6,154 @@
 .include "text.inc"
 .include "zeropage.inc"
 
+;--------------------------------------
+MAX_FILES = 16
+
+;--------------------------------------
+; Debug info is organized per file.  The format for a file's debug info is :
+; stored in the following format:
+;
+; ---------------------------------------------
+; | size     | description                    |
+; |-------------------------------------------|
+; |    1     |   filename index               |
+; |    1     | number of segments             |
+; |    2     | segment 1 start addr           |
+; |    2     | segment 1 stop addr            |
+; |   ...    |         ...                    |
+; |    2     | segment n start addr           |
+; |    2     | segment n stop addr            |
+; |    2     | segment 1 instruction 1 line # |
+; |    2     | segment 1 instruction 1 addr   |
+; |   ...    |         ...                    |
+; |    2     | segment 1 instruction n line # |
+; |    2     | segment 1 instruction n addr   |
+; |   ...    |         ...                    |
+; |    2     | segment n instruction 1 line # |
+; |    2     | segment n instruction 1 addr   |
+; |   ...    |         ...                    |
+; |    2     | segment n instruction m line # |
+; |    2     | segment n instruction m addr   |
+; |-------------------------------------------|
+; In words: a file's debug info is organized as the filename, followed by the
+; number of segments, followed by a _list_ of those segments (as start and stop
+; addresses), and lastly a list of the lines and addresses for each segment
+;
+; Clearly, this is a costly amount of memory, so it requires a Final Expansion
+
+.BSS
+;--------------------------------------
+debuginfo:
+
+; table of 0-terminated filenames
+filenames: .res MAX_FILES * 8
+
+; table of addresses for each file (corresponds to filename)
+fileaddresses: .res MAX_FILES * 2
+
+numfiles: .byte 0
+
+.CODE
+;--------------------------------------
+; INIT
+; Clears any debug state that exists
+.export __debug_init
+.proc __debug_init
+	lda #$00
+	sta numfiles
+	rts
+.endproc
+
+;--------------------------------------
+; SET_FILE
+; sets the current file that we are storing symbols to. The number of lines is
+; also given in order to allocate the appropriate amount of space
+; in:
+;  - .XY: address of the filename
+;  - zp::tmp0: # of lines in file
+;  - zp::tmp2: # of segments in file
+; out:
+;  - .C: set if an error occurred
+.export __debug_set_file
+.proc __debug_set_file
+@numlines=zp::tmp0
+@numlines4=zp::tmp0
+@numsegments=zp::tmp2
+@numsegments4=zp::tmp2
+@addr=zp::tmp4
+; calculate the end address of the info for this file
+; filenameaddresses[numfiles] + 1 + 1 + (num_segments*4) + (num_lines*4)
+; the +1's are taken care of by to SEC's before adding other values
+	lda numfiles
+	asl
+	tax
+
+; get numsegments*4
+	asl @numsegments
+	rol @numsegments+1
+	asl @numsegments
+	rol @numsegments+1
+
+; get numlines*4
+	asl @numlines
+	rol @numlines+1
+	asl @numlines
+	rol @numlines+1
+
+; addr = fileaddresses[numfiles]
+	lda fileaddresses,x
+	sta @addr
+	lda fileaddresses+1,x
+	sta @addr+1
+
+; addr += numsegments*4 + 1
+	lda @addr
+	sec	; +1
+	adc @numsegments4
+	bcc :+
+	inc @addr+1
+
+; addr += numlines*4 + 1
+:	lda @addr
+	sec	; +1
+	adc @numlines4
+	sta @addr
+	bcc :+
+	inc @addr+1
+:
+	inc numfiles
+
+; store the address that the next file's debug info will begin at
+	lda numfiles
+	asl
+	tax
+	lda @addr
+	sta fileaddresses,x
+	lda @addr+1
+	sta fileaddresses+1,x
+	rts
+.endproc
+
+;--------------------------------------
+; STORE_LINE
+; stores the given address and line number
+.export __debug_store_line
+.proc __debug_store_line
+.endproc
+
+;--------------------------------------
+; ADDR2LINE
+; returns the filename and address that correspond
+; to the given address
+; in:
+;  - .XY: the address to get the location of
+; out:
+;  - .XY: the address of the filename
+;  - zp::tmp0: the line number (2 bytes)
+;  - .C: set on error
+.export __debug_addr2line
+.proc __debug_addr2line
+.endproc
 
 ;--------------------------------------
 ; START
@@ -163,7 +311,6 @@
 	sta mem::linebuffer+2,x
 	txa
 	sta mem::linebuffer+3,x
-
 
 	rts
 

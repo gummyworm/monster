@@ -3,6 +3,7 @@
 .include "codes.inc"
 .include "config.inc"
 .include "cursor.inc"
+.include "debug.inc"
 .include "errors.inc"
 .include "file.inc"
 .include "format.inc"
@@ -65,14 +66,12 @@ main:
         cmp $9004
         bne *-3
 
-	sei
 	jsr key::getch
 	cmp #$00
 	beq @done
 	jsr onkey
 
-@done:
-	jsr text::update
+@done:	jsr text::update
 	jsr text::status
 	jmp main
 .endproc
@@ -116,14 +115,34 @@ main:
 	jsr src::next
 	jsr reset
 
-	; disable verify - actually assemble the code
+	lda #$01
+	sta state::verify	; verify; write labels but not code
+
+; do a pass on the source to get labels and basic debug info
+; (# of lines and # of segments/file)
+@pass1:
+
+; now we have defined labels, label
+@pass2:
+	jsr src::rewind
+	jsr src::next
 	lda #$00
-	sta state::verify
+	sta state::verify	; disable verify - actually assemble the code
+
 @doline:
 	ldxy src::line	; set the line we're assembling
 	stxy @line
-	jsr src::readline
 
+	; write debug info if enabled
+	lda zp::gendebuginfo
+	beq @asm
+	ldxy @line
+	ldxy asm::currentfile
+	stxy zp::tmp0
+	jsr dbg::storeline
+
+@asm:
+	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
 	bcc @ok
@@ -139,8 +158,11 @@ main:
 	jmp gotoline
 
 @ok:
+
+@nextline:
 	jsr src::end
 	bne @doline
+
 @printresult:
 	lda #$00
 	sta state::verify	; re-enable verify
@@ -152,16 +174,30 @@ main:
 	pha
 	tya
 	pha
-	ldxy #success_msg
+	ldxy #@success_msg
 	lda #STATUS_ROW-1
 	jsr text::print
 
 @asmdone:
 	jsr src::popp
 	jsr src::goto
-	jmp text::clrline
+	jsr text::clrline
+	RETURN_OK
 
-success_msg: .byte "done $", $fe, " bytes", 0
+@success_msg: .byte "done $", $fe, " bytes", 0
+.endproc
+
+;--------------------------------------
+; COMMAND_ASMDBG
+; assembles the source and generates debug information for it
+.proc command_asmdbg
+	inc $900f
+	lda #$01
+	sta zp::gendebuginfo
+	jsr dbg::init
+	jsr command_asm
+	dec zp::gendebuginfo	; turn off debug-info
+	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -365,6 +401,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	.byte $85	; F1 (save)
 	.byte $89	; F2 (save as)
 	.byte $86	; F3 (assemble)
+	.byte $8a	; F4 (debug)
 	.byte $87	; F5 (nop)
 	.byte $bc	; C=<C> (refresh)
 	.byte $b4	; C=<H> (HELP)
@@ -378,6 +415,7 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	.word save
 	.word saveas
 	.word command_asm
+	.word command_asmdbg
 	.word command_nop
 	.word refresh
 	.word help
@@ -484,7 +522,6 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldy @file+1
 	pla
 	jsr file::save
-	sei
 	cmp #$00
 	bne @err
 	rts	; no error
@@ -567,7 +604,6 @@ success_msg: .byte "done $", $fe, " bytes", 0
 	ldxy @file
 	pla
 	jsr file::load
-	sei	; re-set I flag
 	cmp #$00
 	bne @err
 	jsr reset

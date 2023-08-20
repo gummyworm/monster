@@ -42,6 +42,8 @@ err_io:
 	.byte "i/o error",0
 err_no_macro_name:
 	.byte "no macro name given",0
+err_unresolvable_label:
+	.byte "label is unresolvable",0
 
 ;--------------------------------------
 errors: .word err_no_err	 ; no error
@@ -63,6 +65,7 @@ errors: .word err_no_err	 ; no error
 	.word err_unexpected_char
 	.word err_io
 	.word err_no_macro_name
+	.word err_unresolvable_label
 
 .CODE
 ;--------------------------------------

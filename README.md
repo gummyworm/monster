@@ -100,7 +100,31 @@ read in.
 As with any work done with Commodore disk I/O, it is wise to regularly back up your files
 
 ## Directives
-The following directives are supported
+Directives begin with a '.' character and instead of being directly assembled,
+as with an instruction, are tell the assembler to generate some special code or data
+based on the operands.
+
+Some directives (`.MAC` and `.REP`) generate a variable amount of code or data based on the value
+of their operands. 
+For these directives, the expressions used as arguments to them must be resolvable
+in pass 1 of the assembler.  This means any labels used in the expression
+must be declared before the directive.
+
+The following example illustrates why this is necessary:
+```
+  .REP NUM, I
+    ASL
+  .ENDREP
+.EQU NUM 5
+```
+Note that NUM is not declared until after the `.REP` directive. Because of this
+the macro does not know how many times to repeat the `ASL`. We could assume
+the label is an arbitrary 16-bit value as we do with labels that are undefined
+in pass 1, but any subsequent labels would have the wrong address if we guessed 
+any number other than 5.
+
+
+#### List of Directives
 ### .DB _expression_, ..., _expression_
 Defines a sequence of bytes from the comma-separated list that follows.
 

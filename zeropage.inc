@@ -22,10 +22,10 @@ stra = $3a
 
 ;--------------------------------------
 ; $40-$50 are used during assembly and debug
-asm=$40		; base address of assembly tmp vars
-disasm=$40	; base address of disassembly tmp vars
-line=$4c	; ptr to text being processed
-
+asm=$40			; base address of assembly tmp vars
+disasm=$40		; base address of disassembly tmp vars
+line=$4c		; ptr to text being processed
+gendebuginfo=$4e	; flag to generate debug info
 ;--------------------------------------
 ; $50-$60 are used for labels
 label_value=$50	; arguments to label functions

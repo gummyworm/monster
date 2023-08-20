@@ -14,11 +14,9 @@ ERR_INVALID_EXPRESSION = 4
 ;--------------------------------------
 ; macro errors
 ERR_INVALID_MACRO_ARGS = 5
-
 ERR_SYNTAX_ERROR=6
 ERR_INVALID_DIRECTIVE=7
 ERR_LABEL_UNDEFINED=8
-
 ERR_UNMATCHED_ENDIF = 9
 
 ;--------------------------------------
@@ -31,7 +29,7 @@ ERR_ILLEGAL_LABEL=14
 ERR_UNEXPECTED_CHAR=15
 ERR_IO_ERROR=16
 ERR_NO_MACRO_NAME=17
-
+ERR_UNRESOLVABLE_LABEL=17
 
 .import __err_print
 .import __err_get
@@ -60,25 +58,4 @@ ERR_NO_MACRO_NAME=17
 .macro RETURN_OK
 	clc
 	rts
-.endmacro
-
-;--------------------------------------
-; err is a macro to display an error.
-; if the corresponding error message (see errors.asm) contains an escape character,
-; param should contain the value you wish to print for that character.
-; If the the corresponding error does not contain an escape code, you may omit
-; param. 
-; examples:
-;  - err ERR_INVALID_OPCODE, my_opcode
-;  - err ERR_UNALIGNED_LABEL
-; 
-.macro err id, param
-	lda #id
-	.ifnblank param
-		ldx #<param
-		ldy #>param
-		jsr __err_print_with_arg
-	.else
-		jsr __err_print
-	.endif
 .endmacro

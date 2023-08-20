@@ -12,7 +12,6 @@
 .include "string.inc"
 .include "text.inc"
 .include "util.inc"
-.include "source.inc"
 .include "state.inc"
 .include "zeropage.inc"
 .CODE
@@ -22,6 +21,7 @@
 MAX_IFS = 4	; max nesting depth for .if/.endif
 
 ;--------------------------------------
+; $40-$4B available for assembly
 indirect=zp::asm ; 1=indirect, 0=absolute
 indexed=zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
 immediate=zp::asm+2 ; 1=immediate, 0=not immediate
@@ -29,9 +29,10 @@ operandsz=zp::asm+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
 cc=zp::asm+4
 resulttype=zp::asm+5
 label_value = zp::asm+6 ; param to addlabel
+.export __asm_current_file
+__asm_current_file=zp::asm+$8
 lsb = zp::asm+$a
 msb = zp::asm+$b
-
 
 .BSS
 ;--------------------------------------
@@ -1050,7 +1051,7 @@ bbb10_modes:
 
 	txa
 	sec
-	adc zp::virutalpc
+	adc zp::virtualpc
 	sta zp::virtualpc
 	bcc :+
 	inc zp::virtualpc+1
