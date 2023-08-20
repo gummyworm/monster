@@ -41,7 +41,7 @@ will exit the prompt and cancel the command
 
 #### Command shortcuts
 |  Key   | Name    |   Description                                                         |
-|--------|---------------------------------------------------------------------------------|
+|--------|---------|-----------------------------------------------------------------------|
 | C= + C | Refresh | refrehshes the screen by redrawing the source buffer                  | 
 | C= + H | Help    | displays the help menu                                                | 
 | C= + S | Save    | save file, prompts for a filename and saves the buffer contents to it |
@@ -55,7 +55,7 @@ will exit the prompt and cancel the command
 
 #### Navigation keys
 |  Key   | Name      | Description                                                           |
-|--------|-----------------------------------------------------------------------------------|
+|--------|-----------|-----------------------------------------------------------------------|
 | HOME   | Home      |moves the cursor to column 0                                           | 
 | C= + M | Goto line | prompts for a line number and moves the cursor to that line           |
 
