@@ -115,21 +115,31 @@ main:
 	jsr src::next
 	jsr reset
 
-	lda #$01
-	sta state::verify	; verify; write labels but not code
-
-; do a pass on the source to get labels and basic debug info
+; Pass 1
+; do a pass on the source to simply get labels and basic debug info
 ; (# of lines and # of segments/file)
 @pass1:
+	lda #$01
+	sta state::verify	; verify; write labels but not code
+@pass1loop:
+	jsr src::readline
+	ldxy #mem::linebuffer
+	jsr asm::tokenize
+	bcs @err
+	jsr src::end
+	bne @pass1loop
 
-; now we have defined labels, label
+; Pass 2
+; now we have defined labels and enough debug info to generate both the
+; program binary and the full debug info (if enabled)
 @pass2:
 	jsr src::rewind
 	jsr src::next
+	jsr asm::resetpc
 	lda #$00
 	sta state::verify	; disable verify - actually assemble the code
 
-@doline:
+@pass2loop:
 	ldxy src::line	; set the line we're assembling
 	stxy @line
 
@@ -158,10 +168,8 @@ main:
 	jmp gotoline
 
 @ok:
-
-@nextline:
 	jsr src::end
-	bne @doline
+	bne @pass2loop
 
 @printresult:
 	lda #$00

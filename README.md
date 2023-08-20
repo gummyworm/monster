@@ -113,9 +113,9 @@ must be declared before the directive.
 
 The following example illustrates why this is necessary:
 ```
-  .REP NUM, I
-    ASL
-  .ENDREP
+.REP NUM, I
+  ASL
+.ENDREP
 .EQU NUM 5
 ```
 Note that `NUM` is not declared until after the `.REP` directive. Because of this

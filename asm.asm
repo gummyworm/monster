@@ -1395,17 +1395,27 @@ bbb10_modes:
 .endproc
 
 ;--------------------------------------
-; reset resets the internal assembly context (labels and pointer to target)
+; RESET
+; resets the internal assembly context (labels and pointer to target)
 .export __asm_reset
 .proc __asm_reset
-	ldxy #mem::program
-	stxy zp::asmresult
-	stxy zp::virtualpc
+	jsr __asm_resetpc
 	lda #$00
 	sta ifstacksp
 	jsr ctx::init
 	jsr mac::init
 	jmp lbl::clr
+.endproc
+
+;--------------------------------------
+; RESETPC
+; resets the PC for, for example, beginning a new pass on the assembler
+.export __asm_resetpc
+.proc __asm_resetpc
+	ldxy #mem::program
+	stxy zp::asmresult
+	stxy zp::virtualpc
+	rts
 .endproc
 
 ;--------------------------------------
