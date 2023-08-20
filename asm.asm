@@ -1,5 +1,6 @@
 .include "ctx.inc"
 .include "codes.inc"
+.include "debug.inc"
 .include "errors.inc"
 .include "expr.inc"
 .include "file.inc"
@@ -153,6 +154,9 @@ directive_vectors:
 .word do_else
 .word do_endif
 .word do_ifdef
+
+; current file being assembled
+filename: .res 12
 
 .CODE
 ;--------------------------------------
@@ -1114,8 +1118,13 @@ bbb10_modes:
 ; include file assembles the contents of the given file
 .proc includefile
 @filename=$100
+@numlines=zp::tmp4
+@numsegments=zp::tmp6
 	jsr processws
 	ldy #$00
+	sty @numlines
+	sty @numlines+1
+	sty @numsegments
 @quote1:
 	lda (zp::line),y
 	cmp #'"'
@@ -1151,11 +1160,30 @@ bbb10_modes:
 
 @ok:	cmp #$00
 	beq @done
-	ldxy #mem::spare
+	lda zp::gendebuginfo
+	beq @asm
+	ldxy @numlines
+	stxy zp::tmp0
+	ldxy __asm_current_file
+	jsr dbg::storeline
+
+@asm:	ldxy #mem::spare
 	jsr __asm_tokenize
+	cmp #ASM_ORG
+	bne :+
+	inc @numsegments ; increment segment count
+:	incw @numlines
 	jmp @doline
 
-@done:	lda zp::file
+@done:	; store basic debug info for the file
+	ldxy @numlines
+	stxy zp::tmp0
+	ldxy #filename
+	jsr dbg::setfile
+	bcc :+
+	rts		; error occurred
+
+:	lda zp::file
 	jmp file::close
 .endproc
 
@@ -1168,6 +1196,7 @@ bbb10_modes:
 	rts		; error
 :	stxy zp::asmresult
 	stxy zp::virtualpc
+	lda #ASM_ORG
 	RETURN_OK
 .endproc
 

@@ -110,6 +110,8 @@ main:
 .export command_asm
 .proc command_asm
 @line=zp::editor
+@numlines=zp::editor+2
+@numsegments=zp::editor+4
 	jsr src::pushp
 	jsr src::rewind
 	jsr src::next
@@ -129,6 +131,9 @@ main:
 	jsr src::end
 	bne @pass1loop
 
+; write the basic debug info (segment #/file lens)
+; TODO:
+
 ; Pass 2
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
@@ -147,8 +152,8 @@ main:
 	lda zp::gendebuginfo
 	beq @asm
 	ldxy @line
-	ldxy asm::currentfile
 	stxy zp::tmp0
+	ldxy asm::currentfile
 	jsr dbg::storeline
 
 @asm:
@@ -167,9 +172,18 @@ main:
 	ldxy @line
 	jmp gotoline
 
-@ok:
+@ok:	cmp #ASM_ORG
+	bne :+
+	inc @numsegments
+:	incw @numlines
 	jsr src::end
 	bne @pass2loop
+
+	; store the basic debug info
+	ldxy @numlines
+	stxy zp::tmp0
+	ldxy asm::currentfile
+	jsr dbg::setfile
 
 @printresult:
 	lda #$00

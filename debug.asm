@@ -15,7 +15,7 @@ MAX_FILES = 16
 ;
 ; ---------------------------------------------
 ; | size     | description                    |
-; |-------------------------------------------|
+; |----------|--------------------------------|
 ; |    1     |   filename index               |
 ; |    1     | number of segments             |
 ; |    2     | segment 1 start addr           |
@@ -43,13 +43,20 @@ MAX_FILES = 16
 
 .BSS
 ;--------------------------------------
+; the per-file debug info as described in the above table
 debuginfo:
 
 ; table of 0-terminated filenames
 filenames: .res MAX_FILES * 8
 
-; table of addresses for each file (corresponds to filename)
+; table of start addresses for each file (corresponds to filename)
 fileaddresses: .res MAX_FILES * 2
+
+; lengths (in bytes) for each file (corresponds to filename)
+filelens: .res MAX_FILES * 2
+
+; # of segments in a file (corresponds to filename)
+files_num_segments: .res MAX_FILES
 
 numfiles: .byte 0
 
@@ -87,6 +94,12 @@ numfiles: .byte 0
 	lda numfiles
 	asl
 	tax
+
+; make sure file is not already included
+; TODO
+
+; find the next open filename
+; TODO
 
 ; get numsegments*4
 	asl @numsegments

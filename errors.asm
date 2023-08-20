@@ -44,6 +44,8 @@ err_no_macro_name:
 	.byte "no macro name given",0
 err_unresolvable_label:
 	.byte "label is unresolvable",0
+err_cyclic_include:
+	.byte "cyclic include",0
 
 ;--------------------------------------
 errors: .word err_no_err	 ; no error
@@ -66,6 +68,7 @@ errors: .word err_no_err	 ; no error
 	.word err_io
 	.word err_no_macro_name
 	.word err_unresolvable_label
+	.word err_cyclic_include
 
 .CODE
 ;--------------------------------------

@@ -31,6 +31,8 @@ ERR_IO_ERROR=16
 ERR_NO_MACRO_NAME=17
 ERR_UNRESOLVABLE_LABEL=17
 
+ERR_CYCLIC_INCLUDE=18
+
 .import __err_print
 .import __err_get
 .import __err_print_with_arg
