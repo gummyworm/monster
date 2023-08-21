@@ -1,18 +1,19 @@
 .include "asm.inc"
+.include "errors.inc"
 .include "labels.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "util.inc"
+.include "string.inc"
 .include "text.inc"
+.include "util.inc"
 .include "zeropage.inc"
 
 ;--------------------------------------
 MAX_FILES = 16
 
-;--------------------------------------
+;******************************************************************************
 ; Debug info is organized per file.  The format for a file's debug info is :
 ; stored in the following format:
-;
 ; ---------------------------------------------
 ; | size     | description                    |
 ; |----------|--------------------------------|
@@ -40,6 +41,13 @@ MAX_FILES = 16
 ; addresses), and lastly a list of the lines and addresses for each segment
 ;
 ; Clearly, this is a costly amount of memory, so it requires a Final Expansion
+;
+; Segments are not necessarily stored in order, so to see if an address
+; exists within a file, we must traverse the structure as a linked-list to see
+; if the given address is within the start/stop range for each segment
+; This is likely to be a short traversal as it is fairly rare to change addresses
+; within a source file (more than, say, 5 .ORG's would be a lot)
+;******************************************************************************
 
 .BSS
 ;--------------------------------------
@@ -47,7 +55,7 @@ MAX_FILES = 16
 debuginfo:
 
 ; table of 0-terminated filenames
-filenames: .res MAX_FILES * 8
+filenames: .res MAX_FILES * 16
 
 ; table of start addresses for each file (corresponds to filename)
 fileaddresses: .res MAX_FILES * 2
@@ -87,38 +95,85 @@ numfiles: .byte 0
 @numlines4=zp::tmp0
 @numsegments=zp::tmp2
 @numsegments4=zp::tmp2
-@addr=zp::tmp4
-; calculate the end address of the info for this file
-; filenameaddresses[numfiles] + 1 + 1 + (num_segments*4) + (num_lines*4)
-; the +1's are taken care of by to SEC's before adding other values
+@filename=zp::tmp6
+@addr=zp::str2
+@f=zp::tmp8
+@cnt=zp::tmp9
+@filename_src=zp::str2	; use string ZP for strcmp
+	stxy @filename_src
+
+;------------------
+; check if we've already allocated space for debug info for this file
+	lda numfiles
+	sta @cnt
+	lda #$00
+	sta @f
+@chkfile:
+	ldx @f
+	lda filenames,x
+	sta zp::str0
+	lda filenames+1,x
+	sta zp::str0+1
+	lda #$10	; fixed size of 16
+	jsr str::compare
+	bne :+
+	RETURN_OK	; space for file is already allocated
+:	lda @f
+	adc #$10
+	sta @f
+	dec @cnt
+	bne @chkfile
+
+;------------------
+; find the next open filename
 	lda numfiles
 	asl
+	asl
+	asl
+	asl
 	tax
+	adc #<filenames
+	sta @filename
+	lda #>filenames
+	adc #$00
+	sta @filename+1
 
-; make sure file is not already included
-; TODO
+;------------------
+	ldy #$00
+@copyfilename:
+	lda (@filename_src),y
+	sta (@filename),y
+	beq @cont
+	iny
+	bne @copyfilename
 
-; find the next open filename
-; TODO
-
+;------------------
+@cont:
 ; get numsegments*4
 	asl @numsegments
 	rol @numsegments+1
 	asl @numsegments
 	rol @numsegments+1
 
+;------------------
 ; get numlines*4
 	asl @numlines
 	rol @numlines+1
 	asl @numlines
 	rol @numlines+1
 
+;----------------------------
+; calculate the end address of the info for this file
+; filenameaddresses[numfiles] + 1 + 1 + (num_segments*4) + (num_lines*4)
+; the +1's are taken care of by to SEC's before adding other values
+;----------------------------
 ; addr = fileaddresses[numfiles]
 	lda fileaddresses,x
 	sta @addr
 	lda fileaddresses+1,x
 	sta @addr+1
 
+;------------------
 ; addr += numsegments*4 + 1
 	lda @addr
 	sec	; +1
@@ -126,19 +181,25 @@ numfiles: .byte 0
 	bcc :+
 	inc @addr+1
 
+;------------------
 ; addr += numlines*4 + 1
 :	lda @addr
 	sec	; +1
 	adc @numlines4
 	sta @addr
-	bcc :+
+	bcc @storeaddr
 	inc @addr+1
-:
-	inc numfiles
 
+;------------------
 ; store the address that the next file's debug info will begin at
+@storeaddr:
+	inc numfiles
 	lda numfiles
-	asl
+	cmp #MAX_FILES
+	bcc @ok
+	RETURN_ERR ERR_MAX_FILES_EXCEEDED
+
+@ok:	asl
 	tax
 	lda @addr
 	sta fileaddresses,x
@@ -149,9 +210,14 @@ numfiles: .byte 0
 
 ;--------------------------------------
 ; STORE_LINE
-; stores the given address and line number
+; Stores the given address and line number in the debug info for the current
+; file
+; in:
+;  - .XY: the line number
+;  - zp::tmp0: the address corresponding to the given line number
 .export __debug_store_line
 .proc __debug_store_line
+
 .endproc
 
 ;--------------------------------------

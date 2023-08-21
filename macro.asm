@@ -43,9 +43,10 @@ macros: .res 1024
 ; MAC_ADD
 ; adds the macro to the internal macro state.
 ; in:
-;  - .XY: pointer to the macro definition (start with .MAC & ends with .ENDMAC)
+;  - .XY: pointer to the macro definition
+;     This will not contain the .MAC but does end with .ENDMAC)
 ;  - .A: number of parameters
-;  -  zp::tmp0: pointer to parameters as a sequence of length prefixed strings
+;  -  zp::tmp0: pointer to parameters as a sequence of 0-terminated strings
 .export __mac_add
 .proc __mac_add
 @src=zp::macros

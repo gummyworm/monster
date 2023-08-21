@@ -16,8 +16,7 @@ __mem_spare=$0400
 __mem_spareend = $1000
 
 .export __mem_backbuff
-__mem_backbuff:
-	.res $f00	; backup for the screen bitmap
+__mem_backbuff = $c000-$f00 	; backup for the screen bitmap
 
 .export __mem_program
 __mem_program:
@@ -38,8 +37,4 @@ __mem_ctxbuffer=$140+40	; the buffer for the context during assembly
 .export __statusline
 __statusline:
 	.res 40
-
-.export __mem_asmctx
-__mem_asmctx:
-	.res 16*40+22	; see asm_ctx.inc
 .endscope

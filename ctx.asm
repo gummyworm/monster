@@ -159,16 +159,16 @@ CTX_LINES_START = 11
 	adc #$00
 	sta @params+1
 
-@l0:
-	ldy #$00
+@l0:	ldy #$00
 @l1:	lda (@params),y
 	sta (@buff),y
 	beq @next
 	iny
-	cpy #$0f
-	bne @l1
-@next:
-	tya
+	cpy #$10
+	bcc @l1
+	RETURN_ERR ERR_PARAM_NAME_TOO_LONG
+
+@next:	tya
 	sec		; +1
 	adc @buff
 	sta @buff
@@ -182,9 +182,9 @@ CTX_LINES_START = 11
 	dec @params+1
 :	dec @cnt
 	bne @l0
-@done:
-	lda numparams
-	rts
+
+@done:	lda numparams
+	RETURN_OK
 .endproc
 
 ;--------------------------------------
@@ -235,7 +235,7 @@ CTX_LINES_START = 11
 ; ADDPARAM
 ; adds the parameter in .YX to the active context
 ; in:
-;  - .XY: the 0 terminated parameter to add to the active context
+;  - .XY: the 0, ' ', or ',' terminated parameter to add to the active context
 ; out:
 ;  - .XY: the rest of the string after the parameter that was extracted
 .export __ctx_addparam
@@ -277,7 +277,6 @@ CTX_LINES_START = 11
 	lda @param+1
 	adc #$00
 	tay
-
 	RETURN_OK
 .endproc
 
@@ -286,8 +285,7 @@ CTX_LINES_START = 11
 ; rewinds the context so that the cursor points to the beginning of its lines
 .export  __ctx_rewind
 .proc __ctx_rewind
-	; the contexts are aligned to $200 byte boundaries, so just clear the
-	; bottom nine bits
+; contexts are aligned to $200 byte boundaries, so just clear the bottom nine bits
 	lda ctx
 	adc #CTX_LINES_START
 	sta cur

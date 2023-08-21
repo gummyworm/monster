@@ -138,6 +138,7 @@ directives:
 .byte "else",0
 .byte "endif",0
 .byte "ifdef",0
+.byte "endmac",0
 
 directives_len=*-directives
 
@@ -154,6 +155,7 @@ directive_vectors:
 .word do_else
 .word do_endif
 .word do_ifdef
+.word create_macro
 
 ; current file being assembled
 filename: .res 12
@@ -1303,8 +1305,8 @@ bbb10_modes:
 :	ldxy zp::line
 	jsr ctx::addparam
 	bcc :+
-	rts
-:	stxy zp::line
+	rts		; return err
+:	stxy zp::line	; update line pointer
 
 @getparams:
 	jsr process_ws	; sets .Y to 0
@@ -1335,32 +1337,32 @@ bbb10_modes:
 ;--------------------------------------
 ; HANDLE_MACRO
 ; when the macro context is active, reads the the current line into the
-; context buffer until .ENDMAC is encountered.
-; Upon encountering .ENDMAC, the macro is saved into
-; (macros)
+; context buffer
 .proc handle_macro
 	ldxy #mem::linebuffer
-	jsr ctx::write		; copy the linebuffer to the context
-	ldxy #mem::linebuffer
-	streq @endmac, 7	; are we at .endmac?
-	beq @createmac
-	rts			; nope, we're done
+	jmp ctx::write		; copy the linebuffer to the context
+.endproc
 
-@createmac:
-	; done with this context, disable it
+;--------------------------------------
+; CREATE_MACRO
+; This is the handler for the .endmac directive
+; It uses the active context to finish creating a macro from that context.
+.proc create_macro
+	lda state::verify
+	beq :+
+	RETURN_OK	; verifying, don't create macro
+:	ldxy #mem::linebuffer
+	jsr ctx::write	; copy .ENDMAC to the context
 	lda #$00
-	sta ctx::type
-
+	sta ctx::type	; done with this context, disable it
 	ldxy #$100
-	jsr ctx::getparams
+	jsr ctx::getparams ; fill $100 with param data
+	pha
 	ldxy #$100
 	stxy zp::tmp0
-	pha
 	jsr ctx::getdata
 	pla
 	jmp mac::add
-
-@endmac: .byte ".endmac"
 .endproc
 
 ;--------------------------------------
@@ -1761,7 +1763,6 @@ bbb10_modes:
 :	jmp @l0
 
 @done:	pla
-
 	lda state::verify
 	beq :+
 	RETURN_OK

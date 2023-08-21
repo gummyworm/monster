@@ -19,5 +19,4 @@
 	linebuffer2     = __linebuffer2
 	program		= __mem_program
 	statusline	= __statusline
-	asmctx 		= __mem_asmctx
 .endscope

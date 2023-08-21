@@ -46,6 +46,12 @@ err_unresolvable_label:
 	.byte "label is unresolvable",0
 err_cyclic_include:
 	.byte "cyclic include",0
+err_overlapping_segments:
+	.byte "overlapping segments",0
+err_max_files_exceeded:
+	.byte "too many files",0
+err_param_name_too_long:
+	.byte "param name too long",0
 
 ;--------------------------------------
 errors: .word err_no_err	 ; no error
@@ -69,6 +75,9 @@ errors: .word err_no_err	 ; no error
 	.word err_no_macro_name
 	.word err_unresolvable_label
 	.word err_cyclic_include
+	.word err_overlapping_segments
+	.word err_max_files_exceeded
+	.word err_param_name_too_long:
 
 .CODE
 ;--------------------------------------

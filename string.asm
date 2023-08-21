@@ -148,6 +148,7 @@
 	tay
 	dey
 	bmi @match
+
 @l0:	lda (zp::str0),y
 	cmp (zp::str2),y
 	beq :+
