@@ -62,19 +62,20 @@ addr = zp::debug+1   ; address of next line/addr to store
 .BSS
 ;******************************************************************************
 ; the per-file debug info as described in the above table
-debuginfo:
+.export debuginfo
+debuginfo: .res $100
 
 ; number of files that we have debug info for. The ID of a file is its index
+.export numfiles
 numfiles: .byte 0
 
 ; table of 0-terminated filenames
+.export filenames
 filenames: .res MAX_FILES * 16
 
 ; table of start addresses for each file (corresponds to filename)
+.export fileaddresses
 fileaddresses: .res MAX_FILES * 2
-
-; lengths (in bytes) for each file's debug info (corresponds to filename)
-filelens: .res MAX_FILES * 2
 
 ;******************************************************************************
 ; WATCHES
@@ -107,8 +108,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;******************************************************************************
 ; SET_FILE
-; Sets the current file that we are storing symbols to. The number of lines is
-; also given in order to allocate the appropriate amount of space
+; Sets the current file that we are storing symbols to. The number of lines and
+; number of segments tell us how much space to allocate for this file
 ; in:
 ;  - .XY: address of the filename
 ;  - zp::tmp0: # of lines in file
@@ -129,10 +130,19 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stxy @filename_src
 
 	; check if we've already allocated space for debug info for this file
-	lda numfiles
-	sta @cnt
 	lda #$00
 	sta @f
+	lda numfiles
+	sta @cnt
+	bne @chkfile
+
+; if this is the first init fileaddresses[0]
+	lda #<debuginfo
+	sta fileaddresses
+	lda #>debuginfo
+	sta fileaddresses+1
+	bne @initsegs	; no files, skip check
+
 @chkfile:
 	ldx @f
 	lda filenames,x
@@ -150,7 +160,22 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @chkfile
 
 ;------------------
+; init segment count to 0
+@initsegs:
+	lda numfiles
+	asl
+	tax
+	lda fileaddresses,x
+	sta @addr
+	lda fileaddresses+1,x
+	sta @addr+1
+	lda #$00
+	tay
+	sta (@addr),y
+
+;------------------
 ; find the next open filename
+@getfiledst:
 	lda numfiles
 	asl		; *2
 	asl		; *4
@@ -183,7 +208,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	RETURN_ERR ERR_MAX_FILES_EXCEEDED
 @ok:	asl
 	tax
+	bne @addsegments
+
 ; get numsegments*4
+@addsegments:
 	lda @numsegments
 	asl
 	rol @numsegments+1
@@ -199,6 +227,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;------------------
 ; get numlines*4
+@addlines:
 	lda @numlines
 	asl
 	rol @numlines+1
@@ -218,13 +247,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldx numfiles
 	lda #$00
 	sta nextsegment,x ; set next segment to 0
-
-; get the address of the line/addr data for this file
-	txa
-	jsr get_data_start
-
-	sta addr	; set offset to line
-	sta addr+1
 
 	inc numfiles
 	lda numfiles
@@ -360,6 +382,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	cmp @addr+1
 	bcc @nextline
 
+;------------------
+; get the line corresponding to the address
 @found: ldy #$00
 	lda (@segstart),y
 	tax

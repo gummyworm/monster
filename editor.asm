@@ -134,6 +134,10 @@ main:
 	lda #$00
 	sta @numlines
 	sta @numlines+1
+	sta @numsegments
+	sta @numsegments+1
+	inc @numsegments	; init numsegments to 1
+
 @pass1loop:
 	jsr src::readline
 	ldxy #mem::linebuffer
@@ -153,12 +157,13 @@ main:
 	stxy zp::tmp2
 	ldxy #filename
 	jsr dbg::setfile
+	bcs @err
 
 ; Pass 2
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
-	inc zp::pass		; pass 2
 @pass2:
+	inc zp::pass		; pass 2
 	jsr src::rewind
 	jsr src::next
 	jsr asm::resetpc
@@ -201,6 +206,7 @@ main:
 	stxy zp::tmp0
 	ldxy asm::currentfile
 	jsr dbg::setfile
+	jmp *
 
 @printresult:
 	lda #$00
