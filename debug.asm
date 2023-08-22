@@ -8,39 +8,49 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-;--------------------------------------
-MAX_FILES = 16
+;******************************************************************************
+MAX_FILES = 16	      ; max files that debug info may be generated for
+MAX_BREAKPOINTS = 16  ; max number of breakpoints that may be set
+MAX_WATCHPOINTS = 8   ; max number of watchpoints that may be set
+
+;******************************************************************************
+file = zp::debug     ; current file id being worked on
+addr = zp::debug+1   ; address of next line/addr to store
 
 ;******************************************************************************
 ; Debug info is organized per file.  The format for a file's debug info is :
 ; stored in the following format:
-; ---------------------------------------------
-; | size     | description                    |
-; |----------|--------------------------------|
-; |    1     |   filename index               |
-; |    1     | number of segments             |
-; |    2     | segment 1 start addr           |
-; |    2     | segment 1 stop addr            |
-; |   ...    |         ...                    |
-; |    2     | segment n start addr           |
-; |    2     | segment n stop addr            |
-; |    2     | segment 1 instruction 1 line # |
-; |    2     | segment 1 instruction 1 addr   |
-; |   ...    |         ...                    |
-; |    2     | segment 1 instruction n line # |
-; |    2     | segment 1 instruction n addr   |
-; |   ...    |         ...                    |
-; |    2     | segment n instruction 1 line # |
-; |    2     | segment n instruction 1 addr   |
-; |   ...    |         ...                    |
-; |    2     | segment n instruction m line # |
-; |    2     | segment n instruction m addr   |
-; |-------------------------------------------|
+;	 ---------------------------------------------
+;	 | size     | description                    |
+;	 |----------|--------------------------------|
+;	 |    1     | number of segments             |
+;	 |    2     | segment 1 start addr           |
+;	 |    2     | segment 1 stop addr            |
+;	 |   ...    |         ...                    |
+;	 |    2     | segment n start addr           |
+;	 |    2     | segment n stop addr            |
+;	 |    2     | segment 1 instruction 1 line # |
+;	 |    2     | segment 1 instruction 1 addr   |
+;	 |   ...    |         ...                    |
+;	 |    2     | segment 1 instruction n line # |
+;	 |    2     | segment 1 instruction n addr   |
+;	 |   ...    |         ...                    |
+;	 |    2     | segment n instruction 1 line # |
+;	 |    2     | segment n instruction 1 addr   |
+;	 |   ...    |         ...                    |
+;	 |    2     | segment n instruction m line # |
+;	 |    2     | segment n instruction m addr   |
+;	 |-------------------------------------------|
 ; In words: a file's debug info is organized as the filename, followed by the
 ; number of segments, followed by a _list_ of those segments (as start and stop
-; addresses), and lastly a list of the lines and addresses for each segment
+; addresses), and lastly a list of pairs of lines/addresses for each segment
 ;
 ; Clearly, this is a costly amount of memory, so it requires a Final Expansion
+;
+; A new "segment" begins with either a .ORG or a .INC (include) directive.
+; Address/lines are stored sequentially within a segment until one of these
+; is encountered at which point (because both are likely to lead to
+; disconinuity) a new segment begins.
 ;
 ; Segments are not necessarily stored in order, so to see if an address
 ; exists within a file, we must traverse the structure as a linked-list to see
@@ -50,9 +60,12 @@ MAX_FILES = 16
 ;******************************************************************************
 
 .BSS
-;--------------------------------------
+;******************************************************************************
 ; the per-file debug info as described in the above table
 debuginfo:
+
+; number of files that we have debug info for. The ID of a file is its index
+numfiles: .byte 0
 
 ; table of 0-terminated filenames
 filenames: .res MAX_FILES * 16
@@ -60,16 +73,29 @@ filenames: .res MAX_FILES * 16
 ; table of start addresses for each file (corresponds to filename)
 fileaddresses: .res MAX_FILES * 2
 
-; lengths (in bytes) for each file (corresponds to filename)
+; lengths (in bytes) for each file's debug info (corresponds to filename)
 filelens: .res MAX_FILES * 2
 
-; # of segments in a file (corresponds to filename)
-files_num_segments: .res MAX_FILES
+;******************************************************************************
+; WATCHES
+;******************************************************************************
+numwatches: .byte 0		   ; number of active watches
+watches:    .res MAX_WATCHPOINTS*2 ; addresses of the set watchpoints
 
-numfiles: .byte 0
+;******************************************************************************
+; BREAKPOINTS
+;******************************************************************************
+numbrkpoints: .byte 0		      ; number of active break points
+brkpoints:    .res MAX_BREAKPOINTS*2  ; addresses of the break points
+brkbackups:   .res MAX_BREAKPOINTS    ; backup of the instructions under the BRK
+
+;******************************************************************************
+; pointers used when building the debug info
+; may be used for other purposes after debug info is generated
+nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 .CODE
-;--------------------------------------
+;******************************************************************************
 ; INIT
 ; Clears any debug state that exists
 .export __debug_init
@@ -79,9 +105,9 @@ numfiles: .byte 0
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; SET_FILE
-; sets the current file that we are storing symbols to. The number of lines is
+; Sets the current file that we are storing symbols to. The number of lines is
 ; also given in order to allocate the appropriate amount of space
 ; in:
 ;  - .XY: address of the filename
@@ -102,8 +128,7 @@ numfiles: .byte 0
 @filename_src=zp::str2	; use string ZP for strcmp
 	stxy @filename_src
 
-;------------------
-; check if we've already allocated space for debug info for this file
+	; check if we've already allocated space for debug info for this file
 	lda numfiles
 	sta @cnt
 	lda #$00
@@ -116,9 +141,9 @@ numfiles: .byte 0
 	sta zp::str0+1
 	lda #$10	; fixed size of 16
 	jsr str::compare
-	bne :+
+	bne @next
 	RETURN_OK	; space for file is already allocated
-:	lda @f
+@next:	lda @f
 	adc #$10
 	sta @f
 	dec @cnt
@@ -127,11 +152,10 @@ numfiles: .byte 0
 ;------------------
 ; find the next open filename
 	lda numfiles
-	asl
-	asl
-	asl
-	asl
-	tax
+	asl		; *2
+	asl		; *4
+	asl		; *8
+	asl		; *16
 	adc #<filenames
 	sta @filename
 	lda #>filenames
@@ -139,76 +163,81 @@ numfiles: .byte 0
 	sta @filename+1
 
 ;------------------
+; copy the filename we're going to create debug info for
 	ldy #$00
 @copyfilename:
 	lda (@filename_src),y
 	sta (@filename),y
-	beq @cont
+	beq @calcsize
 	iny
 	bne @copyfilename
 
 ;------------------
-@cont:
-; get numsegments*4
-	asl @numsegments
-	rol @numsegments+1
-	asl @numsegments
-	rol @numsegments+1
-
-;------------------
-; get numlines*4
-	asl @numlines
-	rol @numlines+1
-	asl @numlines
-	rol @numlines+1
-
-;----------------------------
 ; calculate the end address of the info for this file
 ; filenameaddresses[numfiles] + 1 + 1 + (num_segments*4) + (num_lines*4)
 ; the +1's are taken care of by to SEC's before adding other values
-;----------------------------
-; addr = fileaddresses[numfiles]
-	lda fileaddresses,x
-	sta @addr
-	lda fileaddresses+1,x
-	sta @addr+1
-
-;------------------
-; addr += numsegments*4 + 1
-	lda @addr
-	sec	; +1
-	adc @numsegments4
-	bcc :+
-	inc @addr+1
-
-;------------------
-; addr += numlines*4 + 1
-:	lda @addr
-	sec	; +1
-	adc @numlines4
-	sta @addr
-	bcc @storeaddr
-	inc @addr+1
-
-;------------------
-; store the address that the next file's debug info will begin at
-@storeaddr:
-	inc numfiles
+@calcsize:
 	lda numfiles
 	cmp #MAX_FILES
 	bcc @ok
 	RETURN_ERR ERR_MAX_FILES_EXCEEDED
-
 @ok:	asl
+	tax
+; get numsegments*4
+	lda @numsegments
+	asl
+	rol @numsegments+1
+	sec			; +1
+	rol
+	rol @numsegments+1
+
+	adc fileaddresses,x
+	sta @addr
+	lda fileaddresses+1,x
+	adc @numsegments+1
+	sta @addr+1
+
+;------------------
+; get numlines*4
+	lda @numlines
+	asl
+	rol @numlines+1
+	sec			; +1
+	rol
+	rol @numlines+1
+
+	adc @addr
+	sta @addr
+	lda @addr+1
+	adc @numlines+1
+	sta @addr+1
+
+;------------------
+; store the address that the next file's debug info will begin at
+@storeaddr:
+	ldx numfiles
+	lda #$00
+	sta nextsegment,x ; set next segment to 0
+
+; get the address of the line/addr data for this file
+	txa
+	jsr get_data_start
+
+	sta addr	; set offset to line
+	sta addr+1
+
+	inc numfiles
+	lda numfiles
+	asl
 	tax
 	lda @addr
 	sta fileaddresses,x
 	lda @addr+1
 	sta fileaddresses+1,x
-	rts
+	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; STORE_LINE
 ; Stores the given address and line number in the debug info for the current
 ; file
@@ -217,10 +246,33 @@ numfiles: .byte 0
 ;  - zp::tmp0: the address corresponding to the given line number
 .export __debug_store_line
 .proc __debug_store_line
+	; store the line number
+	tya
+	ldy #$01
+	sta (addr),y
+	txa
+	dey
+	sta (addr),y
 
+	; store the address
+	ldy #$02
+	lda zp::tmp0
+	sta (addr),y
+	iny
+	lda zp::tmp0+1
+	sta (addr),y
+
+	; update pointer for line/addr
+	lda addr
+	clc
+	adc #$02
+	sta addr
+	bcc :+
+	inc addr+1
+:	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; ADDR2LINE
 ; returns the filename and address that correspond
 ; to the given address
@@ -232,6 +284,99 @@ numfiles: .byte 0
 ;  - .C: set on error
 .export __debug_addr2line
 .proc __debug_addr2line
+@info=zp::tmp0
+@addr=zp::tmp2
+@cnt=zp::tmp4
+@segstart=zp::tmp5
+@segstop=zp::tmp7
+	stxy @addr
+
+	lda #$00
+	sta @cnt
+@l0:	ldx @cnt
+	lda fileaddresses,x
+	sta @info
+	lda fileaddresses+1,x
+	sta @info+1
+
+@l1:	ldy #$00
+	lda (@info),y	; # of segments
+	tax
+	iny
+
+@l2:	lda (@info),y	; get the start address for the segment
+	sta @segstart
+	iny
+	lda (@info),y
+	sta @segstart+1
+
+	iny
+	lda (@info),y	; get the stop address for the segment
+	sta @segstop
+	iny
+	lda (@info),y
+	sta @segstop+1
+
+; is the address we're looking for is in the range [segstart, segstop]?
+@checkstop:
+	lda @addr+1
+	cmp @segstop+1
+	bcc @checkstart
+	beq :+
+	bcs @next
+:	lda @addr
+	cmp @segstop
+	beq @segfound
+	bcs @next
+
+@checkstart:
+	lda @addr+1
+	cmp @segstart+1
+	bcc @next
+	lda @addr
+	cmp @segstart
+	bcs @segfound
+
+@next:	lda @info
+	clc
+	adc #$04 ; sizeof(segstart)+sizeof(segstop)
+	sta @info
+	bcc :+
+	inc @info+1
+:	dex	 ; decrement segment counter
+	bne @l2	 ; repeat until we've checked all segments
+	RETURN_ERR ERR_LINE_NOT_FOUND
+
+;------------------
+; find the line that the address we were given is on
+@segfound:
+@findline:
+	ldy #$02
+	lda (@segstart),y
+	cmp @addr
+	bne @nextline
+	iny
+	lda (@segstart),y
+	cmp @addr+1
+	bcc @nextline
+
+@found: ldy #$00
+	lda (@segstart),y
+	tax
+	iny
+	lda (@segstart),y
+	tay
+	RETURN_OK   ; TODO: ensure address is still < segstop
+
+@nextline:
+	lda @segstart
+	clc
+	adc #$04 ; sizeof(line_num)+sizeof(line_addr)
+	sta @segstart
+	lda @segstart
+	adc #$00
+	sta @segstart
+	jmp @findline	; TODO: ensure address is still < segstop
 .endproc
 
 ;--------------------------------------
@@ -390,8 +535,36 @@ numfiles: .byte 0
 	sta mem::linebuffer+2,x
 	txa
 	sta mem::linebuffer+3,x
-
 	rts
 
 @regsline: .byte "addr a  x  y  sp  nv-bdizc",0
+.endproc
+
+;--------------------------------------
+; GET_LINE_DATA_START
+; Returns the start address of the debug line info.
+; That is the data that is after the segments info
+; in:
+;  - .A the file to get the start of line data for
+; out:
+;  - .XY: the address of the start of line data
+;  - .C: set if the given file is not found
+.proc get_data_start
+@tmp=zp::tmpa
+@f=zp::tmpb
+	asl
+	tax
+	lda fileaddresses,x
+	lda (@f),y ; get # of segments
+; *4 (num_segments * sizeof(start_addr) * sizeof(end_addr)
+	asl
+	rol @tmp
+	asl
+	rol @tmp
+	adc @f
+	tax
+	lda @tmp
+	adc @f+1
+	tay
+	RETURN_OK
 .endproc

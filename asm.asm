@@ -34,7 +34,6 @@ label_value = zp::asm+6 ; param to addlabel
 __asm_current_file=zp::asm+$8
 lsb = zp::asm+$a
 msb = zp::asm+$b
-
 .BSS
 ;--------------------------------------
 .export ifstack
@@ -1116,8 +1115,15 @@ bbb10_modes:
 @done:	RETURN_OK
 .endproc
 
-;--------------------------------------
-; include file assembles the contents of the given file
+;******************************************************************************
+; INCLUDEFILE
+; Include file assembles the contents of the given file.
+;
+; Also generates debug info; the debug info generated will depend on the pass
+; Pass 1:
+;  Gets the number of lines/segments in the file
+; Pass 2:
+;  Stores the corresponding lines for addresses of assembled code
 .proc includefile
 @filename=$100
 @numlines=zp::tmp4
@@ -1164,28 +1170,35 @@ bbb10_modes:
 	beq @done
 	lda zp::gendebuginfo
 	beq @asm
-	ldxy @numlines
+
+	; if pass 2, store the address/line
+	ldxy zp::asmresult	; current PC (address)
 	stxy zp::tmp0
-	ldxy __asm_current_file
-	jsr dbg::storeline
+	ldxy @numlines		; current line
+	jsr dbg::storeline	; map them
 
 @asm:	ldxy #mem::spare
+; TODO: save line/segment count in case recursive include
 	jsr __asm_tokenize
 	cmp #ASM_ORG
 	bne :+
 	inc @numsegments ; increment segment count
-:	incw @numlines
+:	incw @numlines	 ; increment line count
 	jmp @doline
 
-@done:	; store basic debug info for the file
+@done:	; if pass 1, store basic debug info (line/seg count) for the file
+	lda zp::pass
+	cmp #$01
+	bne @close
 	ldxy @numlines
 	stxy zp::tmp0
 	ldxy #filename
 	jsr dbg::setfile
-	bcc :+
+	bcc @close
 	rts		; error occurred
 
-:	lda zp::file
+@close:
+	lda zp::file
 	jmp file::close
 .endproc
 

@@ -52,6 +52,9 @@ err_max_files_exceeded:
 	.byte "too many files",0
 err_param_name_too_long:
 	.byte "param name too long",0
+err_line_not_found:
+	.byte "line not found for address",0
+
 
 ;--------------------------------------
 errors: .word err_no_err	 ; no error
@@ -77,7 +80,7 @@ errors: .word err_no_err	 ; no error
 	.word err_cyclic_include
 	.word err_overlapping_segments
 	.word err_max_files_exceeded
-	.word err_param_name_too_long:
+	.word err_param_name_too_long
 
 .CODE
 ;--------------------------------------

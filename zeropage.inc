@@ -4,6 +4,10 @@ ZEROPAGE_INC = 1
 .scope zp
 
 ;--------------------------------------
+; $20-$30 is reserved for debug info generation
+debug = $20
+
+;--------------------------------------
 ; $30-$40 reserved for string manipulation routines
 ; which require a fair amount of zeropage space.
 ; You may use these if you don't need to use any 
@@ -21,11 +25,12 @@ str9 = $39
 stra = $3a
 
 ;--------------------------------------
-; $40-$50 are used during assembly and debug
-asm=$40			; base address of assembly tmp vars
-disasm=$40		; base address of disassembly tmp vars
-line=$4c		; ptr to text being processed
-gendebuginfo=$4e	; flag to generate debug info
+; $40-$50 are used during assembly and disassembly
+asm=$40		 ; base address of assembly tmp vars
+disasm=$40	 ; base address of disassembly tmp vars
+pass=$4c	 ; the pass of assembly being done (1 or 2)
+line=$4d	 ; ptr to text being processed
+gendebuginfo=$4f ; flag to generate debug info
 ;--------------------------------------
 ; $50-$60 are used for labels
 label_value=$50	; arguments to label functions

@@ -130,20 +130,34 @@ main:
 @pass1:
 	lda #$01
 	sta state::verify	; verify; write labels but not code
+	sta zp::pass		; set pass number to 1
+	lda #$00
+	sta @numlines
+	sta @numlines+1
 @pass1loop:
 	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
 	bcs @err
+	cmp #ASM_ORG
+	bne :+
+	inc @numsegments  ; update segment count on .ORG/.INC
+:	incw @numlines	  ; increment line count
 	jsr src::end
 	bne @pass1loop
 
-; write the basic debug info (segment #/file lens)
-; TODO:
+	; write the basic debug info (segment #/file len)
+	ldxy @numlines
+	stxy zp::tmp0
+	ldxy @numsegments
+	stxy zp::tmp2
+	ldxy #filename
+	jsr dbg::setfile
 
 ; Pass 2
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
+	inc zp::pass		; pass 2
 @pass2:
 	jsr src::rewind
 	jsr src::next
@@ -179,11 +193,7 @@ main:
 	ldxy @line
 	jmp gotoline
 
-@ok:	cmp #ASM_ORG
-	bne :+
-	inc @numsegments
-:	incw @numlines
-	jsr src::end
+@ok:	jsr src::end
 	bne @pass2loop
 
 	; store the basic debug info
@@ -1262,3 +1272,7 @@ ccvectors:
 ;--------------------------------------
 titlebar:
 .byte "monster                      c=<h>: help"
+
+.BSS
+;--------------------------------------
+filename: .res 16
