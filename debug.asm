@@ -260,6 +260,54 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
+; STARTSEGMENT
+; Begins a new segment in the active file where debug info will be stored
+; OUT:
+;  - .C: set on error
+.proc __debug_startsegment
+@addr=zp::tmp0
+	lda file
+	asl
+	tax
+	lda fileaddresses,x
+	sta @addr
+	lda fileaddresses+1,x
+	sta @addr+1
+	ldy #$00
+	lda (@addr),y	; get number of segments
+	pha
+	clc
+	adc #$01
+	sta (@addr),y	; store updated segment count
+	pla
+; get the stop address of the previous segment
+	asl		; *2
+	asl		; *4
+	sec		; +1 (num_segments)
+	adc @addr
+	sta @addr
+	bcc :+
+	inc @addr+1
+
+; @addr now points to the last segment's start address
+:	ldy #$02	; offset to stop address
+	lda (@addr),y
+	pha
+	iny
+	lda (@addr),y
+
+; store last segment's stop as new segment's start address
+	iny
+	iny
+	sta (@addr),y
+	dey
+	pla
+	sta (@addr),y
+
+	RETURN_OK
+.endproc
+
+;******************************************************************************
 ; STORE_LINE
 ; Stores the given address and line number in the debug info for the current
 ; file
