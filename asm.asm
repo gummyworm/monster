@@ -12,6 +12,7 @@
 .include "memory.inc"
 .include "string.inc"
 .include "text.inc"
+.include "source.inc"
 .include "util.inc"
 .include "state.inc"
 .include "zeropage.inc"
@@ -29,11 +30,12 @@ immediate=zp::asm+2 ; 1=immediate, 0=not immediate
 operandsz=zp::asm+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
 cc=zp::asm+4
 resulttype=zp::asm+5
-label_value = zp::asm+6 ; param to addlabel
+srcline=zp::asm+6
 .export __asm_current_file
 __asm_current_file=zp::asm+$8
 lsb = zp::asm+$a
 msb = zp::asm+$b
+
 .BSS
 ;--------------------------------------
 .export ifstack
@@ -198,8 +200,7 @@ __asm_tokenize:
 	lda ifstack,x
 	bne :-
 @false:	RETURN_OK
-	inc $900f
-; check if directive
+
 @directive:
 	jsr getdirective
 	bcs @ctx
@@ -483,27 +484,44 @@ __asm_tokenize:
 	beq @noerr
 @err:	RETURN_ERR ERR_ILLEGAL_ADDRMODE
 
-@noerr:
-	; update asm::result pointer by (1 + operand size)
+@noerr: ;------------------
+; store debug info if enabled
+@dbg:	lda zp::gendebuginfo
+	beq @updatevpc
+	ldxy zp::virtualpc	; current PC (address)
+	stxy zp::tmp0
+	ldxy src::line		; current line
+	dex			; TODO: hack because linedone happens before tokenize
+	jsr dbg::storeline	; map them
+
+;------------------
+; update virtualpc by (1 + operand size)
+@updatevpc:
 	lda state::verify
-	bne :+
+	bne @ret ; skip update PC for verify
 
 	lda operandsz
 	sec			; +1
 	adc zp::virtualpc
 	sta zp::virtualpc
-	bcc :+
+	bcc @updatepc
 	inc zp::virtualpc+1
 
-:	lda operandsz
+;------------------
+; update asmresult pointer by (1 + operand size)
+@updatepc:
+	lda operandsz
 	sec			; +1
 	adc zp::asmresult
 	sta zp::asmresult
-	bcc :+
+	bcc @ret
 	inc zp::asmresult+1
-:	lda #ASM_OPCODE
+
+@ret:	lda #ASM_OPCODE
 	RETURN_OK
 
+;------------------
+; check that the BBB and CC combination we have is valid
 @validate_cc:
 	ldy cc
 	bne :+
@@ -517,21 +535,18 @@ __asm_tokenize:
 
 :	cmp #$ff
 	beq @err
-
 	asl
 	asl
 	ora cc
 	ldy #$00
 	ora (zp::asmresult),y
 
-@final_validate:
-	; check for invalid instructions ("gaps" in the ISA)
+; finally, check for invalid instructions ("gaps" in the ISA)
 	ldx #@num_illegals-1
 :	cmp @illegal_opcodes,x
 	beq @err
 	dex
 	bpl :-
-
 	sta (zp::asmresult),y
 	jmp @noerr
 
@@ -1128,6 +1143,7 @@ bbb10_modes:
 @filename=$100
 @numlines=zp::tmp4
 @numsegments=zp::tmp6
+@type=zp::tmp7
 	jsr processws
 	ldy #$00
 	sty @numlines
@@ -1159,6 +1175,8 @@ bbb10_modes:
 	jsr file::open
 	sta zp::file
 
+	; TODO: set file in debug info
+
 @doline:
 	ldxy #mem::spare
 	lda zp::file
@@ -1168,30 +1186,41 @@ bbb10_modes:
 
 @ok:	cmp #$00
 	beq @done
-	lda zp::gendebuginfo
-	beq @asm
-
-	; if pass 2, store the address/line
-	ldxy zp::asmresult	; current PC (address)
-	stxy zp::tmp0
-	ldxy @numlines		; current line
-	jsr dbg::storeline	; map them
-
 @asm:	ldxy #mem::spare
-; TODO: save line/segment count in case recursive include
+
+; save the # of segments and number lines
+	lda @numsegments
+	pha
+	lda @numlines
+	pha
+	lda @numlines+1
+	pha
+
 	jsr __asm_tokenize
+	sta @type
+
+; restore the # of segments and number of lines
+	pla
+	sta @numlines+1
+	pla
+	sta @numlines
+	pla
+	sta @numsegments
+
+	lda @type
 	cmp #ASM_ORG
 	bne :+
 	inc @numsegments ; increment segment count
+	jmp @doline
 :	incw @numlines	 ; increment line count
 	jmp @doline
 
-@done:	; if pass 1, store basic debug info (line/seg count) for the file
+@done:
+; if pass 1, store basic debug info (line/seg count) for the file
 	lda zp::pass
 	cmp #$01
 	bne @close
-	ldxy @numlines
-	stxy zp::tmp0
+	; TODO:
 	ldxy #filename
 	jsr dbg::setfile
 	bcc @close

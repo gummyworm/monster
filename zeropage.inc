@@ -5,7 +5,8 @@ ZEROPAGE_INC = 1
 
 ;--------------------------------------
 ; $20-$30 is reserved for debug info generation
-debug = $20
+debug = $10
+src_line=$1e	; line # that is being assembled
 
 ;--------------------------------------
 ; $30-$40 reserved for string manipulation routines
@@ -31,6 +32,7 @@ disasm=$40	 ; base address of disassembly tmp vars
 pass=$4c	 ; the pass of assembly being done (1 or 2)
 line=$4d	 ; ptr to text being processed
 gendebuginfo=$4f ; flag to generate debug info
+
 ;--------------------------------------
 ; $50-$60 are used for labels
 label_value=$50	; arguments to label functions

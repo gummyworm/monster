@@ -119,6 +119,7 @@ main:
 @line=zp::editor
 @numlines=zp::editor+2
 @numsegments=zp::editor+4
+@pc=zp::editor+6
 	jsr src::pushp
 	jsr src::rewind
 	jsr src::next
@@ -131,6 +132,7 @@ main:
 	lda #$01
 	sta state::verify	; verify; write labels but not code
 	sta zp::pass		; set pass number to 1
+
 	lda #$00
 	sta @numlines
 	sta @numlines+1
@@ -143,53 +145,39 @@ main:
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
 	bcs @err
+	ldx zp::gendebuginfo
+	beq :+
 	cmp #ASM_ORG
 	bne :+
-	inc @numsegments  ; update segment count on .ORG/.INC
-:	incw @numlines	  ; increment line count
-	jsr src::end
+	jsr dbg::endseg	   ; end previous segment (if any)
+	ldxy zp::virtualpc ; start address of segment
+	jsr dbg::initseg   ; init a new segment
+:	jsr src::end
 	bne @pass1loop
-
-	; write the basic debug info (segment #/file len)
-	ldxy @numlines
-	stxy zp::tmp0
-	ldxy @numsegments
-	stxy zp::tmp2
-	ldxy #filename
-	jsr dbg::setfile
-	bcs @err
 
 ; Pass 2
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
 @pass2:
-	inc zp::pass		; pass 2
-	jsr src::rewind
+	inc zp::pass	; pass 2
+
+	ldx zp::gendebuginfo
+	beq :+
+	jsr dbg::setup  ; we have enough info to init debug now
+
+:	jsr src::rewind
 	jsr src::next
 	jsr asm::resetpc
 	lda #$00
 	sta state::verify	; disable verify - actually assemble the code
 
 @pass2loop:
-	ldxy src::line	; set the line we're assembling
-	stxy @line
-
-	; write debug info if enabled
-	lda zp::gendebuginfo
-	beq @asm
-	ldxy @line
-	stxy zp::tmp0
-	ldxy asm::currentfile
-	jsr dbg::storeline
-
-@asm:
-	jsr src::readline
+@asm:	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
 	bcc @ok
 
-@err:
-	ldxy @line
+@err:	ldxy @line
 	jsr reporterr
 
 	; goto the line that failed
@@ -198,15 +186,16 @@ main:
 	ldxy @line
 	jmp gotoline
 
-@ok:	jsr src::end
-	bne @pass2loop
+@ok:	; store debug info (if enabled)
+	ldx zp::gendebuginfo
+	beq @next
+	cmp #ASM_ORG
+	bne @next
+	ldxy zp::virtualpc	; address of segment
+	jsr dbg::startseg_addr	; set segment
 
-	; store the basic debug info
-	ldxy @numlines
-	stxy zp::tmp0
-	ldxy asm::currentfile
-	jsr dbg::setfile
-	jmp *
+@next:	jsr src::end
+	bne @pass2loop
 
 @printresult:
 	lda #$00
@@ -224,6 +213,8 @@ main:
 	jsr text::print
 
 @asmdone:
+	ldxy zp::virtualpc
+	jsr dbg::endseg		; end the last segment
 	jsr src::popp
 	jsr src::goto
 	jsr text::clrline
@@ -241,7 +232,9 @@ main:
 	sta zp::gendebuginfo
 	jsr dbg::init
 	jsr command_asm
-	dec zp::gendebuginfo	; turn off debug-info
+	bcc :+
+	rts
+:	dec zp::gendebuginfo	; turn off debug-info
 	RETURN_OK
 .endproc
 
@@ -317,9 +310,8 @@ main:
 	jsr text::putch
 	jmp @getkey
 
-@done:
-	clc	; clear carry for success
-@exit:		; carry is implicitly set by CMP for ==
+@done:	clc ; clear carry for success
+@exit:	    ; carry is implicitly set by CMP for ==
 	php
 	jsr edit
 	plp
@@ -1279,6 +1271,4 @@ ccvectors:
 titlebar:
 .byte "monster                      c=<h>: help"
 
-.BSS
-;--------------------------------------
-filename: .res 16
+filename: .byte "test",0
