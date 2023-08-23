@@ -23,7 +23,9 @@
 .import help
 
 .CODE
-;--------------------------------------
+;******************************************************************************
+; DRAW_TITLEBAR
+; Draws a titlebar at the top of the screen
 .IFDEF DRAW_TITLEBAR
 .proc draw_titlebar
 	ldxy #titlebar
@@ -34,7 +36,9 @@
 .endproc
 .ENDIF
 
-;--------------------------------------
+;******************************************************************************
+; INIT
+; Initializes the editor state
 .export __edit_init
 .proc __edit_init
         jsr bm::init
@@ -55,12 +59,12 @@
 	jmp cur::set
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; RUN
+; Runs the main loop for the editor
 .export __edit_run
 .proc __edit_run
-; run is the main loop for the editor
 main:
-
         lda #$70
         cmp $9004
         bne *-3
@@ -75,7 +79,7 @@ main:
 	jmp main
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; SAVE_STATE
 ; Saves the editor state
 ; This allows the editor (including the cursor, screen, etc.) to be restored
@@ -84,7 +88,7 @@ main:
 	jmp bm::save
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; RESTORE_STATE
 ; Restores the editor state
 ; The state that is restored is that which was saved by the last call to
@@ -93,32 +97,34 @@ main:
 	jmp bm::restore
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 .proc command_go
+@target=$00
 	jsr lbl::addr
-	bcs @not_found
-	stxy @target
-@target=*+1
-	jsr $f00d
+	bcc :+
+	rts		; address not found
+
+:	stxy @target+1
+	lda #$4c	; JMP
+	sta @target
+	jsr @target
 	jmp restore_state
-@not_found:
-	rts
 .endproc
 
-;--------------------------------------
-; reset clears all state relating to the assembly of the active file.
+;******************************************************************************
+; RESET
+; clears all state relating to the assembly of the active file.
 .proc reset
 	jsr asm::reset
 	jmp lbl::clr
 .endproc
 
-;--------------------------------------
-; command_asm assembles the entire source into mem::program
+;******************************************************************************
+; COMMAND_ASM
+; Assembles the entire source into mem::program
 .export command_asm
 .proc command_asm
 @line=zp::editor
-@numlines=zp::editor+2
-@numsegments=zp::editor+4
 @pc=zp::editor+6
 	jsr src::pushp
 	jsr src::rewind
@@ -133,26 +139,20 @@ main:
 	sta state::verify	; verify; write labels but not code
 	sta zp::pass		; set pass number to 1
 
-	lda #$00
-	sta @numlines
-	sta @numlines+1
-	sta @numsegments
-	sta @numsegments+1
-	inc @numsegments	; init numsegments to 1
-
 @pass1loop:
 	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
 	bcs @err
 	ldx zp::gendebuginfo
-	beq :+
+	beq @p1next
 	cmp #ASM_ORG
-	bne :+
+	bne @p1next
 	jsr dbg::endseg	   ; end previous segment (if any)
 	ldxy zp::virtualpc ; start address of segment
 	jsr dbg::initseg   ; init a new segment
-:	jsr src::end
+@p1next:
+	jsr src::end
 	bne @pass1loop
 
 ; Pass 2
@@ -218,31 +218,36 @@ main:
 	jsr src::popp
 	jsr src::goto
 	jsr text::clrline
+
 	RETURN_OK
 
 @success_msg: .byte "done $", $fe, " bytes", 0
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; COMMAND_ASMDBG
 ; assembles the source and generates debug information for it
 .proc command_asmdbg
 	inc $900f
 	lda #$01
-	sta zp::gendebuginfo
+	sta zp::gendebuginfo	; enable debug info
 	jsr dbg::init
 	jsr command_asm
 	bcc :+
-	rts
+	rts			; error
 :	dec zp::gendebuginfo	; turn off debug-info
 	RETURN_OK
 .endproc
 
-;--------------------------------------
-; readinput reads command input and returns it (0-terminated) in mem::linebuffer
+;******************************************************************************
+; READINPUT
+; Reads command input and returns it (0-terminated) in mem::linebuffer
 ; a prompt may be given in the address XY. If XY is 0, a ':' will be
 ; used
-; .C is set if no input was read (the user pressed <-)
+; IN:
+;  - .XY: a prompt to display or $0000 for no prompt
+; OUT:
+;  - .C: set if no input was read (the user pressed <-)
 .proc readinput
 @prompt=zp::tmp0
 @result_offset=zp::tmp8
@@ -338,9 +343,12 @@ main:
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; DOCOMMAND
+; Executes the given command ID
+; IN:
+;  - .A: the command ID for the command to execute
 .proc docommand
-; .A contains the command
 @prompt=$100
 @cmd=@prompt
 	sta @prompt
@@ -389,8 +397,9 @@ main:
 .word scratch
 .endproc
 
-;--------------------------------------
-; onkey is called upon the user pressing a key.
+;******************************************************************************
+; ONKEY
+; Handles a keypress from the user
 .proc onkey
 	ldx #@num_special_keys-1
 
@@ -462,7 +471,9 @@ main:
 	.word command_gotoline
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; HOME
+; Moves the cursor to start of the current line
 .proc home
 	ldx zp::curx
 	beq :+
@@ -473,13 +484,16 @@ main:
 :	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; COMMAND_NOP
+; Does nothing
 .proc command_nop
 	rts
 .endproc
 
-;--------------------------------------
-; refresh redraws the screen
+;******************************************************************************
+; Refresh
+; Redraws the screen
 .proc refresh
 	jsr cur::off
 	jsr __edit_init
@@ -493,8 +507,9 @@ main:
 	jmp src::prev	 ; go back to last char
 .endproc
 
-;--------------------------------------
-; dir lists the directory
+;******************************************************************************
+; DIR
+; Lists the directory
 .proc dir
 	jsr bm::save
 	jsr text::clrline
@@ -507,8 +522,9 @@ main:
 	jmp bm::restore
 .endproc
 
-;--------------------------------------
-; rename gets user input to rename the buffer and applies the new name.
+;******************************************************************************
+; Rename
+; Gets user input to rename the buffer and applies the new name.
 .proc rename
 	jsr text::savebuff
 	jsr text::clrline
@@ -520,15 +536,17 @@ main:
 	jmp text::drawline
 .endproc
 
-;--------------------------------------
-; saveas allows the user to name the current buffer- then writes it to a file
+;******************************************************************************
+; SAVEAS
+; Allows the user to name the current buffer- then writes it to a file
 ; of the same name.
 .proc saveas
 	jmp save
 .endproc
 
-;--------------------------------------
-; edit configures the cursor/screen/etc. for editing
+;******************************************************************************
+; EDIT
+; Configures the cursor/screen/etc. for editing
 .proc edit
 	lda #$01
 	sta text::insertmode
@@ -540,8 +558,11 @@ main:
 	jmp cur::setmax
 .endproc
 
-;--------------------------------------
-; save writes the source buffer to a file.
+;******************************************************************************
+; SAVE
+; Writes the source buffer to a file.
+; IN:
+;  - .XY: the filename to save the source to
 .proc save
 @file=zp::tmp9
 	stx @file
@@ -577,7 +598,11 @@ main:
 .byte "failed to save file; error ", $fe, 0
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; SCRATCH
+; Deletes the given file
+; IN:
+;  - .XY: the filename of the file to delete
 .proc scratch
 @file=zp::tmp9
 	stx @file
@@ -611,8 +636,9 @@ main:
 	.byte "failed to delete file; error ", $fe, 0
 .endproc
 
-;--------------------------------------
-; load loads the file from disk into the source buffer
+;******************************************************************************
+; LOAD
+; Loads the file from disk into the source buffer
 .proc load
 @file=zp::tmp9
 @dst=zp::tmpb
@@ -660,8 +686,9 @@ main:
 .byte "failed to load file; error $", $fe, 0
 .endproc
 
-;--------------------------------------
-; linedone attempts to compile the line entered in (mem::linebuffer)
+;******************************************************************************
+; LINEDONE
+; Attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
 	; insert \n into source buffer and terminate text buffer
 	lda #$0d
@@ -708,8 +735,9 @@ main:
 	jmp @nextline
 .endproc
 
-;--------------------------------------
-; drawline draws the line in mem::linebuffer at the current cursor position.
+;******************************************************************************
+; DRAWLINE
+; Draws the line in mem::linebuffer at the current cursor position.
 ; The cursor is then updated and the screen scrolled.
 .proc drawline
 	lda zp::cury
@@ -745,8 +773,9 @@ main:
 	jmp cur::set
 .endproc
 
-;--------------------------------------
-; memview displays the memory view (if enabled)
+;******************************************************************************
+; MEMVIEW
+; executes the memory view and returns when the user is done
 .proc memview
 	ldx #<src::buffer
 	ldy #>src::buffer
@@ -754,9 +783,10 @@ main:
 	jmp edit
 .endproc
 
-;-------------------------------------
+;******************************************************************************
+; CLRERROR
+; Clears any error message
 .proc clrerror
-	; clear any error message
 	jsr text::clrline
 	ldxy #mem::linebuffer
 	lda #ERROR_ROW
@@ -764,8 +794,9 @@ main:
 	jmp text::hioff
 .endproc
 
-;--------------------------------------
-; insert adds a character at the cursor position.
+;******************************************************************************
+; INSERT
+; Adds a character at the cursor position.
 .proc insert
 	cmp #$80
 	bcs @controlcodes
@@ -800,7 +831,9 @@ main:
 	jmp text::putch
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; CCUP
+; Handles the up cursor key
 .proc ccup
 	ldxy src::line
 	cmpw #1
@@ -855,7 +888,9 @@ main:
 	jmp text::drawline
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; CCLEFT
+; Handles the left cursor key
 .proc ccleft
 	lda zp::curx
 	beq :+
@@ -868,7 +903,9 @@ main:
 :	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; CCRIGHT
+; Handles the right cursor key
 .proc ccright
 	jsr src::right
 	bcc :+
@@ -876,7 +913,9 @@ main:
 :	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; CCUP
+; Handles the up cursor key
 .proc ccdown
 @cnt=zp::tmp6
 @newy=zp::tmp7
@@ -947,7 +986,9 @@ main:
 	jmp text::drawline
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; CCDEL
+; Handles the DEL key
 .proc ccdel
 @cnt=zp::tmp6
 	jsr src::start
@@ -1016,7 +1057,9 @@ main:
 	jmp src::end
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; COMMAND_GOTOLINE
+; Gets a line number from the user and moves the cursor and source to that line
 .proc command_gotoline
 	ldxy #$0000
 	jsr readinput
@@ -1029,8 +1072,9 @@ main:
 @done:	rts
 .endproc
 
-;--------------------------------------
-; gotoline sets the editor to the line in .YX and refreshes the screen.
+;******************************************************************************
+; GOTOLINE
+; Sets the editor to the line in .YX and refreshes the screen.
 .proc gotoline
 @target=zp::tmp6
 @row=zp::tmp8
@@ -1210,7 +1254,7 @@ main:
 	jmp cur::set
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; REPORTERR
 ; reports the given error
 ; in:
