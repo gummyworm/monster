@@ -3,9 +3,12 @@
 .include "layout.inc"
 
 .CODE
-;--------------------------------------
-; readerr reads the drive's error into $100 (0-terminated)
+;******************************************************************************
+; READERR
+; Reads the drive's error into $100 (0-terminated)
 ; NOTE: file #15 is opened and should be closed by the caller when done
+; OUT:
+;  $100: the drive error message
 .export __io_readerr
 .proc __io_readerr
 @ch=zp::tmpf

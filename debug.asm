@@ -587,7 +587,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; START
 ; Begins debugging at the given address
 ; Execution will continue until a BRK instruction occurs at which point the
@@ -598,40 +598,40 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_start
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; SAVE_DEBUGSTATE
 ; saves memory likely to be clobbered by the user's
 ; program (namely the screen)
 .proc save_debugstate
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; SAVE_PROGSTATE
 ; saves the user program's state so that the debugger may use the memory for
 ; screen etc.
 .proc save_progstate
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; RESTORE_DEBUGSTATE
 ; restores the saved debugger state
 .proc restore_debugstate
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; RESTORE_PROGSTATE
 ; restores the saved program state
 .proc restore_progstate
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; RUN
 ; Runs unitl the next BRK instruction and returns to the debugger
 .proc run
 
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; STEP
 ; Runs the next instruction from the .PC and returns to the debug prompt.
 ; This works by inserting a BRK instruction after
@@ -640,7 +640,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; WATCH
 ; Adds a watch for the given memory location. If this location is written to,
 ; execution will return to the debugger
@@ -651,7 +651,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 
-;--------------------------------------
+;******************************************************************************
 ; SHOWREGS
 ; prints the contents of the registers in the format
 ;  ADDR A  X  Y  SP NV-BDIZC
@@ -748,7 +748,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @regsline: .byte "addr a  x  y  sp  nv-bdizc",0
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; SETFILE
 ; IN:
 ;  - .XY: the 0-terminated file to set as the current file
@@ -759,8 +759,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 .endproc
 
-
-;--------------------------------------
+;******************************************************************************
 ; GET_FILEID
 ; Returns the ID for the given file name
 ; IN:

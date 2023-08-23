@@ -8,8 +8,7 @@
 GAPSIZE = 20	; size of gap in gap buffer
 
 .segment "SOURCE"
-
-;--------------------------------------
+;******************************************************************************
 data_start:
 sp: .byte 0
 stack: .res 32
@@ -30,15 +29,17 @@ data_end:
 len:  .word 0	; size of the buffer (pre+post+gap)
 bank: .byte 0
 
-;--------------------------------------
+;******************************************************************************
+; DATA
 .export __src_buffer
 __src_buffer:
 data:
 .res 1024*4
 
 .CODE
-;--------------------------------------
-;  new initializes the source buffer
+;******************************************************************************
+; NEW
+; Initializes the source buffer
 .export __src_new
 .proc __src_new
 	ldx #data_end-data_start-1
@@ -52,8 +53,9 @@ data:
 	rts
 .endproc
 
-;--------------------------------------
-; pushp pushes the current source position to an internal stack.
+;******************************************************************************
+; PUSHP
+; Pushes the current source position to an internal stack.
 .export __src_pushp
 .proc __src_pushp
 	lda sp
@@ -68,8 +70,11 @@ data:
 	rts
 .endproc
 
-;--------------------------------------
-; popp returns the the most recent source position pushed in .YX
+;******************************************************************************
+; POPP
+; Returns the the most recent source position pushed in .YX
+; OUT:
+;  - .XY: the most recently pushed source position
 .export __src_popp
 .proc __src_popp
 	lda sp
@@ -86,8 +91,11 @@ data:
 :	rts
 .endproc
 
-;--------------------------------------
-;  end returns .Z set if the cursor is at the end of the buffer.
+;******************************************************************************
+; END
+; Returns .Z set if the cursor is at the end of the buffer.
+; OUT:
+;  - .Z: set if the cursor is at the end of the buffer
 .export __src_end
 .proc __src_end
 	ldxy post
@@ -95,8 +103,11 @@ data:
 	rts
 .endproc
 
-;--------------------------------------
-;  start returns .Z set if the cursor is at the start of the buffer.
+;******************************************************************************
+; START
+; Returns .Z set if the cursor is at the start of the buffer.
+; OUT:
+;  - .Z: set if the cursor is at the start of the buffer
 .export __src_start
 .proc __src_start
 	ldxy pre
@@ -104,8 +115,9 @@ data:
 	rts
 .endproc
 
-;--------------------------------------
-; backspace deletes the character immediately before the current cursor position.
+;******************************************************************************
+; BACKSPACE
+; Deletes the character immediately before the current cursor position.
 .export __src_backspace
 .proc __src_backspace
 	jsr __src_start
@@ -119,8 +131,9 @@ data:
 @skip:	rts
 .endproc
 
-;--------------------------------------
-; delete deletes the character at the current cursor position.
+;******************************************************************************
+; DELETE
+; Deletes the character at the current cursor position.
 .export __src_delete
 .proc __src_delete
 	ldxy post
@@ -130,9 +143,11 @@ data:
 @skip:	rts
 .endproc
 
-;--------------------------------------
-; next moves the cursor up one character in the gap buffer.
-; Returns the character at the new cursor position in .A
+;******************************************************************************
+; NEXT
+; Moves the cursor up one character in the gap buffer.
+; OUT:
+;  - .A: the character at the new cursor position in .A
 .export __src_next
 .proc __src_next
 @src=zp::tmp0
@@ -167,9 +182,11 @@ data:
  @skip:	jmp atcursor
 .endproc
 
-;--------------------------------------
-; right moves to the next character unless it is a newline
-; .C is set if the cursor was moved, clear if not
+;******************************************************************************
+; RIGHT
+; Moves to the next character unless it is a newline
+; OUT:
+;  - .C: set if the cursor was moved, clear if not
 .export __src_right
 .proc __src_right
 	ldxy post
@@ -189,9 +206,11 @@ data:
 	rts
 .endproc
 
-;--------------------------------------
-; prev moves the cursor back one character in the gap buffer.
-; The character at the new position is returned in .A
+;******************************************************************************
+; PREV
+; Moves the cursor back one character in the gap buffer.
+; OUT:
+;  - .A: the character at the new position
 .export __src_prev
 .proc __src_prev
 @src=zp::tmp0
@@ -225,13 +244,15 @@ data:
  @skip:	jmp atcursor
 .endproc
 
-;--------------------------------------
-; up moves the cursor back one line or to the start of the buffer if it is
+;******************************************************************************
+; UP
+; Moves the cursor back one line or to the start of the buffer if it is
 ; already on the first line
 ; this will leave the cursor on the first newline character encountered while
 ; going backwards through the source.
-; .C is set if cursor is at the start of the buffer
-; .A contains the character at the cursor position
+; OUT:
+;  - .A: the character at the cursor position
+;  - .C: set if cursor is at the start of the buffer
 .export __src_up
 .proc __src_up
 	ldxy pre
@@ -252,10 +273,12 @@ data:
 	rts
 .endproc
 
-;--------------------------------------
-; down moves the cursor beyond the next RETURN character (or to the end of
+;******************************************************************************
+; DOWN
+; Moves the cursor beyond the next RETURN character (or to the end of
 ; the buffer if there is no such character
-; .C is set if the end of the buffer was reached (cannot move "down")
+; OUT:
+;  - .C: set if the end of the buffer was reached (cannot move "down")
 .export __src_down
 .proc __src_down
 	ldxy post
@@ -276,8 +299,11 @@ data:
 	rts
 .endproc
 
-;--------------------------------------
-; insert adds the character in .A to the buffer at the gap position (gap).
+;******************************************************************************
+; INSERT
+; Adds the character in .A to the buffer at the gap position (gap).
+; IN:
+;  - .A: the character to insert.
 .export __src_insert
 .proc __src_insert
 @len=zp::tmp0
@@ -319,9 +345,12 @@ data:
 	rts
 .endproc
 
-;--------------------------------------
-; replace adds the character in .A to the buffer at the cursor position,
+;******************************************************************************
+; REPLACE
+; Adds the character in .A to the buffer at the cursor position,
 ; replacing the character that currently resides there
+; IN:
+;  - .A: the character to replace the existing one with
 .export __src_replace
 .proc __src_replace
 	pha
@@ -330,8 +359,11 @@ data:
 	jmp __src_insert
 .endproc
 
-;--------------------------------------
-; gaplen returns the length of the gap buffer in (>Y,<X)
+;******************************************************************************
+; GAPLEN
+; Returns the length of the gap
+; OUT:
+;  - .XY: the length of the gap (len-post-pre)
 .proc gaplen
 	ldxy len
 	sub16 post
@@ -339,16 +371,22 @@ data:
 	rts
 .endproc
 
-;--------------------------------------
-; cursor returns the address of the current cursor position within (data).
+;******************************************************************************
+; CURSOR
+; Returns the address of the current cursor position within (data).
+; OUT:
+;  - .XY: the address of the cursor position
 .proc cursor
 	ldxy #data
 	add16 pre
 	rts
 .endproc
 
-;--------------------------------------
-; atcursor returns the character at the cursor position.
+;******************************************************************************
+; ATCURSOR
+; Returns the character at the cursor position.
+; OUT:
+;  - .A: the character at the current cursor position
 .export __src_atcursor
 __src_atcursor:
 .proc atcursor
@@ -364,8 +402,11 @@ __src_atcursor:
 	rts
 .endproc
 
-;--------------------------------------
-;poststart returns the address of the post-start section of the gap buffer
+;******************************************************************************
+; POSTSTART
+; Returns the address of the post-start section of the gap buffer
+; OUT:
+;  - .XY: the address of the post-start section
 .proc poststart
 	ldxy #data
 	add16 len
@@ -373,8 +414,9 @@ __src_atcursor:
 	rts
 .endproc
 
-;--------------------------------------
-; rewind moves the cursor back to the start of the buffer
+;******************************************************************************
+; REWIND
+; Moves the cursor back to the start of the buffer
 .export __src_rewind
 .proc __src_rewind
 @l0:	jsr __src_prev
@@ -384,11 +426,11 @@ __src_atcursor:
 @done:	rts
 .endproc
 
-;--------------------------------------
-; readb reads one byte at the cursor positon and advances the cursor
-; Out:
-;  .A: the byte that was read
-;
+;******************************************************************************
+; READB
+; Reads one byte at the cursor positon and advances the cursor
+; OUT:
+;  - .A: the byte that was read
 .export __src_readb
 .proc __src_readb
 	jsr atcursor
@@ -398,11 +440,12 @@ __src_atcursor:
 	rts
 .endproc
 
-;--------------------------------------
-; readline reads one line at the cursor positon and advances the cursor
-; Out:
-;  mem::linebuffer: the line that was read will be 0-terminated
-;  .C is set if the end of the source was reached
+;******************************************************************************
+; READLINE
+; Reads one line at the cursor positon and advances the cursor
+; OUT:
+;  - mem::linebuffer: the line that was read will be 0-terminated
+;  - .C: set if the end of the source was reached
 .export __src_readline
 .proc __src_readline
 @cnt=zp::tmp4
@@ -429,8 +472,12 @@ __src_atcursor:
 	rts
 .endproc
 
-;--------------------------------------
-; goto goes to the source position given in .YX
+
+;******************************************************************************
+; GOTO
+; Goes to the source position given
+; IN:
+;  - .XY: the line to go to
 .export __src_goto
 .proc __src_goto
 @dest=zp::tmp4
@@ -449,8 +496,7 @@ __src_atcursor:
 	ldxy pre
 	cmpw @dest
 	bne @backwards
-@done:
-	rts
+@done:  rts
 .endproc
 
 ;--------------------------------------
@@ -499,10 +545,11 @@ __src_atcursor:
 	rts
 .endproc
 
-;--------------------------------------
-; downn advances the source by the number of lines in .YX
-; .C is set if the end was reached before the total lines requested could be reached
-; .YX contains the number of lines that were not read
+;******************************************************************************
+; DOWNN
+; Advances the source by the number of lines in .YX
+;  - .YX: the number of lines that were not read
+;  - .C: set if the end was reached before the total lines requested could be reached
 .export __src_downn
 .proc __src_downn
 @cnt=zp::tmp4
@@ -517,10 +564,14 @@ __src_atcursor:
 	rts
 .endproc
 
-;--------------------------------------
-; upn advances the source by the number of lines in .YX
-; .C is set if the beginning was reached before the total lines requested could be reached
-; .YX contains the number of lines that were not read
+;******************************************************************************
+; UPN
+; Advances the source by the number of lines in .YX
+; IN:
+;  - .XY: the number of lines to move "up"
+; OUT:
+;  - .YX: contains the number of lines that were not read
+;  - .C: set if the beginning was reached before the total lines requested could be reached
 .export __src_upn
 .proc __src_upn
 @cnt=zp::tmp4

@@ -5,16 +5,17 @@
 .include "state.inc"
 .include "util.inc"
 
-;--------------------------------------
+;******************************************************************************
+; CONSTANTS
 MAX_OPERATORS=$10
 MAX_OPERANDS=$10/2
 
-;--------------------------------------
+;******************************************************************************
 ; EVAL
-; resolves the contents of the given zp::line and returns its evaluated value
-; in:
+; Resolves the contents of the given zp::line and returns its evaluated value
+; IN:
 ;  - .XY: pointer to the expression to evaluate
-; out:
+; OUT:
 ;  - .A: the size of the returned value in bytes
 ;  - .XY: the result of the evaluated expression
 ;  - .C: clear on success or set on failure
@@ -31,8 +32,8 @@ MAX_OPERANDS=$10/2
 	lda #$00
 	sta @num_operators
 	sta @num_operands
-@l0:
-	ldy #$00
+
+@l0:	ldy #$00
 	lda (zp::line),y
 	jsr @isterminator
 	bne @rparen
@@ -199,8 +200,7 @@ MAX_OPERANDS=$10/2
 
 ;------------------
 ; returns the evaluation of the operator in .A on the operands @val1 and @val2
-@eval:
-	jsr @popval
+@eval:  jsr @popval
 	stxy @val1
 	jsr @popval
 	stxy @val2
@@ -208,8 +208,8 @@ MAX_OPERANDS=$10/2
 	jsr @popop
 	cmp #'+'
 	bne :+
-@add:
-	lda @val1
+
+@add:   lda @val1
 	clc
 	adc @val2
 	tax
@@ -220,8 +220,7 @@ MAX_OPERANDS=$10/2
 
 :	cmp #'-'
 	bne :+
-@sub:
-	lda @val2
+@sub:	lda @val2
 	sec
 	sbc @val1
 	tax
@@ -247,13 +246,13 @@ MAX_OPERANDS=$10/2
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; GETLABEL
-; get_label reads the given label and returns the address of it if there
+; Reads the given label and returns the address of it if there
 ; is one
-; in:
-;  - .XY pointer to the label to get the address of
-; out:
+; IN:
+;  - .XY: pointer to the label to get the address of
+; OUT:
 ;  - .C is set if no label is found
 ;  - .A: the size of the label's address
 ;  - .XY: the value of the label
@@ -291,10 +290,10 @@ MAX_OPERANDS=$10/2
 @done:	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; ISVAL
 ; Checks if the word in zp::line is a value or not
-; out:
+; OUT:
 ;  - .C: clear if the string is a hex or decimal value
 .proc isval
 	; allow first char to be '$'
@@ -330,14 +329,15 @@ MAX_OPERANDS=$10/2
 
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; GETVAL
-; parses the given string for a decimal or hexadecimal value up to 16 bits in size.
-; If it succeeds, the size
-; is returned in .A and the value in (<.X/>.Y) and zp::line is updated to point
-; after the value.
-; The character '*' is also parsed and results in the value of zp::asmresult
-; .C is set on error and clear if a value was extracted.
+; Parses zp::line for a decimal or hexadecimal value up to 16 bits in size.
+; The character '*' is also parsed and results in the value of zp::virtualpc
+; IN:
+;  - zp::line: the text to parse a value from
+; OUT:
+;  -.XY: the value of the string in zp::line
+;  -.C: set on error and clear if a value was extracted.
 .export __expr_getval
 .proc __expr_getval
 @val=zp::expr+$a
@@ -357,8 +357,8 @@ MAX_OPERANDS=$10/2
 	jmp @err
 
 :	incw zp::line
-	ldx zp::asmresult
-	ldy zp::asmresult+1
+	ldx zp::virtualpc
+	ldy zp::virtualpc+1
 	beq *+3
 	lda #$02
 	skw
@@ -424,8 +424,7 @@ MAX_OPERANDS=$10/2
 	iny
 	bne @l0
 
-@done:
-	tya
+@done:  tya
 	clc
 	adc zp::line
 	sta zp::line

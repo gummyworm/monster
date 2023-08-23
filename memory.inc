@@ -1,6 +1,5 @@
 .import __mem_asmctx
 .import __mem_ctxbuffer
-.import __mem_init
 .import __mem_spare
 .import __mem_spareend
 .import __mem_backbuff
@@ -10,7 +9,6 @@
 .import __statusline
 
 .scope mem
-	init 		= __mem_init
 	ctxbuffer       = __mem_ctxbuffer
         spare           = __mem_spare
 	spareend	= __mem_spareend

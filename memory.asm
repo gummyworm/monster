@@ -1,15 +1,5 @@
-.CODE
-.scope mem
-
-.CODE
-;--------------------------------------
-.export __mem_init
-.proc __mem_init
-	rts
-.endproc
-
 .BSS
-;--------------------------------------
+;******************************************************************************
 .export __mem_spare
 .export __mem_spareend
 __mem_spare=$0400
@@ -37,4 +27,3 @@ __mem_ctxbuffer=$140+40	; the buffer for the context during assembly
 .export __statusline
 __statusline:
 	.res 40
-.endscope

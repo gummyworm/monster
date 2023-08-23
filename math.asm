@@ -1,9 +1,15 @@
 .include "zeropage.inc"
 
 .CODE
-;--------------------------------------
+;******************************************************************************
+; MUL16
 ;16-bit multiply with 32-bit product
 ;from 6502.org
+; IN:
+;  - zp::tmp0: the multiplier
+;  - zp::tmp2: the multiplicand
+; OUT:
+;  - zp::tmpa: the product
 .export __math_mul16
 .proc __math_mul16
 @multiplier	= zp::tmp0
@@ -37,14 +43,21 @@
 .endproc
 
 
-;--------------------------------------
+;******************************************************************************
+; DIV16
+; Divides the given divisor by the given dividend
+; IN:
+;  - zp::tmp2: the divisor
+;  - zp::tmp0: the dividend
+; OUT:
+;  - zp::tmpa: the remainder
+;  - zp::tmp0: the quotient
 .export __math_div16
 .proc __math_div16
 @divisor = zp::tmp2
 @dividend = zp::tmp0
 @remainder = zp::tmpa
 @result = @dividend ;save memory by reusing divident to store the result
-
 	lda #0	        ;preset remainder to 0
 	sta @remainder
 	sta @remainder+1

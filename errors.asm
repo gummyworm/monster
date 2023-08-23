@@ -2,7 +2,7 @@
 .include "text.inc"
 
 .DATA
-;--------------------------------------
+;******************************************************************************
 err_no_err:
 	.byte 0
 err_stack_underflow:
@@ -25,7 +25,7 @@ err_undefined_label:
 err_unmatched_endif:
 	.byte ".endif with no .if",0
 
-;------------------
+;******************************************************************************
 err_unaligned_label:
 	.byte "label is not left-aligned",0
 err_illegal_opcode:
@@ -56,7 +56,7 @@ err_line_not_found:
 	.byte "line not found for address",0
 
 
-;--------------------------------------
+;******************************************************************************
 errors: .word err_no_err	 ; no error
 	.word err_stack_underflow
 	.word err_stack_overflow
@@ -83,43 +83,13 @@ errors: .word err_no_err	 ; no error
 	.word err_param_name_too_long
 
 .CODE
-;--------------------------------------
-.export __err_print_with_arg
-.proc __err_print_with_arg
-	cmp #$00
-	bne :+
-	pla
-	pla
-	rts
-
-:	tya
-	pha
-	txa
-	pha
-
-	jsr __err_get
-	lda #ERROR_ROW
-	jsr text::print
-	pla
-	pla
-	rts
-.endproc
-
-;--------------------------------------
-; print displays the error id given in .A to the status line
-; .X/.Y contain the parameter for the error (if any).
-.export __err_print
-.proc __err_print
-	cmp #$00
-	bne @err
-	rts
-@err:	jsr __err_get
-	lda #ERROR_ROW
-	jmp text::print
-.endproc
-
-;--------------------------------------
-; geterr returns the address of the error id in .A in .XY
+;******************************************************************************
+; GET
+; Returns the address of the given error id's error message
+; IN:
+;  - .A: the ID of the error to get the message for
+; OUT:
+;  -.XY: the address of the error message
 .export __err_get
 .proc __err_get
 	asl

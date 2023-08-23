@@ -7,23 +7,21 @@ MAX_LABELS = 256
 MAX_LOCALS = 32
 MAX_LABEL_LEN = 16
 
-;**************************************
 .BSS
-;**************************************
-;--------------------------------------
-; total number of labels
-numlabels: .word 0
+;******************************************************************************
+numlabels: .word 0   ; total number of labels
 
-;--------------------------------------
-; table of label names. each entry corresponds to an entry in label_addresses,
+;******************************************************************************
+; LABELS
+; Table of label names. Each entry corresponds to an entry in label_addresses,
 ; which contains the value for the label name.
 .export labels
 labels: .res MAX_LABELS * MAX_LABEL_LEN
-labels_end=*
 
-;--------------------------------------
-; table of addresses for each label
-; the address of a given label id is label_addresses + (id * 2)
+;******************************************************************************
+; LABEL_ADDRESSES
+; Table of addresses for each label
+; The address of a given label id is label_addresses + (id * 2)
 .export label_addresses
 label_addresses: .res 256 * 2
 

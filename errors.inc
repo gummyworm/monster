@@ -36,12 +36,9 @@ ERR_MAX_FILES_EXCEEDED=20
 ERR_PARAM_NAME_TOO_LONG=21
 ERR_LINE_NOT_FOUND=22
 
-.import __err_print
 .import __err_get
-.import __err_print_with_arg
 
 .scope err
-	print = __err_print
 	get = __err_get
 .endscope
 

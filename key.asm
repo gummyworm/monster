@@ -9,7 +9,11 @@ CTRL_KEY_TABLE=$EDA3
 CURSOR_LR_MASK=2
 
 .CODE
-;--------------------------------------
+;******************************************************************************
+; GETCH
+; Gets a key from the keyboard and returns it
+; OUT:
+;  - .A: the key code of the pressed key or 0 if no key is pressed
 .export __key_getch
 .proc __key_getch
 @x=zp::tmp0
@@ -54,16 +58,6 @@ CURSOR_LR_MASK=2
 @nokey:
 	lda #$00
 @done:	rts
-.endproc
-
-;--------------------------------------
-.export __key_gethex
-.proc __key_gethex
-	jsr __key_getch
-	jsr __key_ishex
-	bcs @done
-	lda #$00
-@done:  rts
 .endproc
 
 ;--------------------------------------
@@ -411,13 +405,9 @@ TooManyNewKeys:
 	lda #$04
 	rts
 
-;--------------------------------------
-.DATA
-BufferOld:
-	.byte $ff, $ff, $ff
-Buffer:
-	.byte $ff, $ff, $ff, $ff
-BufferQuantity:
-	.byte $ff
-SimultaneousAlphanumericKeysFlag:
-	.byte $00
+.BSS
+;******************************************************************************
+BufferOld:                        .byte $00, $00, $00
+Buffer:                           .byte $00, $00, $00, $00
+BufferQuantity:                   .byte $00
+SimultaneousAlphanumericKeysFlag: .byte $00

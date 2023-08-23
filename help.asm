@@ -6,7 +6,7 @@
 .CODE
 
 HELP_START_ROW=1
-;--------------------------------------
+;******************************************************************************
 ; help displays usage information for the application
 .export help
 .proc help

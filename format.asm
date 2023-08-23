@@ -3,8 +3,9 @@
 .include "source.inc"
 .CODE
 
-;--------------------------------------
-; label formats linebuffer as a label.
+;******************************************************************************
+; LABEL
+; Formats linebuffer as a label.
 .export __fmt_label
 .proc __fmt_label
 	ldx #$00
@@ -25,8 +26,9 @@
 	rts
 .endproc
 
-;--------------------------------------
-; opcode formats linebuffer as an opcode.
+;******************************************************************************
+; OPCODE
+; Formats linebuffer as an opcode.
 .export __fmt_opcode
 .proc __fmt_opcode
 	ldy #2
@@ -52,9 +54,14 @@
 	jmp src::down
 .endproc
 
-;--------------------------------------
-; line formats the linebuffer according to the value in .A. The line length is
+;******************************************************************************
+; LINE
+; Formats the linebuffer according to the value in .A. The line length is
 ; returned in .A
+; IN:
+;  - .A: the "type" to format see (codes.inc) e.g. ASM_OPCODE, etc.
+; OUT:
+;  - .A: the line length
 .export __fmt_line
 .proc __fmt_line
 	pha
