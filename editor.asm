@@ -54,6 +54,9 @@
 	lda #$01
 	sta state::verify
 
+	lda #CUR_BLINK_SPEED
+	sta zp::curtmr
+
 	ldx #$00
 	ldy #EDITOR_ROW_START
 	jmp cur::set

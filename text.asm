@@ -21,7 +21,7 @@ STATUS_LINE = 23
 STATUS_COL  = 0
 
 .CODE
-;--------------------------------------
+;******************************************************************************
 .export __text_status
 .proc __text_status
 	ldx #<mem::statusline
@@ -32,34 +32,38 @@ STATUS_COL  = 0
 	jmp bm::rvsline
 .endproc
 
-;--------------------------------------
-.proc draw_statusline
-COLUMN_START=STATUS_COL+3
-LINE_START=STATUS_COL+6
-SIZE_START=STATUS_COL+13
-MODE_START=STATUS_COL
+;******************************************************************************
+; UPDATE_STATUSLINE
+; Updates mem::statusline with new information (cursor pos, etc.)
+; SIDE-EFFECTS:
+;  - mem::statusline: contains the new status info
+.proc update_statusline
+@columnstart=STATUS_COL+3
+@linestart=STATUS_COL+6
+@sizestart=STATUS_COL+13
+@modestart=STATUS_COL
 	lda #' '
 	ldx #39
-:	sta mem::statusline,x
+@clr:	sta mem::statusline,x
 	dex
-	bpl :-
+	bpl @clr
 
 	ldy #$00
 	ldx zp::curx
 	jsr util::todec
 
 	lda mem::spare+3
-	sta mem::statusline+COLUMN_START
+	sta mem::statusline+@columnstart
 	lda mem::spare+4
-	sta mem::statusline+COLUMN_START+1
+	sta mem::statusline+@columnstart+1
 	lda #','
-	sta mem::statusline+COLUMN_START+2
+	sta mem::statusline+@columnstart+2
 
 	ldxy src::line
 	jsr util::todec
 	ldx #4
 :	lda mem::spare,x
-	sta mem::statusline+LINE_START,x
+	sta mem::statusline+@linestart,x
 	dex
 	bpl :-
 
@@ -68,7 +72,7 @@ MODE_START=STATUS_COL
 	lda __text_insertmode
 	beq :+
 	ldx #'i'
-:	stx mem::statusline+MODE_START
+:	stx mem::statusline+@modestart
 
 	; filename
 	ldxy #file::name
@@ -83,24 +87,23 @@ MODE_START=STATUS_COL
 	rts
 .endproc
 
-;--------------------------------------
-; update updates the statusline according to the current cursor position.
+;******************************************************************************
+; UPDATE
+; updates the statusline according to the current cursor position
+; and blinks the cursor if it's time
 .export __text_update
 .proc __text_update
-	jsr draw_statusline
-
-@blink: dec curtmr
-curtmr=*+1
-	lda #40
+	jsr update_statusline
+@blink: dec zp::curtmr
 	bne @done
-	jsr cur::toggle
 
-	lda #40
-	sta curtmr
+	jsr cur::toggle
+	lda #CUR_BLINK_SPEED
+	sta zp::curtmr
 @done:	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; clrline clears the text linebuffer.
 .export __text_clrline
 .proc __text_clrline

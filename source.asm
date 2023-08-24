@@ -303,7 +303,7 @@ data:
 ; INSERT
 ; Adds the character in .A to the buffer at the gap position (gap).
 ; IN:
-;  - .A: the character to insert.
+;  - .A: the character to insert
 .export __src_insert
 .proc __src_insert
 @len=zp::tmp0

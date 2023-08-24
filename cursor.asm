@@ -8,9 +8,12 @@ R_INSERT_MASK=$08
 L_REPLACE_MASK=$f0
 R_REPLACE_MASK=$0f
 
-;--------------------------------------
-; mask returns the mask used to draw the cursor based on the current mode and
+;******************************************************************************
+; MASK
+; Returns the mask used to draw the cursor based on the current mode and
 ; cursor position.
+; OUT:
+;  - .A: the mask that will be EOR'd to draw the cursor
 .proc mask
 	lda text::insertmode
 	beq @replace
@@ -32,17 +35,25 @@ R_REPLACE_MASK=$0f
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; OFF
+; Turns off the cursor if it is on. Has no effect if the cursor is already off.
 .export __cur_off
 __cur_off:
 	lda curstatus
 	bne __cur_toggle
 	rts
+;******************************************************************************
+; ON
+; Turns on the cursor if it is off. Has no effect if the cursor is already on.
 .export __cur_on
 __cur_on:
 	lda curstatus
 	beq __cur_toggle
 	rts
+;******************************************************************************
+; TOGGLE
+; Toggles the cursor (turns it off if its on or vise-versa)
 .export __cur_toggle
 __cur_toggle:
 @dst=zp::tmp0
@@ -88,7 +99,10 @@ __cur_toggle:
 	sta prev_y
 	rts
 
-;--------------------------------------
+;******************************************************************************
+; UP
+; Moves the cursor up a row.
+; If moving up would move the cursor outside its defined limits, has no effect
 .export __cur_up
 .proc __cur_up
 	lda zp::cury
@@ -102,7 +116,10 @@ __cur_toggle:
 	jmp __cur_move
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; UP
+; Moves the cursor down a row.
+; If moving down would move the cursor outside its defined limits, has no effect
 .export __cur_down
 .proc __cur_down
 	lda zp::cury
@@ -114,7 +131,10 @@ __cur_toggle:
 @done:	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; RIGHT
+; Moves the cursor right a column
+; If moving right would move the cursor outside its limits, has no effect
 .export __cur_right
 .proc __cur_right
 	lda zp::curx
@@ -126,7 +146,10 @@ __cur_toggle:
 @done:	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; LEFT
+; Moves the cursor left a column
+; If moving left would move the cursor outside its defined limits, has no effect
 .export __cur_left
 .proc __cur_left
 	lda zp::curx
@@ -137,8 +160,12 @@ __cur_toggle:
 @done:	rts
 .endproc
 
-;--------------------------------------
-; move updates the cursor's (x,y) position by the offsets given in (.X,.Y).
+;******************************************************************************
+; MOVE
+; Updates the cursor's (x,y) position by the offsets given
+; IN:
+;  - .X: the signed number of columns to move
+;  - .Y: the signed number of rows to move
 .export __cur_move
 .proc __cur_move
 	stx zp::tmp2
@@ -167,8 +194,12 @@ __cur_toggle:
 @done:	rts
 .endproc
 
-;--------------------------------------
-; set sets the cursor position (x,y) to the values given in (.X,.Y)
+;******************************************************************************
+; SET
+; Sets the cursor position (x,y) to the values given
+; IN:
+;  .X: the column to set the cursor to
+;  .Y: the row to set the cursor to
 .export __cur_set
 .proc __cur_set
 	cpx maxx
@@ -198,8 +229,12 @@ __cur_toggle:
 	rts
 .endproc
 
-;--------------------------------------
-; forceset sets the cursor X and Y without respecting limts
+;******************************************************************************
+; FORCESET
+; Sets the cursor X and Y without respecting limts
+; IN:
+;  - .X: the column to set the cursor to
+;  - .Y: the row to set the cursor to
 .export __cur_forceset
 .proc __cur_forceset
 	stx zp::curx
@@ -207,8 +242,12 @@ __cur_toggle:
 	rts
 .endproc
 
-;--------------------------------------
-; setmax sets the maximum values for the cursor's X and Y values
+;******************************************************************************
+; SETMAX
+; Sets the maximum values for the cursor's X and Y values
+; IN:
+;  - .X: the column limit to set for the cursor
+;  - .Y: the row limit to set for the cursor
 .export __cur_setmax
 .proc __cur_setmax
 	stx maxx
@@ -216,8 +255,12 @@ __cur_toggle:
 	rts
 .endproc
 
-;--------------------------------------
-; setmin sets the minimum values for the cursor's X and Y values
+;******************************************************************************
+; SETMIN
+; Sets the minimum values for the cursor's X and Y values
+; IN:
+;  - .X: the column limit to set for the cursor
+;  - .Y: the row limit to set for the cursor
 .export __cur_setmin
 .proc __cur_setmin
 	stx minx
@@ -226,20 +269,25 @@ __cur_toggle:
 	rts
 .endproc
 
+.BSS
+;******************************************************************************
 curstatus: .byte 0
 
 .export __cur_minx
 __cur_minx:
 minx: .byte 0
+
 .export __cur_maxx
 __cur_maxx:
-maxx: .byte 40
+maxx: .byte 0
+
 .export __cur_miny
 __cur_miny:
 miny: .byte 0
+
 .export __cur_maxy
 __cur_maxy:
-maxy: .byte 23
+maxy: .byte 0
 
-prev_x: .byte $ff
-prev_y: .byte $ff
+prev_x: .byte 0
+prev_y: .byte 0

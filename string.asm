@@ -2,13 +2,16 @@
 .include "macros.inc"
 .include "zeropage.inc"
 
-;--------------------------------------
+;******************************************************************************
 ; FIND
 ; returns the address to the first occurrence of the text in .YX in the string
 ; in zp::str0
-; returns:
-;  .A - the index of the first occurrence
-;  .C - set if not found
+; IN:
+;  - .XY: the string to find the substring within
+;  - zp::tmp0: the substring to search for
+; OUT:
+;  - .A: the index of the first occurrence
+;  - .C: set if not found
 .export __str_find
 .proc __str_find
 @str=zp::str0
@@ -34,19 +37,19 @@
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; REPLACE
-; replaces all occurrences of the string in .XY in the string in zp::str0
+; Replaces all occurrences of the string in .XY in the string in zp::str0
 ; with the string in zp::str2
 ; in zp::str0
-; in:
+; IN:
 ;  - .XY - the address of the string to replace in
 ;  - zp::srt0 - the string to replace
 ;  - zp::str2 - the string to replace with
-; returns:
+; OUT:
 ;  - .A - the index of the first occurrence
 ;  - .C - set if not found
-; side-effects:
+; SIDE-EFFECTS:
 ;  the string that the replace was done on is modified in place. It MUST be in
 ;  a buffer big enough to accomodate this.
 .export __str_replace
@@ -121,8 +124,13 @@
 	rts
 .endproc
 
-;--------------------------------------
-; len returns the length of the string in .YX in .A
+;******************************************************************************
+; LEN
+; Returns the length of the string in
+; IN:
+;  - .YX: the string to get the length of
+; OUT:
+;  - .A: the length of the string
 .export __str_len
 .proc __str_len
 @str=zp::str0
@@ -139,7 +147,7 @@
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; COMPARE
 ; compares the strings in (str0) and (str2) up to a length of .A
 ; If the strings are equal, 0 is returned in .A. and the zero flag is set.
@@ -159,13 +167,13 @@
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; CAT
 ; concatentates the two provided strings.
-; in:
+; IN:
 ;  - .XY: the string to concatentate to
 ;  - zp::tmp0: the string to add to the end of the first
-; out:
+; OUT:
 ;  - .XY: the address to a buffer containing the combined string
 ;  - .C: set if the string is too large (>40 chars)
 .export __str_cat
@@ -208,10 +216,10 @@
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; COPY
 ; copies one 0-terminated string to another
-; in:
+; IN:
 ;  - .XY: the source string to copy
 ;  - zp::tmp0: the destination string to copy to
 .export __str_copy

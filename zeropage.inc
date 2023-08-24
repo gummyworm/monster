@@ -66,9 +66,10 @@ verify 	  = $d5
 ; $d6-$d7 cursor state
 curx = $d6
 cury = $d7
+curtmr = $d8
 
 ;--------------------------------------
-; $d8-$e0 editor state
+; $d9-$e0 editor state
 editor = $d8
 
 ;--------------------------------------
