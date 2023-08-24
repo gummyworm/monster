@@ -129,31 +129,27 @@ main:
 .proc command_asm
 @line=zp::editor
 @pc=zp::editor+6
+	; save the current source position and rewind it for assembly
 	jsr src::pushp
 	jsr src::rewind
 	jsr src::next
 	jsr reset
 
+	; set the initial file for debugging
+	ldxy #filename
+	jsr dbg::setfile
+
 ; Pass 1
 ; do a pass on the source to simply get labels and basic debug info
 ; (# of lines and # of segments/file)
-@pass1:
-	lda #$01
+@pass1: lda #$01
 	sta state::verify	; verify; write labels but not code
 	sta zp::pass		; set pass number to 1
 
 @pass1loop:
 	jsr src::readline
 	ldxy #mem::linebuffer
-	jsr asm::tokenize
-	bcs @err
-	ldx zp::gendebuginfo
-	beq @p1next
-	cmp #ASM_ORG
-	bne @p1next
-	jsr dbg::endseg	   ; end previous segment (if any)
-	ldxy zp::virtualpc ; start address of segment
-	jsr dbg::initseg   ; init a new segment
+	jsr asm::tokenize_pass1
 @p1next:
 	jsr src::end
 	bne @pass1loop
@@ -161,8 +157,7 @@ main:
 ; Pass 2
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
-@pass2:
-	inc zp::pass	; pass 2
+@pass2: inc zp::pass	; pass 2
 
 	ldx zp::gendebuginfo
 	beq :+
@@ -175,27 +170,20 @@ main:
 	sta state::verify	; disable verify - actually assemble the code
 
 @pass2loop:
+	ldxy src::line
+	stxy @line
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
-	jsr asm::tokenize
-	bcc @ok
+	jsr asm::tokenize_pass2
+	bcc @next
 
 @err:	ldxy @line
 	jsr reporterr
 
-	; goto the line that failed
 	jsr src::popp
-	jsr src::goto
+	jsr src::goto	; goto the line that failed
 	ldxy @line
 	jmp gotoline
-
-@ok:	; store debug info (if enabled)
-	ldx zp::gendebuginfo
-	beq @next
-	cmp #ASM_ORG
-	bne @next
-	ldxy zp::virtualpc	; address of segment
-	jsr dbg::startseg_addr	; set segment
 
 @next:	jsr src::end
 	bne @pass2loop
@@ -218,6 +206,7 @@ main:
 @asmdone:
 	ldxy zp::virtualpc
 	jsr dbg::endseg		; end the last segment
+
 	jsr src::popp
 	jsr src::goto
 	jsr text::clrline

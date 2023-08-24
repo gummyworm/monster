@@ -3,12 +3,17 @@ ZEROPAGE_INC = 1
 
 .scope zp
 
-;--------------------------------------
-; $20-$30 is reserved for debug info generation
+;******************************************************************************
+; $0a-$0f are reserved form math
+math =  $0a
+
+
+;******************************************************************************
+; $10-$20 is reserved for debug info generation
 debug = $10
 src_line=$1e	; line # that is being assembled
 
-;--------------------------------------
+;******************************************************************************
 ; $30-$40 reserved for string manipulation routines
 ; which require a fair amount of zeropage space.
 ; You may use these if you don't need to use any 
@@ -25,7 +30,7 @@ str8 = $38
 str9 = $39
 stra = $3a
 
-;--------------------------------------
+;******************************************************************************
 ; $40-$50 are used during assembly and disassembly
 asm=$40		 ; base address of assembly tmp vars
 disasm=$40	 ; base address of disassembly tmp vars
@@ -33,46 +38,46 @@ pass=$4c	 ; the pass of assembly being done (1 or 2)
 line=$4d	 ; ptr to text being processed
 gendebuginfo=$4f ; flag to generate debug info
 
-;--------------------------------------
+;******************************************************************************
 ; $50-$60 are used for labels
 label_value=$50	; arguments to label functions
 labels=$52
 
-;--------------------------------------
+;******************************************************************************
 ; $60-$70 are used by the "context" during assembly
 ctx=$60
 
-;--------------------------------------
+;******************************************************************************
 ; $80-$90 are used for macro related things during assembly
 macros=$80
 
-;--------------------------------------
+;******************************************************************************
 ; $90-$a0 used for expression evaluation
 expr=$90
 
-;--------------------------------------
+;******************************************************************************
 ; $b0-$c0 reserved for file stuff
 device = $ba	; the last used drive #
 file = $bb	; the most recently accessed file
 
-;--------------------------------------
+;******************************************************************************
 ; $d0-$d5 assembly state
 asmresult = $d0	; pointer where code is assembled
 virtualpc = $d2 ; pointer to address address code will live at during runtime (.RORG)
 bank      = $d4 ; the current bank in the final expansion being worked on
 verify 	  = $d5
 
-;--------------------------------------
+;******************************************************************************
 ; $d6-$d7 cursor state
 curx = $d6
 cury = $d7
 curtmr = $d8
 
-;--------------------------------------
+;******************************************************************************
 ; $d9-$e0 editor state
 editor = $d8
 
-;--------------------------------------
+;******************************************************************************
 ; $e0-$ff temporary storage
 ; this is the primary scratchpad for routines. 
 ; Be cautious when relying on this data to be in tact

@@ -267,7 +267,6 @@ __cur_toggle:
 	stx minx
 	sty miny
 	rts
-	rts
 .endproc
 
 .BSS

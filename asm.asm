@@ -1190,64 +1190,37 @@ bbb10_modes:
 	jsr file::open
 	sta zp::file
 
-	; TODO: set file in debug info
+	lda dbg::file
+	pha		  ; save the current debug-info file
+	ldxy #@filename
+	jsr dbg::setfile  ; set the file for debug-info
 
 @doline:
 	ldxy #mem::spare
 	lda zp::file
-	jsr file::getline
+	jsr file::getline	; read a line from the file
 	bcc @ok
-	RETURN_ERR ERR_IO_ERROR
+	pla		  	; clean stack
+	RETURN_ERR ERR_IO_ERROR	; return error
 
 @ok:	cmp #$00
 	beq @done
 @asm:	ldxy #mem::spare
-
-; save the # of segments and number lines
-	lda @numsegments
-	pha
-	lda @numlines
-	pha
-	lda @numlines+1
-	pha
-
-	jsr __asm_tokenize
-	sta @type
-
-; restore the # of segments and number of lines
-	pla
-	sta @numlines+1
-	pla
-	sta @numlines
-	pla
-	sta @numsegments
-
-	lda @type
-	cmp #ASM_ORG
-	bne :+
-	inc @numsegments ; increment segment count
-	jmp @doline
-:	incw @numlines	 ; increment line count
+	jsr __asm_tokenize_pass
 	jmp @doline
 
-@done:
-; if pass 1, store basic debug info (line/seg count) for the file
-	lda zp::pass
-	cmp #$01
-	bne @close
-	; TODO:
-	ldxy #filename
-	jsr dbg::setfile
-	bcc @close
-	rts		; error occurred
-
-@close:
+@done:  pla
+	sta dbg::file	   ; restore debug file that we INCluded from
 	lda zp::file
-	jmp file::close
+	jmp file::close	   ; close the file
 .endproc
 
 ;******************************************************************************
 ; DEFINEORG
+; Hanldes the .ORG directive.
+; Parses an expression for a value and sets the asmresult and virtualpc
+; addresses to it
+; e.g.: `.ORG $1000` or `ORG $1000+LABEL`
 .proc defineorg
 	jsr processws
 	ldxy zp::line
@@ -1262,6 +1235,10 @@ bbb10_modes:
 
 ;******************************************************************************
 ; DEFINE_PSUEDO_ORG
+; Hanldes the .RORG directive.
+; Parses an expression for a value and sets the virtualpc  address to it.
+; Note that the physical assembly target (asmresult) is unaffected.
+; e.g.: `.RORG $1000` or `RORG $1000+LABEL`
 .proc define_psuedo_org
 	jsr processws
 	ldxy zp::line
@@ -1910,6 +1887,61 @@ bbb10_modes:
 	jsr process_word
 	lda #ASM_DIRECTIVE
 	RETURN_OK
+.endproc
+
+;******************************************************************************
+; TOKENIZE_PASS
+; Based on the current pass (zp::pass), calls the appropriate routine to
+; handle assembly for that pass
+.export __asm_tokenize_pass
+.proc __asm_tokenize_pass
+	lda zp::pass
+	cmp #$01
+	beq __asm_tokenize_pass1
+	bne __asm_tokenize_pass2
+.endproc
+
+;******************************************************************************
+; TOKENIZE_PASS1
+; Calls tokenize and updates debug info (if enabled) as appropriate for the
+; first pass.  This involves ending initializing segments on .ORG directives
+; IN:
+;  - .XY: the line to assemble
+.export __asm_tokenize_pass1
+.proc __asm_tokenize_pass1
+	jsr __asm_tokenize
+	bcc @ok
+	rts		   ; return err
+@ok:	ldx zp::gendebuginfo
+	beq @done          ; if debug info off, we're done
+	cmp #ASM_ORG
+	bne @done
+	jsr dbg::endseg	   ; end previous segment (if any)
+	ldxy zp::virtualpc ; start address of segment
+	jsr dbg::initseg   ; init a new segment
+@done:	RETURN_OK
+.endproc
+
+;******************************************************************************
+; TOKENIZE_PASS2
+; Calls tokenize and updates debug info (if enabled) as appropriate for the
+; second pass.  This involves switching segments on .ORG directives
+; IN:
+;  - .XY: the line to assemble
+.export __asm_tokenize_pass2
+.proc __asm_tokenize_pass2
+	jsr __asm_tokenize
+	bcc @ok
+	rts		; return err
+
+@ok:	; store debug info (if enabled)
+	ldx zp::gendebuginfo
+	beq @done
+	cmp #ASM_ORG
+	bne @done
+	ldxy zp::virtualpc	; address of segment
+	jmp dbg::startseg_addr	; set segment
+@done:	RETURN_OK
 .endproc
 
 ;******************************************************************************

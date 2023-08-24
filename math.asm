@@ -1,6 +1,49 @@
 .include "zeropage.inc"
 
 .CODE
+
+
+;******************************************************************************
+; MUL8
+; 16*8-bit multiply with 16-bit product
+; by WhiteFlame
+; https://codebase64.org/doku.php?id=base:8bit_multiplication_16bit_product
+; IN:
+;  - .AY: multiplicand
+;  - .X: multiplier
+; OUT:
+;  - .AY: the product
+.export __math_mul8
+.proc __math_mul8
+@num1=zp::math
+@num2=zp::math+2
+	sta @num1
+	sty @num1+1
+	stx @num2
+
+	lda #$00
+	tay
+	beq @enterLoop
+
+@doAdd:	clc
+	adc @num1
+	tax
+
+	tya
+	adc @num1+1
+	tay
+	txa
+
+@loop:  asl @num1
+	rol @num1+1
+@enterLoop:
+	lsr @num2
+	bcs @doAdd
+	bne @loop
+	rts
+.endproc
+
+
 ;******************************************************************************
 ; MUL16
 ;16-bit multiply with 32-bit product

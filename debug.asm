@@ -19,6 +19,9 @@ file = zp::debug     ; current file id being worked on
 addr = zp::debug+1   ; address of next line/addr to store
 seg  = zp::debug+3   ; address of current segment pointer
 
+.export __debug_file
+__debug_file = file
+
 ;******************************************************************************
 SEG_LINE_COUNT = 4 ; offset in segment header for line count
 
@@ -143,41 +146,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 .endproc
 
-;******************************************************************************
-; STOREFILE
-; Copies the given filename thereby creating an ID for that file
-; IN:
-;  -.XY: address of 0-terminated filename
-; OUT:
-;  -.C: clear on success, set on error
-.export __debug_storefile
-.proc __debug_storefile
-@src=zp::tmp0
-@filename=zp::tmp2
-	stxy @src
-
-@getfiledst:
-	; find the location to store the filename to
-	lda numfiles
-	asl		; *2
-	asl		; *4
-	asl		; *8
-	asl		; *16
-	adc #<filenames
-	sta @filename
-	lda #>filenames
-	adc #$00
-	sta @filename+1
-
-	ldy #$00
-@copyfilename:
-	lda (@src),y
-	sta (@filename),y
-	beq :+
-	iny
-	bne @copyfilename
-:	rts
-.endproc
 
 ;******************************************************************************
 ; SETUP
@@ -750,12 +718,16 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;******************************************************************************
 ; SETFILE
+; Sets the active file-id to the the ID for given filename.
+; If no file-id exists for the provided filename, one is first created.
 ; IN:
 ;  - .XY: the 0-terminated file to set as the current file
 .export __debug_set_file
 .proc __debug_set_file
 	jsr get_fileid
-	sta file
+	bcc :+
+	jsr storefile
+:	sta file
 	rts
 .endproc
 
@@ -791,13 +763,51 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda @len
 	jsr str::compare
 	bne @next
+	ldxy @filename	; restore .XY
 	RETURN_OK	; space for file is already allocated
 @next:	lda @other
 	adc #$10
 	sta @other
 	dec @cnt
 	bne @l0
+
 @notfound:
+	ldxy @filename	; restore .XY
 	sec		; not found
 	rts
+.endproc
+
+;******************************************************************************
+; STOREFILE
+; Copies the given filename thereby creating an ID for that file
+; IN:
+;  -.XY: address of 0-terminated filename
+; OUT:
+;  -.C: clear on success, set on error
+.proc storefile
+@src=zp::tmp0
+@filename=zp::tmp2
+	stxy @src
+
+@getfiledst:
+	; find the location to store the filename to
+	lda numfiles
+	asl		; *2
+	asl		; *4
+	asl		; *8
+	asl		; *16
+	adc #<filenames
+	sta @filename
+	lda #>filenames
+	adc #$00
+	sta @filename+1
+
+	ldy #$00
+@copyfilename:
+	lda (@src),y
+	sta (@filename),y
+	beq :+
+	iny
+	bne @copyfilename
+:	RETURN_OK
 .endproc

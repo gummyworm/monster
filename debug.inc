@@ -2,6 +2,7 @@
 .import __debug_end_segment
 .import __debug_init
 .import __debug_init_segment
+.import __debug_file
 .import __debug_set_file
 .import __debug_setup
 .import __debug_start
@@ -11,6 +12,7 @@
 .scope dbg
 	addr2line = __debug_addr2line
 	endseg = __debug_end_segment
+	file = __debug_file
 	init = __debug_init
 	initseg = __debug_init_segment
 	setfile = __debug_set_file
