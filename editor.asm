@@ -223,7 +223,6 @@ main:
 	jsr src::popp
 	jsr src::goto
 	jsr text::clrline
-
 	RETURN_OK
 
 @success_msg: .byte "done $", $fe, " bytes", 0

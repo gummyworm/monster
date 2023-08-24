@@ -75,10 +75,9 @@ label_addresses: .res 256 * 2
 	sta @cnt+1
 	ldxy #labels
 	stxy @search
-@seek:
-	ldy #$00
-@l0:
-	lda (@label),y
+
+@seek:	ldy #$00
+@l0:	lda (@label),y
 	jsr  util::isseparator
 	beq @found
 	cmp (@search),y
@@ -88,8 +87,8 @@ label_addresses: .res 256 * 2
 :	iny
 	cpy #MAX_LABEL_LEN
 	bcc @l0
-@next:
-	lda @search
+
+@next:	lda @search
 	clc
 	adc #MAX_LABEL_LEN
 	sta @search

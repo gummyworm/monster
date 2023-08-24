@@ -1,5 +1,6 @@
 .include "asm.inc"
 .include "bitmap.inc"
+.include "config.inc"
 .include "edit.inc"
 .include "errors.inc"
 .include "labels.inc"
@@ -595,9 +596,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc save_debug_state
 @vicsave=mem::spare
 @savezp=mem::spare+$10
-@intsave=mem::spare+$210
-	jsr bm::save	; backup the screen
-
+@intsave=mem::spare+$110
 	ldx #$10
 @savevic:
 	lda $9000-1,x
@@ -617,7 +616,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @intsave-1,x
 	dex
 	bne @save_ints
-	rts
+	jmp bm::save	; backup the screen
 .endproc
 
 ;******************************************************************************
@@ -689,7 +688,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stxy @saveline
 	jsr edit::gotoline		; go to the line where the BRK happened
 	lda zp::cury
-	ldx #$22
+	ldx #DEBUG_LINE_COLOR
 	jsr text::hiline	; highlight that line
 
 	jmp *
@@ -703,7 +702,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @vicsave=mem::spare	 ; $0-$10
 @savezp=mem::spare+$10	 ; $10-$110
 @intsave=mem::spare+$110 ; $110-$116
-	jsr bm::restore
 	ldx #$10
 @restorevic:
 	lda @vicsave-1,x
@@ -711,7 +709,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	dex
 	bne @restorevic
 @restore_zp:
-	lda @savezp
+	lda @savezp,x
 	sta $00,x
 	dex
 	bne @restore_zp
@@ -722,7 +720,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $314-1,x
 	dex
 	bne @restore_ints
-	rts
+	jmp bm::restore	 ;restore the screen
 .endproc
 
 ;******************************************************************************
