@@ -3,16 +3,16 @@
 .include "memory.inc"
 .include "util.inc"
 .include "zeropage.inc"
-.CODE
 
+;******************************************************************************
 BITMAP_ADDR = $1100
 COLMEM_ADDR = $9400
 
-;--------------------------------------
-;init
-;MINIGRAFIK VIC/memory initialization
-;code by Mike
-;
+.CODE
+;******************************************************************************
+; INIT
+; MINIGRAFIK VIC/memory initialization
+; code by Mike
 .export __bm_init
 .proc __bm_init
         clc
@@ -39,7 +39,9 @@ COLMEM_ADDR = $9400
 
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; CLR
+; Clears the bitmap and sets the color memory to TEXT_COLOR
 .export __bm_clr
 .proc __bm_clr
         lda #>BITMAP_ADDR
@@ -48,6 +50,7 @@ COLMEM_ADDR = $9400
         sta zp::tmp0
         ldx #$0f
         tay
+
 ;clear the character memory (bitmap)
 @l0:    sta (zp::tmp0),y
         dey
@@ -56,15 +59,19 @@ COLMEM_ADDR = $9400
         dex
         bne @l0
 	lda #TEXT_COLOR
+
 ;clear the color memory
 @l1:    sta COLMEM_ADDR,y
         dey
         bne @l1
-
         rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; RVSLINE
+; Reverses 1 character (8 pixels high) in the given row
+; IN:
+;  - .A: the text row to reverse (pixel number / 8)
 .export __bm_rvsline
 .proc __bm_rvsline
 @dst=zp::tmp0
@@ -94,20 +101,28 @@ COLMEM_ADDR = $9400
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; SAVE
+; Saves the bitmap to the backup buffer. It may then be restored with a call
+; to bm::restore
 .export __bm_save
 .proc __bm_save
 	copy #mem::backbuff, #BITMAP_ADDR, #(20*192)
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; RESTORE
+; Restores the bitmap from the backup buffer.
+; You should call bm::save first with the buffer you want to restore
 .export __bm_restore
 .proc __bm_restore
 	copy #BITMAP_ADDR, #mem::backbuff, #(20*192)
 	rts
 .endproc
 
+.DATA
+;******************************************************************************
 .export __bm_columns
 __bm_columns:
 .word $1100

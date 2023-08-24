@@ -3,6 +3,7 @@
 .include "text.inc"
 .CODE
 
+;******************************************************************************
 L_INSERT_MASK=$80
 R_INSERT_MASK=$08
 L_REPLACE_MASK=$f0

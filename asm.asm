@@ -18,11 +18,11 @@
 .include "zeropage.inc"
 .CODE
 
-;--------------------------------------
+;******************************************************************************
 ; TRUE/FALSE values for the active IF blocks
 MAX_IFS = 4	; max nesting depth for .if/.endif
 
-;--------------------------------------
+;******************************************************************************
 ; $40-$4B available for assembly
 indirect=zp::asm ; 1=indirect, 0=absolute
 indexed=zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
@@ -37,13 +37,13 @@ lsb = zp::asm+$a
 msb = zp::asm+$b
 
 .BSS
-;--------------------------------------
+;******************************************************************************
 .export ifstack
 ifstack: .res MAX_IFS
 ifstacksp: .byte 0
 
 .DATA
-;--------------------------------------
+;******************************************************************************
 NUM_OPCODES = 58
 CC_00=0
 CC_01=8
@@ -162,8 +162,9 @@ directive_vectors:
 filename: .res 12
 
 .CODE
-;--------------------------------------
-; validate verifies that the string at (YX) is a valid instrcution
+;******************************************************************************
+; VALIDATE
+; Verifies that the string at (YX) is a valid instrcution
 ; The size of the assembled operation is returned in .A (negative indicates an error occurred).
 ; If the instruction contains a label, this proc will check that it is a valid label, but
 ; it does not require that the label is defined.
@@ -171,8 +172,9 @@ filename: .res 12
 __asm_validate:
 	jmp tokenize
 
-;--------------------------------------
-; tokenize assembles the string at (YX) into an instruction in (asm::result)
+;******************************************************************************
+; TOKENIZE
+; Assembles the string at (YX) into an instruction in (asm::result)
 ; if (YX) contains an instruction.  Any labels or comments encountered are
 ; saved at the address in (pc).
 ; in:
@@ -579,8 +581,9 @@ __asm_tokenize:
 
 .endproc
 
-;---------------------------------------
-; getaddrmode returns the address mode according to the provided flags
+;******************************************************************************
+; GETADDRMODE
+; Returns the address mode according to the provided flags
 .export getaddrmode
 .proc getaddrmode
 	; get addressing mode index for bbb tables
@@ -728,8 +731,9 @@ bbb10_modes:
 	.byte $ff		; 110
 	.byte ABS | MODE_X_INDEXED	; 111
 
-;--------------------------------------
-; gettext parses an enquoted text string and returns it in mem::spare
+;******************************************************************************
+; GETTEXT
+; Parses an enquoted text string in zp::line and returns it in mem::spare
 ; returns the length in .A ($ff if no string was found)
 .proc gettext
 	ldy #$00
@@ -755,9 +759,11 @@ bbb10_modes:
 .endproc
 
 
-;--------------------------------------
-; getopcode returns ASM_OPCODE if (line) contains an opcode.
-; Returns:
+;******************************************************************************
+; GETOPCODE
+; Parses zp::line for an instruction and returns information about it if it
+; is determined to be an instruction
+; OUT:
 ;  - .A: ASM_OPCODE (on success) else error
 ;  - .X: the opcode's ID
 ;  - .C: set if (line) is not an opcode
@@ -839,11 +845,11 @@ bbb10_modes:
 @err:	RETURN_ERR ERR_ILLEGAL_OPCODE
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; GETDIRECTIVE
 ; checks if (zp::line) contains a directive and handles it if it does.
-; out:
-;  - .C: if set, the contents of zp::line is not a directive
+; OUT:
+;  - .C: set if the contents of zp::line is not a directive
 .proc getdirective
 @cnt=zp::tmp2
 	ldy #$00
@@ -903,10 +909,10 @@ bbb10_modes:
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; HANDLE_DIRECTIVE
-; jumps to the given directive vector
-; in:
+; Jumps to the given directive vector
+; IN:
 ;  - .XY: the directive handler to jump to
 .proc handle_directive
 	stxy @vec
@@ -914,9 +920,9 @@ bbb10_modes:
 	jmp $fadd
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; HANDLE_REPEAT
-; context handler for .rep/.endrep blocks
+; Context handler for .rep/.endrep blocks
 .proc handle_repeat
 	ldxy #mem::linebuffer
 	jsr ctx::write		; copy the linebuffer to the context
@@ -978,9 +984,9 @@ bbb10_modes:
 @endrep: .byte ".endrep"
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; HANDLE_CTX
-; out:
+; OUT:
 ;  - .C: set if the line was handled by this handler
 .proc handle_ctx
 	; if verifying, don't handle context at all
@@ -1005,7 +1011,9 @@ bbb10_modes:
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; PROCESS_WS
+; Reads zp::line until a non-whitespace character is encountered
 .proc processws
 	ldy #$00
 	lda (zp::line),y
@@ -1020,8 +1028,9 @@ bbb10_modes:
 	rts
 .endproc
 
-;--------------------------------------
-; processstring reads all characters until the next whitespace
+;******************************************************************************
+; PROCESSSTRING
+; Reads all characters in zp::line until the next whitespace
 .proc processstring
 	ldy #$00
 	lda (zp::line),y
@@ -1037,9 +1046,11 @@ bbb10_modes:
 .endproc
 
 
-;--------------------------------------
-; defines 0 or more bytes and stores them in (asmresult)
-; Returns the number of bytes written in .A
+;******************************************************************************
+; DEFINEBYTE
+; Defines 0 or more bytes and stores them in (asmresult)
+; OUT:
+;  - .A: the number of bytes written
 .proc definebyte
 	jsr process_ws
 	ldxy zp::line
@@ -1099,7 +1110,11 @@ bbb10_modes:
 @done:	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; DEFINEWORD
+; Parses zp::line for a word value and stores it to zp::asmresult if possible.
+; OUT:
+;  - .C: set if a word could not be parsed
 .proc defineword
 	jsr process_ws
 	ldxy zp::line
@@ -1231,7 +1246,8 @@ bbb10_modes:
 	jmp file::close
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; DEFINEORG
 .proc defineorg
 	jsr processws
 	ldxy zp::line
@@ -1244,7 +1260,8 @@ bbb10_modes:
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; DEFINE_PSUEDO_ORG
 .proc define_psuedo_org
 	jsr processws
 	ldxy zp::line
@@ -1255,7 +1272,8 @@ bbb10_modes:
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; DEFINECONST
 .proc defineconst
 	jsr lbl::isvalid
 	bcs @err
@@ -1281,7 +1299,7 @@ bbb10_modes:
 	jmp lbl::add
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; REPEAT
 ; generates assembly for the parameterized code between this directive
 ; and the lines that follow until '.endrep'
@@ -1324,11 +1342,10 @@ bbb10_modes:
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; MACRO
-; begins the definition of a macro, which will
-; continue until '.endmac' is found
-; and the lines that follow until '.endrep'
+; Begins the definition of a macro, which will continue until '.endmac' is
+; found and the lines that follow until '.endrep'.
 ; .mac add8 A, B
 ;   lda #A
 ;   clc
@@ -1376,7 +1393,7 @@ bbb10_modes:
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; HANDLE_MACRO
 ; when the macro context is active, reads the the current line into the
 ; context buffer
@@ -1385,7 +1402,7 @@ bbb10_modes:
 	jmp ctx::write		; copy the linebuffer to the context
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; CREATE_MACRO
 ; This is the handler for the .endmac directive
 ; It uses the active context to finish creating a macro from that context.
@@ -1407,11 +1424,12 @@ bbb10_modes:
 	jmp mac::add
 .endproc
 
-;--------------------------------------
-; process_ws reads (line) and updates it to point past ' ' chars.
-; .A contains the last character processed on return
-; .Z is set if we're at the end of the line ($00)
+;******************************************************************************
+; PROCESS_WS
+; Reads (line) and updates it to point past ' ' chars.
 ; out:
+;  .Z: set if we're at the endo of the line
+;  .A: the last character processed
 ;  .Y: 0
 ;  zp::line: updated to first non ' ' character
 .proc process_ws
@@ -1425,10 +1443,12 @@ bbb10_modes:
 @done:	rts
 .endproc
 
-;--------------------------------------
-; process_word reads (line) and updates it to point past non whitespace chars.
-; .A contains the last character processed on return
-; .Z is set if we're at the end of the line ($00)
+;******************************************************************************
+; PROCESS_WORD
+; Reads (line) and updates it to point past non whitespace chars.
+; OUT:
+;  - .A: contains the last character processed
+;  - .Z: set if we're at the end of the line ($00)
 .proc process_word
 	ldy #$00
 	lda (zp::line),y
@@ -1441,9 +1461,11 @@ bbb10_modes:
 .endproc
 
 
-;--------------------------------------
-; process_end_of_Line reads (line) and updates it to point to the terminating 0
-; .C is set if any invalid characters were encountered
+;******************************************************************************
+; PROCESS_END_OF_LINE
+; Reads (line) and updates it to point to the terminating 0
+; OUT:
+;  - .C: set if any invalid characters were encountered
 .proc process_end_of_line
 @l0:
 	ldy #$00
@@ -1467,9 +1489,9 @@ bbb10_modes:
 @done:	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; RESET
-; resets the internal assembly context (labels and pointer to target)
+; Resets the internal assembly context (labels and pointer to target)
 .export __asm_reset
 .proc __asm_reset
 	jsr __asm_resetpc
@@ -1480,9 +1502,9 @@ bbb10_modes:
 	jmp lbl::clr
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; RESETPC
-; resets the PC for, for example, beginning a new pass on the assembler
+; Resets the PC for, for example, beginning a new pass on the assembler
 .export __asm_resetpc
 .proc __asm_resetpc
 	ldxy #mem::program
@@ -1491,9 +1513,12 @@ bbb10_modes:
 	rts
 .endproc
 
-;--------------------------------------
-; disassemble disassembles the instruction given at .YX
-; the target buffer to write to is given in zp::tmp0
+;******************************************************************************
+; DISASSEMBLE
+; disassembles the given instruction
+; IN:
+;  - .XY: the address of the instruction to disassemble
+;  - zp::tmp0: the address of the buffer to disassemble to
 .export __asm_disassemble
 .proc __asm_disassemble
 @dst=zp::tmp0
@@ -1755,11 +1780,10 @@ bbb10_modes:
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; ASSEMBLE_MACRO
-; takes the contents of (line) and expands it to the corresponding
-; macro.
-; in:
+; Takes the contents of (line) and expands it to the corresponding macro.
+; IN:
 ;  - .A the id of the macro to assemble
 .proc assemble_macro
 @cnt=zp::macros+$0e
@@ -1811,10 +1835,10 @@ bbb10_modes:
 :	jmp mac::asm
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; DO_IF
 ; handles .IF during assembly
-; out:
+; OUT:
 ;  - .C: set if error
 .proc do_if
 	lda ifstacksp
@@ -1837,9 +1861,9 @@ bbb10_modes:
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; DO_ENDIF
-; handles .ENDIF during assembly
+; Handles .ENDIF during assembly
 .proc do_endif
 	lda ifstacksp
 	bne :+
@@ -1850,7 +1874,7 @@ bbb10_modes:
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; DO_ELSE
 ; handles .ELSE during assembly
 .proc do_else
@@ -1862,7 +1886,7 @@ bbb10_modes:
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; DO_IFDEF
 ; handles the .IFDEF directive during assembly
 .proc do_ifdef
@@ -1888,11 +1912,11 @@ bbb10_modes:
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; ISLINETERMINATOR
-; in:
+; IN:
 ;  .A: the character to check
-; out:
+; OUT:
 ;  - .Z: set if the .A is a 0 or ';'
 .proc islineterminator
 	cmp #$00
