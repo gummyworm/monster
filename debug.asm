@@ -154,6 +154,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .export __debug_init
 .proc __debug_init
 	lda #$00
+	sta numsegments
+	sta numwatches
+	sta numbrkpoints
 	sta numfiles
 	rts
 .endproc
@@ -983,3 +986,4 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	inc numfiles
 	RETURN_OK
 .endproc
+

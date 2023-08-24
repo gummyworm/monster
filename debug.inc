@@ -1,8 +1,9 @@
+.importzp __debug_file
+
 .import __debug_addr2line
 .import __debug_end_segment
 .import __debug_init
 .import __debug_init_segment
-.import __debug_file
 .import __debug_set_file
 .import __debug_setup
 .import __debug_start

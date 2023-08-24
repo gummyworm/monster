@@ -190,9 +190,9 @@ main:
 	jsr asm::tokenize_pass2
 	bcc @next
 
-@err:	ldxy @line
+@err:
+	ldxy @line
 	jsr reporterr
-
 	jsr src::popp
 	jsr src::goto	; goto the line that failed
 	ldxy @line
@@ -207,7 +207,7 @@ main:
 
 	; get the size of the assembled program and print it
 	ldxy zp::asmresult
-	sub16 #mem::program
+	sub16 asm::origin
 	txa
 	pha
 	tya
@@ -663,8 +663,7 @@ main:
 	ldxy @file
 	jsr str::len
 
-@found:
-	tya
+@found: tya
 	pha
 
 	ldxy #@loadingmsg
@@ -683,8 +682,8 @@ main:
 	jsr reset
 
 	jmp refresh
-@err:
-	pha
+
+@err:	pha
 	lda #$00
 	pha
 	ldxy #@errmsg
@@ -1171,8 +1170,7 @@ __edit_gotoline:
 	ldx #$00
 	jmp cur::move
 
-@long:
-	; get first line of source buffer to render (target +/- (EDITOR_HEIGHT - cury)
+@long:  ; get first line of source buffer to render (target +/- (EDITOR_HEIGHT - cury)
 	ldxy @diff
 	sub16 #EDITOR_HEIGHT
 	bpl @movesrc

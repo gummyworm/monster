@@ -54,6 +54,8 @@ err_param_name_too_long:
 	.byte "param name too long",0
 err_line_not_found:
 	.byte "line not found for address",0
+err_no_origin:
+	.byte "origin not set",0
 
 
 ;******************************************************************************
@@ -81,6 +83,7 @@ errors: .word err_no_err	 ; no error
 	.word err_overlapping_segments
 	.word err_max_files_exceeded
 	.word err_param_name_too_long
+	.word err_no_origin
 
 .CODE
 ;******************************************************************************

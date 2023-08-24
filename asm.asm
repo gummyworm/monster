@@ -39,8 +39,13 @@ msb = zp::asm+$b
 .BSS
 ;******************************************************************************
 .export ifstack
-ifstack: .res MAX_IFS
+ifstack:   .res MAX_IFS
 ifstacksp: .byte 0
+pcset:     .byte 0
+
+.export __asm_origin
+__asm_origin:
+origin:    .word 0	; the lowest address in the program
 
 .DATA
 ;******************************************************************************
@@ -243,8 +248,9 @@ __asm_tokenize:
 	sta resulttype
 	txa
 	ldy #$00
-	sta (zp::asmresult),y
-	jmp @getopws
+	jsr writeb
+	bcc @getopws
+	rts
 
 @macro:
 	ldxy zp::line
@@ -326,11 +332,14 @@ __asm_tokenize:
 @store_msb:
 	tya
 	ldy #$02
-	sta (zp::asmresult),y
+	jsr writeb
+	bcc @store_lsb
+@ret:	rts
 @store_lsb:
 	txa
 	ldy #$01
-	sta (zp::asmresult),y
+	jsr writeb
+	bcs @ret
 
 @cont:
 	ldy #$00
@@ -426,14 +435,16 @@ __asm_tokenize:
 	cpx #ABS_IND	; only abs-indirect is supported for JMP (XXXX)
 	bne @err
 	lda #$6c
-	sta (zp::asmresult),y
-	jmp @noerr
+	jsr writeb
+	bcc @noerr
+	rts
 @jmpabs:
 	cpx #ABS
 	bne @err 	; only ABS supported for JMP XXXX
 	lda #$4c
-	sta (zp::asmresult),y
-	jmp @noerr
+	jsr writeb
+	bcc @noerr
+	rts
 
 @getbbb:
 ; get bbb bits based upon the address mode and @cc
@@ -475,8 +486,10 @@ __asm_tokenize:
 	sec
 	sbc #$02	; offset is -2 from current instruction's address
 	dey
-	sta (zp::asmresult),y
-	lda #$01
+	jsr writeb
+	bcc :+
+	rts
+:	lda #$01
 	sta operandsz
 	jmp @noerr
 
@@ -500,7 +513,7 @@ __asm_tokenize:
 ; update virtualpc by (1 + operand size)
 @updatevpc:
 	lda state::verify
-	bne @ret ; skip update PC for verify
+	bne @retop ; skip update PC for verify
 
 	lda operandsz
 	sec			; +1
@@ -516,10 +529,10 @@ __asm_tokenize:
 	sec			; +1
 	adc zp::asmresult
 	sta zp::asmresult
-	bcc @ret
+	bcc @retop
 	inc zp::asmresult+1
 
-@ret:	lda #ASM_OPCODE
+@retop:	lda #ASM_OPCODE
 	RETURN_OK
 
 ;------------------
@@ -549,8 +562,9 @@ __asm_tokenize:
 	beq @err
 	dex
 	bpl :-
-	sta (zp::asmresult),y
-	jmp @noerr
+	jsr writeb
+	bcc @noerr
+	rts
 
 @illegal_opcodes:
 .byte %10001001 ; STA #imm
@@ -1062,7 +1076,8 @@ bbb10_modes:
 @ok:	; store the extracted value
 	ldy #$00
 	txa
-	sta (zp::asmresult),y
+	jsr writeb
+	bcs @ret
 	incw zp::asmresult
 	incw zp::virtualpc
 	jmp @commaorws
@@ -1076,7 +1091,8 @@ bbb10_modes:
 	dex
 	dey
 :	lda mem::spare,y
-	sta (zp::asmresult),y
+	jsr writeb
+	bcs @ret
 	dey
 	bpl :-
 
@@ -1107,7 +1123,8 @@ bbb10_modes:
 	beq @commaorws
 	; unexpected character
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
-@done:	RETURN_OK
+@done:	clc
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -1123,10 +1140,13 @@ bbb10_modes:
 	; store the extracted value
 	tya
 	ldy #$01
-	sta (zp::asmresult),y
+	jsr writeb
+	bcs @ret		; return error
 	txa
 	dey
-	sta (zp::asmresult),y
+	jsr writeb
+	bcs @ret		; return error
+
 	incw zp::asmresult
 	incw zp::asmresult
 	incw zp::virtualpc
@@ -1142,7 +1162,8 @@ bbb10_modes:
 	beq @commaorws
 	; unexpected character
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
-@done:	RETURN_OK
+@done:	clc
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -1229,7 +1250,22 @@ bbb10_modes:
 	rts		; error
 :	stxy zp::asmresult
 	stxy zp::virtualpc
-	lda #ASM_ORG
+	lda pcset
+	bne @chkorg
+	inc pcset
+	stxy origin
+	jmp @done
+
+	; check if this is lower than current base origin
+@chkorg:
+	cpy origin+1
+	bcs @done
+	bcc @set
+	cpx origin
+	bcc @done
+@set:	stxy origin
+
+@done:	lda #ASM_ORG
 	RETURN_OK
 .endproc
 
@@ -1473,6 +1509,7 @@ bbb10_modes:
 .proc __asm_reset
 	jsr __asm_resetpc
 	lda #$00
+	sta pcset
 	sta ifstacksp
 	jsr ctx::init
 	jsr mac::init
@@ -1955,4 +1992,22 @@ bbb10_modes:
 	beq :+
 	cmp #';'
 :	rts
+.endproc
+
+;******************************************************************************
+; WRITEB
+; Stores a byte to (zp::asmresult),y
+; Also checks if the origin has been set
+; OUT:
+;  - .C: set on error, clear on success
+.proc writeb
+	pha
+	lda pcset
+	bne :+
+	pla
+	RETURN_ERR ERR_NO_ORIGIN
+
+:	pla
+	sta (zp::asmresult),y
+	RETURN_OK
 .endproc
