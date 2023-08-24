@@ -138,9 +138,9 @@ watches:    .res MAX_WATCHPOINTS*2 ; addresses of the set watchpoints
 ;******************************************************************************
 ; BREAKPOINTS
 ;******************************************************************************
-numbrkpoints: .byte 0		      ; number of active break points
-brkpoints:    .res MAX_BREAKPOINTS*2  ; addresses of the break points
-brkbackups:   .res MAX_BREAKPOINTS    ; backup of the instructions under the BRK
+numbreakpoints: .byte 0 		; number of active break points
+breakpoints:    .res MAX_BREAKPOINTS*2  ; addresses of the break points
+breaksave: .res MAX_BREAKPOINTS      ; backup of the instructions under the BRK
 
 ;******************************************************************************
 ; pointers used when building the debug info
@@ -156,7 +156,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$00
 	sta numsegments
 	sta numwatches
-	sta numbrkpoints
+	sta numbreakpoints
 	sta numfiles
 	rts
 .endproc
@@ -579,12 +579,36 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the address to begin debugging at
 .export __debug_start
 .proc __debug_start
+@brkaddr=zp::tmp0
 	stx pc
 	sty pc+1
 
 	jsr save_debug_state ; save the editor
 
-	lda #<debug_brk	; install BRK handler
+; install the breakpoints (if any)
+	ldx numbreakpoints
+	beq @install_isr
+	dex
+@installbrks:
+	txa
+	asl
+	tay
+	lda breakpoints,y
+	sta @brkaddr
+	lda breakpoints+1,y
+	sta @brkaddr+1
+
+	ldy #$00
+	lda (@brkaddr),y
+	sta breaksave,x		; save the instruction under the new BRK
+	tya			; BRK
+	sta (@brkaddr),y
+	dex
+	bpl @installbrks
+
+; install BRK handler
+@install_isr:
+	lda #<debug_brk
 	sta $0316
 	lda #>debug_brk
 	sta $0316+1
@@ -659,7 +683,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; needed by the debugger for display etc, then it restores the debugger's state
 ; and finally transfers control to the debugger
 .proc debug_brk
-@saveline=zp::tmpe
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
 	pla
 	sta reg_y
@@ -679,17 +702,25 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; save the program state
 	jsr save_prog_state
 
+	; BRK pushes PC + 2, subtract 2 from PC
+	lda pc
+	sec
+	sbc #$02
+	sta pc
+	lda pc+1
+	sbc #$00
+	sta pc+1
+
 	; display the contents of the registers
 	jsr showregs
 
 	; restore debugger state
 	;jsr restore_debug_state
 
-	; highlight the line that we BRK'd on
+	; get the address before the BRK and go to it
 	ldxy pc
 	jsr __debug_addr2line	; get the line #
-	stxy @saveline
-	jsr edit::gotoline		; go to the line where the BRK happened
+	jsr edit::gotoline	; go to the line where the BRK happened
 	lda zp::cury
 	ldx #DEBUG_LINE_COLOR
 	jsr text::hiline	; highlight that line
@@ -883,6 +914,28 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 
 @regsline: .byte "addr a  x  y  sp  nv-bdizc",0
+.endproc
+
+;******************************************************************************
+; SETBREAKPOINT
+; Sets a breakpoint at the address in .XY
+; IN:
+;  - .XY: the address of the breakpoint to set
+.export __debug_setbreakpoint
+.proc __debug_setbreakpoint
+	txa
+	pha
+
+	lda numbreakpoints
+	asl
+	tax
+
+	pla
+	sta breakpoints,x
+	tya
+	sta breakpoints+1,x
+	inc numbreakpoints
+	rts
 .endproc
 
 ;******************************************************************************
