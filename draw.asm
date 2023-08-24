@@ -3,8 +3,11 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-;--------------------------------------
-; hline draws a horizontal line at the row given in .A
+;******************************************************************************
+; HLINE
+; Draws a horizontal line at the row given in .A
+; IN:
+;  - .A: the row to draw a horizontal line at
 .export __draw_hline
 .proc __draw_hline
 	pha

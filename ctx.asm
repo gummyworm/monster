@@ -4,14 +4,15 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-;--------------------------------------
+;******************************************************************************
 CONTEXT_SIZE = $200	; size of buffer per context
 PARAM_LENGTH = 16	; size of param (stored after the context data)
 MAX_PARAMS   = 4	; max params for a context
 MAX_CONTEXTS = 3	; $1000-$400 / $200
 
-;--------------------------------------
-; contexts are stored in spare mem, which is unused by the assembler during the
+;******************************************************************************
+; CONTEXTS
+; Contexts are stored in spare mem, which is unused by the assembler during the
 ; assembly of a program.
 ; The number of contexts is limited by the size of a context (defined as
 ; CONTEXT_SIZE).
@@ -19,7 +20,7 @@ MAX_CONTEXTS = 3	; $1000-$400 / $200
 contexts = mem::spare
 
 .BSS
-;--------------------------------------
+;******************************************************************************
 .export __ctx_type
 __ctx_type:
 type: .byte 0	; the active context
@@ -38,7 +39,7 @@ CTX_PARAMS_START = 8
 CTX_LINES_START = 11
 
 .CODE
-;--------------------------------------
+;******************************************************************************
 ; INIT
 ; initializes the context state by clearing the stack
 .export  __ctx_init
@@ -49,7 +50,7 @@ CTX_LINES_START = 11
 	; fallthrough
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; RESET
 ; resets the state for the active context
 .proc reset
@@ -59,8 +60,11 @@ CTX_LINES_START = 11
 	rts
 .endproc
 
-;--------------------------------------
-; .C is set if there is no room to create a new context
+;******************************************************************************
+; PUSH
+; Saves the current context and beings a new one
+; OUT:
+; - .C: set if there is no room to create a new context
 .export __ctx_push
 .proc __ctx_push
 	lda activectx
@@ -83,8 +87,11 @@ CTX_LINES_START = 11
 	rts
 .endproc
 
-;--------------------------------------
-; .C is set if there are no contexts to pop
+;******************************************************************************
+; POP
+; Restores the last PUSH'ed context
+; OUT:
+;  -.C: set if there are no contexts to pop
 .export __ctx_pop
 .proc __ctx_pop
 	lda activectx
@@ -94,10 +101,10 @@ CTX_LINES_START = 11
 @err:	RETURN_ERR ERR_STACK_UNDERFLOW
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; GETLINE
 ; Returns a line from the active context.
-; out:
+; OUT:
 ;  - .XY: the address of the line returned
 ;  - .A: the # of bytes read (0 if EOF)
 ;  - .C: set if there are no lines to read
@@ -128,12 +135,12 @@ CTX_LINES_START = 11
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; GETPARAMS
 ; returns a list of the parameters for the active context
-; in:
+; IN:
 ;  - .XY: address of buffer to store params in
-; out:
+; OUT:
 ;  - .A: the number of parameters
 ;  - (.XY): the updated buffer filled with 0-separated params
 .export __ctx_getparams
@@ -187,7 +194,7 @@ CTX_LINES_START = 11
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; GETDATA
 ; returns the address of the data for the active context.
 ; out:
@@ -204,10 +211,12 @@ CTX_LINES_START = 11
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; WRITE
-; writes the line in .YX to the context at its activectxent position
-; out:
+; Writes the given line to the context at its current position
+; IN:
+;  - .XY: the line to write to the active context
+; OUT:
 ;  - .XY: the address of the active context.
 .export __ctx_write
 .proc __ctx_write
@@ -231,12 +240,12 @@ CTX_LINES_START = 11
 :	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; ADDPARAM
-; adds the parameter in .YX to the active context
-; in:
+; Adds the given parameter to the active context
+; IN:
 ;  - .XY: the 0, ' ', or ',' terminated parameter to add to the active context
-; out:
+; OUT:
 ;  - .XY: the rest of the string after the parameter that was extracted
 .export __ctx_addparam
 .proc __ctx_addparam
@@ -280,9 +289,9 @@ CTX_LINES_START = 11
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; REWIND
-; rewinds the context so that the cursor points to the beginning of its lines
+; Rewinds the context so that the cursor points to the beginning of its lines
 .export  __ctx_rewind
 .proc __ctx_rewind
 ; contexts are aligned to $200 byte boundaries, so just clear the bottom nine bits
@@ -295,11 +304,10 @@ CTX_LINES_START = 11
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; GETCTX
-; Updates the zeropage context variables with values from
-; the active context
-; out:
+; Updates the zeropage context variables with values from the active context
+; OUT:
 ;  - zp::ctx-zp::ctx+8: context variables for the active ctx
 .proc getctx
 	; get activectx LSB (0)
