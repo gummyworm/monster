@@ -68,7 +68,6 @@
 .export __util_hextostr
 .proc __util_hextostr
 	pha
-	and #$f0
 	lsr
 	lsr
 	lsr

@@ -1,6 +1,9 @@
 .include "asm.inc"
+.include "bitmap.inc"
+.include "edit.inc"
 .include "errors.inc"
 .include "labels.inc"
+.include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "string.inc"
@@ -9,25 +12,33 @@
 .include "zeropage.inc"
 
 ;******************************************************************************
+; Debug info constants
 MAX_FILES = 16	      ; max files that debug info may be generated for
 MAX_SEGMENTS=32	      ; max segments that debug info may be generated for
 MAX_BREAKPOINTS = 16  ; max number of breakpoints that may be set
 MAX_WATCHPOINTS = 8   ; max number of watchpoints that may be set
 
+SEG_LINE_COUNT = 4	; offset in segment header for line count
+DATA_FILE = 0		; offset of FILE ID in debug info
+DATA_LINE = 1		; offset of line number in debug info
+DATA_ADDR = 3		; offset of line address in debug info
+
 ;******************************************************************************
+; Debug info pointers
 file = zp::debug     ; current file id being worked on
 addr = zp::debug+1   ; address of next line/addr to store
 seg  = zp::debug+3   ; address of current segment pointer
-
 .export __debug_file
 __debug_file = file
 
 ;******************************************************************************
-SEG_LINE_COUNT = 4 ; offset in segment header for line count
-
-DATA_FILE = 0
-DATA_LINE = 1
-DATA_ADDR = 3
+; Program state variables
+reg_a = zp::debug+5
+reg_x = zp::debug+6
+reg_y = zp::debug+7
+reg_p = zp::debug+8
+reg_sp = zp::debug+9
+pc = zp::debug+$a
 
 ;******************************************************************************
 ; # DEBUG INFO
@@ -564,32 +575,199 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the address to begin debugging at
 .export __debug_start
 .proc __debug_start
+	stx pc
+	sty pc+1
+
+	jsr save_debug_state ; save the editor
+
+	lda #<debug_brk	; install BRK handler
+	sta $0316
+	lda #>debug_brk
+	sta $0316+1
+
+@runpc: jmp (pc)
 .endproc
 
 ;******************************************************************************
-; SAVE_DEBUGSTATE
+; SAVE_DEBUG_STATE
 ; saves memory likely to be clobbered by the user's
 ; program (namely the screen)
-.proc save_debugstate
+.proc save_debug_state
+@vicsave=mem::spare
+@savezp=mem::spare+$10
+@intsave=mem::spare+$210
+	jsr bm::save	; backup the screen
+
+	ldx #$10
+@savevic:
+	lda $9000-1,x
+	sta @vicsave-1,x
+	dex
+	bne @savevic
+
+@save_zp:
+	lda $00,x
+	sta @savezp,x
+	dex
+	bne @save_zp
+
+	ldx #2*3
+@save_ints:
+	lda $314-1,x
+	sta @intsave-1,x
+	dex
+	bne @save_ints
+	rts
 .endproc
 
 ;******************************************************************************
-; SAVE_PROGSTATE
-; saves the user program's state so that the debugger may use the memory for
-; screen etc.
-.proc save_progstate
+; SAVE_PROG_STATE
+; saves memory clobbered by the debugger (screen, ZP, etc.)
+.proc save_prog_state
+@vicsave=mem::spare+$120 ; $120-$130
+@savezp=mem::spare+$130	 ; $130-$230
+@intsave=mem::spare+$230 ; $230-$236
+	; TODO: save $1000-$2000
+	ldx #$10
+@savevic:
+	lda $9000-1,x
+	sta @vicsave-1,x
+	dex
+	bne @savevic
+@save_zp:
+	lda $00,x
+	sta @savezp,x
+	dex
+	bne @save_zp
+
+	ldx #2*3
+@save_ints:
+	lda $314-1,x
+	sta @intsave-1,x
+	dex
+	bne @save_ints
+
+	rts
 .endproc
 
 ;******************************************************************************
-; RESTORE_DEBUGSTATE
-; restores the saved debugger state
-.proc restore_debugstate
+; DEBUG_BRK
+; This is the BRK handler for the debugger.
+; It saves the user program's state and other sensitive memory areas that are
+; needed by the debugger for display etc, then it restores the debugger's state
+; and finally transfers control to the debugger
+.proc debug_brk
+@saveline=zp::tmpe
+	; save the registers pushed by the KERNAL interrupt handler ($FF72)
+	pla
+	sta reg_y
+	pla
+	sta reg_x
+	pla
+	sta reg_a
+	pla
+	sta reg_p
+	pla
+	sta pc
+	pla
+	sta pc+1
+	tsx
+	stx reg_sp
+
+	; save the program state
+	jsr save_prog_state
+
+	; display the contents of the registers
+	jsr showregs
+
+	; restore debugger state
+	;jsr restore_debug_state
+
+	; highlight the line that we BRK'd on
+	ldxy pc
+	jsr __debug_addr2line	; get the line #
+	stxy @saveline
+	jsr edit::gotoline		; go to the line where the BRK happened
+	lda zp::cury
+	ldx #$22
+	jsr text::hiline	; highlight that line
+
+	jmp *
+	rts
+.endproc
+
+;******************************************************************************
+; RESTORE_DEBUG_STATE
+; Restores the saved debugger state
+.proc restore_debug_state
+@vicsave=mem::spare	 ; $0-$10
+@savezp=mem::spare+$10	 ; $10-$110
+@intsave=mem::spare+$110 ; $110-$116
+	jsr bm::restore
+	ldx #$10
+@restorevic:
+	lda @vicsave-1,x
+	sta $9000-1,x
+	dex
+	bne @restorevic
+@restore_zp:
+	lda @savezp
+	sta $00,x
+	dex
+	bne @restore_zp
+
+	ldx #2*3
+@restore_ints:
+	lda @intsave-1,x
+	sta $314-1,x
+	dex
+	bne @restore_ints
+	rts
 .endproc
 
 ;******************************************************************************
 ; RESTORE_PROGSTATE
 ; restores the saved program state
 .proc restore_progstate
+@vicsave=mem::spare+$120 ; $120-$130
+@savezp=mem::spare+$130	 ; $130-$230
+@intsave=mem::spare+$230 ; $230-$236
+	jsr bm::restore	; restore the bitmap
+
+	ldx #$10
+@restorevic:
+	lda @vicsave,x
+	sta $9000-1,x
+	dex
+	bne @restorevic
+@restore_zp:
+	lda @savezp
+	sta $00,x
+	dex
+	bne @restore_zp
+
+	ldx #2*3
+@restore_ints:
+	lda @intsave,x
+	sta $314-1,x
+	dex
+	bne @restore_ints
+
+@restore_regs:
+	; get the stack back in the format RTI expects
+	; from top to bottom: [STATUS, <PC, >PC]
+	lda pc+1
+	pha
+	lda pc		; restore PC
+	pha
+	lda reg_p	; restore processor status
+	pha
+
+	lda reg_a
+	ldx reg_x
+	ldy reg_y
+
+	rti		; return from the BRK
 .endproc
 
 ;******************************************************************************
@@ -605,7 +783,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
 .proc step
-
+	; return to the debugger
+	rts
 .endproc
 
 ;******************************************************************************
@@ -618,99 +797,88 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 .endproc
 
-
 ;******************************************************************************
 ; SHOWREGS
 ; prints the contents of the registers in the format
 ;  ADDR A  X  Y  SP NV-BDIZC
 ;  f59c 02 02 00 f7 00100000
 .proc showregs
-@reg_a=zp::asm
-@reg_x=zp::asm+1
-@reg_y=zp::asm+2
-@reg_sp=zp::asm+3
 @addr=zp::asm+4
 @tmp=zp::asm+6
 @flag=zp::asm+7
-	; save the registers
-	php
-	txs
-	sta @reg_a
-	stx @reg_x
-	sty @reg_y
-	txs
-	stx @reg_sp
-
 	; display the register names
 	ldxy #@regsline
-	lda zp::cury
-	jsr text::puts
+	lda #REGISTERS_LINE
+	jsr text::putz
 
-	; .Y
-	pla
-	sta @reg_y
-	jsr util::hextostr
-	tya
-	sta mem::linebuffer+11,x
-	txa
-	sta mem::linebuffer+12,x
+	ldy #39
+	lda #' '
+:	sta mem::linebuffer,y
+	dey
+	bpl :-
 
-	; .X
-	pla
-	sta @reg_x
+	; draw .Y
+	lda reg_y
 	jsr util::hextostr
-	tya
-	sta mem::linebuffer+8,x
-	txa
-	sta mem::linebuffer+9,x
+	sty mem::linebuffer+11
+	stx mem::linebuffer+12
+
+	; draw .X
+	lda reg_x
+	jsr util::hextostr
+	sty mem::linebuffer+8
+	stx mem::linebuffer+9
 
 	; draw .A
-	pla
-	sta @reg_a
+	lda reg_a
 	jsr util::hextostr
-	tya
-	sta mem::linebuffer+5,x
-	txa
-	sta mem::linebuffer+6,x
+	sty mem::linebuffer+5
+	stx mem::linebuffer+6
 
-	; status
-	pla
+	; draw .P (status)
+	lda reg_p
 	sta @tmp
 	lda #$80
 	sta @flag
 	ldx #$00
 
 @getstatus:
-	lda @flag
 	and @tmp
 	bne :+
 	lda #'0'
 	skw
 :	lda #'1'
-	sta mem::linebuffer,x
+	sta mem::linebuffer+18,x
 :	lsr @flag
-	beq @getaddr
 	inx
 	cpx #2
 	beq :-
+	lda @flag
 	bne @getstatus
 
+@getsp:
+	lda reg_sp
+	jsr util::hextostr
+	sty mem::linebuffer+14
+	stx mem::linebuffer+15
+
 @getaddr:
-	pla
-	sta @addr
-	pla
-	sta @addr+1
+	lda pc+1
 	jsr util::hextostr
-	tya
-	sta mem::linebuffer,x
-	txa
-	sta mem::linebuffer+1,x
-	lda @addr
+	sty mem::linebuffer
+	stx mem::linebuffer+1
+
+	lda pc
 	jsr util::hextostr
-	tya
-	sta mem::linebuffer+2,x
-	txa
-	sta mem::linebuffer+3,x
+	sty mem::linebuffer+2
+	stx mem::linebuffer+3
+
+	lda #$00
+	sta mem::linebuffer+26
+
+	ldxy #mem::linebuffer
+	lda #REGISTERS_LINE+1
+	jsr text::putz
 	rts
 
 @regsline: .byte "addr a  x  y  sp  nv-bdizc",0
@@ -763,8 +931,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda @len
 	jsr str::compare
 	bne @next
-	ldxy @filename	; restore .XY
-	RETURN_OK	; space for file is already allocated
+
+@found: ldxy @filename	; restore .XY
+	lda @cnt	; get the file ID
+	RETURN_OK	; file found
+
 @next:	lda @other
 	adc #$10
 	sta @other
@@ -783,7 +954,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; IN:
 ;  -.XY: address of 0-terminated filename
 ; OUT:
-;  -.C: clear on success, set on error
+;  - .A: the file ID for the newly copied file
+;  - .C: clear on success, set on error
 .proc storefile
 @src=zp::tmp0
 @filename=zp::tmp2
@@ -809,5 +981,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq :+
 	iny
 	bne @copyfilename
-:	RETURN_OK
+:	lda numfiles
+	inc numfiles
+	RETURN_OK
 .endproc

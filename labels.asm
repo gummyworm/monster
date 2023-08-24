@@ -290,7 +290,10 @@ label_addresses: .res 256 * 2
 ; label_address returns the address of the label in (.YX)
 ; The size of the label is returned in .A (1 if zeropage, 2 if not)
 ; line is updated to the character after the label.
-; .C is set if no label was found, clear if it was
+; IN:
+;  - .XY: the address of the label to get the address of
+; OUT:
+;  - .C is set if no label was found, clear if it was
 .export __label_address
 .proc __label_address
 @table=zp::tmp0

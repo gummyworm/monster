@@ -8,22 +8,21 @@ __mem_spareend = $1000
 .export __mem_backbuff
 __mem_backbuff = $c000-$f00 	; backup for the screen bitmap
 
+.export __mem_backbuff
+__mem_progsave = $c000-$f00 	; backup for the user's program during debug
+
 .export __mem_program
-__mem_program:
-	.res $400	; buffer for the assembled program
+__mem_program: .res $400	; buffer for the assembled program
 
 .export __linebuffer2
-__linebuffer2:
-	.res 40		; backup buffer for when the linebuffer must be saved
+__linebuffer2: .res 40		; backup buffer for when the linebuffer must be saved
 
 .export __linebuffer
-__linebuffer:
-	.res 40
+__linebuffer: .res 40
 ;__linebuffer=$150	; the buffer for the line being edited
 
 .export __mem_ctxbuffer
 __mem_ctxbuffer=$140+40	; the buffer for the context during assembly
 
 .export __statusline
-__statusline:
-	.res 40
+__statusline: .res 40

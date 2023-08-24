@@ -241,8 +241,8 @@ STATUS_COL  = 0
 ;--------------------------------------
 ; putch adds the character in .A to the current cursor position in the
 ; text linebuffer.
-; Returns:
-;  .C: set if character was unsuccessfully put
+; OUT:
+;  - .C: set if character was unsuccessfully put
 .export __text_putch
 .proc __text_putch
 @mask=zp::tmp4
@@ -458,9 +458,13 @@ STATUS_COL  = 0
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; SCROLLDOWN
+; Scrolls all rows from .A to .X
+; IN:
+;  - .A: the first column to scroll down
+;  - .X: the last column to scroll down to
 .export __text_scrolldown
-; scrolls all rows from .A to .X
 .proc __text_scrolldown
 @rowstart=zp::tmp0
 @rows=zp::tmp1
@@ -521,10 +525,14 @@ STATUS_COL  = 0
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; PUTZ
+; Prints a full width (40 column) string, terminated by a 0 at the given row
+; IN:
+;  - .XY: the string to display
+;  - .A: the row to display the string at
 .export __text_putz
 .proc __text_putz
-; prints a full width (40 column) string, terminated by a 0.
 ;
 @src = $24
 	pha
@@ -550,7 +558,13 @@ STATUS_COL  = 0
 	jmp __text_puts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; PUTS
+; Displays the given string at the given row.  Regardless of the contents of
+; the string, text::len characters are displayed (including 0's etc.)
+; IN:
+;  - .XY: the string to display
+;  - .A: the text to display
 .export __text_len
 .export __text_puts
 __text_puts:
@@ -689,8 +703,14 @@ __text_len=*+1
 	rts
 .endproc
 
-;--------------------------------------
-; hiline highlights the row in .A with the color in .X
+;******************************************************************************
+; HILINE
+; Highlights the specified row with the specified color.
+; This routine install an IRQ that will hilight the given line until disabled
+; (hioff).
+; IN:
+;  - .A: the row to highlight
+;  - .X: the color to highlight with
 .export __text_hiline
 .proc __text_hiline
 	stx hicolor
@@ -703,7 +723,7 @@ __text_len=*+1
 	rts
 .endproc
 
-hiirq: ldx #65/5-1
+hiirq:  ldx #65/5-1
 	dex
 	bne *-1
 hicolor=*+1
@@ -717,8 +737,11 @@ hicolor=*+1
 	sta $900f
 	jmp $eb15
 
-;--------------------------------------
-; linelen returns the length of mem::linebuffer in .X
+;******************************************************************************
+; LINELEN
+; Returns the length of mem::linebuffer
+; OUT:
+;  - .X: the length of mem::linebuffer
 .proc __text_linelen
 .export __text_linelen
 	ldx #$ff
@@ -731,26 +754,9 @@ hicolor=*+1
 @done:	rts
 .endproc
 
-;--------------------------------------
-; get reads text (up to .A bytes) into (zp::tmp0)
-.export __text_get
-.proc __text_get
-@len=zp::tmp0
-	sta @len
-@l0:    jsr key::getch
-	cmp #$00
-	beq @l0
-	cmp #$0d
-	bne :+
-	lda #$00
-	jsr __text_putch
-	rts
-:	jsr __text_putch
-	jmp @l0
-.endproc
-
-;--------------------------------------
-; hioff clears any active line highlight
+;******************************************************************************
+; HIOFF
+; Clears any active line highlight
 .export __text_hioff
 .proc __text_hioff
 	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
@@ -758,8 +764,11 @@ hicolor=*+1
 	rts
 .endproc
 
-;--------------------------------------
-; savebuff stores the contents of linbuffer in spare memory.
+;******************************************************************************
+; SAVEBUFF
+; Stores the contents of linebuffer to spare memory. The contents of the
+; most recent call to this routine will be restored when text::restorebuff is
+; called
 .export __text_savebuff
 .proc __text_savebuff
 	ldy #39
@@ -770,8 +779,10 @@ hicolor=*+1
 	rts
 .endproc
 
-;--------------------------------------
-; restorebuff restores the linebuffer from the contents of spare memory.
+;******************************************************************************
+; RESTOREBUFF
+; Restores the linebuffer from the contents of spare memory (saved by the most
+; recent call to text::savebuff)
 .export __text_restorebuff
 .proc __text_restorebuff
 	ldy #39
@@ -782,8 +793,9 @@ hicolor=*+1
 	rts
 .endproc
 
-;--------------------------------------
-; dir lists the directory of the attached disk
+;******************************************************************************
+; DIR
+; Lists the directory of the attached disk.
 .export __text_dir
 .proc __text_dir
 @line=zp::tmp8
@@ -797,8 +809,7 @@ hicolor=*+1
 	ldx #0
 	jsr cur::set
 
-@l0:
-	jsr __text_clrline
+@l0:    jsr __text_clrline
 
 	incw @line	; skip line #
 	incw @line
@@ -815,8 +826,7 @@ hicolor=*+1
 	cpx #39
 	bcc @l2
 
-@next:
-	; read line link
+@next:  ; read line link
 	ldy #$00
 	lda (@line),y
 	bne :+
@@ -844,11 +854,13 @@ hicolor=*+1
 	jmp __text_clrline
 .endproc
 
-;--------------------------------------
+
 .DATA
+;******************************************************************************
 .export __text_insertmode
-__text_insertmode: .byte 1
-rvs: .byte 0
+__text_insertmode: .byte 1	; the insert mode (1 = insert, 0 = replace)
+
+rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 
 .export __text_charmap
 __text_charmap:

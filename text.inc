@@ -14,7 +14,6 @@
 .import __text_insertmode
 .import __text_scrolldown
 .import __text_scrollup
-.import __text_get
 .import __text_linelen
 .import __text_savebuff
 .import __text_restorebuff
@@ -24,30 +23,6 @@ ESCAPE_STRING = $ff
 ESCAPE_VALUE = $fe
 ESCAPE_RVS_ON = $01
 ESCAPE_RVS_OFF = $02
-
-; getinput sets the cursor to (X,Y) and reads input into arg (up to sz bytes)
-.macro getinput arg, xpos, ypos, sz
-	lda zp::curx
-	pha
-	lda zp::cury
-	pha
-	ldxy arg
-	stxy zp::tmp0
-	ldx #xpos
-	ldy #ypos
-	jsr cur::setmin
-	jsr cur::set
-	ldx #xpos+sz
-	ldy #ypos
-	jsr cur::setmax
-	lda #sz
-	jsr __text_get
-	pla
-	tay
-	pla
-	tax
-	jsr cur::set
-.endmacro
 
 .scope text
         len      = __text_len

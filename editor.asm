@@ -115,6 +115,19 @@ main:
 .endproc
 
 ;******************************************************************************
+; COMMAND_DEBUG
+; Starts the debugger at the address specified by the given label.
+; IN:
+;  - .XY: the address of the label to start debugging at
+.proc command_debug
+@target=$00
+	jsr lbl::addr
+	bcc :+
+	rts		; address not found
+:	jmp dbg::start
+.endproc
+
+;******************************************************************************
 ; RESET
 ; clears all state relating to the assembly of the active file.
 .proc reset
@@ -378,12 +391,14 @@ main:
 ; commands
 @command_codes:
 .byte 'g'
+.byte 'd'
 .byte 'o'
 .byte 's'
 .byte 'x'
 @num_commands=*-@command_codes
 @command_table:
 .word command_go
+.word command_debug
 .word load
 .word save
 .word scratch
@@ -404,19 +419,23 @@ main:
 	cmp #$a5	; C=<G> (Go)
 	bne :+
 	lda #'g'
-	jmp docommand
+	bne @do
+:	cmp #$ac	; C=<D> (Debug)
+	bne :+
+	lda #'d'
+	bne @do
 :	cmp #$b9	; C=<O> (Open)
 	bne :+
 	lda #'o'
-	jmp docommand
+	bne @do
 :	cmp #$ae	; C=<S> (Save)
 	bne :+
 	lda #'s'
-	jmp docommand
+	bne @do
 :	cmp #$bd	; C=<X> (Scratch)
 	bne @insert
 	lda #'x'
-	jmp docommand
+@do:	jmp docommand
 
 @insert:
 	jsr insert
@@ -520,7 +539,8 @@ main:
 .proc rename
 	jsr text::savebuff
 	jsr text::clrline
-	getinput mem::statusline+23,0,23,(40-16)
+	; TODO: use readinput or something
+	; getinput mem::statusline+23,0,23,(40-16)
 	ldxy #mem::linebuffer
 	; TODO: jsr file::rename
 	jsr text::restorebuff
@@ -1067,6 +1087,8 @@ main:
 ;******************************************************************************
 ; GOTOLINE
 ; Sets the editor to the line in .YX and refreshes the screen.
+.export __edit_gotoline
+__edit_gotoline:
 .proc gotoline
 @target=zp::tmp6
 @row=zp::tmp8
@@ -1284,7 +1306,7 @@ main:
 .endproc
 
 .DATA
-;--------------------------------------
+;******************************************************************************
 controlcodes:
 .byte $9d	; left
 .byte $1d	; right
@@ -1294,7 +1316,7 @@ controlcodes:
 .byte $0d	; RETURN
 numccodes=*-controlcodes
 
-;--------------------------------------
+;******************************************************************************
 ccvectors:
 .word ccleft    ; left
 .word ccright	; right
@@ -1303,8 +1325,10 @@ ccvectors:
 .word ccdel 	; delete
 .word linedone	; RETURN
 
-;--------------------------------------
+;******************************************************************************
+.IFDEF DRAW_TITLEBAR
 titlebar:
 .byte "monster                      c=<h>: help"
+.ENDIF
 
 filename: .byte "test",0
