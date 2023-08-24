@@ -1533,6 +1533,9 @@ bbb10_modes:
 ; IN:
 ;  - .XY: the address of the instruction to disassemble
 ;  - zp::tmp0: the address of the buffer to disassemble to
+; OUT:
+;  - .A: the size of the instruction that was disassembled
+;  - .C: clear if instruction was successfully disassembled
 .export __asm_disassemble
 .proc __asm_disassemble
 @dst=zp::tmp0

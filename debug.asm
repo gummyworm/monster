@@ -571,6 +571,109 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
+; GET_FILEID
+; Returns the ID for the given file name
+; IN:
+;  - .XY: the filename to return the id of
+; OUT:
+;  - .A: the file ID
+;  - .C: set if there was no match
+.proc get_fileid
+@filename=zp::str2
+@cnt=zp::tmp4
+@other=zp::tmp5
+@len=zp::tmp6
+	stxy @filename
+	jsr str::len
+	sta @len
+	lda numfiles
+	beq @notfound
+	lda #$00
+	sta @other
+	sta @cnt
+
+@l0:	lda @other
+	clc
+	adc #<filenames
+	tax
+	lda @other+1
+	adc #>filenames
+	tay
+	lda @len
+	jsr str::compare
+	bne @next
+
+@found: ldxy @filename	; restore .XY
+	lda @cnt	; get the file ID
+	RETURN_OK	; file found
+
+@next:	lda @other
+	adc #$10
+	sta @other
+	dec @cnt
+	bne @l0
+
+@notfound:
+	ldxy @filename	; restore .XY
+	sec		; not found
+	rts
+.endproc
+
+;******************************************************************************
+; SETFILE
+; Sets the active file-id to the the ID for given filename.
+; If no file-id exists for the provided filename, one is first created.
+; IN:
+;  - .XY: the 0-terminated file to set as the current file
+.export __debug_set_file
+.proc __debug_set_file
+	jsr get_fileid
+	bcc :+
+	jsr storefile
+:	sta file
+	rts
+.endproc
+
+;******************************************************************************
+; STOREFILE
+; Copies the given filename thereby creating an ID for that file
+; IN:
+;  -.XY: address of 0-terminated filename
+; OUT:
+;  - .A: the file ID for the newly copied file
+;  - .C: clear on success, set on error
+.proc storefile
+@src=zp::tmp0
+@filename=zp::tmp2
+	stxy @src
+
+@getfiledst:
+	; find the location to store the filename to
+	lda numfiles
+	asl		; *2
+	asl		; *4
+	asl		; *8
+	asl		; *16
+	adc #<filenames
+	sta @filename
+	lda #>filenames
+	adc #$00
+	sta @filename+1
+
+	ldy #$00
+@copyfilename:
+	lda (@src),y
+	sta (@filename),y
+	beq :+
+	iny
+	bne @copyfilename
+:	lda numfiles
+	inc numfiles
+	RETURN_OK
+.endproc
+
+
+;******************************************************************************
 ; START
 ; Begins debugging at the given address
 ; Execution will continue until a BRK instruction occurs at which point the
@@ -579,15 +682,29 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the address to begin debugging at
 .export __debug_start
 .proc __debug_start
-@brkaddr=zp::tmp0
 	stx pc
 	sty pc+1
 
 	jsr save_debug_state ; save the editor
+	jsr install_breakpoints
 
-; install the breakpoints (if any)
+; install BRK handler
+@install_isr:
+	lda #<debug_brk
+	sta $0316
+	lda #>debug_brk
+	sta $0316+1
+
+; execute the user program until BRK
+@runpc: jmp (pc)
+.endproc
+
+;******************************************************************************
+; INSTALL_BREAKPOINTS
+.proc install_breakpoints
+@brkaddr=zp::tmp0
 	ldx numbreakpoints
-	beq @install_isr
+	beq @done
 	dex
 @installbrks:
 	txa
@@ -605,15 +722,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta (@brkaddr),y
 	dex
 	bpl @installbrks
-
-; install BRK handler
-@install_isr:
-	lda #<debug_brk
-	sta $0316
-	lda #>debug_brk
-	sta $0316+1
-
-@runpc: jmp (pc)
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -815,19 +924,72 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
 .proc step
+	ldxy #$100
+	sta zp::tmp0	; TODO: make way to not disassemble to string
+	ldxy pc
+	jsr asm::disassemble ; disassemble to get info about next instruction
+	bcc @ok
+	rts		; return error
+
+@ok:	; get the address after the next instruction
+	; TODO: handle branches
+	adc pc
+	tax
+	lda pc+1
+	adc #$00
+	tay
+	jsr __debug_setbreakpoint	; add a breakpoint
+	jsr install_breakpoints		; update breakpoints with our new one
+
 	; return to the debugger
 	rts
 .endproc
 
 ;******************************************************************************
-; WATCH
+; ADDWATCH
 ; Adds a watch for the given memory location. If this location is written to,
 ; execution will return to the debugger
 ; in:
 ;  - .XY: the address to add a watch for
-.proc watch
+.export __debug_addwatch
+.proc __debug_addwatch
+	txa
+	pha
+	lda numwatches
+	asl
+	tax
 
+	pla
+	sta watches,x
+	tya
+	sta watches+1,x
+
+	inc numwatches
+	rts
 .endproc
+
+;******************************************************************************
+; SETBREAKPOINT
+; Sets a breakpoint at the address in .XY
+; IN:
+;  - .XY: the address of the breakpoint to set
+.export __debug_setbreakpoint
+.proc __debug_setbreakpoint
+	txa
+	pha
+
+	lda numbreakpoints
+	asl
+	tax
+
+	pla
+	sta breakpoints,x
+	tya
+	sta breakpoints+1,x
+	inc numbreakpoints
+	rts
+.endproc
+
 
 ;******************************************************************************
 ; SHOWREGS
@@ -914,129 +1076,5 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 
 @regsline: .byte "addr a  x  y  sp  nv-bdizc",0
-.endproc
-
-;******************************************************************************
-; SETBREAKPOINT
-; Sets a breakpoint at the address in .XY
-; IN:
-;  - .XY: the address of the breakpoint to set
-.export __debug_setbreakpoint
-.proc __debug_setbreakpoint
-	txa
-	pha
-
-	lda numbreakpoints
-	asl
-	tax
-
-	pla
-	sta breakpoints,x
-	tya
-	sta breakpoints+1,x
-	inc numbreakpoints
-	rts
-.endproc
-
-;******************************************************************************
-; SETFILE
-; Sets the active file-id to the the ID for given filename.
-; If no file-id exists for the provided filename, one is first created.
-; IN:
-;  - .XY: the 0-terminated file to set as the current file
-.export __debug_set_file
-.proc __debug_set_file
-	jsr get_fileid
-	bcc :+
-	jsr storefile
-:	sta file
-	rts
-.endproc
-
-;******************************************************************************
-; GET_FILEID
-; Returns the ID for the given file name
-; IN:
-;  - .XY: the filename to return the id of
-; OUT:
-;  - .A: the file ID
-;  - .C: set if there was no match
-.proc get_fileid
-@filename=zp::str2
-@cnt=zp::tmp4
-@other=zp::tmp5
-@len=zp::tmp6
-	stxy @filename
-	jsr str::len
-	sta @len
-	lda numfiles
-	beq @notfound
-	lda #$00
-	sta @other
-	sta @cnt
-
-@l0:	lda @other
-	clc
-	adc #<filenames
-	tax
-	lda @other+1
-	adc #>filenames
-	tay
-	lda @len
-	jsr str::compare
-	bne @next
-
-@found: ldxy @filename	; restore .XY
-	lda @cnt	; get the file ID
-	RETURN_OK	; file found
-
-@next:	lda @other
-	adc #$10
-	sta @other
-	dec @cnt
-	bne @l0
-
-@notfound:
-	ldxy @filename	; restore .XY
-	sec		; not found
-	rts
-.endproc
-
-;******************************************************************************
-; STOREFILE
-; Copies the given filename thereby creating an ID for that file
-; IN:
-;  -.XY: address of 0-terminated filename
-; OUT:
-;  - .A: the file ID for the newly copied file
-;  - .C: clear on success, set on error
-.proc storefile
-@src=zp::tmp0
-@filename=zp::tmp2
-	stxy @src
-
-@getfiledst:
-	; find the location to store the filename to
-	lda numfiles
-	asl		; *2
-	asl		; *4
-	asl		; *8
-	asl		; *16
-	adc #<filenames
-	sta @filename
-	lda #>filenames
-	adc #$00
-	sta @filename+1
-
-	ldy #$00
-@copyfilename:
-	lda (@src),y
-	sta (@filename),y
-	beq :+
-	iny
-	bne @copyfilename
-:	lda numfiles
-	inc numfiles
-	RETURN_OK
 .endproc
 
