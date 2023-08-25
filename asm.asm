@@ -81,7 +81,7 @@ opcodes:
 .byt "stx" ; 100 16
 .byt "ldx" ; 101 17
 .byt "dec" ; 110 18
-.byt "inc" ; 111
+.byt "inc" ; 111 19
 opcode_branches:
 ; branch $10, $30, $50...
 .byt "bpl"
@@ -92,7 +92,9 @@ opcode_branches:
 .byt "bcs"
 .byt "bne"
 .byt "beq"
+
 ;implied + jsr
+opcode_singles_strings:
 .byt "brk"
 .byt "jsr"
 .byt "rti"
@@ -122,13 +124,17 @@ opcode_branches:
 
 ;******************************************************************************
 ; OPCODETAB
+; This table is used for instructions (mostly single byte) that don't follow
+; the encoding of the other instructions well.
+; They are thus considered separately during assembly/disassembly
 opcodetab:
-; cc=00
 .byt $10, $30, $50, $70, $90, $B0, $D0, $F0 	;branches
+opcode_singles:
 .byt $00, $20, $40, $60				; BRK, JSR, RTI, RTS
 .byt $08, $28, $48, $68, $88, $A8, $C8, $E8	; PHP, PLP, PHA, PLA, DEY, TAY, INY, INX
 .byt $18, $38, $58, $78, $98, $B8, $D8, $F8	; CLC, SEC, CLI, SEI, TYA, CLV, CLD, SED
 .byt $8A, $9A, $AA, $BA, $CA, $EA		; TXA, TXS, TAX, TSX, DEX, NOP
+num_opcode_singles=*-opcode_singles
 
 ; directives
 directives:
@@ -1599,7 +1605,34 @@ bbb10_modes:
 	lda (@opaddr),y
 	sta @operand+1
 
+; check for single byte opcodes
+	lda @op
+	ldx #num_opcode_singles-1
+:	cmp opcode_singles,x
+	beq @implied_or_jsr
+	dex
+	bpl :-
+	bmi @checkbranch
+
+@implied_or_jsr:
+	txa	; * 3 to get offset in opcode string table
+	sta @op
+	asl
+	adc @op
+	tax
+	ldy #$00
+:	lda opcode_singles_strings,x
+	sta (@dst),y
+	inx
+	iny
+	cpy #$03
+	bne :-
+	; TODO: handle JSR
+	lda #$01
+	RETURN_OK
+
 ; check for branches/exceptions
+@checkbranch:
 	lda @op
 	and #$0f
 	bne @not_branch
@@ -1673,11 +1706,11 @@ bbb10_modes:
 
 	; get aaa - opcode offset (each mneumonic is 3 bytes)
 	lda @op
-	asl
-	rol
-	rol
-	rol
-	and #$07
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
 	clc
 	adc @cc8
 	sta @cc8_plus_aaa
@@ -1689,6 +1722,7 @@ bbb10_modes:
 	adc #$00
 	sta @optab+1
 
+;	jmp *
 	; write the opcode (optab),aaa to the destination
 	ldy #$02
 :	lda (@optab),y
@@ -1830,7 +1864,7 @@ bbb10_modes:
 	incw @dst
 	lda #'y'
 	sta (@dst),y
-@done:  ldx #$01
+@done:  ldx #$02
 	lda @modes
 	and #MODE_ZP
 	bne :+

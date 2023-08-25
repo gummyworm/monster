@@ -931,7 +931,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
 .proc step
-	ldxy #$f000	; ROM (we don't need the string)
+	ldxy #$100	; ROM (we don't need the string)
 	sta zp::tmp0	; TODO: make way to not disassemble to string
 	incw pc		; get instruction after the BRK
 	ldxy pc
