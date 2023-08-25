@@ -7,7 +7,6 @@ ZEROPAGE_INC = 1
 ; $0a-$0f are reserved form math
 math =  $0a
 
-
 ;******************************************************************************
 ; $10-$20 is reserved for debug info generation
 debug = $10

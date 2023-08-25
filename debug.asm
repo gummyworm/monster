@@ -20,6 +20,8 @@ MAX_SEGMENTS=32	      ; max segments that debug info may be generated for
 MAX_BREAKPOINTS = 16  ; max number of breakpoints that may be set
 MAX_WATCHPOINTS = 8   ; max number of watchpoints that may be set
 
+SEG_START_ADDR = 0      ; offset in segment header for start address
+SEG_STOP_ADDR = 2       ; offset in segment header for stop address
 SEG_LINE_COUNT = 4	; offset in segment header for line count
 DATA_FILE = 0		; offset of FILE ID in debug info
 DATA_LINE = 1		; offset of line number in debug info
@@ -30,6 +32,7 @@ DATA_ADDR = 3		; offset of line address in debug info
 file = zp::debug     ; current file id being worked on
 addr = zp::debug+1   ; address of next line/addr to store
 seg  = zp::debug+3   ; address of current segment pointer
+line = zp::debug+5
 .export __debug_file
 __debug_file = file
 
@@ -41,7 +44,7 @@ reg_x:  .byte 0
 reg_y:  .byte 0
 reg_p:  .byte 0
 reg_sp: .byte 0
-pc:     .byte 0
+pc:     .word 0
 
 ;******************************************************************************
 ; # DEBUG INFO
@@ -280,7 +283,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; store the start address of the segment
 	tya
-	ldy #$01
+	ldy #SEG_START_ADDR+1
 	sta (seg),y
 	txa
 	dey
@@ -339,7 +342,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #>segments
 	sta @seg+1
 
-@l0:	ldy #$00
+@l0:	ldy #SEG_START_ADDR
 	lda (@seg),y
 	cmp @addr
 	bne @next
@@ -383,7 +386,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 :	; store the end address of the segment
 	tya
-	ldy #$03
+	ldy #SEG_STOP_ADDR+1
 	sta (seg),y
 	dey
 	txa
@@ -464,8 +467,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; in:
 ;  - .XY: the address to get the location of
 ; out:
-;  - .XY: the address of the filename
-;  - zp::tmp0: the line number (2 bytes)
+;  - .XY: the line number of the address
 ;  - .C: set on error
 .export __debug_addr2line
 .proc __debug_addr2line
@@ -481,7 +483,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #>debuginfo
 	sta @info+1
 
-
 	ldx #$00
 @l0:	ldy #$00
 	lda (@info),y	; get the start address for the segment
@@ -496,7 +497,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	iny
 	lda (@info),y
 	sta @segstop+1
-
 
 ; is the address we're looking for is in the range [segstart, segstop]?
 @checkstop:
@@ -814,6 +814,32 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; get the address before the BRK and go to it
 	ldxy pc
 	jsr __debug_addr2line	; get the line #
+	bcc @pushline
+	lda pc
+	pha
+	lda pc+1
+	pha
+	ldxy #@brk_message_addr
+	lda #STATUS_ROW-2
+	jsr text::print		; "break @ <addr>"
+	lda #STATUS_ROW-2
+	jsr bm::rvsline
+	jmp @debugloop		; skip highlght because we don't know the line
+
+@pushline:
+	stxy line
+	txa
+	pha
+	tya
+	pha
+
+	ldxy #@brk_message_line
+	lda #STATUS_ROW-2
+	jsr text::print		; break in line <line #>
+	lda #STATUS_ROW-2
+	jsr bm::rvsline
+
+	ldxy line
 	jsr edit::gotoline	; go to the line where the BRK happened
 	lda zp::cury
 	ldx #DEBUG_LINE_COLOR
@@ -845,8 +871,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda reg_a
 	ldx reg_x
 	ldy reg_y
-	jmp *
 	rti		; return from the BRK
+@brk_message_line: .byte "brk in line $",$fe,0 ; when line number is resolved
+@brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
 .endproc
 
 ;******************************************************************************

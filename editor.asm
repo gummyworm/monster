@@ -211,12 +211,14 @@ main:
 	sta state::verify	; re-enable verify
 
 	; get the size of the assembled program and print it
-	ldxy zp::asmresult
-	sub16 asm::origin
-	txa
+	lda zp::asmresult
+	sec
+	sbc asm::origin
 	pha
-	tya
+	lda zp::asmresult+1
+	sbc asm::origin+1
 	pha
+
 	ldxy #@success_msg
 	lda #STATUS_ROW-1
 	jsr text::print
