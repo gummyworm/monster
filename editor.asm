@@ -101,13 +101,41 @@ main:
 .endproc
 
 ;******************************************************************************
+; LABEL_ADDR_OR_ORG
+; Returns the address of the label given in .XY or, if no label is given (a
+; 0-length string is given) the address of the program origin
+; IN:
+;  - .XY: the address of the label to get the address of
+; OUT:
+;  - .XY: the address of the given label or the address of the origin if no
+;         label was given.
+;  - .C: set on error, clear on success
+.proc label_addr_or_org
+@lbl=zp::tmp0
+	stxy @lbl
+	jsr str::len
+	cmp #$00
+	bne @label
+	ldxy asm::origin ; use ORG if no label given
+	RETURN_OK
+
+@label:	ldxy @lbl
+	jmp lbl::addr
+.endproc
+
+;******************************************************************************
+; COMMAND_GO
+; Begins execution at the address of the label given in .XY
+; If no label is given (a 0-length string is given) then begins execution at
+; the program's origin.
+; IN:
+;  - .XY: the address of the label to start debugging at
 .proc command_go
 @target=$00
-	jsr lbl::addr
+	jsr label_addr_or_org
 	bcc :+
-	rts		; address not found
-
-:	stxy @target+1
+	rts
+	stxy @target+1
 	lda #$4c	; JMP
 	sta @target
 	jsr @target
@@ -117,15 +145,17 @@ main:
 ;******************************************************************************
 ; COMMAND_DEBUG
 ; Starts the debugger at the address specified by the given label.
+; If no label is given (a 0-length string is given) then begins debugging at
+; the program's origin.
 ; IN:
 ;  - .XY: the address of the label to start debugging at
 .proc command_debug
 @target=$00
-	jsr lbl::addr
+	jsr label_addr_or_org
 	bcc :+
 	inc $900f
 	rts		; address not found
-:	jmp dbg::start
+:	jmp dbg::start	; start debugging at address in .XY
 .endproc
 
 ;******************************************************************************
