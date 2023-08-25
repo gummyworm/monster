@@ -46,6 +46,7 @@ reg_p:  .byte 0
 reg_sp: .byte 0
 pc:     .word 0
 
+
 ;******************************************************************************
 ; # DEBUG INFO
 ; The structure of this info is somewhat optimized for generating while the
@@ -143,6 +144,8 @@ watches:    .res MAX_WATCHPOINTS*2 ; addresses of the set watchpoints
 ;******************************************************************************
 ; BREAKPOINTS
 ;******************************************************************************
+.export numbreakpoints
+.export breakpoints
 numbreakpoints: .byte 0 		; number of active break points
 breakpoints:    .res MAX_BREAKPOINTS*2  ; addresses of the break points
 breaksave: .res MAX_BREAKPOINTS      ; backup of the instructions under the BRK
@@ -684,10 +687,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the address to begin debugging at
 .export __debug_start
 .proc __debug_start
-	stx pc
-	sty pc+1
+	stxy pc
 
 	jsr save_debug_state ; save the editor
+
+	; install a breakpoint at the first address
+	ldxy pc
+	jsr __debug_setbreakpoint
 	jsr install_breakpoints
 
 ; install BRK handler
@@ -724,6 +730,31 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta (@brkaddr),y
 	dex
 	bpl @installbrks
+@done:	rts
+.endproc
+
+;******************************************************************************
+; UNINSTALL_BREAKPOINTS
+; Restores the source code by removing all breakpoints installed by the debugger
+.proc uninstall_breakpoints
+@addr=zp::tmp0
+	ldx numbreakpoints
+	beq @done
+	dex
+@uninstall:
+	txa
+	asl
+	tay
+	lda breakpoints,y
+	sta @addr
+	lda breakpoints+1,y
+	sta @addr+1
+
+	ldy #$00
+	lda breaksave,x
+	sta (@addr),y
+	dex
+	bpl @uninstall
 @done:	rts
 .endproc
 
@@ -856,8 +887,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jmp @done	; restore user's program and RTI
 :	jmp @debugloop
 
-@done:	jsr save_debug_state
-	jsr restore_progstate
+@done:	;jsr save_debug_state
+	;jsr restore_progstate
 ; get the stack back in the format RTI expects and finish ISR
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
@@ -931,11 +962,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
 .proc step
+	; delete the last STEP breakpoint
+	jsr uninstall_breakpoints
+	jsr remove_breakpoint
+
 	ldxy #$100	; ROM (we don't need the string)
-	sta zp::tmp0	; TODO: make way to not disassemble to string
-	incw pc		; get instruction after the BRK
-	ldxy pc
-	jsr asm::disassemble ; disassemble to get info about next instruction
+	stxy zp::tmp0	; TODO: make way to not disassemble to string
+	ldxy pc		; get address of next instruction
+	jsr asm::disassemble  ; disassemble it to get its size (next BRK offset)
 	bcc @ok
 	rts		; return error
 
@@ -998,6 +1032,18 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 .endproc
 
+;******************************************************************************
+; REMOVEBREAKPOINT
+; Removes a breakpoint at the address in .XY
+; IN:
+;  - .XY: the address of the breakpoint to remove
+.proc remove_breakpoint
+	; TODO: do this right
+	lda numbreakpoints
+	beq @done
+	dec numbreakpoints
+@done:	rts
+.endproc
 
 ;******************************************************************************
 ; SHOWREGS
