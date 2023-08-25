@@ -4,6 +4,7 @@
 .include "edit.inc"
 .include "errors.inc"
 .include "labels.inc"
+.include "key.inc"
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -34,12 +35,13 @@ __debug_file = file
 
 ;******************************************************************************
 ; Program state variables
-reg_a = zp::debug+5
-reg_x = zp::debug+6
-reg_y = zp::debug+7
-reg_p = zp::debug+8
-reg_sp = zp::debug+9
-pc = zp::debug+$a
+.BSS
+reg_a:  .byte 0
+reg_x:  .byte 0
+reg_y:  .byte 0
+reg_p:  .byte 0
+reg_sp: .byte 0
+pc:     .byte 0
 
 ;******************************************************************************
 ; # DEBUG INFO
@@ -732,7 +734,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc save_debug_state
 @vicsave=mem::spare
 @savezp=mem::spare+$10
-@intsave=mem::spare+$110
 	ldx #$10
 @savevic:
 	lda $9000-1,x
@@ -745,13 +746,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @savezp,x
 	dex
 	bne @save_zp
-
-	ldx #2*3
-@save_ints:
-	lda $314-1,x
-	sta @intsave-1,x
-	dex
-	bne @save_ints
 	jmp bm::save	; backup the screen
 .endproc
 
@@ -761,7 +755,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc save_prog_state
 @vicsave=mem::spare+$120 ; $120-$130
 @savezp=mem::spare+$130	 ; $130-$230
-@intsave=mem::spare+$230 ; $230-$236
 	; TODO: save $1000-$2000
 	ldx #$10
 @savevic:
@@ -774,14 +767,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @savezp,x
 	dex
 	bne @save_zp
-
-	ldx #2*3
-@save_ints:
-	lda $314-1,x
-	sta @intsave-1,x
-	dex
-	bne @save_ints
-
 	rts
 .endproc
 
@@ -834,8 +819,34 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldx #DEBUG_LINE_COLOR
 	jsr text::hiline	; highlight that line
 
+; main debug loop
+@debugloop:
+	jsr key::getch
+	cmp #$00
+	beq @debugloop
+	cmp #'z'
+	bne :+
+	jsr step	; install new breakpoint and update PC
+	jmp @done	; restore user's program and RTI
+:	jmp @debugloop
+
+@done:	jsr save_debug_state
+	jsr restore_progstate
+; get the stack back in the format RTI expects and finish ISR
+@restore_regs:
+	; from top to bottom: [STATUS, <PC, >PC]
+	lda pc+1
+	pha
+	lda pc		; restore PC
+	pha
+	lda reg_p	; restore processor status
+	pha
+
+	lda reg_a
+	ldx reg_x
+	ldy reg_y
 	jmp *
-	rts
+	rti		; return from the BRK
 .endproc
 
 ;******************************************************************************
@@ -844,7 +855,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc restore_debug_state
 @vicsave=mem::spare	 ; $0-$10
 @savezp=mem::spare+$10	 ; $10-$110
-@intsave=mem::spare+$110 ; $110-$116
 	ldx #$10
 @restorevic:
 	lda @vicsave-1,x
@@ -856,13 +866,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $00,x
 	dex
 	bne @restore_zp
-
-	ldx #2*3
-@restore_ints:
-	lda @intsave-1,x
-	sta $314-1,x
-	dex
-	bne @restore_ints
 	jmp bm::restore	 ;restore the screen
 .endproc
 
@@ -872,7 +875,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc restore_progstate
 @vicsave=mem::spare+$120 ; $120-$130
 @savezp=mem::spare+$130	 ; $130-$230
-@intsave=mem::spare+$230 ; $230-$236
 	jsr bm::restore	; restore the bitmap
 
 	ldx #$10
@@ -886,29 +888,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $00,x
 	dex
 	bne @restore_zp
-
-	ldx #2*3
-@restore_ints:
-	lda @intsave,x
-	sta $314-1,x
-	dex
-	bne @restore_ints
-
-@restore_regs:
-	; get the stack back in the format RTI expects
-	; from top to bottom: [STATUS, <PC, >PC]
-	lda pc+1
-	pha
-	lda pc		; restore PC
-	pha
-	lda reg_p	; restore processor status
-	pha
-
-	lda reg_a
-	ldx reg_x
-	ldy reg_y
-
-	rti		; return from the BRK
+	rts
 .endproc
 
 ;******************************************************************************
@@ -924,14 +904,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
 .proc step
-	ldxy #$100
+	ldxy #$f000	; ROM (we don't need the string)
 	sta zp::tmp0	; TODO: make way to not disassemble to string
+	incw pc		; get instruction after the BRK
 	ldxy pc
 	jsr asm::disassemble ; disassemble to get info about next instruction
 	bcc @ok
 	rts		; return error
 
-@ok:	; get the address after the next instruction
+@ok:	; get the address AFTER the next instruction
 	; TODO: handle branches
 	adc pc
 	tax
@@ -1077,4 +1058,3 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 @regsline: .byte "addr a  x  y  sp  nv-bdizc",0
 .endproc
-

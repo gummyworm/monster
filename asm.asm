@@ -1689,10 +1689,10 @@ bbb10_modes:
 	and #IMPLIED
 	beq @cont
 @implied:
+	lda #$01	; 1 byte in size
 	RETURN_OK
 
-@cont:
-	; add a space before operand
+@cont:  ; add a space before operand
 	ldy #$00
 	lda #' '
 	sta (@dst),y
@@ -1738,7 +1738,8 @@ bbb10_modes:
 
 :	lda @modes
 	and #MODE_ABS
-	beq :+
+	beq @chkindexed
+
 @absolute:
 	ldy #$00
 	lda #'$'
@@ -1765,7 +1766,8 @@ bbb10_modes:
 	incw @dst
 	incw @dst
 
-:	lda @modes
+@chkindexed:
+	lda @modes
 	and #MODE_X_INDEXED
 	beq :+
 @xindexed:
@@ -1793,7 +1795,12 @@ bbb10_modes:
 	incw @dst
 	lda #'y'
 	sta (@dst),y
-@done:
+@done:  ldx #$01
+	lda @modes
+	and #MODE_ZP
+	bne :+
+	inx
+:	txa
 	RETURN_OK
 .endproc
 
