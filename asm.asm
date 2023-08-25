@@ -192,8 +192,17 @@ __asm_validate:
 __asm_tokenize:
 .proc tokenize
 ;flags
-	stx zp::line
-	sty zp::line+1
+	lda #<mem::linebuffer2
+	sta zp::tmp0
+	lda #>mem::linebuffer2
+	sta zp::tmp0+1
+	jsr str::copy
+
+	ldxy #mem::linebuffer2
+	stxy zp::line
+
+	ldxy #mem::linebuffer2
+	jsr str::toupper
 
 	jsr process_ws
 	beq @false	; empty line

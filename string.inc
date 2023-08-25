@@ -4,6 +4,7 @@
 .import __str_find
 .import __str_len
 .import __str_replace
+.import __str_toupper
 
 .scope str
 	cat = __str_cat
@@ -12,6 +13,7 @@
 	find = __str_find
 	len = __str_len
 	replace = __str_replace
+	toupper = __str_toupper
 .endscope
 
 ;--------------------------------------

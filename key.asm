@@ -40,8 +40,24 @@ CURSOR_LR_MASK=2
 	bne :+
 	lda #$14
 :	cmp #' '
+
+@chkupper:
 	bcc @ccodes
+	cmp #$da+1	; > 'Z'
+	bcs @ret
+	cmp #$c1	; bcc @lower
+	bcc @chklower
+@upper: eor #$80	; convert to uppercase
 	rts
+
+@chklower:
+	cmp #$5a+1	; > 'z'
+	bcs @ret
+	cmp #$41	; < 'a'
+	bcc @ret
+	ora #$20	; convert to lowercase
+@ret:	rts
+
 @ccodes:
 	cmp #$0d
 	beq @done

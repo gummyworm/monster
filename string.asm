@@ -235,3 +235,27 @@
 	bne :-
 @done:	RETURN_OK
 .endproc
+
+;******************************************************************************
+; TOUPPER
+; Replaces all lowercase characters in the given string ($61-$7a) with uppercase
+; ($41-$5a) ones.
+; IN:
+;  - .XY: the address of the string to convert to uppercase
+.export __str_toupper
+.proc __str_toupper
+@str=zp::str0
+	stxy @str
+	ldy #$00
+@l0:	lda (@str),y
+	beq @done
+	cmp #$61
+	bcc @next
+	cmp #$7a+1
+	bcs @next
+	eor #$20	; to upper
+	sta (@str),y
+@next:	iny
+	bne @l0
+@done:	rts
+.endproc
