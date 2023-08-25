@@ -296,10 +296,20 @@ MAX_OPERANDS=$10/2
 ; OUT:
 ;  - .C: clear if the string is a hex or decimal value
 .proc isval
-	; allow first char to be '$'
+	; allow first char to be '$' or '*'
 	ldx #$00	; 0 if decimal, 1 if hex
 	lda (zp::line),y
-	cmp #'$'
+
+	; check for '*' (current PC)
+	cmp #'*'
+	bne :+
+	ldy #$01
+	lda (zp::line),y
+	jsr util::isseparator
+	beq @done
+	bne @err
+
+:	cmp #'$'
 	bne @cont
 	inx		; flag hex
 	iny
