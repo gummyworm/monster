@@ -30,11 +30,9 @@ immediate=zp::asm+2 ; 1=immediate, 0=not immediate
 operandsz=zp::asm+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
 cc=zp::asm+4
 resulttype=zp::asm+5
-srcline=zp::asm+6
-.export __asm_current_file
-__asm_current_file=zp::asm+$8
-lsb = zp::asm+$a
-msb = zp::asm+$b
+opcode=zp::asm+8
+lsb = zp::asm+$9
+msb = zp::asm+$a
 
 .BSS
 ;******************************************************************************
@@ -59,30 +57,30 @@ AAA_JMP_IND=$03
 opcodes:
 ; cc = 00
 .byt $ff,$ff,$ff ; unused
-.byt "bit" ; 001
-.byt "jmp" ; 010
-.byt "jmp" ; 011
-.byt "sty" ; 100
-.byt "ldy" ; 101
-.byt "cpy" ; 110
-.byt "cpx" ; 111
+.byt "bit" ; 001 3
+.byt "jmp" ; 010 4
+.byt "jmp" ; 011 5
+.byt "sty" ; 100 6
+.byt "ldy" ; 101 7
+.byt "cpy" ; 110 8
+.byt "cpx" ; 111 9
 ;cc = 01
-.byt "ora" ; 000
-.byt "and" ; 001
-.byt "eor" ; 010
-.byt "adc" ; 011
-.byt "sta" ; 100
-.byt "lda" ; 101
-.byt "cmp" ; 110
-.byt "sbc" ; 111
+.byt "ora" ; 000 a
+.byt "and" ; 001 b
+.byt "eor" ; 010 c
+.byt "adc" ; 011 d
+.byt "sta" ; 100 e
+.byt "lda" ; 101 f
+.byt "cmp" ; 110 10
+.byt "sbc" ; 111 11
 ;cc = 10
-.byt "asl" ; 000
-.byt "rol" ; 001
-.byt "lsr" ; 010
-.byt "ror" ; 011
-.byt "stx" ; 100
-.byt "ldx" ; 101
-.byt "dec" ; 110
+.byt "asl" ; 000 12
+.byt "rol" ; 001 13
+.byt "lsr" ; 010 14
+.byt "ror" ; 011 15
+.byt "stx" ; 100 16
+.byt "ldx" ; 101 17
+.byt "dec" ; 110 18
 .byt "inc" ; 111
 opcode_branches:
 ; branch $10, $30, $50...
@@ -122,13 +120,15 @@ opcode_branches:
 .byt "dex"
 .byt "nop"
 
+;******************************************************************************
+; OPCODETAB
 opcodetab:
 ; cc=00
-.byt $10, $30, $50, $70, $90, $B0, $D0, $F0 ;branches
-.byt $00, $20, $40, $60
-.byt $08, $28, $48, $68, $88, $A8, $C8, $E8
-.byt $18, $38, $58, $78, $98, $B8, $D8, $F8
-.byt $8A, $9A, $AA, $BA, $CA, $EA
+.byt $10, $30, $50, $70, $90, $B0, $D0, $F0 	;branches
+.byt $00, $20, $40, $60				; BRK, JSR, RTI, RTS
+.byt $08, $28, $48, $68, $88, $A8, $C8, $E8	; PHP, PLP, PHA, PLA, DEY, TAY, INY, INX
+.byt $18, $38, $58, $78, $98, $B8, $D8, $F8	; CLC, SEC, CLI, SEI, TYA, CLV, CLD, SED
+.byt $8A, $9A, $AA, $BA, $CA, $EA		; TXA, TXS, TAX, TSX, DEX, NOP
 
 ; directives
 directives:
@@ -191,21 +191,20 @@ __asm_validate:
 .export __asm_tokenize
 __asm_tokenize:
 .proc tokenize
-;flags
+	; copy the line to a new buffer and make it uppercase (assembly is
+	; case-insensitive)
 	lda #<mem::linebuffer2
 	sta zp::tmp0
 	lda #>mem::linebuffer2
 	sta zp::tmp0+1
 	jsr str::copy
-
 	ldxy #mem::linebuffer2
 	stxy zp::line
-
 	ldxy #mem::linebuffer2
 	jsr str::toupper
 
 	jsr process_ws
-	beq @false	; empty line
+	beq @noasm 	; empty line
 
 ; check if we're in an .IF (FALSE) and if we are, return
 @checkifs:
@@ -215,8 +214,9 @@ __asm_tokenize:
 	beq @directive
 	lda ifstack,x
 	bne :-
-@false:	RETURN_OK
+@noasm:	RETURN_OK
 
+; 1. check if the line contains a directive
 @directive:
 	jsr getdirective
 	bcs @ctx
@@ -240,6 +240,7 @@ __asm_tokenize:
 	sty lsb
 	sty msb
 
+; check if the line is a comment
 @full_line_comment:
 	lda (zp::line),y
 	cmp #';'
@@ -250,17 +251,20 @@ __asm_tokenize:
 	sta resulttype
 	RETURN_OK
 
+; check if the line contains an instruction
 @opcode:
 	jsr getopcode
 	bcs @macro
 	lda #ASM_OPCODE
 	sta resulttype
+	stx opcode	; save the opcode
 	txa
 	ldy #$00
 	jsr writeb
 	bcc @getopws
 	rts
 
+; check if the line contains a macro
 @macro:
 	ldxy zp::line
 	jsr mac::get
@@ -370,7 +374,7 @@ __asm_tokenize:
 	cmp #')'
 	beq :+
 	jmp @err
-:	inc indexed
+:	inc indexed	; inc once to flag ,X indexed
 	jmp @getws2
 
 @rparen_noprex:
@@ -388,34 +392,31 @@ __asm_tokenize:
 	lda (zp::line),y
 	cmp #'x'
 	bne @getindexy
-	inc indexed
+	jsr is_ldx_stx
+	bcs :+
+	RETURN_ERR ERR_ILLEGAL_ADDRMODE	 ; ,X is illegal for LDX/STX
+:	inc indexed	 ; inc once to flag ,X indexed
 	incw zp::line
 @getindexy:
 	cmp #'y'
 	bne @getws2
+	inc indexed	 ; inc twice to flag ,Y indexed
+	jsr is_ldx_stx
+	bcc :+		 ; treat like ,X for encoding if LDX ,Y or STX ,Y
 	inc indexed
-	inc indexed
-	incw zp::line
+:	incw zp::line
 
 ;------------------
 ; finish the line by checking for whitespace and/or a comment
 @getws2:
 	jsr process_ws
 
+; check for comment or garbage
 @comment:
 	lda (zp::line),y
 	jsr islineterminator
 	beq @done
 	RETURN_ERR ERR_UNEXPECTED_CHAR
-
-	; get length of comment
-:	iny
-	lda (zp::line),y
-	bne :-
-
-	ldx zp::line
-	ldy zp::line+1
-	; TODO: jsr addcomment
 
 ; done, create the assembled result based upon the opcode, operand, and addr mode
 @done:
@@ -456,7 +457,7 @@ __asm_tokenize:
 	rts
 
 @getbbb:
-; get bbb bits based upon the address mode and @cc
+; get bbb bits based upon the address mode and cc
 	lda cc
 	cmp #$03
 	bne @validate_cc
@@ -488,6 +489,7 @@ __asm_tokenize:
 	beq :+
 	cmp #$ff
 	beq :+
+	RETURN_ERR ERR_BRANCH_OUT_OF_RANGE
 	bne @err		; address out of range
 
 	; replace 2 byte operand with 1 byte relative address
@@ -606,20 +608,27 @@ __asm_tokenize:
 
 ;******************************************************************************
 ; GETADDRMODE
-; Returns the address mode according to the provided flags
+; Returns the address mode according to the global assembly flags:
+; immediate, indexed, and indirect.
+; This may or may not be legal for the instruction, it is constructed just
+; from the syntax of the user's line.
+; OUT:
+;  - .A: the address mode
+;  - .C: clear on success, set on error
 .export getaddrmode
 .proc getaddrmode
 	; get addressing mode index for bbb tables
 	lda operandsz
 	cmp #$ff
-	bne :+
+	bne @sizedone
 	; if we don't know the size yet, check both zp and abs
 	jsr @zp
 	bcc @ok
 	jmp @abs
 
-
-:	cmp #$00
+; we have the size, now dispatch as appropriate to zp, impl, or abs
+@sizedone:
+	cmp #$00
 	beq @impl
 	cmp #2
 	beq @abs
@@ -643,8 +652,7 @@ __asm_tokenize:
 	adc indirect
 	adc indirect
 	adc #ZEROPAGE
-@ok:
-	RETURN_OK
+@ok:	RETURN_OK
 
 ;------------------
 @abs:   lda immediate
@@ -673,12 +681,28 @@ __asm_tokenize:
 	RETURN_ERR ERR_OVERSIZED_OPERAND
 .endproc
 
-;--------------------------------------
+;******************************************************************************
+; ADDRESS MODE TABLES
+; The following tables store the bbb values for the encoding for various
+; configurations of addressing, e.g. zeropage, x-indexed.
+; They are stored consistently such that the same addressing type maps to
+; the same location in each table.  This makes it easy to translate from the
+; type of addressing we're doing and the bit representation of the bbb encoding
+; for the instruction.
+; There are 3 tables, each represents the bbb values for a given set of cc
+; instructions: cc 01, cc 10, and cc 00.
+; A $ff in the table represents an invalid addressing mode for that type of
+; instruction.
 IMPLIED=0
 IMMEDIATE=1
-ABS=6
-ABS_IND=9
 ZEROPAGE=2
+ZEROPAGE_X=3
+ZEROPAGE_X_INDIRECT=4
+ZEROPAGE_Y_INDIRECT=5
+ABS=6
+ABS_X=7
+ABS_Y=8
+ABS_IND=9
 
 bbb01:
 	.byte $ff ; implied/accumulator
@@ -750,9 +774,9 @@ bbb10_modes:
 	.byte MODE_IMPLIED	; 010
 	.byte MODE_ABS		; 011
 	.byte $ff		; 100
-	.byte MODE_ZP | MODE_X_INDEXED ; 101
+	.byte MODE_ZP | MODE_X_INDEXED ; 101 (Y_INDEXED for STX,LDX)
 	.byte $ff		; 110
-	.byte ABS | MODE_X_INDEXED	; 111
+	.byte ABS | MODE_X_INDEXED	; 111 (Y_INDEXED for STX,LDX)
 
 ;******************************************************************************
 ; GETTEXT
@@ -790,7 +814,9 @@ bbb10_modes:
 ;  - .A: ASM_OPCODE (on success) else error
 ;  - .X: the opcode's ID
 ;  - .C: set if (line) is not an opcode
-;  - tmp9: updated with the .CC part of the opcode
+;  - cc: updated with the cc part of the opcode
+;  - ldx_stx: set to 1 if the instruction is a LDX or STX (requires special
+;             handling with the address modes)
 .proc getopcode
 @optab = zp::tmp6
 @op = zp::tmp8
@@ -830,7 +856,8 @@ bbb10_modes:
 	bcc @setcc
 	inc cc
 
-	; look up the opcode from a table
+; if we reached this point, instruction is a CC 00 encoding, look up the opcode
+; from a table
 	sbc #CC_IMP
 	tax
 	lda opcodetab,x
@@ -1692,11 +1719,10 @@ bbb10_modes:
 	adc @bbb	; add bbb to get the table position of our instruction
 	tax
 
-	; if implied, we're done
 	lda bbb_modes,x
 	sta @modes
 	and #IMPLIED
-	beq @cont
+	beq @cont	; if not implied, go on
 @implied:
 	lda #$01	; 1 byte in size
 	RETURN_OK
@@ -2011,6 +2037,30 @@ bbb10_modes:
 	beq :+
 	cmp #';'
 :	rts
+.endproc
+
+;******************************************************************************
+; IS_LDX_STX
+; Checks if the given opcode is a LDX/STX
+; OUT:
+;  - .C: clear if the given opcode is a LDX/STX
+.proc is_ldx_stx
+	pha
+	lda cc
+	cmp #$02	; only applicable if cc = 10
+	bne @no
+
+	lda opcode
+	cmp #$80	; aaa = 100 STX ($8)
+	beq @yes
+	cmp #$a0	; aaa = 101 LDX ($a)
+	beq @yes
+@no:	pla
+	sec
+	rts
+@yes:	pla
+	clc
+	rts
 .endproc
 
 ;******************************************************************************

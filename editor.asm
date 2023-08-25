@@ -714,6 +714,7 @@ main:
 	ldy #>mem::linebuffer
 	jsr asm::tokenize
 	bcs @err
+
 @format:
 	; format the line
 	cmp #ASM_LABEL
