@@ -123,6 +123,7 @@ main:
 @target=$00
 	jsr lbl::addr
 	bcc :+
+	inc $900f
 	rts		; address not found
 :	jmp dbg::start
 .endproc
@@ -142,12 +143,16 @@ main:
 .proc command_asm
 @line=zp::editor
 @pc=zp::editor+6
+	jsr clrerror
+
 	; save the current source position and rewind it for assembly
 	jsr src::pushp
 	jsr src::rewind
 	jsr src::next
 	jsr reset
 
+	lda zp::gendebuginfo
+	beq @pass1
 	; set the initial file for debugging
 	ldxy #filename
 	jsr dbg::setfile
@@ -217,10 +222,12 @@ main:
 	jsr text::print
 
 @asmdone:
+	lda zp::gendebuginfo
+	beq :+
 	ldxy zp::virtualpc
 	jsr dbg::endseg		; end the last segment
 
-	jsr src::popp
+:	jsr src::popp
 	jsr src::goto
 	jsr text::clrline
 	RETURN_OK
@@ -240,6 +247,7 @@ main:
 	bcc :+
 	rts			; error
 :	dec zp::gendebuginfo	; turn off debug-info
+	dec $900f
 	RETURN_OK
 .endproc
 

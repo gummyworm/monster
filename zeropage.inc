@@ -56,7 +56,12 @@ macros=$80
 expr=$90
 
 ;******************************************************************************
-; $b0-$c0 reserved for file stuff
+; $b0-$ba is reserved for text displaying/bitmap stuff
+text = $b0
+
+
+;******************************************************************************
+; $ba-$c0 reserved for file stuff
 device = $ba	; the last used drive #
 file = $bb	; the most recently accessed file
 

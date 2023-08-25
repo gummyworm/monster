@@ -534,7 +534,7 @@ STATUS_COL  = 0
 .export __text_putz
 .proc __text_putz
 ;
-@src = $24
+@src = zp::text
 	pha
 	stxy @src
 
@@ -568,11 +568,11 @@ STATUS_COL  = 0
 .export __text_len
 .export __text_puts
 __text_puts:
-txtbyte  = $24
-txtleft  = $25
-txtright = $27
-txtdst   = $29
-txtsrc   = $4e
+txtbyte  = zp::text
+txtleft  = zp::text+1
+txtright = zp::text+3
+txtdst   = zp::text+5
+txtsrc   = zp::text+7
         stx txtsrc
         sty txtsrc+1
         asl

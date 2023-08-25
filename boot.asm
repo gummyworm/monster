@@ -29,6 +29,7 @@ start:
 	stxy zp::tmp0
 @zeromem:
 	ldy #$00
+	sty zp::gendebuginfo
 	sta (zp::tmp0),y
 	incw zp::tmp0
 	ldxy zp::tmp0
