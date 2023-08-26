@@ -33,9 +33,13 @@ file = zp::debug       ; current file id being worked on
 addr = zp::debug+1     ; address of next line/addr to store
 seg  = zp::debug+3     ; address of current segment pointer
 line = zp::debug+5
+srcline = zp::debug+7
+segstart = zp::debug+9
+segstop = zp::debug+$b
+
 
 .export __debug_src_line
-__debug_src_line = zp::debug+7 ; the line # stored by dbg::storeline
+__debug_src_line = srcline ; the line # stored by dbg::storeline
 .export __debug_file
 __debug_file = file
 
@@ -136,7 +140,7 @@ segmentnames: .byte 0
 
 ; table of start addresses for each segment
 .export segaddresses
-segaddresses: .res MAX_FILES * 2
+segaddresses: .res MAX_SEGMENTS * 2
 
 ;******************************************************************************
 ; WATCHES
@@ -477,105 +481,111 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .C: set on error
 .export __debug_addr2line
 .proc __debug_addr2line
-@info=zp::tmp0
 @addr=zp::tmp2
 @cnt=zp::tmp4
-@segstart=zp::tmp5
-@segstop=zp::tmp7
 	stxy @addr
+	lda #$00
+	sta @cnt
 
-	lda #<debuginfo
-	sta @info
-	lda #>debuginfo
-	sta @info+1
-
-	ldx #$00
-@l0:	ldy #$00
-	lda (@info),y	; get the start address for the segment
-	sta @segstart
-	iny
-	lda (@info),y
-	sta @segstart+1
-
-	iny
-	lda (@info),y	; get the stop address for the segment
-	sta @segstop
-	iny
-	lda (@info),y
-	sta @segstop+1
+@l0:	lda @cnt
+	jsr get_segment_by_id
+	bcc @checkstop
+	RETURN_ERR ERR_LINE_NOT_FOUND
 
 ; is the address we're looking for is in the range [segstart, segstop]?
 @checkstop:
 	lda @addr+1
-	cmp @segstop+1
+	cmp segstop+1
 	bcc @checkstart
 	beq :+
-	bcs @next
+	bcs @next	; addr > segstop, skip to next segment
 :	lda @addr
-	cmp @segstop
-	beq @segfound
+	cmp segstop
+	beq @findline	; addr == segstop, find the line #
 	bcs @next
 
 @checkstart:
 	lda @addr+1
-	cmp @segstart+1
-	bcc @next
+	cmp segstart+1
+	bcc @next	; addr < segstart, skip to the next segment
 	lda @addr
-	cmp @segstart
-	bcs @segfound
+	cmp segstart
+	bcs @findline	; segstart <= addr < segstop, find the line #
 
-@next:	lda @info
-	clc
-	adc #$06 ; sizeof(segstart)+sizeof(segstop)+sizeof(numlines)
-	sta @info
-	bcc :+
-	inc @info+1
-:	inx
-	cpx numsegments
-	bne @l0	 ; repeat until we've checked all segments
+@next:	inc @cnt
+	lda @cnt
+	cmp numsegments
+	bcc @l0	 ; repeat until we've checked all segments
 	RETURN_ERR ERR_LINE_NOT_FOUND
 
-;------------------
 ; find the line that the address we were given is on
-@segfound:
-	txa
-	asl
-	tax
-	lda segaddresses,x
-	sta @info
-	lda segaddresses+1,x
-	adc #$00
-	sta @info+1
 @findline:
 	ldy #DATA_ADDR
-	lda (@info),y
+	lda (line),y
 	cmp @addr
 	bne @nextline
 	iny
-	lda (@info),y
+	lda (line),y
 	cmp @addr+1
 	bne @nextline
 
-;------------------
 ; get the line corresponding to the address
 @found: ldy #DATA_LINE
-	lda (@info),y
+	lda (line),y
 	tax
 	iny
-	lda (@info),y
+	lda (line),y
 	tay
-	RETURN_OK   ; TODO: ensure address is still < segstop
+	RETURN_OK
 
 @nextline:
-	lda @info
-	clc
-	adc #$05 ; sizeof(line_num)+sizeof(line_addr)+sizeof(file_id)
-	sta @info
+	jsr nextline
 	bcc @findline
-	inc @info+1
-	bne @findline	; TODO: ensure address is still < segstop
-	sec
 	rts
+.endproc
+
+;******************************************************************************
+; LINE2ADDR
+; Returns the address of the given line.
+; IN:
+;  - .XY: the line to get the address of
+; OUT:
+;  - .XY: the address of the given line
+.proc __debug_line2addr
+@line=zp::tmp2
+@cnt=zp::tmp4
+	stxy @line
+	lda #$00
+	sta @cnt
+
+; we don't store the line/file range for a segment (yet? TODO: ???)
+; so just iterate over every line in every segment
+@l0:	lda @cnt
+	jsr get_segment_by_id
+	bcc @checklines
+	rts
+
+; check every line in the segment for a match
+@checklines:
+@l1:	ldy #DATA_LINE
+	lda @line
+	cmp (line),y
+	bne @next
+	lda @line+1
+	cmp (line),y
+	bne @next
+
+@found:	ldy #DATA_ADDR
+	lda (line),y
+	tax
+	iny
+	lda (line),y
+	tay
+	RETURN_OK
+
+@next:	jsr nextline
+	bcc @l1
+	RETURN_ERR ERR_LINE_NOT_FOUND
 .endproc
 
 ;******************************************************************************
@@ -1292,4 +1302,78 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 
 @regsline: .byte "addr a  x  y  sp  nv-bdizc",0
+.endproc
+
+;******************************************************************************
+; GETSEGMENT_BY_ID
+; Returns the start and stop addresses of a segment by its ID.
+; ID's are sequential, so to iterate over all segments, you can call this
+; routine with an incrementing counter over the range [0, numsegments)
+; IN:
+;  .A: the ID of the segment to get
+; OUT:
+;  seg: the address of the segment data
+;  segstart: the start address of the segment
+;  segstop: the stop address of the segment
+;  line: the address of the line data for the segment
+;  .C: set if the segment doesn't exist, clear on success
+.proc get_segment_by_id
+@info=zp::tmp0
+	cmp numsegments
+	bcc :+
+	rts		; err, segment doesn't exist
+
+:	pha
+
+	; multiply segment number by 6 (sizeof(segdata))
+	sta @info
+	asl
+	adc @info
+	asl
+	adc #<debuginfo
+	sta seg
+	lda #>debuginfo
+	adc #$00
+	sta seg+1
+
+	; get the start address of the segment
+	ldy #SEG_START_ADDR
+	lda (seg),y
+	sta segstart
+	iny
+	lda (seg),y
+	sta segstart+1
+
+	; get the stop address of the segment
+	iny
+	lda (seg),y
+	sta segstop
+	iny
+	lda (seg),y
+	sta segstop+1
+
+	; get the address of the segment data
+	pla
+	asl
+	tax
+	lda segaddresses,x
+	sta line
+	lda segaddresses+1,x
+	sta line+1
+
+	RETURN_OK
+.endproc
+
+;******************************************************************************
+; NEXT_LINE
+; Updates the line pointer to point to the next line
+; OUT:
+;  - .C: set if there are no lines left in the active segment (seg)
+.proc nextline
+	lda line
+	adc #$05
+	sta line
+	bcc :+
+	inc line+1
+:	RETURN_OK
 .endproc
