@@ -20,6 +20,10 @@ ESCAPE_RVS_OFF = $02
 STATUS_LINE = 23
 STATUS_COL  = 0
 
+.BSS
+;******************************************************************************
+__text_len: .byte 0
+
 .CODE
 ;******************************************************************************
 .export __text_status
@@ -115,12 +119,12 @@ STATUS_COL  = 0
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; PRINT
 ; displays the format string in (<X,>Y) at the row in .A.
 ; NOTE: you MUST call it with JSR (not JMP) because it manipulates the stack to
 ; get operands
-; in:
+; IN:
 ;  - .XY: the address of the message to print
 .export __text_print
 .proc __text_print
@@ -238,8 +242,9 @@ STATUS_COL  = 0
 	jmp __text_puts
 .endproc
 
-;--------------------------------------
-; putch adds the character in .A to the current cursor position in the
+;******************************************************************************
+; PUTCH
+; Adds the character in .A to the current cursor position in the
 ; text linebuffer.
 ; OUT:
 ;  - .C: set if character was unsuccessfully put
@@ -373,8 +378,11 @@ STATUS_COL  = 0
 	rts
 .endproc
 
-;--------------------------------------
-; drawline renders the text in mem::linebuffer at the cursor position
+;******************************************************************************
+; DRAWLINE
+; Renders the text in mem::linebuffer at the cursor position
+; IN:
+;  - mem::linebuffer: the text to draw
 .export __text_drawline
 .proc __text_drawline
 	pha
@@ -403,8 +411,12 @@ STATUS_COL  = 0
 	jmp __text_puts
 .endproc
 
-;--------------------------------------
-; scroll scrolls all lines from .X to .A up
+;******************************************************************************
+; SCROLLUP
+; Scrolls all lines from .X to .A up
+; IN:
+;  - .X: the top line that characters are scrolled to
+;  - .A: the bottom line that is scrolled
 .proc __text_scrollup
 .export __text_scrollup
 @src=zp::tmp1
@@ -567,102 +579,101 @@ STATUS_COL  = 0
 ;  - .A: the text to display
 .export __text_len
 .export __text_puts
-__text_puts:
-txtbyte  = zp::text
-txtleft  = zp::text+1
-txtright = zp::text+3
-txtdst   = zp::text+5
-txtsrc   = zp::text+7
-        stx txtsrc
-        sty txtsrc+1
+.proc __text_puts
+@txtbyte  = zp::text
+@txtleft  = zp::text+1
+@txtright = zp::text+3
+@txtdst   = zp::text+5
+@txtsrc   = zp::text+7
+        stx @txtsrc
+        sty @txtsrc+1
         asl
         asl
         asl
-        sta txtdst
+        sta @txtdst
 
 	lda #40
 	sta __text_len
         lda #<BITMAP_ADDR
-        adc txtdst
-        sta txtdst
+        adc @txtdst
+        sta @txtdst
         lda #$00
 	sta rvs
         adc #>BITMAP_ADDR
-        sta txtdst+1
+        sta @txtdst+1
 
         ldy #$00
-
-l0:     lda (txtsrc),y
-	jsr handlecc
+@l0:    lda (@txtsrc),y
+	jsr @handlecc
 	iny
-        sta txtleft
+        sta @txtleft
         lda #$00
-        asl txtleft
+        asl @txtleft
         rol
-        asl txtleft
+        asl @txtleft
         rol
-        asl txtleft
+        asl @txtleft
         rol
-        sta txtleft+1
+        sta @txtleft+1
         clc
-        lda txtleft
+        lda @txtleft
         adc #<((__text_charmap-256) .mod 256)
-        sta txtleft
-        lda txtleft+1
+        sta @txtleft
+        lda @txtleft+1
         adc #<((__text_charmap-256) / 256)
-        sta txtleft+1
+        sta @txtleft+1
 
 @right:
-        lda (txtsrc),y
-	jsr handlecc
+        lda (@txtsrc),y
+	jsr @handlecc
         iny
-        sta txtright
+        sta @txtright
         lda #$00
-        asl txtright
+        asl @txtright
         rol
-        asl txtright
+        asl @txtright
         rol
-        asl txtright
+        asl @txtright
         rol
-        sta txtright+1
+        sta @txtright+1
         clc
-        lda txtright
+        lda @txtright
         adc #<((__text_charmap-256) .mod 256)
-        sta txtright
-        lda txtright+1
+        sta @txtright
+        lda @txtright+1
         adc #<((__text_charmap-256) / 256)
-        sta txtright+1
+        sta @txtright+1
         tya
         pha
         ldy #$00
-l1:     lda (txtleft),y
+@l1:    lda (@txtleft),y
 	eor rvs
         and #$f0
-        sta txtbyte
-        lda (txtright),y
+        sta @txtbyte
+        lda (@txtright),y
 	eor rvs
         and #$0f
-        ora txtbyte
-        sta (txtdst),y
+        ora @txtbyte
+        sta (@txtdst),y
         iny
         cpy #8
-        bne l1
+        bne @l1
         pla
         tay
         clc
-        lda txtdst
+        lda @txtdst
         adc #192
-        sta txtdst
-        lda txtdst+1
+        sta @txtdst
+        lda @txtdst+1
         adc #0
-        sta txtdst+1
-nextch:
-__text_len=*+1
-        cpy #40
-	bcc l0
+        sta @txtdst+1
+@nextch:
+	cpy __text_len
+	bcc @l0
         rts
 
-.proc handlecc
+;------------------
+@handlecc:
 	cmp #$12	; RVS on?
 	bne :+
 	lda #$ff
@@ -676,12 +687,17 @@ __text_len=*+1
 	pla
 	pla
 	inc __text_len
-	jmp nextch
+	jmp @nextch
 @done:  rts
 .endproc
 
-;--------------------------------------
-; get_char_addr returns the address of the character in .A
+;******************************************************************************
+; GET_CHAR_ADDR
+; Returns the address of the character in .A
+; IN:
+;  - .A: the character to get the address of
+; OUT:
+;  zp::tmp0: the address of the character
 .proc get_char_addr
 @ch=zp::tmp0
 	sta @ch
@@ -862,6 +878,9 @@ __text_insertmode: .byte 1	; the insert mode (1 = insert, 0 = replace)
 
 rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 
+;******************************************************************************
+; CHARMAP
+; This is the 40 column character set for the text routines
 .export __text_charmap
 __text_charmap:
 .byte   0,   0,   0,   0,   0,   0,   0,   0
@@ -960,6 +979,7 @@ __text_charmap:
 .byte   0, 102,  34,  17,  34,  34, 102,   0
 .byte   0,   0,   0,  85, 170,   0,   0,   0
 .byte   0,   0,   0,   0,   0,   0,   0,   0
+
 ;CUSTOM CHARS. starting @ 128
 .byte   $44,$44,$44,$44,$44,$44,$44,$44        ; |
 .byte   $ff,$00,$00,$00,$00,$00,$00,$ff

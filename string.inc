@@ -16,8 +16,9 @@
 	toupper = __str_toupper
 .endscope
 
-;--------------------------------------
-; compares the the string in (YX) to the string s.
+;******************************************************************************
+; STREQ
+; Compares the the string in (YX) to the string s.
 .macro streq s, len
 	stx zp::str0
 	sty zp::str0+1
@@ -30,8 +31,9 @@
 	jsr __str_compare
 .endmacro
 
-;--------------------------------------
-; replace 'replace' in string in .XY with replacewith
+;******************************************************************************
+; REPLACE
+; 'replace' the string in .XY with replacewith
 .macro strep replace, replacewith
 	lda replace
 	sta zp::str0

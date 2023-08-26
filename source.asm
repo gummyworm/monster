@@ -499,9 +499,12 @@ __src_atcursor:
 @done:  rts
 .endproc
 
-;--------------------------------------
-; get returns the text at the current cursor position in mem::linebuffer
-; .C is set if the end of the buffer was reached as we were reading
+;******************************************************************************
+; GET
+; Returns the text at the current cursor position in mem::linebuffer
+; OUT:
+;  - mem::linebuffer: a line of text from the cursor position
+;  - .C: set if the end of the buffer was reached as we were reading
 .export __src_get
 .proc __src_get
 @cnt=zp::tmp1
