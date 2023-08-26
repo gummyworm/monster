@@ -6,30 +6,30 @@
 .include "zeropage.inc"
 
 .segment "SOURCE"
-;--------------------------------------
+;******************************************************************************
 .export macro_addresses
 .export macros
 nummacros: .byte 0
 macro_addresses: .res 256
 macros: .res 1024
 
-;--------------------------------------
-; the format of a macro is:
-; -------------------------------------
-; | size  |  description              |
-; |-----------------------------------|
-; |  0-16 | macro name                |
-; |   1   | number of parameters      |
-; |  0-16 | parameter 0 name          |
-; |  ...  | parameter n name          |
-; | 0-255 | macro definition          |
-; |   1   | terminating 0             |
-; -------------------------------------
+;******************************************************************************
+; MACRO FORMAT
+;    -------------------------------------
+;    | size  |  description              |
+;    |-----------------------------------|
+;    |  0-16 | macro name                |
+;    |   1   | number of parameters      |
+;    |  0-16 | parameter 0 name          |
+;    |  ...  | parameter n name          |
+;    | 0-255 | macro definition          |
+;    |   1   | terminating 0             |
+;    -------------------------------------
 
 .CODE
-;--------------------------------------
+;******************************************************************************
 ; MAC_INIT
-; initializes the macro state by removing all existing macros
+; Initializes the macro state by removing all existing macros
 .export __mac_init
 .proc __mac_init
 	lda #$00
@@ -39,10 +39,10 @@ macros: .res 1024
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; MAC_ADD
-; adds the macro to the internal macro state.
-; in:
+; Adds the macro to the internal macro state.
+; IN:
 ;  - .XY: pointer to the macro definition
 ;     This will not contain the .MAC but does end with .ENDMAC)
 ;  - .A: number of parameters
@@ -145,10 +145,10 @@ macros: .res 1024
 @endmac: .byte ".endmac"
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; ASM
-; expands the given macro using the provided parameters and assembles it
-; in:
+; Expands the given macro using the provided parameters and assembles it.
+; IN:
 ;  - zp::mac0-zp::mac4: the macro parameters
 ;  - .A: the id of the macro
 ;  - .XY: pointer to the name of the macro (terminated by ' ' or 0)
@@ -269,12 +269,12 @@ macros: .res 1024
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; GET
-; returns the id of the macro corresponding to the given text
-; in:
+; Returns the id of the macro corresponding to the given text
+; IN:
 ;  - .XY: pointer to the text
-; out:
+; OUT:
 ;  - .A: the id of the macro (if any)
 ;  - .C: set if there is no macro for the given text, clear if there is
 .export __mac_get

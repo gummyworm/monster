@@ -25,12 +25,12 @@ labels: .res MAX_LABELS * MAX_LABEL_LEN
 .export label_addresses
 label_addresses: .res 256 * 2
 
-;**************************************
 .CODE
-;**************************************
-;--------------------------------------
+;******************************************************************************
+
+;******************************************************************************
 ; CLR
-; removes all labels effectively resetting the label state
+; Removes all labels effectively resetting the label state
 .export __label_clr
 .proc __label_clr
 	lda #$00
@@ -50,9 +50,9 @@ label_addresses: .res 256 * 2
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; FIND
-; looks for the ID corresponding to the given label and returns it.
+; Looks for the ID corresponding to the given label and returns it.
 ; in:
 ;  - .XY: the name of the label to look for
 ; out:
@@ -109,7 +109,7 @@ label_addresses: .res 256 * 2
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; ADD
 ; Adds a label to the internal label state.
 ;  - .XY: the name of the label to add
@@ -286,14 +286,17 @@ label_addresses: .res 256 * 2
 .endproc
 
 
-;--------------------------------------
-; label_address returns the address of the label in (.YX)
+;******************************************************************************
+; LABEL_ADDRESS
+; Returns the address of the label in (.YX)
 ; The size of the label is returned in .A (1 if zeropage, 2 if not)
 ; line is updated to the character after the label.
 ; IN:
-;  - .XY: the address of the label to get the address of
+;  - .XY: the address of the label name to get the address of
 ; OUT:
-;  - .C is set if no label was found, clear if it was
+;  - .XY: the address of the label
+;  - .C: is set if no label was found, clear if it was
+;  - .A: the size of the label
 .export __label_address
 .proc __label_address
 @table=zp::tmp0
@@ -326,8 +329,11 @@ label_addresses: .res 256 * 2
 	RETURN_OK
 .endproc
 
-;--------------------------------------
-; del deletes the label name given in .YX
+;******************************************************************************
+; DEL
+; Deletes the given label name.
+; IN:
+;  - .XY: the address of the label name to delete
 .export __label_del
 .proc __label_del
 @id=zp::tmp6
@@ -422,12 +428,11 @@ label_addresses: .res 256 * 2
 	RETURN_OK
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; ISVALID
-; checks if the label in (zp::tmp4) is valid
-;  out:
-;   - .C: set if the label is invalid, clear if valid
-; characters for a label.
+; Checks if the label in (zp::tmp4) is valid
+; OUT:
+;  - .C: set if the label is invalid, clear if valid characters for a label.
 .proc isvalid
 @name=zp::tmp4
 	ldy #$00
@@ -453,15 +458,18 @@ label_addresses: .res 256 * 2
 	cmp #'Z'+1
 	iny
 	bcc @l0
-@err:
-	RETURN_ERR ERR_ILLEGAL_LABEL
-@done:
-	RETURN_OK
+@err:   RETURN_ERR ERR_ILLEGAL_LABEL
+@done:  RETURN_OK
 .endproc
 
-;--------------------------------------
-; labelat returns the label at the address in (YX), if .A is $ff, no label
-; was found at the given address.
+;******************************************************************************
+; LABELAT
+; Returns the label at the address in (YX)
+; IN:
+;  - .XY: the address to get the label at
+; OUT:
+;  - .XY: the label at the given address (if any)
+;  - .C: clear if a label was found, set if not
 .export __label_labelat
 .proc __label_labelat
 @msb=zp::tmp4
@@ -482,7 +490,6 @@ label_addresses: .res 256 * 2
 @l0:	lda @num
 	cmp numlabels
 	bcc :+
-	lda #$ff
 	rts
 
 :	inc @num
@@ -520,17 +527,15 @@ label_addresses: .res 256 * 2
 
 @done:	ldx zp::tmp0
 	ldy zp::tmp0+1
-	lda #$00
-	rts
+	RETURN_OK
 .endproc
 
-
-;--------------------------------------
+;******************************************************************************
 ; LABELADDR
-; returns the address of the label ID in .YX in .YX
-; in:
+; Returns the address of the label ID in .YX in .YX
+; IN:
 ;  - .XY: the id of the label to get the address of
-; out:
+; OUT:
 ;  - .XY: the address of the given label id
 .proc labeladdr
 @addr=zp::tmpc
@@ -551,12 +556,12 @@ label_addresses: .res 256 * 2
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; LABELNAMEADDR
-; returns the address name of the label ID in .YX in .YX
-; in:
+; Returns the address name of the label ID in .YX in .YX
+; IN:
 ;  - .XY: the id of the label to get the address of
-; out:
+; OUT:
 ;  - .XY: the address of the name for the given label id
 .proc labelnameaddr
 @addr=zp::labels
@@ -578,10 +583,10 @@ label_addresses: .res 256 * 2
 	rts
 .endproc
 
-;--------------------------------------
+;******************************************************************************
 ; ISVALID
 ; checks if the label name in (zp::line) is a valid label name
-; out:
+; OUT:
 ;  - .C: set if the label is NOT valid
 .export __label_isvalid
 .proc __label_isvalid

@@ -820,8 +820,6 @@ bbb10_modes:
 ;  - .X: the opcode's ID
 ;  - .C: set if (line) is not an opcode
 ;  - cc: updated with the cc part of the opcode
-;  - ldx_stx: set to 1 if the instruction is a LDX or STX (requires special
-;             handling with the address modes)
 .proc getopcode
 @optab = zp::tmp6
 @op = zp::tmp8
