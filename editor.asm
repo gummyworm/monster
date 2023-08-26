@@ -206,7 +206,6 @@ main:
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
 @pass2: inc zp::pass	; pass 2
-
 	ldx zp::gendebuginfo
 	beq :+
 	jsr dbg::setup  ; we have enough info to init debug now

@@ -334,14 +334,17 @@ __asm_tokenize:
 	bcc @store_value
 	rts
 
+; store the value, note that we don't really care if
+; we write 2 bytes when we only need one (the next
+; instruction will overwrite it and it doesn't affect our program size count).
 @store_value:
 	sta operandsz
-	lda lsb
+	lda lsb		; handle '<' character
 	beq :+
 	lda #$01
 	sta operandsz
 	bne @store_lsb
-:	lda msb
+:	lda msb		; handle '>' character
 	beq @store_msb
 	lda #$01
 	sta operandsz
@@ -353,15 +356,14 @@ __asm_tokenize:
 	ldy #$02
 	jsr writeb
 	bcc @store_lsb
-@ret:	rts
+@ret:	rts		; return err
 @store_lsb:
 	txa
 	ldy #$01
 	jsr writeb
 	bcs @ret
 
-@cont:
-	ldy #$00
+@cont:	ldy #$00
 	lda indirect
 	beq @index
 @rparen:
@@ -529,9 +531,6 @@ __asm_tokenize:
 ;------------------
 ; update virtualpc by (1 + operand size)
 @updatevpc:
-	lda state::verify
-	bne @retop ; skip update PC for verify
-
 	lda operandsz
 	sec			; +1
 	adc zp::virtualpc
@@ -775,7 +774,7 @@ bbb01_modes:
 	.byte MODE_ABS | MODE_X_INDEXED
 
 bbb10_modes:
-	.byte MODE_IMMEDIATE 	; 000
+	.byte MODE_IMMEDIATE | MODE_ZP	; 000
 	.byte MODE_ZP		; 001
 	.byte MODE_IMPLIED	; 010
 	.byte MODE_ABS		; 011
@@ -1668,8 +1667,7 @@ bbb10_modes:
 	; calculate target address PC+2+operand
 	; sign extend the operand
 	lda @operand
-	and #$80
-	beq :+
+	bpl :+
 	lda #$ff
 	skw
 :	lda #$00
@@ -1722,7 +1720,6 @@ bbb10_modes:
 	adc #$00
 	sta @optab+1
 
-;	jmp *
 	; write the opcode (optab),aaa to the destination
 	ldy #$02
 :	lda (@optab),y

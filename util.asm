@@ -288,8 +288,10 @@ result=mem::spare
 ;------------------
 .export __util_is_separator
 .proc __util_is_separator
+	cmp #':'
+	beq @yes
 	jsr __util_is_null_return_space_comma_closingparen_newline
 	bne :+
-	rts
+@yes:	rts
 :	jmp __util_isoperator
 .endproc

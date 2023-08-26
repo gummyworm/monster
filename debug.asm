@@ -824,6 +824,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	tsx
 	stx reg_sp
 
+	inc $900f
+
 	; save the program state
 	jsr save_prog_state
 
@@ -882,10 +884,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	cmp #$00
 	beq @debugloop
 	cmp #'z'
-	bne :+
+	bne @debugloop
 	jsr step	; install new breakpoint and update PC
-	jmp @done	; restore user's program and RTI
-:	jmp @debugloop
 
 @done:	;jsr save_debug_state
 	;jsr restore_progstate
@@ -974,17 +974,174 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts		; return error
 
 @ok:	; get the address AFTER the next instruction
-	; TODO: handle branches
-	adc pc
-	tax
-	lda pc+1
-	adc #$00
-	tay
+	ldxy pc
+	jsr next_instruction
+
+	;adc pc
+	;tax
+	;lda pc+1
+	;adc #$00
+	;tay
+
 	jsr __debug_setbreakpoint	; add a breakpoint
 	jsr install_breakpoints		; update breakpoints with our new one
 
 	; return to the debugger
 	rts
+.endproc
+
+;******************************************************************************
+; NEXT_INSTRUCTION
+; Given the address of the current instruction, returns the address of the next
+; instruction that will be executed.
+; Instructions that are considered for branches are:
+;  - JSR
+;  - JMP
+;  - JMP (indirect)
+;  - Bxx (all the conditional branches)
+;  - RTI
+;  - RTS
+; IN:
+;  - .XY: the addres of the current instruction
+;  - .A: the size of the current instruction
+; OUT:
+;  - .XY: the address of the next instruction that will be executed
+.proc next_instruction
+@op=zp::tmp0
+@sz=zp::tmp2
+@y=zp::tmp3
+@msb=zp::tmp4
+	sta @sz
+	stxy @op
+	ldy #$00
+
+	lda (@op),y	; get the opcode
+	cmp #$20	; JSR?
+	beq @jmpjsr
+	cmp #$4c	; JMP?
+	bne @notjmp
+
+; for JMP and JSR just set PC to the operand
+@jmpjsr:
+	ldy #$01
+	lda (@op),y
+	tax
+	ldy #$02
+	lda (@op),y
+	tay
+	rts
+
+@notjmp:
+	cmp #$60
+	bne @notrts
+
+; next instruction is stack address + 1
+@rts:   ldy reg_sp
+	lda $100+1,y
+	clc
+	adc #$01
+	tax
+	lda $100+2,y
+	adc #$00
+	tay
+	rts
+
+@notrts:
+	cmp #$40
+	bne @notrti
+
+@rti:	ldy reg_sp
+	lda $100,y
+	tax
+	lda $100+1,y
+	tay
+
+@notrti:
+	and #$1f
+	cmp #$10
+	beq @branch
+
+; not a control-flow instruction, just add the size of the instruction to the PC
+@nocontrol:
+	lda pc
+	adc @sz
+	tax
+	lda pc+1
+	adc #$00
+	tay
+	rts
+
+; handle branches. branch is taken if corresponding flag for top two bits
+; of branch opcode equal bit 5 of the opcode
+; e.g. 11010000 will branch if the Z (zero) flag, which is the flag represented
+; by bits 6 & 7 (11) is clear- the 0 in bit 5 in this example.
+@branch:
+	; get top 2 bits (xx) of branch to get type of branch
+	lda (@op),y
+	asl
+	rol
+	rol
+	and #$03
+	tax
+
+	; get the y (bit 5) in the same bit position as the flag we're testing
+	lda (@op),y
+	and #$20
+	beq :+			; if bit y is 0, use $00
+	lda @branch_masks,x	; if bit y is 1, use the mask
+:	sta @y
+
+	lda @branch_masks,x
+	and reg_p	; isolate the bit we're interested in
+	eor @y		; if y != .P[xx], no branch
+	beq @takebranch
+
+; branch isn't taken, just add 2 to the PC
+@nobranch:
+	lda pc
+	clc
+	adc #$02
+	tax
+	lda pc+1
+	adc #$00
+	tay
+	rts
+
+; branch is taken, add the operand (offset) + 2
+@takebranch:
+	ldy #$01	; operand offset
+	lda (@op),y
+	bpl :+
+	lda #$ff
+	skw
+:	lda #$00
+	sta @msb
+
+	lda pc
+	clc
+	adc (@op),y
+	tax
+
+	iny
+	lda pc+1
+	adc @msb
+	tay
+
+	txa
+	clc
+	adc #$02
+	tax
+	tya
+	adc #$00
+	tay
+	rts
+
+; corresponding masks for top 2 bits of opcode to flags in the status register
+@branch_masks:
+.byte $80	; negative
+.byte $40	; overflow
+.byte $01	; carry
+.byte $02	; zero
 .endproc
 
 ;******************************************************************************

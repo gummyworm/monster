@@ -65,9 +65,11 @@ label_addresses: .res 256 * 2
 @search=zp::tmp8
 @label=zp::tmpa
 	stxy @label
-	iszero numlabels
+
+	lda numlabels
 	bne :+
-	ldxy #$00
+	lda numlabels+1
+	bne :+
 	RETURN_ERR ERR_LABEL_UNDEFINED ; no labels exist
 
 :	lda #$00
@@ -78,7 +80,7 @@ label_addresses: .res 256 * 2
 
 @seek:	ldy #$00
 @l0:	lda (@label),y
-	jsr  util::isseparator
+	jsr util::isseparator
 	beq @found
 	cmp (@search),y
 	beq :+
@@ -102,8 +104,7 @@ label_addresses: .res 256 * 2
 	ldxy @cnt
 	RETURN_ERR ERR_LABEL_UNDEFINED
 
-@found:
-	tya
+@found:	tya
 	ldxy @cnt
 	RETURN_OK
 .endproc
@@ -605,6 +606,7 @@ label_addresses: .res 256 * 2
 	iny
 	cpy #40
 	bcs @notlabel
+
 	cmp #' '
 	beq @done
 	cmp #':'

@@ -19,7 +19,6 @@ MAX_OPERANDS=$10/2
 ;  - .A: the size of the returned value in bytes
 ;  - .XY: the result of the evaluated expression
 ;  - .C: clear on success or set on failure
-;
 .export __expr_eval
 .proc __expr_eval
 @val1=zp::expr
@@ -264,8 +263,8 @@ MAX_OPERANDS=$10/2
 	beq :+
 
 	lda #$ff	; flag that we don't know the size of the label
-	ldxy #$00	; assume smallest possible value
-	beq @updateline
+	ldxy zp::virtualpc	; TODO: assume smallest possible value
+	jmp @updateline ;beq @updateline
 
 :	ldxy zp::line
 	jsr lbl::addr
