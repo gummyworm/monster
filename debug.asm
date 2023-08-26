@@ -29,10 +29,13 @@ DATA_ADDR = 3		; offset of line address in debug info
 
 ;******************************************************************************
 ; Debug info pointers
-file = zp::debug     ; current file id being worked on
-addr = zp::debug+1   ; address of next line/addr to store
-seg  = zp::debug+3   ; address of current segment pointer
+file = zp::debug       ; current file id being worked on
+addr = zp::debug+1     ; address of next line/addr to store
+seg  = zp::debug+3     ; address of current segment pointer
 line = zp::debug+5
+
+.export __debug_src_line
+__debug_src_line = zp::debug+7 ; the line # stored by dbg::storeline
 .export __debug_file
 __debug_file = file
 
@@ -824,8 +827,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	tsx
 	stx reg_sp
 
-	inc $900f
-
 	; save the program state
 	jsr save_prog_state
 
@@ -875,8 +876,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy line
 	jsr edit::gotoline	; go to the line where the BRK happened
 	lda zp::cury
-	ldx #DEBUG_LINE_COLOR
-	jsr text::hiline	; highlight that line
+	;ldx #DEBUG_LINE_COLOR
+	;jsr text::hiline	; highlight that line
+	jsr bm::rvsline
 
 ; main debug loop
 @debugloop:
@@ -890,6 +892,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @done:	;jsr save_debug_state
 	;jsr restore_progstate
 ; get the stack back in the format RTI expects and finish ISR
+	; unhighlight the BRK line
+	lda zp::cury
+	jsr bm::rvsline
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
 	lda pc+1

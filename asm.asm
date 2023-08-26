@@ -524,8 +524,7 @@ __asm_tokenize:
 	beq @updatevpc
 	ldxy zp::virtualpc	; current PC (address)
 	stxy zp::tmp0
-	ldxy src::line		; current line
-	dex			; TODO: hack because linedone happens before tokenize
+	ldxy dbg::srcline	; current line
 	jsr dbg::storeline	; map them
 
 ;------------------

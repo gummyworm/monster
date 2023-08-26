@@ -195,6 +195,8 @@ main:
 	sta zp::pass		; set pass number to 1
 
 @pass1loop:
+	ldxy src::line
+	stxy dbg::srcline
 	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize_pass1
@@ -218,18 +220,18 @@ main:
 
 @pass2loop:
 	ldxy src::line
-	stxy @line
+	stxy dbg::srcline
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize_pass2
 	bcc @next
 
 @err:
-	ldxy @line
+	ldxy dbg::srcline
 	jsr reporterr
 	jsr src::popp
 	jsr src::goto	; goto the line that failed
-	ldxy @line
+	ldxy dbg::srcline
 	jmp gotoline
 
 @next:	jsr src::end
@@ -548,8 +550,8 @@ main:
 	jsr __edit_init
 	jsr src::rewind
 	jsr src::next	; first character index is 1
-@l0:
-	jsr src::readline
+
+@l0:	jsr src::readline
 	jsr drawline
 	jsr src::end
 	bne @l0

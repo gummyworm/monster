@@ -11,9 +11,11 @@ save_sp: .word mem::spare+40 ; stack ptr for save/restore stack
 stack_depth: .byte 0
 
 .CODE
-;--------------------------------------
-; saverow
-; saverow saves the row .A of text to the UI's save stack
+;******************************************************************************
+; SAVEROW
+; Saves the row .A of text to the UI's save stack
+; IN:
+;  .A: the character row of the bitmap to backup
 .proc saverow
 @src=zp::tmp0
 @dst=zp::tmp2
@@ -51,9 +53,11 @@ stack_depth: .byte 0
 	rts
 .endproc
 
-;--------------------------------------
-; restorerow
-; restorerow restores the row .A of text from the top of te UI's save stack
+;******************************************************************************
+; RESTOREROW
+; Restorerow restores the row .A of text from the top of te UI's save stack
+; IN:
+;  .A: the row of text to restore
 .proc restorerow
 @src=zp::tmp0
 @dst=zp::tmp2
@@ -90,9 +94,14 @@ stack_depth: .byte 0
 	rts
 .endproc
 
-;--------------------------------------
-; msgbox displays .A rows of text given in (zp::tmp0) at the position
-; in (zp::tmp0, zp::tmp1) and waits for the user to press <RETURN>
+;******************************************************************************
+; MSGBOX
+; Displays .A rows of text given in (zp::tmp0) at the position
+; in (zp::tmpa, zp::tmp8) and waits for the user to press <RETURN>
+; IN:
+;  .Y: the start row of the message area
+;  .A: the number of rows to display
+;  zp::tmp0: list of pointers to the rows to display
 .export __ui_msgbox
 .proc __ui_msgbox
 @lines=zp::tmp0
