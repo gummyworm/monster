@@ -1749,7 +1749,7 @@ bbb10_modes:
 
 	lda bbb_modes,x
 	sta @modes
-	and #IMPLIED
+	and #MODE_IMPLIED
 	beq @cont	; if not implied, go on
 @implied:
 	lda #$01	; 1 byte in size

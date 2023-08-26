@@ -55,12 +55,13 @@ start:
 
         jmp enter
 
+; disassembly test TODO: delete
 	ldxy #$100
 	stxy zp::tmp0
 	ldxy #test
 	jsr asm::disassemble
-
-test:	ldx #10
+	jmp *
+test:	clc
 
 .CODE
 ;******************************************************************************

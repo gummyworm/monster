@@ -1079,6 +1079,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; not a control-flow instruction, just add the size of the instruction to the PC
 @nocontrol:
 	lda pc
+	clc
 	adc @sz
 	tax
 	lda pc+1
