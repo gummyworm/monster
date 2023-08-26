@@ -1,4 +1,4 @@
-TEXT_COLOR=1	      		; text color for the editor
+TEXT_COLOR=7	      		; text color for the editor
 BORDER_COLOR=0	      		; border color for the editor
 BG_COLOR=0	      		; background color for the editor
 ERROR_COLOR=($77|$08) 		; $900f color of error highlight

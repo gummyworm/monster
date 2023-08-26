@@ -821,6 +821,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; needed by the debugger for display etc, then it restores the debugger's state
 ; and finally transfers control to the debugger
 .proc debug_brk
+@vec=$00
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
 	pla
 	sta reg_y
@@ -895,9 +896,24 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr key::getch
 	cmp #$00
 	beq @debugloop
-	cmp #'z'
-	bne @debugloop
-	jsr step	; install new breakpoint and update PC
+
+	ldx #@num_commands
+@getcmd:
+	dex
+	bmi @debugloop		; unrecognized key, go back to debugloop
+	cmp @commands,x
+	bne @getcmd
+@runcmd:
+	txa
+	asl
+	tax
+	lda #$4c	 	; JMP
+	sta @vec
+	lda @command_vectors,x	; vector LSB
+	sta @vec+1
+	lda @command_vectors+1,x ; vector MSB
+	sta @vec+2
+	jsr @vec
 
 @done:	;jsr save_debug_state
 	;jsr restore_progstate
@@ -920,6 +936,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rti		; return from the BRK
 @brk_message_line: .byte "brk in line $",$fe,0 ; when line number is resolved
 @brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
+
+@commands:
+	.byte 'z'
+	.byte 'g'
+@num_commands=*-@commands
+@command_vectors:
+	.word step
+	.word go
 .endproc
 
 ;******************************************************************************
@@ -965,10 +989,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
-; RUN
-; Runs unitl the next BRK instruction and returns to the debugger
-.proc run
-
+; GO
+; Runs the user program until the next breakpoint or an NMI occurs
+.proc go
+	jsr uninstall_breakpoints
+	jsr remove_breakpoint	  ; remove BRK under cursor
+	jmp install_breakpoints	  ; reinstall rest of breakpoints and continue
 .endproc
 
 ;******************************************************************************
@@ -988,21 +1014,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bcc @ok
 	rts		; return error
 
-@ok:	; get the address AFTER the next instruction
-	ldxy pc
-	jsr next_instruction
+@ok:	ldxy pc
+	jsr next_instruction	  ; get the address of the next instruction
+	jsr __debug_setbreakpoint ; add a breakpoint at the next instruction
+	jsr install_breakpoints	  ; update breakpoints with our new one
 
-	;adc pc
-	;tax
-	;lda pc+1
-	;adc #$00
-	;tay
-
-	jsr __debug_setbreakpoint	; add a breakpoint
-	jsr install_breakpoints		; update breakpoints with our new one
-
-	; return to the debugger
-	rts
+	rts	; return to the debugger
 .endproc
 
 ;******************************************************************************
