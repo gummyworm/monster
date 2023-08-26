@@ -5,8 +5,12 @@
 .include "macros.inc"
 .CODE
 
-;--------------------------------------
-; memset sets zp::tmp0 bytes of the memory at (YX) to .A.
+;******************************************************************************
+; MEMSET
+; Sets zp::tmp0 bytes of the memory at (YX) to .A.
+; IN:
+;  - zp::tmp0: the memory address to set
+;  - .A: the value to set the memory to
 .export __util_memset
 .proc __util_memset
 	stx zp::tmp1
@@ -18,8 +22,13 @@
 	rts
 .endproc
 
-;--------------------------------------
-; memcpy moves zp::tmp0 bytes from (zp::tmp2) to (zp::tmp4).
+;******************************************************************************
+; MEMCPY
+; Moves zp::tmp0 bytes from (zp::tmp2) to (zp::tmp4).
+; IN:
+;  - zp::tmp0: the number of bytes to move
+;  - zp::tmp2: the source address
+;  - zp::tmp4: the destination address
 .export __util_memcpy
 .proc __util_memcpy
 @src=zp::tmp2
@@ -41,8 +50,14 @@
 @done:  rts
 .endproc
 
-;--------------------------------------
-; chtohex returns the binary representation of the character given in .A
+;******************************************************************************
+; CHTOHEX
+; Returns the binary representation of the character given in .A
+; IN:
+;  - .A: the character to get the hex representation of
+; OUT:
+;  - .X: the hex representation of the least significant nybble
+;  - .Y: the hex representation of the most significant nybble
 .export __util_chtohex
 .proc __util_chtohex
 	cmp #'f'+1
@@ -62,9 +77,15 @@
 .endproc
 
 
-;--------------------------------------
-; hextostr returns the string representation of the hex value in .A
-; .X contains the low nybble and Y contains the high nybble
+;******************************************************************************
+; HEXTOSTR
+; Returns the string representation of the value in .A
+; IN:
+;  - .A: the value to get the string representation of
+; OUT:
+;  - .X: the character representation of the low nybble
+;  - .Y: the character representation of the  high nybble
+;
 .export __util_hextostr
 .proc __util_hextostr
 	pha
@@ -90,11 +111,16 @@
 	rts
 .endproc
 
-;--------------------------------------
-; atoi returns the value of the decimal string given in .XY
-; the string must be terminated by a \0, $0d (newline), or ','
-; On success carry is clear and .A contains the index after the last character
-; .XY contains the 16 bit value
+;******************************************************************************
+; ATOI
+; Returns the value of the decimal string given in .XY.
+; The string must be terminated by a \0, $0d (newline), or ','.
+; IN:
+;  - .XY: the address of the string to get the value of
+; OUT:
+;  - .A: the index after the last character
+;  - .C: clear on success
+;  - .XY: the 16 bit value of the string
 ; used in the given string
 .export atoi
 .proc atoi
@@ -196,9 +222,13 @@
 	RETURN_ERR ERR_OVERSIZED_OPERAND
 .endproc
 
-;--------------------------------------
-; todec returns a ptr to a decimal representation of the value given in .XY
-; in mem::spare
+;******************************************************************************
+; TODEC
+; Gets the decimal representation of the value given.
+; IN:
+;  - .XY: the value to get the decimal representation of
+; OUT:
+;  - mem::spare: contains the decimal representation fo the value
 .export __util_todec
 .proc __util_todec
 result=mem::spare
@@ -243,8 +273,13 @@ result=mem::spare
 	rts
 .endproc
 
-;--------------------------------------
-; is_whitespace returns .Z set if the character in .A is whitespace
+;******************************************************************************
+; IS_WHITESPACE
+; Checks if the given character is a whitespace character
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if if the character in .A is whitespace
 .export __util_is_whitespace
 .proc __util_is_whitespace
 	cmp #$0d
@@ -253,9 +288,12 @@ result=mem::spare
 :	rts
 .endproc
 
-;--------------------------------------
-; is_null_space_comma_closingparen returns .Z set if the char in .A is:
-; 0,$0d,' ', ',', or ')'
+;******************************************************************************
+; is_null_space_comma_closingparen
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is: 0,$0d,' ', ',', or ')'
 .export __util_is_null_return_space_comma_closingparen_newline
 .proc __util_is_null_return_space_comma_closingparen_newline
 	cmp #$00
@@ -268,7 +306,12 @@ result=mem::spare
 @done:	rts
 .endproc
 
-;------------------
+;******************************************************************************
+; IS_OPERATOR
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is an operator ('+', '-', etc.)
 .export __util_isoperator
 .proc __util_isoperator
 	cmp #'('
@@ -285,7 +328,8 @@ result=mem::spare
 :	rts
 .endproc
 
-;------------------
+;******************************************************************************
+; IS_SEPARATOR
 .export __util_is_separator
 .proc __util_is_separator
 	cmp #':'

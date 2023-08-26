@@ -6,7 +6,7 @@
 .include "zeropage.inc"
 
 .DATA
-;--------------------------------------
+;******************************************************************************
 save_sp: .word mem::spare+40 ; stack ptr for save/restore stack
 stack_depth: .byte 0
 

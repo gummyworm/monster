@@ -1,17 +1,17 @@
-;--------------------------------------
+;******************************************************************************
 ; stack errors
 ERR_STACK_UNDERFLOW=1
 ERR_STACK_OVERFLOW=2
 
-;--------------------------------------
+;******************************************************************************
 ; string errors
 ERR_LINE_TOO_LONG=3
 
-;--------------------------------------
+;******************************************************************************
 ; expression errors
 ERR_INVALID_EXPRESSION = 4
 
-;--------------------------------------
+;******************************************************************************
 ; macro errors
 ERR_INVALID_MACRO_ARGS = 5
 ERR_SYNTAX_ERROR=6
@@ -19,7 +19,7 @@ ERR_INVALID_DIRECTIVE=7
 ERR_LABEL_UNDEFINED=8
 ERR_UNMATCHED_ENDIF = 9
 
-;--------------------------------------
+;******************************************************************************
 ; assembly errors
 ERR_UNALIGNED_LABEL=10
 ERR_ILLEGAL_OPCODE=11
@@ -44,7 +44,7 @@ ERR_BRANCH_OUT_OF_RANGE=24
 	get = __err_get
 .endscope
 
-;--------------------------------------
+;******************************************************************************
 ; RETURN_ERR
 ; Executes an RTS after loading .A with the given code and setting the carry flag
 ; - .C - set
@@ -56,7 +56,7 @@ ERR_BRANCH_OUT_OF_RANGE=24
 	rts
 .endmacro
 
-;--------------------------------------
+;******************************************************************************
 ; RETURN_OK
 ; Clears the carry and returns (RTS)
 .macro RETURN_OK
