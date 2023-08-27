@@ -1211,7 +1211,8 @@ __edit_gotoline:
 	ldx #$00
 	jmp cur::move
 
-@long:  ; get first line of source buffer to render (target +/- (EDITOR_HEIGHT - cury)
+@long:  ; get first line of source buffer to render
+	; (target +/- (EDITOR_HEIGHT - cury))
 	ldxy @diff
 	sub16 #EDITOR_HEIGHT
 	bpl @movesrc
@@ -1229,6 +1230,8 @@ __edit_gotoline:
 :	jsr src::downn		; move down before we we render upward
 	jmp @longb_cont
 
+; move up or down through the source to get to the start line that we'll
+; redraw from
 @movesrc:
 	lda @seekforward
 	beq @longb
@@ -1239,25 +1242,23 @@ __edit_gotoline:
 	jmp @longmove_cont
 
 @longb:	jsr src::upn	; go to the first line to render
-	jsr src::up	; one more TODO: why?
+	;jsr src::up	; one more TODO: why?
 @longb_cont:
 	lda #EDITOR_ROW_START+EDITOR_HEIGHT
 
 @longmove_cont:
 	sta @row
-	; the first line to render is the target line we're going to minus the
-	; cursor's Y position
 @l0: 	jsr src::get
 	ldxy #mem::linebuffer
 	lda @row
 	jsr text::drawline
 
 	lda @seekforward
-	bne :+
+	bne @rowdown
 
-	; backwards
+@rowup: lda @row
+	beq @renderdone ; cmp #EDITOR_ROW_START-1; bcc @..  for non-zero starts
 	dec @row
-	bmi @renderdone ; cmp #EDITOR_ROW_START-1; bcc @..  for non-zero starts
 	jsr src::up
 	bcc @l0
 
@@ -1268,7 +1269,7 @@ __edit_gotoline:
 	jsr text::drawline
 	jmp @renderdone
 
-:	; forwards
+@rowdown:
 	inc @row
 	lda @row
 	cmp #EDITOR_ROW_START + EDITOR_HEIGHT + 1
@@ -1279,35 +1280,23 @@ __edit_gotoline:
 @clearextra:
 	jsr text::clrline
 	lda @row
-	bne :+
-	lda #$01
-	sta @row
-:	sta @rowsave
-
+	sta @rowsave
 @clrloop:
 	ldxy #mem::linebuffer
 	jsr text::drawline
-	lda @seekforward
-	bne :+
-	dec @row
-	bpl @clrnext
-:	inc @row
-
+	inc @row
 @clrnext:
 	lda @row
-	cmp #EDITOR_ROW_START
-	bcc @renderdone
 	cmp #EDITOR_ROW_START + EDITOR_HEIGHT + 1
 	bcc @clrloop
+
 	lda @rowsave
 	sta @row
 @renderdone:
 	; move the cursor to the top if we searched backwards or bottom
 	; if forward
 	ldy @row
-	bpl :+
-	iny		; make positive if $ff
-:	ldx #$00
+	ldx #$00
 	jmp cur::set
 .endproc
 
