@@ -1134,12 +1134,12 @@ __edit_gotoline:
 @row=zp::tmp8
 @seekforward=zp::tmp9	; 0=backwards 1=forwards
 @diff=zp::tmpa		; lines to move up or down
-@startline=zp::tmpc
-@endline=zp::tmpe
-	cmpw src::lines
-	bcc :+
-	ldxy src::lines
+@rowsave=zp::tmpc
+	cmpw src::lines	; is target < total # of lines?
+	bcc :+		; yes, move to target
+	ldxy src::lines ; no, move to the last line
 :	stxy @target
+
 	lda zp::curx
 	beq :+
 	jsr src::up	; if we're not already, move to the start of the line
@@ -1147,16 +1147,17 @@ __edit_gotoline:
 :	ldy zp::cury
 	ldx #$00
 	stx @seekforward
-	jsr cur::set
+	jsr cur::set	; move cursor to column 0
 
 	ldxy @target
 	cmpw src::line	; is the target forward or backward?
 	bne :+
 	rts		; already on the target line
-:	bcc :+
+:	bcc @beginbackward		; backwards
 	inc @seekforward
 
-	; get the number of lines to move forwards
+; get the number of lines to move forwards
+@beginforward:
 	lda @target
 	sec
 	sbc src::line
@@ -1173,7 +1174,8 @@ __edit_gotoline:
 	bcs @long
 	jmp @short
 
-:	; get the number of lines to move backwards
+; get the number of lines to move backwards
+@beginbackward:
 	lda src::line
 	sec
 	sbc @target
@@ -1183,15 +1185,12 @@ __edit_gotoline:
 	sta @diff+1
 
 	bne @long
-	ldy zp::cury
-	dey
-	tya
+	lda zp::cury	; is (cury - diff) > 0? (is the line on screen?)
 	sec
 	sbc @diff
 	bmi @long
 
-@short:
-	ldy #$00
+@short: ldy #$00
 	lda @seekforward
 	bne :+
 
@@ -1216,7 +1215,7 @@ __edit_gotoline:
 	ldxy @diff
 	sub16 #EDITOR_HEIGHT
 	bpl @movesrc
-	; diff-EDITOR_HEIGHT < 0, need to move in the opposite direction
+	; (diff - EDITOR_HEIGHT) < 0, need to move in the opposite direction
 	stxy @diff
 	lda #$00
 	sec
@@ -1234,13 +1233,13 @@ __edit_gotoline:
 	lda @seekforward
 	beq @longb
 
-@longf:
-	jsr src::downn ; go to the first line to render
+@longf:	jsr src::downn	; go to the first line to render
 @longf_cont:
 	lda #EDITOR_ROW_START
-	bne @longmove_cont
-@longb:
-	jsr src::upn ; go to the first line to render
+	jmp @longmove_cont
+
+@longb:	jsr src::upn	; go to the first line to render
+	jsr src::up	; one more TODO: why?
 @longb_cont:
 	lda #EDITOR_ROW_START+EDITOR_HEIGHT
 
@@ -1248,26 +1247,26 @@ __edit_gotoline:
 	sta @row
 	; the first line to render is the target line we're going to minus the
 	; cursor's Y position
-
-@l0:
-	jsr src::get
-	php
+@l0: 	jsr src::get
 	ldxy #mem::linebuffer
 	lda @row
 	jsr text::drawline
-	plp
-	bcs @clearextra
 
 	lda @seekforward
 	bne :+
 
 	; backwards
 	dec @row
-	lda @row
-	cmp #EDITOR_ROW_START
-	bcc @renderdone
+	bmi @renderdone ; cmp #EDITOR_ROW_START-1; bcc @..  for non-zero starts
 	jsr src::up
-	jmp @l0
+	bcc @l0
+
+	; draw the last row (src::up will return .C=1 for it)
+	jsr src::get
+	ldxy #mem::linebuffer
+	lda #$00
+	jsr text::drawline
+	jmp @renderdone
 
 :	; forwards
 	inc @row
@@ -1283,7 +1282,8 @@ __edit_gotoline:
 	bne :+
 	lda #$01
 	sta @row
-:	pha
+:	sta @rowsave
+
 @clrloop:
 	ldxy #mem::linebuffer
 	jsr text::drawline
@@ -1292,18 +1292,22 @@ __edit_gotoline:
 	dec @row
 	bpl @clrnext
 :	inc @row
+
 @clrnext:
 	lda @row
 	cmp #EDITOR_ROW_START
 	bcc @renderdone
 	cmp #EDITOR_ROW_START + EDITOR_HEIGHT + 1
 	bcc @clrloop
-	pla
+	lda @rowsave
 	sta @row
 @renderdone:
-	; move the cursor to the top if we searched backwards or bottomif forward
+	; move the cursor to the top if we searched backwards or bottom
+	; if forward
 	ldy @row
-	ldx #$00
+	bpl :+
+	iny		; make positive if $ff
+:	ldx #$00
 	jmp cur::set
 .endproc
 
