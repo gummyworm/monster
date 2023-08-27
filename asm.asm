@@ -136,7 +136,8 @@ opcode_singles:
 .byt $8A, $9A, $AA, $BA, $CA, $EA		; TXA, TXS, TAX, TSX, DEX, NOP
 num_opcode_singles=*-opcode_singles
 
-; directives
+;******************************************************************************
+; DIRECTIVES
 directives:
 .byte "db",0
 .byte "eq",0
@@ -151,9 +152,9 @@ directives:
 .byte "endif",0
 .byte "ifdef",0
 .byte "endmac",0
-
 directives_len=*-directives
 
+;******************************************************************************
 directive_vectors:
 .word definebyte
 .word defineconst
@@ -168,9 +169,6 @@ directive_vectors:
 .word do_endif
 .word do_ifdef
 .word create_macro
-
-; current file being assembled
-filename: .res 12
 
 .CODE
 ;******************************************************************************
@@ -976,9 +974,9 @@ bbb10_modes:
 ; HANDLE_REPEAT
 ; Context handler for .rep/.endrep blocks
 .proc handle_repeat
-	ldxy #mem::linebuffer
+	ldxy #mem::linebuffer2
 	jsr ctx::write		; copy the linebuffer to the context
-	ldxy #mem::linebuffer
+	ldxy #mem::linebuffer2
 	streq @endrep, 7	; are we at .endrep?
 	beq @do_rep		; yes, assemble the REP block
 	RETURN_OK
@@ -1360,21 +1358,20 @@ bbb10_modes:
 ; will produce 10 'asl's
 .proc repeat
 	jsr ctx::push	; push a new context
-
-	jsr expr::eval ; get the number of times to repeat the code
+	jsr expr::eval  ; get the number of times to repeat the code
 	bcc @ok
 	rts	 ; error
 
-@ok:
-	stxy zp::ctx+repctx::iter_end
+@ok:	stxy zp::ctx+repctx::iter_end
 	jsr process_ws
 	ldy #$00
 	lda (zp::line),y
 	cmp #','
-	beq :+
-	RETURN_ERR ERR_UNEXPECTED_CHAR ; comma must follow the # of times to repeat
+	beq @getparam
+	RETURN_ERR ERR_UNEXPECTED_CHAR ; comma must follow the # of reps
 
-:	; get the name of the parameter
+@getparam:
+	; get the name of the parameter
 	incw zp::line
 	ldy #$00
 @saveparam:
@@ -1383,8 +1380,7 @@ bbb10_modes:
 	bcc @cont
 	rts		; err
 
-@cont:
-	stxy zp::line
+@cont:	stxy zp::line
 	lda #$00
 	sta zp::ctx+repctx::iter
 	sta zp::ctx+repctx::iter+1
@@ -1449,7 +1445,7 @@ bbb10_modes:
 ; when the macro context is active, reads the the current line into the
 ; context buffer
 .proc handle_macro
-	ldxy #mem::linebuffer
+	ldxy #mem::linebuffer2
 	jmp ctx::write		; copy the linebuffer to the context
 .endproc
 
@@ -1461,7 +1457,7 @@ bbb10_modes:
 	lda state::verify
 	beq :+
 	RETURN_OK	; verifying, don't create macro
-:	ldxy #mem::linebuffer
+:	ldxy #mem::linebuffer2
 	jsr ctx::write	; copy .ENDMAC to the context
 	lda #$00
 	sta ctx::type	; done with this context, disable it
