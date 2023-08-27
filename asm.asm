@@ -45,6 +45,11 @@ pcset:     .byte 0
 __asm_origin:
 origin:    .word 0	; the lowest address in the program
 
+;******************************************************************************
+; ASMBUFFER
+; Source is copied here so that it can be messed with while assembling
+asmbuffer: .res 40
+
 .DATA
 ;******************************************************************************
 NUM_OPCODES = 58
@@ -197,14 +202,13 @@ __asm_tokenize:
 .proc tokenize
 	; copy the line to a new buffer and make it uppercase (assembly is
 	; case-insensitive)
-	lda #<mem::linebuffer2
+	lda #<asmbuffer
 	sta zp::tmp0
-	lda #>mem::linebuffer2
+	lda #>asmbuffer
 	sta zp::tmp0+1
 	jsr str::copy
-	ldxy #mem::linebuffer2
+	ldxy #asmbuffer
 	stxy zp::line
-	ldxy #mem::linebuffer2
 	jsr str::toupper
 
 	jsr process_ws
@@ -974,9 +978,9 @@ bbb10_modes:
 ; HANDLE_REPEAT
 ; Context handler for .rep/.endrep blocks
 .proc handle_repeat
-	ldxy #mem::linebuffer2
+	ldxy #asmbuffer
 	jsr ctx::write		; copy the linebuffer to the context
-	ldxy #mem::linebuffer2
+	ldxy #asmbuffer
 	streq @endrep, 7	; are we at .endrep?
 	beq @do_rep		; yes, assemble the REP block
 	RETURN_OK
@@ -1445,7 +1449,7 @@ bbb10_modes:
 ; when the macro context is active, reads the the current line into the
 ; context buffer
 .proc handle_macro
-	ldxy #mem::linebuffer2
+	ldxy #asmbuffer
 	jmp ctx::write		; copy the linebuffer to the context
 .endproc
 
@@ -1457,7 +1461,7 @@ bbb10_modes:
 	lda state::verify
 	beq :+
 	RETURN_OK	; verifying, don't create macro
-:	ldxy #mem::linebuffer2
+:	ldxy #asmbuffer
 	jsr ctx::write	; copy .ENDMAC to the context
 	lda #$00
 	sta ctx::type	; done with this context, disable it

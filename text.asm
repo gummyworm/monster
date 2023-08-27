@@ -986,4 +986,3 @@ __text_charmap:
 .byte   $88,$88,$88,$88,$88,$88,$88,$88
 .byte   $ff,$00,$00,$00,$00,$00,$00,$00
 .byte   $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff	; cursor
-

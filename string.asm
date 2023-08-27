@@ -149,8 +149,12 @@
 
 ;******************************************************************************
 ; COMPARE
-; compares the strings in (str0) and (str2) up to a length of .A
-; If the strings are equal, 0 is returned in .A. and the zero flag is set.
+; Compares the strings in (str0) and (str2) up to a length of .A
+; IN:
+;  zp::str0: one of the strings to compare
+;  zp::str2: the other string to compare
+; OUT:
+;  .Z: set if the strings are equal
 .export __str_compare
 .proc __str_compare
 	tay
