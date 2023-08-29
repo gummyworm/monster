@@ -19,7 +19,9 @@
 .byte $9e
 .asciiz "4621"
 @next: .word 0
+	jmp start
 
+.CODE
 ;******************************************************************************
 ; START
 ; Entrypoint to program
@@ -29,6 +31,7 @@ start:
 	stxy zp::tmp0
 @zeromem:
 	ldy #$00
+	tya
 	sty zp::gendebuginfo
 	sta (zp::tmp0),y
 	incw zp::tmp0
@@ -41,13 +44,13 @@ start:
         lda #$20
         jsr irq::raster
 	jsr src::new
-	lda #<brkhandler
+	lda #<start
 	sta $0316
-	lda #>brkhandler
+	lda #>start
 	sta $0317
-	lda #<nmihandler
+	lda #<start
 	sta $0318
-	lda #>nmihandler
+	lda #>start
 	sta $0319
 	jsr $ffe7	; CLALL (close all files)
 	lda #9
@@ -63,22 +66,6 @@ start:
 	jmp *
 test:	clc
 
-.CODE
-;******************************************************************************
-; BRKHANDLER
-.proc brkhandler
-	inc $900f
-	jmp *-3
-	jmp reenter
-.endproc
-
-;******************************************************************************
-; NMIHANDLER
-.proc nmihandler
-	inc $900f
-	jmp $eb15	; ack timer and rti
-.endproc
-
 ;******************************************************************************
 ; IRQHANDLER
 irq_handler:
@@ -89,13 +76,9 @@ irq_handler:
 ; Entrypoint after initialization, from here on we're safe to use the bitmap
 ; address space ($1000-$2000) as a bitmap
 enter:
-	jsr asm::reset
-	jsr src::new
-
-;******************************************************************************
-; REENTER
-reenter:
 	ldx #$ff
 	txs
+	jsr asm::reset
+	jsr src::new
 	jsr edit::init
 	jmp edit::run

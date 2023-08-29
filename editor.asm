@@ -63,7 +63,7 @@ indent = zp::editor
 	ldx #$00
 	ldy #EDITOR_ROW_START
 	sta indent
-	jmp cur::set
+	jmp cur::forceset
 .endproc
 
 ;******************************************************************************

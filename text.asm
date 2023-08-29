@@ -22,7 +22,9 @@ STATUS_COL  = 0
 
 .BSS
 ;******************************************************************************
+.export __text_len
 __text_len: .byte 0
+rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 
 .CODE
 ;******************************************************************************
@@ -31,7 +33,7 @@ __text_len: .byte 0
 	ldx #<mem::statusline
 	ldy #>mem::statusline
 	lda #STATUS_LINE
-	jsr __text_putz
+	jsr __text_puts
 	lda #STATUS_LINE
 	jmp bm::rvsline
 .endproc
@@ -82,13 +84,14 @@ __text_len: .byte 0
 	ldxy #file::name
 	jsr str::len
 	tay
+	beq @done
 	ldx #39
 :	lda file::name,y
 	sta mem::statusline,x
 	dex
 	dey
 	bpl :-
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -351,7 +354,7 @@ __text_len: .byte 0
 	bne @right
 @left:
 	lda #$f0
-	.byte $2c
+	skw
 @right:
 	lda #$0f
 	sta @mask
@@ -577,7 +580,6 @@ __text_len: .byte 0
 ; IN:
 ;  - .XY: the string to display
 ;  - .A: the text to display
-.export __text_len
 .export __text_puts
 .proc __text_puts
 @txtbyte  = zp::text
@@ -876,7 +878,6 @@ hicolor=*+1
 .export __text_insertmode
 __text_insertmode: .byte 1	; the insert mode (1 = insert, 0 = replace)
 
-rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 
 ;******************************************************************************
 ; CHARMAP
