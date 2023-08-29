@@ -48,6 +48,7 @@ origin:    .word 0	; the lowest address in the program
 ;******************************************************************************
 ; ASMBUFFER
 ; Source is copied here so that it can be messed with while assembling
+.export asmbuffer
 asmbuffer: .res 40
 
 .DATA
@@ -297,7 +298,9 @@ __asm_tokenize:
 	sta zp::label_value
 	lda zp::virtualpc+1
 	sta zp::label_value+1
-	jmp lbl::add
+	jsr lbl::add
+	lda #ASM_LABEL
+	rts
 
 ; from here onwards we are either reading a comment or an operand
 @getopws:
@@ -951,7 +954,7 @@ bbb10_modes:
 	sta zp::line
 	bcc :+
 	inc zp::line+1
-:	jsr processws
+:	jsr process_ws
 
 	lda @cnt
 	asl
@@ -1062,23 +1065,6 @@ bbb10_modes:
 	sec		; flag context handled
 	rts
 @done:	clc
-	rts
-.endproc
-
-;******************************************************************************
-; PROCESS_WS
-; Reads zp::line until a non-whitespace character is encountered
-.proc processws
-	ldy #$00
-	lda (zp::line),y
-	cmp #' '
-	bne @done
-@l0:
-	incw zp::line
-	lda (zp::line),y
-	cmp #' '
-	beq @l0
-@done:
 	rts
 .endproc
 
@@ -1220,7 +1206,7 @@ bbb10_modes:
 @numlines=zp::tmp4
 @numsegments=zp::tmp6
 @type=zp::tmp7
-	jsr processws
+	jsr process_ws
 	ldy #$00
 	sty @numlines
 	sty @numlines+1
@@ -1283,7 +1269,7 @@ bbb10_modes:
 ; addresses to it
 ; e.g.: `.ORG $1000` or `ORG $1000+LABEL`
 .proc defineorg
-	jsr processws
+	jsr process_ws
 	ldxy zp::line
 	jsr expr::getval
 	bcc :+
@@ -1316,7 +1302,7 @@ bbb10_modes:
 ; Note that the physical assembly target (asmresult) is unaffected.
 ; e.g.: `.RORG $1000` or `RORG $1000+LABEL`
 .proc define_psuedo_org
-	jsr processws
+	jsr process_ws
 	ldxy zp::line
 	jsr expr::getval
 	bcc :+
@@ -1335,7 +1321,7 @@ bbb10_modes:
 	lda zp::line+1
 	pha
 	jsr processstring	; move past label name
-	jsr processws		; eat whitespace
+	jsr process_ws		; eat whitespace
 	jsr expr::getval	; get constant value
 	bcc @ok
 	pla

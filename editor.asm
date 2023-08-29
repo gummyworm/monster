@@ -22,6 +22,9 @@
 .include "macros.inc"
 .import help
 
+;******************************************************************************
+indent = zp::editor
+
 .CODE
 ;******************************************************************************
 ; DRAW_TITLEBAR
@@ -59,6 +62,7 @@
 
 	ldx #$00
 	ldy #EDITOR_ROW_START
+	sta indent
 	jmp cur::set
 .endproc
 
@@ -171,8 +175,6 @@ main:
 ; Assembles the entire source into mem::program
 .export command_asm
 .proc command_asm
-@line=zp::editor
-@pc=zp::editor+6
 	jsr clrerror
 
 	; save the current source position and rewind it for assembly
@@ -741,6 +743,7 @@ main:
 ; LINEDONE
 ; Attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
+@i=zp::tmpa
 	; insert \n into source buffer and terminate text buffer
 	lda #$0d
 	jsr src::insert
@@ -756,6 +759,9 @@ main:
 	jsr asm::tokenize
 	bcs @err
 
+	; reset indent
+	ldx #$00
+	stx indent
 @format:
 	; format the line
 	cmp #ASM_LABEL
@@ -764,7 +770,9 @@ main:
 	beq @fmt
 	cmp #ASM_OPCODE
 	bne @nextline	; no formatting
-@fmt:	jsr fmt::line
+@fmt:	ldx #$02
+	stx indent	; 2 space indent
+	jsr fmt::line
 
 @nextline:
 	jsr drawline
@@ -777,7 +785,19 @@ main:
 	ldxy #mem::linebuffer
 	lda zp::cury
 	jsr text::print
-	rts
+
+; insert spaces for the indent in the source
+	lda indent
+	beq @done
+	sta @i
+@indent:
+	lda #' '
+	jsr text::putch
+	lda #' '
+	jsr src::insert
+	dec @i
+	bne @indent
+@done:	rts
 
 @err:	lda #$ff
 	; highlight the error line
@@ -791,6 +811,9 @@ main:
 ; DRAWLINE
 ; Draws the line in mem::linebuffer at the current cursor position.
 ; The cursor is then updated and the screen scrolled.
+; IN:
+;  zp::cury: row to draw the line
+;  indent: indent level (to place the cursor at after drawing)
 .proc drawline
 	lda zp::cury
 	jsr text::drawline
@@ -808,17 +831,12 @@ main:
 	lda #STATUS_ROW-1
 	jsr text::scrollup
 
-	ldy zp::cury
-	ldx #$00
-	jmp cur::set
-
 :	tya
 	ldx #STATUS_ROW-1
 	jsr text::scrolldown
 
-@done:
 	jsr clrerror
-	; move the cursor to the next line
+@setcur:
 	ldy zp::cury
 	iny
 	ldx #$00

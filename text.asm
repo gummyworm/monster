@@ -245,7 +245,7 @@ __text_len: .byte 0
 ;******************************************************************************
 ; PUTCH
 ; Adds the character in .A to the current cursor position in the
-; text linebuffer.
+; text linebuffer. The cursor is then updated to the next position.
 ; OUT:
 ;  - .C: set if character was unsuccessfully put
 .export __text_putch
