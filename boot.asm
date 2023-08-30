@@ -38,6 +38,14 @@ start:
 	ldxy zp::tmp0
 	cmpw #(__BSS_LOAD__+__BSS_SIZE__)
 	bne @zeromem
+@zerozp:
+	sta $00,x
+	dex
+	bne @zerozp
+
+; initialize the JMP vector
+	lda #$4c	; JMP
+	sta $00
 
         ldx #<irq_handler
         ldy #>irq_handler

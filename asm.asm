@@ -972,9 +972,8 @@ bbb10_modes:
 ; IN:
 ;  - .XY: the directive handler to jump to
 .proc handle_directive
-	stxy @vec
-@vec=*+1
-	jmp $fadd
+	stxy zp::jmpvec
+	jmp $00
 .endproc
 
 ;******************************************************************************

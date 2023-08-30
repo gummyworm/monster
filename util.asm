@@ -339,3 +339,4 @@ result=mem::spare
 @yes:	rts
 :	jmp __util_isoperator
 .endproc
+

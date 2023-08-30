@@ -821,7 +821,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; needed by the debugger for display etc, then it restores the debugger's state
 ; and finally transfers control to the debugger
 .proc debug_brk
-@vec=$00
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
 	pla
 	sta reg_y
@@ -907,13 +906,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	txa
 	asl
 	tax
-	lda #$4c	 	; JMP
-	sta @vec
 	lda @command_vectors,x	; vector LSB
-	sta @vec+1
+	sta zp::jmpvec
 	lda @command_vectors+1,x ; vector MSB
-	sta @vec+2
-	jsr @vec
+	sta zp::jmpvec+1
+	jsr zp::jmpaddr
 
 @done:	;jsr save_debug_state
 	;jsr restore_progstate

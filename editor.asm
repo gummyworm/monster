@@ -62,7 +62,7 @@ indent = zp::editor
 
 	ldx #$00
 	ldy #EDITOR_ROW_START
-	sta indent
+	stx indent
 	jmp cur::forceset
 .endproc
 
@@ -135,14 +135,12 @@ main:
 ; IN:
 ;  - .XY: the address of the label to start debugging at
 .proc command_go
-@target=$00
 	jsr label_addr_or_org
 	bcc :+
 	rts
-	stxy @target+1
+	stxy zp::jmpvec
 	lda #$4c	; JMP
-	sta @target
-	jsr @target
+	jsr zp::jmpaddr
 	jmp restore_state
 .endproc
 
@@ -154,7 +152,6 @@ main:
 ; IN:
 ;  - .XY: the address of the label to start debugging at
 .proc command_debug
-@target=$00
 	jsr label_addr_or_org
 	bcc :+
 	inc $900f
