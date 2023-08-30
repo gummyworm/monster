@@ -53,13 +53,11 @@ start:
         jsr irq::raster
 	jsr src::new
 	lda #<start
-	sta $0316
+	sta $0316		; BRK
+	sta $0318		; NMI
 	lda #>start
-	sta $0317
-	lda #<start
-	sta $0318
-	lda #>start
-	sta $0319
+	sta $0317		; BRK
+	sta $0319		; NMI
 	jsr $ffe7	; CLALL (close all files)
 	lda #9
 	sta zp::device

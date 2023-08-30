@@ -422,9 +422,9 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 ;  - .A: the bottom line that is scrolled
 .proc __text_scrollup
 .export __text_scrollup
-@src=zp::tmp1
-@dst=zp::tmp3
-@numrows=zp::tmp5
+@src=zp::tmp2
+@dst=zp::tmp4
+@numrows=zp::tmp6
 	stx @numrows
 	sec
 	sbc @numrows
@@ -432,7 +432,6 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 	asl
 	asl
 	sta @numrows
-	dec @numrows
 
 	txa
 	asl
@@ -446,21 +445,25 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 	sta @dst+1
 	sta @src+1
 
+	jsr cur::off	 ; disable cursor
+
 @l0:	ldy #$00
-@l1:
-	lda (@src),y
+@l1:	lda (@src),y
 	sta (@dst),y
 	iny
 	cpy @numrows
 	bne @l1
 
+@updatesrc:
 	lda @src
 	clc
 	adc #$c0
 	sta @src
-	bcc :+
+	bcc @updatedst
 	inc @src+1
-:	lda @dst
+
+@updatedst:
+	lda @dst
 	clc
 	adc #$c0
 	sta @dst
@@ -481,10 +484,10 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 ;  - .X: the last column to scroll down to
 .export __text_scrolldown
 .proc __text_scrolldown
-@rowstart=zp::tmp0
-@rows=zp::tmp1
-@src=zp::tmp2
-@dst=zp::tmp4
+@rowstart=zp::tmp2
+@rows=zp::tmp3
+@src=zp::tmp4
+@dst=zp::tmp6
 	sta @rowstart
 
 	cpx @rowstart
@@ -511,6 +514,8 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 	lda #>BITMAP_ADDR
 	sta @src+1
 	sta @dst+1
+
+	jsr cur::off	 ; disable cursor
 
 @l0:	ldy @rows
 @l1:

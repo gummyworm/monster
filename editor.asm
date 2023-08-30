@@ -827,12 +827,12 @@ main:
 	ldx #EDITOR_ROW_START
 	lda #STATUS_ROW-1
 	jsr text::scrollup
+	jmp @setcur
 
 :	tya
 	ldx #STATUS_ROW-1
 	jsr text::scrolldown
 
-	jsr clrerror
 @setcur:
 	ldy zp::cury
 	iny
@@ -902,53 +902,48 @@ main:
 ; CCUP
 ; Handles the up cursor key
 .proc ccup
+@cnt=zp::tmp8
 	ldxy src::line
 	cmpw #1
-	bne :+		; at line 1, don't scroll
-	jsr src::up
+	bne @cont	; at line 1, don't scroll
+	jsr src::up	; move source to start of line
 	ldx #$00
 	ldy zp::cury
-	jmp cur::set
+	jmp cur::set	; move cursor to start of line
 
-:	jsr src::up
-	lda zp::cury
-	pha
-	jsr cur::up
-	pla
-	cmp zp::cury
-	beq @scroll
-
-@noscroll:
-@cnt=zp::tmp6
+@cont:	jsr src::up	; move up a line (or to start of line)
 	lda zp::curx	; leftmost column
-	beq @redraw
+	beq :+
+	jsr src::up	; if not left-aligned move up again
+:	jsr src::get
 
-	jsr src::up
-	jsr src::get	; for rendering get source from start of line
-
-	; go til lesser of curx or newline ($0d)
+	; move source to lesser of curx or newline ($0d)
 	lda #$ff
 	sta @cnt
 :	inc @cnt
-	lda @cnt
-	cmp zp::curx
-	bcs @redraw2
+	ldx @cnt
+	cpx zp::curx
+	bcs :+
 	jsr src::next
 	cmp #$0d
 	bne :-
 	jsr src::prev
 	ldx @cnt
-	ldy zp::cury
+
+:	ldy zp::cury
+	beq @scroll
+	dey
 	jsr cur::set
-	jmp @redraw2
+	jmp @redraw
 
 @scroll:
 	lda #EDITOR_ROW_START
 	ldx #STATUS_ROW-1
 	jsr text::scrolldown	; cursor wasn't moved, scroll
-
+	ldy #$00
+	ldx @cnt
+	jsr cur::set
 @redraw:
-	jsr src::get
 @redraw2:
 	lda zp::cury
 	ldxy #mem::linebuffer
