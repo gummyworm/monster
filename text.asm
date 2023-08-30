@@ -426,7 +426,11 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 @dst=zp::tmp4
 @numrows=zp::tmp6
 	stx @numrows
-	sec
+	cmp @numrows
+	bcs :+
+	rts
+
+:	sec
 	sbc @numrows
 	asl
 	asl
@@ -491,7 +495,9 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 	sta @rowstart
 
 	cpx @rowstart
+	beq @noscroll
 	bcs :+
+@noscroll:
 	rts		; nothing to scroll
 
 :	txa

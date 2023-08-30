@@ -23,8 +23,10 @@
 .import help
 
 ;******************************************************************************
-indent = zp::editor
-
+; ZEROPAGE
+indent = zp::editor	; number of spaces to insert on newline
+height = zp::editor+1	; height of the text-editor (shrinks when displaying
+			; error, showing debugger, etc.
 .CODE
 ;******************************************************************************
 ; DRAW_TITLEBAR
@@ -59,6 +61,9 @@ indent = zp::editor
 
 	lda #CUR_BLINK_SPEED
 	sta zp::curtmr
+
+	lda #EDITOR_HEIGHT
+	sta height
 
 	ldx #$00
 	ldy #EDITOR_ROW_START
@@ -821,21 +826,26 @@ main:
 	; scroll lines below cursor position
 	ldy zp::cury
 	iny
-	cpy #STATUS_ROW-1
+	cpy height
 	bcc :+
 	; if we're at the bottom, scroll whole screen up
 	ldx #EDITOR_ROW_START
-	lda #STATUS_ROW-1
+	lda height
+	sec
+	sbc #$01
 	jsr text::scrollup
+	ldy height
+	dey
 	jmp @setcur
 
 :	tya
-	ldx #STATUS_ROW-1
+	ldx height
+	dex
 	jsr text::scrolldown
 
-@setcur:
 	ldy zp::cury
 	iny
+@setcur:
 	ldx #$00
 	jmp cur::set
 .endproc
@@ -938,7 +948,7 @@ main:
 
 @scroll:
 	lda #EDITOR_ROW_START
-	ldx #STATUS_ROW-1
+	ldx height
 	jsr text::scrolldown	; cursor wasn't moved, scroll
 	ldy #$00
 	ldx @cnt
@@ -1039,7 +1049,7 @@ main:
 	beq @redraw
 
 	ldx #EDITOR_ROW_START
-	lda #STATUS_ROW-1
+	lda height
 	jsr text::scrollup	; cursor wasn't moved, scroll
 
 @redraw:
@@ -1072,7 +1082,9 @@ main:
 
 	; scroll everything up from below the line we deleted
 	ldx zp::cury
-	lda #STATUS_ROW-1
+	lda height
+	sec
+	sbc #$01
 	jsr text::scrollup
 .IFDEF DRAW_TITLEBAR
 	jsr draw_titlebar
@@ -1117,6 +1129,18 @@ main:
 	ldy #>mem::linebuffer
 	jsr text::drawline
 	jmp src::end
+.endproc
+
+;******************************************************************************
+; CANCEL
+; If an error is being displayed, hides it.
+.proc cancel
+	ldy #EDITOR_HEIGHT
+	sty height
+	ldx #40
+	jsr cur::setmax
+	inc $900f
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1180,7 +1204,7 @@ __edit_gotoline:
 	lda zp::cury
 	clc
 	adc @diff
-	cmp #EDITOR_HEIGHT+EDITOR_ROW_START
+	cmp height
 	bcs @long
 	jmp @short
 
@@ -1223,8 +1247,14 @@ __edit_gotoline:
 
 @long:  ; get first line of source buffer to render
 	; (target +/- (EDITOR_HEIGHT - cury))
-	ldxy @diff
-	sub16 #EDITOR_HEIGHT
+	lda @diff
+	sec
+	sbc height
+	tax
+	lda @diff+1
+	sbc #$00
+	tay
+
 	bpl @movesrc
 	; (diff - EDITOR_HEIGHT) < 0, need to move in the opposite direction
 	stxy @diff
@@ -1254,7 +1284,7 @@ __edit_gotoline:
 @longb:	jsr src::upn	; go to the first line to render
 	;jsr src::up	; one more TODO: why?
 @longb_cont:
-	lda #EDITOR_ROW_START+EDITOR_HEIGHT
+	lda height
 
 @longmove_cont:
 	sta @row
@@ -1282,7 +1312,9 @@ __edit_gotoline:
 @rowdown:
 	inc @row
 	lda @row
-	cmp #EDITOR_ROW_START + EDITOR_HEIGHT + 1
+	tax
+	inx
+	cpx height
 	bcs @renderdone
 	jsr src::down
 	bcc @l0
@@ -1297,7 +1329,9 @@ __edit_gotoline:
 	inc @row
 @clrnext:
 	lda @row
-	cmp #EDITOR_ROW_START + EDITOR_HEIGHT + 1
+	tax
+	inx
+	cpx height
 	bcc @clrloop
 
 	lda @rowsave
@@ -1343,7 +1377,11 @@ __edit_gotoline:
 
 	lda #ERROR_ROW
 	jsr text::print
-	rts
+
+	lda #ERROR_ROW
+	sta height
+	ldx #40
+	jmp cur::setmax
 @line_err: .byte " in line ", ESCAPE_VALUE,0
 .endproc
 
@@ -1356,6 +1394,7 @@ controlcodes:
 .byte $11	; down
 .byte $14	; delete
 .byte $0d	; RETURN
+.byte $5f	; <- (left arrow)
 numccodes=*-controlcodes
 
 ;******************************************************************************
@@ -1366,6 +1405,7 @@ ccvectors:
 .word ccdown	; down
 .word ccdel 	; delete
 .word linedone	; RETURN
+.word cancel	; <-
 
 ;******************************************************************************
 .IFDEF DRAW_TITLEBAR
