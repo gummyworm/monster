@@ -4,9 +4,13 @@ ZEROPAGE_INC = 1
 .scope zp
 
 ;******************************************************************************
-; $00-$0a
+; $00-$03 is the JMP vector
 jmpaddr = $00
 jmpvec = $01 ; $00 stores a JMP instruction, this is its address
+
+;******************************************************************************
+; $04-$07 is used for final expansion temp
+final = $04
 
 ;******************************************************************************
 ; $0a-$0f are reserved form math
@@ -56,8 +60,13 @@ ctx=$60
 macros=$80
 
 ;******************************************************************************
-; $90-$a0 used for expression evaluation
+; $90-$9a used for expression evaluation
 expr=$90
+
+;******************************************************************************
+; $9a-$a0 used for bank switching storage
+bank      = $9a ; the current bank in the final expansion being worked on
+banktmp=$9b
 
 ;******************************************************************************
 ; $b0-$ba is reserved for text displaying/bitmap stuff
@@ -72,7 +81,6 @@ file = $bb	; the most recently accessed file
 ; $d0-$d5 assembly state
 asmresult = $d0	; pointer where code is assembled
 virtualpc = $d2 ; pointer to address address code will live at during runtime (.RORG)
-bank      = $d4 ; the current bank in the final expansion being worked on
 verify 	  = $d5
 
 ;******************************************************************************

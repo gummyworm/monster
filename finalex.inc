@@ -13,11 +13,19 @@
 
 .import __final_bank
 .import __final_store_byte
+.import __final_memcpy
+.import __final_init
 
 ; USE_FINAL = 1	; enable final expansion
 
-;--------------------------------------
-; memory banks
+;******************************************************************************
+; BANK LAYOUT
+; These definitions describe which banks store the code/data for their
+; corresponding item.
+FINAL_BANK_DEBUG = 1	; where debug symbols are stored
+
+;******************************************************************************
+; MEMORY BANKS
 .scope bank
 	monster = 0
 	program = 1
@@ -39,8 +47,10 @@
 
 ;--------------------------------------
 ; Routines
-.scope final
-	block = __final_bank
+.scope fe3
+	bank = __final_bank
+	copy = __final_memcpy
+	init = __final_init
 .endscope
 
 ;--------------------------------------
@@ -73,3 +83,20 @@
 	.endif
 .endmacro
 
+; pushes the current RAM bank 
+.macro PUSH_BANK
+	sta zp::final
+	lda $9c02
+	pha
+	lda zp::final
+.endmacro
+
+; pops/restores the last RAM bank 
+; NOTE: switches banks; make sure code using this macro exists in the bank
+; it switches to
+.macro POP_BANK
+	sta zp::final
+	pla
+	sta $9c02
+	lda zp::final
+.endmacro

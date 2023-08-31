@@ -178,6 +178,7 @@ main:
 .export command_asm
 .proc command_asm
 	jsr clrerror
+	jsr dbg::init
 
 	; save the current source position and rewind it for assembly
 	jsr src::pushp
@@ -200,7 +201,7 @@ main:
 
 @pass1loop:
 	ldxy src::line
-	stxy dbg::srcline
+	jsr dbg::setline
 	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize_pass1
@@ -224,18 +225,18 @@ main:
 
 @pass2loop:
 	ldxy src::line
-	stxy dbg::srcline
+	jsr dbg::setline
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize_pass2
 	bcc @next
 
 @err:
-	ldxy dbg::srcline
+	jsr dbg::getline
 	jsr reporterr
 	jsr src::popp
 	jsr src::goto	; goto the line that failed
-	ldxy dbg::srcline
+	jsr dbg::getline
 	jmp gotoline
 
 @next:	jsr src::end
@@ -279,7 +280,6 @@ main:
 	inc $900f
 	lda #$01
 	sta zp::gendebuginfo	; enable debug info
-	jsr dbg::init
 	jsr command_asm
 	bcc :+
 	rts			; error
@@ -1085,8 +1085,6 @@ main:
 	; scroll everything up from below the line we deleted
 	ldx zp::cury
 	lda height
-	sec
-	sbc #$01
 	jsr text::scrollup
 .IFDEF DRAW_TITLEBAR
 	jsr draw_titlebar

@@ -1,5 +1,6 @@
 .include "asm.inc"
 .include "edit.inc"
+.include "finalex.inc"
 .include "irq.inc"
 .include "labels.inc"
 .include "macros.inc"
@@ -27,6 +28,9 @@
 ; Entrypoint to program
 start:
 	sei
+
+	jsr fe3::init
+
 	ldxy #__BSS_LOAD__
 	stxy zp::tmp0
 @zeromem:
@@ -61,6 +65,9 @@ start:
 	jsr $ffe7	; CLALL (close all files)
 	lda #9
 	sta zp::device
+
+	lda #$80
+	sta $9c02	; enable 35K of RAM for final expansion
 
         jmp enter
 

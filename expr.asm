@@ -349,7 +349,7 @@ MAX_OPERANDS=$10/2
 ;  -.C: set on error and clear if a value was extracted.
 .export __expr_getval
 .proc __expr_getval
-@val=zp::expr+$a
+@val=zp::expr+6
 	ldy #$00
 	sty @val
 	sty @val+1

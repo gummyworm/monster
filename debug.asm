@@ -3,6 +3,7 @@
 .include "config.inc"
 .include "edit.inc"
 .include "errors.inc"
+.include "finalex.inc"
 .include "labels.inc"
 .include "key.inc"
 .include "layout.inc"
@@ -12,6 +13,9 @@
 .include "text.inc"
 .include "util.inc"
 .include "zeropage.inc"
+
+.import __DEBUGGER_LOAD__
+.import __DEBUGGER_SIZE__
 
 ;******************************************************************************
 ; Debug info constants
@@ -52,7 +56,6 @@ reg_y:  .byte 0
 reg_p:  .byte 0
 reg_sp: .byte 0
 pc:     .word 0
-
 
 ;******************************************************************************
 ; # DEBUG INFO
@@ -116,7 +119,7 @@ pc:     .word 0
 ; TODO: store more compactly? e.g. store offsets for line/addr from previous
 ;******************************************************************************
 
-.BSS
+.segment "DEBUGGER"
 ;******************************************************************************
 ; the per-file debug info as described in the above table
 .export debuginfo
@@ -168,6 +171,18 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Clears any debug state that exists
 .export __debug_init
 .proc __debug_init
+	; copy the debug code to the debugger bank
+	ldxy #__DEBUGGER_LOAD__
+	stxy zp::tmp0		; source
+	stxy zp::tmp2		; destination
+	lda #FINAL_BANK_DEBUG	; destination bank
+	ldxy #__DEBUGGER_SIZE__	; size
+	jsr fe3::copy
+
+	; switch to the debug bank
+	jsr use_debug_bank
+
+	; init debugger state variables
 	lda #$00
 	sta numsegments
 	sta numwatches
@@ -176,6 +191,41 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 .endproc
 
+;******************************************************************************
+; USE_DEBUG_BANK
+; Sets the RAM bank to the debug one
+.proc use_debug_bank
+	lda #FINAL_BANK_DEBUG
+	jmp fe3::bank
+.endproc
+
+;******************************************************************************
+; GETLINE
+; Returns the current line that we're working on
+; OUT:
+;  - .XY: the line we're actively working on in the debugger
+.export __debug_getline
+.proc __debug_getline
+	PUSH_BANK
+	jsr use_debug_bank
+	ldxy srcline
+	POP_BANK
+	rts
+.endproc
+
+;******************************************************************************
+; SETLINE
+; Sets the current line that we're working on
+; IN:
+;  - .XY: the line number to set the internal line to
+.export __debug_setline
+.proc __debug_setline
+	PUSH_BANK
+	jsr use_debug_bank
+	stxy srcline
+	POP_BANK
+	rts
+.endproc
 
 ;******************************************************************************
 ; SETUP
@@ -191,6 +241,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @tmp=zp::tmp6
 @segend=zp::tmp8
 @cnt=@tmp
+	PUSH_BANK
+	jsr use_debug_bank
+	jsr @setup
+	POP_BANK
+	rts
+
+@setup:
 	lda numsegments
 	beq @done
 	sta @numsegs
@@ -279,7 +336,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .export __debug_init_segment
 .proc __debug_init_segment
 @tmp=zp::tmp0
-	; get the address of the segment
+	PUSH_BANK
+	jsr use_debug_bank
+	jsr @proc
+	POP_BANK
+	rts
+
+@proc:	; get the address of the segment
 	lda numsegments	; *6 to get offset for this segment
 	asl		; *2
 	sta @tmp
@@ -342,7 +405,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @addr=zp::tmp0
 @seg=zp::tmp2
 @cnt=zp::tmp4
-	stxy @addr
+	PUSH_BANK
+	jsr use_debug_bank
+	jsr @proc
+	POP_BANK
+	rts
+
+@proc:	stxy @addr
 	lda numsegments
 	sta @cnt
 
@@ -390,7 +459,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  .XY: the address to end the segment at
 .export __debug_end_segment
 .proc __debug_end_segment
-	lda numsegments
+	PUSH_BANK
+	jsr use_debug_bank
+	jsr @proc
+	POP_BANK
+	rts
+
+@proc:	lda numsegments
 	bne :+
 	rts	; nothing to end
 
@@ -419,7 +494,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .export __debug_store_line
 .proc __debug_store_line
 @addr=zp::tmp0
-	lda zp::pass
+	PUSH_BANK
+	jsr use_debug_bank
+	jsr @proc
+	POP_BANK
+	rts
+
+@proc:	lda zp::pass
 	cmp #$02
 	bne @update_linecnt
 
@@ -483,7 +564,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_addr2line
 @addr=zp::tmp2
 @cnt=zp::tmp4
-	stxy @addr
+	PUSH_BANK
+	jsr use_debug_bank
+	jsr @proc
+	POP_BANK
+	rts
+
+@proc:	stxy @addr
 	lda #$00
 	sta @cnt
 
@@ -554,7 +641,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_line2addr
 @line=zp::tmp2
 @cnt=zp::tmp4
-	stxy @line
+	PUSH_BANK
+	jsr use_debug_bank
+	jsr @proc
+	POP_BANK
+	rts
+
+@proc:	stxy @line
 	lda #$00
 	sta @cnt
 
@@ -645,7 +738,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the 0-terminated file to set as the current file
 .export __debug_set_file
 .proc __debug_set_file
-	jsr get_fileid
+	PUSH_BANK
+	jsr use_debug_bank
+	jsr @proc
+	POP_BANK
+	rts
+
+@proc:	jsr get_fileid
 	bcc :+
 	jsr storefile
 :	sta file
@@ -700,9 +799,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the address to begin debugging at
 .export __debug_start
 .proc __debug_start
-	stxy pc
+	PUSH_BANK
+	jsr use_debug_bank
+	jsr @proc
+	POP_BANK
+	rts
 
-	jsr save_debug_state ; save the editor
+@proc:	stxy pc
 
 	; install a breakpoint at the first address
 	ldxy pc
@@ -715,6 +818,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $0316
 	lda #>debug_brk
 	sta $0316+1
+
+	jsr save_debug_state ; save the debug state
 
 ; execute the user program until BRK
 @runpc: jmp (pc)
@@ -776,15 +881,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; saves memory likely to be clobbered by the user's
 ; program (namely the screen)
 .proc save_debug_state
-@vicsave=mem::spare
-@savezp=mem::spare+$10
+@vicsave=mem::progsave
+@savezp=mem::progsave+$10
 	ldx #$10
 @savevic:
 	lda $9000-1,x
 	sta @vicsave-1,x
 	dex
 	bne @savevic
-
 @save_zp:
 	lda $00,x
 	sta @savezp,x
@@ -838,7 +942,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stx reg_sp
 
 	; save the program state
-	jsr save_prog_state
+	; jsr save_prog_state
 
 	; BRK pushes PC + 2, subtract 2 from PC
 	lda pc
@@ -849,11 +953,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sbc #$00
 	sta pc+1
 
+	; restore debugger state
+	jsr restore_debug_state
+
 	; display the contents of the registers
 	jsr showregs
-
-	; restore debugger state
-	;jsr restore_debug_state
 
 	; get the address before the BRK and go to it
 	ldxy pc
@@ -947,8 +1051,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; RESTORE_DEBUG_STATE
 ; Restores the saved debugger state
 .proc restore_debug_state
-@vicsave=mem::spare	 ; $0-$10
-@savezp=mem::spare+$10	 ; $10-$110
+@vicsave=mem::progsave	; $0-$10
+@savezp=mem::progsave+$10	 ; $10-$110
 	ldx #$10
 @restorevic:
 	lda @vicsave-1,x
@@ -1392,3 +1496,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	inc line+1
 :	RETURN_OK
 .endproc
+
+;******************************************************************************
+; End the .DEBUG segment
+.CODE

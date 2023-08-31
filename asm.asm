@@ -529,7 +529,7 @@ __asm_tokenize:
 	beq @updatevpc
 	ldxy zp::virtualpc	; current PC (address)
 	stxy zp::tmp0
-	ldxy dbg::srcline	; current line
+	jsr dbg::getline	; current line
 	jsr dbg::storeline	; map them
 
 ;------------------

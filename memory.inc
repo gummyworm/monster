@@ -6,6 +6,7 @@
 .import __linebuffer
 .import __linebuffer2
 .import __mem_program
+.import __mem_progsave
 .import __statusline
 
 .scope mem
@@ -16,5 +17,6 @@
 	linebuffer      = __linebuffer
 	linebuffer2     = __linebuffer2
 	program		= __mem_program
+	progsave	= __mem_progsave
 	statusline	= __statusline
 .endscope
