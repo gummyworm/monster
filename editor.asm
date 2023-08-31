@@ -556,10 +556,12 @@ main:
 	jsr src::next	; first character index is 1
 
 @l0:	jsr src::readline
+	php
 	jsr drawline
-	jsr src::end
-	bne @l0
-	jmp src::prev	 ; go back to last char
+	plp
+	bcc @l0
+
+@done:	jmp src::prev	 ; go back to last char
 .endproc
 
 ;******************************************************************************
@@ -831,8 +833,8 @@ main:
 	; if we're at the bottom, scroll whole screen up
 	ldx #EDITOR_ROW_START
 	lda height
-	sec
-	sbc #$01
+	;sec
+	;sbc #$01
 	jsr text::scrollup
 	ldy height
 	dey
@@ -1311,9 +1313,8 @@ __edit_gotoline:
 
 @rowdown:
 	inc @row
-	lda @row
-	tax
-	inx
+	ldx @row
+	dex
 	cpx height
 	bcs @renderdone
 	jsr src::down
@@ -1328,9 +1329,8 @@ __edit_gotoline:
 	jsr text::drawline
 	inc @row
 @clrnext:
-	lda @row
-	tax
-	inx
+	ldx @row
+	dex
 	cpx height
 	bcc @clrloop
 

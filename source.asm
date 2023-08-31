@@ -451,6 +451,10 @@ __src_atcursor:
 @cnt=zp::tmp4
 	lda #$00
 	sta @cnt
+
+	jsr __src_end
+	beq @eof
+
 @l0:	jsr __src_readb
 	ldx @cnt
 	cmp #$0d
@@ -459,10 +463,9 @@ __src_atcursor:
 :	sta mem::linebuffer,x
 	beq @done
 	inc @cnt
-	ldxy post
-	cmpw #0
+	jsr __src_end
 	bne @l0
-	; null terminate if end of source
+@eof:	; null terminate if end of source
 	lda #$00
 	ldx @cnt
 	sta mem::linebuffer,x
