@@ -403,6 +403,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  seg: the address to write to
 .proc write_to_line
 	sta zp::bankval
+	pushregs
+
 	tya
 	clc
 	adc line
@@ -411,7 +413,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	adc #$00
 	tay
 	lda #FINAL_BANK_DEBUG
-	jmp fe3::store	; write the byte
+	jsr fe3::store	; write the byte
+	popregs
+	rts
 .endproc
 
 ;******************************************************************************
@@ -422,6 +426,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; OUT:
 ;  - .A: the byte that was read
 .proc read_from_line
+	txa
+	pha
+	tya
+	pha
+
 	tya
 	clc
 	adc line
@@ -430,7 +439,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	adc #$00
 	tay
 	lda #FINAL_BANK_DEBUG
-	jmp fe3::load ; read the byte
+	jsr fe3::load ; read the byte
+
+	sta zp::bankval
+	pla
+	tay
+	pla
+	tax
+	lda zp::bankval
+	rts
 .endproc
 
 ;******************************************************************************
@@ -441,6 +458,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  seg: the address to write to
 .proc write_to_addr
 	sta zp::bankval
+	pushregs
+
 	tya
 	clc
 	adc addr
@@ -449,7 +468,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	adc #$00
 	tay
 	lda #FINAL_BANK_DEBUG
-	jmp fe3::store	; write the byte
+	jsr fe3::store	; write the byte
+
+	popregs
+	rts
 .endproc
 
 ;******************************************************************************
@@ -460,6 +482,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; OUT:
 ;  - .A: the byte that was read
 .proc read_from_addr
+	txa
+	pha
+	tya
+	pha
+
 	tya
 	clc
 	adc addr
@@ -468,7 +495,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	adc #$00
 	tay
 	lda #FINAL_BANK_DEBUG
-	jmp fe3::load ; read the byte
+	jsr fe3::load ; read the byte
+
+	sta zp::bankval
+	pla
+	tay
+	pla
+	tax
+	lda zp::bankval
+	rts
 .endproc
 
 ;******************************************************************************
