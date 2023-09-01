@@ -13,6 +13,7 @@
 
 .import __final_bank
 .import __final_store_byte
+.import __final_load_byte
 .import __final_memcpy
 .import __final_init
 
@@ -22,7 +23,8 @@
 ; BANK LAYOUT
 ; These definitions describe which banks store the code/data for their
 ; corresponding item.
-FINAL_BANK_DEBUG = 1	; where debug symbols are stored
+FINAL_BANK_MAIN = 1	; where the user program is stored
+FINAL_BANK_DEBUG = 2	; where debug symbols are stored
 
 ;******************************************************************************
 ; MEMORY BANKS
@@ -51,6 +53,8 @@ FINAL_BANK_DEBUG = 1	; where debug symbols are stored
 	bank = __final_bank
 	copy = __final_memcpy
 	init = __final_init
+	store = __final_store_byte
+	load = __final_load_byte
 .endscope
 
 ;--------------------------------------

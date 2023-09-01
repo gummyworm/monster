@@ -100,3 +100,19 @@
 	lda arg
 	ora arg+1
 .endmacro
+
+.macro pushregs
+	pha
+	txa
+	pha
+	tya
+	pha
+.endmacro
+
+.macro popregs
+	pla
+	tay
+	pla
+	tax
+	pla
+.endmacro

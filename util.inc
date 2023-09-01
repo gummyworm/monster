@@ -32,4 +32,3 @@
 	stxy zp::tmp0
 	jsr util::memcpy
 .endmacro
-

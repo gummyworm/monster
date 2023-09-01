@@ -16,6 +16,8 @@
 
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
+.import __BANKCODE_LOAD__
+.import __BANKCODE_SIZE__
 
 ;******************************************************************************
 ; Debug info constants
@@ -23,6 +25,7 @@ MAX_FILES = 16	      ; max files that debug info may be generated for
 MAX_SEGMENTS=32	      ; max segments that debug info may be generated for
 MAX_BREAKPOINTS = 16  ; max number of breakpoints that may be set
 MAX_WATCHPOINTS = 8   ; max number of watchpoints that may be set
+MAX_LINES  = 8000	; max number of lines across all segments
 
 SEG_START_ADDR = 0      ; offset in segment header for start address
 SEG_STOP_ADDR = 2       ; offset in segment header for stop address
@@ -41,7 +44,6 @@ srcline = zp::debug+7
 segstart = zp::debug+9
 segstop = zp::debug+$b
 
-
 .export __debug_src_line
 __debug_src_line = srcline ; the line # stored by dbg::storeline
 .export __debug_file
@@ -56,6 +58,25 @@ reg_y:  .byte 0
 reg_p:  .byte 0
 reg_sp: .byte 0
 pc:     .word 0
+
+; number of files that we have debug info for. The ID of a file is its index
+.export numfiles
+numfiles: .byte 0
+
+; table of 0-terminated filenames
+.export filenames
+filenames: .res MAX_FILES * 16
+
+; number of segments that we have debug info for
+.export numsegments
+numsegments: .byte 0
+
+; 0-terminated names for each segment, can be 0-length for unnamed segments
+segmentnames: .byte 0
+
+; table of start addresses for each segment
+.export segaddresses
+segaddresses: .res MAX_SEGMENTS * 2
 
 ;******************************************************************************
 ; # DEBUG INFO
@@ -119,31 +140,10 @@ pc:     .word 0
 ; TODO: store more compactly? e.g. store offsets for line/addr from previous
 ;******************************************************************************
 
-.segment "DEBUGGER"
-;******************************************************************************
+; NOTE: this data is stored in its own bank (FINAL_BANK_DEBUG)
 ; the per-file debug info as described in the above table
 .export debuginfo
-segments:
-debuginfo: .res $100
-
-; number of files that we have debug info for. The ID of a file is its index
-.export numfiles
-numfiles: .byte 0
-
-; table of 0-terminated filenames
-.export filenames
-filenames: .res MAX_FILES * 16
-
-; number of segments that we have debug info for
-.export numsegments
-numsegments: .byte 0
-
-; 0-terminated names for each segment, can be 0-length for unnamed segments
-segmentnames: .byte 0
-
-; table of start addresses for each segment
-.export segaddresses
-segaddresses: .res MAX_SEGMENTS * 2
+debuginfo = __BANKCODE_LOAD__+__BANKCODE_SIZE__	; start after shared bank code
 
 ;******************************************************************************
 ; WATCHES
@@ -165,23 +165,12 @@ breaksave: .res MAX_BREAKPOINTS      ; backup of the instructions under the BRK
 ; may be used for other purposes after debug info is generated
 nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
-.CODE
+.segment "DEBUGGER"
 ;******************************************************************************
 ; INIT
 ; Clears any debug state that exists
 .export __debug_init
 .proc __debug_init
-	; copy the debug code to the debugger bank
-	ldxy #__DEBUGGER_LOAD__
-	stxy zp::tmp0		; source
-	stxy zp::tmp2		; destination
-	lda #FINAL_BANK_DEBUG	; destination bank
-	ldxy #__DEBUGGER_SIZE__	; size
-	jsr fe3::copy
-
-	; switch to the debug bank
-	jsr use_debug_bank
-
 	; init debugger state variables
 	lda #$00
 	sta numsegments
@@ -192,24 +181,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
-; USE_DEBUG_BANK
-; Sets the RAM bank to the debug one
-.proc use_debug_bank
-	lda #FINAL_BANK_DEBUG
-	jmp fe3::bank
-.endproc
-
-;******************************************************************************
 ; GETLINE
 ; Returns the current line that we're working on
 ; OUT:
 ;  - .XY: the line we're actively working on in the debugger
 .export __debug_getline
 .proc __debug_getline
-	PUSH_BANK
-	jsr use_debug_bank
 	ldxy srcline
-	POP_BANK
 	rts
 .endproc
 
@@ -220,10 +198,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the line number to set the internal line to
 .export __debug_setline
 .proc __debug_setline
-	PUSH_BANK
-	jsr use_debug_bank
 	stxy srcline
-	POP_BANK
 	rts
 .endproc
 
@@ -236,18 +211,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .export __debug_setup
 .proc __debug_setup
 @numsegs=zp::tmp0
-@seg=zp::tmp2
 @lines=zp::tmp4
 @tmp=zp::tmp6
 @segend=zp::tmp8
 @cnt=@tmp
-	PUSH_BANK
-	jsr use_debug_bank
-	jsr @setup
-	POP_BANK
-	rts
-
-@setup:
 	lda numsegments
 	beq @done
 	sta @numsegs
@@ -269,17 +236,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; get the address of the start of data
 	; and init 1st segment to it
 	lda @segend
-	adc #<segments
+	adc #<debuginfo
 	sta @segend
 	sta segaddresses
 	lda @segend+1
-	adc #>segments
+	adc #>debuginfo
 	sta @segend+1
 	sta segaddresses+1
 
 	; get the address of the start of the segments
-	ldxy #segments
-	stxy @seg
+	ldxy #debuginfo
+	stxy seg
 
 	lda #$01
 	sta @cnt
@@ -287,10 +254,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq @done	; if there's only 1 segment, we're done
 
 @l0:	ldy #SEG_LINE_COUNT	; get the line count for the segment
-	lda (@seg),y
+	jsr read_from_seg
 	sta @lines
 	iny
-	lda (@seg),y
+	jsr read_from_seg
 	sta @lines+1
 
 	; numlines*5 to get the size of this segment's data
@@ -335,41 +302,173 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  .XY: the start address of the segment
 .export __debug_init_segment
 .proc __debug_init_segment
-@tmp=zp::tmp0
-	PUSH_BANK
-	jsr use_debug_bank
-	jsr @proc
-	POP_BANK
-	rts
+@tmp=zp::tmp1
+@addr=zp::tmp2
+	stxy @addr
 
-@proc:	; get the address of the segment
+	; get the address of the segment
 	lda numsegments	; *6 to get offset for this segment
 	asl		; *2
 	sta @tmp
 	asl		; *4
 	adc @tmp	; *6
-	adc #<segments
+	adc #<debuginfo
 	sta seg
 	lda #$00
-	adc #>segments
+	adc #>debuginfo
 	sta seg+1
 
 	; store the start address of the segment
-	tya
+	lda @addr+1
 	ldy #SEG_START_ADDR+1
-	sta (seg),y
-	txa
+	jsr write_to_seg
+	lda @addr
 	dey
-	sta (seg),y
+	jsr write_to_seg
 
 	; end address will be determined by dbg::endseg
 
 	; initialize the line count to 0
 	ldy #SEG_LINE_COUNT
 	lda #$00
-	sta (seg),y
+	jsr write_to_seg
 	inc numsegments
 	RETURN_OK
+.endproc
+
+;******************************************************************************
+; READ_FROM_SEG
+; Reads a byte to (seg)+y in the DEBUGGER bank
+; IN:
+;  - .Y: the offset of (seg) to read
+; OUT:
+;  - .A: the byte that was read
+; CLOBBERS:
+;  - NONE
+.proc read_from_seg
+	txa
+	pha
+	tya
+	pha
+
+	clc
+	adc seg
+	tax
+	lda seg+1
+	adc #$00
+	tay
+	lda #FINAL_BANK_DEBUG
+	jsr fe3::load ; read the byte
+
+	sta zp::bankval
+	pla
+	tay
+	pla
+	tax
+	lda zp::bankval
+	rts
+.endproc
+
+;******************************************************************************
+; WRITE_TO_SEG
+; Writes a byte to (seg)+y in the DEBUGGER bank
+; IN:
+;  .A: the byte to write
+;  seg: the address to write to
+; CLOBBERS:
+;  - NONE
+.proc write_to_seg
+	sta zp::bankval
+	pushregs
+
+	tya
+	clc
+	adc seg
+	tax
+	lda seg+1
+	adc #$00
+	tay
+	lda #FINAL_BANK_DEBUG
+	jsr fe3::store	; write the byte
+
+	popregs
+	rts
+.endproc
+
+;******************************************************************************
+; WRITE_TO_LINE
+; Writes a byte to (line)+y in the DEBUGGER bank
+; IN:
+;  .A: the byte to write
+;  seg: the address to write to
+.proc write_to_line
+	sta zp::bankval
+	tya
+	clc
+	adc line
+	tax
+	lda line+1
+	adc #$00
+	tay
+	lda #FINAL_BANK_DEBUG
+	jmp fe3::store	; write the byte
+.endproc
+
+;******************************************************************************
+; READ_FROM_LINE
+; Reads a byte to (line)+y in the DEBUGGER bank
+; IN:
+;  - .Y: the offset of (line) to read
+; OUT:
+;  - .A: the byte that was read
+.proc read_from_line
+	tya
+	clc
+	adc line
+	tax
+	lda line+1
+	adc #$00
+	tay
+	lda #FINAL_BANK_DEBUG
+	jmp fe3::load ; read the byte
+.endproc
+
+;******************************************************************************
+; WRITE_TO_ADDR
+; Writes a byte to (addr)+y in the DEBUGGER bank
+; IN:
+;  .A: the byte to write
+;  seg: the address to write to
+.proc write_to_addr
+	sta zp::bankval
+	tya
+	clc
+	adc addr
+	tax
+	lda addr+1
+	adc #$00
+	tay
+	lda #FINAL_BANK_DEBUG
+	jmp fe3::store	; write the byte
+.endproc
+
+;******************************************************************************
+; READ_FROM_ADDR
+; Reads a byte to (addr)+y in the DEBUGGER bank
+; IN:
+;  - .Y: the offset of (addr) to read
+; OUT:
+;  - .A: the byte that was read
+.proc read_from_addr
+	tya
+	clc
+	adc addr
+	tax
+	lda addr+1
+	adc #$00
+	tay
+	lda #FINAL_BANK_DEBUG
+	jmp fe3::load ; read the byte
 .endproc
 
 ;******************************************************************************
@@ -390,6 +489,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	RETURN_OK
 .endproc
 
+
 ;******************************************************************************
 ; STARTSEGMENT_BYADDR
 ; Activates the initialized segment (see dbg::initseg) from the given address
@@ -405,28 +505,35 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @addr=zp::tmp0
 @seg=zp::tmp2
 @cnt=zp::tmp4
-	PUSH_BANK
-	jsr use_debug_bank
-	jsr @proc
-	POP_BANK
-	rts
-
-@proc:	stxy @addr
+	stxy @addr
 	lda numsegments
 	sta @cnt
 
 	; find the segment with this start address
-	lda #<segments
+	lda #<debuginfo
 	sta @seg
-	lda #>segments
+	lda #>debuginfo
 	sta @seg+1
 
 @l0:	ldy #SEG_START_ADDR
-	lda (@seg),y
+
+	ldxy @seg
+	lda #FINAL_BANK_DEBUG
+	jsr fe3::load
+
 	cmp @addr
 	bne @next
 	iny
-	lda (@seg),y
+
+	incw @seg
+	ldxy @seg
+	lda #FINAL_BANK_DEBUG
+	jsr fe3::load
+
+	pha
+	decw @seg
+	pla
+
 	cmp @addr+1
 	beq @found
 
@@ -459,23 +566,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  .XY: the address to end the segment at
 .export __debug_end_segment
 .proc __debug_end_segment
-	PUSH_BANK
-	jsr use_debug_bank
-	jsr @proc
-	POP_BANK
-	rts
-
-@proc:	lda numsegments
+	lda numsegments
 	bne :+
 	rts	; nothing to end
 
 :	; store the end address of the segment
 	tya
 	ldy #SEG_STOP_ADDR+1
-	sta (seg),y
+	jsr write_to_seg
 	dey
 	txa
-	sta (seg),y
+	jsr write_to_seg
 	rts
 .endproc
 
@@ -494,13 +595,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .export __debug_store_line
 .proc __debug_store_line
 @addr=zp::tmp0
-	PUSH_BANK
-	jsr use_debug_bank
-	jsr @proc
-	POP_BANK
-	rts
-
-@proc:	lda zp::pass
+	lda zp::pass
 	cmp #$02
 	bne @update_linecnt
 
@@ -509,23 +604,23 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; store the line number
 	tya
 	ldy #DATA_LINE+1
-	sta (addr),y
+	jsr write_to_addr
 	txa
 	dey
-	sta (addr),y
+	jsr write_to_addr
 
 	; store the file-id
 	ldy #DATA_FILE
 	lda file
-	sta (addr),y
+	jsr write_to_addr
 
 	; store the address
 	ldy #DATA_ADDR
 	lda @addr
-	sta (addr),y
+	jsr write_to_addr
 	iny
 	lda @addr+1
-	sta (addr),y
+	jsr write_to_addr
 
 	; update pointer for line/addr
 	lda addr
@@ -538,17 +633,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @update_linecnt:
 	; update line count for this segment
 	ldy #SEG_LINE_COUNT
-	lda (seg),y
+	jsr read_from_seg
 	clc
 	adc #$01
-	sta (seg),y
+	php
+	jsr write_to_seg
+	plp
 	bcc @done
 	iny
-	lda (seg),y
-	adc #$00	; +1
-	sta (seg),y
+	jsr read_from_seg
+	clc
+	adc #$01	; +1
+	jsr write_to_seg
 
-@done:	rts
+@done:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -564,13 +662,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_addr2line
 @addr=zp::tmp2
 @cnt=zp::tmp4
-	PUSH_BANK
-	jsr use_debug_bank
-	jsr @proc
-	POP_BANK
-	rts
-
-@proc:	stxy @addr
+	stxy @addr
 	lda #$00
 	sta @cnt
 
@@ -608,20 +700,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; find the line that the address we were given is on
 @findline:
 	ldy #DATA_ADDR
-	lda (line),y
+	jsr read_from_line
 	cmp @addr
 	bne @nextline
 	iny
-	lda (line),y
+	jsr read_from_line
 	cmp @addr+1
 	bne @nextline
 
 ; get the line corresponding to the address
 @found: ldy #DATA_LINE
-	lda (line),y
+	jsr read_from_line
 	tax
 	iny
-	lda (line),y
+	jsr read_from_line
 	tay
 	RETURN_OK
 
@@ -641,13 +733,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_line2addr
 @line=zp::tmp2
 @cnt=zp::tmp4
-	PUSH_BANK
-	jsr use_debug_bank
-	jsr @proc
-	POP_BANK
-	rts
-
-@proc:	stxy @line
+	stxy @line
 	lda #$00
 	sta @cnt
 
@@ -661,18 +747,19 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; check every line in the segment for a match
 @checklines:
 @l1:	ldy #DATA_LINE
-	lda @line
-	cmp (line),y
+	jsr read_from_line
+	cmp @line
 	bne @next
-	lda @line+1
-	cmp (line),y
+	iny
+	jsr read_from_line
+	cmp @line+1
 	bne @next
 
 @found:	ldy #DATA_ADDR
-	lda (line),y
+	jsr read_from_line
 	tax
 	iny
-	lda (line),y
+	jsr read_from_line
 	tay
 	RETURN_OK
 
@@ -738,13 +825,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the 0-terminated file to set as the current file
 .export __debug_set_file
 .proc __debug_set_file
-	PUSH_BANK
-	jsr use_debug_bank
-	jsr @proc
-	POP_BANK
-	rts
-
-@proc:	jsr get_fileid
+	jsr get_fileid
 	bcc :+
 	jsr storefile
 :	sta file
@@ -799,13 +880,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the address to begin debugging at
 .export __debug_start
 .proc __debug_start
-	PUSH_BANK
-	jsr use_debug_bank
-	jsr @proc
-	POP_BANK
-	rts
-
-@proc:	stxy pc
+	stxy pc
 
 	; install a breakpoint at the first address
 	ldxy pc
@@ -1457,18 +1532,18 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; get the start address of the segment
 	ldy #SEG_START_ADDR
-	lda (seg),y
+	jsr read_from_seg
 	sta segstart
 	iny
-	lda (seg),y
+	jsr read_from_seg
 	sta segstart+1
 
 	; get the stop address of the segment
 	iny
-	lda (seg),y
+	jsr read_from_seg
 	sta segstop
 	iny
-	lda (seg),y
+	jsr read_from_seg
 	sta segstop+1
 
 	; get the address of the segment data
