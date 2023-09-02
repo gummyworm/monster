@@ -44,6 +44,7 @@ line = zp::debug+5
 srcline = zp::debug+7
 segstart = zp::debug+9
 segstop = zp::debug+$b
+break_after_sr = zp::debug+$d	; if !0, NEXT_INSTRUCTION will skip subroutines
 
 .export __debug_src_line
 __debug_src_line = srcline ; the line # stored by dbg::storeline
@@ -1192,12 +1193,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @brk_message_line: .byte "brk in line $",$fe,0 ; when line number is resolved
 @brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
 
+;******************************************************************************
 @commands:
-	.byte 'z'
-	.byte 'g'
+	.byte $7a	; 'z'
+	.byte $73	; 's'
+	.byte $67	; 'g'
 @num_commands=*-@commands
 @command_vectors:
 	.word step
+	.word step_over
 	.word go
 .endproc
 
@@ -1306,7 +1310,22 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr __debug_setbreakpoint ; add a breakpoint at the next instruction
 	jsr install_breakpoints	  ; update breakpoints with our new one
 
+	lda #$00
+	sta break_after_sr ; reset step over
 	rts	; return to the debugger
+.endproc
+
+;******************************************************************************
+; STEP_OVER
+; Runs the next instruction from the .PC and returns to the debug prompt.
+; This works by inserting a BRK instruction after
+; the current instruction and RUNning.
+; Unlike STEP, if the next procedure is a JSR, execution will continue
+; at the line after the subroutine (after the subroutine has run)
+.proc step_over
+	lda #$01
+	sta break_after_sr
+	jmp step
 .endproc
 
 ;******************************************************************************
@@ -1338,8 +1357,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	cmp #$20	; JSR?
 	bne @notjsr
 	jsr @jmpjsr
+@jsr:
 	cmpw #$c000	; is the target in ROM?
 	bcs @nocontrol	; if so, set breakpoint to PC+3
+	lda step_over	; are we stepping OVER?
+	bne @nocontrol	; if yes, don't go into the subroutine
 	rts
 @notjsr:
 	beq @jmpjsr

@@ -330,3 +330,28 @@ DONE:
   JMP DONE
 ```
 
+## Debugger
+The debugger allows you to step through code, set breakpoints, and watch
+data as you execute your program.  Due to the size of the data needed to 
+store the debug information, this feature requires a Final Expansion
+(512k RAM expansion).
+
+The debugger is enabled by pressing CTRL-D
+This will prompt the user for a label name, which will be used as the start
+address for debugging.  If no label name is provided, execution will begin
+at the base origin of the program.
+
+Both the debugger and the user program's RAM is saved/restored when control
+transfers between the two. That is the screen data ($1000-$2000), the zeropage,
+and color RAM.
+
+### Debug Commands
+The following commands are supported by the debugger and are accessed by their
+respective Key in the table below.
+
+|  Key   | Name    |   Description                                                                        |
+|--------|---------|--------------------------------------------------------------------------------------|
+|   Z    | Step    | steps to the next instruction.                                                       | 
+|   S    | StepOver| steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
+|   G    | Go      | begins execution at the cursor                                                       |
+
