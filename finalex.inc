@@ -12,6 +12,7 @@
 ;############################################################################
 
 .import __final_bank
+.import __final_call
 .import __final_store_byte
 .import __final_load_byte
 .import __final_memcpy
@@ -25,6 +26,7 @@
 ; corresponding item.
 FINAL_BANK_MAIN = 1	; where the user program is stored
 FINAL_BANK_DEBUG = 2	; where debug symbols are stored
+FINAL_BANK_FASTCOPY = 15
 
 ;******************************************************************************
 ; MEMORY BANKS
@@ -51,6 +53,7 @@ FINAL_BANK_DEBUG = 2	; where debug symbols are stored
 ; Routines
 .scope fe3
 	bank = __final_bank
+	call = __final_call
 	copy = __final_memcpy
 	init = __final_init
 	store = __final_store_byte
@@ -103,4 +106,15 @@ FINAL_BANK_DEBUG = 2	; where debug symbols are stored
 	pla
 	sta $9c02
 	lda zp::final
+.endmacro
+
+; calls the banked routine
+; params:
+;  bank: the bank of the procedure to call
+;  proc: the procedure to call
+; 
+.macro CALL bank, proc
+	lda #bank
+	ldxy #proc
+	jsr __final_call
 .endmacro

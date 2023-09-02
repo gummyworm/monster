@@ -3,6 +3,7 @@
 .include "config.inc"
 .include "edit.inc"
 .include "errors.inc"
+.include "fastcopy.inc"
 .include "finalex.inc"
 .include "labels.inc"
 .include "key.inc"
@@ -144,6 +145,9 @@ segaddresses: .res MAX_SEGMENTS * 2
 ; the per-file debug info as described in the above table
 .export debuginfo
 debuginfo = __BANKCODE_LOAD__+__BANKCODE_SIZE__	; start after shared bank code
+
+; backup address (in bank FINAL_BANK_DEBUG)
+debug_backup = $a000
 
 ;******************************************************************************
 ; WATCHES
@@ -1004,7 +1008,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @savezp,x
 	dex
 	bne @save_zp
-	jmp bm::save	; backup the screen
+
+	; backup the screen
+	CALL FINAL_BANK_FASTCOPY, fcpy::save
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1126,12 +1133,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr
 
-@done:	;jsr save_debug_state
-	;jsr restore_progstate
-; get the stack back in the format RTI expects and finish ISR
+@done:
 	; unhighlight the BRK line
 	lda zp::cury
 	jsr bm::rvsline
+	jsr save_debug_state
+	;jsr restore_progstate
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
 	lda pc+1
@@ -1174,7 +1181,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $00,x
 	dex
 	bne @restore_zp
-	jmp bm::restore	 ;restore the screen
+	; restore the screen
+	CALL FINAL_BANK_FASTCOPY, fcpy::restore
+	rts
 .endproc
 
 ;******************************************************************************

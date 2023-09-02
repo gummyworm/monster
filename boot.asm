@@ -1,5 +1,6 @@
 .include "asm.inc"
 .include "edit.inc"
+.include "fastcopy.inc"
 .include "finalex.inc"
 .include "irq.inc"
 .include "labels.inc"
@@ -30,6 +31,7 @@ start:
 	sei
 
 	jsr fe3::init
+	jsr fcpy::init
 
 	ldxy #__BSS_LOAD__
 	stxy zp::tmp0

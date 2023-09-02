@@ -32,6 +32,7 @@ bankcode:
 .proc __final_store_byte
 @bank=zp::banktmp
 @dst=zp::banktmp+1
+	sei
 	sta @bank
 	tya
 	pha
@@ -64,6 +65,7 @@ bankcode:
 @src=zp::banktmp
 @bank=zp::banktmp+2
 @oldbank=zp::banktmp+3
+	sei
 	sta @bank
 	lda $9c02
 	sta @oldbank	; save current bank
@@ -77,6 +79,36 @@ bankcode:
 	lda @oldbank
 	sta $9c02	; restore bank
 	pla
+	rts
+.endproc
+
+;******************************************************************************
+; CALL
+; Performs a JSR to the target address at the given bank. When the routine is
+; done, returns to the caller's bank.
+; IN:
+;  - .XY: the address of the procedure to call
+;  - .A: the bank of the target procedure
+.export __final_call
+.proc __final_call
+@src=zp::banktmp
+@bank=zp::banktmp+2
+@oldbank=zp::banktmp+3
+	sei
+	sta @bank
+	stxy zp::jmpvec
+
+	lda $9c02
+	sta @oldbank	; save current bank
+
+	lda @bank
+	ora #%10100000	; SUPERRAM mode in final expansion
+	sta $9c02
+
+	jsr zp::jmpaddr
+
+	lda @oldbank
+	sta $9c02	; restore bank
 	rts
 .endproc
 
@@ -104,6 +136,8 @@ bankcode_size = *-bankcode
 @dst=zp::tmp3
 @cnt=zp::tmp5
 @bank=zp::tmp6
+	sei
+
 	; copy the bank code that we wish to copy to ZP
 	ldx #bankcode_size-1
 @l0:	lda bankcode,x
@@ -136,7 +170,7 @@ bankcode_size = *-bankcode
 	bne @l1
 	inc @bank
 	lda @bank
-	cmp #$0f
+	cmp #$10
 	bne @copybank
 	rts
 .endproc
