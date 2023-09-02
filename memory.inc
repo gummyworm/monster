@@ -8,6 +8,7 @@
 .import __mem_program
 .import __mem_progsave
 .import __statusline
+.import __mem_debugsave
 
 .scope mem
 	ctxbuffer       = __mem_ctxbuffer
@@ -17,6 +18,7 @@
 	linebuffer      = __linebuffer
 	linebuffer2     = __linebuffer2
 	program		= __mem_program
-	progsave	= __mem_progsave
 	statusline	= __statusline
+	progsave	= __mem_progsave
+	debugsave	= __mem_debugsave
 .endscope

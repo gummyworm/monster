@@ -26,7 +26,11 @@
 ; corresponding item.
 FINAL_BANK_MAIN = 1	; where the user program is stored
 FINAL_BANK_DEBUG = 2	; where debug symbols are stored
+
+; these are used to store the debuggger screen and the
+; user program data ($1100-$2000) respectively
 FINAL_BANK_FASTCOPY = 15
+FINAL_BANK_FASTCOPY2 = 14
 
 ;******************************************************************************
 ; MEMORY BANKS

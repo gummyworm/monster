@@ -10,7 +10,9 @@ __mem_backbuff = $c000-$f00 	; backup for the screen bitmap
 
 .export __mem_backbuff
 .export __mem_progsave
-__mem_progsave =__mem_backbuff-$110 	; backup for the user's program during debug
+.export __mem_debugsave
+__mem_progsave =__mem_backbuff 	; backup for the user's program during debug
+__mem_debugsave=__mem_backbuff+$300 	; backup for the user's program during debug
 
 .export __mem_program
 __mem_program: .res $400	; buffer for the assembled program

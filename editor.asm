@@ -92,24 +92,6 @@ main:
 .endproc
 
 ;******************************************************************************
-; SAVE_STATE
-; Saves the editor state
-; This allows the editor (including the cursor, screen, etc.) to be restored
-; if it is corrupted by, for example, the user's program
-.proc save_state
-	jmp bm::save
-.endproc
-
-;******************************************************************************
-; RESTORE_STATE
-; Restores the editor state
-; The state that is restored is that which was saved by the last call to
-; save_state
-.proc restore_state
-	jmp bm::restore
-.endproc
-
-;******************************************************************************
 ; LABEL_ADDR_OR_ORG
 ; Returns the address of the label given in .XY or, if no label is given (a
 ; 0-length string is given) the address of the program origin
@@ -146,7 +128,7 @@ main:
 	stxy zp::jmpvec
 	lda #$4c	; JMP
 	jsr zp::jmpaddr
-	jmp restore_state
+	rts
 .endproc
 
 ;******************************************************************************

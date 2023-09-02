@@ -31,6 +31,9 @@ start:
 	sei
 
 	jsr fe3::init
+	lda #FINAL_BANK_FASTCOPY
+	jsr fcpy::init
+	lda #FINAL_BANK_FASTCOPY2
 	jsr fcpy::init
 
 	ldxy #__BSS_LOAD__

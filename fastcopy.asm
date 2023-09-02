@@ -23,7 +23,9 @@ __fastcopy_restore = $2100 + $2f00
 .segment "SETUP"
 ;******************************************************************************
 ; INIT
-; Initializes the fast copy routine to bank FINAL_BANK_FASTCOPY
+; Initializes the fast copy routine to the given bank
+; IN:
+;  - .A: the bank to store the fast copy code to
 .export __fastcopy_init
 .proc __fastcopy_init
 @src=zp::tmp1
@@ -31,6 +33,9 @@ __fastcopy_restore = $2100 + $2f00
 @cnt=zp::tmp5
 @addr=zp::tmp7
 @i=zp::tmp9
+@bank=zp::tmpa
+	sta @bank
+
 	ldxy #BITMAP_ADDR
 	stxy @src	; source for backup
 	ldxy #$a000
@@ -65,7 +70,7 @@ __fastcopy_restore = $2100 + $2f00
 	lda @prefix,x
 	sta zp::bankval
 	ldxy @addr
-	lda #FINAL_BANK_FASTCOPY
+	lda @bank
 	jsr fe3::store
 	incw @addr
 	inc @i
@@ -91,7 +96,7 @@ __fastcopy_restore = $2100 + $2f00
 	lda @loadstore,x
 	sta zp::bankval
 	ldxy @addr
-	lda #FINAL_BANK_FASTCOPY
+	lda @bank
 	jsr fe3::store
 	incw @addr
 	inc @i
@@ -116,7 +121,7 @@ __fastcopy_restore = $2100 + $2f00
 	lda @save_suffix,x
 	sta zp::bankval
 	ldxy @addr
-	lda #FINAL_BANK_FASTCOPY
+	lda @bank
 	jsr fe3::store
 	incw @addr
 	inc @i
@@ -150,7 +155,7 @@ __fastcopy_restore = $2100 + $2f00
 	lda @prefix,x
 	sta zp::bankval
 	ldxy @addr
-	lda #FINAL_BANK_FASTCOPY
+	lda @bank
 	jsr fe3::store
 	incw @addr
 	inc @i
@@ -176,7 +181,7 @@ __fastcopy_restore = $2100 + $2f00
 	lda @loadstore,x
 	sta zp::bankval
 	ldxy @addr
-	lda #FINAL_BANK_FASTCOPY
+	lda @bank
 	jsr fe3::store
 	incw @addr
 	inc @i
@@ -201,7 +206,7 @@ __fastcopy_restore = $2100 + $2f00
 	lda @restore_suffix,x
 	sta zp::bankval
 	ldxy @addr
-	lda #FINAL_BANK_FASTCOPY
+	lda @bank
 	jsr fe3::store
 	incw @addr
 	inc @i
@@ -210,7 +215,7 @@ __fastcopy_restore = $2100 + $2f00
 	bcc @restore_addendum
 
 	ldxy @addr
-	lda #FINAL_BANK_FASTCOPY
+	lda @bank
 	jsr fe3::store
 
 	rts
