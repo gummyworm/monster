@@ -997,6 +997,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc save_debug_state
 @vicsave=mem::debugsave
 @savezp=mem::debugsave+$10
+@colorsave=mem::debugsave+$110
 	ldx #$10
 @savevic:
 	lda $9000-1,x
@@ -1008,6 +1009,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @savezp,x
 	dex
 	bne @save_zp
+
+	ldx #$f0
+; save $9400-$94f0
+@savecolor:
+	lda $9400-1,x
+	sta @colorsave-1,x
+	dex
+	bne @savecolor
 
 	; backup the screen
 	CALL FINAL_BANK_FASTCOPY, fcpy::save
@@ -1021,13 +1030,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @vicsave=mem::progsave
 @savezp=mem::progsave+$10
 @internalmem=mem::progsave+$110
-	; TODO: save $1000-$2000
+@colorsave=mem::progsave+$210
 	ldx #$10
 @savevic:
 	lda $9000-1,x
 	sta @vicsave-1,x
 	dex
 	bne @savevic
+
 @save_zp:
 	lda $00,x
 	sta @savezp,x
@@ -1040,6 +1050,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @internalmem,x
 	dex
 	bne @save1000
+
+	ldx #$f0
+; save $9400-$94f0
+@savecolor:
+	lda $9400-1,x
+	sta @colorsave-1,x
+	dex
+	bne @savecolor
 
 	; backup the user $1000 data
 	CALL FINAL_BANK_FASTCOPY2, fcpy::save
@@ -1068,6 +1086,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta pc+1
 	tsx
 	stx reg_sp
+
+; wait for key to re-activate debugger
+@waitkey:
+	jsr key::getch
+	beq @waitkey
 
 	; save the program state before we restore the debugger's
 	jsr save_prog_state
@@ -1184,6 +1207,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc restore_debug_state
 @vicsave=mem::debugsave	; $0-$10
 @savezp=mem::debugsave+$10	 ; $10-$110
+@colorsave=mem::debugsave+$110
 	ldx #$10
 @restorevic:
 	lda @vicsave-1,x
@@ -1195,6 +1219,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $00,x
 	dex
 	bne @restore_zp
+
+	ldx #$f0
+; save $9400-$94f0
+@restorecolor:
+	lda @colorsave-1,x
+	sta $9400-1,x
+	dex
+	bne @restorecolor
 
 	; reinit the bitmap
 	jsr bm::init
@@ -1210,11 +1242,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @vicsave=mem::progsave
 @savezp=mem::progsave+$10
 @internalmem=mem::progsave+$110
-	jsr bm::restore	; restore the bitmap
-
+@colorsave=mem::progsave+$210
 	ldx #$10
 @restorevic:
-	lda @vicsave,x
+	lda @vicsave-1,x
 	sta $9000-1,x
 	dex
 	bne @restorevic
@@ -1230,6 +1261,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $1000,x
 	dex
 	bne @restore1000
+
+	ldx #$f0
+; save $9400-$94f0
+@restorecolor:
+	lda @colorsave-1,x
+	sta $9400-1,x
+	dex
+	bne @restorecolor
 
 	; restore the user $1000 data
 	CALL FINAL_BANK_FASTCOPY2, fcpy::restore
@@ -1297,6 +1336,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	lda (@op),y	; get the opcode
 	cmp #$20	; JSR?
+	bne @notjsr
+	jsr @jmpjsr
+	cmpw #$c000	; is the target in ROM?
+	bcs @nocontrol	; if so, set breakpoint to PC+3
+	rts
+@notjsr:
 	beq @jmpjsr
 	cmp #$4c	; JMP?
 	bne @notjmp

@@ -82,7 +82,7 @@ start:
 	ldxy #test
 	jsr asm::disassemble
 	jmp *
-test:	clc
+test:	jsr $e5b5
 
 ;******************************************************************************
 ; IRQHANDLER

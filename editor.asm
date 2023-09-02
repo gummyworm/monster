@@ -1358,7 +1358,7 @@ __edit_gotoline:
 	lda #ERROR_ROW
 	jsr text::print
 
-	lda #ERROR_ROW
+	lda #ERROR_ROW-1
 	sta height
 	ldx #40
 	jmp cur::setmax

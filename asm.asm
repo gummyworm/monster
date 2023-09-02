@@ -1596,6 +1596,7 @@ bbb10_modes:
 	bmi @checkbranch
 
 @implied_or_jsr:
+	pha
 	txa	; * 3 to get offset in opcode string table
 	sta @op
 	asl
@@ -1608,7 +1609,25 @@ bbb10_modes:
 	iny
 	cpy #$03
 	bne :-
-	; TODO: handle JSR
+	pla
+	cmp #$20	; JSR
+	bne @implied_
+
+	iny
+	lda #' '
+	sta (@dst),y
+
+	lda @dst
+	clc
+	adc #$04
+	sta @dst
+	bcc :+
+	inc @dst+1
+:	lda #MODE_ABS
+	sta @modes
+	jmp @absolute
+
+@implied_:
 	lda #$01
 	RETURN_OK
 
