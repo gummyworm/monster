@@ -7,8 +7,8 @@ monster.prg: boot.asm $(SRC)
 	rm *.o
 
 # create the test disk image
-test.d64:
-	c1541 -format test,1 d64 test.d64 -attach test.d64 -write $^
+test.d64: $(TESTS)
+	c1541 -format test,1 d64 test.d64 -attach test.d64 $(addprefix -write ,$^)
 
 # run the assembler with the test disk image
 test: test.prg test.d64

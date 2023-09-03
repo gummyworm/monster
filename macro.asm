@@ -11,7 +11,7 @@
 .export macros
 nummacros: .byte 0
 macro_addresses: .res 256
-macros: .res 1024
+macros: .res 512
 
 ;******************************************************************************
 ; MACRO FORMAT

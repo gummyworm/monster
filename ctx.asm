@@ -68,9 +68,9 @@ CTX_LINES_START = 11
 .export __ctx_push
 .proc __ctx_push
 	lda activectx
+	beq @push
 	cmp #MAX_CONTEXTS
 	bcs @err
-	beq @push
 
 	; save the active context's state
 	ldy #CTX_LINES_START-CTX_ITER_START
@@ -314,16 +314,15 @@ CTX_LINES_START = 11
 	lda #<contexts
 	sta ctx
 
+	; get the MSB (ctx_id << 1)
 	ldx activectx
 	dex	; make id 0-based
 	txa
-
-	; get multiple of $200 (activectx << 2)
 	asl
 	ora #>contexts
 	sta ctx+1
-	tay
 
+	; restore the context data
 	; TODO: support types other than REP
 	; get the ctx metadata (iter, iterend, cur, and param)
 	ldy #CTX_PARAMS_START-CTX_ITER_START

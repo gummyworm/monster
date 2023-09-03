@@ -975,7 +975,7 @@ bbb10_modes:
 ;  - .XY: the directive handler to jump to
 .proc handle_directive
 	stxy zp::jmpvec
-	jmp $00
+	jmp zp::jmpaddr
 .endproc
 
 ;******************************************************************************
@@ -1459,7 +1459,8 @@ bbb10_modes:
 	stxy zp::tmp0
 	jsr ctx::getdata
 	pla
-	jmp mac::add
+	jsr mac::add
+	jmp ctx::pop	; pop the context
 .endproc
 
 ;******************************************************************************
@@ -1908,24 +1909,24 @@ bbb10_modes:
 
 	ldy #$00
 @nextparam:
-	lda (zp::line),y ; read unitl comma or endline
+	lda (zp::line),y ; read until comma or endline
 	beq @done
 	cmp #';'
 	beq @done
 	incw zp::line
 	cmp #','
-	beq :+
+	beq @l0
 	cmp #' '
 	beq @nextparam
 	RETURN_ERR ERR_INVALID_MACRO_ARGS
 
-:	jmp @l0
-
-@done:	pla
+@done:
 	lda state::verify
 	beq :+
+	pla
 	RETURN_OK
-:	jmp mac::asm
+:	pla
+	jmp mac::asm
 .endproc
 
 ;******************************************************************************

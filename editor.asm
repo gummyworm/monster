@@ -53,6 +53,7 @@ height = zp::editor+1	; height of the text-editor (shrinks when displaying
 .IFDEF DRAW_TITLEBAR
 	jsr draw_titlebar
 .ENDIF
+	jsr reset
 	jsr text::clrline
 
 	; don't assemble code, just verify it
