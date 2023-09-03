@@ -14,7 +14,7 @@ MAX_OPERANDS=$10/2
 ; EVAL
 ; Resolves the contents of the given zp::line and returns its evaluated value
 ; IN:
-;  - .XY: pointer to the expression to evaluate
+;  - zp::line: pointer to the expression to evaluate
 ; OUT:
 ;  - .A: the size of the returned value in bytes
 ;  - .XY: the result of the evaluated expression
@@ -25,12 +25,17 @@ MAX_OPERANDS=$10/2
 @val2=zp::expr+2
 @num_operators=zp::expr+4
 @num_operands=zp::expr+5
+@may_be_unary=zp::expr+6
+
 @operators=$100
 @operands=$120
 @priorities=$130
 	lda #$00
 	sta @num_operators
 	sta @num_operands
+
+	lda #$01
+	sta @may_be_unary
 
 @l0:	ldy #$00
 	lda (zp::line),y
@@ -41,6 +46,7 @@ MAX_OPERANDS=$10/2
 @rparen:
 	cmp #'('
 	bne @lparen
+	inc @may_be_unary
 	jsr @pushop
 	incw zp::line
 	jmp @l0
@@ -48,6 +54,8 @@ MAX_OPERANDS=$10/2
 @lparen:
 	cmp #')'
 	bne @checkop
+	lda #$00
+	sta @may_be_unary
 
 @paren_eval:
 	ldx @num_operators
@@ -66,7 +74,12 @@ MAX_OPERANDS=$10/2
 @checkop:
 	ldy #$00
 	lda (zp::line),y
-	jsr util::isoperator
+	cmp #'*'		; '*' can be a value or operator
+	bne :+
+	lda @may_be_unary	; if unary logic applies, treat as value (PC)
+	bne @getoperand		; unary, treat '*' as value
+
+:	jsr util::isoperator
 	bne @getoperand
 	pha			; save the operator
 	jsr @priority		; get the priority of this operator
@@ -87,20 +100,24 @@ MAX_OPERANDS=$10/2
 	pla
 	jsr @pushop
 	incw zp::line
+	inc @may_be_unary
 	jmp @l0
 
 @getoperand:
 	jsr isval
 	bcs @label	; not a val, try label
 	jsr __expr_getval	; is this a value?
-	bcc :+
+	bcc @pushoperand
 	rts		; return err
 
 @label:
 	ldxy zp::line
 	jsr get_label	; is it a label?
 	bcs @err
-:	jsr @pushval
+@pushoperand:
+	jsr @pushval
+	lda #$00
+	sta @may_be_unary
 	jmp @l0
 
 @err:

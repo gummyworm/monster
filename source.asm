@@ -5,6 +5,10 @@
 .include "finalex.inc"
 .include "util.inc"
 
+.ifdef USE_FINAL
+	.import __BANKCODE_END__
+.endif
+
 GAPSIZE = 20	; size of gap in gap buffer
 
 .segment "SOURCE"
@@ -36,8 +40,12 @@ bank: .byte 0
 ; DATA
 .export __src_buffer
 __src_buffer:
+.ifndef USE_FINAL
 data:
 .res 1024*4
+.else
+data = __BANKCODE_END__
+.endif
 
 .CODE
 ;******************************************************************************

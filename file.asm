@@ -100,9 +100,12 @@ FIRST_FILE_ID = 3
 	bne @eof      ; either EOF or read error
 	jsr $ffcf     ; call CHRIN (get a byte from file)
 	ldy #$00
-	cmp #$0a	; convert LF to CR
+	cmp #$0a 	; convert LF to CR
 	bne :+
 	lda #$0d
+:	cmp #$09      ; convert TAB to space
+	bne :+
+	lda #' '
 :	sta (@dst),y  ; write byte to memory
 
 	ldx secondaryaddr ; if loading directory, don't update source pointers

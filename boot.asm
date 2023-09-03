@@ -30,6 +30,9 @@
 start:
 	sei
 
+	; restore default KERNAL vectors
+	jsr $fd52
+
 	; print loading message
 	ldx #$00
 :	lda @loading,x
@@ -83,7 +86,7 @@ start:
 	sta $9c02	; enable 35K of RAM for final expansion
 
         jmp enter
-@loading: .byte "loading..."
+@loading: .byte "initializing..."
 @loadinglen=*-@loading
 
 ; disassembly test TODO: delete
