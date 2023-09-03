@@ -6,7 +6,8 @@
 .include "util.inc"
 
 .ifdef USE_FINAL
-	.import __BANKCODE_END__
+	.import __BANKCODE_LOAD__
+	.import __BANKCODE_SIZE__
 .endif
 
 GAPSIZE = 20	; size of gap in gap buffer
@@ -44,7 +45,7 @@ __src_buffer:
 data:
 .res 1024*4
 .else
-data = __BANKCODE_END__
+data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .endif
 
 .CODE
@@ -180,11 +181,12 @@ data = __BANKCODE_END__
 	stx @src
 	sty @src+1
 
-	ldy #$00
 .IFDEF USE_FINAL
 	bank_read_byte bank, @src
 	bank_store_byte bank, @dst
+	lda zp::bankval
 .ELSE
+	ldy #$00
 	lda (@src),y
 	sta (@dst),y
 .ENDIF
@@ -246,6 +248,7 @@ data = __BANKCODE_END__
 .IFDEF USE_FINAL
 	bank_read_byte bank, @src
 	bank_store_byte bank, @dst
+	lda zp::bankval
 .ELSE
 	ldy #$00
 	lda (@src),y
@@ -349,6 +352,7 @@ data = __BANKCODE_END__
 	pla
 .IFDEF USE_FINAL
 	bank_store_byte bank, @dst
+	lda zp::bankval
 .ELSE
 	ldy #$00
 	sta (@dst),y
@@ -542,7 +546,12 @@ __src_atcursor:
 	ldy #$00
 @l0:
 .IFDEF USE_FINAL
-	READ_BANKED_VEC_Y @src
+	sty zp::bankval
+	ldxy @src
+	lda bank
+	jsr fe3::load_off
+	ldy zp::bankval
+	cmp #$00
 .ELSE
 	lda (@src),y
 .ENDIF

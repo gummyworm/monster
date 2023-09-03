@@ -1,11 +1,6 @@
 .include "zeropage.inc"
 .include "macros.inc"
 
-; where the bank-switch code lives
-BANK_CODE_ADDRESS=$2000
-
-.import __SOURCE_START__
-.import __SOURCE_SIZE__
 .import __BANKCODE_SIZE__
 .import __BANKCODE_LOAD__
 
@@ -83,6 +78,38 @@ bankcode:
 .endproc
 
 ;******************************************************************************
+; LOAD_BYTE_OFF
+; Returns the byte in bank .A at address .YX plus a given offset
+; IN:
+;  - .XY: the address to read from
+;  - .A: the bank to read from
+;  - zp::bankval: the offset to read from
+; OUT:
+;  - .A: the byte that was read
+.export __final_load_byte_off
+.proc __final_load_byte_off
+@src=zp::banktmp
+@bank=zp::banktmp+2
+@oldbank=zp::banktmp+3
+	sei
+	sta @bank
+	lda $9c02
+	sta @oldbank	; save current bank
+	stxy @src
+	lda @bank
+	ora #%10100000	; SUPERRAM mode in final expansion
+	sta $9c02
+	ldy #$00
+	ldy zp::bankval
+	lda (@src),y
+	pha
+	lda @oldbank
+	sta $9c02	; restore bank
+	pla
+	rts
+.endproc
+
+;******************************************************************************
 ; CALL
 ; Performs a JSR to the target address at the given bank. When the routine is
 ; done, returns to the caller's bank.
@@ -139,11 +166,11 @@ bankcode_size = *-bankcode
 	sei
 
 	; copy the bank code that we wish to copy to ZP
-	ldx #bankcode_size-1
-@l0:	lda bankcode,x
-	sta $30,x
+	ldx #bankcode_size
+@l0:	lda bankcode-1,x
+	sta $30-1,x
 	dex
-	bpl @l0
+	bne @l0
 
 	lda #$02	; skip bank 1 (main bank)
 	sta @bank

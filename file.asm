@@ -1,4 +1,5 @@
 .include "errors.inc"
+.include "finalex.inc"
 .include "io.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -47,6 +48,9 @@ FIRST_FILE_ID = 3
 	tya
 	pha
 
+.ifdef USE_FINAL
+	lda #FINAL_BANK_SOURCE0
+.endif
 	jsr src::new
 
 	lda #$03

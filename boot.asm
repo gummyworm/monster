@@ -71,7 +71,6 @@ start:
         ldy #>irq_handler
         lda #$20
         jsr irq::raster
-	jsr src::new
 	lda #<start
 	sta $0316		; BRK
 	sta $0318		; NMI
@@ -111,6 +110,9 @@ enter:
 	ldx #$ff
 	txs
 	jsr asm::reset
+.ifdef USE_FINAL
+	lda #FINAL_BANK_SOURCE0
+.endif
 	jsr src::new
 	jsr edit::init
 	jmp edit::run

@@ -15,10 +15,11 @@
 .import __final_call
 .import __final_store_byte
 .import __final_load_byte
+.import __final_load_byte_off
 .import __final_memcpy
 .import __final_init
 
-; USE_FINAL = 1	; enable final expansion
+USE_FINAL = 1	; enable final expansion
 
 ;******************************************************************************
 ; BANK LAYOUT
@@ -27,10 +28,19 @@
 FINAL_BANK_MAIN = 1	; where the user program is stored
 FINAL_BANK_DEBUG = 2	; where debug symbols are stored
 
+FINAL_BANK_SOURCE0 = 3	; source bank
+FINAL_BANK_SOURCE1 = 4	; source bank
+FINAL_BANK_SOURCE2 = 5	; source bank
+FINAL_BANK_SOURCE3 = 6	; source bank
+FINAL_BANK_SOURCE4 = 7	; source bank
+FINAL_BANK_SOURCE5 = 8	; source bank
+FINAL_BANK_SOURCE6 = 9	; source bank
+FINAL_BANK_SOURCE7 = $a	; source bank
+
 ; these are used to store the debuggger screen and the
 ; user program data ($1100-$2000) respectively
-FINAL_BANK_FASTCOPY = 15
-FINAL_BANK_FASTCOPY2 = 14
+FINAL_BANK_FASTCOPY2 = $e
+FINAL_BANK_FASTCOPY = $f
 
 ;******************************************************************************
 ; MEMORY BANKS
@@ -62,6 +72,7 @@ FINAL_BANK_FASTCOPY2 = 14
 	init = __final_init
 	store = __final_store_byte
 	load = __final_load_byte
+	load_off = __final_load_byte_off
 .endscope
 
 ;--------------------------------------
@@ -70,7 +81,7 @@ FINAL_BANK_FASTCOPY2 = 14
 .ifnblank val
 	lda val
 .endif
-	sta zp::tmp0
+	sta zp::bankval
 	ldxy addr
 	lda bank
 	jsr __final_store_byte
@@ -79,21 +90,7 @@ FINAL_BANK_FASTCOPY2 = 14
 .macro bank_read_byte bank,addr
 	ldxy addr
 	lda bank
-	jsr __final_get_byte
-.endmacro
-
-; writes the byte in .A to addr in zp::bank
-.macro BANK_WRITE addr
-	pha
-	lda bank
-	ora #%10100000
-	sta $9c02
-	sta 
-
-	pla
-	.if .match( .left( 1, {val} ), # )
-		lda #val
-	.endif
+	jsr __final_load_byte
 .endmacro
 
 ; pushes the current RAM bank 
