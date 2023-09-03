@@ -66,10 +66,12 @@ FINAL_BANK_FASTCOPY2 = 14
 
 ;--------------------------------------
 ; Macros
-.macro bank_store_byte bank,val,addr
-	ldxy addr
+.macro bank_store_byte bank, addr, val
+.ifnblank val
 	lda val
+.endif
 	sta zp::tmp0
+	ldxy addr
 	lda bank
 	jsr __final_store_byte
 .endmacro

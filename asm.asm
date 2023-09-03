@@ -366,8 +366,10 @@ __asm_tokenize:
 	txa
 	ldy #$01
 	jsr writeb
-	bcs @ret
+	bcs @ret	; if error, return
 
+; we've written the value of the operand, now look for
+; ',X' or ',Y' to see if this is indexed addressing
 @cont:	ldy #$00
 	lda indirect
 	beq @index

@@ -240,6 +240,8 @@ main:
 	ldxy #@success_msg
 	lda #STATUS_ROW-1
 	jsr text::print
+	lda #STATUS_ROW-2
+	sta height
 
 @asmdone:
 	lda zp::gendebuginfo

@@ -27,7 +27,10 @@ lines: .word 0      ; total lines of source
 data_end:
 
 len:  .word 0	; size of the buffer (pre+post+gap)
+
+.ifdef USE_FINAL
 bank: .byte 0
+.endif
 
 ;******************************************************************************
 ; DATA
@@ -40,8 +43,13 @@ data:
 ;******************************************************************************
 ; NEW
 ; Initializes the source buffer
+; IN:
+;  .A: the bank to initialize (if using FE3)
 .export __src_new
 .proc __src_new
+.ifdef USE_FINAL
+	sta bank
+.endif
 	ldx #data_end-data_start-1
 	lda #$00
 :	sta data_start,x
@@ -166,8 +174,8 @@ data:
 
 	ldy #$00
 .IFDEF USE_FINAL
-	READ_BANKED @src
-	WRITE_BANKED @dst
+	bank_read_byte bank, @src
+	bank_store_byte bank, @dst
 .ELSE
 	lda (@src),y
 	sta (@dst),y
@@ -228,8 +236,8 @@ data:
 	decw @src
 	decw @dst
 .IFDEF USE_FINAL
-	READ_BANKED @src
-	WRITE_BANKED @dst
+	bank_read_byte bank, @src
+	bank_store_byte bank, @dst
 .ELSE
 	ldy #$00
 	lda (@src),y
@@ -332,7 +340,7 @@ data:
 	stxy @dst
 	pla
 .IFDEF USE_FINAL
-	WRITE_BANKED @dst
+	bank_store_byte bank, @dst
 .ELSE
 	ldy #$00
 	sta (@dst),y
@@ -394,7 +402,7 @@ __src_atcursor:
 	sub16 #1
 	stxy zp::tmp0
 .IFDEF USE_FINAL
-	READ_BANKED zp::tmp0
+	bank_read_byte bank, zp::tmp0
 .ELSE
 	ldy #$00
 	lda (zp::tmp0),y

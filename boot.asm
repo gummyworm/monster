@@ -30,6 +30,14 @@
 start:
 	sei
 
+	; print loading message
+	ldx #$00
+:	lda @loading,x
+	jsr $ffd2
+	inx
+	cpx #@loadinglen
+	bne :-
+
 	jsr fe3::init
 	lda #FINAL_BANK_FASTCOPY
 	jsr fcpy::init
@@ -75,6 +83,8 @@ start:
 	sta $9c02	; enable 35K of RAM for final expansion
 
         jmp enter
+@loading: .byte "loading..."
+@loadinglen=*-@loading
 
 ; disassembly test TODO: delete
 	ldxy #$100
@@ -83,6 +93,7 @@ start:
 	jsr asm::disassemble
 	jmp *
 test:	jsr $e5b5
+
 
 ;******************************************************************************
 ; IRQHANDLER
