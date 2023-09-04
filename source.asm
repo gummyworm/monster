@@ -340,8 +340,17 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	add16 len
 	stxy @dst
 
-	; get size to copy (len)
+.IFDEF USE_FINAL
+	ldxy @src
+	stxy zp::banktmp
+	ldxy @dst
+	stxy zp::banktmp+2
+	ldxy len
+	lda bank
+	jsr fe3::copy
+.ELSE
 	copy @dst, @src, len
+.ENDIF
 
 	; double size of buffer (new gap size is the size of the old buffer)
 	asl len

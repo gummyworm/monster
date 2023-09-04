@@ -139,14 +139,7 @@ bankcode:
 	rts
 .endproc
 
-;******************************************************************************
-; bank sets the bank of RAM (0-15) given in .A
-.export __final_bank
-__final_bank:
-	ora #%10100000	; enable "super RAM" mode
-	sta $9c02
-	rts
-
+.export bankcode_size
 bankcode_size = *-bankcode
 ;******************************************************************************
 ; END OF BANK CODE
@@ -207,32 +200,28 @@ bankcode_size = *-bankcode
 ; Writes the memory from (tmp0) to (tmp2)
 ; The number of bytes is given in .YX and the block # to write to is given in .A
 ; IN:
-;  - .A: the destination block
+;  - .A: the source/destination block
 ;  - .XY: the number of bytes to copy
 ;  - zp::tmp1: the source address
 ;  - zp::tmp3: the destination address
 .export __final_memcpy
 .proc __final_memcpy
-@src=zp::tmp1
-@dst=zp::tmp3
-@cnt=zp::tmp5
-@srcbank=zp::tmp6
-@dstbank=zp::tmp8
-@size=zp::tmp9
+@bank=zp::bank
+@src=zp::banktmp
+@dst=zp::banktmp+2
+@size=zp::banktmp+4
 	stxy @size
-	sta @dstbank
-	lda #$01
-	sta @srcbank
+	sta @bank
 
 @l0:	; read a byte from the source bank/addr
-	lda @srcbank
+	lda @bank
 	ldxy @src
 	jsr __final_load_byte
 
 	; write the byte to the dest bank/addr
 	sta zp::bankval
 	ldxy @dst
-	lda @dstbank
+	lda @bank
 	jsr __final_store_byte
 
 	; move to the next location

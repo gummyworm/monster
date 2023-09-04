@@ -11,7 +11,6 @@
 ;  them to return to the editor (and it's bank) via the RESTORE key
 ;############################################################################
 
-.import __final_bank
 .import __final_call
 .import __final_store_byte
 .import __final_load_byte
@@ -66,7 +65,6 @@ FINAL_BANK_FASTCOPY = $f
 ;--------------------------------------
 ; Routines
 .scope fe3
-	bank = __final_bank
 	call = __final_call
 	copy = __final_memcpy
 	init = __final_init
