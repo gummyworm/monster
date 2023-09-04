@@ -759,7 +759,7 @@ main:
 	beq @fmt
 	cmp #ASM_OPCODE
 	bne @nextline	; no formatting
-@fmt:	ldx #$02
+@fmt:	ldx #$00
 	stx indent	; 2 space indent
 	jsr fmt::line
 

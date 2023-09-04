@@ -54,8 +54,8 @@ MAX_OPERANDS=$10/2
 @lparen:
 	cmp #')'
 	bne @checkop
-	lda #$00
-	sta @may_be_unary
+	ldx #$00
+	stx @may_be_unary
 
 @paren_eval:
 	ldx @num_operators
@@ -122,6 +122,8 @@ MAX_OPERANDS=$10/2
 
 @err:
 	; check if this is parentheses (could be indirect addressing)
+	ldy #$00
+	lda (zp::line),y
 	cmp #')'
 	beq @done
 	RETURN_ERR ERR_LABEL_UNDEFINED
@@ -216,7 +218,8 @@ MAX_OPERANDS=$10/2
 
 ;------------------
 ; returns the evaluation of the operator in .A on the operands @val1 and @val2
-@eval:  jsr @popval
+@eval:
+	jsr @popval
 	stxy @val1
 	jsr @popval
 	stxy @val2

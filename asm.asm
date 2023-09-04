@@ -527,7 +527,9 @@ __asm_tokenize:
 
 @noerr: ;------------------
 ; store debug info if enabled
-@dbg:	lda zp::gendebuginfo
+@dbg:	lda state::verify
+	bne @updatevpc
+	lda zp::gendebuginfo
 	beq @updatevpc
 	ldxy zp::virtualpc	; current PC (address)
 	stxy zp::tmp0
