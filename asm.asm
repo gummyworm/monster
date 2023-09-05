@@ -1274,7 +1274,7 @@ bbb10_modes:
 .proc defineorg
 	jsr process_ws
 	ldxy zp::line
-	jsr expr::getval
+	jsr expr::eval
 	bcc :+
 	rts		; error
 :	stxy zp::asmresult
@@ -1307,7 +1307,7 @@ bbb10_modes:
 .proc define_psuedo_org
 	jsr process_ws
 	ldxy zp::line
-	jsr expr::getval
+	jsr expr::eval
 	bcc :+
 	rts		; error
 :	stxy zp::virtualpc
@@ -1325,14 +1325,13 @@ bbb10_modes:
 	pha
 	jsr processstring	; move past label name
 	jsr process_ws		; eat whitespace
-	jsr expr::getval	; get constant value
+	jsr expr::eval		; get constant value
 	bcc @ok
 	pla
 	pla
 @err:
 	RETURN_ERR ERR_SYNTAX_ERROR
-@ok:
-	stx zp::label_value
+@ok:	stx zp::label_value
 	sty zp::label_value+1
 	pla
 	tay
