@@ -46,6 +46,9 @@ segstart = zp::debug+9
 segstop = zp::debug+$b
 break_after_sr = zp::debug+$d	; if !0, NEXT_INSTRUCTION will skip subroutines
 
+; backup of the user program's zeropage
+user_zp=mem::progsave+$10
+
 .export __debug_src_line
 __debug_src_line = srcline ; the line # stored by dbg::storeline
 .export __debug_file
@@ -61,6 +64,13 @@ reg_p:  .byte 0
 reg_sp: .byte 0
 pc:     .word 0
 
+; backup of the memory value being affected by the current instruction
+; if it is destructive
+mem_save: .byte 0	; byte that was clobbered
+mem_saveaddr: .word 0	; addrses of affected byte
+
+;******************************************************************************
+; Debug symbol variables
 ; number of files that we have debug info for. The ID of a file is its index
 .export numfiles
 numfiles: .byte 0
@@ -1029,7 +1039,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; saves memory clobbered by the debugger (screen, ZP, etc.)
 .proc save_prog_state
 @vicsave=mem::progsave
-@savezp=mem::progsave+$10
 @internalmem=mem::progsave+$110
 @colorsave=mem::progsave+$210
 	ldx #$10
@@ -1041,7 +1050,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 @save_zp:
 	lda $00,x
-	sta @savezp,x
+	sta user_zp,x
 	dex
 	bne @save_zp
 
@@ -1195,11 +1204,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;******************************************************************************
 @commands:
+	.byte $5f	; <- (quit)
 	.byte $7a	; 'z'
 	.byte $73	; 's'
 	.byte $67	; 'g'
 @num_commands=*-@commands
 @command_vectors:
+	.word quit
 	.word step
 	.word step_over
 	.word go
@@ -1244,7 +1255,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; restores the saved program state
 .proc restore_progstate
 @vicsave=mem::progsave
-@savezp=mem::progsave+$10
 @internalmem=mem::progsave+$110
 @colorsave=mem::progsave+$210
 	ldx #$10
@@ -1254,7 +1264,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	dex
 	bne @restorevic
 @restore_zp:
-	lda @savezp
+	lda user_zp,x
 	sta $00,x
 	dex
 	bne @restore_zp
@@ -1289,11 +1299,21 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
+; QUIT
+; Exits the debugger
+.proc quit
+	pla	; eat command loop return address
+	pla
+	rts
+.endproc
+
+;******************************************************************************
 ; STEP
 ; Runs the next instruction from the .PC and returns to the debug prompt.
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
 .proc step
+@addr=zp::tmp0
 	; delete the last STEP breakpoint
 	jsr uninstall_breakpoints
 	jsr remove_breakpoint
@@ -1305,7 +1325,21 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bcc @ok
 	rts		; return error
 
-@ok:	ldxy pc
+@ok:	pha
+	jsr is_destructive
+	bcs @setbrk
+
+@savemem:
+	stxy mem_saveaddr
+	ldxy mem_saveaddr
+	stxy @addr
+	ldy #$00
+	lda (@addr),y
+	sta mem_save
+
+@setbrk:
+	pla
+	ldxy pc
 	jsr next_instruction	  ; get the address of the next instruction
 	jsr __debug_setbreakpoint ; add a breakpoint at the next instruction
 	jsr install_breakpoints	  ; update breakpoints with our new one
@@ -1490,6 +1524,107 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .byte $40	; overflow
 .byte $01	; carry
 .byte $02	; zero
+.endproc
+
+;******************************************************************************
+; IS_DESTRUCTIVE
+; Checks if the given instruction is destructive (writes to memory)
+; If it does, returns the address that the instruction writes to
+; IN:
+;  - .XY: address of the binary instruction
+;  - .A: the size of the instruction
+; OUT:
+;  - .C: clear if the instruction is desctructive
+;  - .XY: the target of the instruction (if it is destructive)
+.proc is_destructive
+@instruction=zp::tmp0
+@opsz=zp::tmp1
+@target=zp::tmp2
+	stxy @instruction
+	sta @opsz
+
+	ldy #$02
+
+; set MSB to 0 if operand size < 3 (instruction size is 1-2 bytes)
+	ldx #$00
+	cmp #$03
+	bne :+
+	lda (@instruction),y
+	tax
+:	stx @target+1
+
+	dey
+	lda (@instruction),y
+	sta @target
+	dey
+	lda (@instruction),y
+
+	ldx #num_destructive_ops-1
+@find:	cmp destructive_ops,x
+	beq @found
+	dex
+	bpl @find
+	sec		; opcode is not destructive
+	rts
+
+; the opcode is destructive; determine which address if affects
+@found:
+	cpx #destructive_rel_x
+	bcc @check_rel_y
+; add the value of .X to get the target address
+@rel_x:
+	lda reg_x
+	clc
+	adc @target
+	sta @target
+	bcc :+
+	inc @target+1
+:	jmp @done
+
+; add the value of .Y to get the target address
+@check_rel_y:
+	cpx #destructive_rel_y
+	bcc @check_rel_y_ind
+@rel_y:
+	lda @target
+	lda reg_y
+	clc
+	adc @target
+	sta @target
+	bcc :+
+	inc @target+1
+:	jmp @done
+
+; use the value at the target ZP adddress + .Y to get the target address
+@check_rel_y_ind:
+	cpx #destructive_rel_y_ind
+	bne @check_rel_x_ind
+@rel_y_ind:
+	; get the value of the ZP location in the program's ZP
+	ldy @target
+	lda user_zp,y
+	sta @target
+	lda user_zp+1,y
+	sta @target+1
+
+	; add the .Y register value to the address from the ZP
+	ldy reg_y
+	adc @target
+	sta @target
+	bcc :+
+	inc @target+1
+:	jmp @done
+
+@check_rel_x_ind:
+	cpx #destructive_rel_x_ind
+	bne @done
+@rel_x_ind:
+	; TODO:
+
+; the operand value is the target address
+@done:
+	ldxy @target
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -1714,3 +1849,58 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;******************************************************************************
 ; End the .DEBUG segment
 .CODE
+
+;******************************************************************************
+.DATA
+;******************************************************************************
+; DESTRUCTIVE_OPS
+; This table contains all opcodes that may alter memory.
+; When stepping through code, the targets of these must be saved/restored
+; before and after executing them.
+destructive_ops:
+	.byte $84	; STY zpg
+	.byte $85	; STA zpg
+	.byte $06	; ASL zpg
+	.byte $26	; ROL zpg
+	.byte $46	; LSR zpg
+	.byte $66	; ROR zpg
+	.byte $86	; STX zpg
+	.byte $c6	; DEC zpg
+	.byte $e6	; INC zpg
+	.byte $8c	; STY abs
+	.byte $8d	; STA abs
+	.byte $0e	; ASL abs
+	.byte $2e	; ROL abs
+	.byte $4e	; LSR abs
+	.byte $6e	; ROR abs
+	.byte $8e	; STX abs
+	.byte $ce	; DEC abs
+	.byte $ee	; INC abs
+
+destructive_rel_x_ind=*-destructive_ops
+	.byte $81	; STA ind,x
+
+destructive_rel_y_ind =*-destructive_ops
+	.byte $91	; STA ind,y
+
+destructive_rel_y=*-destructive_ops
+	.byte $96	; STX zpg,y
+	.byte $99	; STA abs,y
+
+destructive_rel_x=*-destructive_ops
+	.byte $94	; STY zpg,x
+	.byte $95	; STA zpg,x
+	.byte $16	; ASL zpg,x
+	.byte $36	; ROL zpg,x
+	.byte $56	; LSR zpg,x
+	.byte $76	; ROR zpg,x
+	.byte $f6	; INC zpg,x
+	.byte $d6	; DEC zpg,x
+	.byte $9d	; STA abs,x
+	.byte $1e	; ASL abs,x
+	.byte $3e	; ROL abs,x
+	.byte $5e	; LSR abs,x
+	.byte $7e	; ROR abs,x
+	.byte $de	; DEC abs,x
+	.byte $fe	; INC abs,x
+num_destructive_ops=*-destructive_ops

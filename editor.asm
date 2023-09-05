@@ -147,7 +147,9 @@ main:
 	rts		; address not found
 :	lda #STATUS_ROW-3
 	sta height
-	jmp dbg::start	; start debugging at address in .XY
+	jsr dbg::start	; start debugging at address in .XY
+	jsr __edit_init	; re-init the editor
+	jmp refresh
 .endproc
 
 ;******************************************************************************
