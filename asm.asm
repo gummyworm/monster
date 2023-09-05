@@ -1097,7 +1097,7 @@ bbb10_modes:
 .proc definebyte
 	jsr process_ws
 	ldxy zp::line
-	jsr expr::getval
+	jsr expr::eval
 	bcs @text
 	cmp #$01
 	beq @ok
@@ -1164,7 +1164,7 @@ bbb10_modes:
 .proc defineword
 	jsr process_ws
 	ldxy zp::line
-	jsr expr::getval
+	jsr expr::eval
 	bcs @err
 	; store the extracted value
 	tya
@@ -1449,6 +1449,7 @@ bbb10_modes:
 .proc create_macro
 	lda state::verify
 	beq :+
+	jsr ctx::pop
 	RETURN_OK	; verifying, don't create macro
 :	ldxy #asmbuffer
 	jsr ctx::write	; copy .ENDMAC to the context
@@ -2060,7 +2061,8 @@ bbb10_modes:
 	bne @done
 	ldxy zp::virtualpc	; address of segment
 	jmp dbg::startseg_addr	; set segment
-@done:	RETURN_OK
+@done:	lda #$00
+	RETURN_OK
 .endproc
 
 ;******************************************************************************

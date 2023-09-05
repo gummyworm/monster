@@ -2,6 +2,7 @@
 .include "bitmap.inc"
 .include "codes.inc"
 .include "config.inc"
+.include "ctx.inc"
 .include "cursor.inc"
 .include "debug.inc"
 .include "errors.inc"
@@ -203,6 +204,7 @@ main:
 :	jsr src::rewind
 	jsr src::next
 	jsr asm::resetpc
+	jsr ctx::init
 	lda #$00
 	sta state::verify	; disable verify - actually assemble the code
 

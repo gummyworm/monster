@@ -69,7 +69,7 @@ CTX_LINES_START = 11
 .proc __ctx_push
 	lda activectx
 	beq @push
-	cmp #MAX_CONTEXTS
+	cmp #MAX_CONTEXTS+1
 	bcs @err
 
 	; save the active context's state

@@ -151,7 +151,6 @@ macros: .res 512
 ; IN:
 ;  - zp::mac0-zp::mac4: the macro parameters
 ;  - .A: the id of the macro
-;  - .XY: pointer to the name of the macro (terminated by ' ' or 0)
 .export __mac_asm
 .proc __mac_asm
 @params=zp::macros
@@ -228,6 +227,8 @@ macros: .res 512
 	pha
 
 	jsr asm::tokenize
+	lda #$00
+	adc #$00
 	sta @err
 
 	; restore state
@@ -265,7 +266,6 @@ macros: .res 512
 	bne @cleanuploop
 
 @done:	lsr @err	; set .C if error
-	lda @err
 	rts
 .endproc
 
