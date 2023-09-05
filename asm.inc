@@ -1,4 +1,5 @@
 .import __asm_disassemble
+.import __asm_include
 .import __asm_origin
 .import __asm_tokenize
 .import __asm_tokenize_pass
@@ -9,6 +10,7 @@
 
 .scope asm
 	disassemble = __asm_disassemble
+	include = __asm_include
 	; assembles the line of code in (>Y/<X)
 	origin = __asm_origin
 	tokenize = __asm_tokenize

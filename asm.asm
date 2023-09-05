@@ -1219,6 +1219,8 @@ bbb10_modes:
 ;  Gets the number of lines/segments in the file
 ; Pass 2:
 ;  Stores the corresponding lines for addresses of assembled code
+.export __asm_include
+__asm_include:
 .proc includefile
 @filename=$100
 @numlines=zp::tmp4

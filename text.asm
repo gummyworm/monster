@@ -15,6 +15,7 @@
 
 ESCAPE_STRING = $ff
 ESCAPE_VALUE = $fe
+ESCAPE_VALUE_DEC = $fd
 ESCAPE_RVS_ON = $01
 ESCAPE_RVS_OFF = $02
 STATUS_LINE = 23
@@ -169,7 +170,31 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 :	cmp #ESCAPE_STRING
 	beq @string
 	cmp #ESCAPE_VALUE
+	beq @value
+	cmp #ESCAPE_VALUE_DEC
         bne @ch
+
+;substitute escape character with value from stack formatted in base-10
+@value_dec:
+	stx @savex
+	sty @savey
+
+	pla
+	tay
+	pla
+	tax
+	jsr util::todec
+	ldy #0
+	ldx @savex
+:	lda mem::spare,y
+	sta @buff,x
+	inx
+	iny
+	cpy #5
+	bne :-
+
+	ldy @savey
+	jmp @cont
 
 ;substitute escape character with value from stack
 @value:
@@ -192,6 +217,7 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 	tya
 	sta @buff+2,x
 
+@valuedone:
 	inx
 	inx
 	inx

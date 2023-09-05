@@ -228,7 +228,9 @@
 ; IN:
 ;  - .XY: the value to get the decimal representation of
 ; OUT:
-;  - mem::spare: contains the decimal representation fo the value
+;  - mem::spare: contains the decimal representation fo the value.
+;   The returned string is 5 bytes in length (not 0 terminated).
+;   Leading zeros are present if the value is < 10000
 .export __util_todec
 .proc __util_todec
 result=mem::spare

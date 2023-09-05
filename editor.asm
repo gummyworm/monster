@@ -159,6 +159,33 @@ main:
 .endproc
 
 ;******************************************************************************
+.proc assemble_file
+@file=zp::editor+2	; pointer to the filename of the file to assemble
+	stxy @file
+	stxy zp::line
+
+; do the first pass of assembly
+@pass1:	lda #$01
+	sta state::verify
+	jsr asm::include	; assemble the file (pass 1)
+
+; reset state after 1st pass
+	dec state::verify	; disable verify (assemble the program)
+	jsr asm::resetpc	; reset PC
+	jsr ctx::init		; reinitialize the context
+
+; store the debug segment info (if debug info is enabled)
+	ldx zp::gendebuginfo
+	beq @pass2
+	jsr dbg::setup
+
+; do the second assembly pass
+@pass2:	ldxy @file
+	stxy zp::line
+	jmp asm::include	; assemble the file (pass 2)
+.endproc
+
+;******************************************************************************
 ; COMMAND_ASM
 ; Assembles the entire source into mem::program
 .export command_asm
@@ -178,6 +205,7 @@ main:
 	ldxy #filename
 	jsr dbg::setfile
 
+;--------------------------------------
 ; Pass 1
 ; do a pass on the source to simply get labels and basic debug info
 ; (# of lines and # of segments/file)
@@ -195,6 +223,7 @@ main:
 	jsr src::end
 	bne @pass1loop
 
+;--------------------------------------
 ; Pass 2
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
@@ -218,16 +247,29 @@ main:
 	jsr asm::tokenize_pass2
 	bcc @next
 
-@err:
-	jsr dbg::getline
-	jsr reporterr
-	jsr src::popp
-	jsr src::goto	; goto the line that failed
-	jsr dbg::getline
-	jmp gotoline
+@err:	jsr display_result	; display the error
+	jsr src::popp		; clear the src position stack
+	jsr dbg::getline	; get the line that failed assembly
+	jmp gotoline		; goto that line
 
-@next:	jsr src::end
-	bne @pass2loop
+@next:	jsr src::end		; check if we're at the end of the source
+	bne @pass2loop		; repeat if not
+	clc
+	; fall through to DISPLAY_RESULT
+.endproc
+
+;******************************************************************************
+; DISPLAY_RESULT
+; Displays the result of the assembly. Prints an error if one occurred or
+; the size of the assembled program if not
+; IN:
+;  - .C: set if there was an assembly error
+;  - .A: the error code (if error occurred)
+;  - zp::asmresult: pointer to the end of the program
+.proc display_result
+	bcc @printresult
+@err:	jsr dbg::getline
+	jmp reporterr
 
 @printresult:
 	lda #$00
@@ -428,6 +470,7 @@ main:
 .byte 'o'
 .byte 's'
 .byte 'x'
+.byte 'a'
 @num_commands=*-@command_codes
 @command_table:
 .word command_go
@@ -435,6 +478,7 @@ main:
 .word load
 .word save
 .word scratch
+.word assemble_file
 .endproc
 
 ;******************************************************************************
@@ -449,7 +493,11 @@ main:
 	bpl @l0
 
 	; handle the "docommand" functions
-	cmp #$a5	; C=<G> (Go)
+	cmp #$b0	; C=<A> (Assemble file)
+	bne :+
+	lda #'a'
+	bne @do
+:	cmp #$a5	; C=<G> (Go)
 	bne :+
 	lda #'g'
 	bne @do

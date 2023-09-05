@@ -1190,7 +1190,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldx reg_x
 	ldy reg_y
 	rti		; return from the BRK
-@brk_message_line: .byte "brk in line $",$fe,0 ; when line number is resolved
+@brk_message_line: .byte "brk in line ",$fd,0 ; when line number is resolved
 @brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
 
 ;******************************************************************************
