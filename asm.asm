@@ -1656,7 +1656,8 @@ __asm_include:
 ; check for branches/exceptions
 @checkbranch:
 	lda @op
-	and #$0f
+	and #$1f
+	cmp #$10
 	bne @not_branch
 @branch:
 	; get bits 5, 6 and 7 to determine branch type

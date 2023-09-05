@@ -84,17 +84,19 @@ start:
 	lda #$80
 	sta $9c02	; enable 35K of RAM for final expansion
 
-        jmp enter
+	jmp enter
+
 @loading: .byte "initializing..."
 @loadinglen=*-@loading
 
+@test:
 ; disassembly test TODO: delete
 	ldxy #$100
 	stxy zp::tmp0
 	ldxy #test
 	jsr asm::disassemble
 	jmp *
-test:	jsr $e5b5
+test:	ldy #$00
 
 
 ;******************************************************************************

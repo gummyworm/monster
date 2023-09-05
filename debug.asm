@@ -1302,7 +1302,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; QUIT
 ; Exits the debugger
 .proc quit
-	pla	; eat command loop return address
+	pla	; eat interrupt return address
 	pla
 	rts
 .endproc
