@@ -6,6 +6,7 @@
 .include "fastcopy.inc"
 .include "finalex.inc"
 .include "labels.inc"
+.include "irq.inc"
 .include "key.inc"
 .include "layout.inc"
 .include "macros.inc"
@@ -565,6 +566,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #>debuginfo
 	sta @seg+1
 
+	; install dummy IRQ
+	ldxy #$eb15	; ack interrupts and RTI
+	stxy $0314
+
 @l0:	ldy #SEG_START_ADDR
 
 	ldxy @seg
@@ -939,26 +944,27 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ; install BRK handler
 @install_isr:
-	lda #<debug_brk
-	sta $0316
-	lda #>debug_brk
-	sta $0316+1
-
+	ldxy #debug_brk
+	jsr irq::break
 	jsr save_debug_state ; save the debug state
 
 ; execute the user program until BRK
-@runpc: jmp (pc)
+@runpc:
+	CALL FINAL_BANK_USER, pc
+	rts
 .endproc
 
 ;******************************************************************************
 ; INSTALL_BREAKPOINTS
 .proc install_breakpoints
 @brkaddr=zp::tmp0
+@cnt=zp::tmp2
 	ldx numbreakpoints
 	beq @done
 	dex
+	stx @cnt
 @installbrks:
-	txa
+	lda @cnt
 	asl
 	tay
 	lda breakpoints,y
@@ -966,12 +972,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda breakpoints+1,y
 	sta @brkaddr+1
 
-	ldy #$00
-	lda (@brkaddr),y
+	bank_read_byte #FINAL_BANK_USER, @brkaddr
+
+	ldx @cnt
 	sta breaksave,x		; save the instruction under the new BRK
 	tya			; BRK
-	sta (@brkaddr),y
-	dex
+
+	bank_store_byte #FINAL_BANK_USER, @brkaddr
+
+	dec @cnt
 	bpl @installbrks
 @done:	rts
 .endproc
@@ -981,9 +990,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Restores the source code by removing all breakpoints installed by the debugger
 .proc uninstall_breakpoints
 @addr=zp::tmp0
+@cnt=zp::tmp2
 	ldx numbreakpoints
 	beq @done
 	dex
+	stx @cnt
 @uninstall:
 	txa
 	asl
@@ -993,10 +1004,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda breakpoints+1,y
 	sta @addr+1
 
-	ldy #$00
+	ldx @cnt
 	lda breaksave,x
-	sta (@addr),y
-	dex
+	bank_store_byte #FINAL_BANK_USER, @addr
+	dec @cnt
 	bpl @uninstall
 @done:	rts
 .endproc
@@ -1030,7 +1041,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @savecolor
 
 	; backup the screen
-	CALL FINAL_BANK_FASTCOPY, fcpy::save
+	CALL FINAL_BANK_FASTCOPY, #fcpy::save
 	rts
 .endproc
 
@@ -1070,7 +1081,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @savecolor
 
 	; backup the user $1000 data
-	CALL FINAL_BANK_FASTCOPY2, fcpy::save
+	CALL FINAL_BANK_FASTCOPY2, #fcpy::save
 	rts
 .endproc
 
@@ -1195,10 +1206,16 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda reg_p	; restore processor status
 	pha
 
+	lda #FINAL_BANK_USER
+	sta zp::bankval
+
 	lda reg_a
 	ldx reg_x
 	ldy reg_y
-	rti		; return from the BRK
+
+	; return from the BRK
+	jmp fe3::bank_rti
+
 @brk_message_line: .byte "brk in line ",$fd,0 ; when line number is resolved
 @brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
 
@@ -1246,7 +1263,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; reinit the bitmap
 	jsr bm::init
 	; restore the screen
-	CALL FINAL_BANK_FASTCOPY, fcpy::restore
+	CALL FINAL_BANK_FASTCOPY, #fcpy::restore
 	rts
 .endproc
 
@@ -1285,7 +1302,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @restorecolor
 
 	; restore the user $1000 data
-	CALL FINAL_BANK_FASTCOPY2, fcpy::restore
+	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
 	rts
 .endproc
 
@@ -1383,11 +1400,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @sz=zp::tmp2
 @y=zp::tmp3
 @msb=zp::tmp4
+@opcode=zp::tmp5
+@operand=zp::tmp6
 	sta @sz
 	stxy @op
-	ldy #$00
 
-	lda (@op),y	; get the opcode
+	; get the opcode
+	bank_read_byte #FINAL_BANK_USER, @op
+	sta @opcode
+	bank_read_byte_rel #FINAL_BANK_USER, @op, #1
+	sta @operand
+	bank_read_byte_rel #FINAL_BANK_USER, @op, #2
+	sta @operand+1
+
+	lda @opcode
 	cmp #$20	; JSR?
 	bne @notjsr
 	jsr @jmpjsr
@@ -1404,12 +1430,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ; for JMP and JSR just set PC to the operand
 @jmpjsr:
-	ldy #$01
-	lda (@op),y
-	tax
-	ldy #$02
-	lda (@op),y
-	tay
+	ldxy @operand
 	rts
 
 @notjmp:
@@ -1459,7 +1480,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; by bits 6 & 7 (11) is clear- the 0 in bit 5 in this example.
 @branch:
 	; get top 2 bits (xx) of branch to get type of branch
-	lda (@op),y
+	lda @opcode
 	asl
 	rol
 	rol
@@ -1467,7 +1488,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	tax
 
 	; get the y (bit 5) in the same bit position as the flag we're testing
-	lda (@op),y
+	lda @opcode
 	and #$20
 	beq :+			; if bit y is 0, use $00
 	lda @branch_masks,x	; if bit y is 1, use the mask
@@ -1491,8 +1512,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ; branch is taken, add the operand (offset) + 2
 @takebranch:
-	ldy #$01	; operand offset
-	lda (@op),y
+	lda @operand
 	bpl :+
 	lda #$ff
 	skw
@@ -1501,7 +1521,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	lda pc
 	clc
-	adc (@op),y
+	adc @operand
 	tax
 
 	iny

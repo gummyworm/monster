@@ -17,6 +17,8 @@
 .import __final_load_byte_off
 .import __final_memcpy
 .import __final_init
+.import __final_brk
+.import __final_rti
 
 USE_FINAL = 1	; enable final expansion
 
@@ -24,8 +26,9 @@ USE_FINAL = 1	; enable final expansion
 ; BANK LAYOUT
 ; These definitions describe which banks store the code/data for their
 ; corresponding item.
-FINAL_BANK_MAIN = 1	; where the user program is stored
+FINAL_BANK_MAIN = 1	; where the editor/assembler/etc code is stored
 FINAL_BANK_DEBUG = 2	; where debug symbols are stored
+FINAL_BANK_USER = 3	; where the user's program is stored
 
 FINAL_BANK_SOURCE0 = 3	; source bank
 FINAL_BANK_SOURCE1 = 4	; source bank
@@ -71,6 +74,8 @@ FINAL_BANK_FASTCOPY = $f
 	store = __final_store_byte
 	load = __final_load_byte
 	load_off = __final_load_byte_off
+	break = __final_brk
+	bank_rti = __final_rti
 .endscope
 
 ;--------------------------------------
@@ -90,6 +95,15 @@ FINAL_BANK_FASTCOPY = $f
 	lda bank
 	jsr __final_load_byte
 .endmacro
+
+.macro bank_read_byte_rel bank,addr,offset
+	lda offset
+	sta zp::bankval
+	ldxy addr
+	lda bank
+	jsr __final_load_byte_off
+.endmacro
+
 
 ; pushes the current RAM bank 
 .macro PUSH_BANK
@@ -116,6 +130,6 @@ FINAL_BANK_FASTCOPY = $f
 ; 
 .macro CALL bank, proc
 	lda #bank
-	ldxy #proc
+	ldxy proc
 	jsr __final_call
 .endmacro

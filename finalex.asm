@@ -4,6 +4,7 @@
 .import __BANKCODE_SIZE__
 .import __BANKCODE_LOAD__
 
+
 ;******************************************************************************
 ; BANK CODE
 ; The following procedures have stable positions in every bank.
@@ -137,6 +138,34 @@ bankcode:
 	lda @oldbank
 	sta $9c02	; restore bank
 	rts
+.endproc
+
+;******************************************************************************
+; BRK
+; Handles the BRK interrupt by returning control to the main bank
+; and continuing execution there.
+.export __final_brk
+.proc __final_brk
+	pha
+	lda #$80
+	sta $9c02
+	pla
+	jmp ($0334)		; execute the MAIN BRK hanlder
+.endproc
+
+;******************************************************************************
+; BANK_RTI
+; Returns to the given bank and then RTI's
+; IN:
+;  - zp::bankval: the bank to return to
+.export __final_rti
+.proc __final_rti
+	pha
+	lda zp::bankval
+	ora #$a0
+	sta $9c02
+	pla
+	rti
 .endproc
 
 .export bankcode_size

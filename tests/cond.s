@@ -1,4 +1,4 @@
-.org $7600
+.org $7700
 .IFDEF NTSC
 	.eq val 100
 .ELSE

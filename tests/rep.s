@@ -1,4 +1,4 @@
-.org $7600
+.org $7700
 .mac aslrol a
 	asl
 	rol a

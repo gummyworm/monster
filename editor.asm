@@ -143,7 +143,6 @@ main:
 .proc command_debug
 	jsr label_addr_or_org
 	bcc :+
-	inc $900f
 	rts		; address not found
 :	lda #STATUS_ROW-3
 	sta height
@@ -1177,7 +1176,6 @@ main:
 	sty height
 	ldx #40
 	jsr cur::setmax
-	inc $900f
 	rts
 .endproc
 

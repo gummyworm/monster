@@ -1,4 +1,4 @@
-.org $7600
+.org $7700
 main:
 	jsr $e5b5	; INIT VIC
 	jsr $e55f	; CLRSCR

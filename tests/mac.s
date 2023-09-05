@@ -1,4 +1,4 @@
-.org $7600
+.org $7700
 .mac ldxy val
 	ldx #<val
 	ldy #>val

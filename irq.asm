@@ -1,3 +1,4 @@
+.include "finalex.inc"
 .include "macros.inc"
 
 .CODE
@@ -14,8 +15,17 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
 ;******************************************************************************
 .export __irq_brk
 .proc __irq_brk
+.ifdef USE_FINAL
+	stx $0334
+	sty $0335
+	lda #<fe3::break
+	sta $0316
+	lda #>fe3::break
+	sta $0317
+.else
 	stx $0316
-	sty $0315
+	sty $0317
+.endif
 	rts
 .endproc
 

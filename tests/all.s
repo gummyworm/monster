@@ -1,4 +1,4 @@
-.org $7600
+.org $7700
 c:  adc #$00
     adc $10
     adc $20,x

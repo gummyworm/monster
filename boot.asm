@@ -95,8 +95,7 @@ start:
 	stxy zp::tmp0
 	ldxy #test
 	jsr asm::disassemble
-	jmp *
-test:	ldy #$00
+test:	jsr $e5b5
 
 
 ;******************************************************************************

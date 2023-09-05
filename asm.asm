@@ -4,6 +4,7 @@
 .include "errors.inc"
 .include "expr.inc"
 .include "file.inc"
+.include "finalex.inc"
 .include "layout.inc"
 .include "labels.inc"
 .include "macro.inc"
@@ -463,7 +464,7 @@ __asm_tokenize:
 	tax
 	; JMP (xxxx) has a different opcode than JMP
 	ldy #$00
-	lda (zp::asmresult),y
+	jsr readb
 	cmp #$40
 	bne @getbbb
 	lda cc
@@ -493,7 +494,7 @@ __asm_tokenize:
 	bne @validate_cc
 
 	; check if opcode was a JSR
-	lda (zp::asmresult),y
+	jsr readb
 	cmp #$20
 	bne :+
 	cpx #ABS
@@ -509,12 +510,12 @@ __asm_tokenize:
 	bne @err
 	; convert operand to relative address
 	ldy #$01
-	lda (zp::asmresult),y
+	jsr readb
 	sec
 	sbc zp::asmresult
 	iny
 	tax
-	lda (zp::asmresult),y
+	jsr readb
 	sbc zp::asmresult+1
 	beq :+
 	cmp #$ff
@@ -577,6 +578,7 @@ __asm_tokenize:
 ;------------------
 ; check that the BBB and CC combination we have is valid
 @validate_cc:
+@optmp=zp::tmp0
 	ldy cc
 	bne :+
 	lda bbb00,x
@@ -593,7 +595,9 @@ __asm_tokenize:
 	asl
 	ora cc
 	ldy #$00
-	ora (zp::asmresult),y
+	sta @optmp
+	jsr readb
+	ora @optmp
 
 ; finally, check for invalid instructions ("gaps" in the ISA)
 	ldx #@num_illegals-1
@@ -1598,6 +1602,14 @@ __asm_include:
 @aaa=zp::tmp9
 @opaddr=zp::tmpa
 	stxy @opaddr
+.ifdef USE_FINAL
+	bank_read_byte #FINAL_BANK_USER, @opaddr
+	sta @op
+	bank_read_byte_rel #FINAL_BANK_USER, @opaddr, #1
+	sta @operand
+	bank_read_byte_rel #FINAL_BANK_USER, @opaddr, #2
+	sta @operand+1
+.else
 	ldy #$00
 	lda (@opaddr),y
 	sta @op
@@ -1607,6 +1619,7 @@ __asm_include:
 	iny
 	lda (@opaddr),y
 	sta @operand+1
+.endif
 
 ; check for single byte opcodes
 	lda @op
@@ -2133,6 +2146,54 @@ __asm_include:
 	RETURN_ERR ERR_NO_ORIGIN
 
 :	pla
+.ifdef USE_FINAL
+	sta zp::bankval
+	txa
+	pha
+	tya
+	pha
+	clc
+	adc zp::asmresult
+	tax
+	lda zp::asmresult+1
+	adc #$00
+	tay
+	lda #FINAL_BANK_USER
+	jsr fe3::store
+	pla
+	tay
+	pla
+	tax
+	lda zp::bankval
+.else
 	sta (zp::asmresult),y
+.endif
 	RETURN_OK
+.endproc
+
+;******************************************************************************
+; READB
+; Reads a byte from (zp::asmresult),y
+; OUT:
+;  - .A: contains the byte from (zp::asmresult),y
+.proc readb
+.ifdef USE_FINAL
+	txa
+	pha
+	tya
+	pha
+	sty zp::bankval	 ; offset to read from
+	lda #FINAL_BANK_USER
+	ldxy zp::asmresult
+	jsr fe3::load_off
+	sta zp::bankval
+	pla
+	tay
+	pla
+	tax
+	lda zp::bankval
+.else
+	lda (zp::asmresult),y
+.endif
+	rts
 .endproc
