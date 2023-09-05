@@ -145,7 +145,9 @@ main:
 	bcc :+
 	inc $900f
 	rts		; address not found
-:	jmp dbg::start	; start debugging at address in .XY
+:	lda #STATUS_ROW-3
+	sta height
+	jmp dbg::start	; start debugging at address in .XY
 .endproc
 
 ;******************************************************************************
@@ -547,8 +549,7 @@ main:
 	jsr drawline
 	plp
 	bcc @l0
-
-@done:	jmp src::prev	 ; go back to last char
+@done:	rts
 .endproc
 
 ;******************************************************************************
