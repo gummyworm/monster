@@ -144,6 +144,8 @@ num_opcode_singles=*-opcode_singles
 
 ;******************************************************************************
 ; DIRECTIVES
+DIRECTIVE_ELSE = 9
+DIRECTIVE_ENDIF = 10
 directives:
 .byte "db",0
 .byte "eq",0
@@ -217,12 +219,24 @@ __asm_tokenize:
 
 ; check if we're in an .IF (FALSE) and if we are, return
 @checkifs:
-	ldx #$ff
+	lda ifstacksp
+	beq @directive	; no active .IF
+	ldx #$00
 :	inx
+	lda ifstack,x
+	beq @if_false
 	cpx ifstacksp
 	beq @directive
-	lda ifstack,x
 	bne :-
+
+@if_false:
+	; asm is off, check for ENDIF or ELSE
+	jsr getdirective
+	bcs @noasm
+	cmp #DIRECTIVE_ENDIF
+	beq @exec_directive
+	cmp #DIRECTIVE_ELSE
+	beq @exec_directive
 @noasm:	RETURN_OK
 
 ; 1. check if the line contains a directive
@@ -230,6 +244,7 @@ __asm_tokenize:
 	jsr getdirective
 	bcs @ctx
 
+@exec_directive:
 	lda #ASM_DIRECTIVE
 	sta resulttype
 	jmp handle_directive
@@ -963,10 +978,10 @@ bbb10_modes:
 	lda @cnt
 	asl
 	tax
-	lda directive_vectors+1,x
-	tay
+	ldy directive_vectors+1,x
 	lda directive_vectors,x
 	tax
+	lda @cnt
 	RETURN_OK
 .endproc
 
@@ -1950,9 +1965,9 @@ bbb10_modes:
 
 	; store the TRUE/FALSE value to the if stack
 	txa
+	inc ifstacksp
 	ldx ifstacksp
 	sta ifstack,x
-	inc ifstacksp
 	lda #ASM_DIRECTIVE
 	RETURN_OK
 .endproc
@@ -1999,9 +2014,9 @@ bbb10_modes:
 	lda #$01
 
 :	; store TRUE/FALSE to the if stack
+	inc ifstacksp
 	ldx ifstacksp
 	sta ifstack,x
-	inc ifstacksp
 @done:
 	jsr process_word
 	lda #ASM_DIRECTIVE
