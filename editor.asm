@@ -1029,15 +1029,15 @@ stxy zp::jmpvec
 .endproc
 
 ;******************************************************************************
-; CCUP
-; Handles the up cursor key
+; CCDOWN
+; Handles the down cursor key
 .proc ccdown
 @cnt=zp::tmp6
 @newy=zp::tmp7
 @xend=zp::tmp8
 	jsr src::end
 	bne :+
-	rts
+	rts		; cursor is at end of source file, return
 
 :	lda #$00
 	sta @cnt
@@ -1082,20 +1082,21 @@ stxy zp::jmpvec
 	bne @movex
 
 @movecur:
-	ldx @cnt
-	lda @newy
-	tay
+	lda @cnt
 	pha
-	jsr cur::set
-	pla
-	cmp zp::cury
+	ldy @newy
+	cpy height
 	beq @redraw
+	bcc @redraw	; no need to scroll
 
 	ldx #EDITOR_ROW_START
 	lda height
 	jsr text::scrollup	; cursor wasn't moved, scroll
-
+	ldy height
 @redraw:
+	pla
+	tax
+	jsr cur::set
 	ldxy #mem::linebuffer
 	lda zp::cury
 	jmp text::drawline
