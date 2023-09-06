@@ -78,8 +78,8 @@ height = zp::editor+1	; height of the text-editor (shrinks when displaying
 ; Runs the main loop for the editor
 .export __edit_run
 .proc __edit_run
-	main:
-		lda #$70
+main:
+	lda #$70
 	cmp $9004
 	bne *-3
 
@@ -258,7 +258,10 @@ stxy zp::jmpvec
 @next:	jsr src::end		; check if we're at the end of the source
 	bne @pass2loop		; repeat if not
 	clc
-	; fall through to DISPLAY_RESULT
+	jsr display_result	; dispaly success msg
+	jsr src::popp
+	jsr src::goto
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -298,10 +301,7 @@ stxy zp::jmpvec
 	beq :+
 	ldxy zp::virtualpc
 	jsr dbg::endseg		; end the last segment
-
-:	jsr src::popp
-	jsr src::goto
-	jsr text::clrline
+:	jsr text::clrline
 	RETURN_OK
 
 @success_msg: .byte "done $", $fe, " bytes", 0

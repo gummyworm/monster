@@ -1,3 +1,4 @@
+.include "errors.inc"
 .include "irq.inc"
 .include "zeropage.inc"
 .include "macros.inc"
@@ -12,11 +13,13 @@
 
 GAPSIZE = 20	; size of gap in gap buffer
 
+POS_STACK_SIZE = 32 ; size of source position stack
+
 .segment "SOURCE"
 ;******************************************************************************
 data_start:
 sp: .byte 0
-stack: .res 32
+stack: .res POS_STACK_SIZE
 
 .export src_debug
 src_debug:
@@ -76,7 +79,11 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .export __src_pushp
 .proc __src_pushp
 	lda sp
-	asl
+	cmp #POS_STACK_SIZE-1
+	bcc :+
+	RETURN_ERR ERR_STACK_OVERFLOW
+
+:	asl
 	tax
 	inc sp
 
@@ -84,7 +91,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	sta stack,x
 	lda pre+1
 	sta stack+1,x
-	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -95,9 +102,10 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .export __src_popp
 .proc __src_popp
 	lda sp
-	beq :+
+	bne :+
+	RETURN_ERR ERR_STACK_UNDERFLOW
 
-	dec sp
+:	dec sp
 	lda sp
 	asl
 	tax
@@ -105,7 +113,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	tay
 	lda stack,x
 	tax
-:	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************

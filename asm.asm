@@ -1257,15 +1257,10 @@ __asm_include:
 @readfile:
 	stxy @fname
 	jsr file::open
-	sei
 	bcc :+
 	rts		; return err
 :	pha		; save the id of the file we're working on
 	sta zp::file
-
-	; init error code to success
-	lda #$00
-	sta @err
 
 	; save the current debug-info file
 	lda dbg::file
@@ -1279,14 +1274,13 @@ __asm_include:
 	ldxy @fname
 	jsr dbg::setfile
 	ldxy #$00
-	sta dbg::setline
+	jsr dbg::setline
 
 ; read a line from file
 @doline:
 	ldxy #mem::spare
 	lda zp::file
 	jsr file::getline	; read a line from the file
-	sei
 	bcc @ok
 	jmp @close		; close file and return the error
 
@@ -1298,6 +1292,10 @@ __asm_include:
 	lda zp::file
 	pha
 	jsr __asm_tokenize_pass
+	ldx #$00
+	bcc :+
+	tax
+:	stx @err
 	pla
 	sta zp::file
 	bcs @close
@@ -1306,9 +1304,7 @@ __asm_include:
 	sta dbg::setline
 	jmp @doline		; repeat
 
-@close:	sta @err
-
-	; restore debug line and file info
+@close:	; restore debug line and file info
 	pla
 	sta dbg::srcline
 	pla

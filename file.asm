@@ -312,7 +312,6 @@ FIRST_FILE_ID = 3
 	bne @l0
 
 @done:  lda #$00
-	dey
 	sta (@dst),y	; 0-terminate the string
 	tya		; put # of bytes read in .A
 	RETURN_OK
