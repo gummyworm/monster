@@ -33,8 +33,8 @@ height = zp::editor+1	; height of the text-editor (shrinks when displaying
 ; DRAW_TITLEBAR
 ; Draws a titlebar at the top of the screen
 .IFDEF DRAW_TITLEBAR
-.proc draw_titlebar
-	ldxy #titlebar
+	.proc draw_titlebar
+		ldxy #titlebar
 	lda #$00
 	jsr text::puts
 	lda #$00
@@ -47,8 +47,8 @@ height = zp::editor+1	; height of the text-editor (shrinks when displaying
 ; Initializes the editor state
 .export __edit_init
 .proc __edit_init
-        jsr bm::init
-        jsr bm::clr
+	jsr bm::init
+	jsr bm::clr
 	jsr edit
 
 .IFDEF DRAW_TITLEBAR
@@ -78,10 +78,10 @@ height = zp::editor+1	; height of the text-editor (shrinks when displaying
 ; Runs the main loop for the editor
 .export __edit_run
 .proc __edit_run
-main:
-        lda #$70
-        cmp $9004
-        bne *-3
+	main:
+		lda #$70
+	cmp $9004
+	bne *-3
 
 	jsr key::getch
 	cmp #$00
@@ -104,7 +104,7 @@ main:
 ;         label was given.
 ;  - .C: set on error, clear on success
 .proc label_addr_or_org
-@lbl=zp::tmp0
+	@lbl=zp::tmp0
 	stxy @lbl
 	jsr str::len
 	cmp #$00
@@ -127,7 +127,7 @@ main:
 	jsr label_addr_or_org
 	bcc :+
 	rts
-	stxy zp::jmpvec
+stxy zp::jmpvec
 	lda #$4c	; JMP
 	jsr zp::jmpaddr
 	rts
@@ -163,12 +163,11 @@ main:
 .proc assemble_file
 @file=zp::editor+2	; pointer to the filename of the file to assemble
 	stxy @file
-	stxy zp::line
-
 ; do the first pass of assembly
 @pass1:	lda #$01
 	sta state::verify
 	jsr asm::include	; assemble the file (pass 1)
+	bcs @done		; error, we're done
 
 ; reset state after 1st pass
 	dec state::verify	; disable verify (assemble the program)
@@ -182,8 +181,8 @@ main:
 
 ; do the second assembly pass
 @pass2:	ldxy @file
-	stxy zp::line
-	jmp asm::include	; assemble the file (pass 2)
+	jsr asm::include	; assemble the file (pass 2)
+@done:	jmp display_result
 .endproc
 
 ;******************************************************************************
@@ -246,6 +245,7 @@ main:
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize_pass2
+	jmp *
 	bcc @next
 
 @err:	jsr display_result	; display the error

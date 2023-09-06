@@ -238,7 +238,8 @@ __asm_tokenize:
 	beq @exec_directive
 	cmp #DIRECTIVE_ELSE
 	beq @exec_directive
-@noasm:	RETURN_OK
+@noasm:	jmp *
+	RETURN_OK
 
 ; 1. check if the line contains a directive
 @directive:
@@ -287,7 +288,7 @@ __asm_tokenize:
 	ldy #$00
 	jsr writeb
 	bcc @getopws
-	rts
+	rts		; return err
 
 ; check if the line contains a macro
 @macro:
@@ -478,14 +479,14 @@ __asm_tokenize:
 	lda #$6c
 	jsr writeb
 	bcc @noerr
-	rts
+	rts		; return err
 @jmpabs:
 	cpx #ABS
 	bne @err 	; only ABS supported for JMP XXXX
 	lda #$4c
 	jsr writeb
 	bcc @noerr
-	rts
+	rts		; return err
 
 @getbbb:
 ; get bbb bits based upon the address mode and cc
@@ -530,7 +531,7 @@ __asm_tokenize:
 	dey
 	jsr writeb
 	bcc :+
-	rts
+	rts		; return err
 :	lda #$01
 	sta operandsz
 	jmp @noerr
@@ -607,7 +608,7 @@ __asm_tokenize:
 	bpl :-
 	jsr writeb
 	bcc @noerr
-	rts
+	rts		; return err
 
 @illegal_opcodes:
 .byte %10001001 ; STA #imm
@@ -1223,18 +1224,10 @@ bbb10_modes:
 ;  Gets the number of lines/segments in the file
 ; Pass 2:
 ;  Stores the corresponding lines for addresses of assembled code
-.export __asm_include
-__asm_include:
 .proc includefile
 @filename=$100
-@numlines=zp::tmp4
-@numsegments=zp::tmp6
-@type=zp::tmp7
 	jsr process_ws
 	ldy #$00
-	sty @numlines
-	sty @numlines+1
-	sty @numsegments
 @quote1:
 	lda (zp::line),y
 	cmp #'"'
@@ -1248,22 +1241,29 @@ __asm_include:
 	jsr util::is_whitespace
 	beq @unenquoted
 	cmp #'"'
-	beq @readfile
+	beq __asm_include
 	sta @filename,x
 	incw zp::line
 	inx
 	bne @getfilename
-
-@readfile:
 	lda #$00
 	sta @filename,x
+
+
 	ldxy #@filename
+; entry point for assembling a given file
+.export __asm_include
+__asm_include:
+@fname=zp::tmp4
+@err=zp::tmp0
+@readfile:
+	stxy @fname
 	jsr file::open
 	sta zp::file
 
 	lda dbg::file
 	pha		  ; save the current debug-info file
-	ldxy #@filename
+	ldxy @fname
 	jsr dbg::setfile  ; set the file for debug-info
 
 @doline:
@@ -1278,7 +1278,15 @@ __asm_include:
 	beq @done
 @asm:	ldxy #mem::spare
 	jsr __asm_tokenize_pass
-	jmp @doline
+	bcc @next
+
+@error:	sta @err
+	jsr file::close
+	pla		; clean stack
+	lda @err
+	sec
+	rts
+@next:	jmp @doline
 
 @done:  pla
 	sta dbg::file	   ; restore debug file that we INCluded from

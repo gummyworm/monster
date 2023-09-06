@@ -312,12 +312,12 @@ FIRST_FILE_ID = 3
 	bne @l0
 
 @done:  lda #$00
-	sta (@dst),y
-	tya
-	clc
-	rts
+	sta (@dst),y	; 0-terminate the string
+	tya		; put # of bytes read in .A
+	RETURN_OK
 
-@eof:   and #$20	; EOF?
+@eof:   dey
+	and #$40	; EOF?
 	bne @done	; yes, return okay
 	sec		; error
 	rts
