@@ -192,7 +192,6 @@ stxy zp::jmpvec
 ; Assembles the entire source into mem::program
 .export command_asm
 .proc command_asm
-	jsr clrerror
 	jsr dbg::init
 
 	; save the current source position and rewind it for assembly
@@ -303,8 +302,7 @@ stxy zp::jmpvec
 	beq :+
 	ldxy zp::virtualpc
 	jsr dbg::endseg		; end the last segment
-:	jsr text::clrline
-	RETURN_OK
+:	RETURN_OK
 
 @success_msg: .byte "done $", $fe, " bytes", 0
 .endproc
@@ -874,8 +872,6 @@ stxy zp::jmpvec
 	; if we're at the bottom, scroll whole screen up
 	ldx #EDITOR_ROW_START
 	lda height
-	;sec
-	;sbc #$01
 	jsr text::scrollup
 	ldy height
 	dey

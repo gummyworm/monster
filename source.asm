@@ -556,8 +556,13 @@ __src_atcursor:
 
 	ldxy post
 	cmpw #$00
-	beq @eof
-	stxy @cnt
+	bne :+
+	lda #$00
+	sta mem::linebuffer	; init buffer
+	sec
+	rts
+
+:	stxy @cnt
 	incw @cnt
 
 	ldy #$00
