@@ -398,8 +398,9 @@ MAX_OPERANDS=$10/2
 @decimal:
 	ldxy zp::line
 	jsr atoi	; convert to binary
-	bcs @err
-	adc zp::line
+	bcc :+
+	rts		; return err
+:	adc zp::line
 	sta zp::line
 	bcc :+
 	inc zp::line+1
@@ -469,5 +470,4 @@ MAX_OPERANDS=$10/2
 	RETURN_OK
 
 @err:	RETURN_ERR ERR_OVERSIZED_OPERAND
-	rts
 .endproc

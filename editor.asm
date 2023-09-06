@@ -219,6 +219,8 @@ stxy zp::jmpvec
 	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize_pass1
+	bcc @p1next
+	bcs @err
 @p1next:
 	jsr src::end
 	bne @pass1loop
@@ -245,11 +247,11 @@ stxy zp::jmpvec
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize_pass2
-	jmp *
 	bcc @next
 
 @err:	jsr display_result	; display the error
 	jsr src::popp		; clear the src position stack
+	jsr src::goto
 	jsr dbg::getline	; get the line that failed assembly
 	jmp gotoline		; goto that line
 

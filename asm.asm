@@ -238,8 +238,7 @@ __asm_tokenize:
 	beq @exec_directive
 	cmp #DIRECTIVE_ELSE
 	beq @exec_directive
-@noasm:	jmp *
-	RETURN_OK
+@noasm:	RETURN_OK
 
 ; 1. check if the line contains a directive
 @directive:
@@ -1152,14 +1151,13 @@ bbb10_modes:
 	bcc :+
 	inc zp::virtualpc+1
 
+; update program pointer
 :	txa
-	sec
+	sec			; +1
 	adc zp::asmresult
 	sta zp::asmresult
-	bcc :+
+	bcc @commaorws
 	inc zp::asmresult+1
-:	txa
-	rts
 
 @commaorws:
 	ldy #$00

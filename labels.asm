@@ -591,26 +591,34 @@ label_addresses: .res 256 * 2
 .export __label_isvalid
 .proc __label_isvalid
 	ldy #$00
-	lda (zp::line),y
-	jsr util::isoperator
-	beq @notlabel
+; first character must be a letter
+:	lda (zp::line),y
+	iny
+	jsr util::is_whitespace
+	beq :-
+	cmp #'a'
+	bcc @err
+	cmp #'Z'+1
+	bcs @err
 
 	;jsr getopcode	; make sure string is not an opcode
 	;bcs @cont
 	;sec
 	;rts
 
-@cont:
-	ldy #$00
-	lda (zp::line),y
-	cmp #'.'	; label cannot have '.' prefix
-	beq @notlabel
-
-:	lda (zp::line),y
-	beq @done
 	iny
-	cpy #40
-	bcs @notlabel
+; characters must be between '0' and 'Z'
+@l0:
+	lda (zp::line),y
+	beq @done
+	jsr util::isseparator
+	beq @done
+	cmp #'0'
+	bcc @err
+	cmp #'Z'+1
+	iny
+	bcc @l0
+@err:	RETURN_ERR ERR_ILLEGAL_LABEL
 
 	cmp #' '
 	beq @done
@@ -618,6 +626,4 @@ label_addresses: .res 256 * 2
 	bne :-
 
 @done:	RETURN_OK
-@notlabel:
-	RETURN_ERR ERR_ILLEGAL_LABEL
 .endproc
