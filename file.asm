@@ -9,7 +9,7 @@
 .include "zeropage.inc"
 
 MAX_OPEN_FILES = 10
-FIRST_FILE_ID = 3
+FIRST_FILE_ID = 2
 
 ;******************************************************************************
 ; LOADDIR
@@ -289,6 +289,7 @@ FIRST_FILE_ID = 3
 ; will read a maximum of 255 bytes
 ; IN:
 ;  - .XY: the address to read the line into
+;  - .A: the file ID
 ; OUT:
 ;  - .A: contains the # of bytes read
 ;  - .C: is set if an error occurred
@@ -307,7 +308,10 @@ FIRST_FILE_ID = 3
 	beq @done
 	cmp #$0a
 	beq @done
-	sta (@dst),y
+	cmp #$09	; TAB
+	bne :+
+	lda #' '
+:	sta (@dst),y
 	iny
 	bne @l0
 
@@ -390,7 +394,9 @@ FIRST_FILE_ID = 3
 	lda #$00
 	sta files-FIRST_FILE_ID,x
 	txa
-	jmp $ffc3
+	sei
+	jsr $ffc3
+	jmp $ffb7
 .endproc
 
 .BSS

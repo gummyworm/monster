@@ -33,7 +33,7 @@
 	ldx @ch
 	cpx #20		; cap size of string
 	bcs @done
-	sta $0100,x	; call CHROUT (print byte to screen)
+	sta $0100,x
 	inc @ch
 	bne @loop	; next byte
 

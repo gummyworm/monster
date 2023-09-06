@@ -1301,7 +1301,6 @@ __asm_include:
 	bcs @close
 
 @next:	incw dbg::srcline	; next line
-	sta dbg::setline
 	jmp @doline		; repeat
 
 @close:	; restore debug line and file info
@@ -1603,6 +1602,8 @@ __asm_include:
 ; Resets the PC for, for example, beginning a new pass on the assembler
 .export __asm_resetpc
 .proc __asm_resetpc
+	lda #$00
+	sta pcset
 	ldxy #mem::program
 	stxy zp::asmresult
 	stxy zp::virtualpc

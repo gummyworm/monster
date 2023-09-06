@@ -61,13 +61,17 @@ ctx=$60
 macros=$80
 
 ;******************************************************************************
-; $90-$9a used for expression evaluation
+; $90-$97 used for expression evaluation
 expr=$90
 
 ;******************************************************************************
-; $9a-$a0 used for bank switching storage
-bank      = $9a ; the current bank in the final expansion being worked on
-banktmp=$9b
+; $98-9C are used by KERNAL I/O and should be avoided
+
+
+;******************************************************************************
+; $9d-$a0 used for bank switching storage
+bank      = $9d ; the current bank in the final expansion being worked on
+banktmp=$9e
 
 ;******************************************************************************
 ; $b0-$ba is reserved for text displaying/bitmap stuff

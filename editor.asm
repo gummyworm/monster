@@ -166,11 +166,13 @@ stxy zp::jmpvec
 ; do the first pass of assembly
 @pass1:	lda #$01
 	sta state::verify
+	sta zp::pass
 	jsr asm::include	; assemble the file (pass 1)
 	bcs @done		; error, we're done
 
 ; reset state after 1st pass
 	dec state::verify	; disable verify (assemble the program)
+	inc zp::pass
 	jsr asm::resetpc	; reset PC
 	jsr ctx::init		; reinitialize the context
 
