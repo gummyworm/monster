@@ -58,6 +58,8 @@ err_no_origin:
 	.byte "origin not set",0
 err_branch_out_of_range:
 	.byte "branch out of range",0
+err_file_not_found:
+	.byte "file not found",0
 
 ;******************************************************************************
 errors: .word err_no_err	 ; no error
@@ -86,6 +88,7 @@ errors: .word err_no_err	 ; no error
 	.word err_param_name_too_long
 	.word err_no_origin
 	.word err_branch_out_of_range
+	.word err_file_not_found
 
 .CODE
 ;******************************************************************************

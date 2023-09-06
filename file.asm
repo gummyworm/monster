@@ -312,14 +312,24 @@ FIRST_FILE_ID = 3
 	bne @l0
 
 @done:  lda #$00
+	dey
 	sta (@dst),y	; 0-terminate the string
 	tya		; put # of bytes read in .A
 	RETURN_OK
 
-@eof:   dey
-	and #$40	; EOF?
-	bne @done	; yes, return okay
-	sec		; error
+@eof:   and #$40	; EOF?
+	bne :+		; maybe- check drive err
+	RETURN_ERR ERR_IO_ERROR
+:	jsr io::readerr
+	ldxy #$0100
+	jsr atoi
+	txa
+
+	; translate CBM DOS error code to ours if possible
+	cmp #62		; FILE NOT FOUND
+	bne :+
+	lda #ERR_FILE_NOT_FOUND
+:	cmp #$01	; set .C if error > 0
 	rts
 .endproc
 
@@ -346,8 +356,8 @@ FIRST_FILE_ID = 3
 	inx
 	cpx #MAX_OPEN_FILES
 	bcc :-
-	sec	; no available files
-	rts
+
+	RETURN_ERR ERR_MAX_FILES_EXCEEDED
 
 @found: txa
 	sta @file
@@ -362,7 +372,10 @@ FIRST_FILE_ID = 3
 :	ldy #$03	; SA
 	jsr $ffba 	; SETLFS
 	jsr $ffc0 	; call OPEN
-	lda @file
+	bcc :+
+	RETURN_ERR ERR_IO_ERROR
+
+:	lda @file
 	rts
 .endproc
 

@@ -1252,44 +1252,75 @@ bbb10_modes:
 ; entry point for assembling a given file
 .export __asm_include
 __asm_include:
-@fname=zp::tmp4
 @err=zp::tmp0
+@fname=zp::tmp1
 @readfile:
 	stxy @fname
 	jsr file::open
+	sei
+	bcc :+
+	rts		; return err
+:	pha		; save the id of the file we're working on
 	sta zp::file
 
-	lda dbg::file
-	pha		  ; save the current debug-info file
-	ldxy @fname
-	jsr dbg::setfile  ; set the file for debug-info
+	; init error code to success
+	lda #$00
+	sta @err
 
+	; save the current debug-info file
+	lda dbg::file
+	pha
+	lda dbg::srcline
+	pha
+	lda dbg::srcline+1
+	pha
+
+	; add the filename to debug info (if it isn't yet) and reset line no.
+	ldxy @fname
+	jsr dbg::setfile
+	ldxy #$00
+	sta dbg::setline
+
+; read a line from file
 @doline:
 	ldxy #mem::spare
 	lda zp::file
 	jsr file::getline	; read a line from the file
+	sei
 	bcc @ok
-	pla		  	; clean stack
-	RETURN_ERR ERR_IO_ERROR	; return error
+	jmp @close		; close file and return the error
 
 @ok:	cmp #$00
-	beq @done
+	beq @close
+
+; assemble the line
 @asm:	ldxy #mem::spare
-	jsr __asm_tokenize_pass
-	bcc @next
-
-@error:	sta @err
-	jsr file::close
-	pla		; clean stack
-	lda @err
-	sec
-	rts
-@next:	jmp @doline
-
-@done:  pla
-	sta dbg::file	   ; restore debug file that we INCluded from
 	lda zp::file
-	jmp file::close	   ; close the file
+	pha
+	jsr __asm_tokenize_pass
+	pla
+	sta zp::file
+	bcs @close
+
+@next:	incw dbg::srcline	; next line
+	sta dbg::setline
+	jmp @doline		; repeat
+
+@close:	sta @err
+
+	; restore debug line and file info
+	pla
+	sta dbg::srcline
+	pla
+	sta dbg::srcline+1
+	pla
+	sta dbg::file
+
+	pla		; get the file ID for the include file
+	jsr file::close	; close the file
+	lda @err	; get err code
+	cmp #$01	; set carry if > 0
+	rts
 .endproc
 
 ;******************************************************************************
