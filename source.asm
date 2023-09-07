@@ -161,8 +161,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ; Deletes the character at the current cursor position.
 .export __src_delete
 .proc __src_delete
-	ldxy post
-	cmpw #$0000
+	jsr __src_end
 	beq @skip
 	decw post
 @skip:	rts
@@ -177,8 +176,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .proc __src_next
 @src=zp::tmp0
 @dst=zp::tmp2
-	ldxy post
-	cmpw #$0000
+	jsr __src_end
 	beq @skip
 
 	; move char from start of gap to the end of the gap
@@ -215,8 +213,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ;  - .C: set if the cursor was moved, clear if not
 .export __src_right
 .proc __src_right
-	ldxy post
-	cmpw #0
+	jsr __src_end
 	bne :+
 	clc
 	rts
@@ -282,8 +279,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ;  - .C: set if cursor is at the start of the buffer
 .export __src_up
 .proc __src_up
-	ldxy pre
-	cmpw #0
+	jsr __src_start
 	bne @l0
 	sec
 	rts
@@ -291,8 +287,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 @l0:	jsr __src_prev
 	cmp #$0d
 	beq :+
-	ldxy pre
-	cmpw #0
+	jsr __src_start
 	bne @l0
 	sec
 	rts
@@ -308,8 +303,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ;  - .C: set if the end of the buffer was reached (cannot move "down")
 .export __src_down
 .proc __src_down
-	ldxy post
-	cmpw #0
+	jsr __src_end
 	bne @l0
 	sec
 	rts
@@ -317,8 +311,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 @l0:	jsr __src_next
 	cmp #$0d
 	beq :+
-	ldxy post
-	cmpw #0
+	jsr __src_end
 	bne @l0
 	sec	; end of the buffer
 	rts
@@ -457,10 +450,9 @@ __src_atcursor:
 .export __src_rewind
 .proc __src_rewind
 @l0:	jsr __src_prev
-	ldxy pre
-	cmpw #0
+	jsr __src_start
 	bne @l0
-@done:	rts
+	rts
 .endproc
 
 ;******************************************************************************
@@ -487,10 +479,11 @@ __src_atcursor:
 .proc __src_readline
 @cnt=zp::tmp4
 	lda #$00
+	sta mem::linebuffer
 	sta @cnt
 
 	jsr __src_end
-	beq @eof
+	beq @eofdone
 
 @l0:	jsr __src_readb
 	ldx @cnt
@@ -502,10 +495,16 @@ __src_atcursor:
 	inc @cnt
 	jsr __src_end
 	bne @l0
-@eof:	; null terminate if end of source
-	lda #$00
+@eof:	; read last byte and null terminate if end of source
+	jsr atcursor
 	ldx @cnt
-	sta mem::linebuffer,x
+	cmp #$0d
+	bne :+
+	lda #$00
+:	sta mem::linebuffer,x
+	lda #$00
+	sta mem::linebuffer+1,x
+@eofdone:
 	sec
 	rts
 @done:	clc
@@ -554,8 +553,7 @@ __src_atcursor:
 	add16 #data
 	stxy @src
 
-	ldxy post
-	cmpw #$00
+	jsr __src_end
 	bne :+
 	lda #$00
 	sta mem::linebuffer	; init buffer

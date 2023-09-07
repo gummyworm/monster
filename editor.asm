@@ -596,11 +596,24 @@ stxy zp::jmpvec
 	jsr src::next	; first character index is 1
 
 @l0:	jsr src::readline
-	php
-	jsr drawline
-	plp
-	bcc @l0
-@done:	rts
+	bcs @done
+@newl:	jsr drawline
+	jmp @l0
+@done:	jsr src::atcursor
+	jmp *
+	cmp #$0d
+	bne :+
+	; if the last char is a newline, advance/scroll/etc.
+	jmp drawline
+
+:	lda zp::cury
+	ldxy #mem::linebuffer
+	jsr text::drawline
+	ldxy #mem::linebuffer
+	jsr str::len
+	tax
+	ldy zp::cury
+	jmp cur::set
 .endproc
 
 ;******************************************************************************
