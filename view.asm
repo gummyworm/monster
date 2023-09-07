@@ -58,6 +58,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 ; until user exits (<- or RETURN), get input and update memory
 @edit:
 	jsr key::getch
+	cmp #$00
 	beq @edit
 
 	cmp #$5f	; <- (done)

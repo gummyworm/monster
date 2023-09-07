@@ -600,7 +600,6 @@ stxy zp::jmpvec
 @newl:	jsr drawline
 	jmp @l0
 @done:	jsr src::atcursor
-	jmp *
 	cmp #$0d
 	bne :+
 	; if the last char is a newline, advance/scroll/etc.
