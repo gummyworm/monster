@@ -62,7 +62,7 @@ segstop = zp::debug+$b
 break_after_sr = zp::debug+$d	; if !0, NEXT_INSTRUCTION will skip subroutines
 
 ; backup of the user program's zeropage
-user_zp=mem::progsave+$10
+user_zp=mem::prog00
 
 .export __debug_src_line
 __debug_src_line = srcline ; the line # stored by dbg::storeline
@@ -1071,9 +1071,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; SAVE_PROG_STATE
 ; saves memory clobbered by the debugger (screen, ZP, etc.)
 .proc save_prog_state
-@vicsave=mem::progsave
-@internalmem=mem::progsave+$110
-@colorsave=mem::progsave+$210
+@vicsave=mem::prog9000
+@internalmem=mem::prog1000
+@colorsave=mem::prog9400
 	ldx #$10
 @savevic:
 	lda $9000-1,x
@@ -1297,9 +1297,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; RESTORE_PROGSTATE
 ; restores the saved program state
 .proc restore_progstate
-@vicsave=mem::progsave
-@internalmem=mem::progsave+$110
-@colorsave=mem::progsave+$210
+@vicsave=mem::prog9000
+@internalmem=mem::prog1000
+@colorsave=mem::prog9400
 	ldx #$10
 @restorevic:
 	lda @vicsave-1,x
@@ -1320,7 +1320,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @restore1000
 
 	ldx #$f0
-; save $9400-$94f0
+; restore $9400-$94f0
 @restorecolor:
 	lda @colorsave-1,x
 	sta $9400-1,x

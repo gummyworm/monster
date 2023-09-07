@@ -152,8 +152,8 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 
 @hinybble:
 .ifdef USE_FINAL
-	sty @offset
-	bank_read_byte_rel #FINAL_BANK_USER, @dst, @offset
+	ldxa @dst
+	jsr get_byte
 .else
 	lda (@dst),y
 .endif
@@ -166,16 +166,16 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	asl
 	ora zp::tmp0
 .ifdef USE_FINAL
-	sty @offset
-	bank_read_byte_rel #FINAL_BANK_USER, @dst, @offset
+	ldxa @dst
+	jsr get_byte
 .else
 	lda (@dst),y
 .endif
 	rts
 @lownybble:
 .ifdef USE_FINAL
-	sty @offset
-	bank_read_byte_rel #FINAL_BANK_USER, @dst, @offset
+	ldxa @dst
+	jsr get_byte
 .else
 	lda (@dst),y
 .endif
@@ -184,8 +184,8 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	pla
 	ora zp::tmp0
 .ifdef USE_FINAL
-	sty @offset
-	bank_store_byte_rel #FINAL_BANK_USER, @dst, @offset
+	ldxa @dst
+	jsr store_byte
 .else
 	sta (@dst),y
 .endif
@@ -276,7 +276,9 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 
 ; get a byte to display
 .ifdef USE_FINAL
-	bank_read_byte #FINAL_BANK_USER, @src
+	ldy #$00
+	ldxy @src
+	jsr get_byte
 .else
 	ldy #$00
 	lda (@src),y
@@ -325,3 +327,125 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 :	lda #'.'	; use '.' for undisplayable chars
 	rts
 .endproc
+
+.ifdef USE_FINAL
+;******************************************************************************
+; GET_REAL_ADDRESS
+; Transforms the given address into the actual address used to store the user's
+; program data for that address.  Some ranges are stored in special buffers
+; to keep them safe while debugging.
+; These ranges are:
+;  - $00-$100
+;  - $1000-$1100
+;  - $1100-$2000
+;  - $9400-$9500
+; Other ranges are read directly from memory or from the user's memory bank
+; IN:
+;  - .AX: the address to read
+;  - .Y: the offset from the address to read
+; OUT:
+;  - .XY: the address to read from
+;  - .A: the bank to read from
+.proc get_real_address
+@addr=zp::tmp0
+	; get the base address + the offset in .YX
+	stx @addr
+	sta @addr+1
+	tya
+	clc
+	adc @addr
+	tax
+	lda @addr+1
+	adc #$00
+	tay
+
+	lda #FINAL_BANK_USER	; default to user's bank
+	cmpw #$100
+	bcs :+
+
+@00:	ldxy mem::prog00
+	lda #FINAL_BANK_MAIN
+	rts
+
+:	cmpw #$1000
+	bcc :+
+	cmpw #$1100
+	bcs :+
+
+@1000:	ldxy mem::prog1000
+	lda #FINAL_BANK_MAIN
+	rts
+
+:	cmpw #$2000
+	bcs :+
+
+@1100:	; read from the screen buffer bank (stored at $a000)
+	add16 #$a000-$1100
+	lda #FINAL_BANK_FASTCOPY
+	rts
+
+:	cmpw #$9000
+	bcc @done
+	cmpw #$9010
+	bcs :+
+
+@9000:	ldxy mem::prog9000
+	lda #FINAL_BANK_MAIN
+	rts
+
+:	cmpw #$9400
+	bcc @done
+	cmpw #$9500
+	bcs @done
+
+@9400:	lda #FINAL_BANK_MAIN
+	ldxy mem::prog9400
+@done:	rts
+.endproc
+
+;******************************************************************************
+; GET_BYTE
+; Reads a byte from the given address. If the address is in a range internal to
+; the Vic or zeropage, it is read from a buffer that stores the user data.
+; IN:
+;  - .AX: the address to read
+;  - .Y: the offset from the address to read
+; OUT:
+;  - .A: the byte at the given address+offset
+.proc get_byte
+@addr=zp::tmpe
+@offset=zp::tmp10
+@bank=zp::tmp11
+@ysave=zp::tmp12
+	sty @ysave
+	jsr get_real_address
+	sta @bank
+	stxy @addr
+	bank_read_byte @bank, @addr
+	ldy @ysave
+	rts
+.endproc
+
+;******************************************************************************
+; STORE_BYTE
+; Writes a byte to the given address. If the address is in a range internal to
+; the Vic or zeropage, it is read from a buffer that stores the user data.
+; IN:
+;  - .AX: the address to read
+;  - .Y: the offset from the address to read
+; OUT:
+;  - .A: the byte at the given address+offset
+.proc store_byte
+@addr=zp::tmpe
+@offset=zp::tmp10
+@bank=zp::tmp11
+@ysave=zp::tmp12
+	sty @ysave
+	jsr get_real_address
+	sta @bank
+	stxy @addr
+	bank_store_byte @bank, @addr, @offset
+	ldy @ysave
+	rts
+.endproc
+.endif
