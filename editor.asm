@@ -144,7 +144,7 @@ stxy zp::jmpvec
 	jsr label_addr_or_org
 	bcc :+
 	rts		; address not found
-:	lda #DEBUG_INFO_START_ROW - 2
+:	lda #DEBUG_INFO_START_ROW-1
 	sta height
 	jsr dbg::start	; start debugging at address in .XY
 	jsr __edit_init	; re-init the editor
@@ -1361,11 +1361,10 @@ __edit_gotoline:
 	jmp @renderdone
 
 @rowdown:
-	inc @row
 	ldx @row
-	dex
 	cpx height
 	bcs @renderdone
+	inc @row
 	jsr src::down
 	bcc @l0
 
