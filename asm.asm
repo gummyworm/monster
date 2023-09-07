@@ -315,6 +315,7 @@ __asm_tokenize:
 	lda zp::virtualpc+1
 	sta zp::label_value+1
 	jsr lbl::add
+	jsr process_word
 	jsr @finishline
 	bcs :+
 	lda #ASM_LABEL

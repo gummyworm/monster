@@ -14,6 +14,7 @@
 .include "string.inc"
 .include "text.inc"
 .include "util.inc"
+.include "view.inc"
 .include "zeropage.inc"
 
 .import __DEBUGGER_LOAD__
@@ -35,6 +36,19 @@ SEG_LINE_COUNT = 4	; offset in segment header for line count
 DATA_FILE = 0		; offset of FILE ID in debug info
 DATA_LINE = 1		; offset of line number in debug info
 DATA_ADDR = 3		; offset of line address in debug info
+
+;******************************************************************************
+; STEP constants
+; There are some important differences between INTO and OVER
+; If we step INTO the next instruction, we can know a lot about what is being
+; done between our current instruction and the next one.
+; Most crucially, we can know if the instruction is writing to or reading from
+; memory.
+; If we step OVER an instruction (this applies only to JSR), then we must guess
+; if memory was written to by comparing its value when we return from the
+; subroutine with its value before that call.
+STEP_INTO = 1
+STEP_OVER = 2
 
 ;******************************************************************************
 ; Debug info pointers
@@ -64,6 +78,9 @@ reg_y:  .byte 0
 reg_p:  .byte 0
 reg_sp: .byte 0
 pc:     .word 0
+
+mem_ptr: .word 0	; address of memory view
+step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
 
 ; backup of the memory value being affected by the current instruction
 ; if it is destructive
@@ -946,6 +963,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @install_isr:
 	ldxy #debug_brk
 	jsr irq::break
+
+	ldxy #$0000
+	jsr view::mem
+
 	jsr save_debug_state ; save the debug state
 
 ; execute the user program until BRK
@@ -1140,9 +1161,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda pc+1
 	pha
 	ldxy #@brk_message_addr
-	lda #STATUS_ROW-2
+	lda #DEBUG_MESSAGE_LINE
 	jsr text::print		; "break @ <addr>"
-	lda #STATUS_ROW-2
+	lda #DEBUG_MESSAGE_LINE
 	jsr bm::rvsline
 	jmp @debugloop		; skip highlght because we don't know the line
 
@@ -1154,9 +1175,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pha
 
 	ldxy #@brk_message_line
-	lda #STATUS_ROW-2
+	lda #DEBUG_MESSAGE_LINE
 	jsr text::print		; break in line <line #>
-	lda #STATUS_ROW-2
+	lda #DEBUG_MESSAGE_LINE
 	jsr bm::rvsline
 
 	ldxy line

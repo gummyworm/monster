@@ -72,6 +72,11 @@ expr=$90
 ; $9d-$a0 used for bank switching storage
 bank      = $9d ; the current bank in the final expansion being worked on
 banktmp=$9e
+bank_regsave = $a2	; storage for registers during bank operations
+bank_asave = $a2	; storage for registers during bank operations
+bank_xsave = $a3	; storage for registers during bank operations
+bank_ysave = $a4	; storage for registers during bank operations
+bankoffset = $a5	; offset for relative reads/writes
 
 ;******************************************************************************
 ; $b0-$ba is reserved for text displaying/bitmap stuff

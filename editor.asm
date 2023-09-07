@@ -144,7 +144,7 @@ stxy zp::jmpvec
 	jsr label_addr_or_org
 	bcc :+
 	rts		; address not found
-:	lda #STATUS_ROW-3
+:	lda #DEBUG_INFO_START_ROW - 1
 	sta height
 	jsr dbg::start	; start debugging at address in .XY
 	jsr __edit_init	; re-init the editor

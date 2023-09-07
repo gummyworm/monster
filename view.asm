@@ -2,6 +2,7 @@
 .include "cursor.inc"
 .include "draw.inc"
 .include "key.inc"
+.include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "text.inc"
@@ -9,22 +10,24 @@
 .include "zeropage.inc"
 .CODE
 
-ROW_START=15
-ROW_STOP=23
 BYTES_TO_DISPLAY=8
 
 COL_START=7
 COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 
-;--------------------------------------
-; off turns off the memory view window
+;******************************************************************************
+; OFF
+; Turns off the memory view window by restoring the screen
 .export __view_off
 .proc __view_off
 	jmp bm::restore
 .endproc
 
-;--------------------------------------
-; edit starts the memory editor at the address given in .YX
+;******************************************************************************
+; EDIT
+; Starts the memory editor at the address given in .YX
+; IN:
+;  - .XY: the address to edit memory at
 .export __view_edit
 .proc __view_edit
 @byte_offset=zp::tmp0
@@ -37,14 +40,14 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	pushcur
 
 	ldx #COL_START
-	ldy #ROW_START+1
+	ldy #MEMVIEW_START
 	jsr cur::setmin
 
-	ldy #ROW_STOP
+	ldy #MEMVIEW_STOP
 	ldx #COL_STOP
 	jsr cur::setmax
 
-	ldy #ROW_START+1
+	ldy #MEMVIEW_START+1
 	ldx #COL_START
 	jsr cur::set
 
@@ -120,7 +123,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	pha
 	lda zp::cury
 	sec
-	sbc #ROW_START+1
+	sbc #MEMVIEW_START+1
 	asl
 	asl
 	asl
@@ -149,7 +152,12 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	beq @lownybble
 
 @hinybble:
+.ifdef USE_FINAL
+	sty @offset
+	bank_read_byte_rel #FINAL_BANK_USER, @dst, @offset
+.else
 	lda (@dst),y
+.endif
 	and #$0f
 	sta zp::tmp0
 	pla
@@ -158,7 +166,12 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	asl
 	asl
 	ora zp::tmp0
-	sta (@dst),y
+.ifdef USE_FINAL
+	sty @offset
+	bamk_store_byte_rel #FINAL_BANK_USER, @dst, @offset
+.else
+	lda (@dst),y
+.endif
 	rts
 @lownybble:
 	lda (@dst),y
@@ -211,9 +224,12 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 @num_x_skips=*-@x_skips
 .endproc
 
-;--------------------------------------
-; mem displays the contents of memory in a large block beginning with the
+;******************************************************************************
+; MEM
+; Displays the contents of memory in a large block beginning with the
 ; address in (YX).
+; IN:
+;  - .XY: the start address to display memory at
 .export __view_mem
 .proc __view_mem
 @src=zp::tmp7
@@ -222,7 +238,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	stx @src
 	sty @src+1
 
-	lda #ROW_START
+	lda #MEMVIEW_START
 	jsr draw::hline
 
 	lda #40
@@ -232,7 +248,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	ldy #>mem::spare
 	jsr util::memset
 
-	lda #ROW_START+1
+	lda #MEMVIEW_START+1
 	sta @row
 @l0:	; draw the address of this line
 	lda @src+1
@@ -249,10 +265,13 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	ldx #$00
 @l1:	stx @col
 	; get a byte to display
+.ifdef USE_FINAL
+	bank_read_byte #FINAL_BANK_USER, @src
+.else
 	ldy #$00
 	lda (@src),y
+.endif
 	incw @src
-
 	sta mem::spare+31,x
 	jsr util::hextostr
 	txa
@@ -276,7 +295,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	jsr text::puts
 	inc @row
 	lda @row
-	cmp #ROW_STOP
+	cmp #MEMVIEW_STOP
 	bcc @l0
 	rts
 .endproc

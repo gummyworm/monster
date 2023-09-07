@@ -12,3 +12,10 @@ DRIVE_ERR_COL = 14
 ;******************************************************************************
 ; DEBUG LAYOUT
 REGISTERS_LINE = 22
+DEBUG_MESSAGE_LINE = 21
+
+MEMVIEW_START = 15
+MEMVIEW_STOP = DEBUG_MESSAGE_LINE
+
+DEBUG_INFO_START_ROW = MEMVIEW_START
+DEBUG_INFO_STOP_ROW = 23

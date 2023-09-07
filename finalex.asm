@@ -29,22 +29,35 @@ bankcode:
 @bank=zp::banktmp
 @dst=zp::banktmp+1
 	sei
-	sta @bank
-	tya
 	pha
-	lda $9c02
-	pha		; save current bank
+	lda #$00
+	sta zp::bankoffset
+	pla
+	; fall through
+.endproc
+
+;******************************************************************************
+; STORE_BYTE_REL
+; stores the byte given in zp::bankval to the address in .XA in bank .A
+; IN:
+;  - .XY: the base address
+;  - .A: the bank to store to
+;  - zp::bankoffset: the offset from the base address
+;  - zp::bankval: the byte to write
+.proc __final_bank_store_rel
+@bank=zp::banktmp
+@dst=zp::banktmp+1
+	sei
 	stxy @dst
-	lda @bank
+	ldx $9c02	; save current bank
+
 	ora #%10100000	; SUPERRAM mode in final expansion
 	sta $9c02
 	lda zp::bankval
-	ldy #$00
+	ldy zp::bankoffset
 	sta (@dst),y
-	pla
-	sta $9c02	; restore bank
-	pla
-	tay
+	stx $9c02	; restore bank
+	ldxy @dst
 	rts
 .endproc
 
@@ -62,20 +75,11 @@ bankcode:
 @bank=zp::banktmp+2
 @oldbank=zp::banktmp+3
 	sei
-	sta @bank
-	lda $9c02
-	sta @oldbank	; save current bank
-	stxy @src
-	lda @bank
-	ora #%10100000	; SUPERRAM mode in final expansion
-	sta $9c02
-	ldy #$00
-	lda (@src),y
 	pha
-	lda @oldbank
-	sta $9c02	; restore bank
+	lda #$00
+	sta zp::bankval
 	pla
-	rts
+	; fall through
 .endproc
 
 ;******************************************************************************
@@ -93,20 +97,14 @@ bankcode:
 @bank=zp::banktmp+2
 @oldbank=zp::banktmp+3
 	sei
-	sta @bank
-	lda $9c02
-	sta @oldbank	; save current bank
 	stxy @src
-	lda @bank
+	ldx $9c02
 	ora #%10100000	; SUPERRAM mode in final expansion
 	sta $9c02
-	ldy #$00
 	ldy zp::bankval
 	lda (@src),y
-	pha
-	lda @oldbank
-	sta $9c02	; restore bank
-	pla
+	stx $9c02	; restore bank
+	ldxy @src
 	rts
 .endproc
 
@@ -123,13 +121,10 @@ bankcode:
 @bank=zp::banktmp+2
 @oldbank=zp::banktmp+3
 	sei
-	sta @bank
 	stxy zp::jmpvec
+	ldx $9c02
+	stx @oldbank	; save current bank
 
-	lda $9c02
-	sta @oldbank	; save current bank
-
-	lda @bank
 	ora #%10100000	; SUPERRAM mode in final expansion
 	sta $9c02
 
