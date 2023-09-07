@@ -90,6 +90,18 @@ FINAL_BANK_FASTCOPY = $f
 	jsr __final_store_byte
 .endmacro
 
+.macro bank_store_byte_rel bank, addr, offset, val
+.ifnblank val
+	lda val
+.endif
+	sta zp::bankval
+	lda offset
+	sta zp::bankoffset
+	ldxy addr
+	lda bank
+	jsr __final_store_byte
+.endmacro
+
 .macro bank_read_byte bank,addr
 	ldxy addr
 	lda bank

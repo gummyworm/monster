@@ -26,8 +26,6 @@ bankcode:
 ;  - .A
 .export __final_store_byte
 .proc __final_store_byte
-@bank=zp::banktmp
-@dst=zp::banktmp+1
 	sei
 	pha
 	lda #$00
@@ -45,8 +43,7 @@ bankcode:
 ;  - zp::bankoffset: the offset from the base address
 ;  - zp::bankval: the byte to write
 .proc __final_bank_store_rel
-@bank=zp::banktmp
-@dst=zp::banktmp+1
+@dst=zp::banktmp
 	sei
 	stxy @dst
 	ldx $9c02	; save current bank
@@ -71,9 +68,6 @@ bankcode:
 ;  - .A: the byte that was read
 .export __final_load_byte
 .proc __final_load_byte
-@src=zp::banktmp
-@bank=zp::banktmp+2
-@oldbank=zp::banktmp+3
 	sei
 	pha
 	lda #$00
@@ -94,8 +88,6 @@ bankcode:
 .export __final_load_byte_off
 .proc __final_load_byte_off
 @src=zp::banktmp
-@bank=zp::banktmp+2
-@oldbank=zp::banktmp+3
 	sei
 	stxy @src
 	ldx $9c02

@@ -1,6 +1,7 @@
 .include "bitmap.inc"
 .include "cursor.inc"
 .include "draw.inc"
+.include "finalex.inc"
 .include "key.inc"
 .include "layout.inc"
 .include "macros.inc"
@@ -33,6 +34,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 @byte_offset=zp::tmp0
 @src=zp::tmpb
 @dst=zp::tmp4
+@offset=zp::tmp6
 	stx @src
 	sty @src+1
 
@@ -168,7 +170,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	ora zp::tmp0
 .ifdef USE_FINAL
 	sty @offset
-	bamk_store_byte_rel #FINAL_BANK_USER, @dst, @offset
+	bank_store_byte_rel #FINAL_BANK_USER, @dst, @offset
 .else
 	lda (@dst),y
 .endif
