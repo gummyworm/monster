@@ -76,8 +76,8 @@ MAX_OPERANDS=$10/2
 	lda (zp::line),y
 	cmp #'*'		; '*' can be a value or operator
 	bne :+
-	lda @may_be_unary	; if unary logic applies, treat as value (PC)
-	bne @getoperand		; unary, treat '*' as value
+	ldx @may_be_unary	; if unary logic applies, treat as value (PC)
+	bne @getoperand
 
 :	jsr util::isoperator
 	bne @getoperand
@@ -251,14 +251,22 @@ MAX_OPERANDS=$10/2
 :	cmp #'*'
 	bne :+
 	; get the product TODO: 32-bit precision expressions?
+	ldxy @val1
+	stxy zp::tmp0
+	ldxy @val2
+	stxy zp::tmp2
 	jsr m::mul16
+	ldxy zp::tmpa	; get product
 	jmp @pushval
 
 :	cmp #'/'
 	bne @unknown_op
+	ldxy @val1
+	stxy zp::tmp0
+	ldxy @val2
+	stxy zp::tmp2
 	jsr m::div16
-	ldx @val1
-	ldy @val1+1
+	ldxy zp::tmp0
 	jmp @pushval
 
 @unknown_op:
