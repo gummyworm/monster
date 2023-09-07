@@ -79,6 +79,10 @@ bank_ysave = $a4	; storage for registers during bank operations
 bankoffset = $a5	; offset for relative reads/writes
 
 ;******************************************************************************
+; $a6-$aa used for utility
+util = $a6
+
+;******************************************************************************
 ; $b0-$ba is reserved for text displaying/bitmap stuff
 text = $b0
 

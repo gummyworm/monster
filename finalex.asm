@@ -85,6 +85,7 @@ bankcode:
 ;  - zp::bankval: the offset to read from
 ; OUT:
 ;  - .A: the byte that was read
+;  - .Y: contains the offset (same that was given as zp::bankval)
 .export __final_load_byte_off
 .proc __final_load_byte_off
 @src=zp::banktmp
@@ -96,7 +97,7 @@ bankcode:
 	ldy zp::bankval
 	lda (@src),y
 	stx $9c02	; restore bank
-	ldxy @src
+	ldx @src
 	rts
 .endproc
 

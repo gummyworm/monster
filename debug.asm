@@ -964,7 +964,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy #debug_brk
 	jsr irq::break
 
-	ldxy #$0000
+	ldxy #$1000
+	stxy mem_ptr
 	jsr view::mem
 
 	jsr save_debug_state ; save the debug state
@@ -1156,6 +1157,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy pc
 	jsr __debug_addr2line	; get the line #
 	bcc @pushline
+
+	; we couldn't find the line #; display the address of the BRK
 	lda pc
 	pha
 	lda pc+1
@@ -1165,7 +1168,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr text::print		; "break @ <addr>"
 	lda #DEBUG_MESSAGE_LINE
 	jsr bm::rvsline
-	jmp @debugloop		; skip highlght because we don't know the line
+	jmp debugloop		; skip highlght (we don't know the line)
 
 @pushline:
 	stxy line
@@ -1183,20 +1186,24 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy line
 	jsr edit::gotoline	; go to the line where the BRK happened
 	lda zp::cury
-	;ldx #DEBUG_LINE_COLOR
-	;jsr text::hiline	; highlight that line
-	jsr bm::rvsline
+	jsr bm::rvsline		; highlight the line of the BRK
+	jmp debugloop
+@brk_message_line: .byte "brk in line ",$fd,0 ; when line number is resolved
+@brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
+.endproc
 
+
+;******************************************************************************
 ; main debug loop
-@debugloop:
+.proc debugloop
 	jsr key::getch
 	cmp #$00
-	beq @debugloop
+	beq debugloop
 
 	ldx #@num_commands
 @getcmd:
 	dex
-	bmi @debugloop		; unrecognized key, go back to debugloop
+	bmi debugloop		; unrecognized key, go back to debugloop
 	cmp @commands,x
 	bne @getcmd
 @runcmd:
@@ -1209,8 +1216,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr
 
-@done:
-	; unhighlight the BRK line
+@done:	; unhighlight the BRK line
 	lda zp::cury
 	jsr bm::rvsline
 
@@ -1237,8 +1243,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; return from the BRK
 	jmp fe3::bank_rti
 
-@brk_message_line: .byte "brk in line ",$fd,0 ; when line number is resolved
-@brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
 
 ;******************************************************************************
 @commands:
@@ -1246,12 +1250,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.byte $7a	; 'z'
 	.byte $73	; 's'
 	.byte $67	; 'g'
+	.byte $6d	; 'm'
 @num_commands=*-@commands
 @command_vectors:
 	.word quit
 	.word step
 	.word step_over
 	.word go
+	.word edit_mem
 .endproc
 
 ;******************************************************************************
@@ -1343,6 +1349,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pla	; eat interrupt return address
 	pla
 	rts
+.endproc
+
+;******************************************************************************
+; EDIT_MEM
+; Transfers control to the memory viewer/editor until the user exits it
+.proc edit_mem
+	ldxy mem_ptr
+	jsr view::edit
+	pla
+	pla
+	jmp debugloop
 .endproc
 
 ;******************************************************************************

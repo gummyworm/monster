@@ -1,4 +1,5 @@
 .include "bitmap.inc"
+.include "macros.inc"
 .include "zeropage.inc"
 .include "text.inc"
 .CODE
@@ -267,6 +268,17 @@ __cur_toggle:
 	stx minx
 	sty miny
 	rts
+.endproc
+
+;******************************************************************************
+; UNLIMIT
+.export __cur_unlimit
+.proc __cur_unlimit
+	ldxy #$00
+	jsr __cur_setmin
+	ldx #40
+	ldy #23
+	jmp __cur_setmax
 .endproc
 
 .BSS

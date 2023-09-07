@@ -1,5 +1,6 @@
 .org $7700
-c:  adc #$00
+c:
+    adc #$00
     adc $10
     adc $20,x
     adc $3030
@@ -28,7 +29,7 @@ c:  adc #$00
     bmi *+2
     bne *+2
     bpl *+2
-    brk
+    ;brk
     bvc *+2
     bvs *+2
     clc

@@ -33,6 +33,7 @@
 	toggle = __cur_toggle
 	setmin = __cur_setmin
 	setmax = __cur_setmax
+	unlimit = __cur_unlimit
 .endscope
 
 .macro pushcur

@@ -31,18 +31,15 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 ;  - .XY: the address to edit memory at
 .export __view_edit
 .proc __view_edit
-@byte_offset=zp::tmp0
-@src=zp::tmpb
 @dst=zp::tmp4
 @offset=zp::tmp6
-	stx @src
-	sty @src+1
+@src=zp::tmp8
+	stxy @src
 
-	jsr bm::save
 	pushcur
 
 	ldx #COL_START
-	ldy #MEMVIEW_START
+	ldy #MEMVIEW_START+1
 	jsr cur::setmin
 
 	ldy #MEMVIEW_STOP
@@ -56,9 +53,10 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	lda #$00	; REPLACE mode
 	sta text::insertmode
 
-	ldx @src
-	ldy @src+1
+	ldxy @src
 	jsr __view_mem
+
+	jsr cur::on
 
 ; until user exits (<- or RETURN), get input and update memory
 @edit:
@@ -105,16 +103,16 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 :	jsr key::ishex
 	bcs @replace_val
 	bcc @edit
-@done:
+
+@done:	jsr cur::unlimit
 	jsr cur::off
 	popcur
-	jmp bm::restore
+	rts
 
 @replace_val:
 	jsr @set_nybble	; replace the nybble under cursor
 	jsr @next_x	; advance the cursor (if we can)
-	ldx @src
-	ldy @src+1
+	ldxy @src
 	jsr __view_mem	; update the display
 	jsr cur::on
 	jmp @edit
@@ -170,18 +168,28 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	ora zp::tmp0
 .ifdef USE_FINAL
 	sty @offset
-	bank_store_byte_rel #FINAL_BANK_USER, @dst, @offset
+	bank_read_byte_rel #FINAL_BANK_USER, @dst, @offset
 .else
 	lda (@dst),y
 .endif
 	rts
 @lownybble:
+.ifdef USE_FINAL
+	sty @offset
+	bank_read_byte_rel #FINAL_BANK_USER, @dst, @offset
+.else
 	lda (@dst),y
+.endif
 	and #$f0
 	sta zp::tmp0
 	pla
 	ora zp::tmp0
+.ifdef USE_FINAL
+	sty @offset
+	bank_store_byte_rel #FINAL_BANK_USER, @dst, @offset
+.else
 	sta (@dst),y
+.endif
 	rts
 
 ; move cursor to the next x-position
@@ -234,11 +242,10 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 ;  - .XY: the start address to display memory at
 .export __view_mem
 .proc __view_mem
-@src=zp::tmp7
-@col=zp::tmp9
-@row=zp::tmpa
-	stx @src
-	sty @src+1
+@src=zp::tmpa
+@col=zp::tmpc
+@row=zp::tmpd
+	stxy @src
 
 	lda #MEMVIEW_START
 	jsr draw::hline
@@ -252,6 +259,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 
 	lda #MEMVIEW_START+1
 	sta @row
+
 @l0:	; draw the address of this line
 	lda @src+1
 	jsr util::hextostr
@@ -266,7 +274,8 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 
 	ldx #$00
 @l1:	stx @col
-	; get a byte to display
+
+; get a byte to display
 .ifdef USE_FINAL
 	bank_read_byte #FINAL_BANK_USER, @src
 .else
@@ -274,7 +283,11 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	lda (@src),y
 .endif
 	incw @src
-	sta mem::spare+31,x
+	pha
+	jsr val2ch
+	ldx @col
+	sta mem::spare+31,x	; write the character representation
+	pla
 	jsr util::hextostr
 	txa
 	pha
@@ -283,9 +296,9 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	adc @col
 	tax
 	pla
-	sta mem::spare+8,x
+	sta mem::spare+8,x	; LSB
 	tya
-	sta mem::spare+7,x
+	sta mem::spare+7,x	; MSB
 	ldx @col
 	inx
 	cpx #BYTES_TO_DISPLAY
@@ -299,5 +312,17 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	lda @row
 	cmp #MEMVIEW_STOP
 	bcc @l0
+	rts
+.endproc
+
+;******************************************************************************
+; Get the character representation of the given byte value
+.proc val2ch
+	cmp #$20
+	bcc :+
+	cmp #$80
+	bcs :+
+	rts
+:	lda #'.'	; use '.' for undisplayable chars
 	rts
 .endproc

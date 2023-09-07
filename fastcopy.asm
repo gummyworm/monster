@@ -12,7 +12,7 @@ GENCODE_END = ($2000 + 6*$ff0)
 
 ;******************************************************************************
 ; SCREEN
-; Copies the screen ($1000) to ($a000)
+; Copies the screen ($1100) to ($a000)
 ; this is the address that the generated unrolled loop
 ; will reside in
 .export __fastcopy_save
