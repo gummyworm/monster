@@ -277,7 +277,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 ; get a byte to display
 .ifdef USE_FINAL
 	ldy #$00
-	ldxy @src
+	ldxa @src
 	jsr get_byte
 .else
 	ldy #$00
@@ -363,16 +363,16 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	cmpw #$100
 	bcs :+
 
-@00:	ldxy mem::prog00
+@00:	add16 #(mem::prog00-$00)
 	lda #FINAL_BANK_MAIN
 	rts
 
 :	cmpw #$1000
-	bcc :+
+	bcc @done
 	cmpw #$1100
 	bcs :+
 
-@1000:	ldxy mem::prog1000
+@1000:	add16 #(mem::prog1000-$1000)
 	lda #FINAL_BANK_MAIN
 	rts
 
@@ -380,7 +380,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	bcs :+
 
 @1100:	; read from the screen buffer bank (stored at $a000)
-	add16 #$a000-$1100
+	add16 #($a000-$1100)
 	lda #FINAL_BANK_FASTCOPY
 	rts
 
@@ -389,7 +389,7 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	cmpw #$9010
 	bcs :+
 
-@9000:	ldxy mem::prog9000
+@9000:	add16 #(mem::prog9000-$9000)
 	lda #FINAL_BANK_MAIN
 	rts
 
@@ -398,9 +398,13 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	cmpw #$9500
 	bcs @done
 
-@9400:	lda #FINAL_BANK_MAIN
-	ldxy mem::prog9400
-@done:	rts
+@9400:	add16 #(mem::prog9400-$9400)
+	lda #FINAL_BANK_MAIN
+	rts
+
+@done:	ldxy @addr
+	lda #FINAL_BANK_USER
+	rts
 .endproc
 
 ;******************************************************************************

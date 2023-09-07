@@ -610,7 +610,8 @@ stxy zp::jmpvec
 	jsr str::len
 	tax
 	ldy zp::cury
-	jmp cur::set
+	jsr cur::set
+	jmp text::clrline
 .endproc
 
 ;******************************************************************************
@@ -778,6 +779,7 @@ stxy zp::jmpvec
 	jsr reset
 
 	jmp refresh
+	jsr text::clrline
 
 @err:	pha
 	lda #$00
