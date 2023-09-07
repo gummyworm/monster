@@ -19,6 +19,5 @@
 	linebuffer2     = __linebuffer2
 	program		= __mem_program
 	statusline	= __statusline
-	progsave	= __mem_progsave
 	debugsave	= __mem_debugsave
 .endscope

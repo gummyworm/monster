@@ -48,6 +48,7 @@ CURSOR_LR_MASK=2
 	cmp #$c1	; bcc @lower
 	bcc @chklower
 @upper: eor #$80	; convert to uppercase
+	cmp #$00
 	rts
 
 @chklower:
@@ -56,7 +57,8 @@ CURSOR_LR_MASK=2
 	cmp #$41	; < 'a'
 	bcc @ret
 	ora #$20	; convert to lowercase
-@ret:	rts
+@ret:	cmp #$00
+	rts
 
 @ccodes:
 	cmp #$0d
@@ -71,9 +73,10 @@ CURSOR_LR_MASK=2
 	beq @done
 	cmp #$91
 	beq @done
-@nokey:
-	lda #$00
-@done:	rts
+@nokey:	lda #$00
+	rts
+@done:	cmp #$00	; flag key pressed
+	rts
 .endproc
 
 ;--------------------------------------

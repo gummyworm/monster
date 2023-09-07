@@ -1197,7 +1197,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; main debug loop
 .proc debugloop
 	jsr key::getch
-	cmp #$00
 	beq debugloop
 
 	ldx #@num_commands
@@ -1346,7 +1345,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; QUIT
 ; Exits the debugger
 .proc quit
-	pla	; eat interrupt return address
+	jsr uninstall_breakpoints
+	jsr remove_breakpoint
+
+	lda #$00
+	pha
+	plp
+	sei
+
+	pla
+	pla
+	pla
 	pla
 	rts
 .endproc

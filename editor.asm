@@ -84,7 +84,6 @@ main:
 	bne *-3
 
 	jsr key::getch
-	cmp #$00
 	beq @done
 	jsr onkey
 
@@ -389,12 +388,11 @@ stxy zp::jmpvec
 	jsr text::update
 
 	jsr key::getch
+	beq @getkey
 	cmp #$0d
 	beq @done
 	cmp #$5f	; <- (done)
 	beq @exit
-	cmp #$00
-	beq @getkey
 	jsr text::putch
 	jmp @getkey
 
