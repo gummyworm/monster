@@ -70,7 +70,7 @@ FIRST_FILE_ID = 2
 @errcode=zp::tmpb
 @dev=$ba
 	pha
-	lda #$09
+	lda #$0a
 	sta @dev
 	pla
 	jsr $ffbd	; SETNAM
@@ -78,7 +78,7 @@ FIRST_FILE_ID = 2
 	lda #$03	; file #3
 	ldx @dev	; last used device number
 	bne :+
-	ldx #$09 	; default to device 9
+	ldx #$0a 	; default to device 10
 :	ldy secondaryaddr ; SA
 	jsr $ffba 	; SETLFS
 
@@ -170,7 +170,7 @@ FIRST_FILE_ID = 2
 	jsr $ffbd 	; SETNAM
 	lda #$03
 	tay
-	ldx #$09
+	ldx #$0a	; device 10
 	jsr $ffba	; SETLFS
 
 	jsr $ffc0 	; call OPEN
@@ -266,7 +266,7 @@ FIRST_FILE_ID = 2
 	jsr $ffbd 	; SETNAM
 	lda #$0f
 	ldy #$0f
-	ldx #$09
+	ldx #$0a	; device 10
 	jsr $ffba	; SETLFS
 	jsr $ffc0 	; OPEN 15,9,15 "S:FILE"
 	bcs @err
@@ -371,7 +371,7 @@ FIRST_FILE_ID = 2
 	lda @file
 	ldx zp::device	; last used device number
 	bne :+
-	ldx #$09 	; default to device 9
+	ldx #$0a 	; default to device 10
 :	ldy #$03	; SA
 	jsr $ffba 	; SETLFS
 	jsr $ffc0 	; call OPEN

@@ -17,7 +17,7 @@
 	jsr $ffbd	; SETNAM
 
 	lda #$0f	; file number 15
-	ldx #$09	; default to device 9
+	ldx #$0a	; default to device 10
 	ldy #$0f	; secondary address 15 (error channel)
 	jsr $ffba	; SETLFS
 	jsr $ffc0	; OPEN
