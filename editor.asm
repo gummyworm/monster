@@ -1123,6 +1123,8 @@ stxy zp::jmpvec
 	; scroll everything up from below the line we deleted
 	ldx zp::cury
 	lda height
+	sec
+	sbc #$01
 	jsr text::scrollup
 .IFDEF DRAW_TITLEBAR
 	jsr draw_titlebar

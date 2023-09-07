@@ -315,8 +315,10 @@ __asm_tokenize:
 	lda zp::virtualpc+1
 	sta zp::label_value+1
 	jsr lbl::add
+	jsr @finishline
+	bcs :+
 	lda #ASM_LABEL
-	rts
+:	rts
 
 ; from here onwards we are either reading a comment or an operand
 @getopws:
@@ -439,6 +441,7 @@ __asm_tokenize:
 
 ;------------------
 ; finish the line by checking for whitespace and/or a comment
+@finishline:
 @getws2:
 	jsr process_ws
 
