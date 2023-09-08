@@ -547,6 +547,7 @@ stxy zp::jmpvec
 	.byte $b2	; C=<R> (rename)
 	.byte $be	; C=<V> (view)
 	.byte $b6	; C=<L> (dir)
+	.byte $b7	; C=<Y> (list symbols)
 	.byte $a7	; C=<M> (gotoline)
 @num_special_keys=*-@specialkeys
 @specialkeys_vectors:
@@ -561,6 +562,7 @@ stxy zp::jmpvec
 	.word rename
 	.word memview
 	.word dir
+	.word list_symbols
 	.word command_gotoline
 .endproc
 
@@ -613,6 +615,59 @@ stxy zp::jmpvec
 	jsr cur::set
 	rts
 	;jmp text::clrline
+.endproc
+
+;******************************************************************************
+; LIST_SYMBOLS
+; Lists the symbols in the program
+.proc list_symbols
+@cnt=zp::tmp7
+@addr=zp::tmp9
+@row=zp::tmpb
+	jsr bm::save
+	jsr bm::clr
+
+	ldxy lbl::num
+	cmpw #0
+	beq @done
+
+	ldxy #$00
+	stxy @cnt
+	stx @row
+
+@l0:	jsr lbl::by_id		; get the symobl address
+	stxy @addr
+	ldy #$00
+	lda (@addr),y
+	pha
+	iny
+	lda (@addr),y
+	pha
+
+	ldxy @cnt
+	jsr lbl::name_by_id	; get the symbol name
+	tya
+	pha
+	txa
+	pha
+
+	lda @row
+	ldxy #@sym_line
+	jsr text::print
+
+	inc @row
+	incw @cnt
+	ldxy @cnt
+	cmpw lbl::num
+	bne @l0
+
+@done:	; wait for a key and restore screen
+	jsr key::getch
+	beq @done
+	jmp bm::restore
+
+@sym_line:
+	.byte ESCAPE_STRING,":$",ESCAPE_VALUE,0
 .endproc
 
 ;******************************************************************************

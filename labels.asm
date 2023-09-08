@@ -9,6 +9,8 @@ MAX_LABEL_LEN = 16
 
 .BSS
 ;******************************************************************************
+.export __label_num
+__label_num:
 numlabels: .word 0   ; total number of labels
 
 ;******************************************************************************
@@ -138,7 +140,7 @@ label_addresses: .res 256 * 2
 	bcs @insert
 	; label exists, overwrite its old value
 
-	jsr labeladdr ; get the address of the label
+	jsr __label_by_id ; get the address of the label
 	ldy #$00
 	lda zp::label_value
 	sta (@addr),y
@@ -345,11 +347,10 @@ label_addresses: .res 256 * 2
 @adst=zp::tmp14
 	jsr __label_find
 	bcc @del
-	rts
+	rts		; not found
 
-@del:
-	stxy @id
-	jsr labeladdr
+@del:	stxy @id
+	jsr __label_by_id
 	stxy @dst
 
 	; get the destination (dst - 2)
@@ -389,7 +390,7 @@ label_addresses: .res 256 * 2
 
 	; get the source (destination + 16)
 	ldxy @id
-	jsr labelnameaddr
+	jsr __label_name_by_id
 	stxy @dst
 	lda @dst
 	clc
@@ -531,13 +532,14 @@ label_addresses: .res 256 * 2
 .endproc
 
 ;******************************************************************************
-; LABELADDR
+; LABEL_BY_ID
 ; Returns the address of the label ID in .YX in .YX
 ; IN:
 ;  - .XY: the id of the label to get the address of
 ; OUT:
 ;  - .XY: the address of the given label id
-.proc labeladdr
+.export __label_by_id
+.proc __label_by_id
 @addr=zp::tmpc
 	txa
 	asl
@@ -557,13 +559,14 @@ label_addresses: .res 256 * 2
 .endproc
 
 ;******************************************************************************
-; LABELNAMEADDR
+; NAME_BY_ID
 ; Returns the address name of the label ID in .YX in .YX
 ; IN:
 ;  - .XY: the id of the label to get the address of
 ; OUT:
 ;  - .XY: the address of the name for the given label id
-.proc labelnameaddr
+.export __label_name_by_id
+.proc __label_name_by_id
 @addr=zp::labels
 	sty @addr+1
 	txa

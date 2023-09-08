@@ -26,9 +26,9 @@ USE_FINAL = 1	; enable final expansion
 ; BANK LAYOUT
 ; These definitions describe which banks store the code/data for their
 ; corresponding item.
-FINAL_BANK_MAIN = 1	; where the editor/assembler/etc code is stored
-FINAL_BANK_DEBUG = 2	; where debug symbols are stored
-FINAL_BANK_USER = 3	; where the user's program is stored
+FINAL_BANK_MAIN    = 1	; where the editor/assembler/etc code is stored
+FINAL_BANK_DEBUG   = 2	; where debug symbols are stored
+FINAL_BANK_USER    = 3	; where the user's program is stored
 
 FINAL_BANK_SOURCE0 = 3	; source bank
 FINAL_BANK_SOURCE1 = 4	; source bank
@@ -39,10 +39,12 @@ FINAL_BANK_SOURCE5 = 8	; source bank
 FINAL_BANK_SOURCE6 = 9	; source bank
 FINAL_BANK_SOURCE7 = $a	; source bank
 
+FINAL_BANK_SYMBOLS = $d	; symbols bank (label names and their addresses)
+
 ; these are used to store the debuggger screen and the
 ; user program data ($1100-$2000) respectively
 FINAL_BANK_FASTCOPY2 = $e
-FINAL_BANK_FASTCOPY = $f
+FINAL_BANK_FASTCOPY  = $f
 
 ;******************************************************************************
 ; MEMORY BANKS

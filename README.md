@@ -40,18 +40,23 @@ Here are some of the supported commands.  When given a prompt the '<-' key
 will exit the prompt and cancel the command
 
 #### Command shortcuts
-|  Key   | Name    |   Description                                                         |
-|--------|---------|-----------------------------------------------------------------------|
-| C= + C | Refresh | refrehshes the screen by redrawing the source buffer                  | 
-| C= + H | Help    | displays the help menu                                                | 
-| C= + S | Save    | save file, prompts for a filename and saves the buffer contents to it |
-| C= + L | List    | list directory, shows the files on the current disk                   |
-| C= + O | Ope     | prompts for a filename and loads the buffer with its contents         |
-| C= + V | MemView | enters the memory viewer/editor (press <- to exit)                    |
-| C= + X | Scratch | prompts for a filename and deletes the file                           |
-| C= + G | Goto    | prompts for a label name and executes the program at its address      | 
-|   F3   | Assemble| assembles the code in the buffer to memory                            |
-|   F4   | Debug   | assembles the code in the buffer to memory _with_ debug info          |
+|  Key   | Name    |   Description                                                               |
+|--------|---------|-----------------------------------------------------------------------------|
+| C= + A | Assemble File | prompts for a filename and assembles it.                              | 
+| C= + C | Refresh       | refrehshes the screen by redrawing the source buffer                  | 
+| C= + D | Start Debugger| prompts for a label and begins debugging at it                        | 
+| C= + G | Goto          | prompts for a label name and executes the program at its address      | 
+| C= + H | Help          | displays the help menu                                                | 
+| C= + L | List          | list directory, shows the files on the current disk                   |
+| C= + O | Open          | prompts for a filename and loads the buffer with its contents         |
+| C= + R | Rename        | prompts for a filename. this name will be used for future saves       |
+| C= + S | Save          | save file, prompts for a filename and saves the buffer contents to it |
+| C= + V | MemView       | enters the memory viewer/editor (press <- to exit)                    |
+| C= + X | Scratch       | prompts for a filename and deletes the file                           |
+| C= + Y | Show Symbols  | lists the symbol table for the assembled program                      | 
+|   F3   | Assemble      | assembles the code in the buffer to memory                            |
+|   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
+
 
 #### Navigation keys
 |  Key   | Name      | Description                                                           |
@@ -351,7 +356,9 @@ respective Key in the table below.
 
 |  Key   | Name    |   Description                                                                        |
 |--------|---------|--------------------------------------------------------------------------------------|
-|   Z    | Step    | steps to the next instruction.                                                       | 
-|   S    | StepOver| steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
 |   G    | Go      | begins execution at the cursor                                                       |
+|   M    | Mem     | activates the memory window, which takes control until `<-` is pressed               |
+|   S    | StepOver| steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
+|   Z    | Step    | steps to the next instruction.                                                       | 
+| <-     | Exit    | exits the debugger and returns to the editor                                         |
 
