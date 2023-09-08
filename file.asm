@@ -321,15 +321,11 @@ FIRST_FILE_ID = 2
 	tya		; put # of bytes read in .A
 	RETURN_OK
 
-@eof:   and #$40	; EOF?
-	bne :+		; maybe- check drive err
-	RETURN_ERR ERR_IO_ERROR
-:	jsr io::readerr
+; read drive err chan and translate CBM DOS error code to ours if possible
+@eof:  	jsr io::readerr
 	ldxy #$0100
 	jsr atoi
 	txa
-
-	; translate CBM DOS error code to ours if possible
 	cmp #62		; FILE NOT FOUND
 	bne :+
 	lda #ERR_FILE_NOT_FOUND
@@ -354,18 +350,21 @@ FIRST_FILE_ID = 2
 	stxy @filename
 	jsr str::len
 	pha
+
 	ldx #FIRST_FILE_ID
 :	lda files-FIRST_FILE_ID,x
 	beq @found
 	inx
-	cpx #MAX_OPEN_FILES
+	cpx #MAX_OPEN_FILES+FIRST_FILE_ID
 	bcc :-
-
 	RETURN_ERR ERR_MAX_FILES_EXCEEDED
 
-@found: txa
+@found: ; store entry in files table
+	txa
 	sta @file
-	pla
+	sta files-FIRST_FILE_ID,x
+
+	pla		; get length of filename
 	ldxy @filename
 	jsr $ffbd	; SETNAM
 
@@ -377,11 +376,21 @@ FIRST_FILE_ID = 2
 	ldy #$03	; SA
 	jsr $ffba 	; SETLFS
 	jsr $ffc0 	; call OPEN
-	bcc :+
-	RETURN_ERR ERR_IO_ERROR
+	bcs @getopenerr
+	lda @file	; get file ID
+	rts		; return it
 
-:	lda @file
-	rts
+@getopenerr:
+	cmp #$01
+	bne :+
+	RETURN_ERR ERR_TOO_MANY_OPEN_FILES
+:	cmp #$02
+	bne :+
+	RETURN_ERR ERR_LOGICAL_FILE_IN_USE
+:	cmp #$05
+	bne :+
+	RETURN_ERR ERR_DRIVE_DID_NOT_RESPOND
+:	RETURN_ERR ERR_IO_ERROR	; unknown error
 .endproc
 
 ;******************************************************************************
@@ -394,11 +403,29 @@ FIRST_FILE_ID = 2
 @file=zp::tmp0
 	tax
 	lda #$00
-	sta files-FIRST_FILE_ID,x
+	sta files-FIRST_FILE_ID,x	; clear entry in files table
 	txa
 	sei
 	jsr $ffc3
 	jmp $ffb7
+.endproc
+
+;******************************************************************************
+; CHECK_ERR
+; Checks the drive's error status and returns an error if it contains one
+; OUT:
+;  - .A: the error code (0 on success)
+;  - .C: set if there is an error
+.proc check_err
+  	jsr io::readerr
+	ldxy #$0100
+	jsr atoi
+	txa
+	cmp #62		; FILE NOT FOUND
+	bne :+
+	lda #ERR_FILE_NOT_FOUND
+:	cmp #$01	; set .C if error > 0
+	rts
 .endproc
 
 .BSS

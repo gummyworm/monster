@@ -60,6 +60,12 @@ err_branch_out_of_range:
 	.byte "range error",0
 err_file_not_found:
 	.byte "file not found",0
+err_too_many_open_files:
+	.byte "too many open files",0
+err_logical_file_in_use:
+	.byte "logical file in use",0
+err_drive_did_not_respond:
+	.byte "no response from drive",0
 
 ;******************************************************************************
 errors: .word err_no_err	 ; no error
@@ -89,6 +95,9 @@ errors: .word err_no_err	 ; no error
 	.word err_no_origin
 	.word err_branch_out_of_range
 	.word err_file_not_found
+	.word err_too_many_open_files
+	.word err_logical_file_in_use
+	.word err_drive_did_not_respond
 
 .CODE
 ;******************************************************************************
