@@ -287,16 +287,18 @@ MAX_OPERANDS=$10/2
 	jsr lbl::isvalid ; if we're verifying, let this pass if its a valid label
 	bcs @done
 
-	lda  state::verify
-	beq :+
-
-	lda #$ff	; flag that we don't know the size of the label
-	ldxy zp::virtualpc	; TODO: assume smallest possible value
-	jmp @updateline ;beq @updateline
-
-:	ldxy zp::line
+	; try to get the label address
+	ldxy zp::line
 	jsr lbl::addr
-	bcs @done
+	bcc @updateline
+
+	; if we failed to get the address, see if we're just verifying.
+	; if we are, allow us to proceed with a dummy value
+	lda state::verify
+	beq @done	; not verifying, return with error
+
+	lda #$ff		; flag that we don't know the size of the label
+	ldxy zp::virtualpc	; TODO: assume smallest possible value
 
 @updateline:
 	pha
