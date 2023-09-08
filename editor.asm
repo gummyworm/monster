@@ -23,6 +23,8 @@
 .include "macros.inc"
 .import help
 
+SCREEN_H = 23
+
 ;******************************************************************************
 ; ZEROPAGE
 indent = zp::editor	; number of spaces to insert on newline
@@ -625,7 +627,6 @@ stxy zp::jmpvec
 @addr=zp::tmp9
 @row=zp::tmpb
 	jsr bm::save
-	jsr bm::clr
 
 	ldxy lbl::num
 	cmpw #0
@@ -633,9 +634,10 @@ stxy zp::jmpvec
 
 	ldxy #$00
 	stxy @cnt
-	stx @row
 
-@l0:	jsr lbl::by_id		; get the symobl address
+@l0:	stx @row
+	jsr bm::clr
+@l1:	jsr lbl::by_id		; get the symobl address
 	stxy @addr
 	ldy #$00
 	lda (@addr),y
@@ -656,15 +658,39 @@ stxy zp::jmpvec
 	jsr text::print
 
 	inc @row
+	lda @row
+	cmp #SCREEN_H
+	beq @done		; end of screen
 	incw @cnt
 	ldxy @cnt
 	cmpw lbl::num
-	bne @l0
+	bne @l1
 
-@done:	; wait for a key and restore screen
+@done:	; wait for a key
 	jsr key::getch
 	beq @done
+	cmp #$11		; down
+	beq @pgdown
+	cmp #$91		; up
+	beq @pgup
+	cmp #$5f		; <-
+	bne @done
 	jmp bm::restore
+
+@pgdown:
+	ldxy @cnt		; @cnt is already +SCREEN_H
+	cmpw lbl::num		; are we at the end of the symbols?
+	bcs @done		; yes, don't switch pages
+	bcc @cont
+
+@pgup:	ldxy @cnt
+	sub16 #(SCREEN_H*2)-1
+	bpl @cont
+	ldxy #$00
+
+@cont:	stxy @cnt
+	ldx #$00
+	jmp @l0
 
 @sym_line:
 	.byte ESCAPE_STRING,":$",ESCAPE_VALUE,0

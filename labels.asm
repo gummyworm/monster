@@ -82,15 +82,24 @@ label_addresses: .res 256 * 2
 
 @seek:	ldy #$00
 @l0:	lda (@label),y
-	jsr util::isseparator
-	beq @found
+	beq @chkend
+	cmp #' '
+	beq @chkend
+	cmp #':'
+	beq @chkend
 	cmp (@search),y
-	beq :+
+	beq @chmatch
 	bcc @notfound	; labels are alphabetical, if our label is not alphabetically greater, we're done
-	bne @next
-:	iny
-	cpy #MAX_LABEL_LEN
+	bne @next  ; if our label IS greater alphabetically, try the next label
+
+@chmatch:
+	iny
+	cpy #MAX_LABEL_LEN-1
+	bcs @found
 	bcc @l0
+@chkend:
+	lda (@search),y
+	beq @found
 
 @next:	lda @search
 	clc
@@ -134,12 +143,11 @@ label_addresses: .res 256 * 2
 	bcc @seek
 	RETURN_ERR ERR_ILLEGAL_LABEL
 
-@seek:
-	ldxy @name
+@seek:	ldxy @name
 	jsr __label_find
 	bcs @insert
-	; label exists, overwrite its old value
 
+	; label exists, overwrite its old value
 	jsr __label_by_id ; get the address of the label
 	ldy #$00
 	lda zp::label_value
@@ -274,6 +282,8 @@ label_addresses: .res 256 * 2
 	bcc :-
 
 @storeaddr:
+	lda #$00
+	sta (@src),y
 	; write the address
 	ldy #$00
 	lda zp::label_value
