@@ -638,6 +638,13 @@ stxy zp::jmpvec
 @l0:	stx @row
 	jsr bm::clr
 @l1:	ldxy @cnt
+	jsr lbl::name_by_id	; get the symbol name
+	tya
+	pha
+	txa
+	pha
+
+	ldxy @cnt
 	jsr lbl::by_id		; get the symobl address
 	stxy @addr
 	ldy #$00
@@ -645,13 +652,6 @@ stxy zp::jmpvec
 	pha
 	iny
 	lda (@addr),y
-	pha
-
-	ldxy @cnt
-	jsr lbl::name_by_id	; get the symbol name
-	tya
-	pha
-	txa
 	pha
 
 	lda @row
@@ -694,7 +694,7 @@ stxy zp::jmpvec
 	jmp @l0
 
 @sym_line:
-	.byte ESCAPE_STRING,":$",ESCAPE_VALUE,0
+	.byte "$",ESCAPE_VALUE,": ", ESCAPE_STRING, 0
 .endproc
 
 ;******************************************************************************
