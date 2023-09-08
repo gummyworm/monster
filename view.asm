@@ -18,9 +18,12 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 
 TOTAL_BYTES=BYTES_TO_DISPLAY*(MEMVIEW_STOP-MEMVIEW_START)
 
-dirtybuff:
-memaddr:
+.BSS
+;******************************************************************************
+dirtybuff: .res TOTAL_BYTES
+memaddr:   .word 0
 
+.CODE
 ;******************************************************************************
 ; OFF
 ; Turns off the memory view window by restoring the screen
@@ -36,6 +39,7 @@ memaddr:
 ;  - .XY: the address to edit memory at
 .export __view_edit
 .proc __view_edit
+@odd=zp::tmp0
 @dst=zp::tmp4
 @offset=zp::tmp6
 @src=zp::tmp8
@@ -148,11 +152,11 @@ memaddr:
 	; get odd/even cursor column
 	lda zp::curx
 	and #$01
-	sta zp::tmp0
+	sta @odd
 	; bytes alternate odd/even columns for hi/lo nybble
 	tya
 	and #$01
-	eor zp::tmp0
+	eor @odd
 	beq @lownybble
 
 @hinybble:
@@ -163,13 +167,13 @@ memaddr:
 	lda (@dst),y
 .endif
 	and #$0f
-	sta zp::tmp0
+	sta @odd
 	pla
 	asl
 	asl
 	asl
 	asl
-	ora zp::tmp0
+	ora @odd
 .ifdef USE_FINAL
 	ldxa @dst
 	jsr get_byte
@@ -185,9 +189,9 @@ memaddr:
 	lda (@dst),y
 .endif
 	and #$f0
-	sta zp::tmp0
+	sta @odd
 	pla
-	ora zp::tmp0
+	ora @odd
 .ifdef USE_FINAL
 	ldxa @dst
 	jsr store_byte
@@ -250,6 +254,7 @@ memaddr:
 @col=zp::tmpc
 @row=zp::tmpd
 	stxy @src
+	stxy memaddr
 
 	lda #MEMVIEW_START
 	jsr draw::hline
@@ -334,26 +339,26 @@ memaddr:
 .endproc
 
 ;******************************************************************************
-; IS_DIRTY
+; DIRTY
 ; Returns .Z set if the memory in the viewer is dirty (has changed since the
 ; last render)
 ; OUT:
 ;  - .Z: set if the display is dirty
+.export __view_dirty
 .proc __view_dirty
 @cnt=zp::tmp2
-	ldx #TOTAL_BYTES
+	ldx #TOTAL_BYTES-1
 	stx @cnt
 
 :	ldxa memaddr
 	ldy @cnt
 	jsr get_byte
+
 	ldx @cnt
-	cmp dirtybuff-1,x
+	cmp dirtybuff,x
 	bne @dirty
 	dec @cnt
-	bne :-
-	cpx #TOTAL_BYTES
-	bne :-
+	bpl :-
 @clean: lda #$ff
 	rts
 @dirty: lda #$00
@@ -467,7 +472,7 @@ memaddr:
 ; Writes a byte to the given address. If the address is in a range internal to
 ; the Vic or zeropage, it is read from a buffer that stores the user data.
 ; IN:
-;  - .AX: the address to read
+;  - .AX: the address to write
 ;  - .Y: the offset from the address to read
 ; OUT:
 ;  - .A: the byte at the given address+offset

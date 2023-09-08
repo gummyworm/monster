@@ -1151,6 +1151,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; display the contents of the registers
 	jsr showregs
 
+	; update memory view
+	ldxy mem_ptr
+	jsr view::mem
+
+@showbrk:
 	; get the address before the BRK and go to it
 	ldxy pc
 	jsr __debug_addr2line	; get the line #

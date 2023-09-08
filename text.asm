@@ -187,11 +187,13 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 	ldy #0
 	ldx @savex
 :	lda mem::spare,y
+	cmp #'0'
+	beq :+
 	sta @buff,x
 	inx
-	iny
+:	iny
 	cpy #5
-	bne :-
+	bne :--
 
 	ldy @savey
 	jmp @cont

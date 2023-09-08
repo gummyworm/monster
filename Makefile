@@ -3,7 +3,7 @@ SRC=$(filter-out boot.asm test.asm, $(SRC_FILES))
 TESTS=$(wildcard tests/*.s)
 
 monster.prg: boot.asm $(SRC) 
-	cl65 -o $@ -C link.config $^ -Ln labels.txt -v -m map.txt
+	cl65 -t vic20 -o $@ -C link.config $^ -Ln labels.txt -v -m map.txt
 	rm *.o
 
 # create the test disk image

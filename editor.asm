@@ -1406,6 +1406,12 @@ __edit_gotoline:
 	tya
 	pha
 
+	; push pass #
+	lda zp::pass
+	pha
+	lda #$00
+	pha
+
 	; display the line containing the error
 	ldxy #mem::linebuffer
 	lda #ERROR_ROW+1
@@ -1427,7 +1433,7 @@ __edit_gotoline:
 	sta height
 	ldx #40
 	jmp cur::setmax
-@line_err: .byte " in line ", ESCAPE_VALUE,0
+@line_err: .byte ";pass ", ESCAPE_VALUE_DEC,";line ", ESCAPE_VALUE_DEC,0
 .endproc
 
 .DATA
