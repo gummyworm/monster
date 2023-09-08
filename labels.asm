@@ -83,9 +83,7 @@ label_addresses: .res 256 * 2
 @seek:	ldy #$00
 @l0:	lda (@label),y
 	beq @chkend
-	cmp #' '
-	beq @chkend
-	cmp #':'
+	jsr util::isseparator
 	beq @chkend
 	cmp (@search),y
 	beq @chmatch
