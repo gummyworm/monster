@@ -1410,7 +1410,7 @@ __asm_include:
 .proc defineconst
 	jsr lbl::isvalid
 	bcs @err
-	lda zp::line	; save label name's address
+	lda zp::line		; save label name's address
 	pha
 	lda zp::line+1
 	pha
@@ -1420,10 +1420,9 @@ __asm_include:
 	bcc @ok
 	pla
 	pla
-@err:
-	RETURN_ERR ERR_SYNTAX_ERROR
-@ok:	stx zp::label_value
-	sty zp::label_value+1
+@err:	RETURN_ERR ERR_SYNTAX_ERROR
+
+@ok:	stxy zp::label_value
 	pla
 	tay
 	pla
@@ -1601,7 +1600,6 @@ __asm_include:
 @done:	rts
 .endproc
 
-
 ;******************************************************************************
 ; PROCESS_END_OF_LINE
 ; Reads (line) and updates it to point to the terminating 0
@@ -1634,14 +1632,14 @@ __asm_include:
 ; Resets the internal assembly context (labels and pointer to target)
 .export __asm_reset
 .proc __asm_reset
-	jsr __asm_resetpc
 	lda #$00
 	sta pcset
 	sta ifstacksp
 	sta contextstacksp
 	jsr ctx::init
 	jsr mac::init
-	jmp lbl::clr
+	jsr lbl::clr
+	; fall through to RESETPC
 .endproc
 
 ;******************************************************************************

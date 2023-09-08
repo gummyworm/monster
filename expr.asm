@@ -262,9 +262,9 @@ MAX_OPERANDS=$10/2
 :	cmp #'/'
 	bne @unknown_op
 	ldxy @val1
-	stxy zp::tmp0
-	ldxy @val2
 	stxy zp::tmp2
+	ldxy @val2
+	stxy zp::tmp0
 	jsr m::div16
 	ldxy zp::tmp0
 	jmp @pushval
