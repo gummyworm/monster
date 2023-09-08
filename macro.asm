@@ -228,11 +228,9 @@ macros: .res 512
 	lda @cnt
 	pha
 
-	jsr asm::tokenize
-	sta @errcode
-	lda #$00
-	adc #$00
-	sta @err
+	jsr asm::tokenize	; assemble this line of the macro
+	rol @err		; set error if .C was set
+	sta @errcode		; store the error code
 
 	; restore state
 	pla
@@ -243,8 +241,8 @@ macros: .res 512
 	sta @macro
 
 @chkerr:
-	bcc @ok
-	bne @cleanuploop
+	lda @err		; did an error occur?
+	bne @cleanuploop	; if yes, cleanup and exit
 
 @ok:	; move to the next line
 	ldy #$00
@@ -268,7 +266,7 @@ macros: .res 512
 	dec @cnt
 	bne @cleanuploop
 
-@done:	lsr @err	; set .C if error
+@done:	lsr @err	; set .C if error occurred
 	lda @errcode
 	rts
 .endproc
