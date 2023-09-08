@@ -78,7 +78,7 @@ start:
 	sta $0317		; BRK
 	sta $0319		; NMI
 	jsr $ffe7	; CLALL (close all files)
-	lda #9
+	lda #$a
 	sta zp::device
 
 	lda #$80

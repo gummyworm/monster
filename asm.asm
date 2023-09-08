@@ -25,26 +25,43 @@
 ; Pass 1:
 ;  - generate symbol table (label names and addresses)
 ;  - create macro definitions (.MAC)
-;  - "expand" macros to get effective PC
 ;
 ; Pass 2:
-;  - write the program binary
+;  - write the program binary by assembling:
 ;   - instructions
 ;   - macro invocations
 ;   - .REP blocks
+;   - directives like .DB and .DW
 ;
 ; There are (sensible) limitations due to the 2 pass nature of the assembler
 ;  1. Macros must be defined before first use
-;  2. The size of all labels must be known in the first pass.  For example
-;    ```
-;     LDA TARGET
-;     LOOP:
-;    ```
-;    To generate the correct addresse for LOOP, the assembler needs to know if
-;    TARGET is a zeropage or absolute address.
-;    With insufficient data (e.g. forward references), labels are assumed to be
-;    absolute (2 byte) addresses, which is usually a safe assumption unless
-;    you're writing code in the zeropage.
+;  2. The size of all labels must be known (or correctly implied) in the first
+;     pass. For example:
+;     ```
+;      LDA TARGET
+;      LOOP:
+;     ```
+;     To generate the correct addresse for LOOP, the assembler needs to know if
+;     TARGET is a zeropage or absolute address.
+;     With insufficient data (e.g. forward references), labels are assumed to be
+;     absolute (2 byte) addresses, which is usually a safe assumption unless
+;     you're writing code in the zeropage.
+;  3. Constants (.EQ) must be defined before first use (for similar reasons
+;     that labels must be defined before use)
+;     For example, consider this erroneous case:
+;     ```
+;       LDA ADDR
+;       .EQ ADDR $10
+;     ```
+;     In this example, we don't know whether to use zeropage or absolute
+;     addressing for the LDA, which could lead to incorrect addresses being
+;     generated for the rest of the pass.
+;     ```
+;       .EQ ADDR $10
+;       LDA ADDR
+;     ```
+;     In this ^ correct example, we know to use zeropage addressing and the
+;     first and second passes will generate the same labels hereafter.
 ;******************************************************************************
 
 ;******************************************************************************
@@ -1261,15 +1278,14 @@ bbb10_modes:
 	jsr util::is_whitespace
 	beq @unenquoted
 	cmp #'"'
-	beq __asm_include
+	beq @doinc
 	sta @filename,x
 	incw zp::line
 	inx
 	bne @getfilename
-	lda #$00
+
+@doinc: lda #$00
 	sta @filename,x
-
-
 	ldxy #@filename
 ; entry point for assembling a given file
 .export __asm_include

@@ -299,6 +299,7 @@ FIRST_FILE_ID = 2
 	stxy @dst
 	tax
 	jsr $ffc6     ; CHKIN (file in .A now used as input)
+
 	ldy #$00
 @l0:	jsr $ffb7     ; call READST (read status byte)
 	cmp #$00
@@ -368,11 +369,12 @@ FIRST_FILE_ID = 2
 	ldxy @filename
 	jsr $ffbd	; SETNAM
 
-	lda @file
+	lda @file	; file handle
 	ldx zp::device	; last used device number
 	bne :+
 	ldx #$0a 	; default to device 10
-:	ldy #$03	; SA
+:	ldx #$0a
+	ldy #$03	; SA
 	jsr $ffba 	; SETLFS
 	jsr $ffc0 	; call OPEN
 	bcc :+

@@ -1,13 +1,14 @@
 SRC_FILES=$(wildcard *.asm)
 SRC=$(filter-out boot.asm test.asm, $(SRC_FILES))
 TESTS=$(wildcard tests/*.s)
+TEST_INCS=$(wildcard tests/*.inc)
 
 monster.prg: boot.asm $(SRC) 
 	cl65 -t vic20 -o $@ -C link.config $^ -Ln labels.txt -v -m map.txt
 	rm *.o
 
 # create the test disk image
-test.d64: $(TESTS)
+test.d64: $(TESTS) $(TEST_INCS)
 	c1541 -format test,1 d64 test.d64 -attach test.d64 $(addprefix -write ,$^)
 
 # run the assembler with the test disk image
