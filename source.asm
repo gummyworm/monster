@@ -342,10 +342,6 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	stxy @dst
 
 .IFDEF USE_FINAL
-	ldxy @src
-	stxy zp::banktmp
-	ldxy @dst
-	stxy zp::banktmp+2
 	ldxy len
 	lda bank
 	jsr fe3::copy

@@ -611,7 +611,8 @@ stxy zp::jmpvec
 	tax
 	ldy zp::cury
 	jsr cur::set
-	jmp text::clrline
+	rts
+	;jmp text::clrline
 .endproc
 
 ;******************************************************************************
@@ -1116,15 +1117,13 @@ stxy zp::jmpvec
 .proc ccdel
 @cnt=zp::tmp6
 	jsr src::start
-	bne :+
-	rts
+	beq @done
 
-:	jsr src::backspace
+	jsr src::backspace
 	lda #$14
 	jsr text::putch
 	bcs @prevline
-@deldone:
-	rts
+@done:	rts
 
 @prevline:
 	; move the cursor
@@ -1155,8 +1154,7 @@ stxy zp::jmpvec
 	jsr str::len
 	sta @line2len
 
-	; get the new cursor position
-	; new_line_len - (old_line2_len)
+	; get the new cursor position ( new_line_len - (old_line2_len))
 	jsr src::up
 	;jsr src::start
 	;beq @redraw
@@ -1179,8 +1177,7 @@ stxy zp::jmpvec
 	lda zp::cury
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
-	jsr text::drawline
-	jmp src::end
+	jmp text::drawline
 .endproc
 
 ;******************************************************************************

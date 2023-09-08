@@ -219,20 +219,23 @@ bankcode_size = *-bankcode
 ; IN:
 ;  - .A: the source/destination block
 ;  - .XY: the number of bytes to copy
-;  - zp::tmp1: the source address
-;  - zp::tmp3: the destination address
+;  - zp::tmp2: the source address
+;  - zp::tmp4: the destination address
 .export __final_memcpy
 .proc __final_memcpy
-@bank=zp::bank
-@src=zp::banktmp
-@dst=zp::banktmp+2
-@size=zp::banktmp+4
+@src=zp::tmp2
+@dst=zp::tmp4
+@bank=zp::tmp6
+@size=zp::tmp0
+	cmpw #$00
+	beq @done
+
 	stxy @size
 	sta @bank
 
 @l0:	; read a byte from the source bank/addr
-	lda @bank
 	ldxy @src
+	lda @bank
 	jsr __final_load_byte
 
 	; write the byte to the dest bank/addr
@@ -249,5 +252,5 @@ bankcode_size = *-bankcode
 	ldxy @size
 	cmpw #0
 	bne @l0
-	rts
+@done:	rts
 .endproc

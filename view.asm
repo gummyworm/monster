@@ -16,6 +16,11 @@ BYTES_TO_DISPLAY=8
 COL_START=7
 COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 
+TOTAL_BYTES=BYTES_TO_DISPLAY*(MEMVIEW_STOP-MEMVIEW_START)
+
+dirtybuff:
+memaddr:
+
 ;******************************************************************************
 ; OFF
 ; Turns off the memory view window by restoring the screen
@@ -325,6 +330,33 @@ COL_STOP=COL_START+(3*BYTES_TO_DISPLAY)-1
 	bcs :+
 	rts
 :	lda #'.'	; use '.' for undisplayable chars
+	rts
+.endproc
+
+;******************************************************************************
+; IS_DIRTY
+; Returns .Z set if the memory in the viewer is dirty (has changed since the
+; last render)
+; OUT:
+;  - .Z: set if the display is dirty
+.proc __view_dirty
+@cnt=zp::tmp2
+	ldx #TOTAL_BYTES
+	stx @cnt
+
+:	ldxa memaddr
+	ldy @cnt
+	jsr get_byte
+	ldx @cnt
+	cmp dirtybuff-1,x
+	bne @dirty
+	dec @cnt
+	bne :-
+	cpx #TOTAL_BYTES
+	bne :-
+@clean: lda #$ff
+	rts
+@dirty: lda #$00
 	rts
 .endproc
 
