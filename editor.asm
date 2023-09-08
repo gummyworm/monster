@@ -637,7 +637,8 @@ stxy zp::jmpvec
 
 @l0:	stx @row
 	jsr bm::clr
-@l1:	jsr lbl::by_id		; get the symobl address
+@l1:	ldxy @cnt
+	jsr lbl::by_id		; get the symobl address
 	stxy @addr
 	ldy #$00
 	lda (@addr),y

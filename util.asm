@@ -253,21 +253,18 @@ result=mem::spare
 
 @do100s:
 	add16 #1000
-@l100s:
-	sub16 #100
+@l100s:	sub16 #100
 	bcc @do10s
 	inc result+2
 	bne @l100s
 
-@do10s:
-	add16 #100
-@l10s:
-	sub16 #10
+@do10s:	add16 #100
+@l10s:	sub16 #10
 	bcc @do1s
 	inc result+3
 	bne @l10s
-@do1s:
-	txa
+
+@do1s:	txa
 	clc
 	adc #10+'0'
 	sta result+4
