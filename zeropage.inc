@@ -57,8 +57,8 @@ labels=$52
 ctx=$60
 
 ;******************************************************************************
-; $80-$90 are used for macro related things during assembly
-macros=$80
+; $7f-$90 are used for macro related things during assembly
+macros=$7f
 
 ;******************************************************************************
 ; $90-$97 used for expression evaluation

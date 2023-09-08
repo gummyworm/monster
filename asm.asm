@@ -1038,6 +1038,11 @@ bbb10_modes:
 	lda #$00
 	jsr set_ctx_type
 
+	; if this is pass 1, exit out; REP is handled in pass 2
+	lda zp::pass
+	cmp #$02
+	bcc @done
+
 @l0:	; define a label with the value of the iteration
 	jsr ctx::rewind
 	ldxy zp::ctx+repctx::iter
@@ -1062,8 +1067,10 @@ bbb10_modes:
 	ldxy #mem::ctxbuffer
 	jsr __asm_tokenize
 	bcc :+
+	sta zp::tmp0		; save errcode
 	pla			; clean stack
 	pla
+	lda zp::tmp0		; get errcode
 	rts			; return err
 
 :	; restore the context
@@ -1079,11 +1086,11 @@ bbb10_modes:
 	cmpw zp::ctx+repctx::iter_end
 	bne @l0
 
-@done:	; cleanup iterator label and context
+	; cleanup iterator label and context
 	ldxy zp::ctx+repctx::params
 	jsr lbl::del	; delete the iterator label
-	jsr ctx::pop	; pop the context
-	RETURN_OK
+@done:	jmp ctx::pop	; pop the context
+
 @endrep: .byte ".endrep"
 .endproc
 
@@ -1417,11 +1424,13 @@ __asm_include:
 ; .endrep
 ; will produce 10 'asl's
 .proc repeat
+
+	jsr ctx::push	; push a new context
+
 	lda zp::pass
 	cmp #$01
 	beq @done	; REP is handled in pass 2
 
-	jsr ctx::push	; push a new context
 	jsr expr::eval  ; get the number of times to repeat the code
 	bcc @ok
 	rts	 	; error evaluating # of reps expression
@@ -1448,9 +1457,9 @@ __asm_include:
 	lda #$00
 	sta zp::ctx+repctx::iter	; initialize iterator
 	sta zp::ctx+repctx::iter+1
-	lda #CTX_REPEAT
+@done:	lda #CTX_REPEAT
 	jsr set_ctx_type	; store REPEAT as current context type
-@done:  RETURN_OK
+	RETURN_OK
 .endproc
 
 ;******************************************************************************

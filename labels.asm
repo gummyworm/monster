@@ -606,8 +606,7 @@ label_addresses: .res 256 * 2
 	;sec
 	;rts
 
-	iny
-; characters must be between '0' and 'Z'
+; following characters must be between '0' and 'Z'
 @l0:
 	lda (zp::line),y
 	beq @done

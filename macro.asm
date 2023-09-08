@@ -156,9 +156,10 @@ macros: .res 512
 .proc __mac_asm
 @params=zp::macros
 @err=zp::macros+$0b
-@cnt=zp::macros+$0c
-@macro=zp::macros+$0d
-@numparams=zp::macros+$0f
+@errcode=zp::macros+$0c
+@cnt=zp::macros+$0d
+@macro=zp::macros+$0e
+@numparams=zp::macros+$10
 	asl
 	tax
 	lda macro_addresses,x
@@ -228,6 +229,7 @@ macros: .res 512
 	pha
 
 	jsr asm::tokenize
+	sta @errcode
 	lda #$00
 	adc #$00
 	sta @err
@@ -267,6 +269,7 @@ macros: .res 512
 	bne @cleanuploop
 
 @done:	lsr @err	; set .C if error
+	lda @errcode
 	rts
 .endproc
 
