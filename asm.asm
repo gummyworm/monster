@@ -20,8 +20,37 @@
 .CODE
 
 ;******************************************************************************
+; ASSEMBLER OVERVIEW
+; The assembler operates in 2 passes.
+; Pass 1:
+;  - generate symbol table (label names and addresses)
+;  - create macro definitions (.MAC)
+;  - "expand" macros to get effective PC
+;
+; Pass 2:
+;  - write the program binary
+;   - instructions
+;   - macro invocations
+;   - .REP blocks
+;
+; There are (sensible) limitations due to the 2 pass nature of the assembler
+;  1. Macros must be defined before first use
+;  2. The size of all labels must be known in the first pass.  For example
+;    ```
+;     LDA TARGET
+;     LOOP:
+;    ```
+;    To generate the correct addresse for LOOP, the assembler needs to know if
+;    TARGET is a zeropage or absolute address.
+;    With insufficient data (e.g. forward references), labels are assumed to be
+;    absolute (2 byte) addresses, which is usually a safe assumption unless
+;    you're writing code in the zeropage.
+;******************************************************************************
+
+;******************************************************************************
 ; TRUE/FALSE values for the active IF blocks
-MAX_IFS = 4	; max nesting depth for .if/.endif
+MAX_IFS = 4	 ; max nesting depth for .if/.endif
+MAX_CONTEXTS = 3 ; max nesting depth for contexts (activated by .MAC, .REP, etc)
 
 ;******************************************************************************
 ; $40-$4B available for assembly
@@ -41,6 +70,9 @@ msb = zp::asm+$a
 ifstack:   .res MAX_IFS
 ifstacksp: .byte 0
 pcset:     .byte 0
+
+contextstack: .res MAX_CONTEXTS
+contextstacksp: .byte 0
 
 .export __asm_origin
 __asm_origin:
@@ -161,6 +193,7 @@ directives:
 .byte "endif",0
 .byte "ifdef",0
 .byte "endmac",0
+.byte "endrep",0
 directives_len=*-directives
 
 ;******************************************************************************
@@ -178,6 +211,7 @@ directive_vectors:
 .word do_endif
 .word do_ifdef
 .word create_macro
+.word handle_repeat
 
 .CODE
 ;******************************************************************************
@@ -248,11 +282,11 @@ __asm_tokenize:
 @exec_directive:
 	lda #ASM_DIRECTIVE
 	sta resulttype
-	jmp handle_directive
+	stxy zp::jmpvec
+	jmp zp::jmpaddr
 
 ; after directives, handle context if any
-@ctx:
-	jsr handle_ctx
+@ctx:	jsr handle_ctx
 	bcc @noctx
 	RETURN_OK
 
@@ -304,8 +338,7 @@ __asm_tokenize:
 	clc
 :	rts
 
-@label:
-	jsr lbl::isvalid
+@label: jsr lbl::isvalid
 	bcs @getopws
 	sta resulttype
 	ldx zp::line
@@ -327,8 +360,7 @@ __asm_tokenize:
 	bne @pound
 	jmp @done
 
-@pound:
-	ldy #$00
+@pound: ldy #$00
 	lda (zp::line),y
 	cmp #'#'
 	bne @lparen
@@ -968,8 +1000,7 @@ bbb10_modes:
 	bcc @l2
 	RETURN_ERR ERR_INVALID_DIRECTIVE
 
-@found:
-	; make sure there are no trailing characters
+@found: ; make sure there are no trailing characters
 	lda (zp::line),y
 	beq :+
 	cmp #' '
@@ -994,30 +1025,18 @@ bbb10_modes:
 .endproc
 
 ;******************************************************************************
-; HANDLE_DIRECTIVE
-; Jumps to the given directive vector
-; IN:
-;  - .XY: the directive handler to jump to
-.proc handle_directive
-	stxy zp::jmpvec
-	jmp zp::jmpaddr
-.endproc
-
-;******************************************************************************
 ; HANDLE_REPEAT
-; Context handler for .rep/.endrep blocks
+; Handler for .endrep.
+; Generates the repeated assembly block defined between here and the previous
+; .endrep
 .proc handle_repeat
+	; copy .endrep to the buffer
 	ldxy #asmbuffer
-	jsr ctx::write		; copy the linebuffer to the context
-	ldxy #asmbuffer
-	streq @endrep, 7	; are we at .endrep?
-	beq @do_rep		; yes, assemble the REP block
-	RETURN_OK
+	jsr ctx::write
 
-@do_rep:
-	; disable the context for assembling
+	; disable this context
 	lda #$00
-	sta ctx::type
+	jsr set_ctx_type
 
 @l0:	; define a label with the value of the iteration
 	jsr ctx::rewind
@@ -1032,7 +1051,6 @@ bbb10_modes:
 	rts			; propagate error, exit
 :	streq @endrep, 7	; are we at .endrep?
 	beq @next		; yep, do next iteration
-	ldxy #mem::ctxbuffer
 
 	; save the context
 	lda zp::ctx
@@ -1040,17 +1058,20 @@ bbb10_modes:
 	lda zp::ctx+1
 	pha
 
-	jsr __asm_tokenize ; nope, assemble and repeat
+	; assemble the current line
+	ldxy #mem::ctxbuffer
+	jsr __asm_tokenize
 	bcc :+
-	rts	; return err
+	pla			; clean stack
+	pla
+	rts			; return err
 
 :	; restore the context
 	pla
 	sta zp::ctx+1
 	pla
 	sta zp::ctx
-
-	jmp @l1
+	jmp @l1			; repeat until .ENDREP is found
 
 @next:	; increment iterator and repeat if there are more iterations left
 	incw zp::ctx+repctx::iter
@@ -1058,39 +1079,29 @@ bbb10_modes:
 	cmpw zp::ctx+repctx::iter_end
 	bne @l0
 
-@done:
+@done:	; cleanup iterator label and context
 	ldxy zp::ctx+repctx::params
 	jsr lbl::del	; delete the iterator label
 	jsr ctx::pop	; pop the context
 	RETURN_OK
-
 @endrep: .byte ".endrep"
 .endproc
 
 ;******************************************************************************
 ; HANDLE_CTX
+; If this is the first pass, copies the contents of the asmbuffer to the current
+; context.
 ; OUT:
 ;  - .C: set if the line was handled by this handler
 .proc handle_ctx
 	; if verifying, don't handle context at all
-	lda state::verify
-	bne @done
-
-	lda ctx::type
+	jsr get_ctx_type
 	beq @done
-	lda ctx::type
-	and #CTX_REPEAT
-	beq :+
-	jsr handle_repeat
+	ldxy #asmbuffer
+	jsr ctx::write	; copy the linebuffer to the context
 	sec		; flag context handled
 	rts
-:	lda ctx::type
-	and #CTX_MACRO
-	beq @done
-	jsr handle_macro
-	sec		; flag context handled
-	rts
-@done:	clc
+@done:	clc		; flag context NOT handled
 	rts
 .endproc
 
@@ -1406,10 +1417,14 @@ __asm_include:
 ; .endrep
 ; will produce 10 'asl's
 .proc repeat
+	lda zp::pass
+	cmp #$01
+	beq @done	; REP is handled in pass 2
+
 	jsr ctx::push	; push a new context
 	jsr expr::eval  ; get the number of times to repeat the code
 	bcc @ok
-	rts	 ; error
+	rts	 	; error evaluating # of reps expression
 
 @ok:	stxy zp::ctx+repctx::iter_end
 	jsr process_ws
@@ -1427,21 +1442,20 @@ __asm_include:
 	ldxy zp::line
 	jsr ctx::addparam
 	bcc @cont
-	rts		; err
+	rts		; error adding parameter
 
-@cont:	stxy zp::line
+@cont:	stxy zp::line	; update line pointer to after parameter
 	lda #$00
-	sta zp::ctx+repctx::iter
+	sta zp::ctx+repctx::iter	; initialize iterator
 	sta zp::ctx+repctx::iter+1
 	lda #CTX_REPEAT
-	sta ctx::type
-	RETURN_OK
+	jsr set_ctx_type	; store REPEAT as current context type
+@done:  RETURN_OK
 .endproc
 
 ;******************************************************************************
 ; MACRO
 ; Begins the definition of a macro, which will continue until '.endmac' is
-; found and the lines that follow until '.endrep'.
 ; .mac add8 A, B
 ;   lda #A
 ;   clc
@@ -1451,6 +1465,11 @@ __asm_include:
 ;   add8 10, 20
 .proc macro
 	jsr ctx::push	; push a new context
+
+	lda zp::pass
+	cmp #$02
+	bcs @done	; macro definition handled in pass 1
+
 ; get the first parameter (the name)
 @getname:
 	jsr process_ws	; sets .Y to 0
@@ -1484,18 +1503,9 @@ __asm_include:
 :	incw zp::line
 	bne @getparams
 @done:	lda #CTX_MACRO
-	sta ctx::type
+	jsr set_ctx_type	; store MACRO as current context type
 	lda #ASM_DIRECTIVE
 	RETURN_OK
-.endproc
-
-;******************************************************************************
-; HANDLE_MACRO
-; when the macro context is active, reads the the current line into the
-; context buffer
-.proc handle_macro
-	ldxy #asmbuffer
-	jmp ctx::write		; copy the linebuffer to the context
 .endproc
 
 ;******************************************************************************
@@ -1503,23 +1513,32 @@ __asm_include:
 ; This is the handler for the .endmac directive
 ; It uses the active context to finish creating a macro from that context.
 .proc create_macro
-	lda state::verify
-	beq :+
-	jsr ctx::pop
-	RETURN_OK	; verifying, don't create macro
-:	ldxy #asmbuffer
-	jsr ctx::write	; copy .ENDMAC to the context
-	lda #$00
-	sta ctx::type	; done with this context, disable it
+	lda zp::pass
+	cmp #$02
+	bcs @done	; done, macros are defined in pass 1
+
+	; copy .ENDMAC to the context
+	ldxy #asmbuffer
+	jsr ctx::write
+
+	; fill $100 with param data
 	ldxy #$100
-	jsr ctx::getparams ; fill $100 with param data
+	jsr ctx::getparams
+
+	; get the context data (the macro definition)
 	pha
 	ldxy #$100
 	stxy zp::tmp0
 	jsr ctx::getdata
 	pla
+
+	; create the macro
 	jsr mac::add
-	jmp ctx::pop	; pop the context
+
+@done:	; done with this context, disable it
+	lda #$00
+	jsr set_ctx_type
+	jmp ctx::pop	; cleanup; pop the context
 .endproc
 
 ;******************************************************************************
@@ -1596,6 +1615,7 @@ __asm_include:
 	lda #$00
 	sta pcset
 	sta ifstacksp
+	sta contextstacksp
 	jsr ctx::init
 	jsr mac::init
 	jmp lbl::clr
@@ -2167,6 +2187,45 @@ __asm_include:
 	rts
 @yes:	pla
 	clc
+	rts
+.endproc
+
+;******************************************************************************
+; GET_CTX_TYPE
+; Returns the active context type
+.proc get_ctx_type
+	ldx contextstacksp
+	dex
+	bpl :+
+	lda #$00	; stack is empty; return 0 for NO CONTEXT
+	rts
+:	lda contextstack,x
+	sta ctx::type
+	rts
+.endproc
+
+;******************************************************************************
+; SET_CTX_TYPE
+; Sets the active context type
+; If 0 is given, the active context is popped from the context stack. Otherwise
+; the context type is pushed
+.proc set_ctx_type
+	ldx contextstacksp
+	cmp #$01
+	bcs @push
+
+@pop:	cpx #$01
+	bcs :+
+	RETURN_ERR ERR_STACK_UNDERFLOW
+:	dec contextstacksp
+	rts
+
+@push:	cpx #MAX_CONTEXTS+1
+	bcc :+
+	RETURN_ERR ERR_STACK_OVERFLOW
+:	inc contextstacksp
+	sta contextstack,x
+	sta ctx::type
 	rts
 .endproc
 

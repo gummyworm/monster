@@ -103,13 +103,14 @@ macros: .res 512
 	dec @numparams
 	bne @copyparams
 
+; copy the macro definition byte-by-byte til we get to .endmac
 @paramsdone:
 @l0:	ldy #$00
 	lda (@src),y
 	cmp #'.'
 	bne @next
 	ldxy @src
-	streq @endmac, 7	; are we at .endrep?
+	streq @endmac, 7	; are we at .endmac?
 	beq @done
 
 @next:	sta (@dst),y

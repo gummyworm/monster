@@ -14,7 +14,7 @@ err_line_too_long:
 err_invalid_expression:
 	.byte "invalid expression",0
 err_invalid_args_for_macro:
-	.byte "invalid macro arguments",0
+	.byte "invalid macro args",0
 err_syntax:
 	.byte "syntax error",0
 err_invalid_directive:
@@ -27,23 +27,23 @@ err_unmatched_endif:
 
 ;******************************************************************************
 err_unaligned_label:
-	.byte "label is not left-aligned",0
+	.byte "label not left-aligned",0
 err_illegal_opcode:
 	.byte "invalid opcode",0
 err_illegal_addrmode:
-	.byte "invalid addressing mode",0
+	.byte "invalid addr mode",0
 err_oversized_operand:
 	.byte "oversized operand", 0
 err_illegal_label:
 	.byte "invalid label",0
 err_unexpected_char:
-	.byte "unexpected character", 0
+	.byte "unexpected char", 0
 err_io:
 	.byte "i/o error",0
 err_no_macro_name:
-	.byte "no macro name given",0
+	.byte "no macro name",0
 err_unresolvable_label:
-	.byte "label is unresolvable",0
+	.byte "label unresolvable",0
 err_cyclic_include:
 	.byte "cyclic include",0
 err_overlapping_segments:
@@ -55,9 +55,9 @@ err_param_name_too_long:
 err_line_not_found:
 	.byte "line not found for address",0
 err_no_origin:
-	.byte "origin not set",0
+	.byte "origin unset",0
 err_branch_out_of_range:
-	.byte "branch out of range",0
+	.byte "range error",0
 err_file_not_found:
 	.byte "file not found",0
 
