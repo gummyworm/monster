@@ -1424,7 +1424,6 @@ __asm_include:
 ; .endrep
 ; will produce 10 'asl's
 .proc repeat
-
 	jsr ctx::push	; push a new context
 
 	lda zp::pass
@@ -1593,22 +1592,21 @@ __asm_include:
 ; OUT:
 ;  - .C: set if any invalid characters were encountered
 .proc process_end_of_line
-@l0:
-	ldy #$00
+@l0:	ldy #$00
 	lda (zp::line),y
 	beq @done
 	cmp #' '
 	beq @next
 	cmp #';'
 	bne @err
-@cmnt:
-	; read comment
+
+@cmnt:	; read comment
 	lda (zp::line),y
 	beq @done
 	incw zp::line
 	jmp @cmnt
-@next:
-	incw zp::line
+
+@next:	incw zp::line
 	jmp @l0
 
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
@@ -1981,10 +1979,11 @@ __asm_include:
 ;  - .A the id of the macro to assemble
 .proc assemble_macro
 @cnt=zp::macros+$0e
+@id=zp::macros+$0f
 @params=zp::macros
-	pha
+	sta @id
+	ldx #$fe	; -2
 
-	ldx #$fe
 @l0:	ldy #$00
 	inx
 	inx
@@ -1997,11 +1996,11 @@ __asm_include:
 	stx @cnt
 	jsr process_ws
 	jsr expr::eval
-	bcc :+
-	pla	; clean stack
-	RETURN_ERR ERR_INVALID_EXPRESSION
+	bcc @setparam
+	rts		; return err
 
-:	txa
+@setparam:
+	txa
 	ldx @cnt
 	sta @params,x
 	tya
@@ -2020,12 +2019,7 @@ __asm_include:
 	beq @nextparam
 	RETURN_ERR ERR_INVALID_MACRO_ARGS
 
-@done:
-	lda state::verify
-	beq :+
-	pla
-	RETURN_OK
-:	pla
+@done:	lda @id
 	jmp mac::asm
 .endproc
 
