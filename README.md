@@ -335,6 +335,12 @@ DONE:
   JMP DONE
 ```
 
+## Symbol Viewer
+The symbol viewer, activated with C= + Y, displays all the labels in the program
+along with their corresponding address.
+The up/down cursor keys navigate between pages of symbols. The back-arrow
+key returns to the debugger.
+
 ## Debugger
 The debugger allows you to step through code, set breakpoints, and watch
 data as you execute your program.  Due to the size of the data needed to 
