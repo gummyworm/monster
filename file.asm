@@ -48,9 +48,7 @@ FIRST_FILE_ID = 2
 	tya
 	pha
 
-.ifdef USE_FINAL
-	lda #FINAL_BANK_SOURCE0
-.endif
+	lda #$00	; TODO: find free file buffer
 	jsr src::new
 
 	lda #$03

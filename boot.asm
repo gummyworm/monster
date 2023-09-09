@@ -52,7 +52,6 @@ start:
 @zeromem:
 	ldy #$00
 	tya
-	sty zp::gendebuginfo
 	sta (zp::tmp0),y
 	incw zp::tmp0
 	ldxy zp::tmp0
@@ -111,9 +110,6 @@ enter:
 	ldx #$ff
 	txs
 	jsr asm::reset
-.ifdef USE_FINAL
-	lda #FINAL_BANK_SOURCE0
-.endif
 	jsr src::new
 	jsr edit::init
 	jmp edit::run

@@ -1,3 +1,4 @@
+.include "cursor.inc"
 .include "errors.inc"
 .include "irq.inc"
 .include "zeropage.inc"
@@ -9,36 +10,54 @@
 .ifdef USE_FINAL
 	.import __BANKCODE_LOAD__
 	.import __BANKCODE_SIZE__
+	MAX_SOURCES=8
+.else
+	MAX_SOURCES=1
 .endif
 
-GAPSIZE = 20	; size of gap in gap buffer
-
-POS_STACK_SIZE = 32 ; size of source position stack
+GAPSIZE = 20		; size of gap in gap buffer
+POS_STACK_SIZE = 32 	; size of source position stack
 
 .segment "SOURCE"
 ;******************************************************************************
 data_start:
-sp: .byte 0
-stack: .res POS_STACK_SIZE
+sp: 	   .byte 0
+stack:     .res POS_STACK_SIZE
 
 .export src_debug
 src_debug:
-pre:  .word 0       ; # of bytes before the gap
-post: .word 0       ; # of bytes after the gap
+pre:   .word 0			; # of bytes before the gap
+pres:  .res MAX_SOURCES*2       ; buffers for each source
+
+post:  .word 0			; # of bytes after the gap
+posts: .res MAX_SOURCES*2       ; buffers for each source
 
 .export __src_line
 __src_line:
-line: .word 0       ; the current line # of the cursor
+line:     .word 0       	; the current line # for the cursor
+linenums: .res MAX_SOURCES*2 	; line #'s for each source
+
 .export __src_lines
 __src_lines:
-lines: .word 0      ; total lines of source
+lines:    .word 0		; number of lines in the source
+linecnts: .res MAX_SOURCES*2	; number of lines in each source
+
+
+len:  	   .word 0		; size of the buffer (pre+post+gap)
+lens:	   .res MAX_SOURCES*2	; buffers for each source
 data_end:
 
-len:  .word 0	; size of the buffer (pre+post+gap)
-
+.BSS
+;******************************************************************************
+numsrcs:   .byte 0		; number of buffers
+activesrc: .byte 0		; index of active buffer (also bank offset)
 .ifdef USE_FINAL
-bank: .byte 0
+bank:	    .byte 0
+buffs_curx: .res MAX_SOURCES	; cursor X positions for each inactive buffer
+buffs_cury: .res MAX_SOURCES	; cursor Y positions for each inactive buffer
 .endif
+
+;******************************************************************************
 
 ;******************************************************************************
 ; DATA
@@ -53,23 +72,128 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 
 .CODE
 ;******************************************************************************
-; NEW
-; Initializes the source buffer
+; SETRSC
+; Sets the active source to the source in the given ID.
 ; IN:
-;  .A: the bank to initialize (if using FE3)
+;  - .A: the id of the source to set
+;  - .X: the current cursor X position (needed for restoring this buffer later)
+;  - .Y: the current cursor Y position (needed for restoring this buffer later)
+.export __src_set
+.proc __src_set
+	pha
+
+	; save the cursor position in the current buffer
+	txa
+	ldx activesrc
+	sta buffs_curx,x
+	tya
+	sta buffs_cury,x
+
+	; save the data for the source we're switching from
+	lda activesrc
+	asl
+	tax
+
+	lda pre
+	sta pres,x
+	lda pre+1
+	sta pres+1,x
+
+	lda post
+	sta posts,x
+	lda post+1
+	sta posts+1,x
+
+	lda len
+	sta lens,x
+	lda len+1
+	sta lens+1,x
+
+	lda lines
+	sta linecnts,x
+	lda lines+1
+	sta linecnts+1,x
+
+	lda line
+	sta linenums,x
+	lda line+1
+	sta linenums+1,x
+
+	; set the pointers to those of the source we're switching to
+	pla
+	sta activesrc
+	asl
+	tax
+
+	lda pres,x
+	sta pre
+	lda pres+1,x
+	sta pre+1
+
+	lda posts,x
+	sta post
+	lda posts+1,x
+	sta posts+1
+
+	lda lens,x
+	sta len
+	lda lens+1,x
+	sta len
+
+	lda linecnts,x
+	sta lines
+	lda linecnts+1,x
+	sta lines
+
+	lda linenums,x
+	sta line
+	lda linenums+1,x
+	sta line
+
+	; restore cursor position in the new source
+	ldx activesrc
+	ldy buffs_cury,x
+	lda buffs_curx,x
+	tax
+	jmp cur::set
+.endproc
+
+;******************************************************************************
+; NEW
+; Initializes a new source buffer and sets it as the current buffer
+; OUT:
+;  - .C: set if the source could not be initialized (e.g. too many open
+;        sources)
 .export __src_new
 .proc __src_new
+	ldx numsrcs
+	beq @init
+	inx
+	cpx #MAX_SOURCES
+	bcc @saveold
+	rts		; err, too many sources
+
+@saveold:
+	jsr __src_set	; save current source data
+	ldx activesrc
+	inx
+@init:	stx activesrc
 .ifdef USE_FINAL
+	txa
+	clc
+	adc #FINAL_BANK_SOURCE0
 	sta bank
 .endif
 	ldx #data_end-data_start-1
 	lda #$00
-:	sta data_start,x
+:	sta data_start-1,x
 	dex
-	bpl :-
+	bne :-
 	lda #GAPSIZE
 	sta len
 	inc line
+
+	inc numsrcs
 	rts
 .endproc
 

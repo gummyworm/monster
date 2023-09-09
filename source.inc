@@ -22,6 +22,7 @@
 .import __src_rewind
 .import __src_readb
 .import __src_readline
+.import __src_set
 .import __src_start
 
 GAPSIZE = 20	; size of gap in gap buffer
@@ -49,6 +50,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	readb = __src_readb
 	readline = __src_readline
 	right = __src_right
+	setbuff = __src_set
 	start = __src_start
 	up = __src_up
 	upn = __src_upn
