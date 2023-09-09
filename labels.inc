@@ -3,6 +3,8 @@
 .import __label_clr
 .import __label_del
 .import __label_find
+.import __label_get_name
+.import __label_get_addr
 .import __label_isvalid
 .import __label_address
 .import __label_num
@@ -15,6 +17,8 @@
 	clr = __label_clr
 	del = __label_del
 	find = __label_find
+	getname = __label_get_name
+	getaddr = __label_get_addr
 	isvalid = __label_isvalid
 	name_by_id = __label_name_by_id
 	num = __label_num

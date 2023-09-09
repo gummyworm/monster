@@ -675,3 +675,69 @@ label_addresses: .res 256 * 2
 
 @done:	RETURN_OK
 .endproc
+
+;******************************************************************************
+; GET_NAME
+; Copies the name of the label ID given to the provided buffer
+; IN:
+;  - .XY: the ID of the label to get the name of
+;  - zp::tmp0: the address to copy to
+; OUT:
+;  - (zp::tmp0): the label name
+.export __label_get_name
+.proc __label_get_name
+@dst=zp::tmp0
+@src=zp::labels
+@offset=zp::labels+2
+	jsr __label_name_by_id
+	stxy @src
+
+	ldy #$00
+@l0:
+.ifdef USE_FINAL
+	sty @offset
+	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @src, @offset
+	ldy @offset
+	cmp #$00
+.else
+	lda (@src),y
+.endif
+	sta (@dst),y
+	beq @done
+	iny
+	cpy #MAX_LABEL_LEN
+	bcc @l0
+@done:	rts
+.endproc
+
+;******************************************************************************
+; GET_ADDR
+; Returns the address of the given label ID.
+; IN:
+;  - .XY: the ID of the label to get the name of
+; OUT:
+;  - .XY: the address of the label
+.export __label_get_addr
+.proc __label_get_addr
+@src=zp::labels
+	jsr __label_by_id
+	stxy @src
+
+.ifdef USE_FINAL
+	bank_read_byte #FINAL_BANK_SYMBOLS, @src
+	pha
+	incw @src
+	bank_read_byte #FINAL_BANK_SYMBOLS, @src
+	tay
+	pla
+	tax
+.else
+	ldy #$01
+	lda (@src),y
+	tax
+	dey
+	lda (@src),y
+	tay
+.endif
+	rts
+.endproc

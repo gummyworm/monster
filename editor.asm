@@ -637,21 +637,20 @@ stxy zp::jmpvec
 
 @l0:	stx @row
 	jsr bm::clr
-@l1:	ldxy @cnt
-	jsr lbl::name_by_id	; get the symbol name
-	tya
+@l1:	ldxy #$100
+	stxy zp::tmp0		; destination buffer for getname
+	ldxy @cnt
+	jsr lbl::getname	; get the symbol name
+	lda #$01
 	pha
-	txa
+	lda #$00
 	pha
 
 	ldxy @cnt
-	jsr lbl::by_id		; get the symobl address
-	stxy @addr
-	ldy #$00
-	lda (@addr),y
+	jsr lbl::getaddr	; get the symbol address
+	txa
 	pha
-	iny
-	lda (@addr),y
+	tya
 	pha
 
 	lda @row
