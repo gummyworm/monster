@@ -77,10 +77,12 @@ bank_asave = $a2	; storage for registers during bank operations
 bank_xsave = $a3	; storage for registers during bank operations
 bank_ysave = $a4	; storage for registers during bank operations
 bankoffset = $a5	; offset for relative reads/writes
+bankaddr0 = $a6
+bankaddr1 = $a8
 
 ;******************************************************************************
-; $a6-$aa used for utility
-util = $a6
+; $aa-$b0 used for utility
+util = $aa
 
 ;******************************************************************************
 ; $b0-$ba is reserved for text displaying/bitmap stuff

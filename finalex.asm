@@ -42,6 +42,7 @@ bankcode:
 ;  - .A: the bank to store to
 ;  - zp::bankoffset: the offset from the base address
 ;  - zp::bankval: the byte to write
+.export __final_bank_store_rel
 .proc __final_bank_store_rel
 @dst=zp::banktmp
 	sei
@@ -98,6 +99,28 @@ bankcode:
 	lda (@src),y
 	stx $9c02	; restore bank
 	ldx @src
+	rts
+.endproc
+
+;******************************************************************************
+; COPY
+; Copies up to 256 bytes from zp::bankaddr0 to zp::bankaddr1
+; IN:
+;  - .A: the bank to copy in
+;  - .Y: the number of bytes to copy
+; DESTROYS:
+;  .A, .Y, .X
+.export __final_copy
+.proc __final_copy
+	sei
+	ldx $9c02
+	ora #%10100000	; SUPERRAM mode in final expansion
+	sta $9c02
+:	lda (zp::bankaddr0),y
+	sta (zp::bankaddr1),y
+	dey
+	bpl :-
+	stx $9c02	; restore bank
 	rts
 .endproc
 

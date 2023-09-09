@@ -16,9 +16,11 @@
 .import __final_load_byte
 .import __final_load_byte_off
 .import __final_memcpy
+.import __final_copy
 .import __final_init
 .import __final_brk
 .import __final_rti
+.import __final_bank_store_rel
 
 USE_FINAL = 1	; enable final expansion
 
@@ -30,14 +32,14 @@ FINAL_BANK_MAIN    = 1	; where the editor/assembler/etc code is stored
 FINAL_BANK_DEBUG   = 2	; where debug symbols are stored
 FINAL_BANK_USER    = 3	; where the user's program is stored
 
-FINAL_BANK_SOURCE0 = 3	; source bank
-FINAL_BANK_SOURCE1 = 4	; source bank
-FINAL_BANK_SOURCE2 = 5	; source bank
-FINAL_BANK_SOURCE3 = 6	; source bank
-FINAL_BANK_SOURCE4 = 7	; source bank
-FINAL_BANK_SOURCE5 = 8	; source bank
-FINAL_BANK_SOURCE6 = 9	; source bank
-FINAL_BANK_SOURCE7 = $a	; source bank
+FINAL_BANK_SOURCE0 = 4	; source bank
+FINAL_BANK_SOURCE1 = 5	; source bank
+FINAL_BANK_SOURCE2 = 6	; source bank
+FINAL_BANK_SOURCE3 = 7	; source bank
+FINAL_BANK_SOURCE4 = 8	; source bank
+FINAL_BANK_SOURCE5 = 9	; source bank
+FINAL_BANK_SOURCE6 = $a	; source bank
+FINAL_BANK_SOURCE7 = $b	; source bank
 
 FINAL_BANK_SYMBOLS = $d	; symbols bank (label names and their addresses)
 
@@ -71,6 +73,7 @@ FINAL_BANK_FASTCOPY  = $f
 ; Routines
 .scope fe3
 	call = __final_call
+	fcopy = __final_copy
 	copy = __final_memcpy
 	init = __final_init
 	store = __final_store_byte
@@ -101,7 +104,7 @@ FINAL_BANK_FASTCOPY  = $f
 	sta zp::bankoffset
 	ldxy addr
 	lda bank
-	jsr __final_store_byte
+	jsr __final_bank_store_rel
 .endmacro
 
 .macro bank_read_byte bank,addr

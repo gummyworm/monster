@@ -4,13 +4,11 @@
 .import __label_del
 .import __label_find
 .import __label_isvalid
-.import __label_labelat
 .import __label_address
 .import __label_num
 .import __label_name_by_id
 
 .scope lbl
-	at = __label_labelat
 	add = __label_add
 	addr = __label_address
 	by_id = __label_by_id

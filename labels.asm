@@ -1,4 +1,5 @@
 .include "errors.inc"
+.include "finalex.inc"
 .include "macros.inc"
 .include "util.inc"
 .include "zeropage.inc"
@@ -6,6 +7,9 @@
 MAX_LABELS = 256
 MAX_LOCALS = 32
 MAX_LABEL_LEN = 16
+
+.import __BANKCODE_LOAD__
+.import __BANKCODE_SIZE__
 
 .BSS
 ;******************************************************************************
@@ -18,14 +22,22 @@ numlabels: .word 0   ; total number of labels
 ; Table of label names. Each entry corresponds to an entry in label_addresses,
 ; which contains the value for the label name.
 .export labels
+.ifdef USE_FINAL
+labels = __BANKCODE_LOAD__+__BANKCODE_SIZE__	; ~$20xx-$8000
+.else
 labels: .res MAX_LABELS * MAX_LABEL_LEN
+.endif
 
 ;******************************************************************************
 ; LABEL_ADDRESSES
 ; Table of addresses for each label
 ; The address of a given label id is label_addresses + (id * 2)
 .export label_addresses
+.ifdef USE_FINAL
+label_addresses = $a000
+.else
 label_addresses: .res 256 * 2
+.endif
 
 .CODE
 ;******************************************************************************
@@ -38,17 +50,6 @@ label_addresses: .res 256 * 2
 	lda #$00
 	sta numlabels
 	sta numlabels+1
-
-	ldxy #labels
-	stxy zp::tmp0
-	ldx #(MAX_LABELS*MAX_LABEL_LEN)/256
-	ldy #$00
-@clrlabels:
-	sta (zp::tmp0),y
-	dey
-	bne @clrlabels
-	dex
-	bne @clrlabels
 	rts
 .endproc
 
@@ -66,6 +67,9 @@ label_addresses: .res 256 * 2
 @cnt=zp::tmp6
 @search=zp::tmp8
 @label=zp::tmpa
+@ch=zp::tmpe
+@offset=zp::tmpf
+@ch2=zp::tmp10
 	stxy @label
 
 	lda numlabels
@@ -82,10 +86,21 @@ label_addresses: .res 256 * 2
 
 @seek:	ldy #$00
 @l0:	lda (@label),y
-	beq @chkend
 	jsr util::isseparator
 	beq @chkend
+
+.ifdef USE_FINAL
+	sty @offset
+	sta @ch
+	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @search, @offset
+	sta @ch2
+	lda @ch		; TODO: could clean this up
+	ldy @offset
+	cmp @ch2
+.else
 	cmp (@search),y
+.endif
+
 	beq @chmatch
 	bcc @notfound	; labels are alphabetical, if our label is not alphabetically greater, we're done
 	bne @next  ; if our label IS greater alphabetically, try the next label
@@ -96,7 +111,14 @@ label_addresses: .res 256 * 2
 	bcs @found
 	bcc @l0
 @chkend:
+.ifdef USE_FINAL
+	sty @offset
+	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @search, @offset
+	ldy @offset
+	cmp #$00
+.else
 	lda (@search),y
+.endif
 	beq @found
 
 @next:	lda @search
@@ -135,7 +157,7 @@ label_addresses: .res 256 * 2
 @dst=zp::tmp8
 @cnt=zp::tmpa
 @addr=zp::tmpc
-@skip_shift=zp::tmpe
+@offset=zp::tmp10
 	stxy @name
 	jsr isvalid
 	bcc @seek
@@ -147,12 +169,20 @@ label_addresses: .res 256 * 2
 
 	; label exists, overwrite its old value
 	jsr __label_by_id ; get the address of the label
-	ldy #$00
+
 	lda zp::label_value
+.ifdef USE_FINAL
+	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
+	incw @addr
+	lda zp::label_value+1
+	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
+.else
+	ldy #$00
 	sta (@addr),y
 	iny
 	lda zp::label_value+1
 	sta (@addr),y
+.endif
 	RETURN_OK
 
 @insert:
@@ -228,13 +258,32 @@ label_addresses: .res 256 * 2
 
 @sh0:
 	ldy #MAX_LABEL_LEN-1
+.ifdef USE_FINAL
+	lda @src
+	sta zp::bankaddr0
+	lda @src+1
+	sta zp::bankaddr0+1
+	lda @dst
+	sta zp::bankaddr1
+	lda @dst+1
+	sta zp::bankaddr1+1
+	lda #FINAL_BANK_SYMBOLS
+	jsr fe3::fcopy
+.else
 @sh1:
 	lda (@src),y
 	sta (@dst),y
 	dey
 	bpl @sh1
+.endif
 
-	; shift the address too
+; shift the address too
+.ifdef USE_FINAL
+	bank_read_byte #FINAL_BANK_SYMBOLS, @addr
+	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @addr, #$02
+	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @addr, #$01
+	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @addr, #$03
+.else
 	iny
 	lda (@addr),y
 	tax
@@ -247,7 +296,7 @@ label_addresses: .res 256 * 2
 	iny
 	pla
 	sta (@addr),y
-
+.endif
 	decw @cnt
 	iszero @cnt
 	beq @storelabel
@@ -261,7 +310,8 @@ label_addresses: .res 256 * 2
 	ldxy @dst
 	sub16 #MAX_LABEL_LEN
 	stxy @dst
-	bne @sh0
+	beq @storelabel
+	jmp @sh0
 
 ;------------------
 ; insert the label into the new opening
@@ -274,22 +324,39 @@ label_addresses: .res 256 * 2
 	beq @storeaddr
 	cmp #':'
 	beq @storeaddr
+
+	; copy a byte to the label name
+.ifdef USE_FINAL
+	sty @offset
+	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @src, @offset
+	ldy @offset
+.else
 	sta (@src),y
+.endif
 	iny
 	cpy #MAX_LABEL_LEN
 	bcc :-
 
 @storeaddr:
+	; 0-terminate the label name and write the label value
 	lda #$00
+.ifdef USE_FINAL
+	sty @offset
+	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @src, @offset
+	lda zp::label_value
+	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
+	lda zp::label_value+1
+	incw @addr
+	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
+.else
 	sta (@src),y
-	; write the address
 	ldy #$00
 	lda zp::label_value
 	sta (@addr),y
 	lda zp::label_value+1
 	iny
 	sta (@addr),y
-
+.endif
 	incw numlabels
 	ldxy @id
 	RETURN_OK
@@ -326,12 +393,24 @@ label_addresses: .res 256 * 2
 	lda @table+1
 	adc #>label_addresses
 	sta @table+1
+
+.ifdef USE_FINAL
+	bank_read_byte #FINAL_BANK_SYMBOLS, @table
+	pha
+	incw @table
+	bank_read_byte #FINAL_BANK_SYMBOLS, @table
+	tay
+	pla
+	tax
+	cpy #$00
+.else
 	ldy #$00
 	lda (@table),y
 	tax
 	iny
 	lda (@table),y
 	tay
+.endif
 	bne :+		; get the size of the label's address in .A
 	lda #$01
 	skw
@@ -382,13 +461,25 @@ label_addresses: .res 256 * 2
 	sta @cnt2+1
 
 	; move the addresses down
-:	ldy #$00
+:
+.ifdef USE_FINAL
+	bank_read_byte #FINAL_BANK_SYMBOLS, @src
+	bank_store_byte #FINAL_BANK_SYMBOLS, @dst
+.else
+	ldy #$00
 	lda (@src),y
 	sta (@dst),y
+.endif
 	incw @src
 	incw @dst
+.ifdef USE_FINAL
+	bank_read_byte #FINAL_BANK_SYMBOLS, @src
+	bank_store_byte #FINAL_BANK_SYMBOLS, @dst
+.else
 	lda (@src),y
 	sta (@dst),y
+.endif
+
 	incw @src
 	incw @dst
 	decw @cnt
@@ -410,11 +501,25 @@ label_addresses: .res 256 * 2
 
 	; move the names down
 @nameloop:
+.ifdef USE_FINAL
+	lda @src
+	sta zp::bankaddr0
+	lda @src+1
+	sta zp::bankaddr0+1
+	lda @dst
+	sta zp::bankaddr1
+	lda @dst+1
+	sta zp::bankaddr1+1
+	ldy #15
+	lda #FINAL_BANK_SYMBOLS
+	jsr fe3::fcopy
+.else
 	ldy #15
 :	lda (@src),y
 	sta (@dst),y
 	dey
 	bpl :-
+.endif
 	lda @src
 	clc
 	adc #16
@@ -425,14 +530,14 @@ label_addresses: .res 256 * 2
 	clc
 	adc #16
 	sta @dst
-	bcc :+
+	bcc @nextname
 	inc @dst+1
 	bne @nameloop
-:	decw @cnt2
+@nextname:
+	decw @cnt2
 	ldxy @cnt2
 	cmpw #0
 	bne @nameloop
-
 	decw numlabels
 	RETURN_OK
 .endproc
@@ -472,80 +577,13 @@ label_addresses: .res 256 * 2
 .endproc
 
 ;******************************************************************************
-; LABELAT
-; Returns the label at the address in (YX)
-; IN:
-;  - .XY: the address to get the label at
-; OUT:
-;  - .XY: the label at the given address (if any)
-;  - .C: clear if a label was found, set if not
-.export __label_labelat
-.proc __label_labelat
-@msb=zp::tmp4
-@num=zp::tmp5
-	lda #<(label_addresses+1)
-	sta zp::tmp0
-	lda #>(label_addresses+1)
-	sta zp::tmp0+1
-	lda #<label_addresses
-	sta zp::tmp2
-	lda #>label_addresses
-	sta zp::tmp2+1
-
-	sty @msb
-	ldy #$00
-	sty @num
-
-@l0:	lda @num
-	cmp numlabels
-	bcc :+
-	rts
-
-:	inc @num
-	; compare MSB
-	lda @msb
-	cmp (zp::tmp0),y
-	bne @next
-	; compare LSB
-	txa
-	cmp (zp::tmp2),y
-	beq @found
-@next:	incw zp::tmp0
-	incw zp::tmp0
-	incw zp::tmp2
-	incw zp::tmp2
-	bne @l0
-
-@found: ; get the label name
-	lda #<labels
-	sta zp::tmp0
-	lda #>labels
-	sta zp::tmp0+1
-
-	ldy #$00
-@l1:	dec @num
-	beq @done
-	lda (zp::tmp0),y
-	; move ptr to the next length prefixed label
-	sec
-	adc zp::tmp0
-	sta zp::tmp0
-	bcc @l1
-	inc zp::tmp0+1
-	bne @l1
-
-@done:	ldx zp::tmp0
-	ldy zp::tmp0+1
-	RETURN_OK
-.endproc
-
-;******************************************************************************
 ; LABEL_BY_ID
 ; Returns the address of the label ID in .YX in .YX
 ; IN:
 ;  - .XY: the id of the label to get the address of
-; OUT:
+; OUT:///
 ;  - .XY: the address of the given label id
+;  - zp::tmpc: the address of the label (same as .XY)
 .export __label_by_id
 .proc __label_by_id
 @addr=zp::tmpc
