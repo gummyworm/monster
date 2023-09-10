@@ -12,7 +12,7 @@ test.d64: $(TESTS) $(TEST_INCS)
 	c1541 -format test,1 d64 test.d64 -attach test.d64 $(addprefix -write ,$^)
 
 # run the assembler with the test disk image
-test: test.prg test.d64
+test: test.d64
 	xvic +warp -cartfe fe3vice.bin -memory all -ntsc -drive10type 1541 -truedrive -10 test.d64 -autostart monster.prg 
 
 start: monster.prg

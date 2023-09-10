@@ -1,0 +1,1706 @@
+Modules list:
+-------------
+boot.o:
+    CODE              Offs=000000  Size=0000AC  Align=00001  Fill=0000
+    SETUP             Offs=000000  Size=000011  Align=00001  Fill=0000
+asm.o:
+    CODE              Offs=0000AC  Size=000B93  Align=00001  Fill=0000
+    BSS               Offs=000000  Size=000034  Align=00001  Fill=0000
+    DATA              Offs=000000  Size=00012C  Align=00001  Fill=0000
+bitmap.o:
+    CODE              Offs=000C3F  Size=0000AA  Align=00001  Fill=0000
+    DATA              Offs=00012C  Size=000028  Align=00001  Fill=0000
+ctx.o:
+    CODE              Offs=000CE9  Size=000142  Align=00001  Fill=0000
+    BSS               Offs=000034  Size=000002  Align=00001  Fill=0000
+cursor.o:
+    CODE              Offs=000E2B  Size=000134  Align=00001  Fill=0000
+    BSS               Offs=000036  Size=000007  Align=00001  Fill=0000
+debug.o:
+    BSS               Offs=00003D  Size=0001A2  Align=00001  Fill=0000
+    DATA              Offs=000154  Size=000025  Align=00001  Fill=0000
+    DEBUGGER          Offs=000000  Size=000877  Align=00001  Fill=0000
+draw.o:
+    CODE              Offs=000F5F  Size=000016  Align=00001  Fill=0000
+editor.o:
+    CODE              Offs=000F75  Size=000979  Align=00001  Fill=0000
+    DATA              Offs=000179  Size=000015  Align=00001  Fill=0000
+errors.o:
+    CODE              Offs=0018EE  Size=00000B  Align=00001  Fill=0000
+    DATA              Offs=00018E  Size=00022D  Align=00001  Fill=0000
+expr.o:
+    CODE              Offs=0018F9  Size=0002AC  Align=00001  Fill=0000
+fastcopy.o:
+    SETUP             Offs=000011  Size=0001B2  Align=00001  Fill=0000
+file.o:
+    CODE              Offs=001BA5  Size=00023E  Align=00001  Fill=0000
+    BSS               Offs=0001DF  Size=00001C  Align=00001  Fill=0000
+finalex.o:
+    CODE              Offs=001DE3  Size=00008E  Align=00001  Fill=0000
+    BANKCODE          Offs=000000  Size=000080  Align=00001  Fill=0000
+format.o:
+    CODE              Offs=001E71  Size=000076  Align=00001  Fill=0000
+help.o:
+    CODE              Offs=001EE7  Size=0000A1  Align=00001  Fill=0000
+iec.o:
+    CODE              Offs=001F88  Size=000043  Align=00001  Fill=0000
+irq.o:
+    CODE              Offs=001FCB  Size=00006C  Align=00001  Fill=0000
+key.o:
+    CODE              Offs=002037  Size=00028E  Align=00001  Fill=0000
+    BSS               Offs=0001FB  Size=000009  Align=00001  Fill=0000
+labels.o:
+    CODE              Offs=0022C5  Size=000460  Align=00001  Fill=0000
+    BSS               Offs=000204  Size=000002  Align=00001  Fill=0000
+macro.o:
+    CODE              Offs=002725  Size=0001CE  Align=00001  Fill=0000
+    SOURCE            Offs=000000  Size=000301  Align=00001  Fill=0000
+math.o:
+    CODE              Offs=0028F3  Size=00006F  Align=00001  Fill=0000
+memory.o:
+    BSS               Offs=000206  Size=000478  Align=00001  Fill=0000
+source.o:
+    CODE              Offs=002962  Size=0004DC  Align=00001  Fill=0000
+    BSS               Offs=00067E  Size=000013  Align=00001  Fill=0000
+    SOURCE            Offs=000301  Size=0000FB  Align=00001  Fill=0000
+state.o:
+string.o:
+    CODE              Offs=002E3E  Size=000108  Align=00001  Fill=0000
+text.o:
+    CODE              Offs=002F46  Size=0004A1  Align=00001  Fill=0000
+    BSS               Offs=000691  Size=000002  Align=00001  Fill=0000
+    DATA              Offs=0003BB  Size=000329  Align=00001  Fill=0000
+ui.o:
+    CODE              Offs=0033E7  Size=000108  Align=00001  Fill=0000
+    DATA              Offs=0006E4  Size=000003  Align=00001  Fill=0000
+util.o:
+    CODE              Offs=0034EF  Size=0001AA  Align=00001  Fill=0000
+view.o:
+    CODE              Offs=003699  Size=0002AD  Align=00001  Fill=0000
+    BSS               Offs=000693  Size=000032  Align=00001  Fill=0000
+
+
+Segment list:
+-------------
+Name                   Start     End    Size  Align
+----------------------------------------------------
+SETUP                 0011FF  0013C1  0001C3  00001
+BANKCODE              002000  00207F  000080  00001
+DEBUGGER              002080  0028F6  000877  00001
+CODE                  0028F7  00623C  003946  00001
+DATA                  00623D  006923  0006E7  00001
+BSS                   006924  006FE8  0006C5  00001
+SOURCE                00A000  00A3FB  0003FC  00001
+
+
+Exports list by name:
+---------------------
+__BANKCODE_LOAD__         002000 RLA    __BANKCODE_SIZE__         000080 REA    
+__BSS_LOAD__              006924 RLA    __BSS_SIZE__              0006C5 REA    
+__asm_disassemble         0031AC RLA    __asm_include             002F8C RLA    
+__asm_origin              00692E RLA    __asm_reset               003186 RLA    
+__asm_resetpc             00319A RLA    __asm_tokenize            0029A6 RLA    
+__asm_tokenize_pass       003468 RLA    __asm_tokenize_pass1      003470 RLA    
+__asm_tokenize_pass2      00348A RLA    __bm_clr                  003561 RLA    
+__bm_columns              006369 RLA    __bm_init                 003536 RLA    
+__bm_restore              0035C4 RLA    __bm_rvsline              00357F RLA    
+__bm_save                 0035A8 RLA    __ctx_addparam            0036B6 RLA    
+__ctx_getdata             003688 RLA    __ctx_getline             00361D RLA    
+__ctx_getparams           003640 RLA    __ctx_init                0035E0 RLA    
+__ctx_pop                 00360F RLA    __ctx_push                0035ED RLA    
+__ctx_rewind              0036F0 RLA    __ctx_type                006958 RLA    
+__ctx_write               003694 RLA    __cur_down                0037AC RLA    
+__cur_forceset            003835 RLA    __cur_left                0037C9 RLA    
+__cur_maxx                00695C RLA    __cur_maxy                00695E RLA    
+__cur_minx                00695B RLA    __cur_miny                00695D RLA    
+__cur_move                0037D5 RLA    __cur_off                 00373F RLA    
+__cur_on                  003745 RLA    __cur_right               0037BB RLA    
+__cur_set                 003803 RLA    __cur_setmax              00383A RLA    
+__cur_setmin              003841 RLA    __cur_toggle              00374B RLA    
+__cur_unlimit             003848 RLA    __cur_up                  003796 RLA    
+__debug_addr2line         0022BF RLA    __debug_end_segment       002262 RLA    
+__debug_file              000010 REZ    __debug_getline           00208F RLA    
+__debug_init              002080 RLA    __debug_init_segment      00211D RLA    
+__debug_set_file          002396 RLA    __debug_setline           002094 RLA    
+__debug_setup             002099 RLA    __debug_src_line          000017 REZ    
+__debug_start             0023C9 RLA    __debug_startsegment_byaddr 0021FA RLA    
+__debug_store_line        002274 RLA    __draw_hline              003856 RLA    
+__edit_gotoline           004070 RLA    __edit_init               00386C RLA    
+__edit_run                003890 RLA    __err_get                 0041E5 RLA    
+__expr_eval               0041F0 RLA    __expr_getval             0043F8 RLA    
+__fastcopy_init           001210 RLA    __fastcopy_restore        005000 REA    
+__fastcopy_save           002100 REA    __file_close              0046CC RLA    
+__file_getline            004638 RLA    __file_load               0044B3 RLA    
+__file_loaddir            00449C RLA    __file_name               006B03 RLA    
+__file_open               004673 RLA    __file_save               00455C RLA    
+__file_scratch            0045EF RLA    __final_bank_store_rel    002007 RLA    
+__final_brk               00206C RLA    __final_call              002054 RLA    
+__final_copy              002040 RLA    __final_init              0046DA RLA    
+__final_load_byte         002022 RLA    __final_load_byte_off     002029 RLA    
+__final_memcpy            004725 RLA    __final_rti               002076 RLA    
+__final_store_byte        002000 RLA    __fmt_label               004768 RLA    
+__fmt_line                0047AA RLA    __fmt_opcode              004782 RLA    
+__io_readerr              00487F RLA    __irq_brk                 0048C2 RLA    
+__irq_raster              0048D3 RLA    __key_getch               00492E RLA    
+__key_ishex               00498F RLA    __label_add               004C57 RLA    
+__label_address           004E16 RLA    __label_by_id             004F71 RLA    
+__label_clr               004BBC RLA    __label_del               004E5A RLA    
+__label_find              004BC5 RLA    __label_get_addr          004FF8 RLA    
+__label_get_name          004FD2 RLA    __label_isvalid           004FA0 RLA    
+__label_name_by_id        004F88 RLA    __label_num               006B28 RLA    
+__linebuffer              006F52 RLA    __linebuffer2             006F2A RLA    
+__mac_add                 00502C RLA    __mac_asm                 0050EA RLA    
+__mac_get                 005199 RLA    __mac_init                00501C RLA    
+__math_div16              005233 RLA    __math_mul16              005209 RLA    
+__mem_backbuff            00B100 REA    __mem_ctxbuffer           000168 REA    
+__mem_debugsave           00B400 REA    __mem_prog00              00B110 REA    
+__mem_prog1000            00B210 REA    __mem_prog9000            00B100 REA    
+__mem_prog9400            00B310 REA    __mem_program             006B2A RLA    
+__mem_progsave            00B100 REA    __mem_spare               000400 REA    
+__mem_spareend            001000 REA    __src_activebuff          006FA3 RLA    
+__src_atcursor            0055D1 RLA    __src_backspace           0053FD RLA    
+__src_buffer              006FB5 RLA    __src_close               00533C RLA    
+__src_delete              00542B RLA    __src_down                00551E RLA    
+__src_downn               0056F1 RLA    __src_end                 0053E3 RLA    
+__src_get                 005687 RLA    __src_goto                005653 RLA    
+__src_insert              005535 RLA    __src_line                00A326 RLA    
+__src_lines               00A328 RLA    __src_name                00538E RLA    
+__src_names               00A37C RLA    __src_new                 005306 RLA    
+__src_next                00543C RLA    __src_numbuffers          006FA2 RLA    
+__src_popp                0053C8 RLA    __src_prev                00549E RLA    
+__src_pushp               0053AA RLA    __src_readb               005610 RLA    
+__src_readline            005619 RLA    __src_replace             00559C RLA    
+__src_rewind              005607 RLA    __src_right               005489 RLA    
+__src_set                 005259 RLA    __src_start               0053F0 RLA    
+__src_up                  005507 RLA    __src_upn                 005713 RLA    
+__state_verify            0000D5 REZ    __statusline              006F7A RLA    
+__str_cat                 0057DB RLA    __str_compare             0057CA RLA    
+__str_copy                005812 RLA    __str_find                005735 RLA    
+__str_len                 0057B7 RLA    __str_replace             005757 RLA    
+__str_toupper             005823 RLA    __text_charmap            0065F9 RLA    
+__text_clrline            0058B3 RLA    __text_dir                005C67 RLA    
+__text_drawline           005A5B RLA    __text_hiline             005C13 RLA    
+__text_hioff              005C49 RLA    __text_insertmode         0065F8 RLA    
+__text_len                006FB5 RLA    __text_linelen            005C3A RLA    
+__text_print              0058BE RLA    __text_putch              005993 RLA    
+__text_puts               005B46 RLA    __text_putz               005B22 RLA    
+__text_restorebuff        005C5B RLA    __text_savebuff           005C4F RLA    
+__text_scrolldown         005AD0 RLA    __text_scrollup           005A86 RLA    
+__text_status             00583D RLA    __text_update             0058A4 RLA    
+__ui_msgbox               005D96 RLA    __util_chtohex            005E25 RLA    
+__util_hextostr           005E3B RLA    __util_is_null_return_space_comma_closingparen_newline 005F5C RLA    
+__util_is_separator       005F83 RLA    __util_is_whitespace      005F55 RLA    
+__util_isoperator         005F6C RLA    __util_memcpy             005DF2 RLA    
+__util_memset             005DE6 RLA    __util_todec              005EEB RLA    
+__view_dirty              006158 RLA    __view_edit               005F93 RLA    
+__view_mem                0060C8 RLA    atoi                      005E5A RLA    
+help                      0047DE RLA    
+
+
+Exports list by value:
+----------------------
+__debug_file              000010 REZ    __debug_src_line          000017 REZ    
+__BANKCODE_SIZE__         000080 REA    __state_verify            0000D5 REZ    
+__mem_ctxbuffer           000168 REA    __mem_spare               000400 REA    
+__BSS_SIZE__              0006C5 REA    __mem_spareend            001000 REA    
+__fastcopy_init           001210 RLA    __final_store_byte        002000 RLA    
+__BANKCODE_LOAD__         002000 RLA    __final_bank_store_rel    002007 RLA    
+__final_load_byte         002022 RLA    __final_load_byte_off     002029 RLA    
+__final_copy              002040 RLA    __final_call              002054 RLA    
+__final_brk               00206C RLA    __final_rti               002076 RLA    
+__debug_init              002080 RLA    __debug_getline           00208F RLA    
+__debug_setline           002094 RLA    __debug_setup             002099 RLA    
+__fastcopy_save           002100 REA    __debug_init_segment      00211D RLA    
+__debug_startsegment_byaddr 0021FA RLA    __debug_end_segment       002262 RLA    
+__debug_store_line        002274 RLA    __debug_addr2line         0022BF RLA    
+__debug_set_file          002396 RLA    __debug_start             0023C9 RLA    
+__asm_tokenize            0029A6 RLA    __asm_include             002F8C RLA    
+__asm_reset               003186 RLA    __asm_resetpc             00319A RLA    
+__asm_disassemble         0031AC RLA    __asm_tokenize_pass       003468 RLA    
+__asm_tokenize_pass1      003470 RLA    __asm_tokenize_pass2      00348A RLA    
+__bm_init                 003536 RLA    __bm_clr                  003561 RLA    
+__bm_rvsline              00357F RLA    __bm_save                 0035A8 RLA    
+__bm_restore              0035C4 RLA    __ctx_init                0035E0 RLA    
+__ctx_push                0035ED RLA    __ctx_pop                 00360F RLA    
+__ctx_getline             00361D RLA    __ctx_getparams           003640 RLA    
+__ctx_getdata             003688 RLA    __ctx_write               003694 RLA    
+__ctx_addparam            0036B6 RLA    __ctx_rewind              0036F0 RLA    
+__cur_off                 00373F RLA    __cur_on                  003745 RLA    
+__cur_toggle              00374B RLA    __cur_up                  003796 RLA    
+__cur_down                0037AC RLA    __cur_right               0037BB RLA    
+__cur_left                0037C9 RLA    __cur_move                0037D5 RLA    
+__cur_set                 003803 RLA    __cur_forceset            003835 RLA    
+__cur_setmax              00383A RLA    __cur_setmin              003841 RLA    
+__cur_unlimit             003848 RLA    __draw_hline              003856 RLA    
+__edit_init               00386C RLA    __edit_run                003890 RLA    
+__edit_gotoline           004070 RLA    __err_get                 0041E5 RLA    
+__expr_eval               0041F0 RLA    __expr_getval             0043F8 RLA    
+__file_loaddir            00449C RLA    __file_load               0044B3 RLA    
+__file_save               00455C RLA    __file_scratch            0045EF RLA    
+__file_getline            004638 RLA    __file_open               004673 RLA    
+__file_close              0046CC RLA    __final_init              0046DA RLA    
+__final_memcpy            004725 RLA    __fmt_label               004768 RLA    
+__fmt_opcode              004782 RLA    __fmt_line                0047AA RLA    
+help                      0047DE RLA    __io_readerr              00487F RLA    
+__irq_brk                 0048C2 RLA    __irq_raster              0048D3 RLA    
+__key_getch               00492E RLA    __key_ishex               00498F RLA    
+__label_clr               004BBC RLA    __label_find              004BC5 RLA    
+__label_add               004C57 RLA    __label_address           004E16 RLA    
+__label_del               004E5A RLA    __label_by_id             004F71 RLA    
+__label_name_by_id        004F88 RLA    __label_isvalid           004FA0 RLA    
+__label_get_name          004FD2 RLA    __label_get_addr          004FF8 RLA    
+__fastcopy_restore        005000 REA    __mac_init                00501C RLA    
+__mac_add                 00502C RLA    __mac_asm                 0050EA RLA    
+__mac_get                 005199 RLA    __math_mul16              005209 RLA    
+__math_div16              005233 RLA    __src_set                 005259 RLA    
+__src_new                 005306 RLA    __src_close               00533C RLA    
+__src_name                00538E RLA    __src_pushp               0053AA RLA    
+__src_popp                0053C8 RLA    __src_end                 0053E3 RLA    
+__src_start               0053F0 RLA    __src_backspace           0053FD RLA    
+__src_delete              00542B RLA    __src_next                00543C RLA    
+__src_right               005489 RLA    __src_prev                00549E RLA    
+__src_up                  005507 RLA    __src_down                00551E RLA    
+__src_insert              005535 RLA    __src_replace             00559C RLA    
+__src_atcursor            0055D1 RLA    __src_rewind              005607 RLA    
+__src_readb               005610 RLA    __src_readline            005619 RLA    
+__src_goto                005653 RLA    __src_get                 005687 RLA    
+__src_downn               0056F1 RLA    __src_upn                 005713 RLA    
+__str_find                005735 RLA    __str_replace             005757 RLA    
+__str_len                 0057B7 RLA    __str_compare             0057CA RLA    
+__str_cat                 0057DB RLA    __str_copy                005812 RLA    
+__str_toupper             005823 RLA    __text_status             00583D RLA    
+__text_update             0058A4 RLA    __text_clrline            0058B3 RLA    
+__text_print              0058BE RLA    __text_putch              005993 RLA    
+__text_drawline           005A5B RLA    __text_scrollup           005A86 RLA    
+__text_scrolldown         005AD0 RLA    __text_putz               005B22 RLA    
+__text_puts               005B46 RLA    __text_hiline             005C13 RLA    
+__text_linelen            005C3A RLA    __text_hioff              005C49 RLA    
+__text_savebuff           005C4F RLA    __text_restorebuff        005C5B RLA    
+__text_dir                005C67 RLA    __ui_msgbox               005D96 RLA    
+__util_memset             005DE6 RLA    __util_memcpy             005DF2 RLA    
+__util_chtohex            005E25 RLA    __util_hextostr           005E3B RLA    
+atoi                      005E5A RLA    __util_todec              005EEB RLA    
+__util_is_whitespace      005F55 RLA    __util_is_null_return_space_comma_closingparen_newline 005F5C RLA    
+__util_isoperator         005F6C RLA    __util_is_separator       005F83 RLA    
+__view_edit               005F93 RLA    __view_mem                0060C8 RLA    
+__view_dirty              006158 RLA    __bm_columns              006369 RLA    
+__text_insertmode         0065F8 RLA    __text_charmap            0065F9 RLA    
+__BSS_LOAD__              006924 RLA    __asm_origin              00692E RLA    
+__ctx_type                006958 RLA    __cur_minx                00695B RLA    
+__cur_maxx                00695C RLA    __cur_miny                00695D RLA    
+__cur_maxy                00695E RLA    __file_name               006B03 RLA    
+__label_num               006B28 RLA    __mem_program             006B2A RLA    
+__linebuffer2             006F2A RLA    __linebuffer              006F52 RLA    
+__statusline              006F7A RLA    __src_numbuffers          006FA2 RLA    
+__src_activebuff          006FA3 RLA    __text_len                006FB5 RLA    
+__src_buffer              006FB5 RLA    __src_line                00A326 RLA    
+__src_lines               00A328 RLA    __src_names               00A37C RLA    
+__mem_backbuff            00B100 REA    __mem_prog9000            00B100 REA    
+__mem_progsave            00B100 REA    __mem_prog00              00B110 REA    
+__mem_prog1000            00B210 REA    __mem_prog9400            00B310 REA    
+__mem_debugsave           00B400 REA    
+
+
+Imports list:
+-------------
+__BANKCODE_LOAD__ ([linker generated]):
+    source.o                  source.asm(11)
+    labels.o                  labels.asm(11)
+    finalex.o                 finalex.asm(5)
+    debug.o                   debug.asm(22)
+__BANKCODE_SIZE__ ([linker generated]):
+    source.o                  source.asm(12)
+    labels.o                  labels.asm(12)
+    debug.o                   debug.asm(23)
+__BSS_LOAD__ ([linker generated]):
+    boot.o                    boot.asm(12)
+__BSS_SIZE__ ([linker generated]):
+    boot.o                    boot.asm(13)
+__asm_disassemble (asm.o):
+    text.o                    asm.inc(1)
+    macro.o                   asm.inc(1)
+    editor.o                  asm.inc(1)
+    debug.o                   asm.inc(1)
+    boot.o                    asm.inc(1)
+__asm_include (asm.o):
+    text.o                    asm.inc(2)
+    macro.o                   asm.inc(2)
+    editor.o                  asm.inc(2)
+    debug.o                   asm.inc(2)
+    boot.o                    asm.inc(2)
+__asm_origin (asm.o):
+    text.o                    asm.inc(3)
+    macro.o                   asm.inc(3)
+    editor.o                  asm.inc(3)
+    debug.o                   asm.inc(3)
+    boot.o                    asm.inc(3)
+__asm_reset (asm.o):
+    text.o                    asm.inc(8)
+    macro.o                   asm.inc(8)
+    editor.o                  asm.inc(8)
+    debug.o                   asm.inc(8)
+    boot.o                    asm.inc(8)
+__asm_resetpc (asm.o):
+    text.o                    asm.inc(9)
+    macro.o                   asm.inc(9)
+    editor.o                  asm.inc(9)
+    debug.o                   asm.inc(9)
+    boot.o                    asm.inc(9)
+__asm_tokenize (asm.o):
+    text.o                    asm.inc(4)
+    macro.o                   asm.inc(4)
+    editor.o                  asm.inc(4)
+    debug.o                   asm.inc(4)
+    boot.o                    asm.inc(4)
+__asm_tokenize_pass (asm.o):
+    text.o                    asm.inc(5)
+    macro.o                   asm.inc(5)
+    editor.o                  asm.inc(5)
+    debug.o                   asm.inc(5)
+    boot.o                    asm.inc(5)
+__asm_tokenize_pass1 (asm.o):
+    text.o                    asm.inc(6)
+    macro.o                   asm.inc(6)
+    editor.o                  asm.inc(6)
+    debug.o                   asm.inc(6)
+    boot.o                    asm.inc(6)
+__asm_tokenize_pass2 (asm.o):
+    text.o                    asm.inc(7)
+    macro.o                   asm.inc(7)
+    editor.o                  asm.inc(7)
+    debug.o                   asm.inc(7)
+    boot.o                    asm.inc(7)
+__bm_clr (bitmap.o):
+    view.o                    bitmap.inc(8)
+    ui.o                      bitmap.inc(8)
+    text.o                    bitmap.inc(8)
+    fastcopy.o                bitmap.inc(8)
+    editor.o                  bitmap.inc(8)
+    debug.o                   bitmap.inc(8)
+    cursor.o                  bitmap.inc(8)
+__bm_columns (bitmap.o):
+    view.o                    bitmap.inc(11)
+    ui.o                      bitmap.inc(11)
+    text.o                    bitmap.inc(11)
+    fastcopy.o                bitmap.inc(11)
+    editor.o                  bitmap.inc(11)
+    debug.o                   bitmap.inc(11)
+    cursor.o                  bitmap.inc(11)
+__bm_init (bitmap.o):
+    view.o                    bitmap.inc(5)
+    ui.o                      bitmap.inc(5)
+    text.o                    bitmap.inc(5)
+    fastcopy.o                bitmap.inc(5)
+    editor.o                  bitmap.inc(5)
+    debug.o                   bitmap.inc(5)
+    cursor.o                  bitmap.inc(5)
+__bm_restore (bitmap.o):
+    view.o                    bitmap.inc(15)
+    ui.o                      bitmap.inc(15)
+    text.o                    bitmap.inc(15)
+    fastcopy.o                bitmap.inc(15)
+    editor.o                  bitmap.inc(15)
+    debug.o                   bitmap.inc(15)
+    cursor.o                  bitmap.inc(15)
+__bm_rvsline (bitmap.o):
+    view.o                    bitmap.inc(13)
+    ui.o                      bitmap.inc(13)
+    text.o                    bitmap.inc(13)
+    fastcopy.o                bitmap.inc(13)
+    editor.o                  bitmap.inc(13)
+    debug.o                   bitmap.inc(13)
+    cursor.o                  bitmap.inc(13)
+__bm_save (bitmap.o):
+    view.o                    bitmap.inc(14)
+    ui.o                      bitmap.inc(14)
+    text.o                    bitmap.inc(14)
+    fastcopy.o                bitmap.inc(14)
+    editor.o                  bitmap.inc(14)
+    debug.o                   bitmap.inc(14)
+    cursor.o                  bitmap.inc(14)
+__ctx_addparam (ctx.o):
+    editor.o                  ctx.inc(1)
+    asm.o                     ctx.inc(1)
+__ctx_getdata (ctx.o):
+    editor.o                  ctx.inc(5)
+    asm.o                     ctx.inc(5)
+__ctx_getline (ctx.o):
+    editor.o                  ctx.inc(6)
+    asm.o                     ctx.inc(6)
+__ctx_getparams (ctx.o):
+    editor.o                  ctx.inc(2)
+    asm.o                     ctx.inc(2)
+__ctx_init (ctx.o):
+    editor.o                  ctx.inc(9)
+    asm.o                     ctx.inc(9)
+__ctx_pop (ctx.o):
+    editor.o                  ctx.inc(4)
+    asm.o                     ctx.inc(4)
+__ctx_push (ctx.o):
+    editor.o                  ctx.inc(3)
+    asm.o                     ctx.inc(3)
+__ctx_rewind (ctx.o):
+    editor.o                  ctx.inc(7)
+    asm.o                     ctx.inc(7)
+__ctx_type (ctx.o):
+    editor.o                  ctx.inc(10)
+    asm.o                     ctx.inc(10)
+__ctx_write (ctx.o):
+    editor.o                  ctx.inc(8)
+    asm.o                     ctx.inc(8)
+__cur_down (cursor.o):
+    view.o                    cursor.inc(7)
+    text.o                    cursor.inc(7)
+    source.o                  cursor.inc(7)
+    editor.o                  cursor.inc(7)
+__cur_forceset (cursor.o):
+    view.o                    cursor.inc(1)
+    text.o                    cursor.inc(1)
+    source.o                  cursor.inc(1)
+    editor.o                  cursor.inc(1)
+__cur_left (cursor.o):
+    view.o                    cursor.inc(9)
+    text.o                    cursor.inc(9)
+    source.o                  cursor.inc(9)
+    editor.o                  cursor.inc(9)
+__cur_maxx (cursor.o):
+    view.o                    cursor.inc(14)
+    text.o                    cursor.inc(14)
+    source.o                  cursor.inc(14)
+    editor.o                  cursor.inc(14)
+__cur_maxy (cursor.o):
+    view.o                    cursor.inc(16)
+    text.o                    cursor.inc(16)
+    source.o                  cursor.inc(16)
+    editor.o                  cursor.inc(16)
+__cur_minx (cursor.o):
+    view.o                    cursor.inc(15)
+    text.o                    cursor.inc(15)
+    source.o                  cursor.inc(15)
+    editor.o                  cursor.inc(15)
+__cur_miny (cursor.o):
+    view.o                    cursor.inc(17)
+    text.o                    cursor.inc(17)
+    source.o                  cursor.inc(17)
+    editor.o                  cursor.inc(17)
+__cur_move (cursor.o):
+    view.o                    cursor.inc(4)
+    text.o                    cursor.inc(4)
+    source.o                  cursor.inc(4)
+    editor.o                  cursor.inc(4)
+__cur_off (cursor.o):
+    view.o                    cursor.inc(3)
+    text.o                    cursor.inc(3)
+    source.o                  cursor.inc(3)
+    editor.o                  cursor.inc(3)
+__cur_on (cursor.o):
+    view.o                    cursor.inc(2)
+    text.o                    cursor.inc(2)
+    source.o                  cursor.inc(2)
+    editor.o                  cursor.inc(2)
+__cur_right (cursor.o):
+    view.o                    cursor.inc(8)
+    text.o                    cursor.inc(8)
+    source.o                  cursor.inc(8)
+    editor.o                  cursor.inc(8)
+__cur_set (cursor.o):
+    view.o                    cursor.inc(5)
+    text.o                    cursor.inc(5)
+    source.o                  cursor.inc(5)
+    editor.o                  cursor.inc(5)
+__cur_setmax (cursor.o):
+    view.o                    cursor.inc(12)
+    text.o                    cursor.inc(12)
+    source.o                  cursor.inc(12)
+    editor.o                  cursor.inc(12)
+__cur_setmin (cursor.o):
+    view.o                    cursor.inc(11)
+    text.o                    cursor.inc(11)
+    source.o                  cursor.inc(11)
+    editor.o                  cursor.inc(11)
+__cur_toggle (cursor.o):
+    view.o                    cursor.inc(10)
+    text.o                    cursor.inc(10)
+    source.o                  cursor.inc(10)
+    editor.o                  cursor.inc(10)
+__cur_unlimit (cursor.o):
+    view.o                    cursor.inc(13)
+    text.o                    cursor.inc(13)
+    source.o                  cursor.inc(13)
+    editor.o                  cursor.inc(13)
+__cur_up (cursor.o):
+    view.o                    cursor.inc(6)
+    text.o                    cursor.inc(6)
+    source.o                  cursor.inc(6)
+    editor.o                  cursor.inc(6)
+__debug_addr2line (debug.o):
+    editor.o                  debug.inc(4)
+    asm.o                     debug.inc(4)
+__debug_end_segment (debug.o):
+    editor.o                  debug.inc(5)
+    asm.o                     debug.inc(5)
+__debug_file (debug.o):
+    editor.o                  debug.inc(1)
+    asm.o                     debug.inc(1)
+__debug_getline (debug.o):
+    editor.o                  debug.inc(6)
+    asm.o                     debug.inc(6)
+__debug_init (debug.o):
+    editor.o                  debug.inc(7)
+    asm.o                     debug.inc(7)
+__debug_init_segment (debug.o):
+    editor.o                  debug.inc(8)
+    asm.o                     debug.inc(8)
+__debug_set_file (debug.o):
+    editor.o                  debug.inc(9)
+    asm.o                     debug.inc(9)
+__debug_setline (debug.o):
+    editor.o                  debug.inc(11)
+    asm.o                     debug.inc(11)
+__debug_setup (debug.o):
+    editor.o                  debug.inc(10)
+    asm.o                     debug.inc(10)
+__debug_src_line (debug.o):
+    editor.o                  debug.inc(2)
+    asm.o                     debug.inc(2)
+__debug_start (debug.o):
+    editor.o                  debug.inc(12)
+    asm.o                     debug.inc(12)
+__debug_startsegment_byaddr (debug.o):
+    editor.o                  debug.inc(14)
+    asm.o                     debug.inc(14)
+__debug_store_line (debug.o):
+    editor.o                  debug.inc(13)
+    asm.o                     debug.inc(13)
+__draw_hline (draw.o):
+    view.o                    draw.inc(1)
+    text.o                    draw.inc(1)
+    editor.o                  draw.inc(1)
+__edit_gotoline (editor.o):
+    debug.o                   edit.inc(3)
+    boot.o                    edit.inc(3)
+__edit_init (editor.o):
+    debug.o                   edit.inc(1)
+    boot.o                    edit.inc(1)
+__edit_run (editor.o):
+    debug.o                   edit.inc(2)
+    boot.o                    edit.inc(2)
+__err_get (errors.o):
+    util.o                    errors.inc(46)
+    string.o                  errors.inc(46)
+    source.o                  errors.inc(46)
+    macro.o                   errors.inc(46)
+    labels.o                  errors.inc(46)
+    file.o                    errors.inc(46)
+    expr.o                    errors.inc(46)
+    editor.o                  errors.inc(46)
+    debug.o                   errors.inc(46)
+    ctx.o                     errors.inc(46)
+    asm.o                     errors.inc(46)
+__expr_eval (expr.o):
+    asm.o                     expr.inc(1)
+__expr_getval (expr.o):
+    asm.o                     expr.inc(2)
+__fastcopy_init (fastcopy.o):
+    debug.o                   fastcopy.inc(1)
+    boot.o                    fastcopy.inc(1)
+__fastcopy_restore (fastcopy.o):
+    debug.o                   fastcopy.inc(3)
+    boot.o                    fastcopy.inc(3)
+__fastcopy_save (fastcopy.o):
+    debug.o                   fastcopy.inc(2)
+    boot.o                    fastcopy.inc(2)
+__file_close (file.o):
+    text.o                    file.inc(1)
+    editor.o                  file.inc(1)
+    asm.o                     file.inc(1)
+__file_getline (file.o):
+    text.o                    file.inc(2)
+    editor.o                  file.inc(2)
+    asm.o                     file.inc(2)
+__file_load (file.o):
+    text.o                    file.inc(3)
+    editor.o                  file.inc(3)
+    asm.o                     file.inc(3)
+__file_loaddir (file.o):
+    text.o                    file.inc(4)
+    editor.o                  file.inc(4)
+    asm.o                     file.inc(4)
+__file_name (file.o):
+    text.o                    file.inc(8)
+    editor.o                  file.inc(8)
+    asm.o                     file.inc(8)
+__file_open (file.o):
+    text.o                    file.inc(5)
+    editor.o                  file.inc(5)
+    asm.o                     file.inc(5)
+__file_save (file.o):
+    text.o                    file.inc(6)
+    editor.o                  file.inc(6)
+    asm.o                     file.inc(6)
+__file_scratch (file.o):
+    text.o                    file.inc(7)
+    editor.o                  file.inc(7)
+    asm.o                     file.inc(7)
+__final_bank_store_rel (finalex.o):
+    labels.o                  finalex.inc(23)
+__final_brk (finalex.o):
+    view.o                    finalex.inc(21)
+    source.o                  finalex.inc(21)
+    labels.o                  finalex.inc(21)
+    irq.o                     finalex.inc(21)
+    file.o                    finalex.inc(21)
+    fastcopy.o                finalex.inc(21)
+    debug.o                   finalex.inc(21)
+    asm.o                     finalex.inc(21)
+    boot.o                    finalex.inc(21)
+__final_call (finalex.o):
+    view.o                    finalex.inc(14)
+    source.o                  finalex.inc(14)
+    labels.o                  finalex.inc(14)
+    irq.o                     finalex.inc(14)
+    file.o                    finalex.inc(14)
+    fastcopy.o                finalex.inc(14)
+    debug.o                   finalex.inc(14)
+    asm.o                     finalex.inc(14)
+    boot.o                    finalex.inc(14)
+__final_copy (finalex.o):
+    view.o                    finalex.inc(19)
+    source.o                  finalex.inc(19)
+    labels.o                  finalex.inc(19)
+    irq.o                     finalex.inc(19)
+    file.o                    finalex.inc(19)
+    fastcopy.o                finalex.inc(19)
+    debug.o                   finalex.inc(19)
+    asm.o                     finalex.inc(19)
+    boot.o                    finalex.inc(19)
+__final_init (finalex.o):
+    view.o                    finalex.inc(20)
+    source.o                  finalex.inc(20)
+    labels.o                  finalex.inc(20)
+    irq.o                     finalex.inc(20)
+    file.o                    finalex.inc(20)
+    fastcopy.o                finalex.inc(20)
+    debug.o                   finalex.inc(20)
+    asm.o                     finalex.inc(20)
+    boot.o                    finalex.inc(20)
+__final_load_byte (finalex.o):
+    view.o                    finalex.inc(16)
+    source.o                  finalex.inc(16)
+    labels.o                  finalex.inc(16)
+    irq.o                     finalex.inc(16)
+    file.o                    finalex.inc(16)
+    fastcopy.o                finalex.inc(16)
+    debug.o                   finalex.inc(16)
+    asm.o                     finalex.inc(16)
+    boot.o                    finalex.inc(16)
+__final_load_byte_off (finalex.o):
+    view.o                    finalex.inc(17)
+    source.o                  finalex.inc(17)
+    labels.o                  finalex.inc(17)
+    irq.o                     finalex.inc(17)
+    file.o                    finalex.inc(17)
+    fastcopy.o                finalex.inc(17)
+    debug.o                   finalex.inc(17)
+    asm.o                     finalex.inc(17)
+    boot.o                    finalex.inc(17)
+__final_memcpy (finalex.o):
+    view.o                    finalex.inc(18)
+    source.o                  finalex.inc(18)
+    labels.o                  finalex.inc(18)
+    irq.o                     finalex.inc(18)
+    file.o                    finalex.inc(18)
+    fastcopy.o                finalex.inc(18)
+    debug.o                   finalex.inc(18)
+    asm.o                     finalex.inc(18)
+    boot.o                    finalex.inc(18)
+__final_rti (finalex.o):
+    view.o                    finalex.inc(22)
+    source.o                  finalex.inc(22)
+    labels.o                  finalex.inc(22)
+    irq.o                     finalex.inc(22)
+    file.o                    finalex.inc(22)
+    fastcopy.o                finalex.inc(22)
+    debug.o                   finalex.inc(22)
+    asm.o                     finalex.inc(22)
+    boot.o                    finalex.inc(22)
+__final_store_byte (finalex.o):
+    view.o                    finalex.inc(15)
+    source.o                  finalex.inc(15)
+    labels.o                  finalex.inc(15)
+    irq.o                     finalex.inc(15)
+    file.o                    finalex.inc(15)
+    fastcopy.o                finalex.inc(15)
+    debug.o                   finalex.inc(15)
+    asm.o                     finalex.inc(15)
+    boot.o                    finalex.inc(15)
+__fmt_label (format.o):
+    editor.o                  format.inc(1)
+__fmt_line (format.o):
+    editor.o                  format.inc(3)
+__fmt_opcode (format.o):
+    editor.o                  format.inc(2)
+__io_readerr (iec.o):
+    file.o                    io.inc(1)
+__irq_brk (irq.o):
+    text.o                    irq.inc(4)
+    source.o                  irq.inc(4)
+    debug.o                   irq.inc(4)
+    boot.o                    irq.inc(4)
+__irq_raster (irq.o):
+    text.o                    irq.inc(3)
+    source.o                  irq.inc(3)
+    debug.o                   irq.inc(3)
+    boot.o                    irq.inc(3)
+__key_getch (key.o):
+    view.o                    key.inc(1)
+    ui.o                      key.inc(1)
+    text.o                    key.inc(1)
+    help.o                    key.inc(1)
+    editor.o                  key.inc(1)
+    debug.o                   key.inc(1)
+__key_ishex (key.o):
+    view.o                    key.inc(2)
+    ui.o                      key.inc(2)
+    text.o                    key.inc(2)
+    help.o                    key.inc(2)
+    editor.o                  key.inc(2)
+    debug.o                   key.inc(2)
+__label_add (labels.o):
+    macro.o                   labels.inc(1)
+    expr.o                    labels.inc(1)
+    editor.o                  labels.inc(1)
+    debug.o                   labels.inc(1)
+    asm.o                     labels.inc(1)
+    boot.o                    labels.inc(1)
+__label_address (labels.o):
+    macro.o                   labels.inc(9)
+    expr.o                    labels.inc(9)
+    editor.o                  labels.inc(9)
+    debug.o                   labels.inc(9)
+    asm.o                     labels.inc(9)
+    boot.o                    labels.inc(9)
+__label_by_id (labels.o):
+    macro.o                   labels.inc(2)
+    expr.o                    labels.inc(2)
+    editor.o                  labels.inc(2)
+    debug.o                   labels.inc(2)
+    asm.o                     labels.inc(2)
+    boot.o                    labels.inc(2)
+__label_clr (labels.o):
+    macro.o                   labels.inc(3)
+    expr.o                    labels.inc(3)
+    editor.o                  labels.inc(3)
+    debug.o                   labels.inc(3)
+    asm.o                     labels.inc(3)
+    boot.o                    labels.inc(3)
+__label_del (labels.o):
+    macro.o                   labels.inc(4)
+    expr.o                    labels.inc(4)
+    editor.o                  labels.inc(4)
+    debug.o                   labels.inc(4)
+    asm.o                     labels.inc(4)
+    boot.o                    labels.inc(4)
+__label_find (labels.o):
+    macro.o                   labels.inc(5)
+    expr.o                    labels.inc(5)
+    editor.o                  labels.inc(5)
+    debug.o                   labels.inc(5)
+    asm.o                     labels.inc(5)
+    boot.o                    labels.inc(5)
+__label_get_addr (labels.o):
+    macro.o                   labels.inc(7)
+    expr.o                    labels.inc(7)
+    editor.o                  labels.inc(7)
+    debug.o                   labels.inc(7)
+    asm.o                     labels.inc(7)
+    boot.o                    labels.inc(7)
+__label_get_name (labels.o):
+    macro.o                   labels.inc(6)
+    expr.o                    labels.inc(6)
+    editor.o                  labels.inc(6)
+    debug.o                   labels.inc(6)
+    asm.o                     labels.inc(6)
+    boot.o                    labels.inc(6)
+__label_isvalid (labels.o):
+    macro.o                   labels.inc(8)
+    expr.o                    labels.inc(8)
+    editor.o                  labels.inc(8)
+    debug.o                   labels.inc(8)
+    asm.o                     labels.inc(8)
+    boot.o                    labels.inc(8)
+__label_name_by_id (labels.o):
+    macro.o                   labels.inc(11)
+    expr.o                    labels.inc(11)
+    editor.o                  labels.inc(11)
+    debug.o                   labels.inc(11)
+    asm.o                     labels.inc(11)
+    boot.o                    labels.inc(11)
+__label_num (labels.o):
+    macro.o                   labels.inc(10)
+    expr.o                    labels.inc(10)
+    editor.o                  labels.inc(10)
+    debug.o                   labels.inc(10)
+    asm.o                     labels.inc(10)
+    boot.o                    labels.inc(10)
+__linebuffer (memory.o):
+    view.o                    memory.inc(6)
+    util.o                    memory.inc(6)
+    ui.o                      memory.inc(6)
+    text.o                    memory.inc(6)
+    source.o                  memory.inc(6)
+    iec.o                     memory.inc(6)
+    format.o                  memory.inc(6)
+    file.o                    memory.inc(6)
+    editor.o                  memory.inc(6)
+    draw.o                    memory.inc(6)
+    debug.o                   memory.inc(6)
+    ctx.o                     memory.inc(6)
+    bitmap.o                  memory.inc(6)
+    asm.o                     memory.inc(6)
+    boot.o                    memory.inc(6)
+__linebuffer2 (memory.o):
+    view.o                    memory.inc(7)
+    util.o                    memory.inc(7)
+    ui.o                      memory.inc(7)
+    text.o                    memory.inc(7)
+    source.o                  memory.inc(7)
+    iec.o                     memory.inc(7)
+    format.o                  memory.inc(7)
+    file.o                    memory.inc(7)
+    editor.o                  memory.inc(7)
+    draw.o                    memory.inc(7)
+    debug.o                   memory.inc(7)
+    ctx.o                     memory.inc(7)
+    bitmap.o                  memory.inc(7)
+    asm.o                     memory.inc(7)
+    boot.o                    memory.inc(7)
+__mac_add (macro.o):
+    asm.o                     macro.inc(1)
+__mac_asm (macro.o):
+    asm.o                     macro.inc(2)
+__mac_get (macro.o):
+    asm.o                     macro.inc(4)
+__mac_init (macro.o):
+    asm.o                     macro.inc(3)
+__math_div16 (math.o):
+    expr.o                    math.inc(3)
+    asm.o                     math.inc(3)
+__math_mul16 (math.o):
+    expr.o                    math.inc(2)
+    asm.o                     math.inc(2)
+__mem_backbuff (memory.o):
+    view.o                    memory.inc(5)
+    util.o                    memory.inc(5)
+    ui.o                      memory.inc(5)
+    text.o                    memory.inc(5)
+    source.o                  memory.inc(5)
+    iec.o                     memory.inc(5)
+    format.o                  memory.inc(5)
+    file.o                    memory.inc(5)
+    editor.o                  memory.inc(5)
+    draw.o                    memory.inc(5)
+    debug.o                   memory.inc(5)
+    ctx.o                     memory.inc(5)
+    bitmap.o                  memory.inc(5)
+    asm.o                     memory.inc(5)
+    boot.o                    memory.inc(5)
+__mem_ctxbuffer (memory.o):
+    view.o                    memory.inc(2)
+    util.o                    memory.inc(2)
+    ui.o                      memory.inc(2)
+    text.o                    memory.inc(2)
+    source.o                  memory.inc(2)
+    iec.o                     memory.inc(2)
+    format.o                  memory.inc(2)
+    file.o                    memory.inc(2)
+    editor.o                  memory.inc(2)
+    draw.o                    memory.inc(2)
+    debug.o                   memory.inc(2)
+    ctx.o                     memory.inc(2)
+    bitmap.o                  memory.inc(2)
+    asm.o                     memory.inc(2)
+    boot.o                    memory.inc(2)
+__mem_debugsave (memory.o):
+    view.o                    memory.inc(11)
+    util.o                    memory.inc(11)
+    ui.o                      memory.inc(11)
+    text.o                    memory.inc(11)
+    source.o                  memory.inc(11)
+    iec.o                     memory.inc(11)
+    format.o                  memory.inc(11)
+    file.o                    memory.inc(11)
+    editor.o                  memory.inc(11)
+    draw.o                    memory.inc(11)
+    debug.o                   memory.inc(11)
+    ctx.o                     memory.inc(11)
+    bitmap.o                  memory.inc(11)
+    asm.o                     memory.inc(11)
+    boot.o                    memory.inc(11)
+__mem_prog00 (memory.o):
+    view.o                    memory.inc(12)
+    util.o                    memory.inc(12)
+    ui.o                      memory.inc(12)
+    text.o                    memory.inc(12)
+    source.o                  memory.inc(12)
+    iec.o                     memory.inc(12)
+    format.o                  memory.inc(12)
+    file.o                    memory.inc(12)
+    editor.o                  memory.inc(12)
+    draw.o                    memory.inc(12)
+    debug.o                   memory.inc(12)
+    ctx.o                     memory.inc(12)
+    bitmap.o                  memory.inc(12)
+    asm.o                     memory.inc(12)
+    boot.o                    memory.inc(12)
+__mem_prog1000 (memory.o):
+    view.o                    memory.inc(13)
+    util.o                    memory.inc(13)
+    ui.o                      memory.inc(13)
+    text.o                    memory.inc(13)
+    source.o                  memory.inc(13)
+    iec.o                     memory.inc(13)
+    format.o                  memory.inc(13)
+    file.o                    memory.inc(13)
+    editor.o                  memory.inc(13)
+    draw.o                    memory.inc(13)
+    debug.o                   memory.inc(13)
+    ctx.o                     memory.inc(13)
+    bitmap.o                  memory.inc(13)
+    asm.o                     memory.inc(13)
+    boot.o                    memory.inc(13)
+__mem_prog9000 (memory.o):
+    view.o                    memory.inc(14)
+    util.o                    memory.inc(14)
+    ui.o                      memory.inc(14)
+    text.o                    memory.inc(14)
+    source.o                  memory.inc(14)
+    iec.o                     memory.inc(14)
+    format.o                  memory.inc(14)
+    file.o                    memory.inc(14)
+    editor.o                  memory.inc(14)
+    draw.o                    memory.inc(14)
+    debug.o                   memory.inc(14)
+    ctx.o                     memory.inc(14)
+    bitmap.o                  memory.inc(14)
+    asm.o                     memory.inc(14)
+    boot.o                    memory.inc(14)
+__mem_prog9400 (memory.o):
+    view.o                    memory.inc(15)
+    util.o                    memory.inc(15)
+    ui.o                      memory.inc(15)
+    text.o                    memory.inc(15)
+    source.o                  memory.inc(15)
+    iec.o                     memory.inc(15)
+    format.o                  memory.inc(15)
+    file.o                    memory.inc(15)
+    editor.o                  memory.inc(15)
+    draw.o                    memory.inc(15)
+    debug.o                   memory.inc(15)
+    ctx.o                     memory.inc(15)
+    bitmap.o                  memory.inc(15)
+    asm.o                     memory.inc(15)
+    boot.o                    memory.inc(15)
+__mem_program (memory.o):
+    view.o                    memory.inc(8)
+    util.o                    memory.inc(8)
+    ui.o                      memory.inc(8)
+    text.o                    memory.inc(8)
+    source.o                  memory.inc(8)
+    iec.o                     memory.inc(8)
+    format.o                  memory.inc(8)
+    file.o                    memory.inc(8)
+    editor.o                  memory.inc(8)
+    draw.o                    memory.inc(8)
+    debug.o                   memory.inc(8)
+    ctx.o                     memory.inc(8)
+    bitmap.o                  memory.inc(8)
+    asm.o                     memory.inc(8)
+    boot.o                    memory.inc(8)
+__mem_progsave (memory.o):
+    view.o                    memory.inc(9)
+    util.o                    memory.inc(9)
+    ui.o                      memory.inc(9)
+    text.o                    memory.inc(9)
+    source.o                  memory.inc(9)
+    iec.o                     memory.inc(9)
+    format.o                  memory.inc(9)
+    file.o                    memory.inc(9)
+    editor.o                  memory.inc(9)
+    draw.o                    memory.inc(9)
+    debug.o                   memory.inc(9)
+    ctx.o                     memory.inc(9)
+    bitmap.o                  memory.inc(9)
+    asm.o                     memory.inc(9)
+    boot.o                    memory.inc(9)
+__mem_spare (memory.o):
+    view.o                    memory.inc(3)
+    util.o                    memory.inc(3)
+    ui.o                      memory.inc(3)
+    text.o                    memory.inc(3)
+    source.o                  memory.inc(3)
+    iec.o                     memory.inc(3)
+    format.o                  memory.inc(3)
+    file.o                    memory.inc(3)
+    editor.o                  memory.inc(3)
+    draw.o                    memory.inc(3)
+    debug.o                   memory.inc(3)
+    ctx.o                     memory.inc(3)
+    bitmap.o                  memory.inc(3)
+    asm.o                     memory.inc(3)
+    boot.o                    memory.inc(3)
+__mem_spareend (memory.o):
+    view.o                    memory.inc(4)
+    util.o                    memory.inc(4)
+    ui.o                      memory.inc(4)
+    text.o                    memory.inc(4)
+    source.o                  memory.inc(4)
+    iec.o                     memory.inc(4)
+    format.o                  memory.inc(4)
+    file.o                    memory.inc(4)
+    editor.o                  memory.inc(4)
+    draw.o                    memory.inc(4)
+    debug.o                   memory.inc(4)
+    ctx.o                     memory.inc(4)
+    bitmap.o                  memory.inc(4)
+    asm.o                     memory.inc(4)
+    boot.o                    memory.inc(4)
+__src_activebuff (source.o):
+    text.o                    source.inc(1)
+    format.o                  source.inc(1)
+    file.o                    source.inc(1)
+    editor.o                  source.inc(1)
+    asm.o                     source.inc(1)
+    boot.o                    source.inc(1)
+__src_atcursor (source.o):
+    text.o                    source.inc(2)
+    format.o                  source.inc(2)
+    file.o                    source.inc(2)
+    editor.o                  source.inc(2)
+    asm.o                     source.inc(2)
+    boot.o                    source.inc(2)
+__src_backspace (source.o):
+    text.o                    source.inc(3)
+    format.o                  source.inc(3)
+    file.o                    source.inc(3)
+    editor.o                  source.inc(3)
+    asm.o                     source.inc(3)
+    boot.o                    source.inc(3)
+__src_buffer (source.o):
+    text.o                    source.inc(4)
+    format.o                  source.inc(4)
+    file.o                    source.inc(4)
+    editor.o                  source.inc(4)
+    asm.o                     source.inc(4)
+    boot.o                    source.inc(4)
+__src_close (source.o):
+    text.o                    source.inc(5)
+    format.o                  source.inc(5)
+    file.o                    source.inc(5)
+    editor.o                  source.inc(5)
+    asm.o                     source.inc(5)
+    boot.o                    source.inc(5)
+__src_delete (source.o):
+    text.o                    source.inc(6)
+    format.o                  source.inc(6)
+    file.o                    source.inc(6)
+    editor.o                  source.inc(6)
+    asm.o                     source.inc(6)
+    boot.o                    source.inc(6)
+__src_down (source.o):
+    text.o                    source.inc(7)
+    format.o                  source.inc(7)
+    file.o                    source.inc(7)
+    editor.o                  source.inc(7)
+    asm.o                     source.inc(7)
+    boot.o                    source.inc(7)
+__src_downn (source.o):
+    text.o                    source.inc(8)
+    format.o                  source.inc(8)
+    file.o                    source.inc(8)
+    editor.o                  source.inc(8)
+    asm.o                     source.inc(8)
+    boot.o                    source.inc(8)
+__src_end (source.o):
+    text.o                    source.inc(9)
+    format.o                  source.inc(9)
+    file.o                    source.inc(9)
+    editor.o                  source.inc(9)
+    asm.o                     source.inc(9)
+    boot.o                    source.inc(9)
+__src_get (source.o):
+    text.o                    source.inc(10)
+    format.o                  source.inc(10)
+    file.o                    source.inc(10)
+    editor.o                  source.inc(10)
+    asm.o                     source.inc(10)
+    boot.o                    source.inc(10)
+__src_goto (source.o):
+    text.o                    source.inc(11)
+    format.o                  source.inc(11)
+    file.o                    source.inc(11)
+    editor.o                  source.inc(11)
+    asm.o                     source.inc(11)
+    boot.o                    source.inc(11)
+__src_insert (source.o):
+    text.o                    source.inc(12)
+    format.o                  source.inc(12)
+    file.o                    source.inc(12)
+    editor.o                  source.inc(12)
+    asm.o                     source.inc(12)
+    boot.o                    source.inc(12)
+__src_line (source.o):
+    text.o                    source.inc(13)
+    format.o                  source.inc(13)
+    file.o                    source.inc(13)
+    editor.o                  source.inc(13)
+    asm.o                     source.inc(13)
+    boot.o                    source.inc(13)
+__src_lines (source.o):
+    text.o                    source.inc(14)
+    format.o                  source.inc(14)
+    file.o                    source.inc(14)
+    editor.o                  source.inc(14)
+    asm.o                     source.inc(14)
+    boot.o                    source.inc(14)
+__src_name (source.o):
+    text.o                    source.inc(16)
+    format.o                  source.inc(16)
+    file.o                    source.inc(16)
+    editor.o                  source.inc(16)
+    asm.o                     source.inc(16)
+    boot.o                    source.inc(16)
+__src_names (source.o):
+    text.o                    source.inc(17)
+    format.o                  source.inc(17)
+    file.o                    source.inc(17)
+    editor.o                  source.inc(17)
+    asm.o                     source.inc(17)
+    boot.o                    source.inc(17)
+__src_new (source.o):
+    text.o                    source.inc(18)
+    format.o                  source.inc(18)
+    file.o                    source.inc(18)
+    editor.o                  source.inc(18)
+    asm.o                     source.inc(18)
+    boot.o                    source.inc(18)
+__src_next (source.o):
+    text.o                    source.inc(15)
+    format.o                  source.inc(15)
+    file.o                    source.inc(15)
+    editor.o                  source.inc(15)
+    asm.o                     source.inc(15)
+    boot.o                    source.inc(15)
+__src_numbuffers (source.o):
+    text.o                    source.inc(19)
+    format.o                  source.inc(19)
+    file.o                    source.inc(19)
+    editor.o                  source.inc(19)
+    asm.o                     source.inc(19)
+    boot.o                    source.inc(19)
+__src_popp (source.o):
+    text.o                    source.inc(22)
+    format.o                  source.inc(22)
+    file.o                    source.inc(22)
+    editor.o                  source.inc(22)
+    asm.o                     source.inc(22)
+    boot.o                    source.inc(22)
+__src_prev (source.o):
+    text.o                    source.inc(23)
+    format.o                  source.inc(23)
+    file.o                    source.inc(23)
+    editor.o                  source.inc(23)
+    asm.o                     source.inc(23)
+    boot.o                    source.inc(23)
+__src_pushp (source.o):
+    text.o                    source.inc(24)
+    format.o                  source.inc(24)
+    file.o                    source.inc(24)
+    editor.o                  source.inc(24)
+    asm.o                     source.inc(24)
+    boot.o                    source.inc(24)
+__src_readb (source.o):
+    text.o                    source.inc(28)
+    format.o                  source.inc(28)
+    file.o                    source.inc(28)
+    editor.o                  source.inc(28)
+    asm.o                     source.inc(28)
+    boot.o                    source.inc(28)
+__src_readline (source.o):
+    text.o                    source.inc(29)
+    format.o                  source.inc(29)
+    file.o                    source.inc(29)
+    editor.o                  source.inc(29)
+    asm.o                     source.inc(29)
+    boot.o                    source.inc(29)
+__src_replace (source.o):
+    text.o                    source.inc(25)
+    format.o                  source.inc(25)
+    file.o                    source.inc(25)
+    editor.o                  source.inc(25)
+    asm.o                     source.inc(25)
+    boot.o                    source.inc(25)
+__src_rewind (source.o):
+    text.o                    source.inc(27)
+    format.o                  source.inc(27)
+    file.o                    source.inc(27)
+    editor.o                  source.inc(27)
+    asm.o                     source.inc(27)
+    boot.o                    source.inc(27)
+__src_right (source.o):
+    text.o                    source.inc(26)
+    format.o                  source.inc(26)
+    file.o                    source.inc(26)
+    editor.o                  source.inc(26)
+    asm.o                     source.inc(26)
+    boot.o                    source.inc(26)
+__src_set (source.o):
+    text.o                    source.inc(30)
+    format.o                  source.inc(30)
+    file.o                    source.inc(30)
+    editor.o                  source.inc(30)
+    asm.o                     source.inc(30)
+    boot.o                    source.inc(30)
+__src_start (source.o):
+    text.o                    source.inc(31)
+    format.o                  source.inc(31)
+    file.o                    source.inc(31)
+    editor.o                  source.inc(31)
+    asm.o                     source.inc(31)
+    boot.o                    source.inc(31)
+__src_up (source.o):
+    text.o                    source.inc(20)
+    format.o                  source.inc(20)
+    file.o                    source.inc(20)
+    editor.o                  source.inc(20)
+    asm.o                     source.inc(20)
+    boot.o                    source.inc(20)
+__src_upn (source.o):
+    text.o                    source.inc(21)
+    format.o                  source.inc(21)
+    file.o                    source.inc(21)
+    editor.o                  source.inc(21)
+    asm.o                     source.inc(21)
+    boot.o                    source.inc(21)
+__state_verify (state.o):
+    expr.o                    state.inc(1)
+    editor.o                  state.inc(1)
+    asm.o                     state.inc(1)
+__statusline (memory.o):
+    view.o                    memory.inc(10)
+    util.o                    memory.inc(10)
+    ui.o                      memory.inc(10)
+    text.o                    memory.inc(10)
+    source.o                  memory.inc(10)
+    iec.o                     memory.inc(10)
+    format.o                  memory.inc(10)
+    file.o                    memory.inc(10)
+    editor.o                  memory.inc(10)
+    draw.o                    memory.inc(10)
+    debug.o                   memory.inc(10)
+    ctx.o                     memory.inc(10)
+    bitmap.o                  memory.inc(10)
+    asm.o                     memory.inc(10)
+    boot.o                    memory.inc(10)
+__str_cat (string.o):
+    text.o                    string.inc(1)
+    macro.o                   string.inc(1)
+    file.o                    string.inc(1)
+    editor.o                  string.inc(1)
+    debug.o                   string.inc(1)
+    asm.o                     string.inc(1)
+__str_compare (string.o):
+    text.o                    string.inc(2)
+    macro.o                   string.inc(2)
+    file.o                    string.inc(2)
+    editor.o                  string.inc(2)
+    debug.o                   string.inc(2)
+    asm.o                     string.inc(2)
+__str_copy (string.o):
+    text.o                    string.inc(3)
+    macro.o                   string.inc(3)
+    file.o                    string.inc(3)
+    editor.o                  string.inc(3)
+    debug.o                   string.inc(3)
+    asm.o                     string.inc(3)
+__str_find (string.o):
+    text.o                    string.inc(4)
+    macro.o                   string.inc(4)
+    file.o                    string.inc(4)
+    editor.o                  string.inc(4)
+    debug.o                   string.inc(4)
+    asm.o                     string.inc(4)
+__str_len (string.o):
+    text.o                    string.inc(5)
+    macro.o                   string.inc(5)
+    file.o                    string.inc(5)
+    editor.o                  string.inc(5)
+    debug.o                   string.inc(5)
+    asm.o                     string.inc(5)
+__str_replace (string.o):
+    text.o                    string.inc(6)
+    macro.o                   string.inc(6)
+    file.o                    string.inc(6)
+    editor.o                  string.inc(6)
+    debug.o                   string.inc(6)
+    asm.o                     string.inc(6)
+__str_toupper (string.o):
+    text.o                    string.inc(7)
+    macro.o                   string.inc(7)
+    file.o                    string.inc(7)
+    editor.o                  string.inc(7)
+    debug.o                   string.inc(7)
+    asm.o                     string.inc(7)
+__text_charmap (text.o):
+    view.o                    text.inc(5)
+    util.o                    text.inc(5)
+    ui.o                      text.inc(5)
+    help.o                    text.inc(5)
+    errors.o                  text.inc(5)
+    editor.o                  text.inc(5)
+    draw.o                    text.inc(5)
+    debug.o                   text.inc(5)
+    cursor.o                  text.inc(5)
+    asm.o                     text.inc(5)
+__text_clrline (text.o):
+    view.o                    text.inc(2)
+    util.o                    text.inc(2)
+    ui.o                      text.inc(2)
+    help.o                    text.inc(2)
+    errors.o                  text.inc(2)
+    editor.o                  text.inc(2)
+    draw.o                    text.inc(2)
+    debug.o                   text.inc(2)
+    cursor.o                  text.inc(2)
+    asm.o                     text.inc(2)
+__text_dir (text.o):
+    view.o                    text.inc(20)
+    util.o                    text.inc(20)
+    ui.o                      text.inc(20)
+    help.o                    text.inc(20)
+    errors.o                  text.inc(20)
+    editor.o                  text.inc(20)
+    draw.o                    text.inc(20)
+    debug.o                   text.inc(20)
+    cursor.o                  text.inc(20)
+    asm.o                     text.inc(20)
+__text_drawline (text.o):
+    view.o                    text.inc(13)
+    util.o                    text.inc(13)
+    ui.o                      text.inc(13)
+    help.o                    text.inc(13)
+    errors.o                  text.inc(13)
+    editor.o                  text.inc(13)
+    draw.o                    text.inc(13)
+    debug.o                   text.inc(13)
+    cursor.o                  text.inc(13)
+    asm.o                     text.inc(13)
+__text_hiline (text.o):
+    view.o                    text.inc(11)
+    util.o                    text.inc(11)
+    ui.o                      text.inc(11)
+    help.o                    text.inc(11)
+    errors.o                  text.inc(11)
+    editor.o                  text.inc(11)
+    draw.o                    text.inc(11)
+    debug.o                   text.inc(11)
+    cursor.o                  text.inc(11)
+    asm.o                     text.inc(11)
+__text_hioff (text.o):
+    view.o                    text.inc(12)
+    util.o                    text.inc(12)
+    ui.o                      text.inc(12)
+    help.o                    text.inc(12)
+    errors.o                  text.inc(12)
+    editor.o                  text.inc(12)
+    draw.o                    text.inc(12)
+    debug.o                   text.inc(12)
+    cursor.o                  text.inc(12)
+    asm.o                     text.inc(12)
+__text_insertmode (text.o):
+    view.o                    text.inc(14)
+    util.o                    text.inc(14)
+    ui.o                      text.inc(14)
+    help.o                    text.inc(14)
+    errors.o                  text.inc(14)
+    editor.o                  text.inc(14)
+    draw.o                    text.inc(14)
+    debug.o                   text.inc(14)
+    cursor.o                  text.inc(14)
+    asm.o                     text.inc(14)
+__text_len (text.o):
+    view.o                    text.inc(1)
+    util.o                    text.inc(1)
+    ui.o                      text.inc(1)
+    help.o                    text.inc(1)
+    errors.o                  text.inc(1)
+    editor.o                  text.inc(1)
+    draw.o                    text.inc(1)
+    debug.o                   text.inc(1)
+    cursor.o                  text.inc(1)
+    asm.o                     text.inc(1)
+__text_linelen (text.o):
+    view.o                    text.inc(17)
+    util.o                    text.inc(17)
+    ui.o                      text.inc(17)
+    help.o                    text.inc(17)
+    errors.o                  text.inc(17)
+    editor.o                  text.inc(17)
+    draw.o                    text.inc(17)
+    debug.o                   text.inc(17)
+    cursor.o                  text.inc(17)
+    asm.o                     text.inc(17)
+__text_print (text.o):
+    view.o                    text.inc(9)
+    util.o                    text.inc(9)
+    ui.o                      text.inc(9)
+    help.o                    text.inc(9)
+    errors.o                  text.inc(9)
+    editor.o                  text.inc(9)
+    draw.o                    text.inc(9)
+    debug.o                   text.inc(9)
+    cursor.o                  text.inc(9)
+    asm.o                     text.inc(9)
+__text_putch (text.o):
+    view.o                    text.inc(6)
+    util.o                    text.inc(6)
+    ui.o                      text.inc(6)
+    help.o                    text.inc(6)
+    errors.o                  text.inc(6)
+    editor.o                  text.inc(6)
+    draw.o                    text.inc(6)
+    debug.o                   text.inc(6)
+    cursor.o                  text.inc(6)
+    asm.o                     text.inc(6)
+__text_puts (text.o):
+    view.o                    text.inc(3)
+    util.o                    text.inc(3)
+    ui.o                      text.inc(3)
+    help.o                    text.inc(3)
+    errors.o                  text.inc(3)
+    editor.o                  text.inc(3)
+    draw.o                    text.inc(3)
+    debug.o                   text.inc(3)
+    cursor.o                  text.inc(3)
+    asm.o                     text.inc(3)
+__text_putz (text.o):
+    view.o                    text.inc(4)
+    util.o                    text.inc(4)
+    ui.o                      text.inc(4)
+    help.o                    text.inc(4)
+    errors.o                  text.inc(4)
+    editor.o                  text.inc(4)
+    draw.o                    text.inc(4)
+    debug.o                   text.inc(4)
+    cursor.o                  text.inc(4)
+    asm.o                     text.inc(4)
+__text_restorebuff (text.o):
+    view.o                    text.inc(19)
+    util.o                    text.inc(19)
+    ui.o                      text.inc(19)
+    help.o                    text.inc(19)
+    errors.o                  text.inc(19)
+    editor.o                  text.inc(19)
+    draw.o                    text.inc(19)
+    debug.o                   text.inc(19)
+    cursor.o                  text.inc(19)
+    asm.o                     text.inc(19)
+__text_savebuff (text.o):
+    view.o                    text.inc(18)
+    util.o                    text.inc(18)
+    ui.o                      text.inc(18)
+    help.o                    text.inc(18)
+    errors.o                  text.inc(18)
+    editor.o                  text.inc(18)
+    draw.o                    text.inc(18)
+    debug.o                   text.inc(18)
+    cursor.o                  text.inc(18)
+    asm.o                     text.inc(18)
+__text_scrolldown (text.o):
+    view.o                    text.inc(15)
+    util.o                    text.inc(15)
+    ui.o                      text.inc(15)
+    help.o                    text.inc(15)
+    errors.o                  text.inc(15)
+    editor.o                  text.inc(15)
+    draw.o                    text.inc(15)
+    debug.o                   text.inc(15)
+    cursor.o                  text.inc(15)
+    asm.o                     text.inc(15)
+__text_scrollup (text.o):
+    view.o                    text.inc(16)
+    util.o                    text.inc(16)
+    ui.o                      text.inc(16)
+    help.o                    text.inc(16)
+    errors.o                  text.inc(16)
+    editor.o                  text.inc(16)
+    draw.o                    text.inc(16)
+    debug.o                   text.inc(16)
+    cursor.o                  text.inc(16)
+    asm.o                     text.inc(16)
+__text_status (text.o):
+    view.o                    text.inc(7)
+    util.o                    text.inc(7)
+    ui.o                      text.inc(7)
+    help.o                    text.inc(7)
+    errors.o                  text.inc(7)
+    editor.o                  text.inc(7)
+    draw.o                    text.inc(7)
+    debug.o                   text.inc(7)
+    cursor.o                  text.inc(7)
+    asm.o                     text.inc(7)
+__text_update (text.o):
+    view.o                    text.inc(8)
+    util.o                    text.inc(8)
+    ui.o                      text.inc(8)
+    help.o                    text.inc(8)
+    errors.o                  text.inc(8)
+    editor.o                  text.inc(8)
+    draw.o                    text.inc(8)
+    debug.o                   text.inc(8)
+    cursor.o                  text.inc(8)
+    asm.o                     text.inc(8)
+__ui_msgbox (ui.o):
+    help.o                    ui.inc(3)
+__util_chtohex (util.o):
+    view.o                    util.inc(3)
+    text.o                    util.inc(3)
+    source.o                  util.inc(3)
+    labels.o                  util.inc(3)
+    iec.o                     util.inc(3)
+    file.o                    util.inc(3)
+    expr.o                    util.inc(3)
+    editor.o                  util.inc(3)
+    draw.o                    util.inc(3)
+    debug.o                   util.inc(3)
+    ctx.o                     util.inc(3)
+    bitmap.o                  util.inc(3)
+    asm.o                     util.inc(3)
+__util_hextostr (util.o):
+    view.o                    util.inc(4)
+    text.o                    util.inc(4)
+    source.o                  util.inc(4)
+    labels.o                  util.inc(4)
+    iec.o                     util.inc(4)
+    file.o                    util.inc(4)
+    expr.o                    util.inc(4)
+    editor.o                  util.inc(4)
+    draw.o                    util.inc(4)
+    debug.o                   util.inc(4)
+    ctx.o                     util.inc(4)
+    bitmap.o                  util.inc(4)
+    asm.o                     util.inc(4)
+__util_is_null_return_space_comma_closingparen_newline (util.o):
+    view.o                    util.inc(6)
+    text.o                    util.inc(6)
+    source.o                  util.inc(6)
+    labels.o                  util.inc(6)
+    iec.o                     util.inc(6)
+    file.o                    util.inc(6)
+    expr.o                    util.inc(6)
+    editor.o                  util.inc(6)
+    draw.o                    util.inc(6)
+    debug.o                   util.inc(6)
+    ctx.o                     util.inc(6)
+    bitmap.o                  util.inc(6)
+    asm.o                     util.inc(6)
+__util_is_separator (util.o):
+    view.o                    util.inc(12)
+    text.o                    util.inc(12)
+    source.o                  util.inc(12)
+    labels.o                  util.inc(12)
+    iec.o                     util.inc(12)
+    file.o                    util.inc(12)
+    expr.o                    util.inc(12)
+    editor.o                  util.inc(12)
+    draw.o                    util.inc(12)
+    debug.o                   util.inc(12)
+    ctx.o                     util.inc(12)
+    bitmap.o                  util.inc(12)
+    asm.o                     util.inc(12)
+__util_is_whitespace (util.o):
+    view.o                    util.inc(5)
+    text.o                    util.inc(5)
+    source.o                  util.inc(5)
+    labels.o                  util.inc(5)
+    iec.o                     util.inc(5)
+    file.o                    util.inc(5)
+    expr.o                    util.inc(5)
+    editor.o                  util.inc(5)
+    draw.o                    util.inc(5)
+    debug.o                   util.inc(5)
+    ctx.o                     util.inc(5)
+    bitmap.o                  util.inc(5)
+    asm.o                     util.inc(5)
+__util_isoperator (util.o):
+    view.o                    util.inc(11)
+    text.o                    util.inc(11)
+    source.o                  util.inc(11)
+    labels.o                  util.inc(11)
+    iec.o                     util.inc(11)
+    file.o                    util.inc(11)
+    expr.o                    util.inc(11)
+    editor.o                  util.inc(11)
+    draw.o                    util.inc(11)
+    debug.o                   util.inc(11)
+    ctx.o                     util.inc(11)
+    bitmap.o                  util.inc(11)
+    asm.o                     util.inc(11)
+__util_memcpy (util.o):
+    view.o                    util.inc(8)
+    text.o                    util.inc(8)
+    source.o                  util.inc(8)
+    labels.o                  util.inc(8)
+    iec.o                     util.inc(8)
+    file.o                    util.inc(8)
+    expr.o                    util.inc(8)
+    editor.o                  util.inc(8)
+    draw.o                    util.inc(8)
+    debug.o                   util.inc(8)
+    ctx.o                     util.inc(8)
+    bitmap.o                  util.inc(8)
+    asm.o                     util.inc(8)
+__util_memset (util.o):
+    view.o                    util.inc(7)
+    text.o                    util.inc(7)
+    source.o                  util.inc(7)
+    labels.o                  util.inc(7)
+    iec.o                     util.inc(7)
+    file.o                    util.inc(7)
+    expr.o                    util.inc(7)
+    editor.o                  util.inc(7)
+    draw.o                    util.inc(7)
+    debug.o                   util.inc(7)
+    ctx.o                     util.inc(7)
+    bitmap.o                  util.inc(7)
+    asm.o                     util.inc(7)
+__util_todec (util.o):
+    view.o                    util.inc(9)
+    text.o                    util.inc(9)
+    source.o                  util.inc(9)
+    labels.o                  util.inc(9)
+    iec.o                     util.inc(9)
+    file.o                    util.inc(9)
+    expr.o                    util.inc(9)
+    editor.o                  util.inc(9)
+    draw.o                    util.inc(9)
+    debug.o                   util.inc(9)
+    ctx.o                     util.inc(9)
+    bitmap.o                  util.inc(9)
+    asm.o                     util.inc(9)
+__view_dirty (view.o):
+    editor.o                  view.inc(3)
+    debug.o                   view.inc(3)
+__view_edit (view.o):
+    editor.o                  view.inc(2)
+    debug.o                   view.inc(2)
+__view_mem (view.o):
+    editor.o                  view.inc(1)
+    debug.o                   view.inc(1)
+atoi (util.o):
+    iec.o                     util.inc(10)
+    expr.o                    util.inc(10)
+    editor.o                  util.inc(10)
+help (help.o):
+    editor.o                  editor.asm(25)
+
