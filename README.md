@@ -58,6 +58,7 @@ will exit the prompt and cancel the command
 | C= + Y | Show Symbols  | lists the symbol table for the assembled program                      | 
 |   F3   | Assemble      | assembles the code in the buffer to memory                            |
 |   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
+|   F5   | Show buffers  | displays a list of the currently open buffers                         |
 
 
 #### Navigation keys
@@ -72,13 +73,12 @@ The assembler syntax is very similar to any other major assembler.  For basic
 instructions, the canonical 6502 assembly syntax is supported.  That means '$'
 denotes a hex value, '#' and immediate operand, parentheses an indirect address,
 etc.
-
+:vs
 ## Expressions
 Operands, in addition to basic values and labels, may contain an expression,
 which is evaluated to a value to generate the operand for the generated
 binary.
 
-Expressions may contain addition, subtraction, multiplication, and division 
 ('+', '-', '\*', '/' respectively), which are evaluated with proper operator 
 precedence.
 
