@@ -34,29 +34,38 @@ FIRST_FILE_ID = 2
 
 ;******************************************************************************
 ; LOAD
-; loads the given given
+; loads the given file into a new source buffer
 ; IN:
 ;  .XY: the filename to load
 ;  .A: the length of the file
+;  zp::tmpb: the address to load the file to
 ; OUT:
 ;  .C: set on error, clear on success
 .export __file_load
 .proc __file_load
+@filename=zp::tmp10
+@file=zp::tmp12
 	pha
-	txa
-	pha
-	tya
-	pha
+	stxy @filename
 
-	lda #$00	; TODO: find free file buffer
+; try to read from the file to make sure it exists before we do anything else
+	jsr __file_open
+	bcc @ok
+@err:	jmp __file_close
+@ok:	sta @file
+	ldxy #$120
+	jsr __file_getline
+	bcs @err
+	lda @file
+	jsr __file_close
+
 	jsr src::new
+	ldxy @filename
+	jsr src::name
 
 	lda #$03
 	sta secondaryaddr
-	pla
-	tay
-	pla
-	tax
+	ldxy @filename
 	pla
 	; fallthrough
 .endproc
@@ -108,28 +117,25 @@ FIRST_FILE_ID = 2
 :	cmp #$09      ; convert TAB to space
 	bne :+
 	lda #' '
-:	sta (@dst),y  ; write byte to memory
-
-	ldx secondaryaddr ; if loading directory, don't update source pointers
-	beq @filedone
-	jsr src::insert
-@filedone:
+:	ldx secondaryaddr
+	bne @src
+@dir:	; if loading directory, write to memory
+	sta (@dst),y
 	incw @dst
+	bne @l0
+@src:	jsr src::insert
 	jmp @l0
-@eof:
-	pha
-	and #$40      ; end of file?
-	beq @error
-	pla
-	lda #$00
-	skb
-@error:
-	pla
-	sta @errcode
+
+@eof:	eor #$40
+	beq @close	; if EOF, close with errcode 0
+
+@error:	jsr io::readerr
+	txa
+@close: pha
 	lda #$03      ; filenumber 3
 	jsr $ffc3     ; call CLOSE
 	jsr $ffcc     ; call CLRCHN
-	lda @errcode
+	pla
 	rts
 .endproc
 
@@ -174,7 +180,7 @@ FIRST_FILE_ID = 2
 	jsr $ffc0 	; call OPEN
 	bcs @error 	; if carry set, the file could not be opened
 
-	jsr @chk_drive_err
+	jsr io::readerr
 	cpx #$00
 	beq @drive_ok
 	cpx #63		; FILE EXISTS
@@ -195,7 +201,7 @@ FIRST_FILE_ID = 2
 	bne @save
 
 @done:
-@error: jsr @chk_drive_err
+@error: jsr io::readerr
 	lda #$03      ; filenumber 3
 	jsr $ffc3     ; CLOSE
 	jsr $ffcc     ; call CLRCHN
@@ -219,12 +225,6 @@ FIRST_FILE_ID = 2
 	ldxy @name
 	lda namelen
 	jmp __file_save
-
-;------------------
-@chk_drive_err:
-	jsr io::readerr
-	ldxy #$0100
-	jmp atoi
 
 ;------------------
 @p_w:	.byte ",p,w"
@@ -321,8 +321,6 @@ FIRST_FILE_ID = 2
 
 ; read drive err chan and translate CBM DOS error code to ours if possible
 @eof:  	jsr io::readerr
-	ldxy #$0100
-	jsr atoi
 	txa
 	cmp #62		; FILE NOT FOUND
 	bne :+
@@ -406,24 +404,6 @@ FIRST_FILE_ID = 2
 	sei
 	jsr $ffc3
 	jmp $ffb7
-.endproc
-
-;******************************************************************************
-; CHECK_ERR
-; Checks the drive's error status and returns an error if it contains one
-; OUT:
-;  - .A: the error code (0 on success)
-;  - .C: set if there is an error
-.proc check_err
-  	jsr io::readerr
-	ldxy #$0100
-	jsr atoi
-	txa
-	cmp #62		; FILE NOT FOUND
-	bne :+
-	lda #ERR_FILE_NOT_FOUND
-:	cmp #$01	; set .C if error > 0
-	rts
 .endproc
 
 .BSS

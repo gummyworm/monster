@@ -5,6 +5,7 @@
 .include "ctx.inc"
 .include "cursor.inc"
 .include "debug.inc"
+.include "draw.inc"
 .include "errors.inc"
 .include "file.inc"
 .include "format.inc"
@@ -204,7 +205,7 @@ stxy zp::jmpvec
 	lda zp::gendebuginfo
 	beq @pass1
 	; set the initial file for debugging
-	ldxy #filename
+	jsr get_filename
 	jsr dbg::setfile
 
 ;--------------------------------------
@@ -543,7 +544,8 @@ stxy zp::jmpvec
 	.byte $89	; F2 (save as)
 	.byte $86	; F3 (assemble)
 	.byte $8a	; F4 (debug)
-	.byte $87	; F5 (nop)
+	.byte $87	; F5 (show buffers)
+	.byte $8b	; F6 (nop)
 	.byte $bc	; C=<C> (refresh)
 	.byte $b4	; C=<H> (HELP)
 	.byte $b2	; C=<R> (rename)
@@ -551,6 +553,18 @@ stxy zp::jmpvec
 	.byte $b6	; C=<L> (dir)
 	.byte $b7	; C=<Y> (list symbols)
 	.byte $a7	; C=<M> (gotoline)
+	.byte $ab	; C=<Q> (close buffer)
+	.byte $aa	; C=<N> (new buffer)
+
+	.byte $a1 ;$81	; C=<1> go-to buffer 1
+	.byte $a3 ;$95	; C=<2> go-to buffer 2
+	.byte $a2 ;$96	; C=<3> go-to buffer 3
+	.byte $97	; C=<2> go-to buffer 4
+	.byte $98	; C=<2> go-to buffer 5
+	.byte $99	; C=<2> go-to buffer 6
+	.byte $9a	; C=<2> go-to buffer 7
+	.byte $9b	; C=<2> go-to buffer 8
+
 @num_special_keys=*-@specialkeys
 @specialkeys_vectors:
 	.word home
@@ -558,6 +572,7 @@ stxy zp::jmpvec
 	.word saveas
 	.word command_asm
 	.word command_asmdbg
+	.word show_buffers
 	.word command_nop
 	.word refresh
 	.word help
@@ -566,6 +581,16 @@ stxy zp::jmpvec
 	.word dir
 	.word list_symbols
 	.word command_gotoline
+	.word close_buffer
+	.word new_buffer
+	.word buffer1
+	.word buffer2
+	.word buffer3
+	.word buffer4
+	.word buffer5
+	.word buffer6
+	.word buffer7
+	.word buffer8
 .endproc
 
 ;******************************************************************************
@@ -697,6 +722,96 @@ stxy zp::jmpvec
 .endproc
 
 ;******************************************************************************
+; NEW_BUFFER
+; Creates a new buffer and sets it as the new active buffer
+; or returns an error if one could not be made
+; OUT:
+;  - .C: set if a buffer could not be made
+.proc new_buffer
+	ldx zp::curx
+	ldy zp::cury
+	jsr src::new
+	jmp __edit_init
+.endproc
+
+;******************************************************************************
+; CLOSE_BUFFER
+; Frees the current source buffer and moves to the previous buffer (if there
+; is one) or a new source.
+.proc close_buffer
+	rts
+.endproc
+
+;******************************************************************************
+; BUFFER NAVIGATION HANDLERS
+buffer1: lda #$00
+	 skw
+buffer2: lda #$01
+	 skw
+buffer3: lda #$02
+	 skw
+buffer4: lda #$03
+	 skw
+buffer5: lda #$04
+	 skw
+buffer6: lda #$05
+	 skw
+buffer7: lda #$06
+	 skw
+buffer8: lda #$07
+	jsr src::setbuff
+	bcs @done
+	jsr refresh
+@done:	rts
+
+;******************************************************************************
+; SHOW_BUFFERS
+; Displays the filenames and their respective ID's for every open buffer
+.proc show_buffers
+@name=zp::tmp7
+@cnt=zp::tmp9
+	jsr bm::save
+
+	lda #$00
+	sta @cnt
+	ldxy #src::names
+	stxy @name
+@l0:
+	lda @name+1
+	pha
+	lda @name
+	pha
+
+	lda @cnt
+	pha
+	lda #$00
+	pha
+
+	lda @cnt
+	ldxy #@buffer_line
+	jsr text::print
+
+@next:	lda @name
+	clc
+	adc #16
+	sta @name
+	bcc :+
+	inc @name+1
+:	inc @cnt
+	lda @cnt
+	cmp src::numbuffers
+	bcc @l0
+	jsr draw::hline
+
+@getch: jsr key::getch
+	beq @getch
+
+	jmp bm::restore
+
+@buffer_line: .byte ESCAPE_VALUE_DEC," : ", ESCAPE_STRING,0
+.endproc
+
+;******************************************************************************
 ; DIR
 ; Lists the directory
 .proc dir
@@ -720,7 +835,7 @@ stxy zp::jmpvec
 	; TODO: use readinput or something
 	; getinput mem::statusline+23,0,23,(40-16)
 	ldxy #mem::linebuffer
-	; TODO: jsr file::rename
+	jsr src::name
 	jsr text::restorebuff
 	lda zp::cury
 	jmp text::drawline
@@ -832,42 +947,37 @@ stxy zp::jmpvec
 .proc load
 @file=zp::tmp9
 @dst=zp::tmpb
-	stx @file
-	sty @file+1
-
-	; reinitialize the editor (clear screen, etc.)
-	jsr __edit_init
+	stxy @file
 
 	; get the file length
-	ldxy @file
 	jsr str::len
-
-@found: tya
 	pha
 
+	; make room for error/loading message
+	lda #STATUS_ROW-1
+	sta height
+
+	; display loading...
 	ldxy #@loadingmsg
-	lda #STATUS_ROW
+	lda #STATUS_ROW-1
 	jsr text::print
 
-	; set the address to load file into
-	ldxy #src::buffer
-	stxy @dst
-
+	; load the file
 	ldxy @file
 	pla
 	jsr file::load
 	cmp #$00
 	bne @err
-	jsr reset
 
+	; reinitialize the editor (clear screen, etc.)
+	jsr reset
 	jmp refresh
-	jsr text::clrline
 
 @err:	pha
 	lda #$00
 	pha
 	ldxy #@errmsg
-	lda #STATUS_ROW
+	lda #STATUS_ROW-1
 	jsr text::print
 	rts
 @loadingmsg:
@@ -1517,6 +1627,23 @@ __edit_gotoline:
 @line_err: .byte ";pass ", ESCAPE_VALUE_DEC,";line ", ESCAPE_VALUE_DEC,0
 .endproc
 
+;******************************************************************************
+; GET_FILENAME
+; Returns the filename for the active buffer
+.proc get_filename
+	lda src::activebuff
+	asl
+	asl
+	asl
+	asl
+	adc #<src::names
+	tax
+	lda #$00
+	adc #>src::names
+	tay
+	rts
+.endproc
+
 .DATA
 ;******************************************************************************
 controlcodes:
@@ -1544,5 +1671,3 @@ ccvectors:
 titlebar:
 .byte "monster                      c=<h>: help"
 .ENDIF
-
-filename: .byte "test",0

@@ -1,6 +1,8 @@
-.include "zeropage.inc"
-.include "memory.inc"
 .include "layout.inc"
+.include "macros.inc"
+.include "memory.inc"
+.include "util.inc"
+.include "zeropage.inc"
 
 .CODE
 ;******************************************************************************
@@ -52,5 +54,6 @@
 	; TODO: why does save fail if this is closed?
 	;lda #$0f
 	;jsr $ffc3	; CLOSE
-	rts
+	ldxy #$100
+	jmp atoi
 .endproc

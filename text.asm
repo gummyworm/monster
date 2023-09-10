@@ -188,14 +188,18 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 	ldx @savex
 :	lda mem::spare,y
 	cmp #'0'
-	beq :+
+	beq :+		; skip leading zeros
 	sta @buff,x
 	inx
 :	iny
 	cpy #5
 	bne :--
+	cmp #'0'
+	bne :+
+	sta @buff	; if entire string is 0's, set to "0"
+	inx
 
-	ldy @savey
+:	ldy @savey
 	jmp @cont
 
 ;substitute escape character with value from stack
