@@ -49,6 +49,8 @@ will exit the prompt and cancel the command
 | C= + H | Help          | displays the help menu                                                | 
 | C= + L | List          | list directory, shows the files on the current disk                   |
 | C= + O | Open          | prompts for a filename and loads the buffer with its contents         |
+| C= + N | New buffer    | creates a new source buffer and sets it as the active buffer          |
+| C= + Q | Close buffer  | closes the current buffer and opens the next one that is open         |
 | C= + R | Rename        | prompts for a filename. this name will be used for future saves       |
 | C= + S | Save          | save file, prompts for a filename and saves the buffer contents to it |
 | C= + V | MemView       | enters the memory viewer/editor (press <- to exit)                    |
@@ -59,10 +61,11 @@ will exit the prompt and cancel the command
 
 
 #### Navigation keys
-|  Key   | Name      | Description                                                           |
-|--------|-----------|-----------------------------------------------------------------------|
-| HOME   | Home      |moves the cursor to column 0                                           | 
-| C= + M | Goto line | prompts for a line number and moves the cursor to that line           |
+|  Key       | Name       | Description                                                           |
+|------------|------------|-----------------------------------------------------------------------|
+| HOME       | Home       | moves the cursor to column 0                                          | 
+| C= + M     | Goto line  | prompts for a line number and moves the cursor to that line           |
+| C= + [1-8] | Goto Buffer| opens the buffer corresponding to the number key that is pressed      |
 
 ## Assembler Syntax
 The assembler syntax is very similar to any other major assembler.  For basic
