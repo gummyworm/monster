@@ -982,9 +982,44 @@ buffer8: lda #$07
 .proc load
 @file=zp::tmp9
 @dst=zp::tmpb
+@search=zp::tmpb
 	stxy @file
 
+	; check if the file is already open in one of our buffers
+	ldxy #src::names
+	stxy @search
+	ldx src::numbuffers
+	ldy #$00
+@seek:  lda (@file),y
+	cmp (@search),y
+	bne @next
+	cmp #$00
+	beq @found
+	iny
+	cpy #$10
+	bcc @seek
+
+@next:	dex
+	beq @notfound
+	lda @search
+	clc
+	adc #$10
+	sta @search
+	bcc @seek
+	inc @search+1
+	bne @seek
+
+@found:	stx @search
+	lda src::numbuffers
+	sbc @search
+	jsr src::setbuff
+	bcs @done
+	jsr refresh
+@done:	rts
+
+@notfound:
 	; get the file length
+	ldxy @file
 	jsr str::len
 	pha
 
