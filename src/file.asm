@@ -51,7 +51,13 @@ FIRST_FILE_ID = 2
 ; try to read from the file to make sure it exists before we do anything else
 	jsr __file_open
 	bcc @ok
-@err:	jmp __file_close
+@err:	jsr __file_close
+	tax
+	pla
+	txa
+	sec
+	rts
+
 @ok:	sta @file
 	ldxy #$120
 	jsr __file_getline

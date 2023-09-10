@@ -67,6 +67,8 @@ will exit the prompt and cancel the command
 | HOME       | Home       | moves the cursor to column 0                                          | 
 | C= + M     | Goto line  | prompts for a line number and moves the cursor to that line           |
 | C= + [1-8] | Goto Buffer| opens the buffer corresponding to the number key that is pressed      |
+| C= + <     | Prev Buffer| opens the buffer before the active one (if there is one)              |
+| C= + >     | Next Buffer| opens the buffer after the active one (if there is one)               |
 
 ## Assembler Syntax
 The assembler syntax is very similar to any other major assembler.  For basic

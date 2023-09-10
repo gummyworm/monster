@@ -23,60 +23,60 @@ debug.o:
 draw.o:
     CODE              Offs=000F5F  Size=000016  Align=00001  Fill=0000
 editor.o:
-    CODE              Offs=000F75  Size=000979  Align=00001  Fill=0000
+    CODE              Offs=000F75  Size=00099D  Align=00001  Fill=0000
     DATA              Offs=000179  Size=000015  Align=00001  Fill=0000
 errors.o:
-    CODE              Offs=0018EE  Size=00000B  Align=00001  Fill=0000
+    CODE              Offs=001912  Size=00000B  Align=00001  Fill=0000
     DATA              Offs=00018E  Size=00022D  Align=00001  Fill=0000
 expr.o:
-    CODE              Offs=0018F9  Size=0002AC  Align=00001  Fill=0000
+    CODE              Offs=00191D  Size=0002AC  Align=00001  Fill=0000
 fastcopy.o:
     SETUP             Offs=000011  Size=0001B2  Align=00001  Fill=0000
 file.o:
-    CODE              Offs=001BA5  Size=00023E  Align=00001  Fill=0000
+    CODE              Offs=001BC9  Size=000243  Align=00001  Fill=0000
     BSS               Offs=0001DF  Size=00001C  Align=00001  Fill=0000
 finalex.o:
-    CODE              Offs=001DE3  Size=00008E  Align=00001  Fill=0000
+    CODE              Offs=001E0C  Size=00008E  Align=00001  Fill=0000
     BANKCODE          Offs=000000  Size=000080  Align=00001  Fill=0000
 format.o:
-    CODE              Offs=001E71  Size=000076  Align=00001  Fill=0000
+    CODE              Offs=001E9A  Size=000076  Align=00001  Fill=0000
 help.o:
-    CODE              Offs=001EE7  Size=0000A1  Align=00001  Fill=0000
+    CODE              Offs=001F10  Size=0000A1  Align=00001  Fill=0000
 iec.o:
-    CODE              Offs=001F88  Size=000043  Align=00001  Fill=0000
+    CODE              Offs=001FB1  Size=000043  Align=00001  Fill=0000
 irq.o:
-    CODE              Offs=001FCB  Size=00006C  Align=00001  Fill=0000
+    CODE              Offs=001FF4  Size=00006C  Align=00001  Fill=0000
 key.o:
-    CODE              Offs=002037  Size=00028E  Align=00001  Fill=0000
+    CODE              Offs=002060  Size=00028E  Align=00001  Fill=0000
     BSS               Offs=0001FB  Size=000009  Align=00001  Fill=0000
 labels.o:
-    CODE              Offs=0022C5  Size=000460  Align=00001  Fill=0000
+    CODE              Offs=0022EE  Size=000460  Align=00001  Fill=0000
     BSS               Offs=000204  Size=000002  Align=00001  Fill=0000
 macro.o:
-    CODE              Offs=002725  Size=0001CE  Align=00001  Fill=0000
+    CODE              Offs=00274E  Size=0001CE  Align=00001  Fill=0000
     SOURCE            Offs=000000  Size=000301  Align=00001  Fill=0000
 math.o:
-    CODE              Offs=0028F3  Size=00006F  Align=00001  Fill=0000
+    CODE              Offs=00291C  Size=00006F  Align=00001  Fill=0000
 memory.o:
     BSS               Offs=000206  Size=000478  Align=00001  Fill=0000
 source.o:
-    CODE              Offs=002962  Size=0004DC  Align=00001  Fill=0000
+    CODE              Offs=00298B  Size=0004DC  Align=00001  Fill=0000
     BSS               Offs=00067E  Size=000013  Align=00001  Fill=0000
     SOURCE            Offs=000301  Size=0000FB  Align=00001  Fill=0000
 state.o:
 string.o:
-    CODE              Offs=002E3E  Size=000108  Align=00001  Fill=0000
+    CODE              Offs=002E67  Size=000108  Align=00001  Fill=0000
 text.o:
-    CODE              Offs=002F46  Size=0004A1  Align=00001  Fill=0000
+    CODE              Offs=002F6F  Size=0004A1  Align=00001  Fill=0000
     BSS               Offs=000691  Size=000002  Align=00001  Fill=0000
     DATA              Offs=0003BB  Size=000329  Align=00001  Fill=0000
 ui.o:
-    CODE              Offs=0033E7  Size=000108  Align=00001  Fill=0000
+    CODE              Offs=003410  Size=000108  Align=00001  Fill=0000
     DATA              Offs=0006E4  Size=000003  Align=00001  Fill=0000
 util.o:
-    CODE              Offs=0034EF  Size=0001AA  Align=00001  Fill=0000
+    CODE              Offs=003518  Size=0001AA  Align=00001  Fill=0000
 view.o:
-    CODE              Offs=003699  Size=0002AD  Align=00001  Fill=0000
+    CODE              Offs=0036C2  Size=0002AD  Align=00001  Fill=0000
     BSS               Offs=000693  Size=000032  Align=00001  Fill=0000
 
 
@@ -87,32 +87,32 @@ Name                   Start     End    Size  Align
 SETUP                 0011FF  0013C1  0001C3  00001
 BANKCODE              002000  00207F  000080  00001
 DEBUGGER              002080  0028F6  000877  00001
-CODE                  0028F7  00623C  003946  00001
-DATA                  00623D  006923  0006E7  00001
-BSS                   006924  006FE8  0006C5  00001
+CODE                  0028F7  006265  00396F  00001
+DATA                  006266  00694C  0006E7  00001
+BSS                   00694D  007011  0006C5  00001
 SOURCE                00A000  00A3FB  0003FC  00001
 
 
 Exports list by name:
 ---------------------
 __BANKCODE_LOAD__         002000 RLA    __BANKCODE_SIZE__         000080 REA    
-__BSS_LOAD__              006924 RLA    __BSS_SIZE__              0006C5 REA    
+__BSS_LOAD__              00694D RLA    __BSS_SIZE__              0006C5 REA    
 __asm_disassemble         0031AC RLA    __asm_include             002F8C RLA    
-__asm_origin              00692E RLA    __asm_reset               003186 RLA    
+__asm_origin              006957 RLA    __asm_reset               003186 RLA    
 __asm_resetpc             00319A RLA    __asm_tokenize            0029A6 RLA    
 __asm_tokenize_pass       003468 RLA    __asm_tokenize_pass1      003470 RLA    
 __asm_tokenize_pass2      00348A RLA    __bm_clr                  003561 RLA    
-__bm_columns              006369 RLA    __bm_init                 003536 RLA    
+__bm_columns              006392 RLA    __bm_init                 003536 RLA    
 __bm_restore              0035C4 RLA    __bm_rvsline              00357F RLA    
 __bm_save                 0035A8 RLA    __ctx_addparam            0036B6 RLA    
 __ctx_getdata             003688 RLA    __ctx_getline             00361D RLA    
 __ctx_getparams           003640 RLA    __ctx_init                0035E0 RLA    
 __ctx_pop                 00360F RLA    __ctx_push                0035ED RLA    
-__ctx_rewind              0036F0 RLA    __ctx_type                006958 RLA    
+__ctx_rewind              0036F0 RLA    __ctx_type                006981 RLA    
 __ctx_write               003694 RLA    __cur_down                0037AC RLA    
 __cur_forceset            003835 RLA    __cur_left                0037C9 RLA    
-__cur_maxx                00695C RLA    __cur_maxy                00695E RLA    
-__cur_minx                00695B RLA    __cur_miny                00695D RLA    
+__cur_maxx                006985 RLA    __cur_maxy                006987 RLA    
+__cur_minx                006984 RLA    __cur_miny                006986 RLA    
 __cur_move                0037D5 RLA    __cur_off                 00373F RLA    
 __cur_on                  003745 RLA    __cur_right               0037BB RLA    
 __cur_set                 003803 RLA    __cur_setmax              00383A RLA    
@@ -125,76 +125,76 @@ __debug_set_file          002396 RLA    __debug_setline           002094 RLA
 __debug_setup             002099 RLA    __debug_src_line          000017 REZ    
 __debug_start             0023C9 RLA    __debug_startsegment_byaddr 0021FA RLA    
 __debug_store_line        002274 RLA    __draw_hline              003856 RLA    
-__edit_gotoline           004070 RLA    __edit_init               00386C RLA    
-__edit_run                003890 RLA    __err_get                 0041E5 RLA    
-__expr_eval               0041F0 RLA    __expr_getval             0043F8 RLA    
+__edit_gotoline           004094 RLA    __edit_init               00386C RLA    
+__edit_run                003890 RLA    __err_get                 004209 RLA    
+__expr_eval               004214 RLA    __expr_getval             00441C RLA    
 __fastcopy_init           001210 RLA    __fastcopy_restore        005000 REA    
-__fastcopy_save           002100 REA    __file_close              0046CC RLA    
-__file_getline            004638 RLA    __file_load               0044B3 RLA    
-__file_loaddir            00449C RLA    __file_name               006B03 RLA    
-__file_open               004673 RLA    __file_save               00455C RLA    
-__file_scratch            0045EF RLA    __final_bank_store_rel    002007 RLA    
+__fastcopy_save           002100 REA    __file_close              0046F5 RLA    
+__file_getline            004661 RLA    __file_load               0044D7 RLA    
+__file_loaddir            0044C0 RLA    __file_name               006B2C RLA    
+__file_open               00469C RLA    __file_save               004585 RLA    
+__file_scratch            004618 RLA    __final_bank_store_rel    002007 RLA    
 __final_brk               00206C RLA    __final_call              002054 RLA    
-__final_copy              002040 RLA    __final_init              0046DA RLA    
+__final_copy              002040 RLA    __final_init              004703 RLA    
 __final_load_byte         002022 RLA    __final_load_byte_off     002029 RLA    
-__final_memcpy            004725 RLA    __final_rti               002076 RLA    
-__final_store_byte        002000 RLA    __fmt_label               004768 RLA    
-__fmt_line                0047AA RLA    __fmt_opcode              004782 RLA    
-__io_readerr              00487F RLA    __irq_brk                 0048C2 RLA    
-__irq_raster              0048D3 RLA    __key_getch               00492E RLA    
-__key_ishex               00498F RLA    __label_add               004C57 RLA    
-__label_address           004E16 RLA    __label_by_id             004F71 RLA    
-__label_clr               004BBC RLA    __label_del               004E5A RLA    
-__label_find              004BC5 RLA    __label_get_addr          004FF8 RLA    
-__label_get_name          004FD2 RLA    __label_isvalid           004FA0 RLA    
-__label_name_by_id        004F88 RLA    __label_num               006B28 RLA    
-__linebuffer              006F52 RLA    __linebuffer2             006F2A RLA    
-__mac_add                 00502C RLA    __mac_asm                 0050EA RLA    
-__mac_get                 005199 RLA    __mac_init                00501C RLA    
-__math_div16              005233 RLA    __math_mul16              005209 RLA    
+__final_memcpy            00474E RLA    __final_rti               002076 RLA    
+__final_store_byte        002000 RLA    __fmt_label               004791 RLA    
+__fmt_line                0047D3 RLA    __fmt_opcode              0047AB RLA    
+__io_readerr              0048A8 RLA    __irq_brk                 0048EB RLA    
+__irq_raster              0048FC RLA    __key_getch               004957 RLA    
+__key_ishex               0049B8 RLA    __label_add               004C80 RLA    
+__label_address           004E3F RLA    __label_by_id             004F9A RLA    
+__label_clr               004BE5 RLA    __label_del               004E83 RLA    
+__label_find              004BEE RLA    __label_get_addr          005021 RLA    
+__label_get_name          004FFB RLA    __label_isvalid           004FC9 RLA    
+__label_name_by_id        004FB1 RLA    __label_num               006B51 RLA    
+__linebuffer              006F7B RLA    __linebuffer2             006F53 RLA    
+__mac_add                 005055 RLA    __mac_asm                 005113 RLA    
+__mac_get                 0051C2 RLA    __mac_init                005045 RLA    
+__math_div16              00525C RLA    __math_mul16              005232 RLA    
 __mem_backbuff            00B100 REA    __mem_ctxbuffer           000168 REA    
 __mem_debugsave           00B400 REA    __mem_prog00              00B110 REA    
 __mem_prog1000            00B210 REA    __mem_prog9000            00B100 REA    
-__mem_prog9400            00B310 REA    __mem_program             006B2A RLA    
+__mem_prog9400            00B310 REA    __mem_program             006B53 RLA    
 __mem_progsave            00B100 REA    __mem_spare               000400 REA    
-__mem_spareend            001000 REA    __src_activebuff          006FA3 RLA    
-__src_atcursor            0055D1 RLA    __src_backspace           0053FD RLA    
-__src_buffer              006FB5 RLA    __src_close               00533C RLA    
-__src_delete              00542B RLA    __src_down                00551E RLA    
-__src_downn               0056F1 RLA    __src_end                 0053E3 RLA    
-__src_get                 005687 RLA    __src_goto                005653 RLA    
-__src_insert              005535 RLA    __src_line                00A326 RLA    
-__src_lines               00A328 RLA    __src_name                00538E RLA    
-__src_names               00A37C RLA    __src_new                 005306 RLA    
-__src_next                00543C RLA    __src_numbuffers          006FA2 RLA    
-__src_popp                0053C8 RLA    __src_prev                00549E RLA    
-__src_pushp               0053AA RLA    __src_readb               005610 RLA    
-__src_readline            005619 RLA    __src_replace             00559C RLA    
-__src_rewind              005607 RLA    __src_right               005489 RLA    
-__src_set                 005259 RLA    __src_start               0053F0 RLA    
-__src_up                  005507 RLA    __src_upn                 005713 RLA    
-__state_verify            0000D5 REZ    __statusline              006F7A RLA    
-__str_cat                 0057DB RLA    __str_compare             0057CA RLA    
-__str_copy                005812 RLA    __str_find                005735 RLA    
-__str_len                 0057B7 RLA    __str_replace             005757 RLA    
-__str_toupper             005823 RLA    __text_charmap            0065F9 RLA    
-__text_clrline            0058B3 RLA    __text_dir                005C67 RLA    
-__text_drawline           005A5B RLA    __text_hiline             005C13 RLA    
-__text_hioff              005C49 RLA    __text_insertmode         0065F8 RLA    
-__text_len                006FB5 RLA    __text_linelen            005C3A RLA    
-__text_print              0058BE RLA    __text_putch              005993 RLA    
-__text_puts               005B46 RLA    __text_putz               005B22 RLA    
-__text_restorebuff        005C5B RLA    __text_savebuff           005C4F RLA    
-__text_scrolldown         005AD0 RLA    __text_scrollup           005A86 RLA    
-__text_status             00583D RLA    __text_update             0058A4 RLA    
-__ui_msgbox               005D96 RLA    __util_chtohex            005E25 RLA    
-__util_hextostr           005E3B RLA    __util_is_null_return_space_comma_closingparen_newline 005F5C RLA    
-__util_is_separator       005F83 RLA    __util_is_whitespace      005F55 RLA    
-__util_isoperator         005F6C RLA    __util_memcpy             005DF2 RLA    
-__util_memset             005DE6 RLA    __util_todec              005EEB RLA    
-__view_dirty              006158 RLA    __view_edit               005F93 RLA    
-__view_mem                0060C8 RLA    atoi                      005E5A RLA    
-help                      0047DE RLA    
+__mem_spareend            001000 REA    __src_activebuff          006FCC RLA    
+__src_atcursor            0055FA RLA    __src_backspace           005426 RLA    
+__src_buffer              006FDE RLA    __src_close               005365 RLA    
+__src_delete              005454 RLA    __src_down                005547 RLA    
+__src_downn               00571A RLA    __src_end                 00540C RLA    
+__src_get                 0056B0 RLA    __src_goto                00567C RLA    
+__src_insert              00555E RLA    __src_line                00A326 RLA    
+__src_lines               00A328 RLA    __src_name                0053B7 RLA    
+__src_names               00A37C RLA    __src_new                 00532F RLA    
+__src_next                005465 RLA    __src_numbuffers          006FCB RLA    
+__src_popp                0053F1 RLA    __src_prev                0054C7 RLA    
+__src_pushp               0053D3 RLA    __src_readb               005639 RLA    
+__src_readline            005642 RLA    __src_replace             0055C5 RLA    
+__src_rewind              005630 RLA    __src_right               0054B2 RLA    
+__src_set                 005282 RLA    __src_start               005419 RLA    
+__src_up                  005530 RLA    __src_upn                 00573C RLA    
+__state_verify            0000D5 REZ    __statusline              006FA3 RLA    
+__str_cat                 005804 RLA    __str_compare             0057F3 RLA    
+__str_copy                00583B RLA    __str_find                00575E RLA    
+__str_len                 0057E0 RLA    __str_replace             005780 RLA    
+__str_toupper             00584C RLA    __text_charmap            006622 RLA    
+__text_clrline            0058DC RLA    __text_dir                005C90 RLA    
+__text_drawline           005A84 RLA    __text_hiline             005C3C RLA    
+__text_hioff              005C72 RLA    __text_insertmode         006621 RLA    
+__text_len                006FDE RLA    __text_linelen            005C63 RLA    
+__text_print              0058E7 RLA    __text_putch              0059BC RLA    
+__text_puts               005B6F RLA    __text_putz               005B4B RLA    
+__text_restorebuff        005C84 RLA    __text_savebuff           005C78 RLA    
+__text_scrolldown         005AF9 RLA    __text_scrollup           005AAF RLA    
+__text_status             005866 RLA    __text_update             0058CD RLA    
+__ui_msgbox               005DBF RLA    __util_chtohex            005E4E RLA    
+__util_hextostr           005E64 RLA    __util_is_null_return_space_comma_closingparen_newline 005F85 RLA    
+__util_is_separator       005FAC RLA    __util_is_whitespace      005F7E RLA    
+__util_isoperator         005F95 RLA    __util_memcpy             005E1B RLA    
+__util_memset             005E0F RLA    __util_todec              005F14 RLA    
+__view_dirty              006181 RLA    __view_edit               005FBC RLA    
+__view_mem                0060F1 RLA    atoi                      005E83 RLA    
+help                      004807 RLA    
 
 
 Exports list by value:
@@ -233,67 +233,67 @@ __cur_set                 003803 RLA    __cur_forceset            003835 RLA
 __cur_setmax              00383A RLA    __cur_setmin              003841 RLA    
 __cur_unlimit             003848 RLA    __draw_hline              003856 RLA    
 __edit_init               00386C RLA    __edit_run                003890 RLA    
-__edit_gotoline           004070 RLA    __err_get                 0041E5 RLA    
-__expr_eval               0041F0 RLA    __expr_getval             0043F8 RLA    
-__file_loaddir            00449C RLA    __file_load               0044B3 RLA    
-__file_save               00455C RLA    __file_scratch            0045EF RLA    
-__file_getline            004638 RLA    __file_open               004673 RLA    
-__file_close              0046CC RLA    __final_init              0046DA RLA    
-__final_memcpy            004725 RLA    __fmt_label               004768 RLA    
-__fmt_opcode              004782 RLA    __fmt_line                0047AA RLA    
-help                      0047DE RLA    __io_readerr              00487F RLA    
-__irq_brk                 0048C2 RLA    __irq_raster              0048D3 RLA    
-__key_getch               00492E RLA    __key_ishex               00498F RLA    
-__label_clr               004BBC RLA    __label_find              004BC5 RLA    
-__label_add               004C57 RLA    __label_address           004E16 RLA    
-__label_del               004E5A RLA    __label_by_id             004F71 RLA    
-__label_name_by_id        004F88 RLA    __label_isvalid           004FA0 RLA    
-__label_get_name          004FD2 RLA    __label_get_addr          004FF8 RLA    
-__fastcopy_restore        005000 REA    __mac_init                00501C RLA    
-__mac_add                 00502C RLA    __mac_asm                 0050EA RLA    
-__mac_get                 005199 RLA    __math_mul16              005209 RLA    
-__math_div16              005233 RLA    __src_set                 005259 RLA    
-__src_new                 005306 RLA    __src_close               00533C RLA    
-__src_name                00538E RLA    __src_pushp               0053AA RLA    
-__src_popp                0053C8 RLA    __src_end                 0053E3 RLA    
-__src_start               0053F0 RLA    __src_backspace           0053FD RLA    
-__src_delete              00542B RLA    __src_next                00543C RLA    
-__src_right               005489 RLA    __src_prev                00549E RLA    
-__src_up                  005507 RLA    __src_down                00551E RLA    
-__src_insert              005535 RLA    __src_replace             00559C RLA    
-__src_atcursor            0055D1 RLA    __src_rewind              005607 RLA    
-__src_readb               005610 RLA    __src_readline            005619 RLA    
-__src_goto                005653 RLA    __src_get                 005687 RLA    
-__src_downn               0056F1 RLA    __src_upn                 005713 RLA    
-__str_find                005735 RLA    __str_replace             005757 RLA    
-__str_len                 0057B7 RLA    __str_compare             0057CA RLA    
-__str_cat                 0057DB RLA    __str_copy                005812 RLA    
-__str_toupper             005823 RLA    __text_status             00583D RLA    
-__text_update             0058A4 RLA    __text_clrline            0058B3 RLA    
-__text_print              0058BE RLA    __text_putch              005993 RLA    
-__text_drawline           005A5B RLA    __text_scrollup           005A86 RLA    
-__text_scrolldown         005AD0 RLA    __text_putz               005B22 RLA    
-__text_puts               005B46 RLA    __text_hiline             005C13 RLA    
-__text_linelen            005C3A RLA    __text_hioff              005C49 RLA    
-__text_savebuff           005C4F RLA    __text_restorebuff        005C5B RLA    
-__text_dir                005C67 RLA    __ui_msgbox               005D96 RLA    
-__util_memset             005DE6 RLA    __util_memcpy             005DF2 RLA    
-__util_chtohex            005E25 RLA    __util_hextostr           005E3B RLA    
-atoi                      005E5A RLA    __util_todec              005EEB RLA    
-__util_is_whitespace      005F55 RLA    __util_is_null_return_space_comma_closingparen_newline 005F5C RLA    
-__util_isoperator         005F6C RLA    __util_is_separator       005F83 RLA    
-__view_edit               005F93 RLA    __view_mem                0060C8 RLA    
-__view_dirty              006158 RLA    __bm_columns              006369 RLA    
-__text_insertmode         0065F8 RLA    __text_charmap            0065F9 RLA    
-__BSS_LOAD__              006924 RLA    __asm_origin              00692E RLA    
-__ctx_type                006958 RLA    __cur_minx                00695B RLA    
-__cur_maxx                00695C RLA    __cur_miny                00695D RLA    
-__cur_maxy                00695E RLA    __file_name               006B03 RLA    
-__label_num               006B28 RLA    __mem_program             006B2A RLA    
-__linebuffer2             006F2A RLA    __linebuffer              006F52 RLA    
-__statusline              006F7A RLA    __src_numbuffers          006FA2 RLA    
-__src_activebuff          006FA3 RLA    __text_len                006FB5 RLA    
-__src_buffer              006FB5 RLA    __src_line                00A326 RLA    
+__edit_gotoline           004094 RLA    __err_get                 004209 RLA    
+__expr_eval               004214 RLA    __expr_getval             00441C RLA    
+__file_loaddir            0044C0 RLA    __file_load               0044D7 RLA    
+__file_save               004585 RLA    __file_scratch            004618 RLA    
+__file_getline            004661 RLA    __file_open               00469C RLA    
+__file_close              0046F5 RLA    __final_init              004703 RLA    
+__final_memcpy            00474E RLA    __fmt_label               004791 RLA    
+__fmt_opcode              0047AB RLA    __fmt_line                0047D3 RLA    
+help                      004807 RLA    __io_readerr              0048A8 RLA    
+__irq_brk                 0048EB RLA    __irq_raster              0048FC RLA    
+__key_getch               004957 RLA    __key_ishex               0049B8 RLA    
+__label_clr               004BE5 RLA    __label_find              004BEE RLA    
+__label_add               004C80 RLA    __label_address           004E3F RLA    
+__label_del               004E83 RLA    __label_by_id             004F9A RLA    
+__label_name_by_id        004FB1 RLA    __label_isvalid           004FC9 RLA    
+__label_get_name          004FFB RLA    __fastcopy_restore        005000 REA    
+__label_get_addr          005021 RLA    __mac_init                005045 RLA    
+__mac_add                 005055 RLA    __mac_asm                 005113 RLA    
+__mac_get                 0051C2 RLA    __math_mul16              005232 RLA    
+__math_div16              00525C RLA    __src_set                 005282 RLA    
+__src_new                 00532F RLA    __src_close               005365 RLA    
+__src_name                0053B7 RLA    __src_pushp               0053D3 RLA    
+__src_popp                0053F1 RLA    __src_end                 00540C RLA    
+__src_start               005419 RLA    __src_backspace           005426 RLA    
+__src_delete              005454 RLA    __src_next                005465 RLA    
+__src_right               0054B2 RLA    __src_prev                0054C7 RLA    
+__src_up                  005530 RLA    __src_down                005547 RLA    
+__src_insert              00555E RLA    __src_replace             0055C5 RLA    
+__src_atcursor            0055FA RLA    __src_rewind              005630 RLA    
+__src_readb               005639 RLA    __src_readline            005642 RLA    
+__src_goto                00567C RLA    __src_get                 0056B0 RLA    
+__src_downn               00571A RLA    __src_upn                 00573C RLA    
+__str_find                00575E RLA    __str_replace             005780 RLA    
+__str_len                 0057E0 RLA    __str_compare             0057F3 RLA    
+__str_cat                 005804 RLA    __str_copy                00583B RLA    
+__str_toupper             00584C RLA    __text_status             005866 RLA    
+__text_update             0058CD RLA    __text_clrline            0058DC RLA    
+__text_print              0058E7 RLA    __text_putch              0059BC RLA    
+__text_drawline           005A84 RLA    __text_scrollup           005AAF RLA    
+__text_scrolldown         005AF9 RLA    __text_putz               005B4B RLA    
+__text_puts               005B6F RLA    __text_hiline             005C3C RLA    
+__text_linelen            005C63 RLA    __text_hioff              005C72 RLA    
+__text_savebuff           005C78 RLA    __text_restorebuff        005C84 RLA    
+__text_dir                005C90 RLA    __ui_msgbox               005DBF RLA    
+__util_memset             005E0F RLA    __util_memcpy             005E1B RLA    
+__util_chtohex            005E4E RLA    __util_hextostr           005E64 RLA    
+atoi                      005E83 RLA    __util_todec              005F14 RLA    
+__util_is_whitespace      005F7E RLA    __util_is_null_return_space_comma_closingparen_newline 005F85 RLA    
+__util_isoperator         005F95 RLA    __util_is_separator       005FAC RLA    
+__view_edit               005FBC RLA    __view_mem                0060F1 RLA    
+__view_dirty              006181 RLA    __bm_columns              006392 RLA    
+__text_insertmode         006621 RLA    __text_charmap            006622 RLA    
+__BSS_LOAD__              00694D RLA    __asm_origin              006957 RLA    
+__ctx_type                006981 RLA    __cur_minx                006984 RLA    
+__cur_maxx                006985 RLA    __cur_miny                006986 RLA    
+__cur_maxy                006987 RLA    __file_name               006B2C RLA    
+__label_num               006B51 RLA    __mem_program             006B53 RLA    
+__linebuffer2             006F53 RLA    __linebuffer              006F7B RLA    
+__statusline              006FA3 RLA    __src_numbuffers          006FCB RLA    
+__src_activebuff          006FCC RLA    __text_len                006FDE RLA    
+__src_buffer              006FDE RLA    __src_line                00A326 RLA    
 __src_lines               00A328 RLA    __src_names               00A37C RLA    
 __mem_backbuff            00B100 REA    __mem_prog9000            00B100 REA    
 __mem_progsave            00B100 REA    __mem_prog00              00B110 REA    

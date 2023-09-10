@@ -565,6 +565,9 @@ stxy zp::jmpvec
 	.byte $9a	; C=<2> go-to buffer 7
 	.byte $9b	; C=<2> go-to buffer 8
 
+	.byte $3e	; C= + > next buffer
+	.byte $3c	; C= + < previous buffer
+
 @num_special_keys=*-@specialkeys
 @specialkeys_vectors:
 	.word home
@@ -591,6 +594,9 @@ stxy zp::jmpvec
 	.word buffer6
 	.word buffer7
 	.word buffer8
+
+	.word next_buffer
+	.word prev_buffer
 .endproc
 
 ;******************************************************************************
@@ -740,6 +746,35 @@ stxy zp::jmpvec
 ; is one) or a new source.
 .proc close_buffer
 	rts
+.endproc
+
+;******************************************************************************
+; NEXT_BUFFER
+; Moves to the source buffer before the active one. If we are already at the
+; first buffer, does nothing
+.proc next_buffer
+	ldx src::activebuff
+	inx
+	txa
+	jsr src::setbuff
+	bcs @done
+	jsr refresh
+@done:	rts
+.endproc
+
+;******************************************************************************
+; PREV_BUFFER
+; Moves to the source buffer after the active one. If we are already at the
+; last buffer, does nothing
+.proc prev_buffer
+	ldx src::activebuff
+	dex
+	bmi @done
+	txa
+	jsr src::setbuff
+	bcs @done
+	jsr refresh
+@done:	rts
 .endproc
 
 ;******************************************************************************
