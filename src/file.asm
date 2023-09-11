@@ -11,6 +11,10 @@
 MAX_OPEN_FILES = 10
 FIRST_FILE_ID = 2
 
+files        = $259	; KERNAL open file table
+file_devices = $261	; KERNAL device ID table
+kernal_sas   = $26d	; KERNAL secondary address table
+
 ;******************************************************************************
 ; LOADDIR
 ; Loads the directory listing into mem::spare
@@ -52,18 +56,20 @@ FIRST_FILE_ID = 2
 	jsr __file_open
 	sta @file
 	bcc @ok
-@err:	lda @file
-	jsr __file_close
+@err:	jsr __file_close
 	tax
 	pla
 	txa
+	pha
+	jsr $ffe7	; CLALL
+	pla
 	sec
 	rts
 
 @ok:	ldxy #$120
 	jsr __file_getline
-	bcs @err
 	lda @file
+	bcs @err
 	jsr __file_close
 
 	jsr src::new
@@ -97,9 +103,11 @@ FIRST_FILE_ID = 2
 	jsr $ffba 	; SETLFS
 
 	jsr $ffc0 	; call OPEN
-	bcs @error 	; if carry set, the file could not be opened
+	bcc @ok
+	pha
+	bcs @closepla
 
-	ldx #$03      ; filenumber 3
+@ok:    ldx #$03      ; filenumber 3
 	jsr $ffc6     ; CHKIN (file 2 now used as input)
 
 	; if dir, read load address
@@ -139,6 +147,7 @@ FIRST_FILE_ID = 2
 @error:	jsr io::readerr
 	txa
 @close: pha
+@closepla:
 	lda #$03      ; filenumber 3
 	jsr $ffc3     ; call CLOSE
 	jsr $ffcc     ; call CLRCHN
@@ -156,8 +165,9 @@ FIRST_FILE_ID = 2
 .export __file_save
 .proc __file_save
 @name=zp::tmp4
+@namelen=zp::tmp6
 @dev=$ba
-	sta namelen
+	sta @namelen
 	stxy @name
 	ldy #$00
 
@@ -222,7 +232,7 @@ FIRST_FILE_ID = 2
 
 	; delete old file
 	ldxy @name
-	lda namelen
+	lda @namelen
 	jsr __file_scratch
 	beq :+
 	sec
@@ -230,7 +240,7 @@ FIRST_FILE_ID = 2
 
 : 	; retry the save
 	ldxy @name
-	lda namelen
+	lda @namelen
 	jmp __file_save
 
 ;------------------
@@ -350,23 +360,28 @@ FIRST_FILE_ID = 2
 .proc __file_open
 @file=zp::tmp2
 @filename=zp::tmp3
-	stxy @filename
+	lda zp::numfiles
+	cmp #MAX_OPEN_FILES
+	bcc :+
+	RETURN_ERR ERR_MAX_FILES_EXCEEDED
+
+:	stxy @filename
 	jsr str::len
 	pha
 
-	ldx #FIRST_FILE_ID
-:	lda files-FIRST_FILE_ID,x
-	beq @found
-	inx
-	cpx #MAX_OPEN_FILES+FIRST_FILE_ID
-	bcc :-
-	RETURN_ERR ERR_MAX_FILES_EXCEEDED
+	; find a free file ID
+	lda #FIRST_FILE_ID-1
+	sta @file
+@l0:	inc @file
+	lda @file
+	ldx zp::numfiles
+@l1:	dex
+	bmi @found
+	cmp files,x
+	bne @l1
+	beq @l0
 
 @found: ; store entry in files table
-	txa
-	sta @file
-	sta files-FIRST_FILE_ID,x
-
 	pla		; get length of filename
 	ldxy @filename
 	jsr $ffbd	; SETNAM
@@ -376,7 +391,7 @@ FIRST_FILE_ID = 2
 	bne :+
 	ldx #$0a 	; default to device 10
 :	ldx #$0a
-	ldy #$03	; SA
+	ldy @file	; file #
 	jsr $ffba 	; SETLFS
 	jsr $ffc0 	; call OPEN
 	bcs @getopenerr
@@ -404,10 +419,6 @@ FIRST_FILE_ID = 2
 .export __file_close
 .proc __file_close
 @file=zp::tmp0
-	tax
-	lda #$00
-	sta files-FIRST_FILE_ID,x	; clear entry in files table
-	txa
 	sei
 	jsr $ffc3
 	jmp $ffb7
@@ -418,6 +429,4 @@ FIRST_FILE_ID = 2
 .export __file_name
 __file_name:
 name:  .res 16		; file name
-namelen: .byte 0	; length of name sent for SETNAM
 secondaryaddr: .byte 0	; secondary address to use on file open
-files: .res 10 		; handles to all open files (1=open, 0=available)

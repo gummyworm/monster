@@ -17,7 +17,6 @@
 .import __text_linelen
 .import __text_savebuff
 .import __text_restorebuff
-.import __text_dir
 
 ESCAPE_STRING = $ff
 ESCAPE_VALUE = $fe
@@ -44,5 +43,4 @@ ESCAPE_RVS_OFF = $02
 	linelen  = __text_linelen
 	savebuff = __text_savebuff
 	restorebuff = __text_restorebuff
-	dir = __text_dir
 .endscope

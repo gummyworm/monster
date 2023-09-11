@@ -854,67 +854,6 @@ hicolor=*+1
 	rts
 .endproc
 
-;******************************************************************************
-; DIR
-; Lists the directory of the attached disk.
-.export __text_dir
-.proc __text_dir
-@line=zp::tmp8
-	jsr file::loaddir
-
-	ldxy #mem::spare+2
-	stxy @line
-
-	pushcur
-	ldy #1
-	ldx #0
-	jsr cur::set
-
-@l0:    jsr __text_clrline
-
-	incw @line	; skip line #
-	incw @line
-	ldx #$00
-
-@fname: ; add filename to buffer
-@l2:	ldy #$00
-	lda (@line),y
-	incw @line
-	tay
-	beq @next
-	sta mem::linebuffer,x
-	inx
-	cpx #39
-	bcc @l2
-
-@next:  ; read line link
-	ldy #$00
-	lda (@line),y
-	bne :+
-	iny
-	lda (@line),y
-	beq @done
-:	incw @line
-	incw @line
-
-	; print the line
-	ldxy #mem::linebuffer
-	lda zp::cury
-	jsr __text_print
-
-	; next line
-	ldy #$01
-	ldx #0
-	jsr cur::move
-	jmp @l0
-
-@done:
-	lda zp::cury
-	jsr draw::hline
-	popcur
-	jmp __text_clrline
-.endproc
-
 
 .DATA
 ;******************************************************************************

@@ -622,6 +622,7 @@ stxy zp::jmpvec
 ;******************************************************************************
 ; Refresh
 ; Redraws the screen
+; TODO: optimize once we're sure there are no bugs with source movement/rendering
 .proc refresh
 	jsr cur::off
 	jsr __edit_init
@@ -850,11 +851,73 @@ buffer8: lda #$07
 ; DIR
 ; Lists the directory
 .proc dir
+@line=zp::tmp8
+@row=zp::tmpa
 	jsr bm::save
-	jsr text::clrline
-	jsr text::dir
 
-	; get a selection
+	jsr file::loaddir
+	ldxy #mem::spare+2
+	stxy @line
+
+	lda #$00
+	sta @row
+
+@l0:    jsr text::clrline
+	incw @line	; skip line #
+	incw @line
+	ldx #$00
+
+@fname: ; add filename to buffer
+@l2:	ldy #$00
+	lda (@line),y
+	incw @line
+	tay
+	beq @next
+	sta mem::linebuffer,x
+	inx
+	cpx #39
+	bcc @l2
+
+@next:  ; read line link
+	ldy #$00
+	lda (@line),y
+	bne :+
+	iny
+	lda (@line),y
+	beq @done
+:	incw @line
+	incw @line
+
+	; print the line
+	ldxy #mem::linebuffer
+	lda @row
+	jsr text::print
+
+	; next line
+	inc @row
+	cmp #SCREEN_H
+	bne @l0
+
+	; at the end of the screen, get user input for page up/down
+@key:	jsr key::getch
+	beq @key
+	cmp #$0d		; down
+	beq @pgdown
+	cmp #$5f		; <-
+	beq @done
+	bne @key
+
+@pgdown:
+	lda #$00
+	sta @row		; reset row number and continue listing
+	beq @l0
+
+
+@done:	lda @row
+	jsr draw::hline
+	jsr text::clrline
+
+	; wait for enter key
 :	jsr key::getch
 	cmp #$0d
 	bne :-
