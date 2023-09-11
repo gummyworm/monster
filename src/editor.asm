@@ -12,6 +12,7 @@
 .include "key.inc"
 .include "layout.inc"
 .include "labels.inc"
+.include "linebuffer.inc"
 .include "memory.inc"
 .include "source.inc"
 .include "state.inc"
@@ -26,11 +27,21 @@
 
 SCREEN_H = 23
 
+
+;******************************************************************************
+; CONSTANTS
+MODE_COMMAND = 1
+MODE_INSERT  = 2
+
+START_MODE = MODE_COMMAND
+
 ;******************************************************************************
 ; ZEROPAGE
 indent = zp::editor	; number of spaces to insert on newline
 height = zp::editor+1	; height of the text-editor (shrinks when displaying
 			; error, showing debugger, etc.
+mode   = zp::editor_mode	; editor mode (COMMAND, INSERT)
+
 .CODE
 ;******************************************************************************
 ; DRAW_TITLEBAR
@@ -70,6 +81,9 @@ height = zp::editor+1	; height of the text-editor (shrinks when displaying
 	lda #EDITOR_HEIGHT
 	sta height
 
+	lda #START_MODE
+	sta mode
+
 	ldx #$00
 	ldy #EDITOR_ROW_START
 	stx indent
@@ -88,8 +102,12 @@ main:
 
 	jsr key::getch
 	beq @done
-	jsr onkey
-
+	ldx mode
+	cpx #MODE_COMMAND
+	bne @ins
+	jsr onkey_cmd
+	jmp @done
+@ins:	jsr onkey
 @done:	jsr text::update
 	jsr text::status
 	jmp main
@@ -129,7 +147,7 @@ main:
 	jsr label_addr_or_org
 	bcc :+
 	rts
-stxy zp::jmpvec
+	stxy zp::jmpvec
 	lda #$4c	; JMP
 	jsr zp::jmpaddr
 	rts
@@ -163,7 +181,7 @@ stxy zp::jmpvec
 
 ;******************************************************************************
 .proc assemble_file
-@file=zp::editor+2	; pointer to the filename of the file to assemble
+@file=zp::editortmp	; pointer to the filename of the file to assemble
 	stxy @file
 ; do the first pass of assembly
 @pass1:	lda #$01
@@ -458,14 +476,13 @@ stxy zp::jmpvec
 	asl
 	tax
 	lda @command_table,x
-	sta @cmd_vec
+	sta zp::jmpaddr
 	lda @command_table+1,x
-	sta @cmd_vec+1
+	sta zp::jmpaddr+1
 
 	ldx #<$102
 	ldy #>$102
-@cmd_vec=*+1
-	jmp $0000
+	jsr zp::jmpvec
 
 ; commands
 @command_codes:
@@ -487,8 +504,170 @@ stxy zp::jmpvec
 
 ;******************************************************************************
 ; ONKEY
-; Handles a keypress from the user
+; Handles a keypress from the user in INSERT mode
 .proc onkey
+@insert:
+	jsr handle_universal_keys
+	bcc :+
+	rts
+:	jsr insert
+	jsr cur::off
+	jmp cur::on
+.endproc
+
+;******************************************************************************_
+; ONKEY_CMD
+; Handles a keypress from the user in COMMAND mode
+.proc onkey_cmd
+@reps=zp::tmp1
+@cmdbufflen=zp::tmp2
+@cmdbuff=zp::tmp3
+@cmdid=zp::tmp10
+	ldx #$00
+	stx @reps
+	stx @cmdbufflen
+
+	cmp #$69		; I (insert)
+	bne :+
+	lda #MODE_INSERT
+	sta mode
+	lda #$01
+	sta text::insertmode
+	rts
+:	cmp #$72		; R (replace)
+	bne @cmdloop
+	lda #MODE_INSERT
+	sta mode
+	lda #$00
+	sta text::insertmode
+	rts
+
+@cmdloop:
+	cmp #$5f		; <-
+	bne :+
+	rts			; exit this command
+:	rts
+	jsr key::isdec
+	bcc @storekey
+	sbc #'0'	; .C already set
+	sta @reps
+	jmp @next
+
+; store the key in the command buffer
+@storekey:
+	ldx @cmdbufflen
+	sta @cmdbuff
+	lda #$00
+	sta @cmdbuff+1,x	; 0-terminate the command string
+	inc @cmdbufflen
+
+; see if the cmdbuff contains a valid command yet
+@checkcmds:
+	ldx #$00
+	ldy #$00
+	sty @cmdid
+@chkloop:
+	lda @cmdbuff,x
+	cmp @commands,y
+	bne @nextcmd
+	iny
+	inx
+	cpx @cmdbufflen
+	bne @chkloop
+	beq @cmdfound
+
+@nextcmd:
+	lda @commands,y
+	beq :+
+	iny
+	bne @nextcmd
+
+:	ldx #$00
+	inc @cmdid
+	iny
+	cpy #@commands_len
+	bcc @chkloop
+	bcs @next		; no command found, continue getting input
+
+; we found a command, execute it @reps times
+@cmdfound:
+	ldx @cmdid
+	lda @command_vecs_lo,x
+	sta zp::jmpvec
+	lda @command_vecs_hi,x
+	sta zp::jmpvec+1
+	jsr zp::jmpaddr
+
+; get another key and continue the command loop
+@next:	jsr key::getch
+	jmp @cmdloop
+
+@commands:
+	.byte "db",0	; delete to beginning of line
+	.byte "dd",0	; delete line
+	.byte "de",0	; delete to end of line
+	.byte "dw",0	; delete word
+@commands_len=*-@commands
+.define command_vecs delete_to_begin, delete_line, delete_to_end, delete_word
+@command_vecs_lo: .lobytes command_vecs
+@command_vecs_hi: .hibytes command_vecs
+.endproc
+
+;******************************************************************************_
+.proc delete_to_begin
+.endproc
+
+;******************************************************************************_
+.proc delete_line
+@l0:	jsr src::atcursor
+	pha
+	jsr src::delete
+	pla
+	bcs @delete_prev
+	cmp #$0d
+	bne @l0
+
+@delete_prev:
+@l1:	jsr src::atcursor
+	cmp #$0d
+	beq @done
+	jsr src::backspace
+	jmp @l1
+
+; scroll the screen up and set cursor to column 0
+@done:	ldx zp::cury
+	lda height
+	jsr text::scrollup
+	ldx #$00
+	ldy zp::cury
+	jmp cur::set
+.endproc
+
+;******************************************************************************_
+.proc delete_to_end
+@l0:	jsr src::atcursor
+	jsr util::is_whitespace
+	beq @done
+	jsr src::delete
+	ldx zp::curx
+	ldy #1
+	jsr linebuff::shl
+	bcc @l0
+@done:	rts
+.endproc
+
+;******************************************************************************_
+.proc delete_word
+.endproc
+
+;******************************************************************************
+; HANDLE_UNIVERSAL_KEYS
+; Handles keys that behave the same regardless of which mode the editor is in
+; IN:
+;  - .A: the key to handle
+; OUT:
+;  - .C: set if the key was handled or clear if the caller must handle it
+.proc handle_universal_keys
 	ldx #@num_special_keys-1
 
 @l0:	cmp @specialkeys,x
@@ -518,25 +697,26 @@ stxy zp::jmpvec
 	lda #'s'
 	bne @do
 :	cmp #$bd	; C=<X> (Scratch)
-	bne @insert
+	bne @done
 	lda #'x'
-@do:	jmp docommand
+@do:	jsr docommand
+	sec
+	rts
 
-@insert:
-	jsr insert
-	jsr cur::off
-	jmp cur::on
+@done:	clc		; not a universal key code; return to be handled
+	rts
 
 @special:
 	txa
 	asl
 	tax
 	lda @specialkeys_vectors,x
-	sta @vec
+	sta zp::jmpvec
 	lda @specialkeys_vectors+1,x
-	sta @vec+1
-@vec=*+1
-	jmp $f00d
+	sta zp::jmpvec+1
+	jsr zp::jmpaddr
+	sec
+	rts
 
 @specialkeys:
 	.byte $13	; HOME
@@ -567,6 +747,7 @@ stxy zp::jmpvec
 
 	.byte $3e	; C= + > next buffer
 	.byte $3c	; C= + < previous buffer
+	.byte $5f	; <- (return to COMMAND mode)
 
 @num_special_keys=*-@specialkeys
 @specialkeys_vectors:
@@ -594,9 +775,9 @@ stxy zp::jmpvec
 	.word buffer6
 	.word buffer7
 	.word buffer8
-
 	.word next_buffer
 	.word prev_buffer
+	.word cancel	; <-
 .endproc
 
 ;******************************************************************************
@@ -1506,12 +1687,16 @@ buffer8: lda #$07
 
 ;******************************************************************************
 ; CANCEL
+; Returns to COMMAND mode.
 ; If an error is being displayed, hides it.
 .proc cancel
 	ldy #EDITOR_HEIGHT
 	sty height
 	ldx #40
 	jsr cur::setmax
+
+	lda #MODE_COMMAND
+	sta mode
 	rts
 .endproc
 
@@ -1786,7 +1971,6 @@ controlcodes:
 .byte $11	; down
 .byte $14	; delete
 .byte $0d	; RETURN
-.byte $5f	; <- (left arrow)
 numccodes=*-controlcodes
 
 ;******************************************************************************
@@ -1797,7 +1981,6 @@ ccvectors:
 .word ccdown	; down
 .word ccdel 	; delete
 .word linedone	; RETURN
-.word cancel	; <-
 
 ;******************************************************************************
 .IFDEF DRAW_TITLEBAR

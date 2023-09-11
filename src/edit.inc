@@ -8,3 +8,7 @@
 	gotoline = __edit_gotoline
 .endscope
 
+;******************************************************************************
+; CONSTANTS
+MODE_COMMAND = 1
+MODE_INSERT  = 2

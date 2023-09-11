@@ -3,6 +3,7 @@
 .include "config.inc"
 .include "cursor.inc"
 .include "draw.inc"
+.include "edit.inc"
 .include "file.inc"
 .include "irq.inc"
 .include "key.inc"
@@ -26,6 +27,9 @@ STATUS_COL  = 0
 .export __text_len
 __text_len: .byte 0
 rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
+
+.export __text_insertmode
+__text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
 .CODE
 ;******************************************************************************
@@ -74,13 +78,17 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 	dex
 	bpl :-
 
-	; current edit mode (insert or replace)
+	; current edit mode (insert or replace) if in INSERT mode
+	lda zp::editor_mode
+	cmp #MODE_COMMAND
+	beq @filename
 	ldx #'r'
 	lda __text_insertmode
 	beq :+
 	ldx #'i'
 :	stx mem::statusline+@modestart
 
+@filename:
 	; filename
 	ldxy #file::name
 	jsr str::len
@@ -853,12 +861,6 @@ hicolor=*+1
 	bpl :-
 	rts
 .endproc
-
-
-.DATA
-;******************************************************************************
-.export __text_insertmode
-__text_insertmode: .byte 1	; the insert mode (1 = insert, 0 = replace)
 
 
 ;******************************************************************************

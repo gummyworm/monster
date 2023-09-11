@@ -373,6 +373,8 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ;******************************************************************************
 ; BACKSPACE
 ; Deletes the character immediately before the current cursor position.
+; OUT:
+;  - .C: set if the backspace failed (we're at the START of the source)
 .export __src_backspace
 .proc __src_backspace
 	jsr __src_start
@@ -383,18 +385,24 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	decw line
 	decw lines
 :	decw pre
-@skip:	rts
+@skip:	sec
+	rts
 .endproc
 
 ;******************************************************************************
 ; DELETE
 ; Deletes the character at the current cursor position.
+; OUT:
+;  - .C: set if there is nothing to delete (cursor is at END)
 .export __src_delete
 .proc __src_delete
 	jsr __src_end
 	beq @skip
 	decw post
-@skip:	rts
+	clc
+	rts
+@skip:	sec
+	rts
 .endproc
 
 ;******************************************************************************
@@ -642,11 +650,15 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ; ATCURSOR
 ; Returns the character at the cursor position.
 ; OUT:
-;  - .A: the character at the current cursor position
+;  - .A: the character at the current cursor position (0 if cursor is at START)
 .export __src_atcursor
 __src_atcursor:
 .proc atcursor
-	jsr cursor
+	jsr __src_start
+	bne :+
+	lda #$00
+	rts
+:	jsr cursor
 	sub16 #1
 	stxy zp::tmp0
 .IFDEF USE_FINAL

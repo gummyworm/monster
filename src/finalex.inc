@@ -41,6 +41,10 @@ FINAL_BANK_SOURCE5 = 9	; source bank
 FINAL_BANK_SOURCE6 = $a	; source bank
 FINAL_BANK_SOURCE7 = $b	; source bank
 
+; This bank is used to load source files (other than those already open)
+; while debugging.
+FINAL_BANK_DEBUG_FILE = $c 
+			
 FINAL_BANK_SYMBOLS = $d	; symbols bank (label names and their addresses)
 
 ; these are used to store the debuggger screen and the

@@ -108,7 +108,9 @@ curtmr = $d8
 
 ;******************************************************************************
 ; $d9-$e0 editor state
-editor = $d9
+editor 	  	= $d9
+editor_mode	= $db	; editor mode (MODE_COMMAND or MODE_INSERT)
+editortmp 	= $dc
 
 ;******************************************************************************
 ; $e0-$ff temporary storage

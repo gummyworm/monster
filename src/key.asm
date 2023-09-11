@@ -79,8 +79,13 @@ CURSOR_LR_MASK=2
 	rts
 .endproc
 
-;--------------------------------------
-; ishex returns .C set if the given key is 0-9 or A-F
+;******************************************************************************_
+; ISHEX
+; Returns .C set if the given key is 0-9 or A-F
+; IN:
+;  - .A: the key to check if is hex
+; OUT:
+;  - .C: set if the given key is 0-9 or A-F
 .export __key_ishex
 .proc __key_ishex
 	cmp #'0'
@@ -98,8 +103,31 @@ CURSOR_LR_MASK=2
 @done:	rts
 .endproc
 
-;--------------------------------------
-; .C is set if shift is down
+;******************************************************************************_
+; ISDEC
+; Returns .C set if the given key is 0-9
+; IN:
+;  - .A: the key to check if is hex
+; OUT:
+;  - .C: set if the given key is 0-9
+.export __key_isdec
+.proc __key_isdec
+	cmp #'0'
+	bcc @notdec
+	cmp #'9'+1
+	bcs @notdec
+	sec
+	rts
+@notdec:
+	clc
+@done:	rts
+.endproc
+
+
+;******************************************************************************_
+; SHIFT_DOWN
+; OUT:
+;  - .C: set if the SHIFT key is down
 .proc shift_down
 	pha
 	lda NonAlphaFlagX
@@ -115,8 +143,10 @@ CURSOR_LR_MASK=2
 	rts
 .endproc
 
-;--------------------------------------
-; .C is set if CBM is down
+;******************************************************************************_
+; CBM_DOWN
+; OUT:
+;  - .C: set if the CBM key is down
 .proc cbm_down
 	pha
 	lda NonAlphaFlagX
