@@ -555,7 +555,10 @@ main:
 :	cmp #$62		; b (beginning of word)
 	bne :+
 	jmp beginword
-:	cmp #$69		; I (insert)
+:	cmp #$49		; I (insert start of line)
+	bne :+
+	jmp insert_start
+:	cmp #$69		; i (insert)
 	bne :+
 @insert:
 	lda #MODE_INSERT
@@ -571,27 +574,13 @@ main:
 	lda #$00
 	sta text::insertmode
 	rts
-
 :	cmp #$41		; A (append to line/insert)
 	bne :+
-@eol:	jsr src::end
-	beq @insert
-	jsr src::atcursor
-	cmp #$0d
-	beq @insert
-	inc zp::curx
-	jsr src::next
-	jmp @insert
-
+	jsr append_line
 :	cmp #$61		; a (append to character)
 	bne :+
-	jsr src::end
-	beq @insert
-	jsr src::next
-	inc zp::curx
-	bne @insert
+	jsr append_char
 :
-
 @cmdloop:
 	cmp #$5f		; <-
 	bne :+
@@ -663,6 +652,51 @@ main:
 @command_vecs_hi: .hibytes command_vecs
 .endproc
 
+;******************************************************************************_
+; INSERT_START
+; moves cursor to start of line and enters INSERT mode
+.proc insert_start
+	jsr home
+	lda #$01
+	sta text::insertmode
+	lda #MODE_INSERT
+	sta mode
+	rts
+.endproc
+
+;******************************************************************************_
+; APPEND_TO_LINE
+.proc append_line
+@l0:	jsr src::end
+	beq @done
+
+	inc zp::curx
+	jsr src::next
+	cmp #$0d
+	bne @l0
+
+@done:	jsr src::prev
+	dec zp::curx
+	lda #$01
+	sta text::insertmode
+	lda #MODE_INSERT
+	sta mode
+	rts
+.endproc
+
+;******************************************************************************_
+; APPEND_TO_CHAR
+.proc append_char
+	jsr src::end
+	beq @done
+	jsr src::next
+	inc zp::curx
+@done:	lda #$01
+	sta text::insertmode
+	lda #MODE_INSERT
+	sta mode
+	rts
+.endproc
 
 ;******************************************************************************_
 .proc endofword
@@ -686,7 +720,7 @@ main:
 	inc zp::curx
 	cmp #$0d
 	beq @endofline
-	jsr util::isalpha
+	jsr util::isalphanum
 	beq @l0
 	dec zp::curx
 	jsr src::prev
@@ -710,7 +744,7 @@ main:
 @l0:	jsr src::start
 	beq @done
 	jsr src::atcursor
-	jsr util::isalpha
+	jsr util::isalphanum
 	bne @sepfound
 	dec zp::curx
 	jsr src::prev
@@ -1566,7 +1600,10 @@ buffer8: lda #$07
 ; INSERT
 ; Adds a character at the cursor position.
 .proc insert
-	cmp #$0d
+	cmp #$14		; handle DEL
+	bne :+
+	jmp ccdel
+:	cmp #$0d
 	bne :+
 	jmp linedone		; handle RETURN
 :	ldx text::insertmode
@@ -1737,6 +1774,16 @@ buffer8: lda #$07
 	jsr src::start
 	beq @done
 
+	lda text::insertmode
+	bne @del_ins
+
+	; if we're replacing just decrement cursor if we can
+	lda zp::curx
+	beq @done
+	dec zp::curx
+	jmp src::prev
+
+@del_ins:
 	jsr src::backspace
 	lda #$14
 	jsr text::putch
@@ -2082,7 +2129,6 @@ controlcodes:
 .byte $1d	; right
 .byte $91	; up arrow
 .byte $11	; down
-.byte $14	; delete
 numccodes=*-controlcodes
 
 ;******************************************************************************
@@ -2091,7 +2137,6 @@ ccvectors:
 .word ccright	; right
 .word ccup      ; up
 .word ccdown	; down
-.word ccdel 	; delete
 
 ;******************************************************************************
 .IFDEF DRAW_TITLEBAR

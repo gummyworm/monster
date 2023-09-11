@@ -339,18 +339,22 @@ result=mem::spare
 .endproc
 
 ;******************************************************************************
-; IS_ALPHA
+; IS_ALPHANUM
 ; IN:
-;  .A: the character to test for alpha
+;  .A: the character to test for alphanumeric
 ; OUT:
-;  - .Z: set if the given character is alpha ('A'-'z')
-.export __util_is_alpha
-.proc __util_is_alpha
+;  - .Z: set if the given character is alpha ('A'-'z', or '0'-'9')
+.export __util_is_alphanum
+.proc __util_is_alphanum
+	cmp #'0'
+	bcc @no
+	cmp #'9'+1
+	bcc @yes
 	cmp #$41
 	bcc @no
 	cmp #$7a+1
 	bcs @no
-	lda #$00
+@yes:	lda #$00
 	rts
 @no:	lda #$ff
 	rts
