@@ -105,7 +105,13 @@ main:
 	ldx mode
 	cpx #MODE_COMMAND
 	bne @ins
+
+	pha
+	jsr cur::off
+	pla
 	jsr onkey_cmd
+	jsr cur::on
+
 	jmp @done
 @ins:	jsr onkey
 @done:	jsr text::update
@@ -476,13 +482,13 @@ main:
 	asl
 	tax
 	lda @command_table,x
-	sta zp::jmpaddr
+	sta zp::jmpvec
 	lda @command_table+1,x
-	sta zp::jmpaddr+1
+	sta zp::jmpvec+1
 
 	ldx #<$102
 	ldy #>$102
-	jsr zp::jmpvec
+	jmp zp::jmpaddr
 
 ; commands
 @command_codes:
@@ -523,24 +529,68 @@ main:
 @cmdbufflen=zp::tmp2
 @cmdbuff=zp::tmp3
 @cmdid=zp::tmp10
-	ldx #$00
+	jsr handle_universal_keys
+	bcc :+
+	rts
+
+:	ldx #$00
 	stx @reps
 	stx @cmdbufflen
 
-	cmp #$69		; I (insert)
+	cmp #$68		; j (left)
 	bne :+
+	jmp ccleft
+:	cmp #$6c		; l (right)
+	bne :+
+	jmp ccright
+:	cmp #$6b		; k (up)
+	bne :+
+	jmp ccup
+:	cmp #$6a		; j (down)
+	bne :+
+	jmp ccdown
+:	cmp #$65		; e (end of word)
+	bne :+
+	jmp endofword
+:	cmp #$62		; b (beginning of word)
+	bne :+
+	jmp beginword
+:	cmp #$69		; I (insert)
+	bne :+
+@insert:
 	lda #MODE_INSERT
 	sta mode
 	lda #$01
 	sta text::insertmode
 	rts
 :	cmp #$72		; R (replace)
-	bne @cmdloop
+	bne :+
+@replace:
 	lda #MODE_INSERT
 	sta mode
 	lda #$00
 	sta text::insertmode
 	rts
+
+:	cmp #$41		; A (append to line/insert)
+	bne :+
+@eol:	jsr src::end
+	beq @insert
+	jsr src::atcursor
+	cmp #$0d
+	beq @insert
+	inc zp::curx
+	jsr src::next
+	jmp @insert
+
+:	cmp #$61		; a (append to character)
+	bne :+
+	jsr src::end
+	beq @insert
+	jsr src::next
+	inc zp::curx
+	bne @insert
+:
 
 @cmdloop:
 	cmp #$5f		; <-
@@ -611,6 +661,62 @@ main:
 .define command_vecs delete_to_begin, delete_line, delete_to_end, delete_word
 @command_vecs_lo: .lobytes command_vecs
 @command_vecs_hi: .hibytes command_vecs
+.endproc
+
+
+;******************************************************************************_
+.proc endofword
+	jsr src::end
+	beq @done
+	jsr src::next	; unconditionally move 2 chars
+	inc zp::curx
+	cmp #$0d
+	beq @endofline
+
+	jsr src::end
+	beq @done
+	jsr src::next
+	inc zp::curx
+	cmp #$0d
+	beq @endofline
+
+@l0:	jsr src::end
+	beq @done
+	jsr src::next	; try to move at least one character
+	inc zp::curx
+	cmp #$0d
+	beq @endofline
+	jsr util::isalpha
+	beq @l0
+	dec zp::curx
+	jsr src::prev
+	dec zp::curx
+	jsr src::prev
+@done:	rts
+@endofline:
+	dec zp::curx
+	jmp src::prev
+.endproc
+
+;******************************************************************************_
+.proc beginword
+	jsr src::start
+	beq @done
+	lda zp::curx
+	beq @done
+	jsr src::prev
+	dec zp::curx
+
+@l0:	jsr src::start
+	beq @done
+	jsr src::atcursor
+	jsr util::isalpha
+	bne @sepfound
+	dec zp::curx
+	jsr src::prev
+	jmp @l0
+@sepfound:
+@done:	rts
 .endproc
 
 ;******************************************************************************_
@@ -697,13 +803,10 @@ main:
 	lda #'s'
 	bne @do
 :	cmp #$bd	; C=<X> (Scratch)
-	bne @done
+	bne @check_ccodes
 	lda #'x'
 @do:	jsr docommand
 	sec
-	rts
-
-@done:	clc		; not a universal key code; return to be handled
 	rts
 
 @special:
@@ -716,6 +819,36 @@ main:
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr
 	sec
+	rts
+
+@check_ccodes:
+	cmp #$80
+	bcs @controlcodes
+	cmp #' '
+	bcs @not_ccode
+
+@controlcodes:
+	ldx #numccodes-1
+:	cmp controlcodes,x
+	beq @cc
+	dex
+	bpl :-
+	clc
+	rts
+
+@cc:	txa
+	asl
+	tax
+	lda ccvectors,x
+	sta zp::jmpvec
+	lda ccvectors+1,x
+	sta zp::jmpvec+1
+	jsr zp::jmpaddr
+	sec
+	rts
+
+@not_ccode:
+	clc		; not a universal key code; return to be handled
 	rts
 
 @specialkeys:
@@ -810,7 +943,8 @@ main:
 	jsr src::rewind
 	jsr src::next	; first character index is 1
 
-@l0:	jsr src::readline
+@l0:	jsr text::clrline
+	jsr src::readline
 	bcs @done
 @newl:	jsr drawline
 	jmp @l0
@@ -1432,31 +1566,10 @@ buffer8: lda #$07
 ; INSERT
 ; Adds a character at the cursor position.
 .proc insert
-	cmp #$80
-	bcs @controlcodes
-	cmp #' '
-	bcs @printable
-
-@controlcodes:
-	ldx #numccodes-1
-:	cmp controlcodes,x
-	beq @cc
-	dex
-	bpl :-
-	jmp @put
-
-@cc:	txa
-	asl
-	tax
-	lda ccvectors,x
-	sta @j
-	lda ccvectors+1,x
-	sta @j+1
-@j=*+1
-	jmp $0000
-
-@printable:
-	ldx text::insertmode
+	cmp #$0d
+	bne :+
+	jmp linedone		; handle RETURN
+:	ldx text::insertmode
 	bne @put
 @replace:
 	jsr src::replace
@@ -1970,7 +2083,6 @@ controlcodes:
 .byte $91	; up arrow
 .byte $11	; down
 .byte $14	; delete
-.byte $0d	; RETURN
 numccodes=*-controlcodes
 
 ;******************************************************************************
@@ -1980,7 +2092,6 @@ ccvectors:
 .word ccup      ; up
 .word ccdown	; down
 .word ccdel 	; delete
-.word linedone	; RETURN
 
 ;******************************************************************************
 .IFDEF DRAW_TITLEBAR

@@ -338,3 +338,20 @@ result=mem::spare
 :	jmp __util_isoperator
 .endproc
 
+;******************************************************************************
+; IS_ALPHA
+; IN:
+;  .A: the character to test for alpha
+; OUT:
+;  - .Z: set if the given character is alpha ('A'-'z')
+.export __util_is_alpha
+.proc __util_is_alpha
+	cmp #$41
+	bcc @no
+	cmp #$7a+1
+	bcs @no
+	lda #$00
+	rts
+@no:	lda #$ff
+	rts
+.endproc

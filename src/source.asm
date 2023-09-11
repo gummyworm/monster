@@ -650,15 +650,11 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ; ATCURSOR
 ; Returns the character at the cursor position.
 ; OUT:
-;  - .A: the character at the current cursor position (0 if cursor is at START)
+;  - .A: the character at the current cursor position
 .export __src_atcursor
 __src_atcursor:
 .proc atcursor
-	jsr __src_start
-	bne :+
-	lda #$00
-	rts
-:	jsr cursor
+	jsr cursor
 	sub16 #1
 	stxy zp::tmp0
 .IFDEF USE_FINAL

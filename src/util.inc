@@ -10,6 +10,7 @@
 .import atoi
 .import __util_isoperator
 .import __util_is_separator
+.import __util_is_alpha
 
 .scope util
 	chtohex = __util_chtohex
@@ -21,6 +22,7 @@
 	is_null_return_space_comma_closingparen_newline = __util_is_null_return_space_comma_closingparen_newline
 	isoperator = __util_isoperator
 	isseparator = __util_is_separator
+	isalpha =  __util_is_alpha
 .endscope
 
 .macro copy dst, src, len
