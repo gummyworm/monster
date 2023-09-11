@@ -201,7 +201,7 @@ bankcode_size = *-bankcode
 	; copy the bank code that we wish to copy to ZP
 	ldx #bankcode_size
 @l0:	lda bankcode-1,x
-	sta $30-1,x
+	sta $10-1,x
 	dex
 	bne @l0
 
@@ -214,7 +214,7 @@ bankcode_size = *-bankcode
 
 	ldxy #__BANKCODE_LOAD__
 	stxy @dst
-	ldxy #$30
+	ldxy #$10
 	stxy @src
 
 @l1:	ldy #$00
@@ -222,7 +222,7 @@ bankcode_size = *-bankcode
 	sta zp::bankval	; byte to write
 	ldxy @dst	; destination address
 	lda @bank	; bank to copy to
-	jsr $30		; call the zeropage code
+	jsr $10		; call the zeropage code
 
 	incw @src
 	incw @dst
