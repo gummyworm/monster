@@ -525,13 +525,13 @@ main:
 ; ONKEY_CMD
 ; Handles a keypress from the user in COMMAND mode
 .proc onkey_cmd
-@reps=zp::tmp1
+@reps=zp::editortmp
 	jsr handle_universal_keys
 	bcc :+
 	rts
 
-:	ldx #$00
-	stx @reps
+:	ldx #$01
+	stx @reps		; init reps to 1
 @getreps:
 	cmp #$5f		; <-
 	bne :+
@@ -541,8 +541,9 @@ main:
 	bcc @check_cmds
 	sbc #'0'	; .C already set
 	sta @reps
-	jsr key::getch
-	jmp @getreps
+
+:	jsr key::getch	; get another key for the command to do @reps times
+	beq :-
 
 @check_cmds:
 	ldx #@numcommands-1
@@ -550,11 +551,19 @@ main:
 	beq @found
 	dex
 	bpl :-
+	rts		; no key found
+
 @found:	lda @command_vecs_lo,x
 	sta zp::jmpvec
 	lda @command_vecs_hi,x
 	sta zp::jmpvec+1
-	jmp zp::jmpaddr
+
+; repeat the command for the number of reps the user requested
+@doreps:
+	jsr zp::jmpaddr
+	dec @reps
+	bne @doreps
+	rts
 
 @commands:
 	.byte $68		; j (left)
