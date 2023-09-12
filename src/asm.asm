@@ -358,14 +358,17 @@ __asm_tokenize:
 @label: jsr lbl::isvalid
 	bcs @getopws
 	sta resulttype
-	ldx zp::line
-	ldy zp::line+1
+	ldxy zp::line
 	lda zp::virtualpc
 	sta zp::label_value
 	lda zp::virtualpc+1
 	sta zp::label_value+1
 	jsr lbl::add
-	jsr process_word
+	ldxy zp::line
+	jsr lbl::islocal
+	beq :+
+	jsr lbl::clrlocals	; clear locals if this is a non-local label
+:	jsr process_word
 	jsr @finishline
 	bcs :+
 	lda #ASM_LABEL

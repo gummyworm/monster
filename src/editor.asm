@@ -579,12 +579,13 @@ main:
 	.byte $61		; a (append to character)
 	.byte $64		; d (delete)
 	.byte $78		; x (erase char)
+	.byte $78		; x (erase char)
 @numcommands=*-@commands
 
 ; command tables for COMMAND mode key commands
 .linecont +
 .define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
- 	insert_start, insert, replace, append_to_line, append_char, \
+	insert_start, enter_insert, replace, append_to_line, append_char, \
 	delete, erase_char
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs

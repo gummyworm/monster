@@ -15,7 +15,8 @@ MAX_LABEL_LEN = 16
 ;******************************************************************************
 .export __label_num
 __label_num:
-numlabels: .word 0   ; total number of labels
+numlabels: .word 0   	; total number of labels
+numlocals: .byte 0	; number of local labels
 
 ;******************************************************************************
 ; LABELS
@@ -50,6 +51,7 @@ label_addresses: .res 256 * 2
 	lda #$00
 	sta numlabels
 	sta numlabels+1
+	sta numlocals
 	rts
 .endproc
 
@@ -61,7 +63,7 @@ label_addresses: .res 256 * 2
 ; out:
 ;  - .C: set if label is not found
 ;  - .A: contains the length of the label because why not
-;  - .XY: the id of the label
+;  - .XY: the id of the label or the id where the label WOULD be if not found
 .export __label_find
 .proc __label_find
 @cnt=zp::tmp6
@@ -70,7 +72,13 @@ label_addresses: .res 256 * 2
 @ch=zp::tmpe
 @offset=zp::tmpf
 @ch2=zp::tmp10
+@islocal=zp::tmp11
 	stxy @label
+
+	; check (and flag) if the label is local. if it is, we will start
+	; searching at the end of the label table, where locals are stored
+	jsr __label_is_local
+	sta @islocal
 
 	lda numlabels
 	bne :+
@@ -83,6 +91,37 @@ label_addresses: .res 256 * 2
 	sta @cnt+1
 	ldxy #labels
 	stxy @search
+
+	lda @islocal
+	beq @seek
+
+	; if local; start searching from labels + 16*(numlabels-numlocals)
+	; @cnt = (numlabels-numlocals)
+	lda numlabels
+	sec
+	sbc numlocals
+	sta @cnt
+	lda numlabels+1
+	sbc #$00
+	sta @cnt+1
+
+	; @cnt *= 16
+	lda @cnt
+	asl
+	rol @cnt+1
+	asl
+	rol @cnt+1
+	asl
+	rol @cnt+1
+	asl
+	rol @cnt+1
+
+	; seek = labels + @cnt
+	adc #<labels
+	sta @search
+	lda @cnt+1
+	adc #>labels
+	sta @search+1
 
 @seek:	ldy #$00
 @l0:	lda (@label),y
@@ -129,7 +168,12 @@ label_addresses: .res 256 * 2
 	inc @search+1
 :	incw @cnt
 	ldxy @cnt
-	cmpw numlabels
+	lda @islocal
+	beq :+
+	cmpw numlocals
+	bne @seek
+	beq @notfound
+:	cmpw numlabels
 	bne @seek
 @notfound:
 	ldxy @cnt
@@ -147,7 +191,6 @@ label_addresses: .res 256 * 2
 ;  - zp::label_value: the value to assign to the given label name
 ; out:
 ;  - .C: set on error or clear if the label was successfully added
-;
 .export __label_add
 .proc __label_add
 @id=zp::tmp0
@@ -158,6 +201,7 @@ label_addresses: .res 256 * 2
 @cnt=zp::tmpa
 @addr=zp::tmpc
 @offset=zp::tmp10
+@islocal=zp::tmp11
 	stxy @name
 	jsr isvalid
 	bcc @seek
@@ -186,10 +230,16 @@ label_addresses: .res 256 * 2
 	RETURN_OK
 
 @insert:
+	; @id is the index where the new label will live
 	stxy @id
 
+	; flag if label is local or not
+	ldxy @name
+	jsr __label_is_local
+	sta @islocal
+
 ;------------------
-; open a space for the new label by shifting everything over
+; open a space for the new label by shifting everything left
 @shift:
 	; src = labels + (numlabels-1)*16
 	lda numlabels+1
@@ -358,7 +408,10 @@ label_addresses: .res 256 * 2
 	sta (@addr),y
 .endif
 	incw numlabels
-	ldxy @id
+	lda @islocal
+	beq :+
+	incw numlocals
+:	ldxy @id
 	RETURN_OK
 .endproc
 
@@ -430,8 +483,8 @@ label_addresses: .res 256 * 2
 @cnt2=zp::tmpa
 @src=zp::tmpe
 @dst=zp::tmp10
-@asrc=zp::tmp12
-@adst=zp::tmp14
+@name=zp::tmp12
+	stxy @name
 	jsr __label_find
 	bcc @del
 	rts		; not found
@@ -539,7 +592,11 @@ label_addresses: .res 256 * 2
 	cmpw #0
 	bne @nameloop
 	decw numlabels
-	RETURN_OK
+	ldxy @name
+	jsr __label_is_local
+	beq :+
+	decw numlocals
+:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -551,19 +608,20 @@ label_addresses: .res 256 * 2
 @name=zp::tmp4
 	ldy #$00
 
-; first character must be a letter
+; first character must be a letter or '@'
 :	lda (@name),y
 	iny
 	jsr util::is_whitespace
 	beq :-
+	cmp #$40	; '@'
+	beq @l0
 	cmp #'a'
 	bcc @err
 	cmp #'Z'+1
 	bcs @err
 
 ; following characters are between '0' and ')'
-@l0:
-	lda (@name),y
+@l0:	lda (@name),y
 	beq @done
 	jsr util::is_whitespace
 	beq @done
@@ -574,6 +632,27 @@ label_addresses: .res 256 * 2
 	bcc @l0
 @err:   RETURN_ERR ERR_ILLEGAL_LABEL
 @done:  RETURN_OK
+.endproc
+
+;******************************************************************************
+; IS_LOCAL
+; Returns with .Z set if the given label is a local label (begins with '@')
+; IN:
+;  - .XY: the label to test
+; OUT:
+;  - .A: nonzero if the label is local
+.export __label_is_local
+.proc __label_is_local
+@l=zp::labels
+	stxy @l
+	ldy #$00
+	lda (@l),y
+	cmp #'@'
+	bne :+
+	lda #$01
+	rts
+:	lda #$00
+	rts
 .endproc
 
 ;******************************************************************************
@@ -645,6 +724,8 @@ label_addresses: .res 256 * 2
 	iny
 	jsr util::is_whitespace
 	beq :-
+	cmp #'@'
+	beq @l0
 	cmp #'a'
 	bcc @err
 	cmp #'Z'+1
@@ -739,5 +820,21 @@ label_addresses: .res 256 * 2
 	lda (@src),y
 	tay
 .endif
+	rts
+.endproc
+
+;******************************************************************************
+; CLR_LOCALS
+; Clears all local labels from the label table
+.export __label_clr_locals
+.proc __label_clr_locals
+	lda numlabels
+	sec
+	sbc numlocals
+	sta numlabels
+	bcs :+
+	dec numlabels+1
+:	lda #$00
+	sta numlocals
 	rts
 .endproc
