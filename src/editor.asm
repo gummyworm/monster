@@ -25,15 +25,14 @@
 .include "macros.inc"
 .import help
 
-SCREEN_H = 23
-
-
 ;******************************************************************************
 ; CONSTANTS
 MODE_COMMAND = 1
 MODE_INSERT  = 2
 
 START_MODE = MODE_COMMAND
+
+SCREEN_H = 23
 
 ;******************************************************************************
 ; ZEROPAGE
@@ -587,6 +586,9 @@ main:
 	.byte $4c		; L (last line)
 	.byte $48		; H (home [first] line)
 	.byte $14		; DEL (back)
+	.byte $20		; SPACE (right)
+	.byte $47		; G (goto end)
+	.byte $67		; g (goto start)
 @numcommands=*-@commands
 
 ; command tables for COMMAND mode key commands
@@ -594,7 +596,7 @@ main:
 .define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, erase_char, word_advance, col_zero, last_line, \
-	home_line, ccdel
+	home_line, ccdel, ccright, goto_end, goto_start
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs
 @command_vecs_hi: .hibytes cmd_vecs
@@ -831,6 +833,24 @@ main:
 .proc home_line
 @done:	rts
 .endproc
+
+;******************************************************************************
+.proc goto_end
+	ldxy #$ffff
+	jmp gotoline
+.endproc
+
+;******************************************************************************
+.proc goto_start
+:	jsr key::getch
+	beq :-
+	cmp #$67		; get second
+	beq :+
+	rts
+:	ldxy #1
+	jmp gotoline
+.endproc
+
 
 ;******************************************************************************
 ; HANDLE_UNIVERSAL_KEYS
