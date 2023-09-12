@@ -79,10 +79,15 @@ label_addresses: .res 256 * 2
 	; searching at the end of the label table, where locals are stored
 	jsr __label_is_local
 	sta @islocal
-
-	lda numlabels
+	beq :+
+	lda numlocals
 	bne :+
-	lda numlabels+1
+	ldxy numlabels	; if there are no local labels; this must be the first
+	RETURN_ERR ERR_LABEL_UNDEFINED
+
+:	ldx numlabels
+	bne :+
+	ldy numlabels+1
 	bne :+
 	RETURN_ERR ERR_LABEL_UNDEFINED ; no labels exist
 
@@ -169,15 +174,23 @@ label_addresses: .res 256 * 2
 :	incw @cnt
 	ldxy @cnt
 	lda @islocal
-	beq :+
+	beq @notlocal
+@local:
 	cmpw numlocals
 	bne @seek
 	beq @notfound
-:	cmpw numlabels
+@notlocal:
+	cmpw numlabels
 	bne @seek
+
 @notfound:
 	ldxy @cnt
-	RETURN_ERR ERR_LABEL_UNDEFINED
+	lda @islocal
+	beq :+
+	; calculate the offset from labels (not labels + (numlabels-numlocals))
+	add16 numlabels	; cnt += numlabels
+	sub16 numlocals	; cnt -= numlocals
+:	RETURN_ERR ERR_LABEL_UNDEFINED
 
 @found:	tya
 	ldxy @cnt
