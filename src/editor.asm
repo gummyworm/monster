@@ -539,7 +539,9 @@ main:
 :	; check if a number is given (to repeat the following commands)
 	jsr key::isdec
 	bcc @check_cmds
-	sbc #'0'	; .C already set
+	cmp #'0'
+	beq @check_cmds
+	sbc #'0'		; .C already set
 	sta @reps
 
 :	jsr key::getch	; get another key for the command to do @reps times
@@ -574,19 +576,25 @@ main:
 	.byte $62		; b (beginning of word)
 	.byte $49		; I (insert start of line)
 	.byte $69		; i (insert)
-	.byte $72		; r (replace)
+	.byte $72		; r (replace char)
+	.byte $52		; r (replace mode)
 	.byte $41		; A (append to line/insert)
 	.byte $61		; a (append to character)
 	.byte $64		; d (delete)
 	.byte $78		; x (erase char)
-	.byte $78		; x (erase char)
+	.byte $77		; w (word advance)
+	.byte $30		; 0 (column 0)
+	.byte $4c		; L (last line)
+	.byte $48		; H (home [first] line)
+	.byte $14		; DEL (back)
 @numcommands=*-@commands
 
 ; command tables for COMMAND mode key commands
 .linecont +
 .define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
-	insert_start, enter_insert, replace, append_to_line, append_char, \
-	delete, erase_char
+	insert_start, enter_insert, replace_char, replace, append_to_line, \
+	append_char, delete, erase_char, word_advance, col_zero, last_line, \
+	home_line, ccdel
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs
 @command_vecs_hi: .hibytes cmd_vecs
@@ -608,6 +616,24 @@ main:
 	lda #MODE_INSERT
 	sta mode
 	lda #$00
+	sta text::insertmode
+	rts
+.endproc
+
+;******************************************************************************_
+; REPLACE_CHAR
+.proc replace_char
+@ch=zp::tmp0
+:	jsr key::getch	; get the character to replace with
+	beq :-
+	sta @ch
+	lda text::insertmode
+	pha
+	lda #$00
+	sta text::insertmode
+	lda @ch
+	jsr insert
+	pla
 	sta text::insertmode
 	rts
 .endproc
@@ -768,6 +794,41 @@ main:
 	beq @done
 	jsr src::delete
 	jmp redraw_to_end_of_line
+@done:	rts
+.endproc
+
+;******************************************************************************
+.proc word_advance
+	jsr src::end
+	beq @done
+:	jsr src::next
+	inc zp::curx
+	jsr util::isseparator
+	bne :-
+	cmp #$0d
+	bne @done
+	jsr src::prev
+	dec zp::curx
+@done:	rts
+.endproc
+
+;******************************************************************************
+.proc col_zero
+	lda zp::curx
+	beq @done
+@l0:	jsr src::prev
+	dec zp::curx
+	bne @l0
+@done:	rts
+.endproc
+
+;******************************************************************************
+.proc last_line
+@done:	rts
+.endproc
+
+;******************************************************************************
+.proc home_line
 @done:	rts
 .endproc
 
@@ -1785,10 +1846,15 @@ buffer8: lda #$07
 	jsr src::start
 	beq @done
 
+	lda mode
+	cmp #MODE_COMMAND	; handle COMMAND mode like REPLACE
+	beq @del_rep
+
 	lda text::insertmode
 	bne @del_ins
 
-	; if we're replacing just decrement cursor if we can
+@del_rep:
+	; if we're replacing, just decrement cursor if we can
 	lda zp::curx
 	beq @done
 	dec zp::curx
