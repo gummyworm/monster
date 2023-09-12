@@ -526,130 +526,79 @@ main:
 ; Handles a keypress from the user in COMMAND mode
 .proc onkey_cmd
 @reps=zp::tmp1
-@cmdbufflen=zp::tmp2
-@cmdbuff=zp::tmp3
-@cmdid=zp::tmp10
 	jsr handle_universal_keys
 	bcc :+
 	rts
 
 :	ldx #$00
 	stx @reps
-	stx @cmdbufflen
+@getreps:
+	cmp #$5f		; <-
+	bne :+
+	rts			; exit this command
+:	; check if a number is given (to repeat the following commands)
+	jsr key::isdec
+	bcc @check_cmds
+	sbc #'0'	; .C already set
+	sta @reps
+	jsr key::getch
+	jmp @getreps
 
-	cmp #$68		; j (left)
-	bne :+
-	jmp ccleft
-:	cmp #$6c		; l (right)
-	bne :+
-	jmp ccright
-:	cmp #$6b		; k (up)
-	bne :+
-	jmp ccup
-:	cmp #$6a		; j (down)
-	bne :+
-	jmp ccdown
-:	cmp #$65		; e (end of word)
-	bne :+
-	jmp endofword
-:	cmp #$62		; b (beginning of word)
-	bne :+
-	jmp beginword
-:	cmp #$49		; I (insert start of line)
-	bne :+
-	jmp insert_start
-:	cmp #$69		; i (insert)
-	bne :+
-@insert:
+@check_cmds:
+	ldx #@numcommands-1
+:	cmp @commands,x
+	beq @found
+	dex
+	bpl :-
+@found:	lda @command_vecs_lo,x
+	sta zp::jmpvec
+	lda @command_vecs_hi,x
+	sta zp::jmpvec+1
+	jmp zp::jmpaddr
+
+@commands:
+	.byte $68		; j (left)
+	.byte $6c		; l (right)
+	.byte $6b		; k (up)
+	.byte $6a		; j (down)
+	.byte $65		; e (end of word)
+	.byte $62		; b (beginning of word)
+	.byte $49		; I (insert start of line)
+	.byte $69		; i (insert)
+	.byte $72		; R (replace)
+	.byte $41		; A (append to line/insert)
+	.byte $61		; a (append to character)
+	.byte $64		; d (delete)
+@numcommands=*-@commands
+
+; command tables for COMMAND mode key commands
+.linecont +
+.define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
+ 	insert_start, insert, replace, append_to_line, append_char, \
+	delete
+.linecont -
+@command_vecs_lo: .lobytes cmd_vecs
+@command_vecs_hi: .hibytes cmd_vecs
+.endproc
+
+;******************************************************************************_
+; INSERT
+.proc enter_insert
 	lda #MODE_INSERT
 	sta mode
 	lda #$01
 	sta text::insertmode
 	rts
-:	cmp #$72		; R (replace)
-	bne :+
-@replace:
+.endproc
+
+;******************************************************************************_
+; REPLACE
+.proc replace
 	lda #MODE_INSERT
 	sta mode
 	lda #$00
 	sta text::insertmode
 	rts
-:	cmp #$41		; A (append to line/insert)
-	bne :+
-	jsr append_line
-:	cmp #$61		; a (append to character)
-	bne :+
-	jsr append_char
-:
-@cmdloop:
-	cmp #$5f		; <-
-	bne :+
-	rts			; exit this command
-:	rts
-	jsr key::isdec
-	bcc @storekey
-	sbc #'0'	; .C already set
-	sta @reps
-	jmp @next
-
-; store the key in the command buffer
-@storekey:
-	ldx @cmdbufflen
-	sta @cmdbuff
-	lda #$00
-	sta @cmdbuff+1,x	; 0-terminate the command string
-	inc @cmdbufflen
-
-; see if the cmdbuff contains a valid command yet
-@checkcmds:
-	ldx #$00
-	ldy #$00
-	sty @cmdid
-@chkloop:
-	lda @cmdbuff,x
-	cmp @commands,y
-	bne @nextcmd
-	iny
-	inx
-	cpx @cmdbufflen
-	bne @chkloop
-	beq @cmdfound
-
-@nextcmd:
-	lda @commands,y
-	beq :+
-	iny
-	bne @nextcmd
-
-:	ldx #$00
-	inc @cmdid
-	iny
-	cpy #@commands_len
-	bcc @chkloop
-	bcs @next		; no command found, continue getting input
-
-; we found a command, execute it @reps times
-@cmdfound:
-	ldx @cmdid
-	lda @command_vecs_lo,x
-	sta zp::jmpvec
-	lda @command_vecs_hi,x
-	sta zp::jmpvec+1
-	jsr zp::jmpaddr
-
-; get another key and continue the command loop
-@next:	jsr key::getch
-	jmp @cmdloop
-
-@commands:
-	.byte "db",0	; delete to beginning of line
-	.byte "dd",0	; delete line
-	.byte "de",0	; delete to end of line
-	.byte "dw",0	; delete word
-@commands_len=*-@commands
-.define command_vecs delete_to_begin, delete_line, delete_to_end, delete_word
-@command_vecs_lo: .lobytes command_vecs
-@command_vecs_hi: .hibytes command_vecs
 .endproc
 
 ;******************************************************************************_
@@ -657,16 +606,12 @@ main:
 ; moves cursor to start of line and enters INSERT mode
 .proc insert_start
 	jsr home
-	lda #$01
-	sta text::insertmode
-	lda #MODE_INSERT
-	sta mode
-	rts
+	jmp enter_insert
 .endproc
 
 ;******************************************************************************_
 ; APPEND_TO_LINE
-.proc append_line
+.proc append_to_line
 @l0:	jsr src::end
 	beq @done
 
@@ -677,28 +622,21 @@ main:
 
 @done:	jsr src::prev
 	dec zp::curx
-	lda #$01
-	sta text::insertmode
-	lda #MODE_INSERT
-	sta mode
-	rts
+	jmp enter_insert
 .endproc
 
 ;******************************************************************************_
-; APPEND_TO_CHAR
+; APPEND_CHAR
 .proc append_char
 	jsr src::end
 	beq @done
 	jsr src::next
 	inc zp::curx
-@done:	lda #$01
-	sta text::insertmode
-	lda #MODE_INSERT
-	sta mode
-	rts
+@done:	jmp enter_insert
 .endproc
 
 ;******************************************************************************_
+; END_OF_WORD
 .proc endofword
 	jsr src::end
 	beq @done
@@ -733,6 +671,7 @@ main:
 .endproc
 
 ;******************************************************************************_
+; BEGINWORD
 .proc beginword
 	jsr src::start
 	beq @done
@@ -752,6 +691,13 @@ main:
 @sepfound:
 @done:	rts
 .endproc
+
+;******************************************************************************_
+; DELETE
+.proc delete
+	rts
+.endproc
+
 
 ;******************************************************************************_
 .proc delete_to_begin
