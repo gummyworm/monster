@@ -565,17 +565,18 @@ main:
 	.byte $62		; b (beginning of word)
 	.byte $49		; I (insert start of line)
 	.byte $69		; i (insert)
-	.byte $72		; R (replace)
+	.byte $72		; r (replace)
 	.byte $41		; A (append to line/insert)
 	.byte $61		; a (append to character)
 	.byte $64		; d (delete)
+	.byte $78		; x (erase char)
 @numcommands=*-@commands
 
 ; command tables for COMMAND mode key commands
 .linecont +
 .define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
  	insert_start, insert, replace, append_to_line, append_char, \
-	delete
+	delete, erase_char
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs
 @command_vecs_hi: .hibytes cmd_vecs
@@ -744,6 +745,20 @@ main:
 
 ;******************************************************************************_
 .proc delete_word
+.endproc
+
+;******************************************************************************_
+; ERASE_CHAR
+.proc erase_char
+	jsr src::next
+	pha
+	jsr src::prev
+	pla
+	cmp #$0d
+	beq @done
+	jsr src::delete
+	jmp redraw_to_end_of_line
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1480,6 +1495,46 @@ buffer8: lda #$07
 	lda zp::cury
 	jsr text::hiline
 	jmp @nextline
+.endproc
+
+;******************************************************************************
+; REDRAW_TO_END_OF_LINE
+; Redraws the line starting at the cursor's x position to the next $0d in the
+; source
+.proc redraw_to_end_of_line
+@x=zp::tmp7
+@cnt=zp::tmp8
+	lda zp::curx
+	sta @x
+	lda #$00
+	sta @cnt
+
+:	jsr src::end
+	beq @draw
+	jsr src::next
+	inc @cnt
+	cmp #$0d
+	beq @draw
+	ldx @x
+	sta mem::linebuffer,x
+	inc @x
+	bne :-
+@draw:	lda #$00
+	ldx @x
+	sta mem::linebuffer,x
+	lda zp::cury
+	ldxy #mem::linebuffer
+	jsr text::print
+
+	; move back to where we were in the source
+	lda @cnt
+	beq @done
+@restore:
+	jsr src::prev
+	dec @cnt
+	bne @restore
+
+@done:	rts
 .endproc
 
 ;******************************************************************************
