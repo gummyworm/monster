@@ -110,6 +110,27 @@ read in.
 
 As with any work done with Commodore disk I/O, it is wise to regularly back up your files
 
+## Labels
+Labels begin with either an alpha-character or, in the case of _local_
+labels, a '@' character.
+Local labels are valid until the next non-local label is defined as shown in
+the following example.
+```
+PROC0:
+@L0:
+    DEX
+    BNE L0
+    RTS
+PROC1:
+@L0:
+    DEY
+    BNE L0
+    RTS
+```
+Note that the scope of the `@L0` defined under `PROC0` is valid until the next
+non-local label (`PROC1`) at which point the name is recylced and may be used
+again.
+
 ## Directives
 Directives begin with a `.` character and instead of being directly assembled,
 as with an instruction, tell the assembler to generate some special code or data
