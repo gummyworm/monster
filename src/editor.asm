@@ -101,18 +101,19 @@ main:
 
 	jsr key::getch
 	beq @done
-	ldx mode
-	cpx #MODE_COMMAND
-	bne @ins
 
 	pha
 	jsr cur::off
 	pla
+	ldx mode
+	cpx #MODE_COMMAND
+	bne @ins
 	jsr onkey_cmd
-	jsr cur::on
-	jmp @done
-
+	jmp @keydone
 @ins:	jsr onkey
+@keydone:
+	jsr cur::on
+
 @done:	jsr text::update
 	jsr text::status
 	jmp main
@@ -527,8 +528,6 @@ main:
 	bcc :+
 	rts
 :	jsr insert
-	jsr cur::off
-	jmp cur::on
 .endproc
 
 ;******************************************************************************_
@@ -670,10 +669,7 @@ main:
 	inc zp::curx
 	bne @l0
 @retreat:
-	lda zp::curx
-	beq @done
 	jsr src::prev
-	dec zp::curx
 @done:	jmp enter_insert
 .endproc
 
