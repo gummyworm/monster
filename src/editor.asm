@@ -110,8 +110,8 @@ main:
 	pla
 	jsr onkey_cmd
 	jsr cur::on
-
 	jmp @done
+
 @ins:	jsr onkey
 @done:	jsr text::update
 	jsr text::status
@@ -653,15 +653,16 @@ main:
 .proc append_to_line
 @l0:	jsr src::end
 	beq @done
-
+	jsr src::atcursor
+	cmp #$0d
+	beq @retreat
 	inc zp::curx
 	jsr src::next
-	cmp #$0d
-	bne @l0
-
-@done:	jsr src::prev
+	jmp @l0
+@retreat:
+	jsr src::prev
 	dec zp::curx
-	jmp enter_insert
+@done:	jmp enter_insert
 .endproc
 
 ;******************************************************************************_
@@ -1038,7 +1039,8 @@ main:
 	cmp #$0d
 	bne :+
 	; if the last char is a newline, advance/scroll/etc.
-	jmp drawline
+	jsr drawline
+	jmp text::clrline	; if line ended on newline; it's empty
 
 :	lda zp::cury
 	ldxy #mem::linebuffer
@@ -1048,8 +1050,9 @@ main:
 	tax
 	ldy zp::cury
 	jsr cur::set
-	rts
-	;jmp text::clrline
+
+	jsr src::up
+	jmp src::get	; load the contents of the last line to linebuffer
 .endproc
 
 ;******************************************************************************
@@ -1568,23 +1571,23 @@ buffer8: lda #$07
 	jsr text::print
 
 ; insert spaces for the indent in the source
-	lda indent
-	beq @done
-	sta @i
-@indent:
-	lda #' '
-	jsr text::putch
-	lda #' '
-	jsr src::insert
-	dec @i
-	bne @indent
+	;lda indent
+	;beq @done
+	;sta @i
+;@indent:
+	;lda #' '
+	;jsr text::putch
+	;lda #' '
+	;jsr src::insert
+	;dec @i
+	;bne @indent
 @done:	rts
 
 @err:	lda #$ff
 	; highlight the error line
-	ldx #ERROR_COLOR
-	lda zp::cury
-	jsr text::hiline
+	;ldx #ERROR_COLOR
+	;lda zp::cury
+	;jsr text::hiline
 	jmp @nextline
 .endproc
 
@@ -1644,7 +1647,6 @@ buffer8: lda #$07
 @nextline:
 	; scroll lines below cursor position
 	ldy zp::cury
-	iny
 	cpy height
 	bcc :+
 	; if we're at the bottom, scroll whole screen up
@@ -1652,10 +1654,10 @@ buffer8: lda #$07
 	lda height
 	jsr text::scrollup
 	ldy height
-	dey
 	jmp @setcur
 
-:	tya
+:	iny
+	tya
 	ldx height
 	dex
 	jsr text::scrolldown
@@ -1817,7 +1819,6 @@ buffer8: lda #$07
 	jsr src::end
 	beq @movecur
 	jsr src::next
-	jsr src::atcursor
 	cmp #$0d
 	php
 	jsr src::prev
@@ -1950,6 +1951,7 @@ buffer8: lda #$07
 	ldy #EDITOR_HEIGHT
 	sty height
 	ldx #40
+	iny
 	jsr cur::setmax
 
 	lda #MODE_COMMAND
@@ -2079,6 +2081,7 @@ __edit_gotoline:
 	ldy #$00		; hi byte is 0, can't be < -EDITOR_HEIGHT
 	lda @seekforward
 	beq :+
+	inx
 	jsr src::upn		; move up before we render downward
 	jmp @longf_cont
 :	jsr src::downn		; move down before we we render upward
@@ -2195,9 +2198,10 @@ __edit_gotoline:
 	lda #ERROR_ROW
 	jsr text::print
 
-	lda #ERROR_ROW-1
-	sta height
+	ldy #ERROR_ROW-1
+	sty height
 	ldx #40
+	iny
 	jmp cur::setmax
 @line_err: .byte ";pass ", ESCAPE_VALUE_DEC,";line ", ESCAPE_VALUE_DEC,0
 .endproc

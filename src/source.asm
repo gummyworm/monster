@@ -207,7 +207,10 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	bne :-
 	lda #GAPSIZE
 	sta len
+
+	; init line and lines to 1
 	inc line
+	inc lines
 
 	lda numsrcs
 	sta activesrc
@@ -452,18 +455,16 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .export __src_right
 .proc __src_right
 	jsr __src_end
-	bne :+
-	clc
-	rts
+	beq @endofline
 
-:	jsr __src_next
+	jsr __src_next
 	cmp #$0d
-	bne :+
+	bne @done
 	jsr __src_prev
+@endofline:
 	clc
 	rts
-
-:	sec
+@done:	sec
 	rts
 .endproc
 
@@ -518,18 +519,17 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .export __src_up
 .proc __src_up
 	jsr __src_start
-	bne @l0
-	sec
-	rts
+	beq @beginning
 
 @l0:	jsr __src_prev
 	cmp #$0d
-	beq :+
+	beq @done
 	jsr __src_start
 	bne @l0
+@beginning:
 	sec
 	rts
-:	clc
+@done:	clc
 	rts
 .endproc
 
@@ -542,16 +542,13 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .export __src_down
 .proc __src_down
 	jsr __src_end
-	bne @l0
-	sec
-	rts
-
+	beq @eof
 @l0:	jsr __src_next
 	cmp #$0d
 	beq :+
 	jsr __src_end
 	bne @l0
-	sec	; end of the buffer
+@eof:	sec	; end of the buffer
 	rts
 :	clc
 	rts
@@ -729,7 +726,7 @@ __src_atcursor:
 	inc @cnt
 	jsr __src_end
 	bne @l0
-@eof:	; read last byte and null terminate if end of source
+@eof:	; go back a character; read last byte and null terminate if end of source
 	jsr atcursor
 	ldx @cnt
 	cmp #$0d

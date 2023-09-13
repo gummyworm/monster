@@ -70,6 +70,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	lda #','
 	sta mem::statusline+@columnstart+2
 
+	; display current line
 	ldxy src::line
 	jsr util::todec
 	ldx #4
@@ -77,6 +78,19 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	sta mem::statusline+@linestart,x
 	dex
 	bpl :-
+
+	lda #'/'
+	sta mem::statusline+@linestart+5
+
+	; display total lines
+	ldxy src::lines
+	jsr util::todec
+	ldx #4
+:	lda mem::spare,x
+	sta mem::statusline+@linestart+6,x
+	dex
+	bpl :-
+
 
 	; current edit mode (insert or replace) if in INSERT mode
 	lda zp::editor_mode
