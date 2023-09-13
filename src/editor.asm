@@ -721,20 +721,16 @@ main:
 ;******************************************************************************_
 ; BEGINWORD
 .proc beginword
-	jsr src::start
+@l0:	jsr src::start
 	beq @done
+
 	lda zp::curx
 	beq @done
 	jsr src::prev
 	dec zp::curx
 
-@l0:	jsr src::start
-	beq @done
-	jsr src::atcursor
 	jsr util::isalphanum
 	bne @sepfound
-	dec zp::curx
-	jsr src::prev
 	jmp @l0
 @sepfound:
 @done:	rts
@@ -743,7 +739,28 @@ main:
 ;******************************************************************************_
 ; DELETE
 .proc delete
+:	jsr key::getch	; get a key to decide what to delete
+	beq :-
+	ldx #@numcmds-1
+:	cmp @subcmds,x
+	beq @found
+	dex
+	bpl :-
+@notfound:
 	rts
+@found:	lda @subcmdslo,x
+	sta zp::jmpvec
+	lda @subcmdshi,x
+	sta zp::jmpvec+1
+	jmp zp::jmpaddr
+@subcmds:
+.byte $77	; w delete word
+.byte $64	; d delete line
+@numcmds=*-@subcmds
+
+.define subcmds delete_word, delete_line
+@subcmdshi: .hibytes subcmds
+@subcmdslo: .lobytes subcmds
 .endproc
 
 
@@ -793,6 +810,18 @@ main:
 
 ;******************************************************************************_
 .proc delete_word
+@l0:	jsr src::end
+	beq @done
+	jsr src::delete
+	bcs @done
+	jsr src::after_cursor
+	cmp #$0d
+	bne :+
+	jsr text::scrollup
+:	jsr util::is_whitespace
+	beq @done
+	bne @l0
+@done:	jmp redraw_to_end_of_line
 .endproc
 
 ;******************************************************************************_
@@ -1626,6 +1655,7 @@ buffer8: lda #$07
 	sta mem::linebuffer,x
 	inc @x
 	bne :-
+
 @draw:	lda #$00
 	ldx @x
 	sta mem::linebuffer,x
@@ -1654,8 +1684,6 @@ buffer8: lda #$07
 .proc drawline
 	lda zp::cury
 	jsr text::drawline
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
 	jsr text::hioff
 @nextline:
 	; scroll lines below cursor position
@@ -1666,13 +1694,17 @@ buffer8: lda #$07
 	ldx #EDITOR_ROW_START
 	lda height
 	jsr text::scrollup
+	; and clear the new line
+	jsr text::clrline
+	lda height
+	jsr text::drawline
+
 	ldy height
 	jmp @setcur
 
 :	iny
 	tya
 	ldx height
-	dex
 	jsr text::scrolldown
 
 	ldy zp::cury
@@ -1910,15 +1942,22 @@ buffer8: lda #$07
 
 	; scroll everything up from below the line we deleted
 	ldx zp::cury
+	inx
+	cpx height
+	beq @noscroll	; if cursor is at end of screen, nothing to scroll
 	lda height
-	sec
-	sbc #$01
+	dex
 	jsr text::scrollup
 .IFDEF DRAW_TITLEBAR
 	jsr draw_titlebar
 .ENDIF
 
+@noscroll:
+	; clear the last line on the screen
 	jsr text::clrline
+	lda height
+	jsr text::drawline
+
 	; get the length of the line we're moving up
 	jsr src::get
 

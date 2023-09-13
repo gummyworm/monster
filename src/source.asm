@@ -468,6 +468,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	rts
 .endproc
 
+
 ;******************************************************************************
 ; PREV
 ; Moves the cursor back one character in the gap buffer.
@@ -660,6 +661,25 @@ __src_atcursor:
 	ldy #$00
 	lda (zp::tmp0),y
 .ENDIF
+	rts
+.endproc
+
+;******************************************************************************
+; ATCURSOR
+; Returns the character AFTER the cursor position.
+; OUT:
+;  - .A: the character after the current cursor position
+;  - .C: set if there is no character after the cursor
+.export __src_after_cursor
+.proc __src_after_cursor
+	jsr __src_end
+	beq @end
+	jsr __src_next
+	pha
+	jsr __src_prev
+	pla
+	RETURN_OK
+@end:	sec		; end of buffer
 	rts
 .endproc
 
