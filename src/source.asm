@@ -388,6 +388,8 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	decw line
 	decw lines
 :	decw pre
+	clc
+	rts
 @skip:	sec
 	rts
 .endproc

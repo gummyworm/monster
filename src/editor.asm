@@ -771,28 +771,28 @@ main:
 
 ;******************************************************************************_
 .proc delete_line
-@l0:	jsr src::atcursor
-	pha
-	jsr src::delete
-	pla
-	bcs @delete_prev
+	; delete everything between cursor and next newline
+:	jsr src::delete
+	bcs :+
+	jsr src::after_cursor
 	cmp #$0d
-	bne @l0
+	bne :-
 
-@delete_prev:
-@l1:	jsr src::atcursor
+	; delete everything between cursor and previous newline
+:	jsr src::atcursor
 	cmp #$0d
-	beq @done
+	beq :+
 	jsr src::backspace
-	jmp @l1
+	dec zp::curx
+	bcc :-
 
-; scroll the screen up and set cursor to column 0
-@done:	ldx zp::cury
-	lda height
-	jsr text::scrollup
-	ldx #$00
-	ldy zp::cury
-	jmp cur::set
+:	jsr src::backspace	; delete the preceeding newline
+	jsr scrollup
+	jsr src::next
+	jsr src::get
+	jsr src::prev
+	ldxy #mem::linebuffer
+@done:	rts
 .endproc
 
 ;******************************************************************************_
@@ -810,17 +810,33 @@ main:
 
 ;******************************************************************************_
 .proc delete_word
+@endonalpha=zp::tmp1
+	; if we're on an alphanum char, end on the first non-alphanum char
+	; if we're NOT on an alphanum char, end on the first alphanum char
+	jsr src::after_cursor
+	ldx #$00
+	jsr util::isalphanum
+	beq :+
+	inx
+:	stx @endonalpha	; flag if we are to end on an alphanum char or not
+
 @l0:	jsr src::end
 	beq @done
+	ldx zp::curx
+	ldy #40
+	jsr linebuff::shl
 	jsr src::delete
 	bcs @done
 	jsr src::after_cursor
-	cmp #$0d
+	jsr util::isalphanum
+	php
+	ldx @endonalpha
 	bne :+
-	jsr text::scrollup
-:	jsr util::is_whitespace
-	beq @done
+	plp
 	bne @l0
+:	plp
+	beq @l0
+
 @done:	jmp redraw_to_end_of_line
 .endproc
 
@@ -1993,6 +2009,22 @@ buffer8: lda #$07
 	lda zp::cury
 	ldxy #mem::linebuffer
 	jmp text::drawline
+.endproc
+
+;*****************************************************************************
+; SCROLLUP
+; scrolls everything from the cursor's position up
+.proc scrollup
+	; scroll everything up from below the line we deleted
+	ldx zp::cury
+	inx
+	cpx height
+	beq @noscroll	; if cursor is at end of screen, nothing to scroll
+	lda height
+	dex
+	jsr text::scrollup
+@noscroll:
+	rts
 .endproc
 
 ;******************************************************************************
