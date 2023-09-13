@@ -10,17 +10,12 @@
 ;  - .Y: the number of character positions to shift
 .export __linebuffer_shl
 .proc __linebuffer_shl
-@xstart=zp::tmp0
-	cpy #$00
-	beq @done
-	stx @xstart
-:	ldx @xstart
+@stop=zp::tmp0
+	sty @stop
 :	lda mem::linebuffer+1,x
 	sta mem::linebuffer,x
 	inx
-	cpx #39
+	cpx @stop
 	bne :-
-	dey
-	bne :--
 @done:	rts
 .endproc

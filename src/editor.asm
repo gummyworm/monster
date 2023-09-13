@@ -527,7 +527,7 @@ main:
 	jsr handle_universal_keys
 	bcc :+
 	rts
-:	jsr insert
+:	jmp insert
 .endproc
 
 ;******************************************************************************_
@@ -785,7 +785,7 @@ main:
 	beq @done
 	jsr src::delete
 	ldx zp::curx
-	ldy #1
+	ldy #39
 	jsr linebuff::shl
 	bcc @l0
 @done:	rts
@@ -1589,7 +1589,12 @@ buffer8: lda #$07
 	;jsr src::insert
 	;dec @i
 	;bne @indent
-@done:	rts
+@done:	lda zp::curx
+	beq @ret
+:	jsr src::prev
+	dec zp::curx
+	bne :-
+@ret:	rts
 
 @err:	lda #$ff
 	; highlight the error line
@@ -1872,6 +1877,7 @@ buffer8: lda #$07
 ; Handles the DEL key
 .proc ccdel
 @cnt=zp::tmp6
+@line2len=zp::tmp7
 	jsr src::start
 	beq @done
 
@@ -1933,9 +1939,9 @@ buffer8: lda #$07
 	ldxy #mem::linebuffer
 	jsr str::len
 	sec
-@line2len=*+1
-	sbc #$00
+	sbc @line2len
 	sta @cnt
+	beq @redraw
 	dec @cnt
 	bmi @redraw
 @endofline:
@@ -1946,8 +1952,7 @@ buffer8: lda #$07
 
 @redraw:
 	lda zp::cury
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
+	ldxy #mem::linebuffer
 	jmp text::drawline
 .endproc
 

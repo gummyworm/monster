@@ -7,6 +7,7 @@
 .include "file.inc"
 .include "irq.inc"
 .include "key.inc"
+.include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "source.inc"
@@ -90,7 +91,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	sta mem::statusline+@linestart+6,x
 	dex
 	bpl :-
-
 
 	; current edit mode (insert or replace) if in INSERT mode
 	lda zp::editor_mode
@@ -312,7 +312,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	bne @printing
 
 	; backspace
-	sec
 	lda zp::curx
 	beq @err	; cannot delete (cursor is at left side of screen)
 	cmp cur::minx
@@ -322,22 +321,18 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	beq @moveback
 @shift_left:
 	jsr __text_linelen
-	stx zp::tmp0
+	txa
+	tay
 	ldx zp::curx
 	dex
-@l0:	lda mem::linebuffer+1,x
-	sta mem::linebuffer,x
-	inx
-	cpx zp::tmp0
-	bcc @l0
+	jsr linebuff::shl
 @moveback:
-	ldx #$ff
-	ldy #0
-	jsr cur::move
+	dec zp::curx
 	lda zp::cury
 	jsr __text_drawline
 	clc	; "put" was successful
-@err:
+	rts
+@err:	sec	; couldn't perform action
 	rts
 
 @printing:
