@@ -818,8 +818,8 @@ __src_atcursor:
 :	iny
 	cpy #39
 	bcc @l0
-@eof:
-	sec
+
+@eof:	sec
 	skb
 @done:	clc
 	lda #$00

@@ -1,12 +1,13 @@
 .include "bitmap.inc"
+.include "edit.inc"
 .include "macros.inc"
 .include "zeropage.inc"
 .include "text.inc"
 .CODE
 
 ;******************************************************************************
-L_INSERT_MASK=$f0
-R_INSERT_MASK=$0f
+L_INSERT_MASK=$80
+R_INSERT_MASK=$08
 L_REPLACE_MASK=$f0
 R_REPLACE_MASK=$0f
 
@@ -17,6 +18,9 @@ R_REPLACE_MASK=$0f
 ; OUT:
 ;  - .A: the mask that will be EOR'd to draw the cursor
 .proc mask
+	lda zp::editor_mode
+	cmp #MODE_COMMAND
+	beq @replace		; use REPLACE mask for COMMAND mode
 	lda text::insertmode
 	beq @replace
 @insert:

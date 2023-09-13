@@ -153,9 +153,7 @@ main:
 	bcc :+
 	rts
 	stxy zp::jmpvec
-	lda #$4c	; JMP
-	jsr zp::jmpaddr
-	rts
+	jmp zp::jmpaddr
 .endproc
 
 ;******************************************************************************
@@ -370,6 +368,15 @@ main:
 	pla
 	tax
 
+	lda zp::editor_mode
+	pha
+	lda text::insertmode	; save current insertion mode
+	pha
+	lda #MODE_INSERT
+	sta zp::editor_mode	; use INSERT mode for input
+	lda #TEXT_INSERT
+	sta text::insertmode	; also TEXT INSERT mode (rendering)
+
 	cmpw #0
 	beq @terminate_prompt
 	stxy @prompt
@@ -446,7 +453,11 @@ main:
 :	jsr text::restorebuff
 	ldx @result_offset
 	ldy #$01
-	plp	; get success state
+	plp			; get success state
+	pla
+	sta text::insertmode	; restore insert mode
+	pla
+	sta zp::editor_mode	; restore editor mode
 	rts
 .endproc
 
@@ -607,7 +618,7 @@ main:
 .proc enter_insert
 	lda #MODE_INSERT
 	sta mode
-	lda #$01
+	lda #TEXT_INSERT
 	sta text::insertmode
 	rts
 .endproc
@@ -617,7 +628,7 @@ main:
 .proc replace
 	lda #MODE_INSERT
 	sta mode
-	lda #$00
+	lda #TEXT_REPLACE
 	sta text::insertmode
 	rts
 .endproc
@@ -631,7 +642,7 @@ main:
 	sta @ch
 	lda text::insertmode
 	pha
-	lda #$00
+	lda #TEXT_REPLACE
 	sta text::insertmode
 	lda @ch
 	jsr insert
@@ -653,13 +664,14 @@ main:
 .proc append_to_line
 @l0:	jsr src::end
 	beq @done
-	jsr src::atcursor
+	jsr src::next
 	cmp #$0d
 	beq @retreat
 	inc zp::curx
-	jsr src::next
-	jmp @l0
+	bne @l0
 @retreat:
+	lda zp::curx
+	beq @done
 	jsr src::prev
 	dec zp::curx
 @done:	jmp enter_insert
@@ -741,6 +753,7 @@ main:
 
 ;******************************************************************************_
 .proc delete_to_begin
+	rts
 .endproc
 
 ;******************************************************************************_
@@ -851,7 +864,6 @@ main:
 :	ldxy #1
 	jmp gotoline
 .endproc
-
 
 ;******************************************************************************
 ; HANDLE_UNIVERSAL_KEYS
@@ -968,8 +980,8 @@ main:
 	.byte $3e	; C= + > next buffer
 	.byte $3c	; C= + < previous buffer
 	.byte $5f	; <- (return to COMMAND mode)
-
 @num_special_keys=*-@specialkeys
+
 @specialkeys_vectors:
 	.word home
 	.word save
@@ -1355,7 +1367,7 @@ buffer8: lda #$07
 ; EDIT
 ; Configures the cursor/screen/etc. for editing
 .proc edit
-	lda #$01
+	lda #TEXT_INSERT
 	sta text::insertmode
 	ldx #$00
 	ldy #EDITOR_ROW_START
@@ -2038,7 +2050,7 @@ __edit_gotoline:
 	lda zp::cury	; is (cury - diff) > 0? (is the line on screen?)
 	sec
 	sbc @diff
-	bmi @long
+	bcc @long
 
 @short: ldy #$00
 	lda @seekforward

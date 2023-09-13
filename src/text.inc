@@ -24,6 +24,9 @@ ESCAPE_VALUE_DEC = $fd
 ESCAPE_RVS_ON = $01
 ESCAPE_RVS_OFF = $02
 
+TEXT_INSERT = 1
+TEXT_REPLACE = 0
+
 .scope text
         len      = __text_len
 	clrline  = __text_clrline
