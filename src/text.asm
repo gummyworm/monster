@@ -210,12 +210,15 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	ldx @savex
 :	lda mem::spare,y
 	cmp #'0'
-	beq :+		; skip leading zeros
+	bne :+		; skip leading zeros
+	iny
+	bne :-
+:	lda mem::spare,y
 	sta @buff,x
 	inx
-:	iny
+	iny
 	cpy #5
-	bne :--
+	bne :-
 	cmp #'0'
 	bne :+
 	sta @buff	; if entire string is 0's, set to "0"
