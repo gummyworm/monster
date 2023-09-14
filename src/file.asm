@@ -164,8 +164,8 @@ kernal_sas   = $26d	; KERNAL secondary address table
 ;  .C: set on error, clear on success
 .export __file_save
 .proc __file_save
-@name=zp::tmp4
-@namelen=zp::tmp6
+@name=zp::tmp8
+@namelen=zp::tmpa
 @dev=$ba
 @namebuff=mem::spare
 	sta @namelen
@@ -189,6 +189,7 @@ kernal_sas   = $26d	; KERNAL secondary address table
 	bcc :-
 	tya		; .A = name length
 
+@resave:
 	ldxy #@namebuff
 	jsr $ffbd 	; SETNAM
 	lda #$03
@@ -220,7 +221,8 @@ kernal_sas   = $26d	; KERNAL secondary address table
 	bne @save
 
 @done:
-@error: jsr io::readerr
+@error:
+	jsr io::readerr
 	lda #$03      ; filenumber 3
 	jsr $ffc3     ; CLOSE
 	jsr $ffcc     ; call CLRCHN
@@ -233,7 +235,7 @@ kernal_sas   = $26d	; KERNAL secondary address table
 	jsr $ffcc	; CLRCHN
 
 	; delete old file
-	ldxy @name
+	ldxy #@namebuff
 	lda @namelen
 	jsr __file_scratch
 	beq :+
@@ -241,9 +243,10 @@ kernal_sas   = $26d	; KERNAL secondary address table
 	rts		; scratch failed, leave error from io:readerr for user
 
 : 	; retry the save
-	ldxy @name
 	lda @namelen
-	jmp __file_save
+	clc
+	adc #$04	; strlen(@p_w)
+	bcc @resave
 
 ;------------------
 @p_w:	.byte ",p,w"

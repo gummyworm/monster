@@ -1487,12 +1487,15 @@ buffer8: lda #$07
 	jsr text::print
 
 	ldxy @file
+	jsr str::len	; get the file length
+	pha
+
 	ldxy @file
 	jsr src::name
-
-	jsr str::len	; get the file length
-	ldxy @file	; filename
+	pla
+	ldxy @file
 	jsr file::save
+
 	cmp #$00
 	bne @err
 	rts	; no error
