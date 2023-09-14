@@ -15,9 +15,15 @@
 	MAX_SOURCES=1
 .endif
 
+;******************************************************************************
+; CONSTANTS
 GAPSIZE = 20		; size of gap in gap buffer
 POS_STACK_SIZE = 32 	; size of source position stack
 MAX_BUFFER_NAME_LEN=16  ; max name for each buffer
+
+;******************************************************************************
+; FLAGS
+FLAG_DIRTY = 1
 
 .segment "SOURCE"
 ;******************************************************************************
@@ -48,6 +54,7 @@ lens:	  .res MAX_SOURCES*2	; buffers for each source
 __src_names:
 names:	   .res MAX_SOURCES*MAX_BUFFER_NAME_LEN
 
+
 .BSS
 ;******************************************************************************
 .export __src_numbuffers
@@ -61,6 +68,7 @@ bank:	    .byte 0
 buffs_curx: .res MAX_SOURCES	; cursor X positions for each inactive buffer
 buffs_cury: .res MAX_SOURCES	; cursor Y positions for each inactive buffer
 .endif
+flags:	.res MAX_SOURCES	; flags for each source buffer
 
 ;******************************************************************************
 
@@ -215,6 +223,12 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	lda numsrcs
 	sta activesrc
 	inc numsrcs
+
+	; mark the buffer as clean
+	tax
+	lda #$00
+	sta flags,x
+
 	rts
 .endproc
 
@@ -233,6 +247,46 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	lda #$00
 	adc #>__src_names
 	tay
+	rts
+.endproc
+
+;******************************************************************************
+; ISDIRTY
+; Returns .Z clear if the active buffer is dirty (has changed since it was last
+; marked !DIRTY)
+; OUT:
+;  - .Z: clear if the buffer has changed since last flagged clean
+.export __src_isdirty
+.proc __src_isdirty
+	ldy activesrc
+	lda flags,y
+	and #FLAG_DIRTY
+	rts
+.endproc
+
+;******************************************************************************
+; GET_FLAGS
+; Returns the flags for the requested buffer
+; IN:
+;  - .A: the buffer to get flags for
+; OUT:
+;  - .A: the flags for the active buffer
+.export __src_getflags
+.proc __src_getflags
+	tay
+	lda flags,y
+	rts
+.endproc
+
+;******************************************************************************
+; SET_FLAGS
+; Sets the flags for the active source buffer
+; IN:
+;  - .A: the flags to set on the active source buffer
+.export __src_setflags
+.proc __src_setflags
+	ldy activesrc
+	sta flags,y
 	rts
 .endproc
 
@@ -398,6 +452,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ;  - .C: set if the backspace failed (we're at the START of the source)
 .export __src_backspace
 .proc __src_backspace
+	jsr mark_dirty
 	jsr __src_start
 	beq @skip
 	jsr atcursor
@@ -419,6 +474,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ;  - .C: set if there is nothing to delete (cursor is at END)
 .export __src_delete
 .proc __src_delete
+	jsr mark_dirty
 	jsr __src_end
 	beq @skip
 	decw post
@@ -586,6 +642,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 @src=zp::tmp2
 @dst=zp::tmp4
 	pha
+	jsr mark_dirty
 	jsr gaplen
 	cmpw #0		; is gap closed?
 	bne @ins	; no, insert as usual
@@ -636,6 +693,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .export __src_replace
 .proc __src_replace
 	pha
+	jsr mark_dirty
 	jsr __src_delete
 	pla
 	jmp __src_insert
@@ -905,5 +963,13 @@ __src_atcursor:
 	jsr __src_up
 	bcc @loop
 @done:	ldxy @cnt
+	rts
+.endproc
+
+;******************************************************************************
+.proc mark_dirty
+	lda #FLAG_DIRTY
+	ldx activesrc
+	sta flags,x
 	rts
 .endproc

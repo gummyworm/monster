@@ -1335,6 +1335,15 @@ buffer8: lda #$07
 	lda #$00
 	pha
 
+	; display a '*' before filename if the buffer is dirty
+	lda @cnt
+	jsr src::getflags
+	ldx #' '
+	and #FLAG_DIRTY
+	beq :+
+	ldx #'*'
+:	stx @dirty_marker
+
 	lda @cnt
 	ldxy #@buffer_line
 	jsr text::print
@@ -1356,7 +1365,9 @@ buffer8: lda #$07
 
 	jmp bm::restore
 
-@buffer_line: .byte ESCAPE_VALUE_DEC," : ", ESCAPE_STRING,0
+@buffer_line:  .byte ESCAPE_VALUE_DEC," :"
+@dirty_marker: .byte " "
+	       .byte ESCAPE_STRING,0
 .endproc
 
 ;******************************************************************************
@@ -1498,7 +1509,9 @@ buffer8: lda #$07
 
 	cmp #$00
 	bne @err
-	rts	; no error
+
+	; clear flags on the source buffer and return
+	jmp src::setflags
 
 @err:	pha		; push error code
 	lda #$00
@@ -1613,6 +1626,9 @@ buffer8: lda #$07
 	jsr file::load
 	cmp #$00
 	bne @err
+
+	; clear flags on the source buffer
+	jsr src::setflags
 
 	; reinitialize the editor (clear screen, etc.)
 	jsr reset

@@ -117,6 +117,13 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	dex
 	dey
 	bpl :-
+
+; display a '*' if the file is dirty
+	jsr src::isdirty
+	beq @done
+	lda #'*'
+	sta mem::statusline,x
+
 @done:	rts
 .endproc
 
@@ -215,19 +222,16 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	cmp #'0'
 	bne :+		; skip leading zeros
 	iny
-	bne :-
+	cpy #4
+	bcc :-
 :	lda mem::spare,y
 	sta @buff,x
 	inx
 	iny
 	cpy #5
-	bne :-
-	cmp #'0'
-	bne :+
-	sta @buff	; if entire string is 0's, set to "0"
-	inx
+	bcc :-
 
-:	ldy @savey
+	ldy @savey
 	jmp @cont
 
 ;substitute escape character with value from stack
