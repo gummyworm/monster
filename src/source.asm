@@ -85,16 +85,11 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 
 .CODE
 ;******************************************************************************
-; SETRSC
-; Sets the active source to the source in the given ID.
-; IN:
-;  - .A: the source we're switching to
-; OUT:
-;  - .C: set if the buffer could not be switched to
-.export __src_set
-.proc __src_set
-	pha
-
+; SAVE
+; Backs up the pointers for the active source so that they may be set for
+; another source
+.export __src_save
+.proc __src_save
 	; save the cursor position in the current buffer
 	ldx activesrc
 	lda zp::curx
@@ -131,13 +126,23 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	sta linenums,x
 	lda line+1
 	sta linenums+1,x
+	rts
+.endproc
 
+;******************************************************************************
+; SET
+; Sets the active source to the source in the given ID.
+; IN:
+;  - .A: the source we're switching to
+; OUT:
+;  - .C: set if the buffer could not be switched to
+.export __src_set
+.proc __src_set
 	; set the pointers to those of the source we're switching to
-	pla
 	sta activesrc
 	cmp numsrcs
 	bcc @ok
-	rts
+	rts		; buffer doesn't exist; return with .C set
 
 @ok:	asl
 	tax
@@ -199,7 +204,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 
 @saveold:
 	lda numsrcs
-	jsr __src_set	; save current source data
+	jsr __src_save	; save current source data
 @init:
 .ifdef USE_FINAL
 	lda numsrcs
@@ -298,14 +303,18 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 @end=zp::tmp0
 ; get number of last byte to move (num_buffers)*2
 	lda numsrcs
-	beq @done
+	beq @done	; no buffer to close
 	asl
 	sta @end
 
 ; get first byte to shift down (active_buffer+1)*2
-	lda activesrc
+	ldx activesrc
+	inx
+	cpx numsrcs
+	bcs @cont	; if this is last buffer, no need to shift
+
+	txa
 	asl
-	adc #$02
 	tax
 
 @l0:	; copy all the buffers' data down
@@ -348,7 +357,14 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	cpx @end
 	bne :-
 
+@cont:	; if there is no next buffer, open the previous
 	dec numsrcs
+	lda activesrc
+	cmp numsrcs
+	bcc :+
+	dec activesrc
+:	lda activesrc
+	jsr __src_set
 @done:	rts
 .endproc
 
@@ -477,7 +493,11 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	jsr mark_dirty
 	jsr __src_end
 	beq @skip
-	decw post
+	jsr __src_after_cursor
+	cmp #$0d
+	bne :+
+	decw lines
+:	decw post
 	clc
 	rts
 @skip:	sec

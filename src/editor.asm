@@ -835,7 +835,12 @@ main:
 :	jsr scrollup
 	jsr src::delete
 	jsr src::next
-	jsr src::get
+	jsr src::end
+	bne :+
+	; no lines left; move up to new last line
+	jsr ccup
+
+:	jsr src::get
 	jsr src::prev
 @done:	rts
 .endproc
@@ -869,9 +874,9 @@ main:
 	beq @done
 	ldx zp::curx
 	ldy #40
-	jsr linebuff::shl
 	jsr src::delete
 	bcs @done
+	jsr linebuff::shl
 	jsr src::after_cursor
 	jsr util::isalphanum
 	php
@@ -1286,7 +1291,8 @@ main:
 ; Frees the current source buffer and moves to the previous buffer (if there
 ; is one) or a new source.
 .proc close_buffer
-	rts
+	jsr src::close
+	jmp refresh	; refresh the new buffer
 .endproc
 
 ;******************************************************************************
@@ -1294,6 +1300,7 @@ main:
 ; Moves to the source buffer before the active one. If we are already at the
 ; first buffer, does nothing
 .proc next_buffer
+	jsr src::save		; save the active buffer's state
 	ldx src::activebuff
 	inx
 	txa
@@ -1308,6 +1315,7 @@ main:
 ; Moves to the source buffer after the active one. If we are already at the
 ; last buffer, does nothing
 .proc prev_buffer
+	jsr src::save		; save the active buffer's state
 	ldx src::activebuff
 	dex
 	bmi @done
