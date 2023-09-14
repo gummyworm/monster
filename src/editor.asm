@@ -602,6 +602,9 @@ main:
 	.byte $4f		; O (Open line above cursor)
 	.byte $6f		; o (Open line below cursor)
 	.byte $24		; $ (end of line)
+	.byte $5b		; [ (previous empty line)
+	.byte $5d		; ] (next empty line)
+
 @numcommands=*-@commands
 
 ; command tables for COMMAND mode key commands
@@ -610,7 +613,7 @@ main:
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, erase_char, word_advance, col_zero, last_line, \
 	home_line, ccdel, ccright, goto_end, goto_start, open_line_above, \
-	open_line_below, end_of_line
+	open_line_below, end_of_line, prev_empty_line, next_empty_line
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs
 @command_vecs_hi: .hibytes cmd_vecs
@@ -649,6 +652,7 @@ main:
 	sta text::insertmode
 	lda @ch
 	jsr insert
+	dec zp::curx	; don't advance cursor
 	pla
 	sta text::insertmode
 	rts
@@ -732,6 +736,30 @@ main:
 	beq @done
 	jsr src::next
 	inc zp::curx
+	bne :-
+@done:	rts
+.endproc
+
+;******************************************************************************_
+.proc prev_empty_line
+	jsr col_zero		; move back to column zero
+:	jsr src::start
+	beq @done
+	jsr ccup
+	jsr src::after_cursor
+	cmp #$0d
+	bne :-
+@done:	rts
+.endproc
+
+;******************************************************************************_
+.proc next_empty_line
+	jsr col_zero		; move back to column zero
+:	jsr src::end
+	beq @done
+	jsr ccdown
+	jsr src::atcursor
+	cmp #$0d
 	bne :-
 @done:	rts
 .endproc
