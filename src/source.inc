@@ -10,6 +10,7 @@
 .import __src_end
 .import __src_get
 .import __src_goto
+.import __src_get_filename
 .import __src_insert
 .import __src_line
 .import __src_lines
@@ -46,6 +47,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	names = __src_names
 	numbuffers = __src_numbuffers
 	end = __src_end
+	filename = __src_get_filename
 	get = __src_get
 	goto = __src_goto
 	insert = __src_insert

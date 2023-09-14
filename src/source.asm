@@ -219,6 +219,24 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .endproc
 
 ;******************************************************************************
+; GET_FILENAME
+; Returns the filename for the active buffer
+.export __src_get_filename
+.proc __src_get_filename
+	lda __src_activebuff
+	asl
+	asl
+	asl
+	asl
+	adc #<__src_names
+	tax
+	lda #$00
+	adc #>__src_names
+	tay
+	rts
+.endproc
+
+;******************************************************************************
 ; CLOSE
 ; Closes the active buffer
 .export __src_close

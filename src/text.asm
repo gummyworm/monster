@@ -50,6 +50,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 ; SIDE-EFFECTS:
 ;  - mem::statusline: contains the new status info
 .proc update_statusline
+@filename=zp::tmp0
 @columnstart=STATUS_COL+3
 @linestart=STATUS_COL+6
 @sizestart=STATUS_COL+13
@@ -95,21 +96,23 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	; current edit mode (insert or replace) if in INSERT mode
 	lda zp::editor_mode
 	cmp #MODE_COMMAND
-	beq @filename
+	beq @copy_filename
 	ldx #'r'
 	lda __text_insertmode
 	beq :+
 	ldx #'i'
 :	stx mem::statusline+@modestart
 
-@filename:
+@copy_filename:
 	; filename
-	ldxy #file::name
+	jsr src::filename
+	stxy @filename
 	jsr str::len
 	tay
+	dey
 	beq @done
 	ldx #39
-:	lda file::name,y
+:	lda (@filename),y
 	sta mem::statusline,x
 	dex
 	dey
@@ -315,6 +318,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	bne @printing
 
 	; backspace
+	jsr cur::off
 	lda zp::curx
 	beq @err	; cannot delete (cursor is at left side of screen)
 	cmp cur::minx

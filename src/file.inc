@@ -5,7 +5,6 @@
 .import __file_open
 .import __file_save
 .import __file_scratch
-.import __file_name
 
 
 .scope file
@@ -16,5 +15,4 @@
 	open = __file_open
 	save = __file_save
 	scratch = __file_scratch
-	name = __file_name
 .endscope

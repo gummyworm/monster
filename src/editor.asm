@@ -228,7 +228,7 @@ main:
 	lda zp::gendebuginfo
 	beq @pass1
 	; set the initial file for debugging
-	jsr get_filename
+	jsr src::filename
 	jsr dbg::setfile
 
 ;--------------------------------------
@@ -601,6 +601,7 @@ main:
 	.byte $67		; g (goto start)
 	.byte $4f		; O (Open line above cursor)
 	.byte $6f		; o (Open line below cursor)
+	.byte $24		; $ (end of line)
 @numcommands=*-@commands
 
 ; command tables for COMMAND mode key commands
@@ -609,7 +610,7 @@ main:
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, erase_char, word_advance, col_zero, last_line, \
 	home_line, ccdel, ccright, goto_end, goto_start, open_line_above, \
-	open_line_below
+	open_line_below, end_of_line
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs
 @command_vecs_hi: .hibytes cmd_vecs
@@ -719,6 +720,20 @@ main:
 @endofline:
 	dec zp::curx
 	jmp src::prev
+.endproc
+
+;******************************************************************************_
+; END_OF_LINE
+.proc end_of_line
+:	jsr src::end
+	beq @done
+	jsr src::after_cursor
+	cmp #$0d
+	beq @done
+	jsr src::next
+	inc zp::curx
+	bne :-
+@done:	rts
 .endproc
 
 ;******************************************************************************_
@@ -923,7 +938,8 @@ main:
 	jsr cur::set
 	jsr text::clrline
 	lda zp::cury
-	jmp text::drawline
+	jsr text::drawline
+	jmp enter_insert
 .endproc
 
 ;******************************************************************************
@@ -942,7 +958,8 @@ main:
 	jsr cur::set
 	jsr text::clrline
 	lda zp::cury
-	jmp text::drawline
+	jsr text::drawline
+	jmp enter_insert
 .endproc
 
 ;******************************************************************************
@@ -1463,27 +1480,24 @@ buffer8: lda #$07
 ;  - .XY: the filename to save the source to
 .proc save
 @file=zp::tmp9
-	stx @file
-	sty @file+1
-
-	; get the file length
-	jsr str::len
-	pha
+	stxy @file
 
 	ldxy #@savingmsg
 	lda #STATUS_ROW
 	jsr text::print
 
-	ldx @file
-	ldy @file+1
-	pla
+	ldxy @file
+	ldxy @file
+	jsr src::name
+
+	jsr str::len	; get the file length
+	ldxy @file	; filename
 	jsr file::save
 	cmp #$00
 	bne @err
 	rts	; no error
-@err:
-	rts
-	pha
+
+@err:	pha		; push error code
 	lda #$00
 	pha
 	ldxy #@errmsg
@@ -2331,22 +2345,6 @@ __edit_gotoline:
 @line_err: .byte ";pass ", ESCAPE_VALUE_DEC,";line ", ESCAPE_VALUE_DEC,0
 .endproc
 
-;******************************************************************************
-; GET_FILENAME
-; Returns the filename for the active buffer
-.proc get_filename
-	lda src::activebuff
-	asl
-	asl
-	asl
-	asl
-	adc #<src::names
-	tax
-	lda #$00
-	adc #>src::names
-	tay
-	rts
-.endproc
 
 .DATA
 ;******************************************************************************

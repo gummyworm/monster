@@ -167,27 +167,29 @@ kernal_sas   = $26d	; KERNAL secondary address table
 @name=zp::tmp4
 @namelen=zp::tmp6
 @dev=$ba
+@namebuff=mem::spare
 	sta @namelen
 	stxy @name
-	ldy #$00
 
+	ldy #$00
 @setname:
 	lda (@name),y
 	beq @add_p_w
-	sta name,y
+	sta @namebuff,y
 	iny
 	bne @setname
 
 @add_p_w:
 	ldx #$00
 :	lda @p_w,x
-	sta name,y
+	sta @namebuff,y
 	iny
 	inx
 	cpx #@p_w_len
 	bcc :-
 	tya		; .A = name length
-	ldxy #name
+
+	ldxy #@namebuff
 	jsr $ffbd 	; SETNAM
 	lda #$03
 	tay
@@ -426,7 +428,4 @@ kernal_sas   = $26d	; KERNAL secondary address table
 
 .BSS
 ;******************************************************************************
-.export __file_name
-__file_name:
-name:  .res 16		; file name
 secondaryaddr: .byte 0	; secondary address to use on file open
