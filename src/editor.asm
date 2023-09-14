@@ -790,11 +790,11 @@ main:
 ;******************************************************************************_
 .proc delete_line
 	; delete everything between cursor and next newline
-:	jsr src::delete
-	bcs :+
-	jsr src::after_cursor
+:	jsr src::after_cursor
 	cmp #$0d
-	bne :-
+	beq :+
+	jsr src::delete
+	bcc :-
 
 	; delete everything between cursor and previous newline
 :	jsr src::atcursor
@@ -804,8 +804,8 @@ main:
 	dec zp::curx
 	bcc :-
 
-:	jsr src::backspace	; delete the preceeding newline
-	jsr scrollup
+:	jsr scrollup
+	jsr src::delete
 	jsr src::next
 	jsr src::get
 	jsr src::prev
