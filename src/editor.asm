@@ -168,9 +168,10 @@ main:
 	jsr label_addr_or_org
 	bcc :+
 	rts		; address not found
-:	lda #DEBUG_INFO_START_ROW-3
+:	lda #DEBUG_INFO_START_ROW-1
 	sta height
 	jsr dbg::start	; start debugging at address in .XY
+
 	jsr __edit_init	; re-init the editor
 	jmp refresh
 .endproc
@@ -412,7 +413,6 @@ main:
 	ldy #STATUS_ROW
 	jsr cur::set
 
-	ldxy #mem::linebuffer
 	lda #STATUS_ROW
 	jsr text::drawline
 @getkey:
@@ -599,6 +599,8 @@ main:
 	.byte $20		; SPACE (right)
 	.byte $47		; G (goto end)
 	.byte $67		; g (goto start)
+	.byte $4f		; O (Open line above cursor)
+	.byte $6f		; o (Open line below cursor)
 @numcommands=*-@commands
 
 ; command tables for COMMAND mode key commands
@@ -606,7 +608,8 @@ main:
 .define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, erase_char, word_advance, col_zero, last_line, \
-	home_line, ccdel, ccright, goto_end, goto_start
+	home_line, ccdel, ccright, goto_end, goto_start, open_line_above, \
+	open_line_below
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs
 @command_vecs_hi: .hibytes cmd_vecs
@@ -906,6 +909,43 @@ main:
 .endproc
 
 ;******************************************************************************
+.proc open_line_above
+	jsr src::atcursor
+	cmp #$0d
+	beq :+
+	jsr src::up	; move to start of line
+:	lda #$0d
+	jsr src::insert
+	jsr src::prev	; move between the 2 newlines
+	jsr scrolldown
+	ldy zp::cury
+	ldx #$00
+	jsr cur::set
+	jsr text::clrline
+	lda zp::cury
+	jmp text::drawline
+.endproc
+
+;******************************************************************************
+.proc open_line_below
+	jsr src::after_cursor
+	cmp #$0d
+	beq :+
+	jsr src::down	; move to end of line
+:	lda #$0d
+	jsr src::insert
+	jsr src::prev	; move between the 2 newlines
+	jsr scrolldown
+	ldy zp::cury
+	iny
+	ldx #$00
+	jsr cur::set
+	jsr text::clrline
+	lda zp::cury
+	jmp text::drawline
+.endproc
+
+;******************************************************************************
 ; HANDLE_UNIVERSAL_KEYS
 ; Handles keys that behave the same regardless of which mode the editor is in
 ; IN:
@@ -1095,7 +1135,6 @@ main:
 	jmp text::clrline	; if line ended on newline; it's empty
 
 :	lda zp::cury
-	ldxy #mem::linebuffer
 	jsr text::drawline
 	ldxy #mem::linebuffer
 	jsr str::len
@@ -1817,7 +1856,6 @@ buffer8: lda #$07
 @redraw:
 @redraw2:
 	lda zp::cury
-	ldxy #mem::linebuffer
 	jmp text::drawline
 .endproc
 
@@ -1914,7 +1952,6 @@ buffer8: lda #$07
 	pla
 	tax
 	jsr cur::set
-	ldxy #mem::linebuffer
 	lda zp::cury
 	jmp text::drawline
 .endproc
@@ -2006,7 +2043,6 @@ buffer8: lda #$07
 
 @redraw:
 	lda zp::cury
-	ldxy #mem::linebuffer
 	jmp text::drawline
 .endproc
 
@@ -2024,6 +2060,15 @@ buffer8: lda #$07
 	jsr text::scrollup
 @noscroll:
 	rts
+.endproc
+
+;******************************************************************************
+; SCROLLDOWN
+; scrolls everything from the cursor's position down
+.proc scrolldown
+	lda zp::cury
+	ldx height
+	jmp text::scrolldown
 .endproc
 
 ;******************************************************************************
@@ -2189,7 +2234,6 @@ __edit_gotoline:
 @longmove_cont:
 	sta @row
 @l0: 	jsr src::get
-	ldxy #mem::linebuffer
 	lda @row
 	jsr text::drawline
 
@@ -2204,7 +2248,6 @@ __edit_gotoline:
 
 	; draw the last row (src::up will return .C=1 for it)
 	jsr src::get
-	ldxy #mem::linebuffer
 	lda #$00
 	jsr text::drawline
 	jmp @renderdone
@@ -2222,7 +2265,6 @@ __edit_gotoline:
 	lda @row
 	sta @rowsave
 @clrloop:
-	ldxy #mem::linebuffer
 	jsr text::drawline
 	inc @row
 @clrnext:
