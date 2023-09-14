@@ -69,7 +69,7 @@ buffs_curx: .res MAX_SOURCES	; cursor X positions for each inactive buffer
 buffs_cury: .res MAX_SOURCES	; cursor Y positions for each inactive buffer
 .endif
 flags:	.res MAX_SOURCES	; flags for each source buffer
-
+banks:  .res MAX_SOURCES	; the corresponding bank for each buffer
 ;******************************************************************************
 
 ;******************************************************************************
@@ -96,6 +96,10 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	sta buffs_curx,x
 	lda zp::cury
 	sta buffs_cury,x
+
+	; save the bank
+	lda bank
+	sta banks,x
 
 	; save the data for the source we're switching from
 	txa
@@ -126,6 +130,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	sta linenums,x
 	lda line+1
 	sta linenums+1,x
+
 	rts
 .endproc
 
@@ -155,7 +160,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	lda posts,x
 	sta post
 	lda posts+1,x
-	sta posts+1
+	sta post+1
 
 	lda lens,x
 	sta len
@@ -172,19 +177,48 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	lda linenums+1,x
 	sta line+1
 
-	; set new bank
-	lda activesrc
-	clc
-	adc #FINAL_BANK_SOURCE0
+	ldx activesrc
+
+	; restore bank
+	lda banks,x
 	sta bank
 
 	; restore cursor position in the new source
-	ldx activesrc
 	ldy buffs_cury,x
 	lda buffs_curx,x
 	tax
 	jsr cur::set
+
 	RETURN_OK
+.endproc
+
+;******************************************************************************
+; FIND_BANK
+; Returns the ID of a free bank to store source in
+; OUT:
+;  - .A: the next available ID
+;  - .C: set if no open bank was found
+.proc find_bank
+@free=zp::tmp0
+	lda #FINAL_BANK_SOURCE0
+@l0:	ldx #$00
+	stx @free
+@l1:	cmp banks,x
+	bne :+
+	inc @free		; flag NOT free
+:	inx
+	cpx #MAX_SOURCES
+	bne @l1
+	ldx @free
+	beq @found
+	clc
+	adc #$01
+	cmp #FINAL_BANK_SOURCE0+MAX_SOURCES
+	bcc @l0
+	sec		; no open banks
+	rts
+
+@found:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -206,12 +240,6 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	lda numsrcs
 	jsr __src_save	; save current source data
 @init:
-.ifdef USE_FINAL
-	lda numsrcs
-	clc
-	adc #FINAL_BANK_SOURCE0
-	sta bank
-.endif
 	; clear the state for the new buffer
 	ldx #data_end-data_start
 	lda #$00
@@ -233,6 +261,10 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	tax
 	lda #$00
 	sta flags,x
+
+	jsr find_bank
+	ldx activesrc
+	sta bank
 
 	rts
 .endproc
@@ -316,6 +348,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	txa
 	asl
 	tax
+	pha
 
 @l0:	; copy all the buffers' data down
 	lda pres,x
@@ -336,9 +369,22 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	cpx @end
 	bne @l0
 
-	; copy the name down
-	lda activesrc
-	asl
+	; copy cursor data and banks down
+	ldx activesrc
+	inx
+:	lda banks,x
+	sta banks-1,x
+	lda buffs_curx,x
+	sta buffs_curx-1,x
+	lda buffs_cury,x
+	sta buffs_cury-1,x
+	inx
+	cpx numsrcs
+	bne :-
+
+
+	; copy the names down
+	pla
 	asl
 	asl
 	asl
@@ -351,8 +397,8 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	asl
 	sta @end
 
-:	lda names+16,x
-	sta names,x
+:	lda names,x
+	sta names-16,x
 	inx
 	cpx @end
 	bne :-
