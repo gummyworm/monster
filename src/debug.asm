@@ -11,6 +11,7 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "source.inc"
 .include "string.inc"
 .include "text.inc"
 .include "util.inc"
@@ -60,6 +61,7 @@ srcline = zp::debug+7
 segstart = zp::debug+9
 segstop = zp::debug+$b
 break_after_sr = zp::debug+$d	; if !0, NEXT_INSTRUCTION will skip subroutines
+debugtmp = zp::debug+$10
 
 .export __debug_src_line
 __debug_src_line = srcline ; the line # stored by dbg::storeline
@@ -668,7 +670,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	cmp #$02
 	bne @update_linecnt
 
-; pass 2- store the line number and corresponding address
+; pass 2- store the file, line number and corresponding address
 @pass2:
 	; store the line number
 	tya
@@ -725,6 +727,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; in:
 ;  - .XY: the address to get the location of
 ; out:
+;  - .A: the file-id of the address
 ;  - .XY: the line number of the address
 ;  - .C: set on error
 .export __debug_addr2line
@@ -778,12 +781,16 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @nextline
 
 ; get the line corresponding to the address
-@found: ldy #DATA_LINE
+@found: ldy #DATA_FILE
+	jsr read_from_line
+	pha			; save file ID
+	ldy #DATA_LINE
 	jsr read_from_line
 	tax
 	iny
 	jsr read_from_line
 	tay
+	pla			; get file ID
 	RETURN_OK
 
 @nextline:
@@ -846,27 +853,24 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .A: the file ID
 ;  - .C: set if there was no match
 .proc get_fileid
+@other=zp::str0
 @filename=zp::str2
-@cnt=zp::tmp4
-@other=zp::tmp5
-@len=zp::tmp6
+@cnt=debugtmp
+@len=debugtmp+1
 	stxy @filename
 	jsr str::len
 	sta @len
 	lda numfiles
 	beq @notfound
-	lda #$00
-	sta @other
-	sta @cnt
 
-@l0:	lda @other
-	clc
-	adc #<filenames
-	tax
-	lda @other+1
-	adc #>filenames
-	tay
-	lda @len
+	lda #$00
+	sta @cnt
+	lda #<filenames
+	sta @other
+	lda #>filenames
+	sta @other+1
+
+@l0:	lda @len
 	jsr str::compare
 	bne @next
 
@@ -875,9 +879,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	RETURN_OK	; file found
 
 @next:	lda @other
+	clc
 	adc #$10
 	sta @other
-	dec @cnt
+	inc @cnt
+	lda @cnt
+	cmp numfiles
 	bne @l0
 
 @notfound:
@@ -1112,6 +1119,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; needed by the debugger for display etc, then it restores the debugger's state
 ; and finally transfers control to the debugger
 .proc debug_brk
+@file=debugtmp
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
 	pla
 	sta reg_y
@@ -1175,11 +1183,28 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 @pushline:
 	stxy line
-	txa
-	pha
-	tya
-	pha
 
+; open the file of the line we BRK'd in
+; if the buffer is already loaded switch to it. if not, load it into the
+; DEBUG bank
+@openfile:
+	asl
+	asl
+	asl
+	asl
+	adc #<filenames
+	tax
+	lda #>filenames
+	adc #$00
+	tay
+	jsr edit::load
+	; TODO: handle err
+
+	; display the BRK message
+	lda line
+	pha
+	lda line+1
+	pha
 	ldxy #@brk_message_line
 	lda #DEBUG_MESSAGE_LINE
 	jsr text::print		; break in line <line #>

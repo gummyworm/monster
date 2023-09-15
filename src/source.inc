@@ -3,6 +3,7 @@
 .import __src_atcursor
 .import __src_backspace
 .import __src_buffer
+.import __src_buffer_by_name
 .import __src_close
 .import __src_delete
 .import __src_down
@@ -36,6 +37,8 @@
 .import __src_setflags
 .import __src_start
 
+MAX_SOURCES=8
+
 ;******************************************************************************
 ; FLAGS
 FLAG_DIRTY = 1
@@ -49,6 +52,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	atcursor = __src_atcursor
 	backspace = __src_backspace
 	buffer = __src_buffer
+	buffer_by_name = __src_buffer_by_name
 	close = __src_close
 	delete = __src_delete
 	down = __src_down

@@ -1290,11 +1290,12 @@ bbb10_modes:
 @doinc: lda #$00
 	sta @filename,x
 	ldxy #@filename
+
 ; entry point for assembling a given file
 .export __asm_include
 __asm_include:
-@err=zp::tmp0
-@fname=zp::tmp1
+@err=zp::tmpa
+@fname=zp::tmpc
 @readfile:
 	stxy @fname
 	jsr file::open
@@ -1314,7 +1315,7 @@ __asm_include:
 	; add the filename to debug info (if it isn't yet) and reset line no.
 	ldxy @fname
 	jsr dbg::setfile
-	ldxy #$00
+	ldxy #1
 	jsr dbg::setline
 
 ; read a line from file

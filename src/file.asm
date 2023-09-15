@@ -152,6 +152,14 @@ kernal_sas   = $26d	; KERNAL secondary address table
 	jsr $ffc3     ; call CLOSE
 	jsr $ffcc     ; call CLRCHN
 	pla
+	cmp #$00
+	beq @noerr
+	pha
+	jsr src::close
+	pla
+	sec
+	rts
+@noerr: clc
 	rts
 .endproc
 

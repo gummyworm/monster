@@ -519,7 +519,7 @@ main:
 @command_table:
 .word command_go
 .word command_debug
-.word load
+.word command_load
 .word save
 .word scratch
 .word assemble_file
@@ -677,9 +677,11 @@ main:
 .proc append_to_line
 @l0:	jsr ccright
 	bcc @l0
+	jsr src::end
+	beq @done
 	jsr src::next
 	inc zp::curx
-	jmp enter_insert
+@done:  jmp enter_insert
 .endproc
 
 ;******************************************************************************_
@@ -1534,45 +1536,32 @@ buffer8: lda #$07
 ;******************************************************************************
 ; LOAD
 ; Loads the file from disk into the source buffer
-.proc load
+.export __edit_load
+.proc __edit_load
 @file=zp::tmp9
 @dst=zp::tmpb
 @search=zp::tmpb
 	stxy @file
 
 	; check if the file is already open in one of our buffers
-	ldxy #src::names
-	stxy @search
-	ldx src::numbuffers
-	ldy #$00
-@seek:  lda (@file),y
-	cmp (@search),y
-	bne @next
-	cmp #$00
-	beq @found
-	iny
-	cpy #$10
-	bcc @seek
-
-@next:	dex
-	beq @notfound
-	lda @search
-	clc
-	adc #$10
-	sta @search
-	bcc @seek
-	inc @search+1
-	bne @seek
-
-@found:	stx @search
 	lda src::numbuffers
-	sbc @search
+	cmp #MAX_SOURCES
+	bcs @replace		; too many sources, close current and replace
+
+	jsr src::buffer_by_name
+	bcs @notfound
+
+@switch_buff:
+; buffer already loaded, switch to it
 	jsr src::setbuff
-	bcs @done
-	jsr refresh
-@done:	rts
+	jmp refresh
+
+@replace:
+; there too many open buffers, open a new one
+	jsr src::close
 
 @notfound:
+; buffer doesn't exist in any RAM bank, load from disk
 	; get the file length
 	ldxy @file
 	jsr str::len
@@ -1591,15 +1580,12 @@ buffer8: lda #$07
 	ldxy @file
 	pla
 	jsr file::load
-	cmp #$00
-	bne @err
+	bcs @err
 
 	; clear flags on the source buffer
 	jsr src::setflags
-
-	; reinitialize the editor (clear screen, etc.)
-	jsr reset
-	jmp refresh
+	jsr refresh
+	RETURN_OK
 
 @err:	pha
 	lda #$00
@@ -1607,11 +1593,24 @@ buffer8: lda #$07
 	ldxy #@errmsg
 	lda #STATUS_ROW-1
 	jsr text::print
+	sec
 	rts
 @loadingmsg:
 	.byte "loading...",0
 @errmsg:
 .byte "failed to load file; error $", $fe, 0
+.endproc
+
+;******************************************************************************
+; COMMAND_LOAD
+; Handles the load command
+.proc command_load
+	jsr __edit_load
+	bcs @err
+
+	; reinitialize the editor (clear screen, etc.)
+	jmp reset
+@err:	rts
 .endproc
 
 ;******************************************************************************
@@ -2379,7 +2378,6 @@ __edit_gotoline:
 	jmp cur::setmax
 @line_err: .byte ";pass ", ESCAPE_VALUE_DEC,";line ", ESCAPE_VALUE_DEC,0
 .endproc
-
 
 .DATA
 ;******************************************************************************

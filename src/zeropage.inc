@@ -18,7 +18,7 @@ bankval = $07	; the value written by store_byte
 math =  $0a
 
 ;******************************************************************************
-; $10-$20 is reserved for debug info generation
+; $10-$30 is reserved for debug info generation
 debug = $10
 src_line=$1e	; line # that is being assembled
 

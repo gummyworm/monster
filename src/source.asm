@@ -1,11 +1,12 @@
 .include "cursor.inc"
 .include "errors.inc"
+.include "finalex.inc"
 .include "irq.inc"
-.include "zeropage.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "finalex.inc"
+.include "string.inc"
 .include "util.inc"
+.include "zeropage.inc"
 
 .ifdef USE_FINAL
 	.import __BANKCODE_LOAD__
@@ -144,12 +145,15 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .export __src_set
 .proc __src_set
 	; set the pointers to those of the source we're switching to
-	sta activesrc
 	cmp numsrcs
 	bcc @ok
 	rts		; buffer doesn't exist; return with .C set
 
-@ok:	asl
+@ok:	cmp activesrc
+	bne :+
+	rts		; source is already active
+:	sta activesrc
+	asl
 	tax
 
 	lda pres,x
@@ -266,6 +270,53 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	ldx activesrc
 	sta bank
 
+	rts
+.endproc
+
+;******************************************************************************
+; BUFFER_BY_NAME
+; Returns the ID of the buffer associated with the given filename. The carry
+; is set if no buffer by the given name exists.
+; IN:
+;  - .XY: the name of the buffer to search for
+; OUT:
+;  - .A: the ID of the buffer; use src::set to make it the active buffer
+;  - .C: set if no buffer was found by the given name
+.export __src_buffer_by_name
+.proc __src_buffer_by_name
+@name=zp::str0
+@other=zp::str2
+@names=zp::tmp0
+@cnt=zp::tmp2
+@len=zp::tmp3
+	jsr str::len
+	sta @len
+
+	ldxy #names
+	stxy @names
+	lda #$ff
+	sta @cnt
+
+@l0:	inc @cnt
+	lda @cnt
+	cmp numsrcs
+	bcs @notfound
+	ldxy @names
+	stxy @other
+	lda @len
+	jsr str::compare
+	php
+	lda @names
+	clc
+	adc #16
+	sta @names
+	bcc :+
+	inc @names+1
+:	plp
+	bne @l0
+	lda @cnt
+	clc		; flag as FOUND
+@notfound:
 	rts
 .endproc
 
