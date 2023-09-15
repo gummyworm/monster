@@ -130,7 +130,7 @@ main:
 ;         label was given.
 ;  - .C: set on error, clear on success
 .proc label_addr_or_org
-	@lbl=zp::tmp0
+@lbl=zp::tmp0
 	stxy @lbl
 	jsr str::len
 	cmp #$00
@@ -165,11 +165,15 @@ main:
 ; IN:
 ;  - .XY: the address of the label to start debugging at
 .proc command_debug
+@addr=zp::editortmp
 	jsr label_addr_or_org
+	stxy @addr
 	bcc :+
 	rts		; address not found
-:	lda #DEBUG_INFO_START_ROW-1
+:	lda #DEBUG_INFO_START_ROW-2
 	sta height
+	jsr home_line	; avoid problems with cursor-y being below new height
+	ldxy @addr
 	jsr dbg::start	; start debugging at address in .XY
 
 	jsr __edit_init	; re-init the editor
@@ -613,7 +617,7 @@ main:
 .linecont +
 .define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
-	append_char, delete, delch, word_advance, home, last_line, \
+	append_char, delete, delete_char, word_advance, home, last_line, \
 	home_line, ccdel, ccright, goto_end, goto_start, open_line_above, \
 	open_line_below, end_of_line, prev_empty_line, next_empty_line
 .linecont -
@@ -769,9 +773,10 @@ main:
 @subcmds:
 .byte $77	; w delete word
 .byte $64	; d delete line
+.byte $24	; $ (end of line)
 @numcmds=*-@subcmds
 
-.define subcmds delete_word, delete_line
+.define subcmds delete_word, delete_line, delete_to_end
 @subcmdshi: .hibytes subcmds
 @subcmdslo: .lobytes subcmds
 .endproc
@@ -797,8 +802,18 @@ main:
 .endproc
 
 ;******************************************************************************_
+.proc delete_char
+	jsr delch
+	jmp redraw_to_end_of_line
+.endproc
+
+;******************************************************************************_
 .proc delete_to_end
-	rts
+@l0:	jsr delch
+	jsr src::after_cursor
+	cmp #$0d
+	bne @l0
+	jmp redraw_to_end_of_line
 .endproc
 
 ;******************************************************************************_
@@ -852,7 +867,11 @@ main:
 
 ;******************************************************************************
 .proc home_line
-@done:	rts
+@l0:	lda zp::cury
+	beq @done
+	jsr ccup	; move UP until cursor is at top row
+	jmp @l0
+@done:	jmp home	; go to column zero
 .endproc
 
 ;******************************************************************************
@@ -1835,7 +1854,6 @@ buffer8: lda #$07
 	ldx @cnt
 	jsr cur::set
 @redraw:
-@redraw2:
 	lda zp::cury
 	jmp text::drawline
 .endproc
@@ -2241,7 +2259,6 @@ __edit_gotoline:
 	ldy #$00		; hi byte is 0, can't be < -EDITOR_HEIGHT
 	lda @seekforward
 	beq :+
-	inx
 	jsr src::upn		; move up before we render downward
 	jmp @longf_cont
 :	jsr src::downn		; move down before we we render upward
