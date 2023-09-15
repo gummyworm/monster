@@ -428,6 +428,8 @@ main:
 	cmp #$5f	; <- (done)
 	beq @exit
 	jsr text::putch
+	lda zp::cury
+	jsr text::drawline
 	jmp @getkey
 
 @done:	clc ; clear carry for success
@@ -611,7 +613,7 @@ main:
 .linecont +
 .define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
-	append_char, delete, erase_char, word_advance, col_zero, last_line, \
+	append_char, delete, delch, word_advance, home, last_line, \
 	home_line, ccdel, ccright, goto_end, goto_start, open_line_above, \
 	open_line_below, end_of_line, prev_empty_line, next_empty_line
 .linecont -
@@ -669,16 +671,11 @@ main:
 ;******************************************************************************_
 ; APPEND_TO_LINE
 .proc append_to_line
-@l0:	jsr src::end
-	beq @done
+@l0:	jsr ccright
+	bcc @l0
 	jsr src::next
-	cmp #$0d
-	beq @retreat
 	inc zp::curx
-	bne @l0
-@retreat:
-	jsr src::prev
-@done:	jmp enter_insert
+	jmp enter_insert
 .endproc
 
 ;******************************************************************************_
@@ -694,55 +691,31 @@ main:
 ;******************************************************************************_
 ; END_OF_WORD
 .proc endofword
-	jsr src::end
-	beq @done
-	jsr src::next	; unconditionally move 2 chars
-	inc zp::curx
-	cmp #$0d
-	beq @endofline
+	jsr ccright
+	bcs @done
+	jsr ccright
+	bcs @done
 
-	jsr src::end
-	beq @done
-	jsr src::next
-	inc zp::curx
-	cmp #$0d
-	beq @endofline
-
-@l0:	jsr src::end
-	beq @done
-	jsr src::next	; try to move at least one character
-	inc zp::curx
-	cmp #$0d
-	beq @endofline
+@l0:	jsr ccright
+	bcs @done
+	jsr src::after_cursor
 	jsr util::isalphanum
 	beq @l0
-	dec zp::curx
-	jsr src::prev
-	dec zp::curx
-	jsr src::prev
+	jsr ccleft	; move back to the last char
 @done:	rts
-@endofline:
-	dec zp::curx
-	jmp src::prev
 .endproc
 
 ;******************************************************************************_
 ; END_OF_LINE
 .proc end_of_line
-:	jsr src::end
-	beq @done
-	jsr src::after_cursor
-	cmp #$0d
-	beq @done
-	jsr src::next
-	inc zp::curx
-	bne :-
+@l0:	jsr ccright
+	bcc @l0
 @done:	rts
 .endproc
 
 ;******************************************************************************_
 .proc prev_empty_line
-	jsr col_zero		; move back to column zero
+	jsr home	; move back to column zero
 :	jsr src::start
 	beq @done
 	jsr ccup
@@ -754,7 +727,7 @@ main:
 
 ;******************************************************************************_
 .proc next_empty_line
-	jsr col_zero		; move back to column zero
+	jsr home	; move back to column zero
 :	jsr src::end
 	beq @done
 	jsr ccdown
@@ -767,18 +740,12 @@ main:
 ;******************************************************************************_
 ; BEGINWORD
 .proc beginword
-@l0:	jsr src::start
-	beq @done
+@l0:	jsr ccleft
+	bcs @done
 
-	lda zp::curx
-	beq @done
-	jsr src::prev
-	dec zp::curx
-
+	jsr src::atcursor
 	jsr util::isalphanum
-	bne @sepfound
-	jmp @l0
-@sepfound:
+	beq @l0
 @done:	rts
 .endproc
 
@@ -817,45 +784,21 @@ main:
 
 ;******************************************************************************_
 .proc delete_line
-	; delete everything between cursor and next newline
-:	jsr src::after_cursor
-	cmp #$0d
-	beq :+
-	jsr src::delete
-	bcc :-
-
-	; delete everything between cursor and previous newline
-:	jsr src::atcursor
-	cmp #$0d
-	beq :+
-	jsr src::backspace
-	dec zp::curx
-	bcc :-
-
-:	jsr scrollup
-	jsr src::delete
-	jsr src::next
+	jsr ccdown
+	jsr home
+@l0:	jsr backspace
+	lda zp::curx
+	bne @l0
 	jsr src::end
 	bne :+
-	; no lines left; move up to new last line
 	jsr ccup
-
-:	jsr src::get
-	jsr src::prev
-@done:	rts
+:	lda zp::cury
+	jmp text::drawline
 .endproc
 
 ;******************************************************************************_
 .proc delete_to_end
-@l0:	jsr src::atcursor
-	jsr util::is_whitespace
-	beq @done
-	jsr src::delete
-	ldx zp::curx
-	ldy #39
-	jsr linebuff::shl
-	bcc @l0
-@done:	rts
+	rts
 .endproc
 
 ;******************************************************************************_
@@ -870,13 +813,10 @@ main:
 	inx
 :	stx @endonalpha	; flag if we are to end on an alphanum char or not
 
-@l0:	jsr src::end
-	beq @done
-	ldx zp::curx
-	ldy #40
-	jsr src::delete
+@l0:	jsr delch
 	bcs @done
-	jsr linebuff::shl
+
+	; check if this is a character we're looking to end on
 	jsr src::after_cursor
 	jsr util::isalphanum
 	php
@@ -887,47 +827,23 @@ main:
 :	plp
 	beq @l0
 
-@done:	jmp redraw_to_end_of_line
+@done:  jmp redraw_to_end_of_line
 .endproc
 
-;******************************************************************************_
-; ERASE_CHAR
-.proc erase_char
-	jsr src::next
-	pha
-	jsr src::prev
-	pla
-	cmp #$0d
-	beq @done
-	jsr src::delete
-	jmp redraw_to_end_of_line
-@done:	rts
-.endproc
 
 ;******************************************************************************
 .proc word_advance
 	jsr src::end
 	beq @done
-:	jsr src::next
-	inc zp::curx
+@l0:	jsr ccright
+	bcs @done
+	jsr src::after_cursor
 	jsr util::isseparator
-	bne :-
-	cmp #$0d
-	bne @done
-	jsr src::prev
-	dec zp::curx
+	bne @l0
+	jsr ccright	; move after separator
 @done:	rts
 .endproc
 
-;******************************************************************************
-.proc col_zero
-	lda zp::curx
-	beq @done
-@l0:	jsr src::prev
-	dec zp::curx
-	bne @l0
-@done:	rts
-.endproc
 
 ;******************************************************************************
 .proc last_line
@@ -1146,13 +1062,9 @@ main:
 ; HOME
 ; Moves the cursor to start of the current line
 .proc home
-	ldx zp::curx
-	beq :+
-	jsr src::up
-	ldx #$00
-	ldy zp::cury
-	jsr cur::set
-:	rts
+@l0:	jsr ccleft
+	bcc @l0
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1929,8 +1841,41 @@ buffer8: lda #$07
 .endproc
 
 ;******************************************************************************
+; DELCH
+; Delete the character under the cursor
+; If the character can not be deleted does nothing and returns .C set.
+; Will not cross line boundaries
+; OUT:
+;  - .C: set if no character could be deleted.
+.proc delch
+	jsr src::end
+	beq @no_del
+	jsr src::after_cursor
+	cmp #$0d
+	beq @done		; last character
+	jsr src::delete
+	clc
+	rts
+
+@done:	ldx zp::curx
+	beq @no_del
+	lda #$00
+	dex
+	sta mem::linebuffer,x
+	dec zp::curx
+	jsr src::backspace
+	clc
+	rts
+@no_del:
+	sec
+	rts
+.endproc
+
+;******************************************************************************
 ; CCLEFT
 ; Handles the left cursor key
+; OUT:
+;  - .C: set if cursor could not be moved
 .proc ccleft
 	lda zp::curx
 	beq :+
@@ -1939,18 +1884,26 @@ buffer8: lda #$07
 	pla
 	cmp zp::curx
 	beq :+
-	jmp src::prev
-:	rts
+	jsr src::prev
+	clc
+	rts
+:	sec
+	rts
 .endproc
 
 ;******************************************************************************
 ; CCRIGHT
 ; Handles the right cursor key
+; OUT:
+;  - .C: set if cursor could not be moved
 .proc ccright
 	jsr src::right
-	bcc :+
-	jmp cur::right
-:	rts
+	bcs :+
+	jsr cur::right
+	clc
+	rts
+:	sec
+	rts
 .endproc
 
 ;******************************************************************************
@@ -2026,34 +1979,21 @@ buffer8: lda #$07
 .endproc
 
 ;******************************************************************************
-; CCDEL
-; Handles the DEL key
-.proc ccdel
+; BACKSPACE
+; Deletes the previous character in the source and moves the cursor as needed.
+; Call text::drawline (with the newly updated cursor Y position) to render the
+; result of this routine.
+; OUT:
+;  - mem::linebuffer: the new rendering of the line
+;  - zp::curx: updated
+;  - zp::cury: update
+.proc backspace
 @cnt=zp::tmp6
 @line2len=zp::tmp7
-	jsr src::start
-	beq @done
-
-	lda mode
-	cmp #MODE_COMMAND	; handle COMMAND mode like REPLACE
-	beq @del_rep
-
-	lda text::insertmode
-	bne @del_ins
-
-@del_rep:
-	; if we're replacing, just decrement cursor if we can
-	lda zp::curx
-	beq @done
-	dec zp::curx
-	jmp src::prev
-
-@del_ins:
 	jsr src::backspace
 	lda #$14
 	jsr text::putch
-	bcs @prevline
-@done:	rts
+	bcc @done
 
 @prevline:
 	; move the cursor
@@ -2085,7 +2025,7 @@ buffer8: lda #$07
 	; if the current char is a newline, we're done
 	jsr src::atcursor
 	cmp #$0d
-	beq @redraw
+	beq @done
 
 	ldxy #mem::linebuffer
 	jsr str::len
@@ -2093,24 +2033,47 @@ buffer8: lda #$07
 
 	; get the new cursor position ( new_line_len - (old_line2_len))
 	jsr src::up
-	;jsr src::start
-	;beq @redraw
 	jsr src::get
 	ldxy #mem::linebuffer
 	jsr str::len
 	sec
 	sbc @line2len
 	sta @cnt
-	beq @redraw
+	beq @done
 	dec @cnt
-	bmi @redraw
+	bmi @done
 @endofline:
 	inc zp::curx
 	jsr src::next
 	dec @cnt
 	bpl @endofline
+@done:	rts
+.endproc
 
-@redraw:
+;******************************************************************************
+; CCDEL
+; Handles the DEL key
+.proc ccdel
+	jsr src::start
+	bne :+
+@done:	rts
+
+:	lda mode
+	cmp #MODE_COMMAND	; handle COMMAND mode like REPLACE
+	beq @del_rep
+
+	lda text::insertmode
+	bne @del_ins
+
+@del_rep:
+	; if we're replacing, just decrement cursor if we can
+	lda zp::curx
+	beq @done
+	dec zp::curx
+	jmp src::prev
+
+@del_ins:
+	jsr backspace
 	lda zp::cury
 	jmp text::drawline
 .endproc

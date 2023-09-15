@@ -593,20 +593,21 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ; RIGHT
 ; Moves to the next character unless it is a newline
 ; OUT:
-;  - .C: set if the cursor was moved, clear if not
+;  - .C: set if the cursor wasn't moved, clear if it was
 .export __src_right
 .proc __src_right
 	jsr __src_end
 	beq @endofline
 
 	jsr __src_next
+	jsr __src_after_cursor
 	cmp #$0d
 	bne @done
 	jsr __src_prev
 @endofline:
-	clc
+	sec
 	rts
-@done:	sec
+@done:	clc
 	rts
 .endproc
 
@@ -980,7 +981,7 @@ __src_atcursor:
 	lda @cnt
 	beq @done
 :	iny
-	cpy #39
+	cpy #79
 	bcc @l0
 
 @eof:	sec

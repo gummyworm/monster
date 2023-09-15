@@ -340,7 +340,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 @moveback:
 	dec zp::curx
 	lda zp::cury
-	jsr __text_drawline
 	clc	; "put" was successful
 	rts
 @err:	sec	; couldn't perform action
