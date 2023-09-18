@@ -1,7 +1,7 @@
 # MONster
+![helloworld](https://github.com/gummyworm/monster/assets/4626914/ba7345da-db81-4603-b381-7bc5cab56b52)
+
 MONster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
-In its current form it is primarily intended for native development of applications for the
-unexpanded Commodore Vic-20.
 
 Some of its features are:
  - 40 column bitmap-based editor
@@ -14,6 +14,7 @@ Some of its features are:
  - auto-formatter and realtime syntax checking
  - improved keyboard routine (3-key rollover)
  - macro support
+ - user program/source/editor isolation
  - many more...
 
 The source code is stored in a gap buffer to allow for efficient insertion/deletion.
@@ -431,7 +432,7 @@ toggle those which he/she wishes to enable/disable.
 
 As with all editors the back-arrow key (`<-`) exits and returns to the editor.
 
-### Memory Viewer (`C= + `v`)
+### Memory Viewer (`C= + v`)
 The memory viewer displays the contents of RAM at a given address.  The memory
 viewer is updated upon reentry to the debugger (if active).
 Memory values may be updated by navigating to the value the user wishes to
