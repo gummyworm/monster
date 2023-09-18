@@ -431,7 +431,7 @@ toggle those which he/she wishes to enable/disable.
 
 As with all editors the back-arrow key (`<-`) exits and returns to the editor.
 
-### Memory Viewer (`C= + `v`)
+### Memory Viewer (`C= + v`)
 The memory viewer displays the contents of RAM at a given address.  The memory
 viewer is updated upon reentry to the debugger (if active).
 Memory values may be updated by navigating to the value the user wishes to
