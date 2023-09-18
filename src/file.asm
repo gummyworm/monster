@@ -15,6 +15,8 @@ files        = $259	; KERNAL open file table
 file_devices = $261	; KERNAL device ID table
 kernal_sas   = $26d	; KERNAL secondary address table
 
+isbin        = zp::tmp17	; flag for binary save/load
+
 ;******************************************************************************
 ; LOADDIR
 ; Loads the directory listing into mem::spare
@@ -174,6 +176,9 @@ kernal_sas   = $26d	; KERNAL secondary address table
 .proc __file_save
 @name=zp::tmp8
 @namelen=zp::tmpa
+@end=zp::tmpc
+@src=zp::tmpe
+@bank=zp::tmp10
 @dev=$ba
 @namebuff=mem::spare
 	sta @namelen
@@ -223,7 +228,21 @@ kernal_sas   = $26d	; KERNAL secondary address table
 @save:  jsr $ffb7       ; READST (read status byte)
 	bne @done
 
-@chout: jsr src::next
+@chout: lda isbin
+	beq @use_src
+; if we are saving binary, read a byte and write it out
+@use_bin:
+	bank_read_byte @bank, @src
+	jsr $ffd2
+	incw @src
+	ldxy @src
+	cmpw @end
+	bne @save
+	beq @done
+
+; if we are saving the source, get a byte and write it out
+@use_src:
+	jsr src::next
 	cmp #$80
 	bcs :+		; skip non-printable chars (e.g. breakpoints)
 	jsr $ffd2	; CHROUT (write byte to file)
@@ -256,11 +275,25 @@ kernal_sas   = $26d	; KERNAL secondary address table
 	lda @namelen
 	clc
 	adc #$04	; strlen(@p_w)
-	bcc @resave
+	jmp @resave
 
 ;------------------
 @p_w:	.byte ",p,w"
 @p_w_len=*-@p_w
+.endproc
+
+;******************************************************************************
+; SAVEBIN
+; Saves the binary from the given bank, at the given address, to the given
+; filename
+; IN:
+;  - .XY: the filename to save to
+;  - .A: the source bank to save
+;  - zp::tmp0: the start address to save
+;  - zp::tmp2: the end address to save
+.export __file_savebin
+.proc __file_savebin
+
 .endproc
 
 ;******************************************************************************

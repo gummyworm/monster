@@ -1479,6 +1479,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #AUX_BRK
 	sta aux_mode
 	jsr brkpt::edit
+	inc $900f
+	jmp *-3
 	pla
 	pla
 	jmp debugloop
@@ -1875,6 +1877,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Removes a breakpoint at the address in .XY
 ; IN:
 ;  - .XY: the address of the breakpoint to remove
+.export __debug_remove_breakpoint
+__debug_remove_breakpoint:
 .proc remove_breakpoint
 @addr=debugtmp
 @end=debugtmp+2

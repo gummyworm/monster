@@ -34,12 +34,9 @@ row:	.byte 0
 ; Begins the breakpoint editor loop.
 .export __breakpoint_edit
 .proc __breakpoint_edit
-@scroll=zp::tmp11
-@row=zp::tmp12
-	jsr __breakpoint_view
 	lda #$00
-	sta @row
-	sta @scroll
+	sta row
+	sta scroll
 	jmp @redraw	; highlight the first row
 
 @loop:	jsr key::getch
@@ -50,46 +47,58 @@ row:	.byte 0
 
 @up:	cmp #$91	; up
 	bne @down
-	dec @row
+	dec row
 	bpl @redraw
-	inc @row
-	dec @scroll
+	inc row
+	dec scroll
 	bpl @redraw
-	inc @scroll
+	inc scroll
 	jmp @redraw
 
 @down:	cmp #$11	; down
 	bne @enter
-	inc @row
-	lda @row
+	inc row
+	lda row
 	cmp dbg::numbreakpoints
 	bcs :+
 	cmp #HEIGHT
 	bcc @redraw
-:	dec @row
-	inc @scroll
-	lda @scroll
+:	dec row
+	inc scroll
+	lda scroll
 	clc
-	adc @row
+	adc row
 	cmp dbg::numbreakpoints
 	bcc @redraw
-	dec @scroll
+	dec scroll
 	jmp @redraw
 
 @enter:	cmp #$0d
-	bne @loop
+	bne @del
 	; toggle the breakpoint's active status
-	lda @row
+	lda row
 	clc
-	adc @scroll
+	adc scroll
 	tax
 	lda dbg::breakpoint_flags,x
 	eor #BREAKPOINT_ENABLED
 	sta dbg::breakpoint_flags,x
+	jmp @redraw
+
+@del:	cmp #$11		; DEL
+	bne @loop
+	lda row
+	clc
+	adc scroll
+	tax
+	ldy dbg::breakpoints+1,x
+	lda dbg::breakpoints,x
+	tax
+	jsr dbg::removebreakpoint
 
 @redraw:
 	jsr __breakpoint_view
-	lda @row
+	lda row
 	clc
 	adc #BRKVIEW_START+1
 	jsr bm::rvsline
@@ -110,6 +119,7 @@ row:	.byte 0
 	; get the last breakpoint
 	lda scroll
 	sta @cnt
+
 @l0:	lda @cnt
 	cmp dbg::numbreakpoints
 	bcs @done
@@ -189,15 +199,16 @@ row:	.byte 0
 	lda @cnt
 	sec
 	sbc scroll
-	clc
-	adc #BRKVIEW_START+1
+	adc #BRKVIEW_START	; +1 (carry set)
 	jsr text::print
 
-	; next breakpoint
-	inc @cnt
 	lda @cnt
-	cmp #HEIGHT
-	bcc @l0
+	sec
+	sbc scroll
+	cmp #HEIGHT-1
+	bcs @done
+	inc @cnt
+	jmp @l0		; next breakpoint
 @done:	rts
 
 ; <filename> l: <line no.> <symbol> : <addr>

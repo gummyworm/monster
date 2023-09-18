@@ -11,6 +11,7 @@
 .import __debug_init_segment
 .import __debug_numbreakpoints
 .import __debug_restore_progstate
+.import __debug_remove_breakpoint
 .import __debug_setbreakpoint
 .import __debug_save_prog_state
 .import __debug_set_file
@@ -31,6 +32,7 @@
 	init = __debug_init
 	initseg = __debug_init_segment
 	numbreakpoints = __debug_numbreakpoints
+	removebreakpoint = __debug_remove_breakpoint
 	save_progstate = __debug_save_prog_state
 	setbreakpoint = __debug_setbreakpoint
 	setfile = __debug_set_file
