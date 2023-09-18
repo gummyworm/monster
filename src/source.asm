@@ -55,7 +55,6 @@ lens:	  .res MAX_SOURCES*2	; buffers for each source
 __src_names:
 names:	   .res MAX_SOURCES*MAX_BUFFER_NAME_LEN
 
-
 .BSS
 ;******************************************************************************
 .export __src_numbuffers
@@ -149,10 +148,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	bcc @ok
 	rts		; buffer doesn't exist; return with .C set
 
-@ok:	cmp activesrc
-	bne :+
-	rts		; source is already active
-:	sta activesrc
+@ok:	sta activesrc
 	asl
 	tax
 
@@ -386,8 +382,17 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 @end=zp::tmp0
 ; get number of last byte to move (num_buffers)*2
 	lda numsrcs
-	beq @done	; no buffer to close
-	asl
+	bne :+
+	rts		; no buffer to close
+:	cmp #$01
+	bne :+
+; only one buffer open; re-initialize it
+	dec numsrcs	; set num sources down to 0
+	jsr __src_new	; and initialize the buffer
+	ldxy #@new
+	jmp __src_name	; set name to NEW
+
+:	asl
 	sta @end
 
 ; get first byte to shift down (active_buffer+1)*2
@@ -463,6 +468,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 :	lda activesrc
 	jsr __src_set
 @done:	rts
+@new: .byte "new",0
 .endproc
 
 ;******************************************************************************
@@ -651,6 +657,27 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	beq @endofline
 
 	jsr __src_next
+	cmp #$0d
+	bne @done
+	jsr __src_prev
+@endofline:
+	sec
+	rts
+@done:	clc
+	rts
+.endproc
+
+;******************************************************************************
+; RIGHT_REP
+; Moves to the next character unless a newline exists AFTER the destination
+; OUT:
+;  - .C: set if the cursor wasn't moved, clear if it was
+.export __src_right_rep
+.proc __src_right_rep
+	jsr __src_end
+	beq @endofline
+
+	jsr __src_next
 	jsr __src_after_cursor
 	cmp #$0d
 	bne @done
@@ -661,6 +688,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 @done:	clc
 	rts
 .endproc
+
 
 
 ;******************************************************************************

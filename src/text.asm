@@ -32,6 +32,7 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 .export __text_insertmode
 __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
+
 .CODE
 ;******************************************************************************
 .export __text_status
@@ -164,11 +165,11 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 ;  - .XY: the address of the message to print
 .export __text_print
 .proc __text_print
-@str = zp::tmp0
-@row = zp::tmp2
-@savex = zp::tmp3
-@savey = zp::tmp4
-@ret = zp::tmp5
+@str = zp::text+9
+@row = zp::text+11
+@savex = zp::text+12
+@savey = zp::text+13
+@ret = zp::text+14
 @buff = mem::linebuffer2
         stx @str
         sty @str+1
@@ -283,16 +284,13 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	bcs @disp
 	bne @l1
 
-@ch:
-	sta @buff,x
+@ch:	sta @buff,x
 	inx
 
-@cont:
-	iny
+@cont:	iny
         jmp @l0
 
-@disp:
-	lda #' '
+@disp:	lda #' '
 :	sta @buff,x
 	inx
 	cpx #40
@@ -317,7 +315,9 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 ;  - .C: set if character was unsuccessfully put
 .export __text_putch
 .proc __text_putch
-@mask=zp::tmp4
+@src=zp::text
+@mask=zp::text+2
+@dst=zp::text+4
 	cmp #$14
 	bne @printing
 
@@ -387,14 +387,14 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	bne :+
 	rts			; terminating 0, we're done
 
-:	jsr get_char_addr	; zp::tmp0 contains char address
+:	jsr get_char_addr	; zp::text contains char address
 
 	; get destination
 	lda zp::cury
 	asl
 	asl
 	asl
-	sta zp::tmp2
+	sta @dst
 
 	lda zp::curx
 	lsr
@@ -402,11 +402,11 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	tax
 	lda bm::columns,x
 	clc
-	adc zp::tmp2
-	sta zp::tmp2
+	adc @dst
+	sta @dst
 	lda bm::columns+1,x
 	adc #$00
-	sta zp::tmp2+1
+	sta @dst+1
 
 	lda zp::curx
 	and #$01
@@ -422,13 +422,13 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 @blit:
 	lda @mask
 	eor #$ff
-	and (zp::tmp2),y
-	sta (zp::tmp2),y
+	and (@dst),y
+	sta (@dst),y
 
 	lda @mask
-	and (zp::tmp0),y
-	ora (zp::tmp2),y
-	sta (zp::tmp2),y
+	and (@src),y
+	ora (@dst),y
+	sta (@dst),y
 	dey
 	bpl @blit
 @updatecur:
@@ -459,7 +459,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
 	ldx #$00
 @l0:	lda mem::linebuffer,x
-	bmi :+
 	beq @done
 	cmp #' '
 	bcc :+
@@ -482,9 +481,9 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 ;  - .A: the bottom line that is scrolled
 .proc __text_scrollup
 .export __text_scrollup
-@src=zp::tmp2
-@dst=zp::tmp4
-@numrows=zp::tmp6
+@src=zp::text
+@dst=zp::text+2
+@numrows=zp::text+4
 	stx @numrows
 	cmp @numrows
 	bcs :+
@@ -548,10 +547,10 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 ;  - .X: the last column to scroll down to
 .export __text_scrolldown
 .proc __text_scrolldown
-@rowstart=zp::tmp2
-@rows=zp::tmp3
-@src=zp::tmp4
-@dst=zp::tmp6
+@rowstart=zp::text
+@rows=zp::text+1
+@src=zp::text+2
+@dst=zp::text+4
 	sta @rowstart
 
 	cpx @rowstart
@@ -770,9 +769,9 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 ; IN:
 ;  - .A: the character to get the address of
 ; OUT:
-;  zp::tmp0: the address of the character
+;  zp::text: the address of the character
 .proc get_char_addr
-@ch=zp::tmp0
+@ch=zp::text
 	sta @ch
         lda #$00
 	asl @ch
@@ -986,8 +985,12 @@ __text_charmap:
 .byte   0,   0,   0,   0,   0,   0,   0,   0
 
 ;CUSTOM CHARS. starting @ 128
-.byte   $44,$44,$44,$44,$44,$44,$44,$44        ; |
-.byte   $ff,$00,$00,$00,$00,$00,$00,$ff
-.byte   $88,$88,$88,$88,$88,$88,$88,$88
-.byte   $ff,$00,$00,$00,$00,$00,$00,$00
-.byte   $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff	; cursor
+.byte   $44,$44,$44,$44,$44,$44,$44,$44   ; 128  |
+.byte   $ff,$00,$00,$00,$00,$00,$00,$ff	  ; 129
+.byte   $88,$88,$88,$88,$88,$88,$88,$88	  ; 130
+.byte   $ff,$00,$00,$00,$00,$00,$00,$00	  ; 131
+.byte   $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff	  ; 132  cursor
+.byte   $00,$00,$22,$77,$77,$22,$00,$00	  ; 133 bullet/breakpoint symbol
+.byte  $00,$44,$66,$77,$77,$66,$44,$00	  ; 134 arrow pointing right
+
+

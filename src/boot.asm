@@ -1,4 +1,5 @@
 .include "asm.inc"
+.include "debug.inc"
 .include "edit.inc"
 .include "fastcopy.inc"
 .include "finalex.inc"
@@ -64,7 +65,7 @@ start:
 
 ; initialize the JMP vector
 	lda #$4c	; JMP
-	sta $00
+	sta zp::jmpaddr
 
         ldx #<irq_handler
         ldy #>irq_handler
@@ -79,6 +80,9 @@ start:
 	jsr $ffe7	; CLALL (close all files)
 	lda #$a
 	sta zp::device
+
+	; save current screen for debugger
+	jsr dbg::save_progstate
 
 	lda #$80
 	sta $9c02	; enable 35K of RAM for final expansion

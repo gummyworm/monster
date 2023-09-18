@@ -4,7 +4,7 @@
 .import __text_putz
 .import __text_charmap
 .import __text_putch
-.import __text_status
+.import __text_status 
 .import __text_update
 .import __text_print
 .import __text_puterr
@@ -26,6 +26,8 @@ ESCAPE_RVS_OFF = $02
 
 TEXT_INSERT = 1
 TEXT_REPLACE = 0
+
+BREAKPOINT_CHAR = 133
 
 .scope text
         len      = __text_len

@@ -1,5 +1,6 @@
 .import __label_add
 .import __label_by_id
+.import __label_by_addr
 .import __label_clr
 .import __label_clr_locals
 .import __label_del
@@ -16,6 +17,7 @@
 	add = __label_add
 	addr = __label_address
 	by_id = __label_by_id
+	by_addr = __label_by_addr
 	clr = __label_clr
 	clrlocals = __label_clr_locals
 	del = __label_del

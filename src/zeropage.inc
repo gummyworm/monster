@@ -81,13 +81,10 @@ bankoffset = $a5	; offset for relative reads/writes
 bankaddr0 = $a6
 bankaddr1 = $a8
 
-;******************************************************************************
-; $aa-$b0 used for utility
-util = $aa
 
 ;******************************************************************************
-; $b0-$ba is reserved for text displaying/bitmap stuff
-text = $b0
+; $ac-$ba is reserved for text displaying/bitmap stuff
+text = $ac
 
 ;******************************************************************************
 ; $ba-$c0 reserved for file stuff
@@ -142,13 +139,9 @@ tmp14= $e4
 tmp15= $e5
 tmp16= $e6
 tmp17= $e7
-tmp18=$e8
-tmp19=$e9
-tmp1a=$ea
-tmp1b=$eb
-tmp1c=$ec
-tmp1d=$ed
-tmp1e=$ee
-tmp20=$ef
+
+;******************************************************************************
+; $e8-$ef used for utility 
+util = $e8
 .endscope
 .endif

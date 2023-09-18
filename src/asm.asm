@@ -1570,7 +1570,7 @@ __asm_include:
 
 ;******************************************************************************
 ; PROCESS_WS
-; Reads (line) and updates it to point past ' ' chars.
+; Reads (line) and updates it to point past ' ' chars and non-printing chars
 ; out:
 ;  .Z: set if we're at the endo of the line
 ;  .A: the last character processed
@@ -1579,10 +1579,11 @@ __asm_include:
 .proc process_ws
 	ldy #$00
 	lda (zp::line),y
+	bmi :+
 	beq @done	; set .Z if 0
 	cmp #' '
 	bne @done
-	incw zp::line
+:	incw zp::line
 	bne process_ws
 @done:	rts
 .endproc

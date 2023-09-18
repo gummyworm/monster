@@ -34,12 +34,21 @@ START_MODE = MODE_COMMAND
 
 SCREEN_H = 23
 
+MAX_HIGHLIGHTS = 8
+
 ;******************************************************************************
 ; ZEROPAGE
 indent = zp::editor	; number of spaces to insert on newline
 height = zp::editor+1	; height of the text-editor (shrinks when displaying
 			; error, showing debugger, etc.
 mode   = zp::editor_mode	; editor mode (COMMAND, INSERT)
+
+.BSS
+;******************************************************************************
+readonly: .byte 0	; if !0 no edits are allowed to be made via the editor
+
+numhighlights: .byte 0
+highlighted_lines: .res MAX_HIGHLIGHTS*2 ; line numbers that are highlighted
 
 .CODE
 ;******************************************************************************
@@ -77,9 +86,6 @@ mode   = zp::editor_mode	; editor mode (COMMAND, INSERT)
 	lda #CUR_BLINK_SPEED
 	sta zp::curtmr
 
-	lda #EDITOR_HEIGHT
-	sta height
-
 	lda #START_MODE
 	sta mode
 
@@ -105,18 +111,42 @@ main:
 	pha
 	jsr cur::off
 	pla
-	ldx mode
-	cpx #MODE_COMMAND
-	bne @ins
-	jsr onkey_cmd
-	jmp @keydone
-@ins:	jsr onkey
-@keydone:
+
+	jsr __edit_handle_key
+
 	jsr cur::on
 
 @done:	jsr text::update
 	jsr text::status
+	lda #EDITOR_HEIGHT
+	sta height
 	jmp main
+.endproc
+
+;******************************************************************************
+; HANDLE_KEY
+; Handles a keypress within the editor
+; IN:
+;  - .A: the key that was pressed (as from key::getch)
+; OUT:
+;  - .C: set if the key resulted in no action in the editor
+.export __edit_handle_key
+.proc __edit_handle_key
+	ldx mode
+	cpx #MODE_COMMAND
+	bne @ins
+	jsr onkey_cmd
+	jmp @validate
+@ins:	jsr onkey
+@validate:
+	; make sure curosr is on a valid character
+	jsr src::after_cursor
+	cmp #$80
+	bcc @keydone
+	jsr ccright	; try to move past the non-source char
+	bcc @validate
+@keydone:
+	rts
 .endproc
 
 ;******************************************************************************
@@ -170,12 +200,16 @@ main:
 	stxy @addr
 	bcc :+
 	rts		; address not found
+
 :	lda #DEBUG_INFO_START_ROW-2
 	sta height
+	inc readonly	; enable read-only mode
 	jsr home_line	; avoid problems with cursor-y being below new height
 	ldxy @addr
 	jsr dbg::start	; start debugging at address in .XY
 
+	lda #EDITOR_HEIGHT
+	sta height
 	jsr __edit_init	; re-init the editor
 	jmp refresh
 .endproc
@@ -610,6 +644,7 @@ main:
 	.byte $24		; $ (end of line)
 	.byte $5b		; [ (previous empty line)
 	.byte $5d		; ] (next empty line)
+	.byte $0d		; RETURN (go to start of next line)
 
 @numcommands=*-@commands
 
@@ -619,7 +654,8 @@ main:
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, delete_char, word_advance, home, last_line, \
 	home_line, ccdel, ccright, goto_end, goto_start, open_line_above, \
-	open_line_below, end_of_line, prev_empty_line, next_empty_line
+	open_line_below, end_of_line, prev_empty_line, next_empty_line, \
+	begin_next_line
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs
 @command_vecs_hi: .hibytes cmd_vecs
@@ -628,11 +664,13 @@ main:
 ;******************************************************************************_
 ; INSERT
 .proc enter_insert
+	lda readonly
+	bne @done		; can't INSERT in r/o mode
 	lda #MODE_INSERT
 	sta mode
 	lda #TEXT_INSERT
 	sta text::insertmode
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************_
@@ -649,6 +687,8 @@ main:
 ; REPLACE_CHAR
 .proc replace_char
 @ch=zp::tmp0
+	lda readonly
+	bne @done
 :	jsr key::getch	; get the character to replace with
 	beq :-
 	sta @ch
@@ -661,37 +701,37 @@ main:
 	dec zp::curx	; don't advance cursor
 	pla
 	sta text::insertmode
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************_
 ; INSERT_START
 ; moves cursor to start of line and enters INSERT mode
 .proc insert_start
-	jsr home
-	jmp enter_insert
+	jsr enter_insert
+	jmp home
 .endproc
 
 ;******************************************************************************_
 ; APPEND_TO_LINE
 .proc append_to_line
+	jsr enter_insert
 @l0:	jsr ccright
 	bcc @l0
 	jsr src::end
 	beq @done
-	jsr src::next
-	inc zp::curx
-@done:  jmp enter_insert
+@done:  rts
 .endproc
 
 ;******************************************************************************_
 ; APPEND_CHAR
 .proc append_char
+	jsr enter_insert
 	jsr src::end
 	beq @done
 	jsr src::next
 	inc zp::curx
-@done:	jmp enter_insert
+@done:	rts
 .endproc
 
 ;******************************************************************************_
@@ -756,6 +796,13 @@ main:
 .endproc
 
 ;******************************************************************************_
+; BEGIN_NEXT_LINE
+.proc begin_next_line
+	jsr ccdown
+	jmp home
+.endproc
+
+;******************************************************************************_
 ; DELETE
 .proc delete
 :	jsr key::getch	; get a key to decide what to delete
@@ -791,7 +838,10 @@ main:
 
 ;******************************************************************************_
 .proc delete_line
-	jsr ccdown
+	lda readonly
+	beq :+
+	rts
+:	jsr ccdown
 	jsr home
 @l0:	jsr backspace
 	lda zp::curx
@@ -895,7 +945,10 @@ main:
 
 ;******************************************************************************
 .proc open_line_above
-	jsr src::atcursor
+	lda readonly
+	beq :+
+	rts
+:	jsr src::atcursor
 	cmp #$0d
 	beq :+
 	jsr src::up	; move to start of line
@@ -914,7 +967,10 @@ main:
 
 ;******************************************************************************
 .proc open_line_below
-	jsr src::after_cursor
+	lda readonly
+	beq :+
+	rts
+:	jsr src::after_cursor
 	cmp #$0d
 	beq :+
 	jsr src::down	; move to end of line
@@ -1025,15 +1081,15 @@ main:
 	.byte $8a	; F4 (debug)
 	.byte $87	; F5 (show buffers)
 	.byte $8b	; F6 (nop)
-	.byte $bc	; C=<C> (refresh)
-	.byte $b4	; C=<H> (HELP)
-	.byte $b2	; C=<R> (rename)
-	.byte $be	; C=<V> (view)
-	.byte $b6	; C=<L> (dir)
-	.byte $b7	; C=<Y> (list symbols)
-	.byte $a7	; C=<M> (gotoline)
-	.byte $ab	; C=<Q> (close buffer)
-	.byte $aa	; C=<N> (new buffer)
+	.byte $bc	; C=<c> (refresh)
+	.byte $b4	; C=<h> (HELP)
+	.byte $b2	; C=<r> (rename)
+	.byte $b6	; C=<l> (dir)
+	.byte $b7	; C=<y> (list symbols)
+	.byte $a7	; C=<m> (gotoline)
+	.byte $ab	; C=<q> (close buffer)
+	.byte $aa	; C=<n> (new buffer)
+	.byte $bf	; C=<b> (set breakpoint)
 
 	.byte $a1 ;$81	; C=<1> go-to buffer 1
 	.byte $a3 ;$95	; C=<2> go-to buffer 2
@@ -1060,12 +1116,12 @@ main:
 	.word refresh
 	.word help
 	.word rename
-	.word memview
 	.word dir
 	.word list_symbols
 	.word command_gotoline
 	.word close_buffer
 	.word new_buffer
+	.word set_breakpoint
 	.word buffer1
 	.word buffer2
 	.word buffer3
@@ -1207,6 +1263,33 @@ main:
 .endproc
 
 ;******************************************************************************
+; SET_BREAKPOINT
+; insert a BREAKPOINT character at the beginning of the line
+.proc set_breakpoint
+@savex=zp::editortmp
+	lda zp::curx
+	sta @savex
+	beq @insert
+
+@l0:	jsr ccleft
+	lda zp::curx
+	bne @l0
+
+@insert:
+	lda #BREAKPOINT_CHAR
+	jsr src::insert
+	jsr text::putch
+
+@restore:
+	lda zp::curx
+	cmp @savex
+	bcs @done
+	jsr ccright
+	jmp @restore
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; NEW_BUFFER
 ; Creates a new buffer and sets it as the new active buffer
 ; or returns an error if one could not be made
@@ -1276,6 +1359,9 @@ buffer6: lda #$05
 buffer7: lda #$06
 	 skw
 buffer8: lda #$07
+	pha
+	jsr src::save
+	pla
 	jsr src::setbuff
 	bcs @done
 	jsr refresh
@@ -1446,6 +1532,7 @@ buffer8: lda #$07
 	lda #TEXT_INSERT
 	sta text::insertmode
 	ldx #$00
+	stx readonly
 	ldy #EDITOR_ROW_START
 	jsr cur::setmin
 	ldx #40
@@ -1553,7 +1640,13 @@ buffer8: lda #$07
 
 @switch_buff:
 ; buffer already loaded, switch to it
-	jsr src::setbuff
+	cmp src::activebuff
+	bne :+
+	rts			; buffer already active; quit
+:	pha
+	jsr src::save		; save the current buffer's state
+	pla
+	jsr src::setbuff	; switch to the new buffer
 	jmp refresh
 
 @replace:
@@ -1566,10 +1659,6 @@ buffer8: lda #$07
 	ldxy @file
 	jsr str::len
 	pha
-
-	; make room for error/loading message
-	lda #STATUS_ROW-1
-	sta height
 
 	; display loading...
 	ldxy #@loadingmsg
@@ -1618,7 +1707,11 @@ buffer8: lda #$07
 ; Attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
 @i=zp::tmpa
-	; insert \n into source buffer and terminate text buffer
+	lda readonly
+	beq :+
+	jmp begin_next_line
+
+:	; insert \n into source buffer and terminate text buffer
 	lda #$0d
 	jsr src::insert
 	lda #$00
@@ -1737,7 +1830,6 @@ buffer8: lda #$07
 .proc drawline
 	lda zp::cury
 	jsr text::drawline
-	jsr text::hioff
 @nextline:
 	; scroll lines below cursor position
 	ldy zp::cury
@@ -1768,16 +1860,6 @@ buffer8: lda #$07
 .endproc
 
 ;******************************************************************************
-; MEMVIEW
-; executes the memory view and returns when the user is done
-.proc memview
-	ldx #<src::buffer
-	ldy #>src::buffer
-	jsr view::edit
-	jmp edit
-.endproc
-
-;******************************************************************************
 ; CLRERROR
 ; Clears any error message
 .proc clrerror
@@ -1785,7 +1867,6 @@ buffer8: lda #$07
 	ldxy #mem::linebuffer
 	lda #ERROR_ROW
 	jsr text::putz
-	jmp text::hioff
 .endproc
 
 ;******************************************************************************
@@ -1865,6 +1946,9 @@ buffer8: lda #$07
 ; OUT:
 ;  - .C: set if no character could be deleted.
 .proc delch
+	lda readonly
+	bne @no_del
+
 	jsr src::end
 	beq @no_del
 	jsr src::after_cursor
@@ -1914,13 +1998,22 @@ buffer8: lda #$07
 ; OUT:
 ;  - .C: set if cursor could not be moved
 .proc ccright
-	jsr src::right
-	bcs :+
-	jsr cur::right
-	clc
+	lda text::insertmode
+	cmp #TEXT_INSERT
+	beq @ins
+
+@rep:	jsr src::right_rep
+	bcc @ok
+	sec
 	rts
-:	sec
+
+@ins:	jsr src::right
+	bcc @ok
+@nomove:
+	sec
 	rts
+
+@ok:	jmp cur::right
 .endproc
 
 ;******************************************************************************
@@ -2079,11 +2172,13 @@ buffer8: lda #$07
 	cmp #MODE_COMMAND	; handle COMMAND mode like REPLACE
 	beq @del_rep
 
+	lda readonly
+	bne @del_rep
 	lda text::insertmode
 	bne @del_ins
 
 @del_rep:
-	; if we're replacing, just decrement cursor if we can
+	; if we're replacing (or in r/o mode), just decrement cursor if we can
 	lda zp::curx
 	beq @done
 	dec zp::curx
@@ -2229,14 +2324,16 @@ __edit_gotoline:
 	sbc @diff
 	tay
 	ldx #$00
-	jmp cur::move
+	jmp @shortdone
 
 :	; move down and move cursor
 	ldx @diff
 	jsr src::downn
 	ldy @diff
 	ldx #$00
-	jmp cur::move
+@shortdone:
+	jsr cur::move
+	jmp src::get
 
 @long:  ; get first line of source buffer to render
 	; (target +/- (EDITOR_HEIGHT - cury))
@@ -2329,6 +2426,34 @@ __edit_gotoline:
 	ldy @row
 	ldx #$00
 	jmp cur::set
+.endproc
+
+;******************************************************************************
+; HIGHLIGHT_LINE
+; IN:
+;  - .XY: the line number to highlight
+.export __highlight_line
+.proc __highlight_line
+@x=zp::tmp0
+	stx @x
+	lda numhighlights
+	asl
+	tax
+	lda @x
+	sta highlighted_lines,x
+	tya
+	sta highlighted_lines+1,x
+	inc numhighlights
+	rts
+.endproc
+
+;******************************************************************************
+; CLEAR_HIGHLIGHTS
+; Removes all highlights
+.export clear_highlights
+.proc clear_highlights
+	lda #$00
+	sta numhighlights
 .endproc
 
 ;******************************************************************************

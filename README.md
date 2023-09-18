@@ -5,7 +5,9 @@ unexpanded Commodore Vic-20.
 
 Some of its features are:
  - 40 column bitmap-based editor
- - interactive debugger
+ - vi-like keybindings
+ - breakpoint editor
+ - interactive visual debugger
  - memory viewer/editor
  - file I/O (save/load)
  - directory viewer
@@ -22,6 +24,10 @@ MONster requires a _completely_ expanded (BLK 2,3, and 5) RAM configuration to f
 Debugging requires a [Final Expansion](https://github.com/edi-z/FE3).
 This is because it is very memory-expensive to store all the debug info.
 When this project matures to a fairly stable point, I'd like to distribute it on a cartridge based on the FE design, but for now...
+
+Building the source requires `ca65`. The easiest way to install this is to 
+install the latest release of [cc65](https://github.com/cc65/cc65). I've tested 
+with v2.18.
 
 ## Building
  1. Clone this repo `git clone https://github.com/gummyworm/monster.git`
@@ -42,33 +48,50 @@ will exit the prompt and cancel the command
 #### Command shortcuts
 |  Key   | Name    |   Description                                                               |
 |--------|---------|-----------------------------------------------------------------------------|
-| C= + A | Assemble File | prompts for a filename and assembles it.                              | 
-| C= + C | Refresh       | refrehshes the screen by redrawing the source buffer                  | 
-| C= + D | Start Debugger| prompts for a label and begins debugging at it                        | 
-| C= + G | Goto          | prompts for a label name and executes the program at its address      | 
-| C= + H | Help          | displays the help menu                                                | 
-| C= + L | List          | list directory, shows the files on the current disk                   |
-| C= + O | Open          | prompts for a filename and loads the buffer with its contents         |
-| C= + N | New buffer    | creates a new source buffer and sets it as the active buffer          |
-| C= + Q | Close buffer  | closes the current buffer and opens the next one that is open         |
-| C= + R | Rename        | prompts for a filename. this name will be used for future saves       |
-| C= + S | Save          | save file, prompts for a filename and saves the buffer contents to it |
-| C= + V | MemView       | enters the memory viewer/editor (press <- to exit)                    |
-| C= + X | Scratch       | prompts for a filename and deletes the file                           |
-| C= + Y | Show Symbols  | lists the symbol table for the assembled program                      | 
+| C= + a | Assemble File | prompts for a filename and assembles it.                              | 
+| C= + b | Set Breakpoint| sets a breakpoint at the current line                                 | 
+| C= + c | Refresh       | refrehshes the screen by redrawing the source buffer                  | 
+| C= + d | Start Debugger| prompts for a label and begins debugging at it                        | 
+| C= + g | Goto          | prompts for a label name and executes the program at its address      | 
+| C= + h | Help          | displays the help menu                                                | 
+| C= + l | List          | list directory, shows the files on the current disk                   |
+| C= + o | Open          | prompts for a filename and loads the buffer with its contents         |
+| C= + n | New buffer    | creates a new source buffer and sets it as the active buffer          |
+| C= + q | Close buffer  | closes the current buffer and opens the next one that is open         |
+| C= + r | Rename        | prompts for a filename. this name will be used for future saves       |
+| C= + s | Save          | save file, prompts for a filename and saves the buffer contents to it |
+| C= + v | MemView       | enters the memory viewer/editor (press <- to exit)                    |
+| C= + x | Scratch       | prompts for a filename and deletes the file                           |
+| C= + y | Show Symbols  | lists the symbol table for the assembled program                      | 
 |   F3   | Assemble      | assembles the code in the buffer to memory                            |
 |   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
 |   F5   | Show buffers  | displays a list of the currently open buffers                         |
 
 
 #### Navigation keys
+Navigation behaves similar to `vi` and many basic `vi` commands are supported.
+The following keys are handled in COMMAND mode.  Entering insert mode (`i`)
+allows characters to be entered into the source file at the current cursor
+position.
+The back arrow (`<-`) key returns to COMMAND mode.
 |  Key       | Name       | Description                                                           |
 |------------|------------|-----------------------------------------------------------------------|
 | HOME       | Home       | moves the cursor to column 0                                          | 
-| C= + M     | Goto line  | prompts for a line number and moves the cursor to that line           |
+| C= + m     | Goto line  | prompts for a line number and moves the cursor to that line           |
 | C= + [1-8] | Goto Buffer| opens the buffer corresponding to the number key that is pressed      |
 | C= + <     | Prev Buffer| opens the buffer before the active one (if there is one)              |
 | C= + >     | Next Buffer| opens the buffer after the active one (if there is one)               |
+|    h       | Left       | moves the cursor left                                                 |
+|    l       | Right      | moves the cursor right                                                |
+|    k       | Up         | moves the cursor up                                                   |
+|    j       | Down       | moves the cursor down                                                 |
+|    H       | Home       | moves the cursor to the top left of the screen                        |
+|    L       | Last       | moves the cursor to the bottom left of the screen                     |
+|    dw      | Delete Word| deletes the next word                                                 |
+|    dd      | Delete Line| deletes the next line                                                 |
+|    0       | Column 0   | moves the cursor to the first column of the current line              |
+|    a       | append char| enters insert mode and moves to the next character                    |
+|    A       | append line| enters insert mode and moves to the last character in the current line|
 
 ## Assembler Syntax
 The assembler syntax is very similar to any other major assembler.  For basic
@@ -376,21 +399,42 @@ store the debug information, this feature requires a Final Expansion
 The debugger is enabled by pressing CTRL-D
 This will prompt the user for a label name, which will be used as the start
 address for debugging.  If no label name is provided, execution will begin
-at the base origin of the program.
+at the base origin of the program (the _lowest_ value set by any `.ORG`
+directive)
 
 Both the debugger and the user program's RAM is saved/restored when control
 transfers between the two. That is the screen data ($1000-$2000), the zeropage,
 and color RAM.
 
+Editor navigation behaves as normal while debugging (albeit with slightly less
+real estate due to the debug information displayed at the bottom of the screen.)
+
 ### Debug Commands
 The following commands are supported by the debugger and are accessed by their
 respective Key in the table below.
 
-|  Key   | Name    |   Description                                                                        |
-|--------|---------|--------------------------------------------------------------------------------------|
-|   G    | Go      | begins execution at the cursor                                                       |
-|   M    | Mem     | activates the memory window, which takes control until `<-` is pressed               |
-|   S    | StepOver| steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
-|   Z    | Step    | steps to the next instruction.                                                       | 
-| <-     | Exit    | exits the debugger and returns to the editor                                         |
+|  Key   | Name          |   Description                                                                        |
+|--------|---------------|--------------------------------------------------------------------------------------|
+|  C=+b    | Breakpoints | displays the breakpoints that have been set and allows them to be enabled/disabled   |
+|  C=+g    | Go          | begins execution at the cursor                                                       |
+|  C=+m    | Mem         | activates the memory window, which takes control until `<-` is pressed               |
+|  C=+s    | StepOver    | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
+|  C=+z    | Step        | steps to the next instruction.                                                       | 
+|   <-     | Exit        | exits the debugger and returns to the editor                                         |
 
+
+### Breakpoint Viewer (`C= + b`)
+The breakpoint viewer displays all the breakpoints that have been set by the
+user.  A circle is displayed next to those that are currently active.
+The user simply navigates the list with the cursor keys and presses RETURN to
+toggle those which he/she wishes to enable/disable.
+
+As with all editors the back-arrow key (`<-`) exits and returns to the editor.
+
+### Memory Viewer (`C= + `v`)
+The memory viewer displays the contents of RAM at a given address.  The memory
+viewer is updated upon reentry to the debugger (if active).
+Memory values may be updated by navigating to the value the user wishes to
+change and overwriting it with a new hex value. The change occurs immediately.
+
+As with all editors the back-arrow key (`<-`) exits and returns to the editor.

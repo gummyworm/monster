@@ -224,8 +224,10 @@ kernal_sas   = $26d	; KERNAL secondary address table
 	bne @done
 
 @chout: jsr src::next
+	cmp #$80
+	bcs :+		; skip non-printable chars (e.g. breakpoints)
 	jsr $ffd2	; CHROUT (write byte to file)
-	jsr src::end	; done yet?
+:	jsr src::end	; done yet?
 	bne @save
 
 @done:

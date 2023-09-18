@@ -697,6 +697,37 @@ label_addresses: .res 256 * 2
 .endproc
 
 ;******************************************************************************
+; BY_ADDR
+; Returns the label for a label given by its address
+; IN:
+;  - .XY: the label address to get the name of
+; OUT:
+;  - .XY: the ID of the label
+;  - .C: set if no label is found
+.export __label_by_addr
+.proc __label_by_addr
+@addr=zp::tmpe
+@cnt=zp::tmp10
+	stxy @addr
+	ldxy #$ffff
+	stxy @cnt
+@l0:	incw @cnt
+	ldxy @cnt
+	cmpw numlabels
+	beq @notfound
+	jsr __label_by_id
+	cmpw @addr
+	bne @l0
+@found:	clc
+	ldxy @cnt
+	rts
+
+@notfound:
+	sec
+	rts
+.endproc
+
+;******************************************************************************
 ; NAME_BY_ID
 ; Returns the address name of the label ID in .YX in .YX
 ; IN:

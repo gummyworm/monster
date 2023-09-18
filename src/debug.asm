@@ -1,5 +1,6 @@
 .include "asm.inc"
 .include "bitmap.inc"
+.include "breakpoints.inc"
 .include "config.inc"
 .include "edit.inc"
 .include "errors.inc"
@@ -25,7 +26,7 @@
 
 ;******************************************************************************
 ; Debug info constants
-MAX_FILES = 16	      ; max files that debug info may be generated for
+MAX_FILES = 24	      ; max files that debug info may be generated for
 MAX_SEGMENTS=32	      ; max segments that debug info may be generated for
 MAX_BREAKPOINTS = 16  ; max number of breakpoints that may be set
 MAX_WATCHPOINTS = 8   ; max number of watchpoints that may be set
@@ -37,6 +38,10 @@ SEG_LINE_COUNT = 4	; offset in segment header for line count
 DATA_FILE = 0		; offset of FILE ID in debug info
 DATA_LINE = 1		; offset of line number in debug info
 DATA_ADDR = 3		; offset of line address in debug info
+
+AUX_MEM   = 1		; enables the memory viewer in the debug view
+AUX_BRK   = 2		; enables the breakpoint view in the debug view
+AUX_WATCH = 3		; enables the watchpoint view in the debug view
 
 ;******************************************************************************
 ; STEP constants
@@ -85,6 +90,8 @@ step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
 ; if it is destructive
 mem_save: .byte 0	; byte that was clobbered
 mem_saveaddr: .word 0	; addrses of affected byte
+
+aux_mode:  .byte 0		; the active auxiliary view
 
 ;******************************************************************************
 ; Debug symbol variables
@@ -186,10 +193,15 @@ watches:    .res MAX_WATCHPOINTS*2 ; addresses of the set watchpoints
 ;******************************************************************************
 ; BREAKPOINTS
 ;******************************************************************************
-.export numbreakpoints
-.export breakpoints
+.export __debug_numbreakpoints
+.export __debug_breakpoints
+__debug_numbreakpoints:
 numbreakpoints: .byte 0 		; number of active break points
+__debug_breakpoints:
 breakpoints:    .res MAX_BREAKPOINTS*2  ; addresses of the break points
+.export __debug_breakpoint_flags
+__debug_breakpoint_flags:
+breakpoint_flags: .res MAX_BREAKPOINTS  ; active state of breakpoints
 breaksave: .res MAX_BREAKPOINTS      ; backup of the instructions under the BRK
 
 ;******************************************************************************
@@ -894,6 +906,30 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
+; GET_FILENAME
+; Returns the file name for the file from its ID
+; IN:
+;  - .A: the file ID to get the filename of
+; OUT:
+;  - .XY: the filename for the given file ID
+;  - .C: set if no filename could be resolved
+.export __debug_get_filename
+.proc __debug_get_filename
+	cmp numfiles
+	bcs @done
+	asl
+	asl
+	asl
+	asl
+	adc #<filenames
+	tax
+	lda #>filenames
+	adc #$00
+	tay
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; SETFILE
 ; Sets the active file-id to the the ID for given filename.
 ; If no file-id exists for the provided filename, one is first created.
@@ -968,11 +1004,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy #debug_brk
 	jsr irq::break
 
+	; initialize auxiliary views
+	jsr brkpt::init
+
 	ldxy #$1000
 	stxy mem_ptr
-	jsr view::mem
+	;jsr view::mem
+
+	lda #AUX_MEM
+	sta aux_mode
 
 	jsr save_debug_state ; save the debug state
+	jsr __debug_restore_progstate
+
+	; set JMP vector (destroyed by restoring prog state)
 
 ; execute the user program until BRK
 @runpc:
@@ -1074,7 +1119,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;******************************************************************************
 ; SAVE_PROG_STATE
 ; saves memory clobbered by the debugger (screen, ZP, etc.)
-.proc save_prog_state
+.export __debug_save_prog_state
+.proc __debug_save_prog_state
 @zpsave=mem::prog00
 @vicsave=mem::prog9000
 @internalmem=mem::prog1000
@@ -1142,7 +1188,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq @waitkey
 
 	; save the program state before we restore the debugger's
-	jsr save_prog_state
+	jsr __debug_save_prog_state
 
 	; BRK pushes PC + 2, subtract 2 from PC
 	lda pc
@@ -1159,9 +1205,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; display the contents of the registers
 	jsr showregs
 
-	; update memory view
-	ldxy mem_ptr
-	jsr view::mem
+	;lda aux_mode
+	;jsr show_aux
 
 @showbrk:
 	; get the address before the BRK and go to it
@@ -1179,6 +1224,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr text::print		; "break @ <addr>"
 	lda #DEBUG_MESSAGE_LINE
 	jsr bm::rvsline
+
 	jmp debugloop		; skip highlght (we don't know the line)
 
 @pushline:
@@ -1215,6 +1261,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr edit::gotoline	; go to the line where the BRK happened
 	lda zp::cury
 	jsr bm::rvsline		; highlight the line of the BRK
+	;ldx #DEBUG_LINE_COLOR
+	;jsr text::hiline
+
 	jmp debugloop
 @brk_message_line: .byte "brk in line ",$fd,0 ; when line number is resolved
 @brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
@@ -1224,16 +1273,27 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;******************************************************************************
 ; main debug loop
 .proc debugloop
+	lda #$70
+	cmp $9004
+	bne *-3
+	cli
+	jsr text::update
 	jsr key::getch
 	beq debugloop
 
 	ldx #@num_commands
 @getcmd:
 	dex
-	bmi debugloop		; unrecognized key, go back to debugloop
+	bmi @nocmd	; unrecognized key, give to editor
 	cmp @commands,x
 	bne @getcmd
+	beq @runcmd
+
+@nocmd:	jsr edit::handlekey
+	jmp debugloop
+
 @runcmd:
+	sei
 	txa
 	asl
 	tax
@@ -1244,12 +1304,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr zp::jmpaddr
 
 @done:	; unhighlight the BRK line
+	;jsr text::hioff
 	lda zp::cury
 	jsr bm::rvsline
 
 	; swap debug state out for user's program
 	jsr save_debug_state
-	jsr restore_progstate
+	jsr __debug_restore_progstate
 
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
@@ -1274,10 +1335,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;******************************************************************************
 @commands:
 	.byte $5f	; <- (quit)
-	.byte $7a	; 'z'
-	.byte $73	; 's'
-	.byte $67	; 'g'
-	.byte $6d	; 'm'
+	.byte $ad	; C=+z (step)
+	.byte $ae	; C=+s (step over)
+	.byte $a5	; C=+g (go)
+	.byte $85	; F1 (edit mem)
+	.byte $86	; F3 (edit breakpoints)
+	.byte $bf	; C=+b (set breakpoint)
 @num_commands=*-@commands
 @command_vectors:
 	.word quit
@@ -1285,6 +1348,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.word step_over
 	.word go
 	.word edit_mem
+	.word edit_breakpoints
+	.word set_breakpoint
 .endproc
 
 ;******************************************************************************
@@ -1324,7 +1389,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;******************************************************************************
 ; RESTORE_PROGSTATE
 ; restores the saved program state
-.proc restore_progstate
+.export __debug_restore_progstate
+.proc __debug_restore_progstate
 @savezp=mem::prog00
 @vicsave=mem::prog9000
 @internalmem=mem::prog1000
@@ -1356,6 +1422,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	dex
 	bne @restorecolor
 
+	lda #$4c
+	sta zp::jmpaddr
 	; restore the user $1000 data
 	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
 	rts
@@ -1366,7 +1434,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Runs the user program until the next breakpoint or an NMI occurs
 .proc go
 	jsr uninstall_breakpoints
-	jsr remove_breakpoint	  ; remove BRK under cursor
+	ldxy pc
+	jsr remove_breakpoint	  ; remove BRK @ the current PC
 	jmp install_breakpoints	  ; reinstall rest of breakpoints and continue
 .endproc
 
@@ -1375,6 +1444,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Exits the debugger
 .proc quit
 	jsr uninstall_breakpoints
+	ldxy pc
 	jsr remove_breakpoint
 
 	lda #$00
@@ -1393,11 +1463,35 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; EDIT_MEM
 ; Transfers control to the memory viewer/editor until the user exits it
 .proc edit_mem
+	lda #AUX_MEM
+	sta aux_mode
 	ldxy mem_ptr
 	jsr view::edit
 	pla
 	pla
 	jmp debugloop
+.endproc
+
+;******************************************************************************
+; EDIT_BREAKPOINTS
+; Transfers control to the breakpoint viewer/editor until the user exits it
+.proc edit_breakpoints
+	lda #AUX_BRK
+	sta aux_mode
+	jsr brkpt::edit
+	pla
+	pla
+	jmp debugloop
+.endproc
+
+;******************************************************************************
+; SET_BREAKPOINT
+; Sets a breakpoint at the current line selection
+.proc set_breakpoint
+	ldxy src::line
+	jsr __debug_line2addr
+	jsr __debug_setbreakpoint
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1409,6 +1503,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @addr=zp::tmp0
 	; delete the last STEP breakpoint
 	jsr uninstall_breakpoints
+	ldxy pc
 	jsr remove_breakpoint
 
 	ldxy #$100	; ROM (we don't need the string)
@@ -1764,6 +1859,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta breakpoints,x
 	tya
 	sta breakpoints+1,x
+
+	ldx numbreakpoints
+	lda #1
+	sta breakpoint_flags,x
 	inc numbreakpoints
 	rts
 .endproc
@@ -1774,10 +1873,43 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; IN:
 ;  - .XY: the address of the breakpoint to remove
 .proc remove_breakpoint
-	; TODO: do this right
+@addr=debugtmp
+@end=debugtmp+2
+	stxy @addr
+	lda @addr
+
 	lda numbreakpoints
-	beq @done
+	asl
+	tax
+	beq @done	; nothing to remove
+
+@l0:	lda @addr
+	cmp breakpoints,x
+	bne @next
+	lda @addr+1
+	cmp breakpoints+1,x
+	beq @found
+@next:	dex
+	dex
+	bpl @l0
+
+@found:	; shift breakpoints down
+	lda numbreakpoints
+	asl
+	sta @end
+	cpx @end
+	beq @removed
+@l1:	lda breakpoints+2,x
+	sta breakpoints,x
+	lda breakpoints+3,x
+	sta breakpoints+1,x
+	inx
+	inx
+	cpx @end
+	bcc @l1
+@removed:
 	dec numbreakpoints
+
 @done:	rts
 .endproc
 
@@ -1867,6 +1999,29 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 @regsline: .byte "addr a  x  y  sp  nv-bdizc",0
 .endproc
+
+;******************************************************************************
+; SHOW_AUX
+; Displays the memory viewer, breakpoint viewer, or watchpoint viewer depending
+; on which is enabled
+.proc show_aux
+	cmp #@numauxviews-1
+	bcs @done		; invalid selection
+
+
+@done:	rts
+
+@memview:
+	; update memory view
+	ldxy mem_ptr
+	jmp view::mem
+
+.define auxtab @memview, brkpt::view
+@auxlos: .lobytes auxtab
+@auxhis: .hibytes auxtab
+@numauxviews=*-@auxhis
+.endproc
+
 
 ;******************************************************************************
 ; GETSEGMENT_BY_ID
@@ -1976,7 +2131,7 @@ destructive_ops:
 destructive_rel_x_ind=*-destructive_ops
 	.byte $81	; STA ind,x
 
-destructive_rel_y_ind =*-destructive_ops
+destructive_rel_y_ind=*-destructive_ops
 	.byte $91	; STA ind,y
 
 destructive_rel_y=*-destructive_ops
