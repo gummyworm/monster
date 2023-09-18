@@ -9,7 +9,7 @@
 .include "zeropage.inc"
 
 ;******************************************************************************
-HEIGHT = BRKVIEW_STOP - BRKVIEW_START
+HEIGHT = BRKVIEW_STOP - BRKVIEW_START - 1
 BREAKPOINT_ENABLED = 1
 
 .BSS
@@ -34,14 +34,13 @@ row:	.byte 0
 ; Begins the breakpoint editor loop.
 .export __breakpoint_edit
 .proc __breakpoint_edit
-@row=zp::tmp10
 @scroll=zp::tmp11
-	lda row
-	sta @row
-	lda scroll
-	sta @scroll
-
+@row=zp::tmp12
 	jsr __breakpoint_view
+	lda #$00
+	sta @row
+	sta @scroll
+	jmp @redraw	; highlight the first row
 
 @loop:	jsr key::getch
 	beq @loop
@@ -49,7 +48,7 @@ row:	.byte 0
 	bne @up
 	rts
 
-@up:	cmp #$91	; up arrow
+@up:	cmp #$91	; up
 	bne @down
 	dec @row
 	bpl @redraw
@@ -59,13 +58,15 @@ row:	.byte 0
 	inc @scroll
 	jmp @redraw
 
-@down:	cmp #$11	; down arrow
+@down:	cmp #$11	; down
 	bne @enter
 	inc @row
 	lda @row
+	cmp dbg::numbreakpoints
+	bcs :+
 	cmp #HEIGHT
 	bcc @redraw
-	dec @row
+:	dec @row
 	inc @scroll
 	lda @scroll
 	clc
@@ -73,19 +74,24 @@ row:	.byte 0
 	cmp dbg::numbreakpoints
 	bcc @redraw
 	dec @scroll
+	jmp @redraw
 
 @enter:	cmp #$0d
 	bne @loop
 	; toggle the breakpoint's active status
-	lda dbg::breakpoint_flags
+	lda @row
+	clc
+	adc @scroll
+	tax
+	lda dbg::breakpoint_flags,x
 	eor #BREAKPOINT_ENABLED
-	sta dbg::breakpoint_flags
+	sta dbg::breakpoint_flags,x
 
 @redraw:
 	jsr __breakpoint_view
 	lda @row
 	clc
-	adc #BRKVIEW_START
+	adc #BRKVIEW_START+1
 	jsr bm::rvsline
 	jmp @loop
 .endproc
@@ -95,20 +101,19 @@ row:	.byte 0
 ; Displays the breakpoints
 .export __breakpoint_view
 .proc __breakpoint_view
-@cnt=zp::tmp0
-@addr=zp::tmp1
-@file=zp::tmp3
+@cnt=zp::tmp13
+@addr=zp::tmp14
+@file=zp::tmp16
 	lda #BRKVIEW_START
 	jsr draw::hline
 
 	; get the last breakpoint
 	lda scroll
-	cmp dbg::numbreakpoints
-	bcs @done			; no visible breakpoints
 	sta @cnt
 @l0:	lda @cnt
+	cmp dbg::numbreakpoints
+	bcs @done
 	asl
-
 
 	; push the address of the breakpoint
 	tay
@@ -170,12 +175,13 @@ row:	.byte 0
 	txa
 	pha
 
-@print:; display a '*' if the breakpoint is active
+@print:; display a symbol if the breakpoint is active
 	ldx @cnt
-	ldy #' '
+	ldy #BREAKPOINT_OFF_CHAR
 	lda dbg::breakpoint_flags,x
 	beq :+
-	ldy #133
+	ldy #BREAKPOINT_CHAR
+
 :	sty @brkline
 
 	; print the breakpoint info
@@ -190,7 +196,7 @@ row:	.byte 0
 	; next breakpoint
 	inc @cnt
 	lda @cnt
-	cmp dbg::numbreakpoints
+	cmp #HEIGHT
 	bcc @l0
 @done:	rts
 

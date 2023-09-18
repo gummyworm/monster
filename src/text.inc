@@ -28,6 +28,7 @@ TEXT_INSERT = 1
 TEXT_REPLACE = 0
 
 BREAKPOINT_CHAR = 133
+BREAKPOINT_OFF_CHAR = 134
 
 .scope text
         len      = __text_len

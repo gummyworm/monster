@@ -255,12 +255,26 @@ __asm_validate:
 .export __asm_tokenize
 __asm_tokenize:
 .proc tokenize
-	; copy the line to a new buffer and make it uppercase (assembly is
+	; check if there is a breakpoint on this line and set it if there is
+	stxy zp::line
+
+	ldy #$00
+	lda (zp::line),y
+	cmp #BREAKPOINT_CHAR
+	bne @copy
+
+@setbrk:
+	ldxy zp::virtualpc	; current PC (address)
+	jsr dbg::setbreakpoint	; set the breakpoint
+	incw zp::line		; advance line beyond the breakpoint
+
+@copy:	; copy the line to a new buffer and make it uppercase (assembly is
 	; case-insensitive)
 	lda #<asmbuffer
 	sta zp::tmp0
 	lda #>asmbuffer
 	sta zp::tmp0+1
+	ldxy zp::line
 	jsr str::copy
 	ldxy #asmbuffer
 	stxy zp::line

@@ -1047,7 +1047,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	ldx @cnt
 	sta breaksave,x		; save the instruction under the new BRK
-	tya			; BRK
+	lda #$00		; BRK
 
 	bank_store_byte #FINAL_BANK_USER, @brkaddr
 
@@ -1848,6 +1848,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the address of the breakpoint to set
 .export __debug_setbreakpoint
 .proc __debug_setbreakpoint
+	; if this is a duplicate, remove the existing breakpoint
+	jsr remove_breakpoint
+
 	txa
 	pha
 
@@ -1892,6 +1895,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @next:	dex
 	dex
 	bpl @l0
+	bmi @done	; not found - nothing to remove
 
 @found:	; shift breakpoints down
 	lda numbreakpoints
@@ -1910,7 +1914,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @removed:
 	dec numbreakpoints
 
-@done:	rts
+@done:	ldxy @addr
+	rts
 .endproc
 
 ;******************************************************************************

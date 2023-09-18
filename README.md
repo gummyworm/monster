@@ -430,6 +430,10 @@ user.  A circle is displayed next to those that are currently active.
 The user simply navigates the list with the cursor keys and presses RETURN to
 toggle those which he/she wishes to enable/disable.
 
+Note that breakpoints correspond to the debug information generated with 
+the F4 command.  If the line numbers change after this information is generated,
+breakpoints are unlikely to behave in expected ways.
+
 As with all editors the back-arrow key (`<-`) exits and returns to the editor.
 
 ### Memory Viewer (`C= + v`)
