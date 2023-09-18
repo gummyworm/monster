@@ -1,4 +1,6 @@
 # MONster
+![helloworld](https://github.com/gummyworm/monster/assets/4626914/ba7345da-db81-4603-b381-7bc5cab56b52)
+
 MONster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
 In its current form it is primarily intended for native development of applications for the
 unexpanded Commodore Vic-20.
