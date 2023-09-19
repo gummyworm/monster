@@ -32,7 +32,6 @@ rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
 .export __text_insertmode
 __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
-
 .CODE
 ;******************************************************************************
 .export __text_status

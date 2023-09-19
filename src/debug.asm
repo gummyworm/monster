@@ -1446,7 +1446,21 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; QUIT
 ; Exits the debugger
 .proc quit
-	jsr uninstall_breakpoints
+	ldxy #@stopdebugging_msg
+	lda #REGISTERS_LINE
+	jsr text::putz
+
+:	jsr key::getch
+	beq :-
+	cmp #$59		; Y
+	beq @quit
+@return:
+	pla
+	pla
+	jsr showregs		; restore the register display
+	jmp debugloop
+
+@quit:	jsr uninstall_breakpoints
 	ldxy pc
 	jsr remove_breakpoint
 
@@ -1460,6 +1474,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pla
 	pla
 	rts
+
+@stopdebugging_msg:
+	.byte "stop debugging? (press 'y' to quit)",0
 .endproc
 
 ;******************************************************************************
