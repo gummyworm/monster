@@ -749,6 +749,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	beq @done
 	jsr __src_start
 	bne @l0
+	jsr __src_next
 @beginning:
 	sec
 	rts

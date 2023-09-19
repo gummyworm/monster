@@ -43,6 +43,10 @@ height = zp::editor+1	; height of the text-editor (shrinks when displaying
 			; error, showing debugger, etc.
 mode   = zp::editor_mode	; editor mode (COMMAND, INSERT)
 
+
+.export __edit_height
+__edit_height = height
+
 .BSS
 ;******************************************************************************
 readonly: .byte 0	; if !0 no edits are allowed to be made via the editor
@@ -1163,6 +1167,7 @@ main:
 .export __edit_refresh
 __edit_refresh:
 .proc refresh
+	jsr bm::clr
 	jsr cur::off
 
 	; save current cursor position and source position
@@ -1180,6 +1185,7 @@ __edit_refresh:
 	lda zp::cury
 	cmp height
 	bcc @l0
+
 @done:	jsr src::atcursor
 	cmp #$0d
 	bne :+
@@ -1946,8 +1952,7 @@ buffer8: lda #$07
 :	ldy zp::cury
 	beq @scroll
 	dey
-	jsr cur::set
-	jmp @redraw
+	jmp cur::set
 
 @scroll:
 	lda #EDITOR_ROW_START

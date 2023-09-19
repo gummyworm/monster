@@ -1457,13 +1457,23 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc edit_source
 	lda #$00
 	sta aux_mode
-	rts
+	lda #REGISTERS_LINE-1
+	sta edit::height	; resize the editor
+	jsr edit::refresh	; and refresh
+	pla
+	pla
+	jmp debugloop
 .endproc
 
 ;******************************************************************************
 ; EDIT_MEM
 ; Transfers control to the memory viewer/editor until the user exits it
 .proc edit_mem
+	lda #DEBUG_INFO_START_ROW-1
+	sta edit::height
+	jsr edit::refresh
+
+	sta edit::height	; resize the editor
 	lda #AUX_MEM
 	sta aux_mode
 	ldxy #$1000
@@ -1477,6 +1487,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; EDIT_BREAKPOINTS
 ; Transfers control to the breakpoint viewer/editor until the user exits it
 .proc edit_breakpoints
+	lda #DEBUG_INFO_START_ROW-1
+	sta edit::height
+	jsr edit::refresh
+
 	lda #AUX_BRK
 	sta aux_mode
 	jsr brkpt::edit

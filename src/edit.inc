@@ -1,5 +1,6 @@
 .import __edit_gotoline
 .import __edit_handle_key
+.import __edit_height
 .import __edit_init
 .import __edit_load
 .import __edit_refresh
@@ -8,6 +9,7 @@
 .scope edit
 	gotoline  = __edit_gotoline
 	handlekey = __edit_handle_key
+	height    = __edit_height
 	init      = __edit_init
 	load      = __edit_load
 	refresh   =__edit_refresh
