@@ -87,10 +87,11 @@ step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
 
 ; backup of the memory value being affected by the current instruction
 ; if it is destructive
-mem_save: .byte 0	; byte that was clobbered
+mem_save:     .byte 0	; byte that was clobbered
 mem_saveaddr: .word 0	; addrses of affected byte
 
-aux_mode:  .byte 0		; the active auxiliary view
+aux_mode:         .byte 0	; the active auxiliary view
+auto_swap_memory: .byte 0	; if 1, ALL memory will be swapped on BRK
 
 ;******************************************************************************
 ; Debug symbol variables
@@ -1325,6 +1326,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;******************************************************************************
 @commands:
 	.byte $5f	; <- (quit)
+	.byte $b0	; C=+a (toggle auto swap memory)
 	.byte $ad	; C=+z (step)
 	.byte $ae	; C=+s (step over)
 	.byte $a5	; C=+g (go)
@@ -1335,6 +1337,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @num_commands=*-@commands
 @command_vectors:
 	.word quit
+	.word auto_toggle_memory_swap
 	.word step
 	.word step_over
 	.word go
@@ -1418,6 +1421,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta zp::jmpaddr
 	; restore the user $1000 data
 	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
+	rts
+.endproc
+
+;******************************************************************************
+.proc auto_toggle_memory_swap
+	lda #$01
+	eor auto_swap_memory
+	sta auto_swap_memory
 	rts
 .endproc
 

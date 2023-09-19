@@ -369,6 +369,7 @@ __asm_tokenize:
 	clc
 :	rts
 
+; check if the line is a label definition
 @label: jsr lbl::isvalid
 	bcs @getopws
 	sta resulttype
@@ -380,7 +381,7 @@ __asm_tokenize:
 	jsr lbl::add
 	ldxy zp::line
 	jsr lbl::islocal
-	beq :+
+	bne :+
 	jsr lbl::clrlocals	; clear locals if this is a non-local label
 :	jsr process_word
 	jsr @finishline
@@ -388,7 +389,7 @@ __asm_tokenize:
 	lda #ASM_LABEL
 :	rts
 
-; from here onwards we are either reading a comment or an operand
+; from here on we are either reading a comment or an operand
 @getopws:
 	jsr process_ws
 	bne @pound
