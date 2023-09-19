@@ -1234,6 +1234,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; if the buffer is already loaded switch to it. if not, load it into the
 ; DEBUG bank
 @openfile:
+	sta file
 	asl
 	asl
 	asl

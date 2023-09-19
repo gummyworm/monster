@@ -218,7 +218,6 @@ row:	.byte 0
 
 ;******************************************************************************
 ; TOGGLE_BREAKPOINT
-; TODO: check that file in editor is same as file of breakpoint
 ; IN:
 ;  - .A: the breakpoint to toggle active/inactive
 .proc toggle_breakpoint
@@ -242,6 +241,8 @@ row:	.byte 0
 	tax
 	jsr dbg::addr2line
 	bcs @done		; no line #
+	cmp dbg::file		; same file?
+	bne @done		; no, can't be visible
 	stxy @line
 
 	; check if the breakpoint is visible in the editor

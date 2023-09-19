@@ -72,6 +72,7 @@ highlighted_lines: .res MAX_HIGHLIGHTS*2 ; line numbers that are highlighted
 	jsr bm::init
 	jsr bm::clr
 	jsr edit
+	jsr cancel
 
 .IFDEF DRAW_TITLEBAR
 	jsr draw_titlebar
@@ -139,7 +140,8 @@ main:
 	jmp @validate
 @ins:	jsr onkey
 @validate:
-	; make sure curosr is on a valid character
+	; make sure cursor is on a valid character
+	lda text::insertmode
 	jsr src::after_cursor
 	cmp #$80
 	bcc @keydone
@@ -1915,7 +1917,11 @@ buffer8: lda #$07
 	cpx zp::curx
 	bcs :+
 	jsr src::next
-	cmp #$0d
+	ldx text::insertmode
+	cpx #TEXT_INSERT
+	beq @ins
+@rep:	jsr src::after_cursor
+@ins:	cmp #$0d
 	bne :-
 	jsr src::prev
 	ldx @cnt
@@ -2009,7 +2015,6 @@ buffer8: lda #$07
 
 @ins:	jsr src::right
 	bcc @ok
-@nomove:
 	sec
 	rts
 
@@ -2048,18 +2053,15 @@ buffer8: lda #$07
 	jsr src::get
 
 	; if the cursor is on a newline, we're done
+@movex:
 	jsr src::end
 	beq @movecur
 	jsr src::next
-	cmp #$0d
-	php
-	jsr src::prev
-	plp
-	beq @movecur
-
-@movex:
-	jsr src::next
-	cmp #$0d
+	ldx text::insertmode
+	cpx #TEXT_INSERT
+	beq @ins
+@rep:	jsr src::after_cursor
+@ins:	cmp #$0d
 	bne :+
 	jsr src::prev	; don't pass the newline
 	jmp @movecur
@@ -2067,8 +2069,7 @@ buffer8: lda #$07
 	lda @cnt
 	cmp @xend
 	bcs @movecur
-	jsr src::end
-	bne @movex
+	jmp @movex
 
 @movecur:
 	lda @cnt
@@ -2228,6 +2229,8 @@ buffer8: lda #$07
 	iny
 	jsr cur::setmax
 
+	lda #TEXT_REPLACE
+	sta text::insertmode
 	lda #MODE_COMMAND
 	sta mode
 	rts
