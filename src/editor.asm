@@ -2013,7 +2013,9 @@ buffer8: lda #$07
 	sec
 	rts
 
-@ok:	jmp cur::right
+@ok:	jsr cur::right
+	clc
+	rts
 .endproc
 
 ;******************************************************************************
