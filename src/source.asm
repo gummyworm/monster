@@ -677,8 +677,11 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	jsr __src_end
 	beq @endofline
 
+	jsr __src_after_cursor	; if we're at end of line, don't move
+	cmp #$0d
+	beq @endofline
 	jsr __src_next
-	jsr __src_after_cursor
+	jsr __src_after_cursor	;if moving would put us at end of line, stay
 	cmp #$0d
 	bne @done
 	jsr __src_prev
@@ -749,7 +752,6 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	beq @done
 	jsr __src_start
 	bne @l0
-	jsr __src_next
 @beginning:
 	sec
 	rts

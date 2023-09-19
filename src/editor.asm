@@ -668,7 +668,8 @@ main:
 .endproc
 
 ;******************************************************************************_
-; INSERT
+; ENTER_INSERT
+; Enters INSERT mode
 .proc enter_insert
 	lda readonly
 	bne @done		; can't INSERT in r/o mode
@@ -677,6 +678,18 @@ main:
 	lda #TEXT_INSERT
 	sta text::insertmode
 @done:	rts
+.endproc
+
+;******************************************************************************_
+; ENTER_COMMAND
+; Enters COMMAND mode
+.proc enter_command
+	lda #MODE_COMMAND
+	cmp mode
+	beq @done
+	sta mode
+	jsr ccleft	; insert places cursor after char
+@done:  rts
 .endproc
 
 ;******************************************************************************_
@@ -1502,7 +1515,7 @@ buffer8: lda #$07
 	cmp #$0d		; down
 	beq @pgdown
 	cmp #$5f		; <-
-	beq @done
+	beq @exit
 	bne @key
 
 @pgdown:
@@ -1517,9 +1530,11 @@ buffer8: lda #$07
 
 	; wait for enter key
 :	jsr key::getch
+	cmp #$5f
+	beq @exit
 	cmp #$0d
 	bne :-
-	jmp bm::restore
+@exit:  jmp bm::restore
 .endproc
 
 ;******************************************************************************
@@ -1917,49 +1932,42 @@ buffer8: lda #$07
 ; CCUP
 ; Handles the up cursor key
 .proc ccup
-@cnt=zp::tmp8
-	ldxy src::line
-	cmpw #1
-	bne @cont	; at line 1, don't scroll
-	jsr src::up	; move source to start of line
-	ldx #$00
-	ldy zp::cury
+@xend=zp::tmp9
+	jsr src::up	; move up a line or to start of line
+	bcc @cont
+	ldx #$00	; start of source, just move to the leftmost column
+	ldy #$00
 	jmp cur::set	; move cursor to start of line
 
-@cont:	jsr src::up	; move up a line (or to start of line)
-	lda zp::curx	; leftmost column
+@cont:	ldx zp::curx
+	stx @xend	; store current x as max column to move to
 	beq :+
-	jsr src::up	; if not left-aligned move up again
-:	jsr src::get
+	jsr src::up	; move to start of line we're moving to
+:	jsr src::get	; read the line we're moving to into linebuffer
+
+	lda #$00
+	sta zp::curx
 
 	; move source to lesser of curx or newline ($0d)
-	lda #$ff
-	sta @cnt
-:	inc @cnt
-	ldx @cnt
-	cpx zp::curx
-	bcs :+
-	jsr src::next
-	ldx text::insertmode
-	cpx #TEXT_INSERT
-	beq @ins
-@rep:	jsr src::after_cursor
-@ins:	cmp #$0d
-	bne :-
-	jsr src::prev
-	ldx @cnt
+@movex: jsr ccright
+	bcs @checkscroll
+	lda zp::curx
+	cmp @xend
+	bcc @movex
 
-:	ldy zp::cury
-	beq @scroll
-	dey
-	jmp cur::set
+@checkscroll:
+	ldy zp::cury		; is cursor at row 0?
+	beq @scroll		; if it is, scroll the screen down
+	dey			; if not, decrement it
+	ldx zp::curx
+	jmp cur::set		; and return
 
 @scroll:
 	lda #EDITOR_ROW_START
 	ldx height
 	jsr text::scrolldown	; cursor wasn't moved, scroll
 	ldy #$00
-	ldx @cnt
+	ldx zp::curx
 	jsr cur::set
 @redraw:
 	lda zp::cury
@@ -2049,65 +2057,52 @@ buffer8: lda #$07
 ; CCDOWN
 ; Handles the down cursor key
 .proc ccdown
-@cnt=zp::tmp6
 @newy=zp::tmp7
 @xend=zp::tmp8
 	jsr src::end
 	bne :+
 	rts		; cursor is at end of source file, return
 
-:	lda #$00
-	sta @cnt
-	lda zp::cury
+:	lda zp::cury
 	sta @newy
 
 	jsr src::down
-	bcc :+
-	jsr src::up
-	jsr src::get
-	lda #$ff
-	sta @xend
-	jmp @movex
+	bcc @down
 
-:	inc @newy
+	; can't move down, move cursor to end of line
+	ldxy #mem::linebuffer
+	jsr str::len
+	tax
+	ldy zp::cury
+	jmp cur::set	; set cursor and we're done
+
+@down:	jsr src::get	; get the data for this in linebuffer
+	inc @newy	; move row down
 	lda zp::curx
 	sta @xend
-	jsr src::get
+	lda #$00
+	sta zp::curx
+	beq @movecur	; cursor is at column 0, place it in the new line
 
-	; if the cursor is on a newline, we're done
-@movex:
-	jsr src::end
-	beq @movecur
-	jsr src::next
-	ldx text::insertmode
-	cpx #TEXT_INSERT
-	beq @ins
-@rep:	jsr src::after_cursor
-@ins:	cmp #$0d
-	bne :+
-	jsr src::prev	; don't pass the newline
-	jmp @movecur
-:	inc @cnt
-	lda @cnt
-	cmp @xend
+@movex:	jsr ccright
 	bcs @movecur
-	jmp @movex
+	lda zp::curx
+	cmp @xend
+	bcc @movex
 
 @movecur:
-	lda @cnt
-	pha
 	ldy @newy
 	cpy height
 	beq @redraw
 	bcc @redraw	; no need to scroll
 
+@scroll:
 	ldx #EDITOR_ROW_START
 	lda height
 	jsr text::scrollup	; cursor wasn't moved, scroll
 	ldy height
 @redraw:
-	pla
-	tax
+	ldx zp::curx
 	jsr cur::set
 	lda zp::cury
 	jmp text::drawline
@@ -2253,9 +2248,7 @@ buffer8: lda #$07
 
 	lda #TEXT_REPLACE
 	sta text::insertmode
-	lda #MODE_COMMAND
-	sta mode
-	rts
+	jmp enter_command
 .endproc
 
 ;******************************************************************************
