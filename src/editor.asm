@@ -201,7 +201,7 @@ main:
 	bcc :+
 	rts		; address not found
 
-:	lda #DEBUG_INFO_START_ROW-2
+:	lda #DEBUG_INFO_START_ROW-1
 	sta height
 	inc readonly	; enable read-only mode
 	jsr home_line	; avoid problems with cursor-y being below new height

@@ -308,9 +308,40 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 .endproc
 
 ;******************************************************************************
+; PLOT
+; Puts given character onto the screen at the given (X,Y) corrdinates
+; IN:
+;  - .A: the character to plot
+;  - .X: the x corrdinate to plot at
+;  - .Y: the y coordinate to plot at
+.export __text_plot
+.proc __text_plot
+@ch=zp::text
+	sta @ch
+	lda zp::curx
+	pha
+	lda zp::cury
+	pha
+
+	stx zp::curx
+	sty zp::cury
+
+	lda @ch
+	jsr __text_putch
+
+	pla
+	sta zp::cury
+	pla
+	sta zp::curx
+	rts
+.endproc
+
+;******************************************************************************
 ; PUTCH
 ; Adds the character in .A to the current cursor position in the
 ; text linebuffer. The cursor is then updated to the next position.
+; IN:
+;  - .A: the character to put
 ; OUT:
 ;  - .C: set if character was unsuccessfully put
 .export __text_putch

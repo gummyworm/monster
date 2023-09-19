@@ -5,6 +5,7 @@
 .include "labels.inc"
 .include "layout.inc"
 .include "macros.inc"
+.include "source.inc"
 .include "text.inc"
 .include "zeropage.inc"
 
@@ -79,10 +80,7 @@ row:	.byte 0
 	lda row
 	clc
 	adc scroll
-	tax
-	lda dbg::breakpoint_flags,x
-	eor #BREAKPOINT_ENABLED
-	sta dbg::breakpoint_flags,x
+	jsr toggle_breakpoint
 	jmp @redraw
 
 @del:	cmp #$11		; DEL
@@ -216,4 +214,80 @@ row:	.byte 0
 @brkline:
 .byte " ", ESCAPE_STRING, " l:", ESCAPE_VALUE_DEC, " [", ESCAPE_STRING, "] $", ESCAPE_VALUE,0
 @unknown_symbol: .byte "???",0
+.endproc
+
+;******************************************************************************
+; TOGGLE_BREAKPOINT
+; TODO: check that file in editor is same as file of breakpoint
+; IN:
+;  - .A: the breakpoint to toggle active/inactive
+.proc toggle_breakpoint
+@line=zp::tmp0
+@startline=zp::tmp2
+@endline=zp::tmp4
+@row=zp::tmp6
+	pha
+
+	tax
+	lda dbg::breakpoint_flags,x
+	eor #BREAKPOINT_ENABLED
+	sta dbg::breakpoint_flags,x
+
+	; get the line # of the breakpoint
+	txa
+	asl
+	tax
+	ldy dbg::breakpoints+1,x
+	lda dbg::breakpoints,x
+	tax
+	jsr dbg::addr2line
+	bcs @done		; no line #
+	stxy @line
+
+	; check if the breakpoint is visible in the editor
+	lda src::line
+	sec
+	sbc zp::cury
+	sta @startline
+	lda src::line+1
+	sbc #$00
+	sta @startline+1
+
+	lda @startline
+	clc
+	adc #BRKVIEW_START
+	sta @endline
+	lda @startline+1
+	adc #$00
+	sta @endline+1
+
+	pla
+
+	ldxy @line
+	cmpw @startline
+	bcc @done
+	cmpw @endline
+	bcs @done
+
+	tax
+
+	lda @line
+	sec
+	sbc @startline		; will be [0, BRKVIEW_START)
+	sta @row
+
+	lda #TEXT_REPLACE
+	sta text::insertmode
+
+	lda dbg::breakpoint_flags,x
+	and #BREAKPOINT_ENABLED
+	beq :+
+	lda #BREAKPOINT_CHAR
+	.byte $2c
+:	lda #BREAKPOINT_OFF_CHAR
+	ldx #$00
+	ldy @row
+	jsr text::plot
+
+@done:	rts
 .endproc

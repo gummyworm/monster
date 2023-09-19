@@ -1479,8 +1479,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #AUX_BRK
 	sta aux_mode
 	jsr brkpt::edit
-	inc $900f
-	jmp *-3
 	pla
 	pla
 	jmp debugloop

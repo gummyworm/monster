@@ -3,6 +3,7 @@
 .import __text_puts
 .import __text_putz
 .import __text_charmap
+.import __text_plot
 .import __text_putch
 .import __text_status 
 .import __text_update
@@ -35,6 +36,7 @@ BREAKPOINT_OFF_CHAR = 134
 	clrline  = __text_clrline
         puts     = __text_puts
 	putz   	 = __text_putz
+	plot     = __text_plot
 	putch    = __text_putch
 	print    = __text_print
         charmap  = __text_charmap
