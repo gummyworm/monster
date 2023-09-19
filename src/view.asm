@@ -44,6 +44,7 @@ memaddr:   .word 0
 @offset=zp::tmp6
 @src=zp::tmp8
 	stxy @src
+	stxy memaddr
 
 	pushcur
 
@@ -246,16 +247,14 @@ memaddr:   .word 0
 ; MEM
 ; Displays the contents of memory in a large block beginning with the
 ; address in (YX).
-; IN:
-;  - .XY: the start address to display memory at
+; The address is that which was set with the most recent call to mem::edit
 .export __view_mem
 .proc __view_mem
 @src=zp::tmpa
 @col=zp::tmpc
 @row=zp::tmpd
+	ldxy memaddr
 	stxy @src
-	stxy memaddr
-
 	lda #MEMVIEW_START
 	jsr draw::hline
 

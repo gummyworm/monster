@@ -262,7 +262,7 @@ main:
 	; save the current source position and rewind it for assembly
 	jsr src::pushp
 	jsr src::rewind
-	jsr src::next
+	jsr src::next	; first character index is 1
 	jsr reset
 
 	lda zp::gendebuginfo
@@ -301,7 +301,7 @@ main:
 	jsr dbg::setup  ; we have enough info to init debug now
 
 :	jsr src::rewind
-	jsr src::next
+	jsr src::next	; first character index is 1
 	jsr asm::resetpc
 	jsr ctx::init
 	lda #$00
@@ -843,7 +843,9 @@ main:
 	lda readonly
 	beq :+
 	rts
-:	jsr ccdown
+:	lda #TEXT_INSERT
+	sta text::insertmode
+	jsr ccdown
 	jsr home
 @l0:	jsr backspace
 	lda zp::curx
@@ -851,7 +853,9 @@ main:
 	jsr src::end
 	bne :+
 	jsr ccup
-:	lda zp::cury
+:	lda #TEXT_REPLACE
+	sta text::insertmode
+	lda zp::cury
 	jmp text::drawline
 .endproc
 
@@ -1156,35 +1160,43 @@ main:
 ;******************************************************************************
 ; Refresh
 ; Redraws the screen
-; TODO: optimize once we're sure there are no bugs with source movement/rendering
+.export __edit_refresh
+__edit_refresh:
 .proc refresh
 	jsr cur::off
-	jsr __edit_init
-	jsr src::rewind
-	jsr src::next	; first character index is 1
 
+	; save current cursor position and source position
+	pushcur
+	jsr src::pushp
+
+	; move source/cursor to top-left of screen
+	jsr home_line
+
+	; redraw the visible lines
 @l0:	jsr text::clrline
 	jsr src::readline
 	bcs @done
 @newl:	jsr drawline
-	jmp @l0
+	lda zp::cury
+	cmp height
+	bcc @l0
 @done:	jsr src::atcursor
 	cmp #$0d
 	bne :+
 	; if the last char is a newline, advance/scroll/etc.
 	jsr drawline
-	jmp text::clrline	; if line ended on newline; it's empty
+	jsr text::clrline	; if line ended on newline; it's empty
+	jmp @restore
 
 :	lda zp::cury
 	jsr text::drawline
-	ldxy #mem::linebuffer
-	jsr str::len
-	tax
-	ldy zp::cury
-	jsr cur::set
+	jsr src::get	; load the contents of the last line to linebuffer
 
-	jsr src::up
-	jmp src::get	; load the contents of the last line to linebuffer
+@restore:
+	; restore cursor and source
+	popcur
+	jsr src::popp
+	jmp src::goto
 .endproc
 
 ;******************************************************************************
@@ -1675,6 +1687,11 @@ buffer8: lda #$07
 
 	; clear flags on the source buffer
 	jsr src::setflags
+	jsr src::rewind
+	jsr src::next	; first character index is 1
+	ldx #$00
+	ldy #$00
+	jsr cur::set
 	jsr refresh
 	RETURN_OK
 

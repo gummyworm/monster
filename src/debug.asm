@@ -26,10 +26,10 @@
 
 ;******************************************************************************
 ; Debug info constants
-MAX_FILES = 24	      ; max files that debug info may be generated for
-MAX_SEGMENTS=32	      ; max segments that debug info may be generated for
-MAX_BREAKPOINTS = 16  ; max number of breakpoints that may be set
-MAX_WATCHPOINTS = 8   ; max number of watchpoints that may be set
+MAX_FILES = 24		; max files that debug info may be generated for
+MAX_SEGMENTS=32		; max segments that debug info may be generated for
+MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
+MAX_WATCHPOINTS = 8	; max number of watchpoints that may be set
 MAX_LINES  = 8000	; max number of lines across all segments
 
 SEG_START_ADDR = 0      ; offset in segment header for start address
@@ -83,7 +83,6 @@ reg_p:  .byte 0
 reg_sp: .byte 0
 pc:     .word 0
 
-mem_ptr: .word 0	; address of memory view
 step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
 
 ; backup of the memory value being affected by the current instruction
@@ -1006,12 +1005,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; initialize auxiliary views
 	jsr brkpt::init
-
-	ldxy #$1000
-	stxy mem_ptr
-	;jsr view::mem
-
-	lda #AUX_MEM
+	lda #$00
 	sta aux_mode
 
 	jsr save_debug_state ; save the debug state
@@ -1199,14 +1193,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sbc #$00
 	sta pc+1
 
-	; restore debugger state
-	jsr restore_debug_state
-
-	; display the contents of the registers
-	jsr showregs
-
-	;lda aux_mode
-	;jsr show_aux
+	jsr restore_debug_state	; restore debugger state
+	jsr showregs		; display the contents of the registers
+	jsr show_aux		; display the auxiliary mode
 
 @showbrk:
 	; get the address before the BRK and go to it
@@ -1339,8 +1328,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.byte $ad	; C=+z (step)
 	.byte $ae	; C=+s (step over)
 	.byte $a5	; C=+g (go)
-	.byte $85	; F1 (edit mem)
-	.byte $86	; F3 (edit breakpoints)
+	.byte $85	; F1 (turn off all views)
+	.byte $86	; F3 (edit memory)
+	.byte $87	; F5 (edit breakpoints)
 	.byte $bf	; C=+b (set breakpoint)
 @num_commands=*-@commands
 @command_vectors:
@@ -1348,6 +1338,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.word step
 	.word step_over
 	.word go
+	.word edit_source
 	.word edit_mem
 	.word edit_breakpoints
 	.word set_breakpoint
@@ -1461,12 +1452,21 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
+; EDIT_SOURCE
+; Disable all views and reenable (almost) fullscreen editing
+.proc edit_source
+	lda #$00
+	sta aux_mode
+	rts
+.endproc
+
+;******************************************************************************
 ; EDIT_MEM
 ; Transfers control to the memory viewer/editor until the user exits it
 .proc edit_mem
 	lda #AUX_MEM
 	sta aux_mode
-	ldxy mem_ptr
+	ldxy #$1000
 	jsr view::edit
 	pla
 	pla
@@ -2013,23 +2013,21 @@ __debug_remove_breakpoint:
 ; Displays the memory viewer, breakpoint viewer, or watchpoint viewer depending
 ; on which is enabled
 .proc show_aux
-	cmp #@numauxviews-1
+	ldx aux_mode
+	beq @done		; no aux mode
+	cpx #@numauxviews+1
 	bcs @done		; invalid selection
-
-
+	lda @auxlos-1,x
+	sta zp::jmpvec
+	lda @auxhis-1,x
+	sta zp::jmpvec+1
+	jmp zp::jmpaddr
 @done:	rts
-
-@memview:
-	; update memory view
-	ldxy mem_ptr
-	jmp view::mem
-
-.define auxtab @memview, brkpt::view
+.define auxtab view::mem, brkpt::view
 @auxlos: .lobytes auxtab
 @auxhis: .hibytes auxtab
 @numauxviews=*-@auxhis
 .endproc
-
 
 ;******************************************************************************
 ; GETSEGMENT_BY_ID
