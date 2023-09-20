@@ -492,7 +492,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
 ;******************************************************************************
 ; DRAWLINE
-; Renders the text in mem::linebuffer at the cursor position
+; Renders the text in mem::linebuffer at the given row
 ; IN:
 ;  - .A: the row to draw the line at
 ;  - mem::linebuffer: the text to draw

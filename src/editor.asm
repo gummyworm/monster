@@ -207,7 +207,7 @@ main:
 	bcc :+
 	rts		; address not found
 
-:	lda #DEBUG_INFO_START_ROW-1
+:	lda #REGISTERS_LINE-1
 	sta height
 	inc readonly	; enable read-only mode
 	jsr home_line	; avoid problems with cursor-y being below new height
@@ -1306,17 +1306,28 @@ __edit_set_breakpoint:
 	bne @l0
 
 @insert:
-	jsr src::after_cursor
-	cmp #BREAKPOINT_CHAR
-	beq @restore		; breakpoint already set
 	lda text::insertmode
 	pha
 	lda #TEXT_INSERT
 	sta text::insertmode
-	lda #BREAKPOINT_CHAR
+
+	jsr src::after_cursor
+	cmp #BREAKPOINT_CHAR
+	bne @add
+@remove:
+	jsr src::delete
+	lda #$14
+	inc zp::curx
+	jsr text::putch
+	lda zp::cury
+	jsr text::drawline
+	jmp @cont
+
+@add:	lda #BREAKPOINT_CHAR
 	jsr src::insert
 	jsr text::putch
-	pla
+
+@cont:	pla
 	sta text::insertmode
 
 @restore:
