@@ -175,13 +175,8 @@ memaddr:   .word 0
 	asl
 	asl
 	ora @odd
-.ifdef USE_FINAL
-	ldxa @dst
-	jsr get_byte
-.else
-	lda (@dst),y
-.endif
-	rts
+	jmp @store
+
 @lownybble:
 .ifdef USE_FINAL
 	ldxa @dst
@@ -193,6 +188,8 @@ memaddr:   .word 0
 	sta @odd
 	pla
 	ora @odd
+@store:
+	sta zp::bankval
 .ifdef USE_FINAL
 	ldxa @dst
 	jsr store_byte
@@ -473,6 +470,7 @@ memaddr:   .word 0
 ; IN:
 ;  - .AX: the address to write
 ;  - .Y: the offset from the address to read
+;  - zp::bankval: the value to store
 ; OUT:
 ;  - .A: the byte at the given address+offset
 .proc store_byte
@@ -480,11 +478,13 @@ memaddr:   .word 0
 @offset=zp::tmp10
 @bank=zp::tmp11
 @ysave=zp::tmp12
+	stx @addr
+	sta @addr+1
 	sty @ysave
-	jsr get_real_address
-	sta @bank
-	stxy @addr
-	bank_store_byte @bank, @addr, @offset
+
+	jsr get_real_address	; .XY has address, .A has bank
+	jsr fe3::store
+
 	ldy @ysave
 	rts
 .endproc

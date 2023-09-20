@@ -2559,7 +2559,7 @@ __edit_gotoline:
 
 	lda @startline
 	clc
-	adc #BRKVIEW_START
+	adc height
 	sta @endline
 	lda @startline+1
 	adc #$00
