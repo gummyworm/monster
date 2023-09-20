@@ -252,8 +252,12 @@ memaddr:   .word 0
 @row=zp::tmpd
 	ldxy memaddr
 	stxy @src
+
+	ldxy #@title
 	lda #MEMVIEW_START
-	jsr draw::hline
+	jsr text::print
+	lda #MEMVIEW_START
+	jsr bm::rvsline
 
 	lda #40
 	sta zp::tmp0
@@ -320,6 +324,8 @@ memaddr:   .word 0
 	cmp #MEMVIEW_STOP
 	bcc @l0
 	rts
+
+@title: .byte ESCAPE_SPACING,16, "memory",0
 .endproc
 
 ;******************************************************************************

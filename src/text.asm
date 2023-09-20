@@ -15,13 +15,14 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-ESCAPE_STRING = $ff
-ESCAPE_VALUE = $fe
+ESCAPE_STRING    = $ff
+ESCAPE_VALUE     = $fe
 ESCAPE_VALUE_DEC = $fd
-ESCAPE_RVS_ON = $01
-ESCAPE_RVS_OFF = $02
-STATUS_LINE = 23
-STATUS_COL  = 0
+ESCAPE_SPACING   = $fc
+ESCAPE_RVS_ON    = $01
+ESCAPE_RVS_OFF   = $02
+STATUS_LINE      = 23
+STATUS_COL       = 0
 
 .BSS
 ;******************************************************************************
@@ -204,7 +205,26 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	cmp #ESCAPE_VALUE
 	beq @value
 	cmp #ESCAPE_VALUE_DEC
-        bne @ch
+	beq @value_dec
+	cmp #ESCAPE_SPACING
+	beq @spacing
+	jmp @ch
+
+@spacing:
+;substitute escape character with number of spaces from stack
+	iny
+	sty @savey
+	lda (@str),y
+	tay
+	bne :+
+	jmp @cont
+:	lda #' '
+	sta @buff,x
+	inx
+	dey
+	bne :-
+	ldy @savey
+	jmp @cont
 
 ;substitute escape character with value from stack formatted in base-10
 @value_dec:

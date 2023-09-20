@@ -36,7 +36,22 @@ row:	.byte 0
 ; Begins the breakpoint editor loop.
 .export __breakpoint_edit
 .proc __breakpoint_edit
-	lda #$00
+	; display the title
+	ldxy #@title
+	lda #MEMVIEW_START
+	jsr text::print
+	lda #MEMVIEW_START
+	jsr bm::rvsline
+
+	; if there are no breakpoints, just wait for user to quit
+	lda dbg::numbreakpoints
+	bne :++
+:	jsr key::getch
+	cmp #$5f	; <-
+	bne :-
+	rts
+
+:	lda #$00
 	sta row
 	sta scroll
 	jmp @redraw	; highlight the first row
@@ -102,6 +117,8 @@ row:	.byte 0
 	adc #BRKVIEW_START+1
 	jsr bm::rvsline
 	jmp @loop
+
+@title: .byte ESCAPE_SPACING,14, "breakpoints",0
 .endproc
 
 ;******************************************************************************
@@ -112,9 +129,6 @@ row:	.byte 0
 @cnt=zp::tmp13
 @addr=zp::tmp14
 @file=zp::tmp16
-	lda #BRKVIEW_START
-	jsr draw::hline
-
 	; get the last breakpoint
 	lda scroll
 	sta @cnt

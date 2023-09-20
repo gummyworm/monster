@@ -19,11 +19,13 @@
 .import __text_savebuff
 .import __text_restorebuff
 
-ESCAPE_STRING = $ff
-ESCAPE_VALUE = $fe
-ESCAPE_VALUE_DEC = $fd
-ESCAPE_RVS_ON = $01
-ESCAPE_RVS_OFF = $02
+; ESCAPE CODES
+ESCAPE_STRING    = $ff	; 2 byte: address of string
+ESCAPE_VALUE     = $fe	; 2 byte: value to print in hex
+ESCAPE_VALUE_DEC = $fd	; 2 byte: value to print in decimal
+ESCAPE_SPACING   = $fc	; 1 byte: number of spaces to insert
+ESCAPE_RVS_ON    = $01
+ESCAPE_RVS_OFF   = $02
 
 TEXT_INSERT = 1
 TEXT_REPLACE = 0
