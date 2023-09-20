@@ -87,6 +87,7 @@ reg_sp: .byte 0
 pc:     .word 0
 
 step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
+lineset:   .byte 0	; not zero if we know the line number we're on
 
 ; backup of the memory value being affected by the current instruction
 ; if it is destructive
@@ -95,7 +96,6 @@ mem_saveaddr: .word 0	; addrses of affected byte
 
 aux_mode:         .byte 0	; the active auxiliary view
 auto_swap_memory: .byte 0	; if 1, ALL memory will be swapped on BRK
-
 ;******************************************************************************
 ; Debug symbol variables
 ; number of files that we have debug info for. The ID of a file is its index
@@ -1216,26 +1216,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 @showbrk:
 	; get the address before the BRK and go to it
+	lda #$00
+	sta lineset		; flag that line # is (yet) unknown
 	ldxy pc
 	jsr __debug_addr2line	; get the line #
-	bcc @pushline
-
-	; we couldn't find the line #; display the address of the BRK
-	lda pc
-	pha
-	lda pc+1
-	pha
-	ldxy #@brk_message_addr
-	lda #DEBUG_MESSAGE_LINE
-	jsr text::print		; "break @ <addr>"
-	lda #DEBUG_MESSAGE_LINE
-	jsr bm::rvsline
-
-	jmp debugloop		; skip highlght (we don't know the line)
-
-@pushline:
+	sta file
+	bcs @print
+	inc lineset
 	stxy line
-
 ; open the file of the line we BRK'd in
 ; if the buffer is already loaded switch to it. if not, load it into the
 ; DEBUG bank
@@ -1253,29 +1241,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr edit::load
 	; TODO: handle err
 
-	; display the BRK message
-	lda line
-	pha
-	lda line+1
-	pha
-	ldxy #@brk_message_line
-	lda #DEBUG_MESSAGE_LINE
-	jsr text::print		; break in line <line #>
-	lda #DEBUG_MESSAGE_LINE
-	jsr bm::rvsline
-
+	; goto the line that the BRK happened on and highlight it
 	ldxy line
 	jsr edit::gotoline	; go to the line where the BRK happened
 	lda zp::cury
 	jsr bm::rvsline		; highlight the line of the BRK
-	;ldx #DEBUG_LINE_COLOR
-	;jsr text::hiline
 
-	jmp debugloop
-@brk_message_line: .byte "brk in line ",$fd,0 ; when line number is resolved
-@brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
+@print:	jsr showbrk		; display the BRK message
+	; fall through to debug loop
 .endproc
-
 
 ;******************************************************************************
 ; main debug loop
@@ -1475,7 +1449,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @return:
 	pla
 	pla
-	jsr showregs		; restore the register display
+	jsr showstate	; restore the register display
 	jmp debugloop
 
 @quit:	jsr uninstall_breakpoints
@@ -1504,6 +1478,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #REGISTERS_LINE-1
 	sta edit::height	; resize the editor
 	jsr edit::refresh	; and refresh
+	jsr showstate		; restore the state
 	pla
 	pla
 	jmp debugloop
@@ -1516,6 +1491,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #DEBUG_INFO_START_ROW-1
 	sta edit::height
 	jsr edit::refresh
+	jsr showstate		; restore the state
 
 	sta edit::height	; resize the editor
 	lda #AUX_MEM
@@ -1534,6 +1510,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #DEBUG_INFO_START_ROW-1
 	sta edit::height
 	jsr edit::refresh
+	jsr showstate		; restore the state
 
 	lda #AUX_BRK
 	sta aux_mode
@@ -1982,6 +1959,14 @@ __debug_remove_breakpoint:
 .endproc
 
 ;******************************************************************************
+; SHOWSTATE
+; Shows the current debug state (registers and BRK line)
+.proc showstate
+	jsr showregs
+	jmp showbrk
+.endproc
+
+;******************************************************************************
 ; SHOWREGS
 ; prints the contents of the registers in the format
 ;  ADDR A  X  Y  SP NV-BDIZC
@@ -2066,6 +2051,38 @@ __debug_remove_breakpoint:
 	rts
 
 @regsline: .byte "addr a  x  y  sp  nv-bdizc",0
+.endproc
+
+;******************************************************************************
+; SHOWBRK
+; Display the BRK line number or address
+.proc showbrk
+	lda lineset		; is the line # known?
+	bne @showline		; if so, show it
+
+@showaddr:
+	; we couldn't find the line #; display the address of the BRK
+	lda pc
+	pha
+	lda pc+1
+	pha
+	ldxy #@brk_message_addr
+	jmp @print
+
+@showline:
+	; display the BRK message
+	lda line
+	pha
+	lda line+1
+	pha
+	ldxy #@brk_message_line
+@print:	lda #DEBUG_MESSAGE_LINE
+	jsr text::print		; break in line <line #>
+	lda #DEBUG_MESSAGE_LINE
+	jmp bm::rvsline
+
+@brk_message_line: .byte "brk in line ",$fd,0 ; when line number is resolved
+@brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
 .endproc
 
 ;******************************************************************************
