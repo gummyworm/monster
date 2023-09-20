@@ -44,6 +44,8 @@ AUX_MEM   = 1		; enables the memory viewer in the debug view
 AUX_BRK   = 2		; enables the breakpoint view in the debug view
 AUX_WATCH = 3		; enables the watchpoint view in the debug view
 
+BREAKPOINT_ENABLED = 1
+
 ;******************************************************************************
 ; STEP constants
 ; There are some important differences between INTO and OVER
@@ -1013,8 +1015,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr save_debug_state ; save the debug state
 	jsr __debug_restore_progstate
 
-	; set JMP vector (destroyed by restoring prog state)
-
 ; execute the user program until BRK
 @runpc:
 	CALL FINAL_BANK_USER, pc
@@ -1031,6 +1031,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	dex
 	stx @cnt
 @installbrks:
+	ldx @cnt
+	lda breakpoint_flags,x
+	and #BREAKPOINT_ENABLED
+	beq @next
+
 	lda @cnt
 	asl
 	tay
@@ -1047,7 +1052,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	bank_store_byte #FINAL_BANK_USER, @brkaddr
 
-	dec @cnt
+@next:	dec @cnt
 	bpl @installbrks
 @done:	rts
 .endproc
@@ -1178,13 +1183,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	tsx
 	stx reg_sp
 
+	; save the program state before we restore the debugger's
+	jsr __debug_save_prog_state
+
 ; wait for key to re-activate debugger
 @waitkey:
 	jsr key::getch
 	beq @waitkey
-
-	; save the program state before we restore the debugger's
-	jsr __debug_save_prog_state
 
 	; BRK pushes PC + 2, subtract 2 from PC
 	lda pc
@@ -1198,6 +1203,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr restore_debug_state	; restore debugger state
 	jsr showregs		; display the contents of the registers
 	jsr show_aux		; display the auxiliary mode
+
+	; remove the breakpoint at the current PC (that caused this BRK)
+	jsr uninstall_breakpoints
+	ldxy pc
+	jsr remove_breakpoint	  ; remove BRK @ the current PC
 
 @showbrk:
 	; get the address before the BRK and go to it
@@ -1298,12 +1308,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr
 
-@done:	; unhighlight the BRK line
-	;jsr text::hioff
-	lda zp::cury
+@done:	; unhighlight the BRK line if it's still visible
+	ldxy line
+	jsr edit::src2screen
+	bcs :+
 	jsr bm::rvsline
 
-	; swap debug state out for user's program
+:	; swap debug state out for user's program
 	jsr save_debug_state
 	jsr __debug_restore_progstate
 
@@ -1324,7 +1335,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldy reg_y
 
 	; return from the BRK
-	jmp *
 	jmp fe3::bank_rti
 
 
@@ -1442,11 +1452,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Runs the user program until the next breakpoint or an NMI occurs
 .proc go
 	jsr uninstall_breakpoints
-	ldxy pc
-	jsr remove_breakpoint	  ; remove BRK @ the current PC
-	jsr install_breakpoints	  ; reinstall rest of breakpoints and continue
-	jmp *
-	rts
+	jmp install_breakpoints	  ; reinstall rest of breakpoints and continue
 .endproc
 
 ;******************************************************************************
@@ -1468,8 +1474,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jmp debugloop
 
 @quit:	jsr uninstall_breakpoints
-	ldxy pc
-	jsr remove_breakpoint
 
 	lda #$00
 	pha
@@ -1556,8 +1560,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @addr=zp::tmp0
 	; delete the last STEP breakpoint
 	jsr uninstall_breakpoints
-	ldxy pc
-	jsr remove_breakpoint
 
 	ldxy #$100	; ROM (we don't need the string)
 	stxy zp::tmp0	; TODO: make way to not disassemble to string
@@ -1583,6 +1585,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy pc
 	jsr next_instruction	  ; get the address of the next instruction
 	jsr __debug_setbreakpoint ; add a breakpoint at the next instruction
+	inc $900f
 	jsr install_breakpoints	  ; update breakpoints with our new one
 
 	lda #$00

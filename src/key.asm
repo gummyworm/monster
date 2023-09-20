@@ -16,7 +16,7 @@ CURSOR_LR_MASK=2
 ;  - .A: the key code of the pressed key or 0 if no key is pressed
 .export __key_getch
 .proc __key_getch
-@x=zp::tmp0
+@x=zp::tmpe
 	jsr Keyboard
 
 	pha

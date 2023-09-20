@@ -4,6 +4,7 @@
 .import __edit_init
 .import __edit_load
 .import __edit_set_breakpoint
+.import __edit_src2screen
 .import __edit_refresh
 .import __edit_run
 
@@ -16,6 +17,7 @@
 	refresh       = __edit_refresh
 	run           = __edit_run
 	setbreakpoint = __edit_set_breakpoint
+	src2screen    = __edit_src2screen
 .endscope
 
 ;******************************************************************************

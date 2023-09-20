@@ -2535,6 +2535,51 @@ __edit_gotoline:
 @line_err: .byte ";pass ", ESCAPE_VALUE_DEC,";line ", ESCAPE_VALUE_DEC,0
 .endproc
 
+;******************************************************************************
+; SRC2SCREEN
+; Takes the given source line number and returns its row position on the screen.
+; IN:
+;  - .XY: the line number to get the screen row of
+; OUT:
+;  - .A: the row that the line number resides on
+;  - .C: set if the line number is not on screen
+.export __edit_src2screen
+.proc __edit_src2screen
+@line=zp::tmp0
+@startline=zp::tmp2
+@endline=zp::tmp4
+	stxy @line
+	lda src::line
+	sec
+	sbc zp::cury
+	sta @startline
+	lda src::line+1
+	sbc #$00
+	sta @startline+1
+
+	lda @startline
+	clc
+	adc #BRKVIEW_START
+	sta @endline
+	lda @startline+1
+	adc #$00
+	sta @endline+1
+
+	ldxy @line
+	cmpw @startline
+	bcc @done
+	cmpw @endline
+	bcs @done
+
+	lda @line
+	sec
+	sbc @startline		; will be [0, BRKVIEW_START)
+	RETURN_OK
+
+@done:	sec			; line off screen
+	rts
+.endproc
+
 .DATA
 ;******************************************************************************
 controlcodes:

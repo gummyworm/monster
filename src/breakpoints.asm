@@ -1,6 +1,7 @@
 .include "bitmap.inc"
 .include "debug.inc"
 .include "draw.inc"
+.include "edit.inc"
 .include "key.inc"
 .include "labels.inc"
 .include "layout.inc"
@@ -221,10 +222,7 @@ row:	.byte 0
 ; IN:
 ;  - .A: the breakpoint to toggle active/inactive
 .proc toggle_breakpoint
-@line=zp::tmp0
-@startline=zp::tmp2
-@endline=zp::tmp4
-@row=zp::tmp6
+@row=zp::tmp0
 	pha
 
 	tax
@@ -243,40 +241,14 @@ row:	.byte 0
 	bcs @done		; no line #
 	cmp dbg::file		; same file?
 	bne @done		; no, can't be visible
-	stxy @line
 
-	; check if the breakpoint is visible in the editor
-	lda src::line
-	sec
-	sbc zp::cury
-	sta @startline
-	lda src::line+1
-	sbc #$00
-	sta @startline+1
-
-	lda @startline
-	clc
-	adc #BRKVIEW_START
-	sta @endline
-	lda @startline+1
-	adc #$00
-	sta @endline+1
-
-	pla
-
-	ldxy @line
-	cmpw @startline
-	bcc @done
-	cmpw @endline
-	bcs @done
-
-	tax
-
-	lda @line
-	sec
-	sbc @startline		; will be [0, BRKVIEW_START)
+	jsr edit::src2screen
 	sta @row
+	pla
+	bcs @done		; breakpoint not visible on screen
 
+	; replace the breakpoint character on screen with a "breakpoint off" char
+	tax
 	lda #TEXT_REPLACE
 	sta text::insertmode
 
@@ -289,6 +261,5 @@ row:	.byte 0
 	ldx #$00
 	ldy @row
 	jsr text::plot
-
 @done:	rts
 .endproc
