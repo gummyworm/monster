@@ -1946,6 +1946,7 @@ buffer8: lda #$07
 @xend=zp::tmp9
 	jsr src::up	; move up a line or to start of line
 	bcc @cont
+	jsr src::next	; move to first character on line
 	ldx #$00	; start of source, just move to the leftmost column
 	ldy #$00
 	jmp cur::set	; move cursor to start of line
@@ -2026,16 +2027,20 @@ buffer8: lda #$07
 ;  - .C: set if cursor could not be moved
 .proc ccleft
 	lda zp::curx
-	beq :+
+	beq @nomove
 	pha
 	jsr cur::left
 	pla
 	cmp zp::curx
-	beq :+
+	beq @nomove
 	jsr src::prev
+	jsr src::start
+	beq :+
 	clc
 	rts
-:	sec
+:	jsr src::next
+@nomove:
+	sec
 	rts
 .endproc
 

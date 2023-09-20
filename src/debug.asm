@@ -1068,6 +1068,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	dex
 	stx @cnt
 @uninstall:
+	ldx @cnt
+	lda breakpoint_flags,x
+	and #BREAKPOINT_ENABLED
+	beq @next
+
 	txa
 	asl
 	tay
@@ -1079,7 +1084,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldx @cnt
 	lda breaksave,x
 	bank_store_byte #FINAL_BANK_USER, @addr
-	dec @cnt
+@next:	dec @cnt
 	bpl @uninstall
 @done:	rts
 .endproc
@@ -1283,6 +1288,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr key::getch
 	beq debugloop
 
+	pha
+	jsr cur::off
+	pla
 	ldx #@num_commands
 @getcmd:
 	dex
@@ -1291,10 +1299,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @getcmd
 	beq @runcmd
 
-@nocmd:	pha
-	jsr cur::off
-	pla
-	jsr edit::handlekey
+@nocmd:	jsr edit::handlekey
 	jmp debugloop
 
 @runcmd:
@@ -1920,7 +1925,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta breakpoints+1,x
 
 	ldx numbreakpoints
-	lda #1
+	lda #BREAKPOINT_ENABLED
 	sta breakpoint_flags,x
 	inc numbreakpoints
 	rts

@@ -138,6 +138,8 @@ bankcode:
 @oldbank=zp::banktmp+3
 	sei
 	stxy zp::jmpvec
+	ldx #$4c
+	stx zp::jmpaddr	; write the JMP instruction
 	ldx $9c02
 	stx @oldbank	; save current bank
 
