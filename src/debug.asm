@@ -1493,7 +1493,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr edit::refresh
 	jsr showstate		; restore the state
 
-	sta edit::height	; resize the editor
 	lda #AUX_MEM
 	sta aux_mode
 	ldxy #$1000

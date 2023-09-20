@@ -481,6 +481,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	pha
 
 	lda #40
+	sta __text_len
 	sta zp::tmp0
 	ldx #<mem::spare
 	ldy #>mem::spare

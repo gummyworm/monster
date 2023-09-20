@@ -1193,29 +1193,24 @@ __edit_refresh:
 	; redraw the visible lines
 @l0:	jsr text::clrline
 	jsr src::readline
+	php
+	lda zp::cury
+	jsr text::drawline
+	plp
 	bcs @done
-@newl:	jsr drawline
+	inc zp::cury
 	lda zp::cury
 	cmp height
+	beq @l0
 	bcc @l0
 
-@done:	jsr src::atcursor
-	cmp #$0d
-	bne :+
-	; if the last char is a newline, advance/scroll/etc.
-	jsr drawline
-	jsr text::clrline	; if line ended on newline; it's empty
-	jmp @restore
+	dec zp::cury
 
-:	lda zp::cury
-	jsr text::drawline
-	jsr src::get	; load the contents of the last line to linebuffer
-
-@restore:
-	; restore cursor and source
+@done:	; restore cursor and source
 	popcur
 	jsr src::popp
-	jmp src::goto
+	jsr src::goto
+	jmp src::get	; load the contents of the last line to linebuffer
 .endproc
 
 ;******************************************************************************
