@@ -2,6 +2,7 @@
 .include "bitmap.inc"
 .include "breakpoints.inc"
 .include "config.inc"
+.include "cursor.inc"
 .include "edit.inc"
 .include "errors.inc"
 .include "fastcopy.inc"
@@ -1280,7 +1281,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @getcmd
 	beq @runcmd
 
-@nocmd:	jsr edit::handlekey
+@nocmd:	pha
+	jsr cur::off
+	pla
+	jsr edit::handlekey
 	jmp debugloop
 
 @runcmd:
@@ -1320,6 +1324,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldy reg_y
 
 	; return from the BRK
+	jmp *
 	jmp fe3::bank_rti
 
 
@@ -1439,7 +1444,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr uninstall_breakpoints
 	ldxy pc
 	jsr remove_breakpoint	  ; remove BRK @ the current PC
-	jmp install_breakpoints	  ; reinstall rest of breakpoints and continue
+	jsr install_breakpoints	  ; reinstall rest of breakpoints and continue
+	jmp *
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1531,10 +1538,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; SET_BREAKPOINT
 ; Sets a breakpoint at the current line selection
 .proc set_breakpoint
+	jsr edit::setbreakpoint		; set a breakpoint in the source
 	ldxy src::line
 	jsr __debug_line2addr
-	jsr __debug_setbreakpoint
-	rts
+	jsr __debug_setbreakpoint	; add the breakpoint to the debugger
+	pla
+	pla
+	jmp debugloop
 .endproc
 
 ;******************************************************************************

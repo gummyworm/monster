@@ -1298,6 +1298,8 @@ __edit_refresh:
 ;******************************************************************************
 ; SET_BREAKPOINT
 ; insert a BREAKPOINT character at the beginning of the line
+.export __edit_set_breakpoint
+__edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
 	lda zp::curx
@@ -1309,9 +1311,18 @@ __edit_refresh:
 	bne @l0
 
 @insert:
+	jsr src::after_cursor
+	cmp #BREAKPOINT_CHAR
+	beq @restore		; breakpoint already set
+	lda text::insertmode
+	pha
+	lda #TEXT_INSERT
+	sta text::insertmode
 	lda #BREAKPOINT_CHAR
 	jsr src::insert
 	jsr text::putch
+	pla
+	sta text::insertmode
 
 @restore:
 	lda zp::curx
