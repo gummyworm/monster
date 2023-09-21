@@ -1220,14 +1220,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	tsx
 	stx reg_sp
 
-	; save the program state before we restore the debugger's
-	jsr __debug_save_prog_state
-
-; wait for key to re-activate debugger
-@waitkey:
-	jsr key::getch
-	beq @waitkey
-
 	; BRK pushes PC + 2, subtract 2 from PC
 	lda pc
 	sec
@@ -1237,13 +1229,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sbc #$00
 	sta pc+1
 
-	jsr restore_debug_state	; restore debugger state
-	jsr showregs		; display the contents of the registers
-	jsr show_aux		; display the auxiliary mode
-
 	; uninstall breakpoints (will reinstall the ones we want later)
 	jsr uninstall_breakpoints
 
+	; if we're beginning a GO, get on with it
 	lda action
 	cmp #ACTION_GO_START
 	bne :+
@@ -1253,7 +1242,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr install_breakpoints	 ; reinstall rest of breakpoints
 	jmp debug_done		 ; continue execution
 
-:	cmp #ACTION_START
+:	; save the program state before we restore the debugger's
+	jsr __debug_save_prog_state
+
+; wait for key to re-activate debugger
+@waitkey:
+	jsr key::getch
+	beq @waitkey
+
+	jsr restore_debug_state	; restore debugger state
+	jsr showregs		; display the contents of the registers
+	jsr show_aux		; display the auxiliary mode
+
+	lda action
+	cmp #ACTION_START
 	bne :+
 	lda startsave				; restore opcode
 	bank_store_byte #FINAL_BANK_USER, pc
@@ -1348,7 +1350,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr edit::src2screen
 	bcs :+
 	jsr bm::rvsline
-:	jmp debug_done
+:	; swap debug state out for user's program
+	jsr save_debug_state
+	jsr __debug_restore_progstate
+	jmp debug_done
 
 
 ;******************************************************************************
@@ -1377,9 +1382,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;******************************************************************************
 .proc debug_done
-	; swap debug state out for user's program
-	jsr save_debug_state
-	jsr __debug_restore_progstate
 
 	; from top to bottom: [STATUS, <PC, >PC]
 	lda pc+1
