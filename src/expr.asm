@@ -39,6 +39,12 @@ MAX_OPERANDS=$10/2
 
 @l0:	ldy #$00
 	lda (zp::line),y
+	cmp #' '
+	bne :+
+	incw zp::line
+	jmp @l0
+
+:	lda (zp::line),y
 	jsr @isterminator
 	bne @rparen
 	jmp @done

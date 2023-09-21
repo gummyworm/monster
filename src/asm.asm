@@ -264,6 +264,9 @@ __asm_tokenize:
 	bne @copy
 
 @setbrk:
+	lda zp::pass
+	cmp #2
+	bne @copy		; only set breakpoints in pass 2
 	ldxy zp::virtualpc	; current PC (address)
 	jsr dbg::toggle_breakpoint	; set the breakpoint
 	incw zp::line		; advance line beyond the breakpoint
@@ -423,7 +426,7 @@ __asm_tokenize:
 @abslabelorvalue:
 	jsr expr::eval
 	bcc @store_value
-	rts
+	rts		; eval failed
 
 ; store the value, note that we don't really care if
 ; we write 2 bytes when we only need one (the next

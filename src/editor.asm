@@ -216,7 +216,6 @@ main:
 
 	lda #EDITOR_HEIGHT
 	sta height
-	jsr __edit_init	; re-init the editor
 	jmp refresh
 .endproc
 
@@ -329,6 +328,13 @@ main:
 	jsr display_result	; dispaly success msg
 	jsr src::popp
 	jsr src::goto
+	lda zp::curx
+	beq :+
+	jsr src::up
+:	jsr src::get
+	ldx #$00
+	stx zp::curx
+
 	RETURN_OK
 .endproc
 
