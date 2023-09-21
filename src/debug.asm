@@ -60,6 +60,15 @@ STEP_INTO = 1
 STEP_OVER = 2
 
 ;******************************************************************************
+; ACTION constants
+; These tell us what command the user last executed when we return to the
+; debugger via a BRK or NMI
+ACTION_STEP     = 1	; action for STEP command
+ACTION_START    = 2	; action for initial debug entry
+ACTION_GO_START = 3	; action for first instruction of GO command
+ACTION_GO       = 4	; action for subsequent GO instructions
+
+;******************************************************************************
 ; Debug info pointers
 file = zp::debug       ; current file id being worked on
 addr = zp::debug+1     ; address of next line/addr to store
@@ -75,6 +84,7 @@ debugtmp = zp::debug+$10
 __debug_src_line = srcline ; the line # stored by dbg::storeline
 .export __debug_file
 __debug_file = file
+
 
 ;******************************************************************************
 ; Program state variables
@@ -97,6 +107,9 @@ mem_saveaddr: .word 0	; addrses of affected byte
 aux_mode:         .byte 0	; the active auxiliary view
 auto_swap_memory: .byte 0	; if 1, ALL memory will be swapped on BRK
 highlight_line:	  .word 0 	; the line we are highlighting
+
+action:		.byte 0		; the last action performed e.g. ACTION_STEP
+
 ;******************************************************************************
 ; Debug symbol variables
 ; number of files that we have debug info for. The ID of a file is its index
@@ -207,6 +220,10 @@ breakpoints:    .res MAX_BREAKPOINTS*2  ; addresses of the break points
 __debug_breakpoint_flags:
 breakpoint_flags: .res MAX_BREAKPOINTS  ; active state of breakpoints
 breaksave: .res MAX_BREAKPOINTS      ; backup of the instructions under the BRK
+
+steppoint: 	.word 0		; address we STEP from
+startsave:
+stepsave:	.byte 0		; opcode to save under BRK
 
 ;******************************************************************************
 ; pointers used when building the debug info
@@ -998,10 +1015,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_start
 	stxy pc
 
-	; install a breakpoint at the first address
-	ldxy pc
-	jsr __debug_setbreakpoint
-	jsr install_breakpoints
+	bank_read_byte #FINAL_BANK_USER, pc
+	sta startsave
+	lda #$00		; BRK
+	bank_store_byte #FINAL_BANK_USER, pc
+
+	lda #ACTION_START
+	sta action
 
 ; install BRK handler
 @install_isr:
@@ -1024,6 +1044,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;******************************************************************************
 ; INSTALL_BREAKPOINTS
+; Install all breakpoints from "breakpoints" EXCEPT for those at the current
+; PC. This is to prevent a loop of breakpoints being repeatedly set and
+; immediately hit. For a breakpoint to be effective, it must be set at least
+; one instruction from the current PC.
 .proc install_breakpoints
 @brkaddr=zp::tmp0
 @cnt=zp::tmp2
@@ -1031,6 +1055,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq @done
 	dex
 	stx @cnt
+
 @installbrks:
 	ldx @cnt
 	lda breakpoint_flags,x
@@ -1045,8 +1070,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda breakpoints+1,y
 	sta @brkaddr+1
 
-	bank_read_byte #FINAL_BANK_USER, @brkaddr
+	; if this breakpoint is at the current PC, don't install it
+	ldxy pc
+	cmpw @brkaddr
+	beq @next
 
+	bank_read_byte #FINAL_BANK_USER, @brkaddr
+	beq @next		; already a BRK
 	ldx @cnt
 	sta breaksave,x		; save the instruction under the new BRK
 	lda #$00		; BRK
@@ -1084,6 +1114,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	ldx @cnt
 	lda breaksave,x
+	beq @next				; already a BRK
 	bank_store_byte #FINAL_BANK_USER, @addr
 @next:	dec @cnt
 	bpl @uninstall
@@ -1212,8 +1243,29 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; uninstall breakpoints (will reinstall the ones we want later)
 	jsr uninstall_breakpoints
-	ldxy pc
-	jsr remove_breakpoint	  ; remove BRK @ the current PC
+
+	lda action
+	cmp #ACTION_GO_START
+	bne :+
+	jsr step_restore
+	lda #ACTION_GO
+	sta action
+	jsr install_breakpoints	 ; reinstall rest of breakpoints
+	jmp debug_done		 ; continue execution
+
+:	cmp #ACTION_START
+	bne :+
+	lda startsave				; restore opcode
+	bank_store_byte #FINAL_BANK_USER, pc
+	jmp @reset_action
+
+:	cmp #ACTION_STEP
+	bne @reset_action
+	jsr step_restore
+
+@reset_action:
+	lda #$00
+	sta action
 
 @showbrk:
 	; get the address before the BRK and go to it
@@ -1277,6 +1329,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq @runcmd
 
 @nocmd:	jsr edit::handlekey
+	jsr cur::on
 	jmp debugloop
 
 @runcmd:
@@ -1295,29 +1348,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr edit::src2screen
 	bcs :+
 	jsr bm::rvsline
-
-:	; swap debug state out for user's program
-	jsr save_debug_state
-	jsr __debug_restore_progstate
-
-@restore_regs:
-	; from top to bottom: [STATUS, <PC, >PC]
-	lda pc+1
-	pha
-	lda pc		; restore PC
-	pha
-	lda reg_p	; restore processor status
-	pha
-
-	lda #FINAL_BANK_USER
-	sta zp::bankval
-
-	lda reg_a
-	ldx reg_x
-	ldy reg_y
-
-	; return from the BRK
-	jmp fe3::bank_rti
+:	jmp debug_done
 
 
 ;******************************************************************************
@@ -1342,6 +1373,32 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.word edit_mem
 	.word edit_breakpoints
 	.word set_breakpoint
+.endproc
+
+;******************************************************************************
+.proc debug_done
+	; swap debug state out for user's program
+	jsr save_debug_state
+	jsr __debug_restore_progstate
+
+	; from top to bottom: [STATUS, <PC, >PC]
+	lda pc+1
+	pha
+	lda pc		; restore PC
+	pha
+	lda reg_p	; restore processor status
+	pha
+
+	lda #FINAL_BANK_USER
+	sta zp::bankval
+
+	lda reg_a
+	ldx reg_x
+	ldy reg_y
+
+	; return from the BRK
+	jmp fe3::bank_rti
+
 .endproc
 
 ;******************************************************************************
@@ -1433,7 +1490,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; GO
 ; Runs the user program until the next breakpoint or an NMI occurs
 .proc go
-	jmp install_breakpoints	  ; reinstall rest of breakpoints and continue
+	; for the first instruction, just STEP, this lets us keep the breakpoint
+	; we are on (if there is one) intact
+	jsr step
+	lda #ACTION_GO_START
+	sta action
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1540,7 +1602,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; the current instruction and RUNning.
 .proc step
 @addr=zp::tmp0
-	; delete the last STEP breakpoint
 	ldxy #$100	; ROM (we don't need the string)
 	stxy zp::tmp0	; TODO: make way to not disassemble to string
 	ldxy pc		; get address of next instruction
@@ -1564,13 +1625,27 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pla
 	ldxy pc
 	jsr next_instruction	  ; get the address of the next instruction
-	jsr __debug_setbreakpoint ; add a breakpoint at the next instruction
-	inc $900f
-	jsr install_breakpoints	  ; update breakpoints with our new one
+
+	stxy steppoint
+	bank_read_byte #FINAL_BANK_USER, steppoint
+	sta stepsave
+	lda #$00		; BRK
+	bank_store_byte #FINAL_BANK_USER, steppoint
 
 	lda #$00
-	sta break_after_sr ; reset step over
-	rts	; return to the debugger
+	sta break_after_sr 	; reset step over
+	lda #ACTION_STEP
+	sta action		; flag that we are STEPing
+	rts			; return to the debugger
+.endproc
+
+;******************************************************************************
+; STEP_RESTORE
+; Restores the opcode destroyed by the last STEP.
+.proc step_restore
+	lda stepsave
+	bank_store_byte #FINAL_BANK_USER, steppoint
+	rts
 .endproc
 
 ;******************************************************************************
@@ -2069,9 +2144,9 @@ __debug_remove_breakpoint:
 
 @showline:
 	; display the BRK message
-	lda line
+	lda highlight_line
 	pha
-	lda line+1
+	lda highlight_line+1
 	pha
 	ldxy #@brk_message_line
 @print:	lda #DEBUG_MESSAGE_LINE
