@@ -266,7 +266,6 @@ main:
 	; save the current source position and rewind it for assembly
 	jsr src::pushp
 	jsr src::rewind
-	jsr src::next	; first character index is 1
 	jsr reset
 
 	lda zp::gendebuginfo
@@ -305,7 +304,6 @@ main:
 	jsr dbg::setup  ; we have enough info to init debug now
 
 :	jsr src::rewind
-	jsr src::next	; first character index is 1
 	jsr asm::resetpc
 	jsr ctx::init
 	lda #$00
@@ -942,11 +940,14 @@ main:
 
 ;******************************************************************************
 .proc home_line
+	jsr home	; move to start of line
+	jsr src::start	; at start of file?
+	beq @done	; if so, we're done
 @l0:	lda zp::cury
 	beq @done
 	jsr ccup	; move UP until cursor is at top row
-	jmp @l0
-@done:	jmp home	; go to column zero
+	bcc @l0
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1180,12 +1181,12 @@ main:
 .export __edit_refresh
 __edit_refresh:
 .proc refresh
+@saveline=zp::editortmp
 	jsr bm::clr
 	jsr cur::off
 
-	; save current cursor position and source position
-	pushcur
-	jsr src::pushp
+	ldxy src::line
+	stxy @saveline
 
 	; move source/cursor to top-left of screen
 	jsr home_line
@@ -1204,13 +1205,9 @@ __edit_refresh:
 	beq @l0
 	bcc @l0
 
-	dec zp::cury
-
 @done:	; restore cursor and source
-	popcur
-	jsr src::popp
-	jsr src::goto
-	jmp src::get	; load the contents of the last line to linebuffer
+	ldxy @saveline
+	jmp gotoline
 .endproc
 
 ;******************************************************************************
@@ -1726,7 +1723,6 @@ buffer8: lda #$07
 	; clear flags on the source buffer
 	jsr src::setflags
 	jsr src::rewind
-	jsr src::next	; first character index is 1
 	ldx #$00
 	ldy #$00
 	jsr cur::set
@@ -1930,7 +1926,11 @@ buffer8: lda #$07
 ; INSERT
 ; Adds a character at the cursor position.
 .proc insert
-	cmp #$14		; handle DEL
+	ldx readonly
+	beq :+
+	rts
+
+:	cmp #$14		; handle DEL
 	bne :+
 	jmp ccdel
 :	cmp #$0d
@@ -1952,10 +1952,12 @@ buffer8: lda #$07
 @xend=zp::tmp9
 	jsr src::up	; move up a line or to start of line
 	bcc @cont
-	jsr src::next	; move to first character on line
-	ldx #$00	; start of source, just move to the leftmost column
-	ldy #$00
-	jmp cur::set	; move cursor to start of line
+	jsr src::get
+	lda #$00	; start of source, just move to the leftmost column
+	sta zp::curx
+	sta zp::cury
+	sec
+	rts
 
 @cont:	ldx zp::curx
 	stx @xend	; store current x as max column to move to
@@ -1967,6 +1969,8 @@ buffer8: lda #$07
 	sta zp::curx
 
 	; move source to lesser of curx or newline ($0d)
+	lda @xend
+	beq @checkscroll
 @movex: jsr ccright
 	bcs @checkscroll
 	lda zp::curx
@@ -1978,7 +1982,9 @@ buffer8: lda #$07
 	beq @scroll		; if it is, scroll the screen down
 	dey			; if not, decrement it
 	ldx zp::curx
-	jmp cur::set		; and return
+	jsr cur::set		; and return
+	clc
+	rts
 
 @scroll:
 	lda #EDITOR_ROW_START
@@ -1989,7 +1995,9 @@ buffer8: lda #$07
 	jsr cur::set
 @redraw:
 	lda zp::cury
-	jmp text::drawline
+	jsr text::drawline
+	clc
+	rts
 .endproc
 
 ;******************************************************************************
@@ -2034,17 +2042,10 @@ buffer8: lda #$07
 .proc ccleft
 	lda zp::curx
 	beq @nomove
-	pha
 	jsr cur::left
-	pla
-	cmp zp::curx
-	beq @nomove
 	jsr src::prev
-	jsr src::start
-	beq :+
 	clc
 	rts
-:	jsr src::next
 @nomove:
 	sec
 	rts
@@ -2143,6 +2144,7 @@ buffer8: lda #$07
 @cnt=zp::tmp6
 @line2len=zp::tmp7
 	jsr src::backspace
+	bcs @done
 	lda #$14
 	jsr text::putch
 	bcc @done
@@ -2171,7 +2173,7 @@ buffer8: lda #$07
 	lda height
 	jsr text::drawline
 
-	; get the length of the line we're moving up
+	; get the line we're moving up to in linebuffer
 	jsr src::get
 
 	; if the current char is a newline, we're done

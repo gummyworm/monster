@@ -96,6 +96,7 @@ mem_saveaddr: .word 0	; addrses of affected byte
 
 aux_mode:         .byte 0	; the active auxiliary view
 auto_swap_memory: .byte 0	; if 1, ALL memory will be swapped on BRK
+highlight_line:	  .word 0 	; the line we are highlighting
 ;******************************************************************************
 ; Debug symbol variables
 ; number of files that we have debug info for. The ID of a file is its index
@@ -1209,7 +1210,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr showregs		; display the contents of the registers
 	jsr show_aux		; display the auxiliary mode
 
-	; remove the breakpoint at the current PC (that caused this BRK)
+	; uninstall breakpoints (will reinstall the ones we want later)
 	jsr uninstall_breakpoints
 	ldxy pc
 	jsr remove_breakpoint	  ; remove BRK @ the current PC
@@ -1222,8 +1223,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr __debug_addr2line	; get the line #
 	sta file
 	bcs @print
+
 	inc lineset
-	stxy line
+	stxy highlight_line
+
 ; open the file of the line we BRK'd in
 ; if the buffer is already loaded switch to it. if not, load it into the
 ; DEBUG bank
@@ -1242,7 +1245,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; TODO: handle err
 
 	; goto the line that the BRK happened on and highlight it
-	ldxy line
+	ldxy highlight_line
 	jsr edit::gotoline	; go to the line where the BRK happened
 	lda zp::cury
 	jsr bm::rvsline		; highlight the line of the BRK
@@ -1288,7 +1291,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr zp::jmpaddr
 
 @done:	; unhighlight the BRK line if it's still visible
-	ldxy line
+	ldxy highlight_line
 	jsr edit::src2screen
 	bcs :+
 	jsr bm::rvsline
@@ -1430,7 +1433,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; GO
 ; Runs the user program until the next breakpoint or an NMI occurs
 .proc go
-	jsr uninstall_breakpoints
 	jmp install_breakpoints	  ; reinstall rest of breakpoints and continue
 .endproc
 
@@ -1452,8 +1454,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr showstate	; restore the register display
 	jmp debugloop
 
-@quit:	jsr uninstall_breakpoints
-
+@quit:
 	lda #$00
 	pha
 	plp
@@ -1540,8 +1541,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc step
 @addr=zp::tmp0
 	; delete the last STEP breakpoint
-	jsr uninstall_breakpoints
-
 	ldxy #$100	; ROM (we don't need the string)
 	stxy zp::tmp0	; TODO: make way to not disassemble to string
 	ldxy pc		; get address of next instruction

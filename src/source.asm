@@ -703,11 +703,13 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .proc __src_prev
 @src=zp::tmp0
 @dst=zp::tmp2
-	ldxy pre
-	cmpw #0
-	beq @skip
+	jsr __src_start
+	bne :+
+	jsr atcursor
+	sec
+	rts
 
-	; move char from start of gap to the end of the gap
+:	; move char from start of gap to the end of the gap
 	jsr cursor
 	stxy @src
 	jsr poststart
@@ -730,7 +732,9 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 
 :	decw pre
 	incw post
- @skip:	jmp atcursor
+ 	jsr atcursor
+ 	clc
+	rts
 .endproc
 
 ;******************************************************************************
@@ -748,14 +752,13 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	beq @beginning
 
 @l0:	jsr __src_prev
+	bcs @beginning
 	cmp #$0d
-	beq @done
-	jsr __src_start
 	bne @l0
+@done:	clc
+	rts
 @beginning:
 	sec
-	rts
-@done:	clc
 	rts
 .endproc
 
@@ -940,11 +943,7 @@ __src_atcursor:
 ;  - .A: the byte that was read
 .export __src_readb
 .proc __src_readb
-	jsr atcursor
-	pha
-	jsr __src_next
-	pla
-	rts
+	jmp __src_next
 .endproc
 
 ;******************************************************************************

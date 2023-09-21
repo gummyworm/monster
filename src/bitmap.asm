@@ -32,7 +32,7 @@ COLMEM_ADDR = $9400
         dey
         bpl @2
 
-	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
+	lda #(BG_COLOR<<4 | BORDER_COLOR)
 	sta $900f
         rts
 @inittab: .byte $02,$fe,$fe,$eb,$00,$0c
