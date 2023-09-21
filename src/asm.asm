@@ -265,7 +265,7 @@ __asm_tokenize:
 
 @setbrk:
 	ldxy zp::virtualpc	; current PC (address)
-	jsr dbg::setbreakpoint	; set the breakpoint
+	jsr dbg::toggle_breakpoint	; set the breakpoint
 	incw zp::line		; advance line beyond the breakpoint
 
 @copy:	; copy the line to a new buffer and make it uppercase (assembly is

@@ -1303,9 +1303,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr edit::gotoline	; go to the line where the BRK happened
 	lda zp::cury
 	jsr bm::rvsline		; highlight the line of the BRK
+	jmp @getline
 
 @print:	jsr showbrk		; display the BRK message
 	; fall through to debug loop
+@getline:
+	jsr src::get		; update linebuffer with whatever we're at
 .endproc
 
 ;******************************************************************************
@@ -1346,10 +1349,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr zp::jmpaddr
 
 @done:	; unhighlight the BRK line if it's still visible
+	lda lineset
+	beq :+			; skip if we don't know line #
 	ldxy highlight_line
 	jsr edit::src2screen
 	bcs :+
 	jsr bm::rvsline
+
 :	; swap debug state out for user's program
 	jsr save_debug_state
 	jsr __debug_restore_progstate
@@ -1591,7 +1597,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr edit::setbreakpoint		; set a breakpoint in the source
 	ldxy src::line
 	jsr __debug_line2addr
-	jsr __debug_setbreakpoint	; add the breakpoint to the debugger
+	jsr __debug_toggle_breakpoint	; add the breakpoint to the debugger
 	pla
 	pla
 	jmp debugloop
@@ -1955,14 +1961,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
-; SETBREAKPOINT
-; Sets a breakpoint at the address in .XY
+; TOGGLE_BREAKPOINT
+; Sets a breakpoint at the address in .XY or removes it if one already exists
 ; IN:
 ;  - .XY: the address of the breakpoint to set
-.export __debug_setbreakpoint
-.proc __debug_setbreakpoint
+.export __debug_toggle_breakpoint
+.proc __debug_toggle_breakpoint
 	; if this is a duplicate, remove the existing breakpoint
 	jsr remove_breakpoint
+	bcc @done		; breakpoint existed, but we removed it
 
 	txa
 	pha
@@ -1980,7 +1987,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #BREAKPOINT_ENABLED
 	sta breakpoint_flags,x
 	inc numbreakpoints
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1988,6 +1995,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Removes a breakpoint at the address in .XY
 ; IN:
 ;  - .XY: the address of the breakpoint to remove
+; OUT:
+;  - .C: set if breakpoint doesn't exist
 .export __debug_remove_breakpoint
 __debug_remove_breakpoint:
 .proc remove_breakpoint
@@ -1997,9 +2006,9 @@ __debug_remove_breakpoint:
 	lda @addr
 
 	lda numbreakpoints
+	beq @notfound	; nothing to remove
 	asl
 	tax
-	beq @done	; nothing to remove
 
 @l0:	lda @addr
 	cmp breakpoints,x
@@ -2010,7 +2019,10 @@ __debug_remove_breakpoint:
 @next:	dex
 	dex
 	bpl @l0
-	bmi @done	; not found - nothing to remove
+@notfound:
+	ldxy @addr
+	sec
+	rts		; not found - nothing to remove
 
 @found:	; shift breakpoints down
 	lda numbreakpoints
@@ -2028,8 +2040,7 @@ __debug_remove_breakpoint:
 	bcc @l1
 @removed:
 	dec numbreakpoints
-
-@done:	ldxy @addr
+@done:	clc
 	rts
 .endproc
 

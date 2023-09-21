@@ -13,6 +13,7 @@
 .import __debug_restore_progstate
 .import __debug_remove_breakpoint
 .import __debug_setbreakpoint
+.import __debug_toggle_breakpoint
 .import __debug_save_prog_state
 .import __debug_set_file
 .import __debug_setup
@@ -34,7 +35,6 @@
 	numbreakpoints = __debug_numbreakpoints
 	removebreakpoint = __debug_remove_breakpoint
 	save_progstate = __debug_save_prog_state
-	setbreakpoint = __debug_setbreakpoint
 	setfile = __debug_set_file
 	setline = __debug_setline
 	setup = __debug_setup
@@ -42,4 +42,5 @@
 	storeline = __debug_store_line
 	start = __debug_start
 	startseg_addr = __debug_startsegment_byaddr
+	toggle_breakpoint = __debug_toggle_breakpoint
 .endscope
