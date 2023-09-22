@@ -67,6 +67,49 @@ COLMEM_ADDR = $9400
 .endproc
 
 ;******************************************************************************
+; CLR_PART
+; Clears all pixels below the given offset in every column of the bitmap
+; IN:
+;  - .A: the pixel offset to start clearing at
+.export __bm_clr_part
+.proc __bm_clr_part
+@screen=zp::tmp0
+@offset=zp::tmp2
+	sta @offset
+	clc
+	adc #<BITMAP_ADDR
+	sta @screen
+	lda #>BITMAP_ADDR
+	sta @screen+1
+
+	; get # of pixels to clear (192 - offset)
+	lda #192
+	sec
+	sbc @offset
+	sta @offset
+
+	ldx #20-1		; number of columns
+
+@l0:	ldy @offset
+	lda #$00
+;clear the character memory (bitmap)
+@l1:    sta (zp::tmp0),y
+        dey
+        bne @l1
+
+	lda @screen
+	clc
+	adc #$c0
+	sta @screen
+	bcc :+
+	inc @screen+1
+:	dex
+	bne @l0
+
+        rts
+.endproc
+
+;******************************************************************************
 ; RVSLINE
 ; Reverses 1 character (8 pixels high) in the given row
 ; IN:

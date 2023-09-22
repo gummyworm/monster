@@ -1241,7 +1241,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #ACTION_GO
 	sta action
 	jsr install_breakpoints	 ; reinstall rest of breakpoints
-	jmp debug_done		 ; continue execution
+	jmp @debug_done		 ; continue execution
 
 :	; save the program state before we restore the debugger's
 	jsr __debug_save_prog_state
@@ -1300,28 +1300,23 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; TODO: handle err
 
 	; goto the line that the BRK happened on and highlight it
-	ldxy highlight_line
-	jsr edit::gotoline	; go to the line where the BRK happened
-	lda zp::cury
-	jsr bm::rvsline		; highlight the line of the BRK
+	jsr toggle_highlight
 	jmp @getline
 
 @print:	jsr showbrk		; display the BRK message
 	; fall through to debug loop
 @getline:
 	jsr src::get		; update linebuffer with whatever we're at
-.endproc
 
-;******************************************************************************
 ; main debug loop
-.proc debugloop
+@debugloop:
 	lda #$70
 	cmp $9004
 	bne *-3
 	cli
 	jsr text::update
 	jsr key::getch
-	beq debugloop
+	beq @debugloop
 
 	pha
 	lda #$00
@@ -1336,9 +1331,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @getcmd
 	beq @runcmd
 
-@nocmd:	jsr edit::handlekey
+@nocmd:	pha
+	jsr toggle_highlight	; turn off highlight
+	pla
+	jsr edit::handlekey
+	jsr toggle_highlight	; turn on highlight
 	jsr cur::on
-	jmp debugloop
+	jmp @debugloop
 
 @runcmd:
 	sei
@@ -1355,21 +1354,33 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr showstate		; restore the register display (may be changed)
 	popcur			; restore cursor
 	lda advance		; are we ready to execute program? (GO, STEP)
-	beq debugloop		; we're not ready to return to user program
+	beq @debugloop		; we're not ready to return to user program
 
 @done:	; unhighlight the BRK line if it's still visible
-	lda lineset
-	beq :+			; skip if we don't know line #
-	ldxy highlight_line
-	jsr edit::src2screen
-	bcs :+
-	jsr bm::rvsline
+	jsr toggle_highlight
 
-:	; swap debug state out for user's program
+	; swap debug state out for user's program
 	jsr save_debug_state
 	jsr __debug_restore_progstate
-	jmp debug_done
 
+@debug_done:
+	; from top to bottom: [STATUS, <PC, >PC]
+	lda pc+1
+	pha
+	lda pc		; restore PC
+	pha
+	lda reg_p	; restore processor status
+	pha
+
+	lda #FINAL_BANK_USER
+	sta zp::bankval
+
+	lda reg_a
+	ldx reg_x
+	ldy reg_y
+
+	; return from the BRK
+	jmp fe3::bank_rti
 
 ;******************************************************************************
 @commands:
@@ -1395,28 +1406,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.word set_breakpoint
 .endproc
 
+
 ;******************************************************************************
-.proc debug_done
-
-	; from top to bottom: [STATUS, <PC, >PC]
-	lda pc+1
-	pha
-	lda pc		; restore PC
-	pha
-	lda reg_p	; restore processor status
-	pha
-
-	lda #FINAL_BANK_USER
-	sta zp::bankval
-
-	lda reg_a
-	ldx reg_x
-	ldy reg_y
-
-	; return from the BRK
-	jmp fe3::bank_rti
-
+; TOGGLE_HIGHLIGHT
+; Toggles the actively highlighted line's highlight
+.proc toggle_highlight
+	lda lineset
+	beq :+			; line # not known
+	ldxy highlight_line
+	jsr edit::src2screen
+	bcs :+			; off screen
+	jmp bm::rvsline
+:	rts
 .endproc
+
 
 ;******************************************************************************
 .export __debug_handle_fkeys
@@ -1584,6 +1587,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc edit_mem
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
+	lda #(DEBUG_INFO_START_ROW-1)*8
+	jsr bm::clrpart
 	jsr showstate		; restore the state
 
 	lda #AUX_MEM
@@ -1599,6 +1604,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc edit_breakpoints
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
+	lda #(DEBUG_INFO_START_ROW-1)*8
+	jsr bm::clrpart
 	jsr showstate		; restore the state
 
 	lda #AUX_BRK

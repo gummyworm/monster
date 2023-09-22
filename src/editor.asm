@@ -1971,9 +1971,12 @@ buffer8: lda #$07
 .proc insert
 	ldx readonly
 	beq :+
-	rts
+@done:	rts
 
-:	cmp #$14		; handle DEL
+:	cmp #$80
+	bcs @done		; non-printable
+
+	cmp #$14		; handle DEL
 	bne :+
 	jmp ccdel
 :	cmp #$0d

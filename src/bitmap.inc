@@ -6,6 +6,7 @@ COLMEM_ADDR = $9400
 
 ;clears the bitmap
 .import __bm_clr
+.import __bm_clr_part
 
 ;contains the address of each column within the bitmap
 .import __bm_columns
@@ -18,6 +19,7 @@ COLMEM_ADDR = $9400
 .scope bm
         init        = __bm_init
         clr         = __bm_clr
+	clrpart     = __bm_clr_part
         columns     = __bm_columns
 	rvsline     = __bm_rvsline
 	save        = __bm_save
