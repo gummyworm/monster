@@ -207,7 +207,8 @@ main:
 	bcc :+
 	rts		; address not found
 
-:	lda #REGISTERS_LINE-1
+:	jsr enter_command
+	lda #REGISTERS_LINE-1
 	sta height
 	inc readonly	; enable read-only mode
 	jsr home_line	; avoid problems with cursor-y being below new height
