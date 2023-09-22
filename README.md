@@ -141,6 +141,11 @@ read in.
 
 As with any work done with Commodore disk I/O, it is wise to regularly back up your files
 
+### Directory Viewer (`C= + L`)
+The directory viewer offers a paginated view of all files on the disk.
+Pressing `RETURN` while the row of the desired file is highlighted will load
+that file into a new buffer and activate that buffer.
+
 ## Labels
 Labels begin with either an alpha-character or, in the case of _local_
 labels, a '@' character.
