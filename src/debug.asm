@@ -98,6 +98,7 @@ pc:     .word 0
 
 step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
 lineset:   .byte 0	; not zero if we know the line number we're on
+advance:   .byte 0	; not zero if a command continues program execution
 
 ; backup of the memory value being affected by the current instruction
 ; if it is destructive
@@ -1323,6 +1324,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq debugloop
 
 	pha
+	lda #$00
+	sta advance	; by default, don't return to program after command
 	jsr cur::off
 	pla
 	ldx #@num_commands
@@ -1342,11 +1345,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	txa
 	asl
 	tax
-	lda @command_vectors,x	; vector LSB
+	lda @command_vectors,x	 ; vector LSB
 	sta zp::jmpvec
 	lda @command_vectors+1,x ; vector MSB
 	sta zp::jmpvec+1
+
+	pushcur			; save cursor (some editors may change it)
 	jsr zp::jmpaddr
+	jsr showstate		; restore the register display (may be changed)
+	popcur			; restore cursor
+	lda advance		; are we ready to execute program? (GO, STEP)
+	beq debugloop		; we're not ready to return to user program
 
 @done:	; unhighlight the BRK line if it's still visible
 	lda lineset
@@ -1407,6 +1416,28 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; return from the BRK
 	jmp fe3::bank_rti
 
+.endproc
+
+;******************************************************************************
+.export __debug_handle_fkeys
+.proc __debug_handle_fkeys
+	cmp #$85	; F1
+	bcc @done
+	cmp #$88	; F7
+	bcs @done
+	sec
+	sbc #$85
+	tax
+	lda @lo,x
+	sta zp::jmpvec
+	lda @hi,x
+	sta zp::jmpvec
+	jmp zp::jmpaddr
+@done:	rts
+
+.define handlers edit_source, edit_mem, edit_breakpoints
+@lo: .lobytes handlers
+@hi: .hibytes handlers
 .endproc
 
 ;******************************************************************************
@@ -1503,6 +1534,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr step
 	lda #ACTION_GO_START
 	sta action
+	inc advance		; continue program execution
 	rts
 .endproc
 
@@ -1519,13 +1551,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	cmp #$59		; Y
 	beq @quit
 @return:
-	pla
-	pla
-	jsr showstate	; restore the register display
-	jmp debugloop
+	rts
 
-@quit:
-	lda #$00
+@quit:	lda #$00
 	pha
 	plp
 	sei
@@ -1547,12 +1575,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$00
 	sta aux_mode
 	lda #REGISTERS_LINE-1
-	sta edit::height	; resize the editor
-	jsr edit::refresh	; and refresh
-	jsr showstate		; restore the state
-	pla
-	pla
-	jmp debugloop
+	jmp edit::resize
 .endproc
 
 ;******************************************************************************
@@ -1560,17 +1583,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Transfers control to the memory viewer/editor until the user exits it
 .proc edit_mem
 	lda #DEBUG_INFO_START_ROW-1
-	sta edit::height
-	jsr edit::refresh
+	jsr edit::resize
 	jsr showstate		; restore the state
 
 	lda #AUX_MEM
 	sta aux_mode
+
 	ldxy #$1000
-	jsr view::edit
-	pla
-	pla
-	jmp debugloop
+	jmp view::edit
 .endproc
 
 ;******************************************************************************
@@ -1578,16 +1598,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Transfers control to the breakpoint viewer/editor until the user exits it
 .proc edit_breakpoints
 	lda #DEBUG_INFO_START_ROW-1
-	sta edit::height
-	jsr edit::refresh
+	jsr edit::resize
 	jsr showstate		; restore the state
 
 	lda #AUX_BRK
 	sta aux_mode
-	jsr brkpt::edit
-	pla
-	pla
-	jmp debugloop
+	jmp brkpt::edit
 .endproc
 
 ;******************************************************************************
@@ -1597,10 +1613,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr edit::setbreakpoint		; set a breakpoint in the source
 	ldxy src::line
 	jsr __debug_line2addr
-	jsr __debug_toggle_breakpoint	; add the breakpoint to the debugger
-	pla
-	pla
-	jmp debugloop
+	jmp __debug_toggle_breakpoint	; add the breakpoint to the debugger
 .endproc
 
 ;******************************************************************************
@@ -1644,6 +1657,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta break_after_sr 	; reset step over
 	lda #ACTION_STEP
 	sta action		; flag that we are STEPing
+	inc advance		; continue program execution
 	rts			; return to the debugger
 .endproc
 

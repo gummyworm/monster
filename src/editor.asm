@@ -215,8 +215,6 @@ main:
 	jsr dbg::start	; start debugging at address in .XY
 
 	lda #EDITOR_HEIGHT
-	sta height
-	jmp refresh
 .endproc
 
 ;******************************************************************************
@@ -1222,6 +1220,37 @@ __edit_refresh:
 @done:	; restore cursor and source
 	ldxy @saveline
 	jmp gotoline
+.endproc
+
+;******************************************************************************
+; RESIZE
+; Resizes the editor to the given number of rows. The cursor is moved to be
+; within the new size if it would be out of bounds.
+; IN:
+;  - .A: the new size of the editor in rows.
+.export __edit_resize
+.proc __edit_resize
+@newsize=zp::tmp0
+	cmp height
+	beq @done	; same size
+	bcs @bigger	; new size is bigger, redraw screen
+@smaller:
+	sta height
+	jmp refresh
+
+	; TODO: get this working
+	sta @newsize
+@l0:	lda zp::cury
+	cmp @newsize
+	bcc :+		; cursor is in new height's range
+	jsr ccup
+	bcc @l0		; loop until cursor is on screen
+:	lda @newsize
+	sta height
+@done:	rts
+@bigger:
+	sta height
+	jmp refresh
 .endproc
 
 ;******************************************************************************

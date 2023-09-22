@@ -46,8 +46,6 @@ memaddr:   .word 0
 	stxy @src
 	stxy memaddr
 
-	pushcur
-
 	ldx #COL_START
 	ldy #MEMVIEW_START+1
 	jsr cur::setmin
@@ -114,9 +112,7 @@ memaddr:   .word 0
 	bcc @edit
 
 @done:	jsr cur::unlimit
-	jsr cur::off
-	popcur
-	rts
+	jmp cur::off
 
 @replace_val:
 	jsr @set_nybble	; replace the nybble under cursor
