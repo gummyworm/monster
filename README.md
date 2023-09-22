@@ -410,6 +410,10 @@ address for debugging.  If no label name is provided, execution will begin
 at the base origin of the program (the _lowest_ value set by any `.ORG`
 directive)
 
+While debugging, most navigation commands work as normal. Breakpoints may
+be set as they would in the editor prior to assembly, and they will be installed
+in realtime.
+
 Both the debugger and the user program's RAM is saved/restored when control
 transfers between the two. That is the screen data ($1000-$2000), the zeropage,
 and color RAM.
@@ -424,9 +428,9 @@ respective Key in the table below.
 |  Key   | Name          |   Description                                                                        |
 |--------|---------------|--------------------------------------------------------------------------------------|
 |  F1      | Source View | maximizes the screen area for viewing the source code                                |
-|  F5      | Breakpoints | displays the breakpoints that have been set and allows them to be enabled/disabled   |
+|  F3      | Mem View    | activates the memory window, which takes control until `<-` is pressed               |
+|  F5      | Break View  | displays the breakpoints that have been set and allows them to be enabled/disabled   |
 |  C=+g    | Go          | begins execution at the cursor                                                       |
-|  F3      | Mem         | activates the memory window, which takes control until `<-` is pressed               |
 |  C=+s    | StepOver    | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
 |  C=+z    | Step        | steps to the next instruction.                                                       | 
 |   <-     | Exit        | exits the debugger and returns to the editor                                         |
