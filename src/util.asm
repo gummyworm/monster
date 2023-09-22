@@ -359,3 +359,43 @@ result=mem::spare
 @no:	lda #$ff
 	rts
 .endproc
+
+;******************************************************************************
+; PARSE_ENQUOTED_STRING
+; Parses an enquoted text string in returns the text that is within the quotes
+; at the given destination address
+; returns the length in .A ($ff if no string was found)
+; IN:
+;  - .XY: the address of the string to parse
+;  - zp::tmp0: the address to store the parsed string
+; OUT:
+;  - zp::tmp0: the text within the quotes (")
+;  - .C: set if the given string was not valid
+.export __util_parse_enquoted_string
+.proc __util_parse_enquoted_string
+@src=zp::tmp2
+@dst=zp::tmp0
+	stxy @src
+	ldy #$00
+@eatws:	lda (@src),y
+	cmp #' '
+	bne :+
+	incw @src
+	bne @eatws
+:	cmp #'"'
+	bne @err
+
+@l0:	incw @src
+	lda (@src),y
+	beq @err	; no closing quote
+	cmp #'"'
+	beq @done
+	sta (@dst),y
+	incw @dst
+	bne @l0
+
+@done:	lda #$00
+	sta (@dst),y	; 0-terminate the string
+	RETURN_OK
+@err:	RETURN_ERR ERR_SYNTAX_ERROR
+.endproc

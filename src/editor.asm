@@ -1522,23 +1522,46 @@ buffer8: lda #$07
 ;******************************************************************************
 ; DIR
 ; Lists the directory
+; NOTE: this routine is limited to 128 files
+; The max supported by the 1541 is 144 and this routine could easily be
+; modified to support as many.
+; It could also easily be modified to support more (e.g. for the 1581)
 .proc dir
 @line=zp::tmp8
 @row=zp::tmpa
+@select=zp::tmpb
+@cnt=zp::tmpc
+@scroll=zp::tmpd
+@dirbuff=mem::spare
+@namebuff=mem::spareend-20	; buffer for the file name
+@fptrs=mem::spareend-(128*2)	; room for 128 files
+
 	jsr bm::save
 
 	jsr file::loaddir
 	ldxy #mem::spare+2
 	stxy @line
 
+	lda #$01
+	sta @select
 	lda #$00
 	sta @row
+	sta @cnt
+	sta @scroll
 
 @l0:    jsr text::clrline
 	incw @line	; skip line #
 	incw @line
-	ldx #$00
 
+	lda @cnt
+	asl
+	tax
+	lda @line
+	sta @fptrs,x
+	lda @line+1
+	sta @fptrs+1,x	; save pointer to this filename
+
+	ldx #$00
 @fname: ; add filename to buffer
 @l2:	ldy #$00
 	lda (@line),y
@@ -1556,7 +1579,7 @@ buffer8: lda #$07
 	bne :+
 	iny
 	lda (@line),y
-	beq @done
+	beq @cont
 :	incw @line
 	incw @line
 
@@ -1566,35 +1589,79 @@ buffer8: lda #$07
 	jsr text::print
 
 	; next line
+	inc @cnt
 	inc @row
+	lda @row
 	cmp #SCREEN_H
 	bne @l0
 
-	; at the end of the screen, get user input for page up/down
+@cont:	; draw a line to separate file display
+	lda @row
+	jsr draw::hline
+	jsr text::clrline
+
+	; highlight the first item
+	lda @select
+	jsr bm::rvsline
+
+; at the end of the screen, get user input for page up/down
 @key:	jsr key::getch
 	beq @key
-	cmp #$0d		; down
-	beq @pgdown
+
+; check the arrow keys (used to select a file)
+@checkdown:
+	cmp #$11
+	bne @checkup
+	lda @select
+	jsr bm::rvsline
+@rowdown:
+	inc @select
+	lda @select
+	cmp @row
+	bcc @hiline
+	dec @select
+	lda @select
+	bcs :+
+@checkup:
+	cmp #$91
+	bne @checkret
+	lda @select
+	jsr bm::rvsline
+@rowup:
+	dec @select
+	bne :+
+	inc @select		; lowest selectable row is 1
+:	lda @select
+@hiline:
+	jsr bm::rvsline
+	jmp @key
+
+; check the RETURN key (to open a file)
+@checkret:
+	cmp #$0d		; select file and load
+	beq @loadselection
 	cmp #$5f		; <-
 	beq @exit
 	bne @key
 
-@pgdown:
-	lda #$00
-	sta @row		; reset row number and continue listing
-	beq @l0
+; user selected a file (RETURN), load it and exit the directory view
+@loadselection:
+	lda @select
+	clc
+	adc @scroll
+	asl
+	tax
+	lda @fptrs,x
+	ldy @fptrs+1,x
+	tax
+	lda #<@namebuff
+	sta zp::tmp0
+	lda #>@namebuff
+	sta zp::tmp0+1
+	jsr util::parse_enquoted_string
+	ldxy #@namebuff
+	jmp command_load	; load the file
 
-
-@done:	lda @row
-	jsr draw::hline
-	jsr text::clrline
-
-	; wait for enter key
-:	jsr key::getch
-	cmp #$5f
-	beq @exit
-	cmp #$0d
-	bne :-
 @exit:  jmp bm::restore
 .endproc
 
@@ -2642,6 +2709,7 @@ __edit_gotoline:
 @done:	sec			; line off screen
 	rts
 .endproc
+
 
 .DATA
 ;******************************************************************************

@@ -11,18 +11,20 @@
 .import __util_isoperator
 .import __util_is_separator
 .import __util_is_alphanum
+.import __util_parse_enquoted_string
 
 .scope util
-	chtohex = __util_chtohex
-	hextostr = __util_hextostr
-	memset = __util_memset
-	memcpy = __util_memcpy
-	todec = __util_todec
-	is_whitespace = __util_is_whitespace
+	chtohex               = __util_chtohex
+	hextostr              = __util_hextostr
+	isalphanum            =  __util_is_alphanum
 	is_null_return_space_comma_closingparen_newline = __util_is_null_return_space_comma_closingparen_newline
-	isoperator = __util_isoperator
-	isseparator = __util_is_separator
-	isalphanum =  __util_is_alphanum
+	isoperator            = __util_isoperator
+	isseparator           = __util_is_separator
+	is_whitespace = __util_is_whitespace
+	memset                = __util_memset
+	memcpy                = __util_memcpy
+	parse_enquoted_string = __util_parse_enquoted_string
+	todec                 = __util_todec
 .endscope
 
 .macro copy dst, src, len
