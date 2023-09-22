@@ -1556,7 +1556,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @return:
 	rts
 
-@quit:	lda #$00
+@quit:	jsr toggle_highlight
+	lda #$00
 	pha
 	plp
 	sei

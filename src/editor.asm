@@ -215,6 +215,8 @@ main:
 	jsr dbg::start	; start debugging at address in .XY
 
 	lda #EDITOR_HEIGHT
+	sta height
+	jmp refresh
 .endproc
 
 ;******************************************************************************
@@ -234,6 +236,7 @@ main:
 	sta zp::tmp0+1
 	jsr str::copy
 	jsr dbg::init
+	jsr reset
 
 ; do the first pass of assembly
 @pass1:	lda #$01
