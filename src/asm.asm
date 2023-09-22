@@ -565,9 +565,10 @@ __asm_tokenize:
 ; get bbb bits based upon the address mode and cc
 	lda cc
 	cmp #$03
-	bne @validate_cc
+	beq :+
+	jmp @validate_cc
 
-	; check if opcode was a JSR
+:	; check if opcode was a JSR
 	jsr readb
 	cmp #$20
 	bne :+
@@ -623,7 +624,7 @@ __asm_tokenize:
 	beq @updatevpc
 	ldxy zp::virtualpc	; current PC (address)
 	stxy zp::tmp0
-	jsr dbg::getline	; current line
+	ldxy dbg::srcline
 	jsr dbg::storeline	; map them
 
 ;------------------
@@ -1334,7 +1335,7 @@ __asm_include:
 	ldxy @fname
 	jsr dbg::setfile
 	ldxy #1
-	jsr dbg::setline
+	stxy dbg::srcline
 
 ; read a line from file
 @doline:

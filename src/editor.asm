@@ -229,12 +229,20 @@ main:
 
 ;******************************************************************************
 .proc assemble_file
-@file=zp::editortmp	; pointer to the filename of the file to assemble
-	stxy @file
+@filename=mem::backbuff
+	lda #<@filename
+	sta zp::tmp0
+	lda #>@filename
+	sta zp::tmp0+1
+	jsr str::copy
+	jsr dbg::init
+
 ; do the first pass of assembly
 @pass1:	lda #$01
 	sta state::verify
+	sta zp::gendebuginfo
 	sta zp::pass
+	ldxy #@filename
 	jsr asm::include	; assemble the file (pass 1)
 	bcs @done		; error, we're done
 
@@ -250,7 +258,7 @@ main:
 	jsr dbg::setup
 
 ; do the second assembly pass
-@pass2:	ldxy @file
+@pass2:	ldxy #@filename
 	jsr asm::include	; assemble the file (pass 2)
 @done:	jmp display_result
 .endproc
@@ -283,7 +291,7 @@ main:
 
 @pass1loop:
 	ldxy src::line
-	jsr dbg::setline
+	stxy dbg::srcline
 	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize_pass1
