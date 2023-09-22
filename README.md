@@ -120,6 +120,13 @@ Immediate-addressing makes no sense with indirect addressing mode, so the assemb
 will allow you to enclose the whole expression in parentheses for expressions
 that are defined with a '#' prefix (e.g. `LDA #(2+4)`)
 
+In addition to hexadecimal values, decimal values, and labels, character literals
+may be used in expressions. These are represented as a character enquoted within
+single quotes.
+```LDA #'x'```
+Character literals must contain exactly one character and always resolve to
+a 1 byte value.
+
 ## Formatting
 Spacing is not important, but instructions are auto-formatted to be indented
 by two spaces.  Labels and directives are, by convention, not indented.  The
@@ -416,15 +423,22 @@ respective Key in the table below.
 
 |  Key   | Name          |   Description                                                                        |
 |--------|---------------|--------------------------------------------------------------------------------------|
-|  C=+b    | Breakpoints | displays the breakpoints that have been set and allows them to be enabled/disabled   |
+|  F1      | Source View | maximizes the screen area for viewing the source code                                |
+|  F5      | Breakpoints | displays the breakpoints that have been set and allows them to be enabled/disabled   |
 |  C=+g    | Go          | begins execution at the cursor                                                       |
-|  C=+m    | Mem         | activates the memory window, which takes control until `<-` is pressed               |
+|  F3      | Mem         | activates the memory window, which takes control until `<-` is pressed               |
 |  C=+s    | StepOver    | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
 |  C=+z    | Step        | steps to the next instruction.                                                       | 
 |   <-     | Exit        | exits the debugger and returns to the editor                                         |
 
+### Breakpoints
+During normal editing, breakpoints may be set with the `C= + b` key combination.
+A breakpoint symbol (a filled circle) is placed at the beginning of a line to
+indicate that a breakpoint has been added.
+Pressing the same key combination (`C= + b`) will also remove a breakpoint
+if it is pressed while on a line that already has one.
 
-### Breakpoint Viewer (`C= + b`)
+#### Breakpoint Viewer (`F5` while debugging)
 The breakpoint viewer displays all the breakpoints that have been set by the
 user.  A circle is displayed next to those that are currently active.
 The user simply navigates the list with the cursor keys and presses RETURN to
@@ -436,7 +450,7 @@ breakpoints are unlikely to behave in expected ways.
 
 As with all editors the back-arrow key (`<-`) exits and returns to the editor.
 
-### Memory Viewer (`C= + v`)
+### Memory Viewer (`F3` while debugging)
 The memory viewer displays the contents of RAM at a given address.  The memory
 viewer is updated upon reentry to the debugger (if active).
 Memory values may be updated by navigating to the value the user wishes to

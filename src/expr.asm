@@ -343,6 +343,9 @@ MAX_OPERANDS=$10/2
 	jsr util::isseparator
 	beq @done
 	bne @err
+:	cmp #$27	; single quote
+	bne :+
+	RETURN_OK	; if single quote, this is either a value or nothing
 
 :	cmp #'$'
 	bne @cont
@@ -377,6 +380,8 @@ MAX_OPERANDS=$10/2
 ;******************************************************************************
 ; GETVAL
 ; Parses zp::line for a decimal or hexadecimal value up to 16 bits in size.
+; It may also parse a character in the format 'x'.  This must be a 1 byte
+; value.
 ; The character '*' is also parsed and results in the value of zp::virtualpc
 ; IN:
 ;  - zp::line: the text to parse a value from
@@ -393,6 +398,9 @@ MAX_OPERANDS=$10/2
 	cmp #'$'
 	beq @hex
 
+	cmp #$27		; single quote
+	beq @char
+
 	cmp #'*'
 	bne @decimal
 	iny
@@ -408,6 +416,19 @@ MAX_OPERANDS=$10/2
 	lda #$02
 	skw
 	lda #$01
+	RETURN_OK
+
+;------------------
+@char:
+	incw zp::line
+	lda (zp::line),y	; read the character value
+	tax			; put it into .X
+	incw zp::line
+	lda (zp::line),y	; make sure there is a terminating quote
+	cmp #$27		; single quote
+	bne @badchar
+	incw zp::line
+	lda #$01		; result is 1 byte in size
 	RETURN_OK
 
 ;------------------
@@ -439,14 +460,14 @@ MAX_OPERANDS=$10/2
 	sbc #'0'
 	jmp @next
 
-@badhex:
+@badchar:
 	RETURN_ERR ERR_UNEXPECTED_CHAR
 
 @convertchar:
 	cmp #'a'
-	bcc @badhex
+	bcc @badchar
 	cmp #'f'+1
-	bcs @badhex
+	bcs @badchar
 	sec
 	sbc #'a'-$a
 
