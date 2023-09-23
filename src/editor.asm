@@ -366,7 +366,14 @@ main:
 	sta state::verify	; re-enable verify
 
 	; get the size of the assembled program and print it
-	lda zp::asmresult
+	lda asm::pcset		; did this program actually assemble > 0 bytes?
+	bne :+
+	lda #$00		; if not, just push a zero value for bytes
+	pha
+	pha
+	beq @success
+
+:	lda zp::asmresult
 	sec
 	sbc asm::origin
 	pha
@@ -374,6 +381,7 @@ main:
 	sbc asm::origin+1
 	pha
 
+@success:
 	ldxy #@success_msg
 	lda #STATUS_ROW-1
 	jsr text::print
@@ -1533,21 +1541,36 @@ buffer8: lda #$07
 @cnt=zp::tmpc
 @scroll=zp::tmpd
 @dirbuff=mem::spare+40		; 0-40 will be corrupted by text routines
-@namebuff=mem::spareend-20	; buffer for the file name
+@namebuff=mem::spareend-40	; buffer for the file name
 @fptrs=mem::spareend-(128*2)	; room for 128 files
 
 	jsr bm::save
 
 	jsr file::loaddir
-	ldxy #@dirbuff+3
+	ldxy #@dirbuff+5
 	stxy @line
 
+	lda #$00
+	sta @scroll
+	sta @cnt
+	sta @row
 	lda #$01
 	sta @select
-	lda #$00
-	sta @row
-	sta @cnt
-	sta @scroll
+
+@getdiskname:
+	ldx #@dirmsglen
+:	lda @dirmsg-1,x
+	sta @namebuff-1,x
+	dex
+	bne :-
+	; parse the name of the file
+	lda #>(@namebuff+@dirmsglen-1)
+	sta zp::tmp0+1
+	lda #<(@namebuff+@dirmsglen-1)
+	sta zp::tmp0
+	ldxy #@dirbuff+5
+	jsr util::parse_enquoted_string
+	jmp @l2
 
 @l0:    jsr text::clrline
 	incw @line	; skip line #
@@ -1568,7 +1591,6 @@ buffer8: lda #$07
 	sta zp::tmp0
 	lda #>@namebuff
 	sta zp::tmp0+1
-	jmp *
 	jsr util::parse_enquoted_string
 
 @l2:	ldy #$00
@@ -1667,6 +1689,8 @@ buffer8: lda #$07
 	jmp command_load	; load the file
 
 @exit:  jmp bm::restore
+@dirmsg: .byte "dir:",0
+@dirmsglen=*-@dirmsg
 .endproc
 
 ;******************************************************************************

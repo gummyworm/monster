@@ -66,26 +66,29 @@
 
 ;******************************************************************************
 ; TRUE/FALSE values for the active IF blocks
-MAX_IFS = 4	 ; max nesting depth for .if/.endif
+MAX_IFS      = 4 ; max nesting depth for .if/.endif
 MAX_CONTEXTS = 3 ; max nesting depth for contexts (activated by .MAC, .REP, etc)
 
 ;******************************************************************************
 ; $40-$4B available for assembly
-indirect=zp::asm ; 1=indirect, 0=absolute
-indexed=zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
-immediate=zp::asm+2 ; 1=immediate, 0=not immediate
-operandsz=zp::asm+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
-cc=zp::asm+4
-resulttype=zp::asm+5
-opcode=zp::asm+8
-lsb = zp::asm+$9
-msb = zp::asm+$a
+indirect   = zp::asm    ; 1=indirect, 0=absolute
+indexed    = zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
+immediate  = zp::asm+2 ; 1=immediate, 0=not immediate
+operandsz  = zp::asm+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
+cc         = zp::asm+4
+resulttype = zp::asm+5
+opcode     = zp::asm+8
+lsb        = zp::asm+$9
+msb        = zp::asm+$a
 
 .BSS
 ;******************************************************************************
 .export ifstack
 ifstack:   .res MAX_IFS
 ifstacksp: .byte 0
+
+.export __asm_pcset
+__asm_pcset:
 pcset:     .byte 0
 
 contextstack: .res MAX_CONTEXTS
@@ -104,12 +107,13 @@ asmbuffer: .res 40
 .DATA
 ;******************************************************************************
 NUM_OPCODES = 58
-CC_00=0
-CC_01=8
-CC_10=16
-CC_IMP=24
-AAA_JMP=$02
-AAA_JMP_IND=$03
+CC_00       = 0
+CC_01       = 8
+CC_10       = 16
+CC_IMP      = 24
+AAA_JMP     = $02
+AAA_JMP_IND = $03
+
 opcodes:
 ; cc = 00
 .byt $ff,$ff,$ff ; unused
