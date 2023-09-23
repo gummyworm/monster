@@ -17,23 +17,23 @@
 .import __cur_miny
 
 .scope cur
-	on = __cur_on
-	off = __cur_off
-	maxx = __cur_maxx
-	minx = __cur_minx
-	maxy = __cur_maxy
-	miny = __cur_miny
-	move = __cur_move
-	set = __cur_set
-	up = __cur_up
-	down = __cur_down
+	on       = __cur_on
+	off      = __cur_off
+	maxx     = __cur_maxx
+	minx     = __cur_minx
+	maxy     = __cur_maxy
+	miny     = __cur_miny
+	move     = __cur_move
+	set      = __cur_set
+	up       = __cur_up
+	down     = __cur_down
 	forceset = __cur_forceset
-	right = __cur_right
-	left = __cur_left
-	toggle = __cur_toggle
-	setmin = __cur_setmin
-	setmax = __cur_setmax
-	unlimit = __cur_unlimit
+	right    = __cur_right
+	left     = __cur_left
+	toggle   = __cur_toggle
+	setmin   = __cur_setmin
+	setmax   = __cur_setmax
+	unlimit  = __cur_unlimit
 .endscope
 
 .macro pushcur

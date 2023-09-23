@@ -5,5 +5,5 @@
 
 .scope irq
         raster  = __irq_raster
-	break = __irq_brk
+	break   = __irq_brk
 .endscope

@@ -17,6 +17,7 @@ GENCODE_END = ($2000 + 6*$ff0)
 ; will reside in
 .export __fastcopy_save
 __fastcopy_save = $2100
+
 .export __fastcopy_restore
 __fastcopy_restore = $2100 + $2f00
 

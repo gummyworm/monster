@@ -8,11 +8,11 @@
 
 
 .scope file
-	close = __file_close
+	close   = __file_close
 	getline = __file_getline
-	load = __file_load
+	load    = __file_load
 	loaddir = __file_loaddir
-	open = __file_open
-	save = __file_save
+	open    = __file_open
+	save    = __file_save
 	scratch = __file_scratch
 .endscope

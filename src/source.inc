@@ -38,13 +38,12 @@
 .import __src_setflags
 .import __src_start
 
-MAX_SOURCES=8
-
 ;******************************************************************************
-; FLAGS
-FLAG_DIRTY = 1
+; CONSTANTS
+MAX_SOURCES = 8	; maximum number of source banks/buffers
 
-;******************************************************************************
+FLAG_DIRTY = 1	; flag that source buffer has been changed since last save
+
 GAPSIZE = 20	; size of gap in gap buffer
 
 .scope src

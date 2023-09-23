@@ -10,6 +10,10 @@ PARAM_LENGTH = 16	; size of param (stored after the context data)
 MAX_PARAMS   = 4	; max params for a context
 MAX_CONTEXTS = 3	; $1000-$400 / $200
 
+CTX_ITER_START   = 2
+CTX_PARAMS_START = 8
+CTX_LINES_START  = 11
+
 ;******************************************************************************
 ; CONTEXTS
 ; Contexts are stored in spare mem, which is unused by the assembler during the
@@ -23,20 +27,16 @@ contexts = mem::spare
 ;******************************************************************************
 .export __ctx_type
 __ctx_type:
-type: .byte 0	; the active context
+type:      .byte 0	; the active context
 activectx: .byte 0
 
 ; TODO: support context other than REP
-ctx=zp::ctx+0		; address of context
-iter=zp::ctx+2		; (REP) iterator's current value
-iterend=zp::ctx+4	; (REP) iterator's end value
-cur=zp::ctx+6		; cursor to current ctx data
-params=zp::ctx+8	; address of params (grows down from CONTEXT+$200-PARAM_LENGTH)
-numparams=zp::ctx+10	; the number of parameters for the context
-
-CTX_ITER_START = 2
-CTX_PARAMS_START = 8
-CTX_LINES_START = 11
+ctx       = zp::ctx+0	; address of context
+iter      = zp::ctx+2	; (REP) iterator's current value
+iterend   = zp::ctx+4	; (REP) iterator's end value
+cur       = zp::ctx+6	; cursor to current ctx data
+params    = zp::ctx+8	; address of params (grows down from CONTEXT+$200-PARAM_LENGTH)
+numparams = zp::ctx+10	; the number of parameters for the context
 
 .CODE
 ;******************************************************************************

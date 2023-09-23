@@ -4,8 +4,8 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-MAX_LABELS = 256
-MAX_LOCALS = 32
+MAX_LABELS    = 256
+MAX_LOCALS    = 32
 MAX_LABEL_LEN = 16
 
 .import __BANKCODE_LOAD__

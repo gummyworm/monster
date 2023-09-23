@@ -9,9 +9,9 @@
 ;******************************************************************************
 .export macro_addresses
 .export macros
-nummacros: .byte 0
+nummacros:       .byte 0
 macro_addresses: .res 256
-macros: .res 512
+macros:          .res 512
 
 ;******************************************************************************
 ; MACRO FORMAT

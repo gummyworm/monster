@@ -36,15 +36,15 @@ CONTEXT_REPEAT_SIZE = 16*40+4
 .endscope
 
 .scope ctx
-	addparam = __ctx_addparam
+	addparam  = __ctx_addparam
 	getparams = __ctx_getparams
-	init = __ctx_init
-	push = __ctx_push
-	pop = __ctx_pop
-	getline = __ctx_getline
-	getdata = __ctx_getdata
-	write = __ctx_write
-	rewind = __ctx_rewind
+	init      = __ctx_init
+	push      = __ctx_push
+	pop       = __ctx_pop
+	getline   = __ctx_getline
+	getdata   = __ctx_getdata
+	write     = __ctx_write
+	rewind    = __ctx_rewind
 
 	type = __ctx_type
 .endscope

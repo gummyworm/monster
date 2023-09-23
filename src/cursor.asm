@@ -6,10 +6,10 @@
 .CODE
 
 ;******************************************************************************
-L_INSERT_MASK=$80
-R_INSERT_MASK=$08
-L_REPLACE_MASK=$f0
-R_REPLACE_MASK=$0f
+L_INSERT_MASK  = $80
+R_INSERT_MASK  = $08
+L_REPLACE_MASK = $f0
+R_REPLACE_MASK = $0f
 
 ;******************************************************************************
 ; MASK

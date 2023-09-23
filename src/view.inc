@@ -4,6 +4,6 @@
 
 .scope view
 	dirty = __view_dirty
-	mem = __view_mem
-	edit = __view_edit
+	mem   = __view_mem
+	edit  = __view_edit
 .endscope

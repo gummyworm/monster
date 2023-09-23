@@ -14,18 +14,18 @@
 .import __label_name_by_id
 
 .scope lbl
-	add = __label_add
-	addr = __label_address
-	by_id = __label_by_id
-	by_addr = __label_by_addr
-	clr = __label_clr
-	clrlocals = __label_clr_locals
-	del = __label_del
-	find = __label_find
-	getname = __label_get_name
-	getaddr = __label_get_addr
-	islocal = __label_is_local
-	isvalid = __label_isvalid
+	add        = __label_add
+	addr       = __label_address
+	by_id      = __label_by_id
+	by_addr    = __label_by_addr
+	clr        = __label_clr
+	clrlocals  = __label_clr_locals
+	del        = __label_del
+	find       = __label_find
+	getname    = __label_get_name
+	getaddr    = __label_get_addr
+	islocal    = __label_is_local
+	isvalid    = __label_isvalid
 	name_by_id = __label_name_by_id
-	num = __label_num
+	num        = __label_num
 .endscope

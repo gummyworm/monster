@@ -7,11 +7,11 @@
 .import __str_toupper
 
 .scope str
-	cat = __str_cat
+	cat     = __str_cat
 	compare = __str_compare
-	copy = __str_copy
-	find = __str_find
-	len = __str_len
+	copy    = __str_copy
+	find    = __str_find
+	len     = __str_len
 	replace = __str_replace
 	toupper = __str_toupper
 .endscope

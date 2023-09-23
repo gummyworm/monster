@@ -9,7 +9,7 @@
 .include "zeropage.inc"
 
 MAX_OPEN_FILES = 10
-FIRST_FILE_ID = 2
+FIRST_FILE_ID  = 2
 
 files        = $259	; KERNAL open file table
 file_devices = $261	; KERNAL device ID table

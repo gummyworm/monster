@@ -4,6 +4,6 @@
 
 .scope fmt
 	opcode = __fmt_opcode
-	label = __fmt_label
-	line = __fmt_line
+	label  = __fmt_label
+	line   = __fmt_line
 .endscope
