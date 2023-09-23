@@ -645,35 +645,35 @@ main:
 	rts
 
 @commands:
-	.byte $68		; j (left)
-	.byte $6c		; l (right)
-	.byte $6b		; k (up)
-	.byte $6a		; j (down)
-	.byte $65		; e (end of word)
-	.byte $62		; b (beginning of word)
-	.byte $49		; I (insert start of line)
-	.byte $69		; i (insert)
-	.byte $72		; r (replace char)
-	.byte $52		; r (replace mode)
-	.byte $41		; A (append to line/insert)
-	.byte $61		; a (append to character)
-	.byte $64		; d (delete)
-	.byte $78		; x (erase char)
-	.byte $77		; w (word advance)
-	.byte $30		; 0 (column 0)
-	.byte $4c		; L (last line)
-	.byte $48		; H (home [first] line)
-	.byte $14		; DEL (back)
-	.byte $20		; SPACE (right)
-	.byte $47		; G (goto end)
-	.byte $67		; g (goto start)
-	.byte $4f		; O (Open line above cursor)
-	.byte $6f		; o (Open line below cursor)
-	.byte $24		; $ (end of line)
-	.byte $5b		; [ (previous empty line)
-	.byte $5d		; ] (next empty line)
-	.byte $0d		; RETURN (go to start of next line)
-
+	.byte $68	; j (left)
+	.byte $6c	; l (right)
+	.byte $6b	; k (up)
+	.byte $6a	; j (down)
+	.byte $65	; e (end of word)
+	.byte $62	; b (beginning of word)
+	.byte $49	; I (insert start of line)
+	.byte $69	; i (insert)
+	.byte $72	; r (replace char)
+	.byte $52	; r (replace mode)
+	.byte $41	; A (append to line/insert)
+	.byte $61	; a (append to character)
+	.byte $64	; d (delete)
+	.byte $78	; x (erase char)
+	.byte $77	; w (word advance)
+	.byte $30	; 0 (column 0)
+	.byte $4c	; L (last line)
+	.byte $48	; H (home [first] line)
+	.byte $14	; DEL (back)
+	.byte $20	; SPACE (right)
+	.byte $47	; G (goto end)
+	.byte $67	; g (goto start)
+	.byte $4f	; O (Open line above cursor)
+	.byte $6f	; o (Open line below cursor)
+	.byte $24	; $ (end of line)
+	.byte $5b	; [ (previous empty line)
+	.byte $5d	; ] (next empty line)
+	.byte $0d	; RETURN (go to start of next line)
+	.byte $3b	; ; (comment out)
 @numcommands=*-@commands
 
 ; command tables for COMMAND mode key commands
@@ -683,7 +683,7 @@ main:
 	append_char, delete, delete_char, word_advance, home, last_line, \
 	home_line, ccdel, ccright, goto_end, goto_start, open_line_above, \
 	open_line_below, end_of_line, prev_empty_line, next_empty_line, \
-	begin_next_line
+	begin_next_line, comment_out
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs
 @command_vecs_hi: .hibytes cmd_vecs
@@ -942,6 +942,33 @@ main:
 @done:  jmp redraw_to_end_of_line
 .endproc
 
+;******************************************************************************
+.proc comment_out
+:	jsr key::getch	; get a key to decide what to comment out
+	beq :-
+
+	cmp #$3b	; if another comment, generate a banner
+	bne :+
+	jsr open_line_below
+	jsr comment_banner
+:	cmp #$5d	; SHIFT-; (generate banner above)
+	bne :+
+	jsr open_line_above
+	jmp comment_banner
+:	rts
+.endproc
+
+;******************************************************************************
+.proc comment_banner
+@cnt=zp::editortmp+2
+	lda #38
+	sta @cnt
+:	lda #';'
+	jsr insert
+	dec @cnt
+	bne :-
+	jmp newl
+.endproc
 
 ;******************************************************************************
 .proc word_advance
@@ -984,7 +1011,7 @@ main:
 .proc goto_start
 :	jsr key::getch
 	beq :-
-	cmp #$67		; get second
+	cmp #$67		; get second 'g' to confirm movement
 	beq :+
 	rts
 :	ldxy #1
@@ -996,21 +1023,10 @@ main:
 	lda readonly
 	beq :+
 	rts
-:	jsr src::atcursor
-	cmp #$0d
-	beq :+
-	jsr src::up	; move to start of line
-:	lda #$0d
-	jsr src::insert
-	jsr src::prev	; move between the 2 newlines
-	jsr scrolldown
-	ldy zp::cury
-	ldx #$00
-	jsr cur::set
-	jsr text::clrline
-	lda zp::cury
-	jsr text::drawline
-	jmp enter_insert
+:	jsr enter_insert
+	jsr home	; move to start of line
+	jsr newl
+	jmp ccup
 .endproc
 
 ;******************************************************************************
@@ -1018,22 +1034,9 @@ main:
 	lda readonly
 	beq :+
 	rts
-:	jsr src::after_cursor
-	cmp #$0d
-	beq :+
-	jsr src::down	; move to end of line
-:	lda #$0d
-	jsr src::insert
-	jsr src::prev	; move between the 2 newlines
-	jsr scrolldown
-	ldy zp::cury
-	iny
-	ldx #$00
-	jsr cur::set
-	jsr text::clrline
-	lda zp::cury
-	jsr text::drawline
-	jmp enter_insert
+:	jsr enter_insert
+	jsr end_of_line
+	jmp newl
 .endproc
 
 ;******************************************************************************
@@ -1895,6 +1898,41 @@ buffer8: lda #$07
 	; reinitialize the editor (clear screen, etc.)
 	jmp reset
 @err:	rts
+.endproc
+
+;******************************************************************************
+.proc newl
+	lda readonly
+	beq :+
+	jmp begin_next_line
+
+:	; insert \n into source buffer and terminate text buffer
+	lda #$0d
+	jsr src::insert
+	lda #$00
+	jsr text::putch
+
+@nextline:
+	jsr drawline
+
+	; redraw the cleared status line
+	jsr text::update
+
+	; redraw everything from <cursor> to EOL on next line
+	jsr src::get
+	ldxy #mem::linebuffer
+	lda zp::cury
+	jsr text::print
+
+@done:	lda zp::curx
+	beq @ret
+:	jsr src::prev
+	dec zp::curx
+	bne :-
+@ret:	rts
+
+@err:	lda #$ff
+	jmp @nextline
 .endproc
 
 ;******************************************************************************
