@@ -69,30 +69,40 @@ will exit the prompt and cancel the command
 |   F5   | Show buffers  | displays a list of the currently open buffers                         |
 
 
-#### Navigation keys
+#### Navigation/Text keys
 Navigation behaves similar to `vi` and many basic `vi` commands are supported.
 The following keys are handled in COMMAND mode.  Entering insert mode (`i`)
 allows characters to be entered into the source file at the current cursor
 position.
 The back arrow (`<-`) key returns to COMMAND mode.
-|  Key       | Name       | Description                                                           |
-|------------|------------|-----------------------------------------------------------------------|
-| HOME       | Home       | moves the cursor to column 0                                          | 
-| C= + m     | Goto line  | prompts for a line number and moves the cursor to that line           |
-| C= + [1-8] | Goto Buffer| opens the buffer corresponding to the number key that is pressed      |
-| C= + <     | Prev Buffer| opens the buffer before the active one (if there is one)              |
-| C= + >     | Next Buffer| opens the buffer after the active one (if there is one)               |
-|    h       | Left       | moves the cursor left                                                 |
-|    l       | Right      | moves the cursor right                                                |
-|    k       | Up         | moves the cursor up                                                   |
-|    j       | Down       | moves the cursor down                                                 |
-|    H       | Home       | moves the cursor to the top left of the screen                        |
-|    L       | Last       | moves the cursor to the bottom left of the screen                     |
-|    dw      | Delete Word| deletes the next word                                                 |
-|    dd      | Delete Line| deletes the next line                                                 |
-|    0       | Column 0   | moves the cursor to the first column of the current line              |
-|    a       | append char| enters insert mode and moves to the next character                    |
-|    A       | append line| enters insert mode and moves to the last character in the current line|
+|  Key       | Name       | Description                                                            |
+|------------|------------|------------------------------------------------------------------------|
+| HOME       | Home       | moves the cursor to column 0                                           |
+| C= + m     | Goto line  | prompts for a line number and moves the cursor to that line            |
+| C= + [1-8] | Goto Buffer| opens the buffer corresponding to the number key that is pressed       |
+| C= + <     | Prev Buffer| opens the buffer before the active one (if there is one)               |
+| C= + >     | Next Buffer| opens the buffer after the active one (if there is one)                |
+|    $       | End of Line| moves the cursor to the end of the current line                        |
+|    ;;      | Banner     | inserts a banner (full line of semicolons) below the cursor            |
+|    gg      | Top of File| moves the cursor to the first character in the file                    |
+|    G       | End of File| moves the cursor to the last line in the file                          |
+|    h       | Left       | moves the cursor left                                                  |
+|    j       | Down       | moves the cursor down                                                  |
+|    k       | Up         | moves the cursor up                                                    |
+|    l       | Right      | moves the cursor right                                                 |
+|    H       | Home       | moves the cursor to the top left of the screen                         |
+|    L       | Last       | moves the cursor to the bottom left of the screen                      |
+|    dw      | Delete Word| deletes the next word                                                  |
+|    dd      | Delete Line| deletes the next line                                                  |
+|    0       | Column 0   | moves the cursor to the first column of the current line               |
+|    a       | append char| enters insert mode and moves to the next character                     |
+|    A       | append line| enters insert mode and moves to the last character in the current line |
+|    o       | open line  | opens a new line below the cursror and moves to it                     |
+|    O       | open line ^| opens a new line above the cursor and moves to it                      |
+|    I       | Insert line| enters insert mode and moves to the first character in the current line|
+|    [       | Prev Block | moves to the previous empty line or start of file if there isn't one   |
+|    ]       | Next Block | moves to the next empty line or end of file if there isn't one         |
+
 
 ## Assembler Syntax
 The assembler syntax is very similar to any other major assembler.  For basic
