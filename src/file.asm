@@ -28,8 +28,8 @@ isbin        = zp::tmp17	; flag for binary save/load
 @dst=zp::tmpb
 	lda #$00
 	sta secondaryaddr
-	ldx #<mem::spare
-	ldy #>mem::spare
+	ldx #<(mem::spare+40)
+	ldy #>(mem::spare+40)
 	stx @dst
 	sty @dst+1
 	ldxy #@dir

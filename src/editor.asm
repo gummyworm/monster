@@ -1532,14 +1532,14 @@ buffer8: lda #$07
 @select=zp::tmpb
 @cnt=zp::tmpc
 @scroll=zp::tmpd
-@dirbuff=mem::spare
+@dirbuff=mem::spare+40		; 0-40 will be corrupted by text routines
 @namebuff=mem::spareend-20	; buffer for the file name
 @fptrs=mem::spareend-(128*2)	; room for 128 files
 
 	jsr bm::save
 
 	jsr file::loaddir
-	ldxy #mem::spare+2
+	ldxy #@dirbuff+3
 	stxy @line
 
 	lda #$01
@@ -1556,22 +1556,26 @@ buffer8: lda #$07
 	lda @cnt
 	asl
 	tax
-	lda @line
-	sta @fptrs,x
 	lda @line+1
 	sta @fptrs+1,x	; save pointer to this filename
+	tay
+	lda @line
+	sta @fptrs,x
+	tax
 
-	ldx #$00
-@fname: ; add filename to buffer
+	; parse the name of the file
+	lda #<@namebuff
+	sta zp::tmp0
+	lda #>@namebuff
+	sta zp::tmp0+1
+	jmp *
+	jsr util::parse_enquoted_string
+
 @l2:	ldy #$00
 	lda (@line),y
 	incw @line
-	tay
-	beq @next
-	sta mem::linebuffer,x
-	inx
-	cpx #39
-	bcc @l2
+	tay		; set .Z if 0
+	bne @l2
 
 @next:  ; read line link
 	ldy #$00
@@ -1584,7 +1588,7 @@ buffer8: lda #$07
 	incw @line
 
 	; print the line
-	ldxy #mem::linebuffer
+	ldxy #@namebuff
 	lda @row
 	jsr text::print
 
