@@ -948,14 +948,29 @@ main:
 	beq :-
 
 	cmp #$3b	; if another comment, generate a banner
-	bne :+
+	bne @check_ban_up
+	jsr text::linelen
+
+	cpx #$00
+	bne @ban_down	; if line is not empty open line and add banner to it
+@ban_cur:
+	jsr enter_insert
+	jsr comment_banner
+	jmp newl
+
+@ban_down:
 	jsr open_line_below
 	jsr comment_banner
-:	cmp #$5d	; SHIFT-; (generate banner above)
-	bne :+
+	jmp ccup
+
+@check_ban_up:
+	cmp #$5d	; SHIFT-; (generate banner above)
+	bne @done
 	jsr open_line_above
-	jmp comment_banner
-:	rts
+	jsr comment_banner
+	jmp ccdown
+
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -967,7 +982,9 @@ main:
 	jsr insert
 	dec @cnt
 	bne :-
-	jmp newl
+	lda zp::cury
+	jsr text::drawline
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1914,10 +1931,6 @@ buffer8: lda #$07
 
 @nextline:
 	jsr drawline
-
-	; redraw the cleared status line
-	jsr text::update
-
 	; redraw everything from <cursor> to EOL on next line
 	jsr src::get
 	ldxy #mem::linebuffer
@@ -1930,9 +1943,6 @@ buffer8: lda #$07
 	dec zp::curx
 	bne :-
 @ret:	rts
-
-@err:	lda #$ff
-	jmp @nextline
 .endproc
 
 ;******************************************************************************

@@ -887,7 +887,6 @@ hicolor=*+1
 	lda mem::linebuffer,x
 	beq @done
 	cpx #40
-	bcs @done
 	bne @l0
 @done:	rts
 .endproc
