@@ -263,7 +263,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; init debugger state variables
 	lda #$00
 	sta numsegments
-	sta __debug_numwatches
 	sta numbreakpoints
 	sta numfiles
 	rts
@@ -1057,6 +1056,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$00
 	sta aux_mode
 
+	; init state
+	sta __debug_numwatches
+
 	jsr save_debug_state ; save the debug state
 	jsr __debug_restore_progstate
 
@@ -1693,7 +1695,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy mem_saveaddr
 	jsr watch::mark		; if there's a watch at this addr, mark it
 	bcs @setbrk
-	jsr watch::view		; activate the watch window so user sees change
+	lda #(DEBUG_INFO_START_ROW-1)*8
+	jsr bm::clrpart
+	lda #AUX_WATCH
+	sta aux_mode		; activate the watch window so user sees change
 
 @setbrk:
 	pla
@@ -2289,7 +2294,7 @@ __debug_remove_breakpoint:
 	sta zp::jmpvec+1
 	jmp zp::jmpaddr
 @done:	rts
-.define auxtab view::mem, brkpt::view
+.define auxtab view::mem, brkpt::view, watch::view
 @auxlos: .lobytes auxtab
 @auxhis: .hibytes auxtab
 @numauxviews=*-@auxhis

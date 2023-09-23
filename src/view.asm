@@ -1,7 +1,6 @@
 .include "bitmap.inc"
 .include "cursor.inc"
 .include "debug.inc"
-.include "draw.inc"
 .include "finalex.inc"
 .include "key.inc"
 .include "keycodes.inc"

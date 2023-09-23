@@ -36,6 +36,13 @@ row:	.byte 0
 .export __watches_view
 .proc __watches_view
 @cnt=zp::tmp13
+	; display the title
+	ldxy #@title
+	lda #MEMVIEW_START
+	jsr text::print
+	lda #MEMVIEW_START
+	jsr bm::rvsline
+
 	; get the first visible watch's offset
 	lda scroll
 	sta @cnt
@@ -93,6 +100,7 @@ row:	.byte 0
 .byte "$", ESCAPE_VALUE, ": ", ESCAPE_BYTE, 0
 @watchline_end=*-1
 .byte ESCAPE_BYTE,0	; if line is DIRTY, this part is appended to @watchline
+@title: .byte ESCAPE_SPACING,16, "watches",0
 .endproc
 
 ;******************************************************************************
@@ -100,13 +108,6 @@ row:	.byte 0
 ; Enters the watch editor until the user exits it
 .export __watches_edit
 .proc __watches_edit
-	; display the title
-	ldxy #@title
-	lda #MEMVIEW_START
-	jsr text::print
-	lda #MEMVIEW_START
-	jsr bm::rvsline
-
 	; if there are no watches, just wait for user to quit
 	lda dbg::numwatches
 	bne :++
@@ -177,8 +178,6 @@ row:	.byte 0
 	adc #WATCHVIEW_START+1
 	jsr bm::rvsline
 	jmp @loop
-
-@title: .byte ESCAPE_SPACING,16, "watches",0
 .endproc
 
 ;******************************************************************************

@@ -76,14 +76,14 @@ FINAL_BANK_FASTCOPY  = $f
 ;--------------------------------------
 ; Routines
 .scope fe3
-	call = __final_call
-	fcopy = __final_copy
-	copy = __final_memcpy
-	init = __final_init
-	store = __final_store_byte
-	load = __final_load_byte
+	call     = __final_call
+	fcopy    = __final_copy
+	copy     = __final_memcpy
+	init     = __final_init
+	store    = __final_store_byte
+	load     = __final_load_byte
 	load_off = __final_load_byte_off
-	break = __final_brk
+	break    = __final_brk
 	bank_rti = __final_rti
 .endscope
 
