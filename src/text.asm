@@ -19,6 +19,7 @@ ESCAPE_STRING    = $ff
 ESCAPE_VALUE     = $fe
 ESCAPE_VALUE_DEC = $fd
 ESCAPE_SPACING   = $fc
+ESCAPE_BYTE      = $fb
 ESCAPE_RVS_ON    = $01
 ESCAPE_RVS_OFF   = $02
 STATUS_LINE      = 23
@@ -201,7 +202,10 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	jmp @cont
 
 :	cmp #ESCAPE_STRING
-	beq @string
+	bne :+
+	jmp @string
+:	cmp #ESCAPE_BYTE
+	beq @value_byte
 	cmp #ESCAPE_VALUE
 	beq @value
 	cmp #ESCAPE_VALUE_DEC
@@ -225,6 +229,19 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	bne :-
 	ldy @savey
 	jmp @cont
+
+@value_byte:
+	stx @savex
+	sty @savey
+
+	pla
+	jsr util::hextostr
+	txa
+	ldx @savex
+	sta @buff+1,x
+	tya
+	sta @buff,x
+	jmp @value_1byte_done
 
 ;substitute escape character with value from stack formatted in base-10
 @value_dec:
@@ -275,9 +292,10 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	tya
 	sta @buff+2,x
 
-@valuedone:
+@value_2byte_done:
 	inx
 	inx
+@value_1byte_done:
 	inx
 	inx
 	ldy @savey

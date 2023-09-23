@@ -11,7 +11,7 @@
 .include "zeropage.inc"
 
 ;******************************************************************************
-HEIGHT             = BRKVIEW_STOP - BRKVIEW_START - 1
+HEIGHT             = BRKVIEW_STOP-BRKVIEW_START-1
 BREAKPOINT_ENABLED = 1
 
 .BSS
@@ -129,7 +129,7 @@ row:	.byte 0
 @cnt=zp::tmp13
 @addr=zp::tmp14
 @file=zp::tmp16
-	; get the last breakpoint
+	; get the first visible breakpoint's offset
 	lda scroll
 	sta @cnt
 

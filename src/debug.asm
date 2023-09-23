@@ -205,8 +205,13 @@ debug_backup = $a000
 ;******************************************************************************
 ; WATCHES
 ;******************************************************************************
-numwatches: .byte 0		   ; number of active watches
-watches:    .res MAX_WATCHPOINTS*2 ; addresses of the set watchpoints
+__debug_numwatches: .byte 0		   ; number of active watches
+__debug_watches:    .res MAX_WATCHPOINTS*2 ; addresses of the set watchpoints
+__debug_watch_vals: .res MAX_WATCHPOINTS   ; values of the set watchpoints
+
+.export __debug_watches
+.export __debug_watch_vals
+.export __debug_numwatches
 
 ;******************************************************************************
 ; BREAKPOINTS
@@ -240,7 +245,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; init debugger state variables
 	lda #$00
 	sta numsegments
-	sta numwatches
+	sta __debug_numwatches
 	sta numbreakpoints
 	sta numfiles
 	rts
@@ -1969,16 +1974,16 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_addwatch
 	txa
 	pha
-	lda numwatches
+	lda __debug_numwatches
 	asl
 	tax
 
 	pla
-	sta watches,x
+	sta __debug_watches,x
 	tya
-	sta watches+1,x
+	sta __debug_watches+1,x
 
-	inc numwatches
+	inc __debug_numwatches
 	rts
 .endproc
 

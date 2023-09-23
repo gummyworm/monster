@@ -24,6 +24,7 @@ ESCAPE_STRING    = $ff	; 2 byte: address of string
 ESCAPE_VALUE     = $fe	; 2 byte: value to print in hex
 ESCAPE_VALUE_DEC = $fd	; 2 byte: value to print in decimal
 ESCAPE_SPACING   = $fc	; 1 byte: number of spaces to insert
+ESCAPE_BYTE      = $fb  ; 1 byte: the value to print in hex
 ESCAPE_RVS_ON    = $01
 ESCAPE_RVS_OFF   = $02
 

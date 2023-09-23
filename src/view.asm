@@ -1,8 +1,10 @@
 .include "bitmap.inc"
 .include "cursor.inc"
+.include "debug.inc"
 .include "draw.inc"
 .include "finalex.inc"
 .include "key.inc"
+.include "keycodes.inc"
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -39,8 +41,8 @@ memaddr:   .word 0
 ;  - .XY: the address to edit memory at
 .export __view_edit
 .proc __view_edit
-@odd=zp::tmp0
-@dst=zp::tmp4
+@dst=zp::tmp0
+@odd=zp::tmp4
 @offset=zp::tmp6
 @src=zp::tmp8
 	stxy @src
@@ -109,7 +111,12 @@ memaddr:   .word 0
 
 :	jsr key::ishex
 	bcs @replace_val
+	cmp #K_SET_WATCH
 	bcc @edit
+
+@setwatch:
+	jsr get_addr	; get the address of the byte under the cursor
+	jsr dbg::addwatch
 
 @done:	jsr cur::unlimit
 	jmp cur::off
@@ -122,14 +129,16 @@ memaddr:   .word 0
 	jsr cur::on
 	jmp @edit
 
+;--------------------------------------
 ; get the address of the memory at the cursor position
 @set_nybble:
 	jsr util::chtohex
 	pha
+
 	lda zp::cury
 	sec
 	sbc #MEMVIEW_START+1
-	asl
+	asl		; *8 (each row is 8 bytes)
 	asl
 	asl
 	adc @src
@@ -156,6 +165,7 @@ memaddr:   .word 0
 	eor @odd
 	beq @lownybble
 
+;--------------------------------------
 @hinybble:
 .ifdef USE_FINAL
 	ldxa @dst
@@ -173,6 +183,7 @@ memaddr:   .word 0
 	ora @odd
 	jmp @store
 
+;--------------------------------------
 @lownybble:
 .ifdef USE_FINAL
 	ldxa @dst
@@ -194,6 +205,7 @@ memaddr:   .word 0
 .endif
 	rts
 
+;--------------------------------------
 ; move cursor to the next x-position
 @next_x:
 	jsr cur::off
@@ -209,6 +221,7 @@ memaddr:   .word 0
 	ldy zp::cury
 	jmp cur::set
 
+;--------------------------------------
 ; move cursor to the previous x-position
 @prev_x:
 	jsr cur::off
@@ -224,6 +237,7 @@ memaddr:   .word 0
 	ldy zp::cury
 	jmp cur::set
 
+;--------------------------------------
 ; table of columns to skip in cursor movement
 @x_skips:
 	.byte COL_START+2
@@ -491,3 +505,44 @@ memaddr:   .word 0
 	rts
 .endproc
 .endif
+
+;******************************************************************************
+; GET_ADDR
+; Gets the address of the byte under the cursor when editing memory
+; IN:
+;  - zp::tmp8 contains the base address of the current view
+; OUT:
+;  - zp::tmp0 contains the address under the cursor
+.proc get_addr
+@src=zp::tmp8
+@dst=zp::tmp0
+	lda zp::cury
+	sec
+	sbc #MEMVIEW_START+1
+	asl		; *8 (each row is 8 bytes)
+	asl
+	asl
+	adc @src
+	sta @dst
+	lda @src+1
+	adc #$00
+	sta @dst+1
+
+	ldy #$ff
+	lda zp::curx
+	sec
+	sbc #COL_START
+:	iny
+	sbc #$03
+	bpl :-
+
+	tya
+	clc
+	adc @dst
+	sta @dst
+	bcc :+
+	inc @dst+1
+
+:	rts
+.endproc
+
