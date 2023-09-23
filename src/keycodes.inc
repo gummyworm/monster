@@ -18,6 +18,4 @@ K_STEP      = $ad	; <C=> + z
 K_STEPOVER  = $ae	; <C=> + s
 K_GO        = $a5	; <C=> + g
 
-
-; WATCH EDITOR KEYS
 K_SET_WATCH = $b3	; <C=>+W

@@ -10,6 +10,7 @@
 .include "labels.inc"
 .include "irq.inc"
 .include "key.inc"
+.include "keycodes.inc"
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -17,6 +18,7 @@
 .include "string.inc"
 .include "text.inc"
 .include "util.inc"
+.include "watches.inc"
 .include "view.inc"
 .include "zeropage.inc"
 
@@ -27,18 +29,18 @@
 
 ;******************************************************************************
 ; Debug info constants
-MAX_FILES = 24		; max files that debug info may be generated for
-MAX_SEGMENTS=32		; max segments that debug info may be generated for
+MAX_FILES       = 24	; max files that debug info may be generated for
+MAX_SEGMENTS    = 32	; max segments that debug info may be generated for
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
 MAX_WATCHPOINTS = 8	; max number of watchpoints that may be set
-MAX_LINES  = 8000	; max number of lines across all segments
+MAX_LINES       = 8000	; max number of lines across all segments
 
 SEG_START_ADDR = 0      ; offset in segment header for start address
-SEG_STOP_ADDR = 2       ; offset in segment header for stop address
+SEG_STOP_ADDR  = 2      ; offset in segment header for stop address
 SEG_LINE_COUNT = 4	; offset in segment header for line count
-DATA_FILE = 0		; offset of FILE ID in debug info
-DATA_LINE = 1		; offset of line number in debug info
-DATA_ADDR = 3		; offset of line address in debug info
+DATA_FILE      = 0	; offset of FILE ID in debug info
+DATA_LINE      = 1	; offset of line number in debug info
+DATA_ADDR      = 3	; offset of line address in debug info
 
 AUX_MEM   = 1		; enables the memory viewer in the debug view
 AUX_BRK   = 2		; enables the breakpoint view in the debug view
@@ -70,15 +72,15 @@ ACTION_GO       = 4	; action for subsequent GO instructions
 
 ;******************************************************************************
 ; Debug info pointers
-file = zp::debug       ; current file id being worked on
-addr = zp::debug+1     ; address of next line/addr to store
-seg  = zp::debug+3     ; address of current segment pointer
-line = zp::debug+5
-srcline = zp::debug+7
-segstart = zp::debug+9
-segstop = zp::debug+$b
+file           = zp::debug       ; current file id being worked on
+addr           = zp::debug+1     ; address of next line/addr to store
+seg            = zp::debug+3     ; address of current segment pointer
+line           = zp::debug+5
+srcline        = zp::debug+7
+segstart       = zp::debug+9
+segstop        = zp::debug+$b
 break_after_sr = zp::debug+$d	; if !0, NEXT_INSTRUCTION will skip subroutines
-debugtmp = zp::debug+$10
+debugtmp       = zp::debug+$10
 
 .export __debug_src_line
 __debug_src_line = srcline ; the line # stored by dbg::storeline
@@ -1389,15 +1391,16 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;******************************************************************************
 @commands:
-	.byte $5f	; <- (quit)
+	.byte K_QUIT
 	.byte $b0	; C=+a (toggle auto swap memory)
-	.byte $ad	; C=+z (step)
-	.byte $ae	; C=+s (step over)
-	.byte $a5	; C=+g (go)
-	.byte $85	; F1 (turn off all views)
-	.byte $86	; F3 (edit memory)
-	.byte $87	; F5 (edit breakpoints)
-	.byte $bf	; C=+b (set breakpoint)
+	.byte K_STEP
+	.byte K_STEPOVER
+	.byte K_GO
+	.byte K_SRCVIEW
+	.byte K_MEMVIEW
+	.byte K_BRKVIEW
+	.byte K_WATCHVIEW
+	.byte K_SET_BREAKPOINT
 @num_commands=*-@commands
 @command_vectors:
 	.word quit
@@ -1408,6 +1411,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.word edit_source
 	.word edit_mem
 	.word edit_breakpoints
+	.word edit_watches
 	.word set_breakpoint
 .endproc
 
@@ -1617,6 +1621,21 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #AUX_BRK
 	sta aux_mode
 	jmp brkpt::edit
+.endproc
+
+;******************************************************************************
+; EDIT_WATCHES
+; Transfers control to the watch viewer/editor until the user exits it
+.proc edit_watches
+	lda #DEBUG_INFO_START_ROW-1
+	jsr edit::resize
+	lda #(DEBUG_INFO_START_ROW-1)*8
+	jsr bm::clrpart
+	jsr showstate		; restore the state
+
+	lda #AUX_WATCH
+	sta aux_mode
+	jmp watch::edit
 .endproc
 
 ;******************************************************************************
