@@ -1705,6 +1705,7 @@ buffer8: lda #$07
 	lda #>@namebuff
 	sta zp::tmp0+1
 	jsr util::parse_enquoted_string
+	jsr bm::restore
 	ldxy #@namebuff
 	jmp command_load	; load the file
 

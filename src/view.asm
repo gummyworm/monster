@@ -395,6 +395,7 @@ memaddr:   .word 0
 ; OUT:
 ;  - .XY: the address to read from
 ;  - .A: the bank to read from
+.export get_real_address
 .proc get_real_address
 @addr=zp::tmp0
 	; get the base address + the offset in .YX

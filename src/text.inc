@@ -33,6 +33,7 @@ TEXT_REPLACE = 0
 
 BREAKPOINT_CHAR     = 133
 BREAKPOINT_OFF_CHAR = 134
+CH_R_ARROW	    = 135 
 
 .scope text
         charmap       = __text_charmap

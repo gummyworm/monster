@@ -98,20 +98,31 @@ reg_p:  .byte 0
 reg_sp: .byte 0
 pc:     .word 0
 
-step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
-lineset:   .byte 0	; not zero if we know the line number we're on
-advance:   .byte 0	; not zero if a command continues program execution
-
 ; backup of the memory value being affected by the current instruction
 ; if it is destructive
 mem_save:     .byte 0	; byte that was clobbered
-mem_saveaddr: .word 0	; addrses of affected byte
+mem_saveaddr: .word 0
+
+; previous values for registers etc.
+prev_reg_a:  .byte 0
+prev_reg_x:  .byte 0
+prev_reg_y:  .byte 0
+prev_reg_p:  .byte 0
+prev_reg_sp: .byte 0
+prev_pc:     .word 0
+
+prev_mem_save:     .byte 0
+prev_mem_saveaddr: .word 0
+
+step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
+lineset:   .byte 0	; not zero if we know the line number we're on
+advance:   .byte 0	; not zero if a command continues program execution
 
 aux_mode:         .byte 0	; the active auxiliary view
 auto_swap_memory: .byte 0	; if 1, ALL memory will be swapped on BRK
 highlight_line:	  .word 0 	; the line we are highlighting
 
-action:		.byte 0		; the last action performed e.g. ACTION_STEP
+action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
 ;******************************************************************************
 ; Debug symbol variables
@@ -1655,7 +1666,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; the current instruction and RUNning.
 .proc step
 @addr=zp::tmp0
-	ldxy #$100	; ROM (we don't need the string)
+	ldxy #$100	; TODO: use ROM addr? (we don't need the string)
 	stxy zp::tmp0	; TODO: make way to not disassemble to string
 	ldxy pc		; get address of next instruction
 	jsr asm::disassemble  ; disassemble it to get its size (next BRK offset)
@@ -1663,16 +1674,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts		; return error
 
 @ok:	pha
+	ldxy pc
 	jsr is_destructive
 	bcs @setbrk
 
+; for updating watches and just general info for the user, save the current
+; state of memory that will be altered
 @savemem:
-	stxy mem_saveaddr
-	ldxy mem_saveaddr
-	stxy @addr
-	ldy #$00
-	lda (@addr),y
-	sta mem_save
+	stxy mem_saveaddr	; save the address of the byte to-be-changed
+	jsr view::realaddr	; get the bank/buffer that contains the byte
+	jsr fe3::load		; load the byte that will be changed
+	sta mem_save		; store the current value of the byte
 
 @setbrk:
 	pla
@@ -1894,27 +1906,47 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the target of the instruction (if it is destructive)
 .proc is_destructive
 @instruction=zp::tmp0
-@opsz=zp::tmp1
-@target=zp::tmp2
+@opsz=zp::tmp2
+@target=zp::tmp3
+@offset=zp::bankval
 	stxy @instruction
 	sta @opsz
 
-	ldy #$02
+; if 0 byte opcode, it's either PHA or not destructive
+	cmp #$00
+	bne :+
+	sec			; not destructive; TODO: check PHA
+	rts
 
 ; set MSB to 0 if operand size < 3 (instruction size is 1-2 bytes)
-	ldx #$00
+:	ldx #$00
+	ldy #$02
 	cmp #$03
-	bne :+
-	lda (@instruction),y
+	bne @setmsb
+
+	sty @offset
+	ldxy @instruction
+	lda #FINAL_BANK_USER
+	jsr fe3::load_off	; read @ (instruction) + @offset (2)
+
 	tax
-:	stx @target+1
+@setmsb:
+	stx @target+1
 
-	dey
-	lda (@instruction),y
+; get the LSB
+	dec @offset
+	ldxy @instruction
+	lda #FINAL_BANK_USER
+	jsr fe3::load_off	; read @ (instruction) + @offset (1)
+@setlsb:
 	sta @target
-	dey
-	lda (@instruction),y
 
+; get the instruction opcode
+	ldxy @instruction
+	lda #FINAL_BANK_USER
+	jsr fe3::load
+
+; check if the opcode matches any that are destructive
 	ldx #num_destructive_ops-1
 @find:	cmp destructive_ops,x
 	beq @found
@@ -1978,8 +2010,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; TODO:
 
 ; the operand value is the target address
-@done:
-	ldxy @target
+@done:	ldxy @target
 	RETURN_OK
 .endproc
 
@@ -2154,7 +2185,7 @@ __debug_remove_breakpoint:
 	lda #'0'
 	skw
 :	lda #'1'
-	sta mem::linebuffer+18,x
+	sta mem::linebuffer+17,x
 :	lsr @flag
 	inx
 	cpx #2
@@ -2179,15 +2210,27 @@ __debug_remove_breakpoint:
 	sty mem::linebuffer+2
 	stx mem::linebuffer+3
 
-	lda #$00
-	sta mem::linebuffer+26
+@memaddr:
+	lda mem_saveaddr+1
+	jsr util::hextostr
+	sty mem::linebuffer+27
+	stx mem::linebuffer+28
+	lda mem_saveaddr
+	jsr util::hextostr
+	sty mem::linebuffer+29
+	stx mem::linebuffer+30
+
+@memval:
+	lda mem_save
+	jsr util::hextostr
+	sty mem::linebuffer+32
+	stx mem::linebuffer+33
 
 	ldxy #mem::linebuffer
 	lda #REGISTERS_LINE+1
-	jsr text::putz
-	rts
+	jmp text::puts
 
-@regsline: .byte "addr a  x  y  sp  nv-bdizc",0
+@regsline: .byte "addr a  x  y  sp nv-bdizc  stor mem mem'",0
 .endproc
 
 ;******************************************************************************
@@ -2328,6 +2371,8 @@ __debug_remove_breakpoint:
 ; This table contains all opcodes that may alter memory.
 ; When stepping through code, the targets of these must be saved/restored
 ; before and after executing them.
+;
+; TODO: PHA should be here
 destructive_ops:
 	.byte $84	; STY zpg
 	.byte $85	; STA zpg

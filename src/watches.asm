@@ -165,3 +165,11 @@ row:	.byte 0
 
 @title: .byte ESCAPE_SPACING,16, "watches",0
 .endproc
+
+;******************************************************************************
+; UPDATE
+; Reads the new values of all locations being watched and stores them
+.export __watches_update
+.proc __watches_update
+
+.endproc
