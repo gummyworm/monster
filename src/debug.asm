@@ -7,6 +7,7 @@
 .include "errors.inc"
 .include "fastcopy.inc"
 .include "finalex.inc"
+.include "flags.inc"
 .include "labels.inc"
 .include "irq.inc"
 .include "key.inc"
@@ -218,27 +219,31 @@ debug_backup = $a000
 ;******************************************************************************
 ; WATCHES
 ;******************************************************************************
-__debug_numwatches: .byte 0		   ; number of active watches
-__debug_watches:    .res MAX_WATCHPOINTS*2 ; addresses of the set watchpoints
-__debug_watch_vals: .res MAX_WATCHPOINTS   ; values of the set watchpoints
+__debug_numwatches:  .byte 0		    ; number of active watches
+__debug_watches:     .res MAX_WATCHPOINTS*2 ; addresses of the set watchpoints
+__debug_watch_vals:  .res MAX_WATCHPOINTS   ; values of the set watchpoints
+__debug_watch_prevs: .res MAX_WATCHPOINTS   ; previous values of watches
+__debug_watch_flags: .res MAX_WATCHPOINTS   ; flags for watches (e.g. DIRTY)
 
 .export __debug_watches
 .export __debug_watch_vals
+.export __debug_watch_prevs
 .export __debug_numwatches
+.export __debug_watch_flags
 
 ;******************************************************************************
 ; BREAKPOINTS
-;******************************************************************************
 .export __debug_numbreakpoints
 .export __debug_breakpoints
 __debug_numbreakpoints:
 numbreakpoints: .byte 0 		; number of active break points
 __debug_breakpoints:
 breakpoints:    .res MAX_BREAKPOINTS*2  ; addresses of the break points
+
 .export __debug_breakpoint_flags
 __debug_breakpoint_flags:
-breakpoint_flags: .res MAX_BREAKPOINTS  ; active state of breakpoints
-breaksave: .res MAX_BREAKPOINTS      ; backup of the instructions under the BRK
+breakpoint_flags: .res MAX_BREAKPOINTS ; active state of breakpoints
+breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 steppoint: 	.word 0		; address we STEP from
 startsave:
@@ -1665,7 +1670,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
 .proc step
-@addr=zp::tmp0
 	ldxy #$100	; TODO: use ROM addr? (we don't need the string)
 	stxy zp::tmp0	; TODO: make way to not disassemble to string
 	ldxy pc		; get address of next instruction
@@ -1685,6 +1689,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr view::realaddr	; get the bank/buffer that contains the byte
 	jsr fe3::load		; load the byte that will be changed
 	sta mem_save		; store the current value of the byte
+	ldxy mem_saveaddr
+	jsr watch::mark		; if there's a watch at this addr, mark it
+	bcs @setbrk
+	jsr watch::view		; activate the watch window so user sees change
 
 @setbrk:
 	pla

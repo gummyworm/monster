@@ -24,6 +24,8 @@
 .import __debug_store_line
 .import __debug_startsegment_byaddr
 .import __debug_watches
+.import __debug_watch_prevs
+.import __debug_watch_flags
 .import __debug_watch_vals
 
 .scope dbg
@@ -50,5 +52,7 @@
 	startseg_addr     = __debug_startsegment_byaddr
 	toggle_breakpoint = __debug_toggle_breakpoint
 	watches           = __debug_watches
+	watch_flags       = __debug_watch_flags
+	watch_prevs       = __debug_watch_prevs
 	watch_vals        = __debug_watch_vals
 .endscope

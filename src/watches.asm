@@ -2,6 +2,8 @@
 .include "debug.inc"
 .include "draw.inc"
 .include "edit.inc"
+.include "errors.inc"
+.include "flags.inc"
 .include "key.inc"
 .include "labels.inc"
 .include "layout.inc"
@@ -42,8 +44,19 @@ row:	.byte 0
 	cpx dbg::numwatches
 	bcs @done
 
+	lda #$00
+	sta @watchline_end		; restore string if it was changed
+
 	; push the value of the watch
-	lda dbg::watch_vals,x
+	lda dbg::watch_flags,x
+	and #WATCH_DIRTY		; dirty?
+	beq :+
+	lda dbg::watch_prevs,x
+	pha				; push previous value if dirty
+	lda #CH_R_ARROW
+	sta @watchline_end		; insert a > between old/new values
+
+:	lda dbg::watch_vals,x
 	pha
 
 	; push the address of the watch
@@ -78,6 +91,8 @@ row:	.byte 0
 ; <"address>: <val>
 @watchline:
 .byte "$", ESCAPE_VALUE, ": ", ESCAPE_BYTE, 0
+@watchline_end=*-1
+.byte ESCAPE_BYTE,0	; if line is DIRTY, this part is appended to @watchline
 .endproc
 
 ;******************************************************************************
@@ -172,4 +187,41 @@ row:	.byte 0
 .export __watches_update
 .proc __watches_update
 
+.endproc
+
+;******************************************************************************
+; MARK
+; Marks the watch for the given address (if there is one) as DIRTY. Even if
+; its value has not changed.
+; IN:
+;  - .XY: the address to mark dirty (if a watch exists for it)
+; OUT:
+;  - .C: clear if the given address was being watched
+.export __watches_mark
+.proc __watches_mark
+@cnt=zp::tmp0
+@addr=zp::tmp1
+	stxy @addr
+	ldx dbg::numwatches
+	beq @done
+	dex
+	stx @cnt
+@l0:	lda @cnt
+	asl
+	tax
+	lda @addr
+	cmp dbg::watches,x
+	bne @next
+	lda @addr+1
+	cmp dbg::watches+1,x
+	beq @found
+@next:	dec @cnt
+	bpl @l0
+@done:	sec
+	rts
+
+@found:	ldx @cnt
+	lda #WATCH_DIRTY
+	sta dbg::watch_flags,x	; mark this watchpoint as DIRTY
+	RETURN_OK
 .endproc
