@@ -117,6 +117,7 @@ memaddr:   .word 0
 @setwatch:
 	jsr get_addr	; get the address of the byte under the cursor
 	jsr dbg::addwatch
+	jmp @edit
 
 @done:	jsr cur::unlimit
 	jmp cur::off

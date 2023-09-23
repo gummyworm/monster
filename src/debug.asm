@@ -1342,6 +1342,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq @debugloop
 
 	pha
+	jsr toggle_highlight	; turn off highlight
+
 	lda #$00
 	sta advance	; by default, don't return to program after command
 	jsr cur::off
@@ -1354,13 +1356,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @getcmd
 	beq @runcmd
 
-@nocmd:	pha
-	jsr toggle_highlight	; turn off highlight
-	pla
-	jsr edit::handlekey
-	jsr toggle_highlight	; turn on highlight
-	jsr cur::on
-	jmp @debugloop
+@nocmd:	jsr edit::handlekey
+	jmp @finishloopiter
 
 @runcmd:
 	sei
@@ -1376,6 +1373,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr zp::jmpaddr
 	jsr showstate		; restore the register display (may be changed)
 	popcur			; restore cursor
+
+@finishloopiter:
+	jsr toggle_highlight	; turn on highlight
+	jsr cur::on
 	lda advance		; are we ready to execute program? (GO, STEP)
 	beq @debugloop		; we're not ready to return to user program
 
