@@ -450,6 +450,19 @@ respective Key in the table below.
 |  C=+z    | Step        | steps to the next instruction.                                                       | 
 |   <-     | Exit        | exits the debugger and returns to the editor                                         |
 
+### Memory Viewer (`F3` while debugging)
+The memory viewer displays the contents of RAM at a given address.  The memory
+viewer is updated upon reentry to the debugger (if active).
+Memory values may be updated by navigating to the value the user wishes to
+change and overwriting it with a new hex value. The change occurs immediately.
+
+Watches may be placed while navigating in the memory editor.  This is done
+by pressing the `C= + W` key-combination while the cursor is on the desired
+byte to watch. See the _Watch Viewer_ section for more information on
+watches.
+
+As with all editors the back-arrow key (`<-`) exits and returns to the editor.
+
 ### Breakpoints
 During normal editing, breakpoints may be set with the `C= + b` key combination.
 A breakpoint symbol (a filled circle) is placed at the beginning of a line to
@@ -469,10 +482,7 @@ breakpoints are unlikely to behave in expected ways.
 
 As with all editors the back-arrow key (`<-`) exits and returns to the editor.
 
-### Memory Viewer (`F3` while debugging)
-The memory viewer displays the contents of RAM at a given address.  The memory
-viewer is updated upon reentry to the debugger (if active).
-Memory values may be updated by navigating to the value the user wishes to
-change and overwriting it with a new hex value. The change occurs immediately.
-
-As with all editors the back-arrow key (`<-`) exits and returns to the editor.
+### Watch Viewer (`F7` while debugging)
+The watch viewer displays all watches that have been set in the memory
+viewer.  The current value of a watch is shown along with its previous
+value (if it has changed since the debugger last took over).
