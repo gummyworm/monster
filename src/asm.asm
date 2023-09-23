@@ -89,14 +89,14 @@ ifstacksp: .byte 0
 
 .export __asm_pcset
 __asm_pcset:
-pcset:     .byte 0
+pcset: .byte 0
 
-contextstack: .res MAX_CONTEXTS
+contextstack:   .res MAX_CONTEXTS
 contextstacksp: .byte 0
 
 .export __asm_origin
 __asm_origin:
-origin:    .word 0	; the lowest address in the program
+origin: .word 0	; the lowest address in the program
 
 ;******************************************************************************
 ; ASMBUFFER
@@ -862,12 +862,12 @@ MODE_IMPLIED=$40
 bbb_modes:
 bbb00_modes:
 	.byte MODE_IMMEDIATE | MODE_ZP	; 000
-	.byte MODE_ZP		; 001
-	.byte $ff		; 010
-	.byte MODE_ABS		; 011
-	.byte $ff		; 100
-	.byte MODE_ZP | MODE_X_INDEXED ; 101
-	.byte $ff		; 110
+	.byte MODE_ZP		        ; 001
+	.byte $ff		        ; 010
+	.byte MODE_ABS		        ; 011
+	.byte $ff		        ; 100
+	.byte MODE_ZP | MODE_X_INDEXED  ; 101
+	.byte $ff		        ; 110
 	.byte MODE_ABS | MODE_X_INDEXED	; 111
 bbb01_modes:
 	.byte MODE_ZP | MODE_X_INDEXED | MODE_INDIRECT
@@ -881,12 +881,12 @@ bbb01_modes:
 
 bbb10_modes:
 	.byte MODE_IMMEDIATE | MODE_ZP	; 000
-	.byte MODE_ZP		; 001
-	.byte MODE_IMPLIED	; 010
-	.byte MODE_ABS		; 011
-	.byte $ff		; 100
-	.byte MODE_ZP | MODE_X_INDEXED ; 101 (Y_INDEXED for STX,LDX)
-	.byte $ff		; 110
+	.byte MODE_ZP		        ; 001
+	.byte MODE_IMPLIED	        ; 010
+	.byte MODE_ABS		        ; 011
+	.byte $ff		        ; 100
+	.byte MODE_ZP | MODE_X_INDEXED  ; 101 (Y_INDEXED for STX,LDX)
+	.byte $ff		        ; 110
 	.byte ABS | MODE_X_INDEXED	; 111 (Y_INDEXED for STX,LDX)
 
 ;******************************************************************************

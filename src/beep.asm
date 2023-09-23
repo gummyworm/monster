@@ -8,7 +8,10 @@ LONG_BEEP_DURATION  = 30
 ;******************************************************************************
 beep_tmr: .byte 0
 
+.CODE
 ;******************************************************************************
+; BEEP_SHORT
+; Plays a short beep. Call beep::update to run the sounds player
 .export __beep_short
 .proc __beep_short
 	lda #SHORT_BEEP_DURATION
@@ -17,6 +20,8 @@ beep_tmr: .byte 0
 .endproc
 
 ;******************************************************************************
+; BEEP_LONG
+; Plays a long beep. Call beep::update to run the sounds player
 .export __beep_long
 .proc __beep_long
 	lda #LONG_BEEP_DURATION
@@ -30,6 +35,9 @@ beep_tmr: .byte 0
 .endproc
 
 ;******************************************************************************
+; BEEP_UPDATE
+; Runs one step of the sound player. Call this every frame if you are playing
+; sounds.
 .export __beep_update
 .proc __beep_update
 	lda beep_tmr

@@ -1991,16 +1991,21 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the address to add a watch for
 .export __debug_addwatch
 .proc __debug_addwatch
-	txa
-	pha
+@addr=zp::tmp0
+	stxy @addr
 	lda __debug_numwatches
 	asl
 	tax
 
-	pla
+	lda @addr
 	sta __debug_watches,x
 	tya
 	sta __debug_watches+1,x
+
+	; read the current value of the byte and save it
+	bank_read_byte #FINAL_BANK_USER, @addr
+	ldx __debug_numwatches
+	sta __debug_watch_vals,x
 
 	inc __debug_numwatches
 	rts

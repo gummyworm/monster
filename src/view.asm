@@ -543,6 +543,7 @@ memaddr:   .word 0
 	bcc :+
 	inc @dst+1
 
-:	rts
+:	ldxy @dst
+	rts
 .endproc
 
