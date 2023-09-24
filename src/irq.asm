@@ -1,3 +1,4 @@
+.include "beep.inc"
 .include "finalex.inc"
 .include "macros.inc"
 
@@ -11,6 +12,15 @@ LINES           = 261
 CYCLES_PER_LINE = 65
 .endif
 TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster int.
+
+;******************************************************************************
+; SYS_UPDATE
+; This is the main IRQ for this program. It handles updating the beeper.
+.export __irq_sys_update
+.proc __irq_sys_update
+	jsr beep::update
+	jmp $eb15
+.endproc
 
 ;******************************************************************************
 ; BRK

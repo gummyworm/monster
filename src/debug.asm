@@ -639,10 +639,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #>debuginfo
 	sta @seg+1
 
-	; install dummy IRQ
-	ldxy #$eb15	; ack interrupts and RTI
-	stxy $0314
-
 @l0:	ldy #SEG_START_ADDR
 
 	ldxy @seg
@@ -1258,13 +1254,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; if the instruction we executed was destructive, show its new value
 	lda destructive
-	beq @uninstall_brks
+	beq @update_watches
 
+@update_mem:
 	; copy old mem_save to prev_mem_save and get the new mem val
 	lda mem_save
 	sta prev_mem_save
-	bank_read_byte #FINAL_BANK_USER, mem_saveaddr
+	ldxa mem_saveaddr
+	ldy #$00
+	jsr view::realaddr
+	jsr fe3::load
 	sta mem_save
+
+@update_watches:
+	jsr watch::update
 
 @uninstall_brks:
 	; uninstall breakpoints (will reinstall the ones we want later)
@@ -1284,7 +1287,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr __debug_save_prog_state
 
 	jsr restore_debug_state	; restore debugger state
-	jsr showregs		; display the contents of the registers
 	jsr show_aux		; display the auxiliary mode
 
 	lda action
@@ -1331,13 +1333,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr edit::load
 	; TODO: handle err
 
-	; goto the line that the BRK happened on and highlight it
 	jsr toggle_highlight
-	jmp @getline
 
-@print:	jsr showbrk		; display the BRK message
-	; fall through to debug loop
-@getline:
+@print:	jsr showstate		; show regs/BRK message
 	jsr src::get		; update linebuffer with whatever we're at
 
 ; main debug loop
@@ -1352,6 +1350,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	pha
 	jsr toggle_highlight	; turn off highlight
+
+	cli
 
 	lda #$00
 	sta advance	; by default, don't return to program after command
@@ -1397,6 +1397,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr __debug_restore_progstate
 
 @debug_done:
+	; clear watch flags
+	lda #$00
+	ldx __debug_numwatches
+	beq @restore_regs
+:	sta __debug_watch_flags-1,x
+	dex
+	bne :-
+
+@restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
 	lda pc+1
 	pha
@@ -1713,6 +1722,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	inc destructive
 @savemem:
 	stxy mem_saveaddr	; save the address of the byte to-be-changed
+	ldxa mem_saveaddr
+	ldy #$00
 	jsr view::realaddr	; get the bank/buffer that contains the byte
 	jsr fe3::load		; load the byte that will be changed
 	sta mem_save		; store the current value of the byte
@@ -2067,11 +2078,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	lda @addr
 	sta __debug_watches,x
-	tya
+	lda @addr+1
 	sta __debug_watches+1,x
 
-	; read the current value of the byte and save it
-	bank_read_byte #FINAL_BANK_USER, @addr
+	ldxa @addr
+	ldy #$00
+	jsr view::realaddr
+	jsr fe3::load
 	ldx __debug_numwatches
 	sta __debug_watch_vals,x
 

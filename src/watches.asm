@@ -3,6 +3,7 @@
 .include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
+.include "finalex.inc"
 .include "flags.inc"
 .include "key.inc"
 .include "labels.inc"
@@ -11,6 +12,7 @@
 .include "source.inc"
 .include "text.inc"
 .include "util.inc"
+.include "view.inc"
 .include "zeropage.inc"
 
 ;******************************************************************************
@@ -51,6 +53,10 @@ row:	.byte 0
 	cpx dbg::numwatches
 	bcs @done
 
+	; push current value of the watch
+	lda dbg::watch_vals,x
+	pha
+
 	lda #$00
 	sta @watchline_end		; restore string if it was changed
 
@@ -61,10 +67,7 @@ row:	.byte 0
 	lda dbg::watch_prevs,x
 	pha				; push previous value if dirty
 	lda #CH_R_ARROW
-	sta @watchline_end		; insert a > between old/new values
-
-:	lda dbg::watch_vals,x
-	pha
+:	sta @watchline_end		; insert a > between old/new values
 
 	; push the address of the watch
 	lda @cnt
@@ -185,7 +188,40 @@ row:	.byte 0
 ; Reads the new values of all locations being watched and stores them
 .export __watches_update
 .proc __watches_update
+@cnt=zp::tmp0
+@addr=zp::tmp1
+	ldx dbg::numwatches
+	beq @done
+	dex
+	stx @cnt
+@l0:	ldx @cnt
+	lda dbg::watch_vals,x
+	sta dbg::watch_prevs,x	; store curr value as prev
 
+	lda @cnt
+	asl
+	tax
+	lda dbg::watches,x
+	ldy dbg::watches+1,x
+
+	tax
+	tya
+	ldy #$00
+
+	jsr view::realaddr	; get the bank/buffer that contains the byte
+	jsr fe3::load		; load the byte
+	ldx @cnt
+	cmp dbg::watch_prevs,x	; same as old value?
+	beq :+
+	pha
+	lda #WATCH_DIRTY
+	ora dbg::watch_flags,x
+	sta dbg::watch_flags,x	; mark value as DIRTY
+	pla
+:	sta dbg::watch_vals,x	; store new value
+	dec @cnt
+	bpl @l0
+@done:	rts
 .endproc
 
 ;******************************************************************************

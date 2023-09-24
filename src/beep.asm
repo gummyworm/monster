@@ -1,5 +1,6 @@
-BEEP_TONE = $a4
-BEEP_VOL  = $0c
+BEEP_TONE     = $e4
+BEEP_ERR_TONE = $a4
+BEEP_VOL      = $0c
 
 SHORT_BEEP_DURATION = 10
 LONG_BEEP_DURATION  = 30
@@ -25,12 +26,14 @@ beep_tmr: .byte 0
 .export __beep_long
 .proc __beep_long
 	lda #LONG_BEEP_DURATION
-
 	sta beep_tmr
 
 	lda #BEEP_VOL
 	ora $900e
 	sta $900e
+
+	lda #BEEP_TONE
+	sta $900b
 	rts
 .endproc
 

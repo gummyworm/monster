@@ -67,8 +67,8 @@ start:
 	lda #$4c	; JMP
 	sta zp::jmpaddr
 
-        ldx #<irq_handler
-        ldy #>irq_handler
+	ldx #<irq::sys_update
+        ldy #>irq::sys_update
         lda #$20
         jsr irq::raster
 	lda #<start

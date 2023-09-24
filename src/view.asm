@@ -1,3 +1,4 @@
+.include "beep.inc"
 .include "bitmap.inc"
 .include "cursor.inc"
 .include "debug.inc"
@@ -116,6 +117,7 @@ memaddr:   .word 0
 @setwatch:
 	jsr get_addr	; get the address of the byte under the cursor
 	jsr dbg::addwatch
+	jsr beep::short	; beep to confirm add
 	jmp @edit
 
 @done:	jsr cur::unlimit

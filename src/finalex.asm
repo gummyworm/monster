@@ -56,6 +56,7 @@ bankcode:
 	sta (@dst),y
 	stx $9c02	; restore bank
 	ldxy @dst
+	cli
 	rts
 .endproc
 
@@ -99,6 +100,7 @@ bankcode:
 	lda (@src),y
 	stx $9c02	; restore bank
 	ldx @src
+	cli
 	rts
 .endproc
 
@@ -121,6 +123,7 @@ bankcode:
 	dey
 	bpl :-
 	stx $9c02	; restore bank
+	cli
 	rts
 .endproc
 
@@ -150,6 +153,7 @@ bankcode:
 
 	lda @oldbank
 	sta $9c02	; restore bank
+	cli
 	rts
 .endproc
 
@@ -198,12 +202,13 @@ bankcode_size = *-bankcode
 @dst=zp::tmp3
 @cnt=zp::tmp5
 @bank=zp::tmp6
+@copyaddr=$08
 	sei
 
 	; copy the bank code that we wish to copy to ZP
 	ldx #bankcode_size
 @l0:	lda bankcode-1,x
-	sta $10-1,x
+	sta @copyaddr-1,x
 	dex
 	bne @l0
 
@@ -216,7 +221,7 @@ bankcode_size = *-bankcode
 
 	ldxy #__BANKCODE_LOAD__
 	stxy @dst
-	ldxy #$10
+	ldxy #@copyaddr
 	stxy @src
 
 @l1:	ldy #$00
@@ -224,7 +229,7 @@ bankcode_size = *-bankcode
 	sta zp::bankval	; byte to write
 	ldxy @dst	; destination address
 	lda @bank	; bank to copy to
-	jsr $10		; call the zeropage code
+	jsr @copyaddr	; call the zeropage code
 
 	incw @src
 	incw @dst
@@ -232,8 +237,9 @@ bankcode_size = *-bankcode
 	bne @l1
 	inc @bank
 	lda @bank
-	cmp #$10
+	cmp @copyaddr
 	bne @copybank
+	cli
 	rts
 .endproc
 
