@@ -230,12 +230,16 @@ __fastcopy_restore = $2100 + $2f00
 .byte $9d, 0, 0
 
 @save_suffix:
-; INX; CPX #2; BEQ *+3; JMP $2102; RTS
-.byte $e8, $e0, $02, $f0, 3, $4c, $02, $21, $60
+	inx
+	cpx #2
+	beq :+
+	jmp $2102
+:	rts
 
 @restore_suffix:
-; INX; CPX #2; BEQ *+3; JMP $5002; RTS
-.byte $e8, $e0, $02, $f0, 3, $4c, $02, $50, $60
-
+	inx
+	cpx #2
+	beq :+
+	jmp $5002
+:	rts
 .endproc
-

@@ -449,6 +449,7 @@ respective Key in the table below.
 |  C=+s    | StepOver    | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
 |  C=+z    | Step        | steps to the next instruction.                                                       | 
 |   <-     | Exit        | exits the debugger and returns to the editor                                         |
+| SPACE    | Swap prog   | swaps in the internal memory for the user program (allows user to see screen state)  | 
 
 ### Memory Viewer (`F3` while debugging)
 The memory viewer displays the contents of RAM at a given address.  The memory

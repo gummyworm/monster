@@ -1271,11 +1271,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 :	; save the program state before we restore the debugger's
 	jsr __debug_save_prog_state
 
-; wait for key to re-activate debugger
-@waitkey:
-	jsr key::getch
-	beq @waitkey
-
 	jsr restore_debug_state	; restore debugger state
 	jsr showregs		; display the contents of the registers
 	jsr show_aux		; display the auxiliary mode
@@ -1420,6 +1415,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.byte K_BRKVIEW
 	.byte K_WATCHVIEW
 	.byte K_SET_BREAKPOINT
+	.byte K_SWAP_USERMEM
 @num_commands=*-@commands
 @command_vectors:
 	.word quit
@@ -1432,8 +1428,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.word edit_breakpoints
 	.word edit_watches
 	.word set_breakpoint
+	.word swap_user_mem
 .endproc
-
 
 ;******************************************************************************
 ; TOGGLE_HIGHLIGHT
@@ -1665,6 +1661,19 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy src::line
 	jsr __debug_line2addr
 	jmp __debug_toggle_breakpoint	; add the breakpoint to the debugger
+.endproc
+
+;******************************************************************************
+; SWAP_USER_MEM
+; Toggles between the user program memory and the debugger
+.proc swap_user_mem
+	jsr save_debug_state
+	jsr __debug_restore_progstate
+:	jsr key::getch
+	beq :-
+	jsr __debug_save_prog_state
+	jsr restore_debug_state	; restore debugger state
+	rts
 .endproc
 
 ;******************************************************************************

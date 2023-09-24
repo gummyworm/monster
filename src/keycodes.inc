@@ -9,10 +9,11 @@ K_QUIT      = $5f	; <-
 K_SET_BREAKPOINT = $bf	; <C=> + B
 
 ; DEBUGGER KEYS
-K_SRCVIEW   = $85	; F1
-K_MEMVIEW   = $86	; F3
-K_BRKVIEW   = $87	; F5
-K_WATCHVIEW = $88	; F7
+K_SRCVIEW      = $85	; F1
+K_MEMVIEW      = $86	; F3
+K_BRKVIEW      = $87	; F5
+K_WATCHVIEW    = $88	; F7
+K_SWAP_USERMEM = $20	; SPACE
 
 K_STEP      = $ad	; <C=> + z
 K_STEPOVER  = $ae	; <C=> + s
