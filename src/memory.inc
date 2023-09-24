@@ -5,7 +5,6 @@
 .import __mem_backbuff
 .import __linebuffer
 .import __linebuffer2
-.import __mem_program
 .import __mem_progsave
 .import __statusline
 .import __mem_debugsave
@@ -21,7 +20,6 @@
 	backbuff        = __mem_backbuff
 	linebuffer      = __linebuffer
 	linebuffer2     = __linebuffer2
-	program		= __mem_program
 	statusline	= __statusline
 
 	progsave	= __mem_progsave

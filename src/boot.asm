@@ -92,15 +92,6 @@ start:
 @loading: .byte "initializing..."
 @loadinglen=*-@loading
 
-@test:
-; disassembly test TODO: delete
-	ldxy #$100
-	stxy zp::tmp0
-	ldxy #test
-	jsr asm::disassemble
-test:	jsr $e5b5
-
-
 ;******************************************************************************
 ; IRQHANDLER
 irq_handler:

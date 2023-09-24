@@ -25,9 +25,6 @@ __mem_prog9400 = __mem_progsave+$210
 
 __mem_debugsave=__mem_backbuff+$300 	; backup for the user's program during debug
 
-.export __mem_program
-__mem_program: .res $400	; buffer for the assembled program
-
 .export __linebuffer2
 __linebuffer2: .res 40		; backup buffer for when the linebuffer must be saved
 

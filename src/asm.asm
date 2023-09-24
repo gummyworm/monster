@@ -1677,9 +1677,6 @@ __asm_include:
 .proc __asm_resetpc
 	lda #$00
 	sta pcset
-	ldxy #mem::program
-	stxy zp::asmresult
-	stxy zp::virtualpc
 	rts
 .endproc
 

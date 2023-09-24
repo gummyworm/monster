@@ -103,6 +103,7 @@ pc:     .word 0
 ; if it is destructive
 mem_save:     .byte 0	; byte that was clobbered
 mem_saveaddr: .word 0
+destructive:  .byte 0	; flag that a value was changed
 
 ; previous values for registers etc.
 prev_reg_a:  .byte 0
@@ -1255,6 +1256,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sbc #$00
 	sta pc+1
 
+	; if the instruction we executed was destructive, show its new value
+	lda destructive
+	beq @uninstall_brks
+
+	; copy old mem_save to prev_mem_save and get the new mem val
+	lda mem_save
+	sta prev_mem_save
+	bank_read_byte #FINAL_BANK_USER, mem_saveaddr
+	sta mem_save
+
+@uninstall_brks:
 	; uninstall breakpoints (will reinstall the ones we want later)
 	jsr uninstall_breakpoints
 
@@ -1682,6 +1694,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
 .proc step
+	lda #$00
+	sta destructive
 	ldxy #$100	; TODO: use ROM addr? (we don't need the string)
 	stxy zp::tmp0	; TODO: make way to not disassemble to string
 	ldxy pc		; get address of next instruction
@@ -1696,6 +1710,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ; for updating watches and just general info for the user, save the current
 ; state of memory that will be altered
+	inc destructive
 @savemem:
 	stxy mem_saveaddr	; save the address of the byte to-be-changed
 	jsr view::realaddr	; get the bank/buffer that contains the byte
@@ -2039,9 +2054,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;******************************************************************************
 ; ADDWATCH
-; Adds a watch for the given memory location. If this location is written to,
-; execution will return to the debugger
-; in:
+; Adds a watch for the given memory location.
+; IN:
 ;  - .XY: the address to add a watch for
 .export __debug_addwatch
 .proc __debug_addwatch
@@ -2234,7 +2248,20 @@ __debug_remove_breakpoint:
 	stx mem::linebuffer+3
 
 @memaddr:
-	lda mem_saveaddr+1
+	lda destructive
+	bne :+
+	lda #'-'
+	sta mem::linebuffer+27
+	sta mem::linebuffer+28
+	sta mem::linebuffer+29
+	sta mem::linebuffer+30
+	sta mem::linebuffer+32
+	sta mem::linebuffer+33
+	sta mem::linebuffer+36
+	sta mem::linebuffer+37
+	bne @print
+
+:	lda mem_saveaddr+1
 	jsr util::hextostr
 	sty mem::linebuffer+27
 	stx mem::linebuffer+28
@@ -2244,12 +2271,17 @@ __debug_remove_breakpoint:
 	stx mem::linebuffer+30
 
 @memval:
-	lda mem_save
+	lda prev_mem_save
 	jsr util::hextostr
 	sty mem::linebuffer+32
 	stx mem::linebuffer+33
 
-	ldxy #mem::linebuffer
+	lda mem_save
+	jsr util::hextostr
+	sty mem::linebuffer+36
+	stx mem::linebuffer+37
+
+@print:	ldxy #mem::linebuffer
 	lda #REGISTERS_LINE+1
 	jmp text::puts
 

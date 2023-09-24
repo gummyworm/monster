@@ -2787,7 +2787,6 @@ __edit_gotoline:
 	rts
 .endproc
 
-
 .DATA
 ;******************************************************************************
 controlcodes:
@@ -2803,9 +2802,3 @@ ccvectors:
 .word ccright	; right
 .word ccup      ; up
 .word ccdown	; down
-
-;******************************************************************************
-.IFDEF DRAW_TITLEBAR
-titlebar:
-.byte "monster                      c=<h>: help"
-.ENDIF

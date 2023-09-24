@@ -74,8 +74,6 @@ banks:  .res MAX_SOURCES	; the corresponding bank for each buffer
 
 ;******************************************************************************
 ; DATA
-.export __src_buffer
-__src_buffer:
 .ifndef USE_FINAL
 data:
 .res 1024*4
