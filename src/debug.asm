@@ -1254,7 +1254,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; if the instruction we executed was destructive, show its new value
 	lda destructive
-	beq @update_watches
+	beq @uninstall_brks
 
 @update_mem:
 	; copy old mem_save to prev_mem_save and get the new mem val
@@ -1265,9 +1265,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr view::realaddr
 	jsr fe3::load
 	sta mem_save
-
-@update_watches:
-	jsr watch::update
 
 @uninstall_brks:
 	; uninstall breakpoints (will reinstall the ones we want later)
@@ -1287,6 +1284,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr __debug_save_prog_state
 
 	jsr restore_debug_state	; restore debugger state
+
+@update_watches:
+	jsr watch::update
+
 	jsr show_aux		; display the auxiliary mode
 
 	lda action

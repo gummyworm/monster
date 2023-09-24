@@ -30,6 +30,10 @@ row:	.byte 0
 ; Initializes the watch editor
 .export __watches_init
 .proc __watches_init
+	lda #$00
+	sta row
+	sta scroll
+	rts
 .endproc
 
 ;******************************************************************************
