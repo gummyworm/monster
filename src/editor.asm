@@ -1235,6 +1235,7 @@ __edit_refresh:
 	; redraw the visible lines
 @l0:	jsr text::clrline
 	jsr src::readline
+	sta zp::curx
 	php
 	lda zp::cury
 	jsr text::drawline
@@ -2497,14 +2498,10 @@ __edit_gotoline:
 	ldxy src::lines ; no, move to the last line
 :	stxy @target
 
-	lda zp::curx
-	beq :+
-	jsr src::up	; if we're not already, move to the start of the line
+	jsr home	; if we're not already, move to the start of the line
 
-:	ldy zp::cury
 	ldx #$00
 	stx @seekforward
-	jsr cur::set	; move cursor to column 0
 
 	ldxy @target
 	cmpw src::line	; is the target forward or backward?

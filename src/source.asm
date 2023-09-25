@@ -946,6 +946,7 @@ __src_atcursor:
 ; READLINE
 ; Reads one line at the cursor positon and advances the cursor
 ; OUT:
+;  - .A: the length of the line
 ;  - mem::linebuffer: the line that was read will be 0-terminated
 ;  - .C: set if the end of the source was reached
 .export __src_readline
@@ -969,18 +970,15 @@ __src_atcursor:
 	jsr __src_end
 	bne @l0
 @eof:	; go back a character; read last byte and null terminate if end of source
-	jsr atcursor
 	ldx @cnt
-	cmp #$0d
-	bne :+
 	lda #$00
-:	sta mem::linebuffer,x
-	lda #$00
-	sta mem::linebuffer+1,x
+	sta mem::linebuffer,x
 @eofdone:
+	lda @cnt
 	sec
 	rts
-@done:	clc
+@done:	txa
+	clc
 	rts
 .endproc
 
