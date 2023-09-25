@@ -690,8 +690,6 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	rts
 .endproc
 
-
-
 ;******************************************************************************
 ; PREV
 ; Moves the cursor back one character in the gap buffer.
@@ -985,7 +983,6 @@ __src_atcursor:
 @done:	clc
 	rts
 .endproc
-
 
 ;******************************************************************************
 ; GOTO

@@ -122,8 +122,7 @@
 	sty @remainder
 	inc @result	;and INCrement result cause divisor fit in 1 times
 
-@skip:
-	dex
+@skip:	dex
 	bne @divloop
 	rts
 .endproc

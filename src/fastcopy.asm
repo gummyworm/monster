@@ -222,12 +222,11 @@ __fastcopy_restore = $2100 + $2f00
 	rts
 
 @prefix:
-; LDX #0
-.byte $a2, 0
+	ldx #$00
 
 @loadstore:
-.byte $bd, 0, 0
-.byte $9d, 0, 0
+	lda $f00d,x
+	sta $f00d,x
 
 @save_suffix:
 	inx
