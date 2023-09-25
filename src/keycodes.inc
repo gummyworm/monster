@@ -1,6 +1,12 @@
 ; NAVIGATION KEYS
 K_LEFT      = $9d	; cursor left
 K_RIGHT     = $1d	; cursor right
+K_HOME      = $13	; HOME
+
+K_PREV_BUFF  = $3c	; <
+K_NEXT_BUFF  = $3e	; >
+K_NEW_BUFF   = $aa	; <C=> + n
+K_CLOSE_BUFF = $ab	; <C=> + q
 
 ; GLOBAL INTERFACE KEYS
 K_RETURN    = $0d	; RETURN

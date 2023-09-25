@@ -10,6 +10,7 @@
 .include "file.inc"
 .include "format.inc"
 .include "key.inc"
+.include "keycodes.inc"
 .include "layout.inc"
 .include "labels.inc"
 .include "linebuffer.inc"
@@ -999,10 +1000,14 @@ main:
 @done:	rts
 .endproc
 
-
 ;******************************************************************************
 .proc last_line
-@done:	rts
+@l0:	jsr ccdown
+	bcs @done
+	lda zp::cury
+	cmp height
+	bcc @l0
+@done:	jmp home
 .endproc
 
 ;******************************************************************************
@@ -1141,21 +1146,21 @@ main:
 	rts
 
 @specialkeys:
-	.byte $13	; HOME
-	.byte $85	; F1 (save)
-	.byte $89	; F2 (save as)
-	.byte $86	; F3 (assemble)
-	.byte $8a	; F4 (debug)
-	.byte $87	; F5 (show buffers)
-	.byte $8b	; F6 (nop)
-	.byte $bc	; C=<c> (refresh)
-	.byte $b2	; C=<r> (rename)
-	.byte $b6	; C=<l> (dir)
-	.byte $b7	; C=<y> (list symbols)
-	.byte $a7	; C=<m> (gotoline)
-	.byte $ab	; C=<q> (close buffer)
-	.byte $aa	; C=<n> (new buffer)
-	.byte $bf	; C=<b> (set breakpoint)
+	.byte K_HOME		; HOME
+	.byte $85		; F1 (save)
+	.byte $89		; F2 (save as)
+	.byte $86		; F3 (assemble)
+	.byte $8a		; F4 (debug)
+	.byte $87		; F5 (show buffers)
+	.byte $8b		; F6 (nop)
+	.byte $bc		; C=<c> (refresh)
+	.byte $b2		; C=<r> (rename)
+	.byte $b6		; C=<l> (dir)
+	.byte $b7		; C=<y> (list symbols)
+	.byte $a7		; gotoline
+	.byte K_CLOSE_BUFF	; close buffer
+	.byte K_NEW_BUFF	; new buffer
+	.byte K_SET_BREAKPOINT	; set breakpoint
 
 	.byte $a1 ;$81	; C=<1> go-to buffer 1
 	.byte $a3 ;$95	; C=<2> go-to buffer 2
@@ -1166,9 +1171,9 @@ main:
 	.byte $9a	; C=<2> go-to buffer 7
 	.byte $9b	; C=<2> go-to buffer 8
 
-	.byte $3e	; C= + > next buffer
-	.byte $3c	; C= + < previous buffer
-	.byte $5f	; <- (return to COMMAND mode)
+	.byte K_NEXT_BUFF	; C= + > next buffer
+	.byte K_PREV_BUFF	; C= + < previous buffer
+	.byte K_QUIT		; <- (return to COMMAND mode)
 @num_special_keys=*-@specialkeys
 
 @specialkeys_vectors:
@@ -1197,7 +1202,7 @@ main:
 	.word buffer8
 	.word next_buffer
 	.word prev_buffer
-	.word cancel	; <-
+	.word cancel
 .endproc
 
 ;******************************************************************************
@@ -2271,11 +2276,14 @@ buffer8: lda #$07
 ;******************************************************************************
 ; CCDOWN
 ; Handles the down cursor key
+; OUT:
+;  - .C: clear if the cursor was moved DOWN or screen scrolled
 .proc ccdown
 @newy=zp::tmp7
 @xend=zp::tmp8
 	jsr src::end
 	bne :+
+	sec		; cursor could not be moved
 	rts		; cursor is at end of source file, return
 
 :	lda zp::cury
@@ -2287,9 +2295,9 @@ buffer8: lda #$07
 	; can't move down, move cursor to end of line
 	ldxy #mem::linebuffer
 	jsr str::len
-	tax
-	ldy zp::cury
-	jmp cur::set	; set cursor and we're done
+	sta zp::curx
+	sec		; cursor could not be moved down
+	rts
 
 @down:	jsr src::get	; get the data for this in linebuffer
 	inc @newy	; move row down
@@ -2320,7 +2328,8 @@ buffer8: lda #$07
 	ldx zp::curx
 	jsr cur::set
 	lda zp::cury
-	jmp text::drawline
+	jsr text::drawline
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
