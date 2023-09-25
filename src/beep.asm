@@ -1,9 +1,4 @@
-BEEP_TONE     = $e4
-BEEP_ERR_TONE = $a4
-BEEP_VOL      = $0c
-
-SHORT_BEEP_DURATION = 10
-LONG_BEEP_DURATION  = 30
+.include "config.inc"
 
 .BSS
 ;******************************************************************************

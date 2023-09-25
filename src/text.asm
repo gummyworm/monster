@@ -386,6 +386,8 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 @src=zp::text
 @mask=zp::text+2
 @dst=zp::text+4
+@clrmask=zp::text+6
+@dsttmp=zp::text+7
 	cmp #$14
 	bne @printing
 
@@ -478,32 +480,32 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	lda zp::curx
 	and #$01
 	bne @right
-@left:
-	lda #$f0
+
+@left:	lda #$f0
 	skw
-@right:
-	lda #$0f
+@right:	lda #$0f
 	sta @mask
+	eor #$ff
+	sta @clrmask
 	ldy #$07
 
-@blit:
-	lda @mask
-	eor #$ff
+@blit:	; clear the pixels we're going to overwrite with the new half-char
+	lda @clrmask
 	and (@dst),y
-	sta (@dst),y
+	sta @dsttmp
 
+	; write the new half-char
 	lda @mask
 	and (@src),y
-	ora (@dst),y
+	ora @dsttmp
 	sta (@dst),y
 	dey
 	bpl @blit
+
 @updatecur:
-	ldx #1
-	ldy #0
-	jsr cur::move
-@done:
-	clc	; "put" was successful
+	inc zp::curx
+
+@done:	clc	; "put" was successful
 	rts
 .endproc
 

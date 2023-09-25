@@ -59,6 +59,7 @@ bankcode:
 	cli
 	rts
 .endproc
+final_store_size=*-__final_store_byte
 
 ;******************************************************************************
 ; READ_BYTE
@@ -211,6 +212,10 @@ bankcode_size = *-bankcode
 	sta @copyaddr-1,x
 	dex
 	bne @l0
+
+	; disable the CLI at the end of store_byte for init
+	lda #$ea	; NOP
+	sta @copyaddr + final_store_size - 2
 
 	lda #$02	; skip bank 1 (main bank)
 	sta @bank
