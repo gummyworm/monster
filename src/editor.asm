@@ -23,7 +23,6 @@
 .include "zeropage.inc"
 
 .include "macros.inc"
-.import help
 
 ;******************************************************************************
 ; CONSTANTS
@@ -1150,7 +1149,6 @@ main:
 	.byte $87	; F5 (show buffers)
 	.byte $8b	; F6 (nop)
 	.byte $bc	; C=<c> (refresh)
-	.byte $b4	; C=<h> (HELP)
 	.byte $b2	; C=<r> (rename)
 	.byte $b6	; C=<l> (dir)
 	.byte $b7	; C=<y> (list symbols)
@@ -1182,7 +1180,6 @@ main:
 	.word show_buffers
 	.word command_nop
 	.word refresh
-	.word help
 	.word rename
 	.word dir
 	.word list_symbols
