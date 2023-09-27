@@ -477,7 +477,11 @@ To handle this, the debugger calculates the bytes that need to be saved in
 between steps and saves these values in between calls to the program.  Values
 that will be used by the user program are then swapped in so that the program
 behaves as if the debugger is not running.
-The full internal state of the user program and debugger occupy buffers.
+The full internal state of the user program and debugger occupy buffers in the
+debugger and are available to be swapped in/out on command with the `C= + SPACE`
+key combination.  This is useful if you'd like to see what the internal RAM
+state, which is the _only_ place that the screen state may live, looks like
+at the current step in the program.
 
 If we aren't stepping _into_ code in RAM (_go_, _step over_) we are unable
 to calculate the addresses that will be affected when we
@@ -485,6 +489,9 @@ hand over control to the user program, we instead save the _entire_ *debugger* s
 the internal RAM and restore the _entire_ *user* state.
 Although this is a rather large amount of memory, it is mitigated by being
 handled by a mostly unrolled loop and therefore takes only a fraction of a second to occur.
+Nonetheless, it is apparent when this is happening if you've changed the setup
+of the VIC registers, or anything in the VIC's visible address range, as the
+screen will briefly flash with the state of the user program.
 
 ### Memory Viewer (`F3` while debugging)
 The memory viewer displays the contents of RAM at a given address.  The memory

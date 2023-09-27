@@ -1809,7 +1809,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; STORE USER BYTE
 ; Writes the given byte to the user program at the given address or the buffer
 ; that stores data for the user program if the address is in the internal
-; RAM space ($00-$2000)
+; RAM space ($00-$2000) or I/O space ($8000-$a000)
 ; IN:
 ;  - .XY: the address to write
 ;  - .A:  the byte to store
@@ -2093,8 +2093,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @swapall	; we don't know enough to do a limited swap
 
 	ldxy steppoint
-	cmpw #$2000-2		; do we need to swap?
-	bcs @savemem		; if >= $2000-2, no
+	jsr is_internal_address
+	bne @savemem		; if not internal, skip saving
 
 ; save the debugger's memory values at the address of the instruction and
 ; swap in the user values at the affected memory address
@@ -2115,8 +2115,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; user value at the affected memory address
 @savemem:
 	ldxy mem_saveaddr
-	cmpw #$2000		; do we need to swap?
-	bcs @done		; if >= $2000, no
+	jsr is_internal_address
+	bne @done		; if not internal, skip saving
 	stxy @smc2
 	stxy @smc3
 @smc2=*+1
@@ -2147,8 +2147,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @swapall
 
 	ldxy steppoint
-	cmpw #$2000-2		; do we need to swap?
-	bcs @savemem		; if >= $2000-2, no
+	jsr is_internal_address	; TODO: could be issue if instruction is @ >= $1ffe
+	bne @savemem
 
 ; save the user's memory values at the address of the instruction and
 ; swap in the user values at the affected memory address
@@ -2172,8 +2172,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; user value at the affected memory address
 @savemem:
 	ldxy mem_saveaddr
-	cmpw #$2000		; do we need to swap?
-	bcs @done		; if >= $2000, no
+	jsr is_internal_address
+	bne @done
 	stxy @smc2
 	stxy @smc3
 @smc2=*+1
@@ -2612,6 +2612,30 @@ __debug_remove_breakpoint:
 	sta line+1
 
 	RETURN_OK
+.endproc
+
+;******************************************************************************
+; IS INTERNAL ADDRESS
+; Returns with .Z set if the given address is outside of the address ranges
+; [$2000,$8000) or [$a000,$c000)
+; IN:
+;  - .XY: the address to test
+; OUT:
+;  - .Z: set if the address in [$00,$2000), [$8000,$a000), or [$c000,$10000)
+.proc is_internal_address
+	cmpw #$2000
+	bcc @internal
+	cmpw #$8000
+	bcc @external
+	cmpw #$a000
+	bcc @internal 	; VIC or I/O- internal
+
+@external:
+	lda #$ff	; banked RAM or ROM, no need to back up
+	rts
+@internal:
+	lda #$00
+	rts
 .endproc
 
 ;******************************************************************************
