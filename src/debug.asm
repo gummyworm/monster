@@ -1274,6 +1274,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sbc #$00
 	sta pc+1
 
+	; swap the debugger state in
+	jsr swapout
+
+	; unless we can figure out the exact RAM we will affect, we'll have to
+	; swap in the entire user RAM before we return from this BRK
+	lda #$01
+	sta swapmem
+
 	; if the instruction we executed was destructive, show its new value
 	lda affected
 	and #OP_STORE		; did this instruction STORE to memory?
@@ -1296,18 +1304,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; if we're beginning a GO, get on with it
 	lda action
 	cmp #ACTION_GO_START
-	bne :+
+	bne @update_watches
 	jsr step_restore
 	lda #ACTION_GO
 	sta action
 	jsr install_breakpoints	 ; reinstall rest of breakpoints
 	jmp @debug_done		 ; continue execution
 
-:	jsr swapout
-
 @update_watches:
 	jsr watch::update
-
 	jsr show_aux		; display the auxiliary mode
 
 	lda action
@@ -1326,11 +1331,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @reset_state:
 	lda #$00
 	sta action
-
-	; unless we can figure out the exact RAM we will affect, we'll have to
-	; swap in the entire user RAM before we return from this BRK
-	lda #$01
-	sta swapmem
 
 @showbrk:
 	; get the address before the BRK and go to it
@@ -1420,8 +1420,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @done:	; unhighlight the BRK line if it's still visible
 	jsr toggle_highlight
 
-	jsr swapin
 @debug_done:
+	jsr swapin
 	; clear watch flags
 	lda #$00
 	ldx __debug_numwatches
@@ -1827,8 +1827,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Restores the opcode destroyed by the last STEP.
 .proc step_restore
 	lda stepsave
-	bank_store_byte #FINAL_BANK_USER, steppoint
-	rts
+	ldxy steppoint
+	jmp __debug_store_user_byte
 .endproc
 
 ;******************************************************************************
