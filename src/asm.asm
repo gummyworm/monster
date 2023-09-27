@@ -1,3 +1,4 @@
+.include "asmflags.inc"
 .include "ctx.inc"
 .include "codes.inc"
 .include "debug.inc"
@@ -851,14 +852,9 @@ bbb00:
 	.byte $ff ; abs,y
 	.byte $ff ; (abs)
 
-MODE_IMMEDIATE=$01
-MODE_ZP=$02
-MODE_ABS=$04
-MODE_INDIRECT=$08
-MODE_X_INDEXED=$10
-MODE_Y_INDEXED=$20
-MODE_IMPLIED=$40
 
+;******************************************************************************
+; see MODE_ constants in asmflags.inc
 bbb_modes:
 bbb00_modes:
 	.byte MODE_IMMEDIATE | MODE_ZP	; 000
@@ -1688,6 +1684,7 @@ __asm_include:
 ;  - zp::tmp0: the address of the buffer to disassemble to
 ; OUT:
 ;  - .A: the size of the instruction that was disassembled
+;  - .X: the address modes for the instruction
 ;  - .C: clear if instruction was successfully disassembled
 .export __asm_disassemble
 .proc __asm_disassemble
@@ -1768,6 +1765,7 @@ __asm_include:
 
 @implied_:
 	lda #$01
+	ldx @modes
 	RETURN_OK
 
 ; check for branches/exceptions
@@ -1897,6 +1895,7 @@ __asm_include:
 	beq @cont	; if not implied, go on
 @implied:
 	lda #$01	; 1 byte in size
+	ldx @modes
 	RETURN_OK
 
 @cont:  ; add a space before operand
@@ -2008,6 +2007,7 @@ __asm_include:
 	bne :+
 	inx
 :	txa
+	ldx @modes
 	RETURN_OK
 .endproc
 

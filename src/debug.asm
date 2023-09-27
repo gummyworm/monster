@@ -1,4 +1,5 @@
 .include "asm.inc"
+.include "asmflags.inc"
 .include "bitmap.inc"
 .include "breakpoints.inc"
 .include "config.inc"
@@ -47,29 +48,26 @@ AUX_MEM   = 1		; enables the memory viewer in the debug view
 AUX_BRK   = 2		; enables the breakpoint view in the debug view
 AUX_WATCH = 3		; enables the watchpoint view in the debug view
 
-BREAKPOINT_ENABLED = 1
+OP_LOAD  = $01	; constant for an operation that loads
+OP_STORE = $02	; constant for an operation that stores to memory
+OP_REG_A = $04	; constant for an operation that stores to the .A register
+OP_REG_X = $08	; constant for an operation that stores to the .X register
+OP_REG_Y = $10	; constant for an operation that stores to the .Y register
+OP_FLAG  = $20	; constant for an operation that writes to .P (flag register)
+OP_STACK = $40	; constant for an operation that reads/writes SP
+OP_PC    = $80	; constant for an operation that modifies PC (branches)
 
-;******************************************************************************
-; STEP constants
-; There are some important differences between INTO and OVER
-; If we step INTO the next instruction, we can know a lot about what is being
-; done between our current instruction and the next one.
-; Most crucially, we can know if the instruction is writing to or reading from
-; memory.
-; If we step OVER an instruction (this applies only to JSR), then we must guess
-; if memory was written to by comparing its value when we return from the
-; subroutine with its value before that call.
-STEP_INTO = 1
-STEP_OVER = 2
+BREAKPOINT_ENABLED = 1
 
 ;******************************************************************************
 ; ACTION constants
 ; These tell us what command the user last executed when we return to the
 ; debugger via a BRK or NMI
-ACTION_STEP     = 1	; action for STEP command
-ACTION_START    = 2	; action for initial debug entry
-ACTION_GO_START = 3	; action for first instruction of GO command
-ACTION_GO       = 4	; action for subsequent GO instructions
+ACTION_STEP      = 1	; action for STEP command
+ACTION_STEP_OVER = 2	; action for STEP OVER command
+ACTION_START     = 3	; action for initial debug entry
+ACTION_GO_START  = 4	; action for first instruction of GO command
+ACTION_GO        = 5	; action for subsequent GO instructions
 
 ;******************************************************************************
 ; Debug info pointers
@@ -99,11 +97,31 @@ reg_p:  .byte 0
 reg_sp: .byte 0
 pc:     .word 0
 
-; backup of the memory value being affected by the current instruction
-; if it is destructive
-mem_save:     .byte 0	; byte that was clobbered
-mem_saveaddr: .word 0
-destructive:  .byte 0	; flag that a value was changed
+;--------------------------------------
+; Up to 4 bytes need to be saved in a given STEP.
+;  1. The instruction at the PC (up to 3 bytes)
+;  2. The memory value read/written by the instruction (up to 1 byte)
+;
+; We need to save all these before we complete a STEP and execute that
+; instruction:
+;  1. save user instruction at (PC)
+;  2. get effective address of instruction's operand
+;   2a. if there is an address and it's in [0,$2000), save the value there
+;
+; To restore the debugger:
+;  1. save user value at mem_saveaddr (address of effected memory)
+;  2. restore 3 bytes of debug memory at (prev_pc)
+
+mem_usersave:  .byte 0	; user byte when stepping @ mem_saveaddr
+mem_debugsave: .byte 0  ; debug byte when stepping @ mem_saveaddr
+mem_saveaddr:  .word 0  ; address of byte loaded/stored in a given STEP
+destructive:   .byte 0	; flag that a value was changed
+op_type:       .byte 0  ; REG, LOAD, or STORE
+affected:      .byte 0	; OP_REG_A, etc.; the CPU/RAM state affected by a STEP
+
+debug_instruction_save: .res 3	; buffer for debugger's
+user_instruction_save:  .res 3	; buffer for user's instruction
+;--------------------------------------
 
 ; previous values for registers etc.
 prev_reg_a:  .byte 0
@@ -119,6 +137,7 @@ prev_mem_saveaddr: .word 0
 step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
 lineset:   .byte 0	; not zero if we know the line number we're on
 advance:   .byte 0	; not zero if a command continues program execution
+swapmem:   .byte 0      ; not zero if we need to swap in user RAM
 
 aux_mode:         .byte 0	; the active auxiliary view
 auto_swap_memory: .byte 0	; if 1, ALL memory will be swapped on BRK
@@ -1056,8 +1075,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; init state
 	sta __debug_numwatches
 
-	jsr save_debug_state ; save the debug state
-	jsr __debug_restore_progstate
+	jsr save_debug_state 		; save the debug state
+	jsr __debug_restore_progstate	; and copy in entire user state to start
+	lda #$01
+	sta swapmem			; on 1st iteration, swap entire RAM back
 
 ; execute the user program until BRK
 @runpc:
@@ -1253,18 +1274,19 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta pc+1
 
 	; if the instruction we executed was destructive, show its new value
-	lda destructive
-	beq @uninstall_brks
+	lda affected
+	and #OP_STORE		; did this instruction STORE to memory?
+	beq @uninstall_brks	; if not (or if we don't know) skip mem display
 
 @update_mem:
 	; copy old mem_save to prev_mem_save and get the new mem val
-	lda mem_save
+	lda mem_usersave
 	sta prev_mem_save
 	ldxa mem_saveaddr
 	ldy #$00
 	jsr view::realaddr
 	jsr fe3::load
-	sta mem_save
+	sta mem_usersave
 
 @uninstall_brks:
 	; uninstall breakpoints (will reinstall the ones we want later)
@@ -1280,10 +1302,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr install_breakpoints	 ; reinstall rest of breakpoints
 	jmp @debug_done		 ; continue execution
 
-:	; save the program state before we restore the debugger's
-	jsr __debug_save_prog_state
-
-	jsr restore_debug_state	; restore debugger state
+:	jsr swapout
 
 @update_watches:
 	jsr watch::update
@@ -1295,15 +1314,22 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne :+
 	lda startsave				; restore opcode
 	bank_store_byte #FINAL_BANK_USER, pc
-	jmp @reset_action
-
+	jmp @reset_state
+	cmp #ACTION_STEP_OVER
+	beq @restore_step
 :	cmp #ACTION_STEP
-	bne @reset_action
+	bne @reset_state
+@restore_step:
 	jsr step_restore
 
-@reset_action:
+@reset_state:
 	lda #$00
 	sta action
+
+	; unless we can figure out the exact RAM we will affect, we'll have to
+	; swap in the entire user RAM before we return from this BRK
+	lda #$01
+	sta swapmem
 
 @showbrk:
 	; get the address before the BRK and go to it
@@ -1393,10 +1419,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @done:	; unhighlight the BRK line if it's still visible
 	jsr toggle_highlight
 
-	; swap debug state out for user's program
-	jsr save_debug_state
-	jsr __debug_restore_progstate
-
+	jsr swapin
 @debug_done:
 	; clear watch flags
 	lda #$00
@@ -1417,6 +1440,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	lda #FINAL_BANK_USER
 	sta zp::bankval
+
+	; install a NOP IRQ
+	ldxy #$eb15
+	stxy $0314
 
 	lda reg_a
 	ldx reg_x
@@ -1704,8 +1731,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
 .proc step
-	lda #$00
-	sta destructive
+@mode=zp::tmp0
 	ldxy #$100	; TODO: use ROM addr? (we don't need the string)
 	stxy zp::tmp0	; TODO: make way to not disassemble to string
 	ldxy pc		; get address of next instruction
@@ -1713,39 +1739,45 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bcc @ok
 	rts		; return error
 
-@ok:	pha
-	ldxy pc
-	jsr is_destructive
-	bcs @setbrk
+@ok:	pha		; save instruction size
+
+	; preemptively disable mem swapping
+	; unless we encounter ROM for the next target (in which case we will
+	; increment this again) we know exactly what will be written
+	dec swapmem
+
+	stx @mode		; address mode (set by asm::disassemble)
+	ldxy pc			; address of instruction
+	jsr get_side_effects	; get state that will be clobbered/used
 
 ; for updating watches and just general info for the user, save the current
 ; state of memory that will be altered
-	inc destructive
-@savemem:
-	stxy mem_saveaddr	; save the address of the byte to-be-changed
-	ldxa mem_saveaddr
-	ldy #$00
-	jsr view::realaddr	; get the bank/buffer that contains the byte
-	jsr fe3::load		; load the byte that will be changed
-	sta mem_save		; store the current value of the byte
-	ldxy mem_saveaddr
+	lda affected
+	and #OP_LOAD|OP_STORE	; was there a write to memory?
+	beq @setbrk		; if not, skip ahead to setting the next BRK
+	ldxy mem_saveaddr	; if so, mark the watch if there is one
 	jsr watch::mark		; if there's a watch at this addr, mark it
-	bcs @setbrk
+	bcs @setbrk		; if there's no watch, contiue
+
+	; activate the watch window so user sees change
 	lda #(DEBUG_INFO_START_ROW-1)*8
 	jsr bm::clrpart
 	lda #AUX_WATCH
-	sta aux_mode		; activate the watch window so user sees change
+	sta aux_mode
+
+	; no need to swap all memory. we know exactly what will be written
+	dec swapmem
 
 @setbrk:
-	pla
-	ldxy pc
-	jsr next_instruction	  ; get the address of the next instruction
-
+	pla			; get instruction size
+	ldxy pc			; and address of instruction to-be-executed
+	jsr next_instruction	; get the address of the next instruction
 	stxy steppoint
-	bank_read_byte #FINAL_BANK_USER, steppoint
+	jsr __debug_get_user_byte
 	sta stepsave
 	lda #$00		; BRK
-	bank_store_byte #FINAL_BANK_USER, steppoint
+	ldxy steppoint
+	jsr __debug_store_user_byte
 
 	lda #$00
 	sta break_after_sr 	; reset step over
@@ -1753,6 +1785,37 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta action		; flag that we are STEPing
 	inc advance		; continue program execution
 	rts			; return to the debugger
+.endproc
+
+;******************************************************************************
+; GET USER BYTE
+; Reads the given byte from wherever it lives (one of the buffers for internal
+; RAM, $00-$2000, or the user program's bank.
+; IN:
+;  - .XY: the address to read
+; OUT:
+;  - .A: the byte at the requested address
+.export __debug_get_user_byte
+.proc __debug_get_user_byte
+	tya
+	jsr view::realaddr
+	jmp fe3::load
+.endproc
+
+;******************************************************************************
+; STORE USER BYTE
+; Writes the given byte to the user program at the given address or the buffer
+; that stores data for the user program if the address is in the internal
+; RAM space ($00-$2000)
+; IN:
+;  - .XY: the address to write
+;  - .A:  the byte to store
+.export __debug_store_user_byte
+.proc __debug_store_user_byte
+	sta zp::bankval
+	tya
+	jsr view::realaddr
+	jmp fe3::store
 .endproc
 
 ;******************************************************************************
@@ -1817,8 +1880,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr @jmpjsr
 @jsr:
 	cmpw #$c000	; is the target in ROM?
-	bcs @nocontrol	; if so, set breakpoint to PC+3
-	lda step_over	; are we stepping OVER?
+	bcc :+
+	; we can't step, our "step" wil actually be more like a "go".
+	; re-increment swapmem to force full RAM swap
+	lda #ACTION_STEP_OVER
+	sta action
+	inc swapmem
+	bcs @nocontrol	; set breakpoint to PC+3
+
+:	lda step_over	; are we stepping OVER?
 	bne @nocontrol	; if yes, don't go into the subroutine
 	rts
 @notjsr:
@@ -1945,86 +2015,216 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
-; IS_DESTRUCTIVE
-; Checks if the given instruction is destructive (writes to memory)
-; If it does, returns the address that the instruction writes to
+; GET SIDE EFFECTS
+; Checks if the given instruction requires any RAM state and handles the
+; creation of any state needed to handle them.
+; This essentially involves checking if the instruction accesses any RAM and,
+; if it does, settting mem_saveaddr to the address that will be affected.
 ; IN:
 ;  - .XY: address of the binary instruction
 ;  - .A: the size of the instruction
+;  - zp::tmp0: the address modes for the instruction (see asm::disassemble)
 ; OUT:
-;  - .C: clear if the instruction is desctructive
-;  - .XY: the target of the instruction (if it is destructive)
-.proc is_destructive
-@instruction=zp::tmp0
-@opsz=zp::tmp2
-@target=zp::tmp3
+;  - .C:           clear if the instruction is desctructive
+;  - mem_saveaddr: holds the address of the byte that will be loaded/stored
+;  - affected:     stores the flags with the CPU/mem state the operation affects
+.proc get_side_effects
+@modes=zp::tmp0
+@instruction=zp::tmp2
+@opsz=zp::tmp4
+@target=zp::tmp5
+@opcode=zp::tmp7
 @offset=zp::bankval
 	stxy @instruction
 	sta @opsz
 
-; if 0 byte opcode, it's either PHA or not destructive
+	; if 0 byte opcode, it's either PHA, PHP or doesn't touch RAM
 	cmp #$00
-	bne :+
-	sec			; not destructive; TODO: check PHA
+	bne @cont
+	sec			; no memory side-effects; TODO: check PHA
 	rts
 
-; set MSB to 0 if operand size < 3 (instruction size is 1-2 bytes)
-:	ldx #$00
-	ldy #$02
-	cmp #$03
-	bne @setmsb
+	; save the debugger's contents at the @instruction address
+@cont:	ldy #$02
+:	lda (@instruction),y
+	sta debug_instruction_save,y
+	dey
+	bpl :-
 
-	sty @offset
+	; get the instruction opcode/operand at the @instruction address
 	ldxy @instruction
-	lda #FINAL_BANK_USER
-	jsr fe3::load_off	; read @ (instruction) + @offset (2)
+	jsr __debug_get_user_byte	; opcode
+	sta @opcode
+	sta user_instruction_save
 
-	tax
-@setmsb:
-	stx @target+1
-
-; get the LSB
-	dec @offset
-	ldxy @instruction
-	lda #FINAL_BANK_USER
-	jsr fe3::load_off	; read @ (instruction) + @offset (1)
-@setlsb:
+	incw @instruction
+	jsr __debug_get_user_byte	; operand (1st byte)
 	sta @target
+	sta user_instruction_save+1
 
-; get the instruction opcode
-	ldxy @instruction
-	lda #FINAL_BANK_USER
-	jsr fe3::load
+	incw @instruction
+	jsr __debug_get_user_byte	; operand (2nd byte)
+	sta @target+1
+	sta user_instruction_save+2
 
-; check if the opcode matches any that are destructive
-	ldx #num_destructive_ops-1
-@find:	cmp destructive_ops,x
-	beq @found
-	dex
-	bpl @find
-	sec		; opcode is not destructive
+	; get the side-effects for this operation
+	tax
+	lda side_effects_tab,x
+	sta affected			; save the side-effects for aux uses
+
+	; get effective target address of this instruction and save it
+	; we will save/restore state before/after a BRK using this
+	jsr get_effective_addr
+	stxy mem_saveaddr
 	rts
+.endproc
 
-; the opcode is destructive; determine which address if affects
-@found:
-	cpx #destructive_rel_x
-	bcc @check_rel_y
-; add the value of .X to get the target address
-@rel_x:
+;******************************************************************************
+; SWAPIN
+; Either swaps in the 3-4 bytes that were saved (if we were able to resolve the
+; exact memory affected by an instruction or the _entire_ internal RAM
+; state [$00-$2000) if we were unable to resolve the exact memory addresses
+; affected.
+; This routine is called _before_ returning from the BRK interrupt and executing
+; the user program.
+.proc swapin
+	lda swapmem
+	bne @swapall	; we don't know enough to do a limited swap
+
+	ldxy steppoint
+	cmpw #$2000-2		; do we need to swap?
+	bcs @savemem		; if >= $2000-2, no
+
+; save the debugger's memory values at the address of the instruction and
+; swap in the user values at the affected memory address
+	stxy @smc0
+	stxy @smc1
+	ldx #$02
+@saveloop:
+@smc0=*+1
+	lda $f00d,x
+	sta debug_instruction_save,x
+	lda user_instruction_save,x
+@smc1=*+1
+	sta $f00d,x
+	dex
+	bpl @saveloop
+
+; save the debugger's memory value that will be overwritten and restore the
+; user value at the affected memory address
+@savemem:
+	ldxy mem_saveaddr
+	cmpw #$2000		; do we need to swap?
+	bcs @done		; if >= $2000, no
+	stxy @smc2
+	stxy @smc3
+@smc2=*+1
+	lda $f00d
+	sta mem_debugsave
+	lda mem_usersave
+@smc3=*+1
+	sta $f00d
+@done:	rts
+
+@swapall:
+	; swap entire user RAM in (needed if we don't know what memory will
+	; be changed before next BRK)
+	jsr save_debug_state
+	jmp __debug_restore_progstate
+.endproc
+
+;******************************************************************************
+; SWAPOUT
+; Swaps *out* the user memory that needs to be saved in order to restore the
+; debug state.
+; This occurs after we encounter a BRK.  If we were able to figure out the exact
+; areas that would be affected before we encountered the BRK, only swap those
+; values for the debugger's values of those.
+; If not, swap the entire internal RAM state
+.proc swapout
+	lda swapmem
+	bne @swapall
+
+	ldxy steppoint
+	cmpw #$2000-2		; do we need to swap?
+	bcs @savemem		; if >= $2000-2, no
+
+; save the user's memory values at the address of the instruction and
+; swap in the user values at the affected memory address
+	stxy @smc0
+	stxy @smc1
+	ldx #$02
+@saveloop:
+	; get user byte to save and store it
+@smc0=*+1
+	lda $f00d,x
+	jsr __debug_store_user_byte
+
+	; get debugger byte to restore
+	lda debug_instruction_save,x
+@smc1=*+1
+	sta $f00d,x
+	dex
+	bpl @saveloop
+
+; save the debugger's memory value that will be overwritten and restore the
+; user value at the affected memory address
+@savemem:
+	ldxy mem_saveaddr
+	cmpw #$2000		; do we need to swap?
+	bcs @done		; if >= $2000, no
+	stxy @smc2
+	stxy @smc3
+@smc2=*+1
+	lda $f00d
+	jsr __debug_store_user_byte
+
+	lda mem_debugsave
+@smc3=*+1
+	sta $f00d
+@done:	rts
+
+@swapall:
+	; save the program state before we restore the debugger's
+	jsr __debug_save_prog_state
+	jsr restore_debug_state	; restore debugger state
+.endproc
+
+;******************************************************************************
+; GET EFFECTIVE ADDR
+; Returns the effective address for the given opcode/operand. This may be the
+; same as the operand (if the opcode represents a zeropage or absolute address
+; mode) or not (indirect or indexed address modes)
+; IN:
+;  - .XY:      the operand
+;  - .A:       the opcode
+;  - zp::tmp0: the address mode of the instruction
+; OUT:
+;  - .XY: the effective address of the instruction
+.proc get_effective_addr
+@mode=zp::tmp0
+@target=zp::tmp1
+	lda @mode					; get the address mode
+	cmp #MODE_X_INDEXED|MODE_ZP|MODE_INDIRECT	; x,ind?
+	beq @check_ind_y				; nope, try ind,y
+	; add .X register to ZP target to get target address (wrapping is fine)
 	lda reg_x
 	clc
 	adc @target
 	sta @target
-	bcc :+
-	inc @target+1
-:	jmp @done
+	jmp @done
 
-; add the value of .Y to get the target address
-@check_rel_y:
-	cpx #destructive_rel_y
-	bcc @check_rel_y_ind
-@rel_y:
-	lda @target
+;--------------------------------------
+@check_ind_y:
+	cmp #MODE_Y_INDEXED|MODE_ZP|MODE_INDIRECT	; y,ind?
+	beq @check_rel_y
+	; get the value of the ZP location in the *user* ZP
+	ldy @target
+	lda mem::prog00,y
+	sta @target
+	lda mem::prog00+1,y
+	sta @target+1
+	; add the .Y register value to the address from the ZP
 	lda reg_y
 	clc
 	adc @target
@@ -2033,33 +2233,32 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	inc @target+1
 :	jmp @done
 
-; use the value at the target ZP adddress + .Y to get the target address
-@check_rel_y_ind:
-	cpx #destructive_rel_y_ind
-	bne @check_rel_x_ind
-@rel_y_ind:
-	; get the value of the ZP location in the program's ZP
-	ldy @target
-	lda mem::prog00,y
-	sta @target
-	lda mem::prog00+1,y
-	sta @target+1
-
-	; add the .Y register value to the address from the ZP
-	ldy reg_y
+;--------------------------------------
+@check_rel_y:
+	cmp #MODE_Y_INDEXED|MODE_ABS	; abs,y?
+	beq @check_rel_x
+	; add the value of .Y to get the target address
+	lda reg_y
+	clc
 	adc @target
 	sta @target
 	bcc :+
 	inc @target+1
 :	jmp @done
 
-@check_rel_x_ind:
-	cpx #destructive_rel_x_ind
-	bne @done
-@rel_x_ind:
-	; TODO:
+;--------------------------------------
+@check_rel_x:
+	cmp #MODE_X_INDEXED|MODE_ABS	; abs,x?
+	beq @abs_or_zp			; if not, this is a simple ZP/abs store
+	; add the value of .X to get the target address
+	lda reg_x
+	clc
+	adc @target
+	sta @target
+	bcc @done
+	inc @target+1
 
-; the operand value is the target address
+@abs_or_zp:
 @done:	ldxy @target
 	RETURN_OK
 .endproc
@@ -2290,7 +2489,7 @@ __debug_remove_breakpoint:
 	sty mem::linebuffer+32
 	stx mem::linebuffer+33
 
-	lda mem_save
+	lda mem_usersave
 	jsr util::hextostr
 	sty mem::linebuffer+36
 	stx mem::linebuffer+37
@@ -2431,61 +2630,302 @@ __debug_remove_breakpoint:
 
 ;******************************************************************************
 ; End the .DEBUG segment
-.CODE
 
 ;******************************************************************************
 .DATA
 ;******************************************************************************
-; DESTRUCTIVE_OPS
-; This table contains all opcodes that may alter memory.
-; When stepping through code, the targets of these must be saved/restored
-; before and after executing them.
-;
-; TODO: PHA should be here
-destructive_ops:
-	.byte $84	; STY zpg
-	.byte $85	; STA zpg
-	.byte $06	; ASL zpg
-	.byte $26	; ROL zpg
-	.byte $46	; LSR zpg
-	.byte $66	; ROR zpg
-	.byte $86	; STX zpg
-	.byte $c6	; DEC zpg
-	.byte $e6	; INC zpg
-	.byte $8c	; STY abs
-	.byte $8d	; STA abs
-	.byte $0e	; ASL abs
-	.byte $2e	; ROL abs
-	.byte $4e	; LSR abs
-	.byte $6e	; ROR abs
-	.byte $8e	; STX abs
-	.byte $ce	; DEC abs
-	.byte $ee	; INC abs
+; OERATION SIDE EFFECTS TABLE
+; This table contains all opcodes and what state they affect.
+; This is used to display changes made by a given instruction as well as
+; determine what (internal) state the debugger needs to preserve and restore
+; between steps.
+; If a value in internal memory is accessed (OP_LOAD/OP_STORE) the user
+; value for that memory must be swapped in before executing the instruction
+; $0-
+side_effects_tab:
+.byte $00			; $00 BRK
+.byte OP_REG_A|OP_LOAD		; $01 ORA x,ind
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_REG_A|OP_LOAD		; $05 ORA zpg
+.byte OP_REG_A|OP_LOAD|OP_STORE ; $06 ASL zpg
+.byte $00			; ---
+.byte OP_STACK|OP_STORE		; $08 PHP
+.byte OP_REG_A			; $09 ORA #
+.byte OP_REG_A			; ASL A
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_LOAD|OP_REG_A		; $0d ORA abs
+.byte OP_LOAD|OP_STORE		; $0e ASL abs
+.byte $00			; ---
 
-destructive_rel_x_ind=*-destructive_ops
-	.byte $81	; STA ind,x
+; $1-
+.byte OP_PC			; $10 BPL rel
+.byte OP_REG_A|OP_LOAD		; $11 ORA ind,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_REG_A|OP_LOAD		; $15 ORA zpg,x
+.byte OP_REG_A|OP_LOAD|OP_STORE ; $16 ASL zpg,x
+.byte $00			; ---
+.byte OP_FLAG			; $18 CLC
+.byte OP_REG_A|OP_LOAD		; $19 ORA abs,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_LOAD|OP_REG_A		; $1d ORA abs,x
+.byte OP_LOAD|OP_STORE		; $1e ASL abs,x
+.byte $00			; ---
 
-destructive_rel_y_ind=*-destructive_ops
-	.byte $91	; STA ind,y
+; $2-
+.byte OP_PC|OP_STACK|OP_STORE	; $20 JSR abs
+.byte OP_REG_A|OP_LOAD		; $21 AND x,ind
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_FLAG|OP_LOAD		; $24 BIT zpg
+.byte OP_REG_A|OP_LOAD		; $25 AND zpg
+.byte OP_LOAD|OP_STORE 		; $26 ROL zpg
+.byte $00			; ---
+.byte OP_FLAG|OP_STACK		; $28 PLP
+.byte OP_REG_A     		; $29 AND #
+.byte OP_REG_A			; $2a ROL A
+.byte $00			; ---
+.byte OP_FLAG|OP_LOAD		; $2c BIT abs
+.byte OP_LOAD|OP_REG_A		; $2d AND abs
+.byte OP_LOAD|OP_STORE	        ; $2e ROL abs
+.byte $00			; ---
 
-destructive_rel_y=*-destructive_ops
-	.byte $96	; STX zpg,y
-	.byte $99	; STA abs,y
+; $3-
+.byte OP_PC			; $30 BMI rel
+.byte OP_REG_A|OP_LOAD		; $31 AND ind,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_REG_A|OP_LOAD		; $35 AND zpg,x
+.byte OP_LOAD|OP_STORE 		; $36 ROL zpg,x
+.byte $00			; ---
+.byte OP_FLAG			; $38 SEC
+.byte OP_REG_A|OP_LOAD    	; $39 AND abs,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_LOAD|OP_REG_A		; $3d AND abs,x
+.byte OP_LOAD|OP_STORE	        ; $3e ROL abs,x
+.byte $00			; ---
 
-destructive_rel_x=*-destructive_ops
-	.byte $94	; STY zpg,x
-	.byte $95	; STA zpg,x
-	.byte $16	; ASL zpg,x
-	.byte $36	; ROL zpg,x
-	.byte $56	; LSR zpg,x
-	.byte $76	; ROR zpg,x
-	.byte $f6	; INC zpg,x
-	.byte $d6	; DEC zpg,x
-	.byte $9d	; STA abs,x
-	.byte $1e	; ASL abs,x
-	.byte $3e	; ROL abs,x
-	.byte $5e	; LSR abs,x
-	.byte $7e	; ROR abs,x
-	.byte $de	; DEC abs,x
-	.byte $fe	; INC abs,x
-num_destructive_ops=*-destructive_ops
+; $4-
+.byte OP_STACK|OP_PC|OP_LOAD|OP_FLAG	; $40 RTI
+.byte OP_REG_A|OP_LOAD			; $42 EOR x, ind
+.byte $00				; ---
+.byte $00				; ---
+.byte $00				; ---
+.byte OP_REG_A|OP_LOAD			; $45 EOR zpg
+.byte OP_LOAD|OP_STORE 			; $46 LSR zpg
+.byte $00				; ---
+.byte OP_STACK|OP_STORE			; $48 PHA
+.byte OP_REG_A|OP_LOAD    		; $49 EOR #
+.byte OP_REG_A                  	; $4a LSR A
+.byte $00				; ---
+.byte OP_PC				; $4c JMP abs
+.byte OP_LOAD|OP_REG_A			; $4d EOR abs
+.byte OP_LOAD|OP_STORE			; $4e LSR abs
+.byte $00				; ---
+
+; $5-
+.byte OP_PC			; $50 BVC rel
+.byte OP_REG_A|OP_LOAD		; $51 EOR ind,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_REG_A|OP_LOAD		; $55 EOR zpg,x
+.byte OP_LOAD|OP_STORE 		; $56 LSR zpg,x
+.byte $00			; ---
+.byte OP_FLAG			; $58 CLI
+.byte OP_REG_A|OP_LOAD    	; $59 EOR abs,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_LOAD|OP_REG_A		; $5d EOR abs,x
+.byte OP_LOAD|OP_STORE	        ; $5e LSR abs,x
+.byte $00			; ---
+
+; $6-
+.byte OP_STACK|OP_PC|OP_LOAD	; $60 RTS
+.byte OP_REG_A|OP_LOAD		; $61 ADC x,ind
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_REG_A|OP_LOAD		; $65 ADC zpg
+.byte OP_LOAD|OP_STORE 		; $66 ROR zpg
+.byte $00			; ---
+.byte OP_STACK|OP_LOAD|OP_REG_A	; $68 PLA
+.byte OP_REG_A|OP_LOAD    	; $69 ADC #
+.byte OP_REG_A                  ; $6a ROR A
+.byte $00			; ---
+.byte OP_PC|OP_LOAD		; $4c JMP ind
+.byte OP_LOAD|OP_REG_A		; $4d ADC abs
+.byte OP_LOAD|OP_STORE	        ; $4e ROR abs
+.byte $00			; ---
+
+; $7-
+.byte OP_PC			; $70 BVS rel
+.byte OP_REG_A|OP_LOAD		; $71 ADC ind,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_REG_A|OP_LOAD		; $55 ADC zpg,x
+.byte OP_LOAD|OP_STORE 		; $56 ROR zpg,x
+.byte $00			; ---
+.byte OP_FLAG			; $58 SEI
+.byte OP_REG_A|OP_LOAD    	; $59 ADC abs,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_LOAD|OP_REG_A		; $5d ADC abs,x
+.byte OP_LOAD|OP_STORE  	; $5e ROR abs,x
+.byte $00			; ---
+
+; $8-
+.byte $00			; ---
+.byte OP_STORE			; $81 STA x,ind
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_STORE			; $84 STY zpg
+.byte OP_STORE   		; $85 STA zpg
+.byte OP_STORE 		        ; $86 STX zpg
+.byte $00			; ---
+.byte OP_REG_Y              	; $98 DEY
+.byte $00			; ---
+.byte OP_REG_A                  ; $8a TXA
+.byte $00			; ---
+.byte OP_STORE			; $8c STY abs
+.byte OP_STORE			; $8d STA abs
+.byte OP_STORE			; $8e STX abs
+.byte $00			; ---
+
+; $9-
+.byte OP_PC			; $90 BCC rel
+.byte OP_STORE			; $91 STA ind,y
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_STORE			; $94 STY zpg,x
+.byte OP_STORE   		; $95 STA zpg,x
+.byte OP_STORE 		        ; $96 STX zpg,y
+.byte $00			; ---
+.byte OP_REG_A              	; $98 TYA
+.byte $00			; ---
+.byte OP_STORE                	; $99 STA abs,Y
+.byte OP_STACK			; $9a TXS
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_STORE			; $8e STA abs,x
+.byte $00			; ---
+
+; $a-
+.byte OP_REG_Y			; $a0 LDY #
+.byte OP_LOAD|OP_REG_A		; $a1 LDA x,ind
+.byte OP_REG_X			; $a2 LDX #
+.byte $00			; ---
+.byte OP_LOAD|OP_REG_Y		; $a4 LDY zpg
+.byte OP_LOAD|OP_REG_A 		; $a5 LDA zpg
+.byte OP_LOAD|OP_REG_X	        ; $a6 LDX zpg
+.byte $00			; ---
+.byte OP_REG_Y              	; $a8 TAY
+.byte OP_REG_A			; $a9 LDA #
+.byte OP_REG_X                  ; $aa TAX
+.byte $00			; ---
+.byte OP_LOAD|OP_REG_Y		; $ac LDY abs
+.byte OP_LOAD|OP_REG_A		; $ad LDA abs
+.byte OP_LOAD|OP_REG_X		; $ae LDX abs
+.byte $00			; ---
+
+; $b-
+.byte OP_PC                     ; $b0 BCS rel
+.byte OP_LOAD|OP_REG_A		; $b1 LDA ind,y
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_LOAD|OP_REG_Y		; $b4 LDY zpg,x
+.byte OP_LOAD|OP_REG_A 		; $b5 LDA zpg,x
+.byte OP_LOAD|OP_REG_X	        ; $b6 LDX zpg,y
+.byte $00			; ---
+.byte OP_FLAG               	; $b8 CLV
+.byte OP_REG_A|OP_LOAD		; $b9 LDA abs,y
+.byte OP_REG_X                  ; $ba TSX
+.byte $00			; ---
+.byte OP_LOAD|OP_REG_Y		; $bc LDY abs,y
+.byte OP_LOAD|OP_REG_A		; $ad LDA abs,x
+.byte OP_LOAD|OP_REG_X		; $ae LDX abs,y
+.byte $00			; ---
+
+; $c-
+.byte OP_FLAG                   ; $c0 CPY #
+.byte OP_LOAD|OP_FLAG           ; $c1 CMP x,ind
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_FLAG|OP_LOAD           ; $c4 CPY zpg
+.byte OP_LOAD|OP_FLAG 		; $c5 CMP zpg
+.byte OP_LOAD|OP_STORE|OP_FLAG  ; $c6 DEC zpg
+.byte $00			; ---
+.byte OP_REG_Y|OP_FLAG          ; $c8 INY
+.byte OP_FLAG                   ; $c9 CMP #
+.byte OP_REG_X|OP_FLAG          ; $ca DEX
+.byte $00			; ---
+.byte OP_FLAG|OP_LOAD   	; $cc CPY abs
+.byte OP_FLAG|OP_LOAD     	; $cd CMP abs
+.byte OP_LOAD|OP_STORE		; $ce DEC abs
+.byte $00			; ---
+
+; $d-
+.byte OP_PC                     ; $b0 BNE rel
+.byte OP_LOAD|OP_FLAG 		; $b1 CMP ind,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_LOAD|OP_FLAG  		; $d5 CMP zpg,x
+.byte OP_LOAD|OP_STORE	        ; $d6 DEC zpg,y
+.byte $00			; ---
+.byte OP_FLAG               	; $d8 CLD
+.byte OP_REG_A|OP_STORE|OP_FLAG	; $d9 CMP abs,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_LOAD|OP_FLAG		; $dd CMP abs,x
+.byte OP_LOAD|OP_STORE|OP_FLAG	; $de DEC abs,y
+.byte $00			; ---
+
+; $e-
+.byte OP_FLAG                   ; $e0 CPX #
+.byte OP_LOAD|OP_FLAG|OP_REG_A  ; $e1 SBC x,ind
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_FLAG|OP_LOAD           ; $e4 CPX zpg
+.byte OP_LOAD|OP_FLAG|OP_REG_A	; $e5 SBC zpg
+.byte OP_LOAD|OP_STORE|OP_FLAG  ; $e6 INC zpg
+.byte $00			; ---
+.byte OP_REG_X|OP_FLAG          ; $e8 INX
+.byte OP_REG_A	                ; $e9 SBC #
+.byte $00			; $ea NOP
+.byte $00			; ---
+.byte OP_FLAG|OP_LOAD   	; $ec CPX abs
+.byte OP_FLAG|OP_LOAD|OP_REG_A 	; $ed SBC abs
+.byte OP_LOAD|OP_STORE|OP_FLAG	; $ee INC abs
+.byte $00			; ---
+
+; $e-
+.byte OP_PC                     ; $f0 BEQ rel
+.byte OP_LOAD|OP_FLAG 		; $f1 SBC ind,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_LOAD|OP_FLAG|OP_REG_A 	; $f5 SBC zpg,x
+.byte OP_LOAD|OP_STORE	        ; $e6 INC zpg,x
+.byte $00			; ---
+.byte OP_FLAG               	; $f8 SED
+.byte OP_REG_A|OP_FLAG|OP_LOAD  ; $f9 SBC abs,y
+.byte $00			; ---
+.byte $00			; ---
+.byte $00			; ---
+.byte OP_LOAD|OP_FLAG|OP_REG_A	; $fd SBC abs,x
+.byte OP_LOAD|OP_STORE|OP_FLAG	; $fe INC abs,x
+.byte $00			; ---
