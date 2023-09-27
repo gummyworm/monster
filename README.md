@@ -466,8 +466,13 @@ instruction is a subroutine call (`JSR`), execution continues until the
 instruction _after_ the `JSR` (after the subroutine returns).
 
 While the debugger and user program have isolated memory banks in the address space
-above $1fff, the RAM _below_ this (`[$00, $2000)`) internal to the Vic-20
-and cannot be swapped out between debug steps.
+above `$1fff`, the RAM _below_ this, `[$00, $2000)`, is internal to the Vic-20
+and cannot be swapped out between debug steps. The debugger has no choice but to
+share this address space with the user program as it is also the only RAM
+that is visible to the video chip (the VIC-I).  It also contains the stack and
+zeropage, which we _could_ avoid, but as long as we need to use the $10th-$20th pages
+of RAM, it makes sense to handle it in the same way.
+
 To handle this, the debugger calculates the bytes that need to be saved in
 between steps and saves these values in between calls to the program.  Values
 that will be used by the user program are then swapped in so that the program
