@@ -214,7 +214,7 @@ main:
 	jsr home_line	; avoid problems with cursor-y being below new height
 	ldxy @addr
 	jsr dbg::start	; start debugging at address in .XY
-
+	dec readonly
 	lda #EDITOR_HEIGHT
 	sta height
 	jmp refresh

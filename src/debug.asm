@@ -118,6 +118,7 @@ mem_saveaddr:  .word 0  ; address of byte loaded/stored in a given STEP
 destructive:   .byte 0	; flag that a value was changed
 op_type:       .byte 0  ; REG, LOAD, or STORE
 affected:      .byte 0	; OP_REG_A, etc.; the CPU/RAM state affected by a STEP
+op_mode:       .byte 0  ; address modes for current instruction
 
 debug_instruction_save: .res 3	; buffer for debugger's
 user_instruction_save:  .res 3	; buffer for user's instruction
@@ -1736,6 +1737,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stxy zp::tmp0	; TODO: make way to not disassemble to string
 	ldxy pc		; get address of next instruction
 	jsr asm::disassemble  ; disassemble it to get its size (next BRK offset)
+	stx op_mode
 	bcc @ok
 	rts		; return error
 
@@ -1798,6 +1800,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .export __debug_get_user_byte
 .proc __debug_get_user_byte
 	tya
+	ldy #$00
 	jsr view::realaddr
 	jmp fe3::load
 .endproc
@@ -1814,6 +1817,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_store_user_byte
 	sta zp::bankval
 	tya
+	ldy #$00
 	jsr view::realaddr
 	jmp fe3::store
 .endproc
@@ -2029,7 +2033,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - mem_saveaddr: holds the address of the byte that will be loaded/stored
 ;  - affected:     stores the flags with the CPU/mem state the operation affects
 .proc get_side_effects
-@modes=zp::tmp0
 @instruction=zp::tmp2
 @opsz=zp::tmp4
 @target=zp::tmp5
@@ -2045,13 +2048,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 
 	; save the debugger's contents at the @instruction address
-@cont:	ldy #$02
-:	lda (@instruction),y
-	sta debug_instruction_save,y
-	dey
-	bpl :-
-
-	; get the instruction opcode/operand at the @instruction address
+@cont:	; get the instruction opcode/operand at the @instruction address
 	ldxy @instruction
 	jsr __debug_get_user_byte	; opcode
 	sta @opcode
@@ -2070,7 +2067,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta user_instruction_save+2
 
 	; get the side-effects for this operation
-	tax
+	ldx @opcode
 	lda side_effects_tab,x
 	sta affected			; save the side-effects for aux uses
 
@@ -2078,6 +2075,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; we will save/restore state before/after a BRK using this
 	jsr get_effective_addr
 	stxy mem_saveaddr
+	jsr __debug_get_user_byte
+	sta mem_usersave
 	rts
 .endproc
 
@@ -2204,9 +2203,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; OUT:
 ;  - .XY: the effective address of the instruction
 .proc get_effective_addr
-@mode=zp::tmp0
 @target=zp::tmp5
-	lda @mode					; get the address mode
+	lda op_mode
 	cmp #MODE_X_INDEXED|MODE_ZP|MODE_INDIRECT	; x,ind?
 	bne @check_ind_y				; nope, try ind,y
 	; add .X register to ZP target to get target address (wrapping is fine)
@@ -2820,8 +2818,8 @@ side_effects_tab:
 .byte OP_STORE                	; $99 STA abs,Y
 .byte OP_STACK			; $9a TXS
 .byte $00			; ---
-.byte $00			; ---
-.byte OP_STORE			; $8e STA abs,x
+.byte OP_STORE			; $9d STA abs,x
+.byte OP_STORE			; ---
 .byte $00			; ---
 
 ; $a-
