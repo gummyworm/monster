@@ -2058,11 +2058,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta user_instruction_save
 
 	incw @instruction
+	ldxy @instruction
 	jsr __debug_get_user_byte	; operand (1st byte)
 	sta @target
 	sta user_instruction_save+1
 
 	incw @instruction
+	ldxy @instruction
 	jsr __debug_get_user_byte	; operand (2nd byte)
 	sta @target+1
 	sta user_instruction_save+2
@@ -2203,10 +2205,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the effective address of the instruction
 .proc get_effective_addr
 @mode=zp::tmp0
-@target=zp::tmp1
+@target=zp::tmp5
 	lda @mode					; get the address mode
 	cmp #MODE_X_INDEXED|MODE_ZP|MODE_INDIRECT	; x,ind?
-	beq @check_ind_y				; nope, try ind,y
+	bne @check_ind_y				; nope, try ind,y
 	; add .X register to ZP target to get target address (wrapping is fine)
 	lda reg_x
 	clc
@@ -2217,7 +2219,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;--------------------------------------
 @check_ind_y:
 	cmp #MODE_Y_INDEXED|MODE_ZP|MODE_INDIRECT	; y,ind?
-	beq @check_rel_y
+	bne @check_rel_y
 	; get the value of the ZP location in the *user* ZP
 	ldy @target
 	lda mem::prog00,y
@@ -2236,7 +2238,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;--------------------------------------
 @check_rel_y:
 	cmp #MODE_Y_INDEXED|MODE_ABS	; abs,y?
-	beq @check_rel_x
+	bne @check_rel_x
 	; add the value of .Y to get the target address
 	lda reg_y
 	clc
@@ -2249,7 +2251,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;--------------------------------------
 @check_rel_x:
 	cmp #MODE_X_INDEXED|MODE_ABS	; abs,x?
-	beq @abs_or_zp			; if not, this is a simple ZP/abs store
+	bne @abs_or_zp			; if not, this is a simple ZP/abs store
 	; add the value of .X to get the target address
 	lda reg_x
 	clc
