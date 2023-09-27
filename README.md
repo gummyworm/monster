@@ -451,6 +451,36 @@ respective Key in the table below.
 |   <-     | Exit        | exits the debugger and returns to the editor                                         |
 | SPACE    | Swap prog   | swaps in the internal memory for the user program (allows user to see screen state)  | 
 
+### Stepping through code
+Stepping (`C= + z` or `C= + s`) is a common way to debug a program line-by-line.
+Stepping _into_ code (`C= + z`) will, if possible, return to the debugger
+after the next instruction (the one currently highlighted if we have debug
+information) is executed. There is a scenario where this is not possible: if
+the next instruction is in ROM.  In this case, step _into_ behaves the same
+as step _over_: execution begins after the current instruction.  Note that
+because we don't know what will happen in ROM, it is possible execution will
+never return to the debugger.
+
+Step _over_ (`C= + s`) behaves the same as step _into_, but if the next
+instruction is a subroutine call (`JSR`), execution continues until the
+instruction _after_ the `JSR` (after the subroutine returns).
+
+While the debugger and user program have isolated memory banks in the address space
+above $1fff, the RAM _below_ this (`[$00, $2000)`) internal to the Vic-20
+and cannot be swapped out between debug steps.
+To handle this, the debugger calculates the bytes that need to be saved in
+between steps and saves these values in between calls to the program.  Values
+that will be used by the user program are then swapped in so that the program
+behaves as if the debugger is not running.
+The full internal state of the user program and debugger occupy buffers.
+
+If we aren't stepping _into_ code in RAM (_go_, _step over_) we are unable
+to calculate the addresses that will be affected when we
+hand over control to the user program, we instead save the _entire_ *debugger* state of
+the internal RAM and restore the _entire_ *user* state.
+Although this is a rather large amount of memory, it is mitigated by being
+handled by a mostly unrolled loop and therefore takes only a fraction of a second to occur.
+
 ### Memory Viewer (`F3` while debugging)
 The memory viewer displays the contents of RAM at a given address.  The memory
 viewer is updated upon reentry to the debugger (if active).
