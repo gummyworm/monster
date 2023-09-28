@@ -1440,7 +1440,7 @@ __edit_set_breakpoint:
 	txa
 	jsr src::setbuff
 	bcs @done
-	jsr refresh
+	jmp refresh
 @done:	rts
 .endproc
 
@@ -1456,7 +1456,7 @@ __edit_set_breakpoint:
 	txa
 	jsr src::setbuff
 	bcs @done
-	jsr refresh
+	jmp refresh
 @done:	rts
 .endproc
 
@@ -1477,12 +1477,13 @@ buffer6: lda #$05
 buffer7: lda #$06
 	 skw
 buffer8: lda #$07
+goto_buffer:
 	pha
 	jsr src::save
 	pla
 	jsr src::setbuff
 	bcs @done
-	jsr refresh
+	jmp refresh
 @done:	rts
 
 ;******************************************************************************
@@ -1504,6 +1505,8 @@ buffer8: lda #$07
 	pha
 
 	lda @cnt
+	clc
+	adc #$01	; display buffer ID as 1-based
 	pha
 	lda #$00
 	pha
@@ -1533,10 +1536,19 @@ buffer8: lda #$07
 	bcc @l0
 	jsr draw::hline
 
-@getch: jsr key::getch
+@getch: jsr key::getch		; get a key to confirm
 	beq @getch
+	cmp #K_QUIT
+	beq @done
+	cmp #'1'
+	bcc @getch
+	cmp #'8'+1
+	bcs @getch
+	sec
+	sbc #'1'
+	jmp goto_buffer
 
-	jmp bm::restore
+@done:	jmp bm::restore
 
 @buffer_line:  .byte ESCAPE_VALUE_DEC," :"
 @dirty_marker: .byte " "
