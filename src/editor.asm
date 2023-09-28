@@ -1153,29 +1153,26 @@ main:
 
 @specialkeys:
 	.byte K_HOME		; HOME
-	.byte $85		; F1 (save)
-	.byte $89		; F2 (save as)
-	.byte $86		; F3 (assemble)
-	.byte $8a		; F4 (debug)
-	.byte $87		; F5 (show buffers)
-	.byte $8b		; F6 (nop)
-	.byte $bc		; C=<c> (refresh)
-	.byte $b2		; C=<r> (rename)
-	.byte $b6		; C=<l> (dir)
-	.byte $b7		; C=<y> (list symbols)
-	.byte $a7		; gotoline
+	.byte K_ASM 		; assemble
+	.byte K_ASM_DEBUG	; debug
+	.byte K_SHOW_BUFFERS	; show buffers
+	.byte K_REFRESH		; refresh
+	.byte K_RENAME		; rename
+	.byte K_DIR		; dir
+	.byte K_LIST_SYMBOLS	; list symbols
+	.byte K_GOTO_LINE	; gotoline
 	.byte K_CLOSE_BUFF	; close buffer
 	.byte K_NEW_BUFF	; new buffer
 	.byte K_SET_BREAKPOINT	; set breakpoint
 
-	.byte $a1 ;$81	; C=<1> go-to buffer 1
-	.byte $a3 ;$95	; C=<2> go-to buffer 2
-	.byte $a2 ;$96	; C=<3> go-to buffer 3
-	.byte $97	; C=<2> go-to buffer 4
-	.byte $98	; C=<2> go-to buffer 5
-	.byte $99	; C=<2> go-to buffer 6
-	.byte $9a	; C=<2> go-to buffer 7
-	.byte $9b	; C=<2> go-to buffer 8
+	.byte K_GOTO_BUFF1	; go-to buffer 1
+	.byte K_GOTO_BUFF2	; go-to buffer 2
+	.byte K_GOTO_BUFF3	; go-to buffer 3
+	.byte K_GOTO_BUFF4	; go-to buffer 4
+	.byte K_GOTO_BUFF5	; go-to buffer 5
+	.byte K_GOTO_BUFF6	; go-to buffer 6
+	.byte K_GOTO_BUFF7	; go-to buffer 7
+	.byte K_GOTO_BUFF8 	; go-to buffer 8
 
 	.byte K_NEXT_BUFF	; C= + > next buffer
 	.byte K_PREV_BUFF	; C= + < previous buffer
@@ -1184,12 +1181,9 @@ main:
 
 @specialkeys_vectors:
 	.word home
-	.word save
-	.word saveas
 	.word command_asm
 	.word command_asmdbg
 	.word show_buffers
-	.word command_nop
 	.word refresh
 	.word rename
 	.word dir
@@ -1217,13 +1211,6 @@ main:
 .proc home
 @l0:	jsr ccleft
 	bcc @l0
-	rts
-.endproc
-
-;******************************************************************************
-; COMMAND_NOP
-; Does nothing
-.proc command_nop
 	rts
 .endproc
 
@@ -1738,13 +1725,6 @@ buffer8: lda #$07
 	jmp text::drawline
 .endproc
 
-;******************************************************************************
-; SAVEAS
-; Allows the user to name the current buffer- then writes it to a file
-; of the same name.
-.proc saveas
-	jmp save
-.endproc
 
 ;******************************************************************************
 ; EDIT
