@@ -86,7 +86,6 @@ __debug_src_line = srcline ; the line # stored by dbg::storeline
 .export __debug_file
 __debug_file = file
 
-
 ;******************************************************************************
 ; Program state variables
 .BSS
@@ -2358,8 +2357,8 @@ __debug_remove_breakpoint:
 ;******************************************************************************
 ; SHOWREGS
 ; prints the contents of the registers in the format
-;  ADDR A  X  Y  SP NV-BDIZC
-;  f59c 02 02 00 f7 00100000
+;   PC  A  X  Y  SP NV-BDIZC ADDR
+;  f59c 02 02 00 f7 00100000 1003
 .proc showregs
 @addr=zp::asm+4
 @tmp=zp::asm+6
@@ -2431,8 +2430,42 @@ __debug_remove_breakpoint:
 	sty mem::linebuffer+2
 	stx mem::linebuffer+3
 
+; if registers were affected, highlight them
+
+	ldx #TEXT_COLOR
+	lda affected
+	and #OP_REG_A
+	beq :+
+	ldx #DEBUG_REG_CHANGED_COLOR
+:	stx COLMEM_ADDR+(20*$b)+2
+	stx COLMEM_ADDR+(20*$b)+3
+
+	ldx #TEXT_COLOR
+	lda affected
+	and #OP_REG_X
+	beq :+
+	ldx #DEBUG_REG_CHANGED_COLOR
+:	stx COLMEM_ADDR+(20*$b)+4
+
+	ldx #TEXT_COLOR
+	lda affected
+	and #OP_REG_Y
+	beq :+
+	ldx #DEBUG_REG_CHANGED_COLOR
+:	stx COLMEM_ADDR+(20*$b)+5
+	stx COLMEM_ADDR+(20*$b)+6
+
+	ldx #TEXT_COLOR
+	lda affected
+	and #OP_STACK
+	beq :+
+	ldx #DEBUG_REG_CHANGED_COLOR
+:	stx COLMEM_ADDR+(20*$b)+7
+
+; if memory was loaded or stored, show the effective address
 @memaddr:
-	lda destructive
+	lda affected
+	and #OP_LOAD|OP_STORE
 	bne :+
 	lda #'-'
 	sta mem::linebuffer+27
@@ -2469,7 +2502,7 @@ __debug_remove_breakpoint:
 	lda #REGISTERS_LINE+1
 	jmp text::puts
 
-@regsline: .byte "addr a  x  y  sp nv-bdizc  stor mem mem'",0
+@regsline: .byte " pc  a  x  y  sp nv-bdizc  addr mem mem'",0
 .endproc
 
 ;******************************************************************************
