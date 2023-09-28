@@ -38,12 +38,13 @@ ERR_LINE_NOT_FOUND       = 22
 ERR_NO_ORIGIN            = 23
 ERR_BRANCH_OUT_OF_RANGE  = 24
 ERR_FILE_NOT_FOUND       = 25
+ERR_UNKNOWN_SEGMENT      = 26
 
 ;******************************************************************************
 ; file i/o errors
-ERR_TOO_MANY_OPEN_FILES   = 26
-ERR_LOGICAL_FILE_IN_USE   = 27
-ERR_DRIVE_DID_NOT_RESPOND = 28
+ERR_TOO_MANY_OPEN_FILES   = 27
+ERR_LOGICAL_FILE_IN_USE   = 28
+ERR_DRIVE_DID_NOT_RESPOND = 29
 
 .import __err_get
 

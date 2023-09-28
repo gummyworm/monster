@@ -248,6 +248,12 @@ main:
 	jsr asm::include	; assemble the file (pass 1)
 	bcs @done		; error, we're done
 
+	; end the last segment (if debug info generation enabled)
+	lda zp::gendebuginfo
+	beq @done
+	ldxy zp::asmresult
+	jsr dbg::endseg
+
 ; reset state after 1st pass
 	dec state::verify	; disable verify (assemble the program)
 	inc zp::pass
@@ -262,6 +268,7 @@ main:
 ; do the second assembly pass
 @pass2:	ldxy #@filename
 	jsr asm::include	; assemble the file (pass 2)
+
 @done:	jmp display_result
 .endproc
 
@@ -297,11 +304,15 @@ main:
 	jsr src::readline
 	ldxy #mem::linebuffer
 	jsr asm::tokenize_pass1
-	bcc @p1next
 	bcs @err
-@p1next:
 	jsr src::end
 	bne @pass1loop
+
+	; end the last segment (if debug info generation enabled)
+	lda zp::gendebuginfo
+	beq :+
+	ldxy zp::asmresult
+	jsr dbg::endseg
 
 ;--------------------------------------
 ; Pass 2
@@ -334,7 +345,7 @@ main:
 
 @next:	jsr src::end		; check if we're at the end of the source
 	bne @pass2loop		; repeat if not
-	clc
+	clc			; success
 	jsr display_result	; dispaly success msg
 	jsr src::popp
 	jsr src::goto
@@ -389,11 +400,7 @@ main:
 	sta height
 
 @asmdone:
-	lda zp::gendebuginfo
-	beq :+
-	ldxy zp::virtualpc
-	jsr dbg::endseg		; end the last segment
-:	RETURN_OK
+	RETURN_OK
 
 @success_msg: .byte "done $", $fe, " bytes", 0
 .endproc

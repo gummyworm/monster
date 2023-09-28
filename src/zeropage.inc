@@ -68,7 +68,6 @@ expr = $90
 ; $98-9C are used by KERNAL I/O and should be avoided
 numfiles = $98
 
-
 ;******************************************************************************
 ; $9d-$a0 used for bank switching storage
 bank         = $9d 	; the current bank in the final expansion being worked on

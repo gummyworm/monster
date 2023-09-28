@@ -623,9 +623,7 @@ __asm_tokenize:
 
 @noerr: ;------------------
 ; store debug info if enabled
-@dbg:	lda state::verify
-	bne @updatevpc
-	lda zp::gendebuginfo
+@dbg:	lda zp::gendebuginfo
 	beq @updatevpc
 	ldxy zp::virtualpc	; current PC (address)
 	stxy zp::tmp0
@@ -2159,6 +2157,13 @@ __asm_include:
 ;  - .XY: the line to assemble
 .export __asm_tokenize_pass1
 .proc __asm_tokenize_pass1
+@startpc=zp::str8
+	; save current PC to end segment if needed
+	lda zp::asmresult
+	sta @startpc
+	lda zp::asmresult+1
+	sta @startpc+1
+
 	jsr __asm_tokenize
 	bcc @ok
 	rts		   ; return err
@@ -2166,6 +2171,7 @@ __asm_include:
 	beq @done          ; if debug info off, we're done
 	cmp #ASM_ORG
 	bne @done
+	ldxy @startpc	   ; get PC to end segment at
 	jsr dbg::endseg	   ; end previous segment (if any)
 	ldxy zp::virtualpc ; start address of segment
 	jsr dbg::initseg   ; init a new segment

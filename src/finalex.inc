@@ -81,6 +81,7 @@ FINAL_BANK_FASTCOPY  = $f
 	copy     = __final_memcpy
 	init     = __final_init
 	store    = __final_store_byte
+	store_off= __final_bank_store_rel
 	load     = __final_load_byte
 	load_off = __final_load_byte_off
 	break    = __final_brk
