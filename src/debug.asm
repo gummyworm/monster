@@ -1286,14 +1286,25 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr show_aux		; display the auxiliary mode
 
 	lda action
+	cmp #ACTION_STEP
+	beq @handle_action
+
+@reset_affected:
+	; if action was anything but STEP, we don't know enough to say
+	; what was affected since last BRK
+	lda #$00
+	sta affected
+
+@handle_action:
+	lda action
 	cmp #ACTION_START
 	bne :+
 	lda startsave				; restore opcode
 	bank_store_byte #FINAL_BANK_USER, pc
 	jmp @reset_state
-	cmp #ACTION_STEP_OVER
+:	cmp #ACTION_STEP_OVER
 	beq @restore_step
-:	cmp #ACTION_STEP
+	cmp #ACTION_STEP
 	bne @reset_state
 @restore_step:
 	jsr step_restore
@@ -1741,6 +1752,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	dec swapmem
 
 @setbrk:
+	lda #ACTION_STEP
+	sta action		; flag that we are STEPing
 	pla			; get instruction size
 	ldxy pc			; and address of instruction to-be-executed
 	jsr next_instruction	; get the address of the next instruction
@@ -1753,8 +1766,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	lda #$00
 	sta break_after_sr 	; reset step over
-	lda #ACTION_STEP
-	sta action		; flag that we are STEPing
 	inc advance		; continue program execution
 	rts			; return to the debugger
 .endproc
@@ -2472,10 +2483,6 @@ __debug_remove_breakpoint:
 	sta mem::linebuffer+28
 	sta mem::linebuffer+29
 	sta mem::linebuffer+30
-	sta mem::linebuffer+32
-	sta mem::linebuffer+33
-	sta mem::linebuffer+36
-	sta mem::linebuffer+37
 	bne @print
 
 :	lda mem_saveaddr+1
@@ -2487,22 +2494,11 @@ __debug_remove_breakpoint:
 	sty mem::linebuffer+29
 	stx mem::linebuffer+30
 
-@memval:
-	lda prev_mem_save
-	jsr util::hextostr
-	sty mem::linebuffer+32
-	stx mem::linebuffer+33
-
-	lda mem_usersave
-	jsr util::hextostr
-	sty mem::linebuffer+36
-	stx mem::linebuffer+37
-
 @print:	ldxy #mem::linebuffer
 	lda #REGISTERS_LINE+1
 	jmp text::puts
 
-@regsline: .byte " pc  a  x  y  sp nv-bdizc  addr mem mem'",0
+@regsline: .byte " pc  a  x  y  sp nv-bdizc  addr",0
 .endproc
 
 ;******************************************************************************
