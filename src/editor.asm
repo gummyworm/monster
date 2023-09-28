@@ -1965,6 +1965,8 @@ goto_buffer:
 	lda zp::curx
 	beq @format	; @ column 0, skip to insert (format will be ignored)
 
+	lda #$00
+	sta zp::gendebuginfo
 	; check if the current line is valid
 	ldx #<mem::linebuffer
 	ldy #>mem::linebuffer
