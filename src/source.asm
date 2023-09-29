@@ -254,8 +254,19 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	lda numsrcs
 	sta activesrc
 	inc numsrcs
+	pha
+
+	; set name to 0 (unnamed)
+	asl
+	asl
+	asl
+	asl
+	tax
+	lda #$00
+	sta names,x
 
 	; mark the buffer as clean
+	pla
 	tax
 	lda #$00
 	sta flags,x

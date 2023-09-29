@@ -106,8 +106,5 @@ enter:
 	txs
 	jsr asm::reset
 	jsr src::new
-	ldxy #@new
-	jsr src::name
 	jsr edit::init
 	jmp edit::run
-@new: .byte "new",0
