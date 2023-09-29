@@ -2287,12 +2287,7 @@ __asm_include:
 ;  - .C: set on error, clear on success
 .proc writeb
 	pha
-	lda state::verify
-	beq :+			; if we're verifying, don't write byte
-	pla
-	RETURN_OK
-
-:	lda pcset
+	lda pcset
 	bne :+
 	pla
 	RETURN_ERR ERR_NO_ORIGIN

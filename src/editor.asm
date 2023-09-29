@@ -239,13 +239,13 @@ main:
 	jsr dbg::init
 	jsr reset
 
-	; disable verify (actually assemble the code)
-	lda #$00
-	sta state::verify
+	lda #$01
+	sta state::verify	; verify for 1st pass
+	sta zp::gendebuginfo
+	sta zp::pass
 
 ; do the first pass of assembly
-@pass1:	sta zp::gendebuginfo
-	sta zp::pass
+@pass1:
 	ldxy #@filename
 	jsr asm::include	; assemble the file (pass 1)
 	bcs @done		; error, we're done
@@ -288,19 +288,18 @@ main:
 
 	lda zp::gendebuginfo
 	beq @pass1
+
 	; set the initial file for debugging
 	lda src::activebuff
 	jsr src::filename
 	jsr dbg::setfile
-
-	lda #$00
-	sta state::verify	; disable verify - actually assemble the code
 
 ;--------------------------------------
 ; Pass 1
 ; do a pass on the source to simply get labels and basic debug info
 ; (# of lines and # of segments/file)
 @pass1:	lda #$01
+	sta state::verify	; verify 1st pass
 	sta zp::pass		; set pass number to 1
 
 @pass1loop:
@@ -323,7 +322,7 @@ main:
 ; Pass 2
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
-@pass2: inc zp::pass	; pass 2
+@pass2: inc zp::pass		; pass 2
 	ldx zp::gendebuginfo
 	beq :+
 	jsr dbg::setup  ; we have enough info to init debug now
@@ -331,6 +330,7 @@ main:
 :	jsr src::rewind
 	jsr asm::resetpc
 	jsr ctx::init
+	dec state::verify
 
 @pass2loop:
 	ldxy src::line
@@ -2003,11 +2003,7 @@ goto_buffer:
 	bne :-
 @ret:	rts
 
-@err:	lda #$ff
-	; highlight the error line
-	;ldx #ERROR_COLOR
-	;lda zp::cury
-	;jsr text::hiline
+@err:	jsr report_typein_error
 	jmp @nextline
 .endproc
 
@@ -2734,6 +2730,22 @@ __edit_gotoline:
 	iny
 	jmp cur::setmax
 @line_err: .byte ";pass ", ESCAPE_VALUE_DEC,";line ", ESCAPE_VALUE_DEC,0
+.endproc
+
+;******************************************************************************
+; REPORT TYPEIN ERROR
+; Reports just the error message for the given error.
+; This is used for giving the user realtime errors as they are typing in their
+; program
+; IN:
+;  - .A: the error code
+.proc report_typein_error
+	cmp #$00
+	beq @done	; no error
+	jsr err::get
+	lda #STATUS_ROW-1
+	jsr text::print
+@done:	rts
 .endproc
 
 ;******************************************************************************

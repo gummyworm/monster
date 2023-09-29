@@ -238,7 +238,8 @@ row:	.byte 0
 ;  - .A: the breakpoint to toggle active/inactive
 .proc toggle_breakpoint
 @row=zp::tmp0
-	pha
+@id=zp::tmp1
+	sta @id
 
 	tax
 	lda dbg::breakpoint_flags,x
@@ -259,11 +260,10 @@ row:	.byte 0
 
 	jsr edit::src2screen
 	sta @row
-	pla
 	bcs @done		; breakpoint not visible on screen
 
 	; replace the breakpoint character on screen with a "breakpoint off" char
-	tax
+	ldx @id
 	lda #TEXT_REPLACE
 	sta text::insertmode
 
