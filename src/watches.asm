@@ -12,7 +12,7 @@
 .include "source.inc"
 .include "text.inc"
 .include "util.inc"
-.include "view.inc"
+.include "vmem.inc"
 .include "zeropage.inc"
 
 ;******************************************************************************
@@ -213,8 +213,7 @@ row:	.byte 0
 	tya
 	ldy #$00
 
-	jsr view::realaddr	; get the bank/buffer that contains the byte
-	jsr fe3::load		; load the byte
+	jsr vmem::load
 	ldx @cnt
 	cmp dbg::watch_prevs,x	; same as old value?
 	beq :+

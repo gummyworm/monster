@@ -22,6 +22,7 @@
 .include "util.inc"
 .include "watches.inc"
 .include "view.inc"
+.include "vmem.inc"
 .include "zeropage.inc"
 
 .import __DEBUGGER_LOAD__
@@ -1261,10 +1262,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; copy old mem_save to prev_mem_save and get the new mem val
 	lda mem_usersave
 	sta prev_mem_save
-	ldxa mem_saveaddr
-	ldy #$00
-	jsr view::realaddr
-	jsr fe3::load
+	ldxy mem_saveaddr
+	jsr vmem::load
 	sta mem_usersave
 
 @uninstall_brks:
@@ -1761,11 +1760,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy pc			; and address of instruction to-be-executed
 	jsr next_instruction	; get the address of the next instruction
 	stxy steppoint
-	jsr __debug_get_user_byte
+	jsr vmem::load
 	sta stepsave
 	lda #$00		; BRK
 	ldxy steppoint
-	jsr __debug_store_user_byte
+	jsr vmem::store
 
 	lda #$00
 	sta break_after_sr 	; reset step over
@@ -1774,45 +1773,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
-; GET USER BYTE
-; Reads the given byte from wherever it lives (one of the buffers for internal
-; RAM, $00-$2000, or the user program's bank.
-; IN:
-;  - .XY: the address to read
-; OUT:
-;  - .A: the byte at the requested address
-.export __debug_get_user_byte
-.proc __debug_get_user_byte
-	tya
-	ldy #$00
-	jsr view::realaddr
-	jmp fe3::load
-.endproc
-
-;******************************************************************************
-; STORE USER BYTE
-; Writes the given byte to the user program at the given address or the buffer
-; that stores data for the user program if the address is in the internal
-; RAM space ($00-$2000) or I/O space ($8000-$a000)
-; IN:
-;  - .XY: the address to write
-;  - .A:  the byte to store
-.export __debug_store_user_byte
-.proc __debug_store_user_byte
-	sta zp::bankval
-	tya
-	ldy #$00
-	jsr view::realaddr
-	jmp fe3::store
-.endproc
-
-;******************************************************************************
 ; STEP_RESTORE
 ; Restores the opcode destroyed by the last STEP.
 .proc step_restore
 	lda stepsave
 	ldxy steppoint
-	jmp __debug_store_user_byte
+	jmp vmem::store
 .endproc
 
 ;******************************************************************************
@@ -2034,19 +2000,19 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; save the debugger's contents at the @instruction address
 @cont:	; get the instruction opcode/operand at the @instruction address
 	ldxy @instruction
-	jsr __debug_get_user_byte	; opcode
+	jsr vmem::load			; opcode
 	sta @opcode
 	sta user_instruction_save
 
 	incw @instruction
 	ldxy @instruction
-	jsr __debug_get_user_byte	; operand (1st byte)
+	jsr vmem::load			; operand (1st byte)
 	sta @target
 	sta user_instruction_save+1
 
 	incw @instruction
 	ldxy @instruction
-	jsr __debug_get_user_byte	; operand (2nd byte)
+	jsr vmem::load			; operand (2nd byte)
 	sta @target+1
 	sta user_instruction_save+2
 
@@ -2059,7 +2025,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; we will save/restore state before/after a BRK using this
 	jsr get_effective_addr
 	stxy mem_saveaddr
-	jsr __debug_get_user_byte
+	jsr vmem::load
 	sta mem_usersave
 	rts
 .endproc
@@ -2143,7 +2109,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; get user byte to save and store it
 @smc0=*+1
 	lda $f00d,x
-	jsr __debug_store_user_byte
+	jsr vmem::store
 
 	; get debugger byte to restore
 	lda debug_instruction_save,x
@@ -2162,7 +2128,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stxy @smc3
 @smc2=*+1
 	lda $f00d
-	jsr __debug_store_user_byte
+	jsr vmem::store
 
 	lda mem_debugsave
 @smc3=*+1
@@ -2265,10 +2231,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda @addr+1
 	sta __debug_watches+1,x
 
-	ldxa @addr
-	ldy #$00
-	jsr view::realaddr
-	jsr fe3::load
+	ldxy @addr
+	jsr vmem::load
 	ldx __debug_numwatches
 	sta __debug_watch_vals,x
 
