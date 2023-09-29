@@ -239,10 +239,12 @@ main:
 	jsr dbg::init
 	jsr reset
 
-; do the first pass of assembly
-@pass1:	lda #$01
+	; disable verify (actually assemble the code)
+	lda #$00
 	sta state::verify
-	sta zp::gendebuginfo
+
+; do the first pass of assembly
+@pass1:	sta zp::gendebuginfo
 	sta zp::pass
 	ldxy #@filename
 	jsr asm::include	; assemble the file (pass 1)
@@ -291,12 +293,14 @@ main:
 	jsr src::filename
 	jsr dbg::setfile
 
+	lda #$00
+	sta state::verify	; disable verify - actually assemble the code
+
 ;--------------------------------------
 ; Pass 1
 ; do a pass on the source to simply get labels and basic debug info
 ; (# of lines and # of segments/file)
-@pass1: lda #$01
-	sta state::verify	; verify; write labels but not code
+@pass1:	lda #$01
 	sta zp::pass		; set pass number to 1
 
 @pass1loop:
@@ -327,8 +331,6 @@ main:
 :	jsr src::rewind
 	jsr asm::resetpc
 	jsr ctx::init
-	lda #$00
-	sta state::verify	; disable verify - actually assemble the code
 
 @pass2loop:
 	ldxy src::line
@@ -374,7 +376,7 @@ main:
 	jmp reporterr
 
 @printresult:
-	lda #$00
+	lda #$01
 	sta state::verify	; re-enable verify
 
 	; get the size of the assembled program and print it
