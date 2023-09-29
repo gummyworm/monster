@@ -10,10 +10,14 @@
 ; IN:
 ;  - .X: the index to start shifting down
 ;  - .Y: the number of character positions to shift
+; OUT:
+;  - .Z: clear
 .export __linebuffer_shl
 .proc __linebuffer_shl
 @stop=zp::tmp0
 	sty @stop
+	cpx @stop
+	beq @done
 :	lda mem::linebuffer+1,x
 	sta mem::linebuffer,x
 	inx

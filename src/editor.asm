@@ -1967,14 +1967,10 @@ goto_buffer:
 	stx indent
 @format:
 	; format the line
-	cmp #ASM_LABEL
-	beq @fmt
-	cmp #ASM_MACRO
-	beq @fmt
-	cmp #ASM_OPCODE
-	bne @nextline	; no formatting
-@fmt:	ldx #$00
-	stx indent	; 2 space indent
+@fmt:	cmp #ASM_COMMENT	; if this is a comment, don't indent
+	bne :+
+	ldx #INDENT_LEVEL	; anything but a comment, indent
+:	stx indent
 	jsr fmt::line
 
 @nextline:
@@ -1990,16 +1986,16 @@ goto_buffer:
 	jsr text::print
 
 ; insert spaces for the indent in the source
-	;lda indent
-	;beq @done
-	;sta @i
-;@indent:
-	;lda #' '
-	;jsr text::putch
-	;lda #' '
-	;jsr src::insert
-	;dec @i
-	;bne @indent
+	lda indent
+	beq @done
+	sta @i
+
+@ident:	lda #' '
+	jsr src::insert
+	jsr text::putch
+	dec @i
+	bne @ident
+
 @done:	lda zp::curx
 	beq @ret
 :	jsr src::prev

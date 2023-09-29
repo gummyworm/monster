@@ -7,6 +7,10 @@ DEBUG_LINE_COLOR = ($70|BORDER_COLOR)	; row cursor color during debug
 CUR_BLINK_SPEED  = 40	; number of updates before blink
 
 ;******************************************************************************
+; source formatting
+.define INDENT_LEVEL 2			; .define'd for use as macro param
+
+;******************************************************************************
 ; debugger config settings
 DEBUG_MEMVIEW_COLOR = 2
 DEBUG_REGVIEW_COLOR = 0

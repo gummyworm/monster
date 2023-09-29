@@ -1,4 +1,6 @@
 .include "codes.inc"
+.include "config.inc"
+.include "linebuffer.inc"
 .include "memory.inc"
 .include "source.inc"
 
@@ -32,7 +34,7 @@
 ; Formats linebuffer as an opcode.
 .export __fmt_opcode
 .proc __fmt_opcode
-	ldy #2
+	ldy #INDENT_LEVEL
 @l1:	ldx #38
 @l0:	lda mem::linebuffer,x
 	sta mem::linebuffer+1,x
@@ -40,17 +42,15 @@
 	bpl @l0
 	dey
 	bne @l1
-	; add 2 spaces to the linebuffer
-	lda #' '
-	sta mem::linebuffer
-	sta mem::linebuffer+1
-	; return to start of line and add 2 spaces to the source
-	jsr src::up
-	lda #' '
-	jsr src::insert
-	lda #' '
-	jsr src::insert
 
+	jsr src::up		; return to start of source
+
+	; add 2 spaces to the linebuffer and source
+	lda #' '
+.repeat INDENT_LEVEL, I
+	sta mem::linebuffer+I
+	jsr src::insert
+.endrepeat
 	; move to the next line
 	jmp src::down
 .endproc
@@ -65,7 +65,7 @@
 ;  - .A: the line length
 .export __fmt_line
 .proc __fmt_line
-	pha
+	pha		; save the type to format
 
 	; remove spaces from start of line
 	jsr src::up
@@ -75,26 +75,20 @@
 	bne @left_aligned
 	jsr src::delete
 	ldx #$00
-:	lda mem::linebuffer+1,x
-	sta mem::linebuffer,x
-	inx
-	cpx #39
-	bne :-
+	ldy #39
+	jsr linebuff::shl
 	beq @removespaces
 
 @left_aligned:
 	jsr src::down
-	pla
+	pla		; get the type of line we're formatting
+	beq @done	; if ASM_NONE, don't format
 	cmp #ASM_LABEL
 	bne @notlabel
 	jmp __fmt_label
 @notlabel:
-	cmp #ASM_OPCODE
-	beq @indent
-	cmp #ASM_MACRO
-	bne @done
-@indent:
-	jmp __fmt_opcode
-@done:
-	rts
+	cmp #ASM_COMMENT ; if comment, don't format at all
+	beq @done
+@ident: jmp __fmt_opcode ; anything else- indent
+@done:  rts
 .endproc

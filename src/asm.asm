@@ -312,7 +312,8 @@ __asm_tokenize:
 	beq @exec_directive
 	cmp #DIRECTIVE_ELSE
 	beq @exec_directive
-@noasm:	RETURN_OK
+@noasm:	lda #ASM_NONE
+	RETURN_OK
 
 ; 1. check if the line contains a directive
 @directive:
