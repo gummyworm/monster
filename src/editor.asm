@@ -2135,8 +2135,14 @@ goto_buffer:
 ; Handles the up cursor key
 .proc ccup
 @xend=zp::tmp9
+@ch=zp::tmpa
+	jsr src::atcursor
+	sta @ch
 	jsr src::up	; move up a line or to start of line
 	bcc @cont
+	lda @ch
+	cmp #$0d
+	beq @cont	; if we crossed a newline, scroll, etc.
 	jsr src::get
 	lda #$00	; start of source, just move to the leftmost column
 	sta zp::curx
