@@ -17,6 +17,7 @@
 .include "source.inc"
 .include "util.inc"
 .include "state.inc"
+.include "vmem.inc"
 .include "zeropage.inc"
 
 .CODE
@@ -2305,8 +2306,8 @@ __asm_include:
 	lda zp::asmresult+1
 	adc #$00
 	tay
-	lda #FINAL_BANK_USER
-	jsr fe3::store
+	lda zp::bankval
+	jsr vmem::store
 	pla
 	tay
 	pla
@@ -2329,10 +2330,8 @@ __asm_include:
 	pha
 	tya
 	pha
-	sty zp::bankval	 ; offset to read from
-	lda #FINAL_BANK_USER
 	ldxy zp::asmresult
-	jsr fe3::load_off
+	jsr vmem::load_off
 	sta zp::bankval
 	pla
 	tay
