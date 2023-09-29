@@ -8,6 +8,8 @@
 .include "util.inc"
 .include "zeropage.inc"
 
+;******************************************************************************
+; CONSTANTS
 MAX_OPEN_FILES = 10
 FIRST_FILE_ID  = 2
 

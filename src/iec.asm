@@ -5,6 +5,7 @@
 .include "zeropage.inc"
 
 .CODE
+
 ;******************************************************************************
 ; READERR
 ; Reads the drive's error into $100 (0-terminated)

@@ -11,6 +11,7 @@
 .include "zeropage.inc"
 
 ;******************************************************************************
+; CONSTANTS
 HEIGHT             = BRKVIEW_STOP-BRKVIEW_START-1
 BREAKPOINT_ENABLED = 1
 

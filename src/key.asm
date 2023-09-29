@@ -1,6 +1,5 @@
 .include "macros.inc"
 .include "zeropage.inc"
-.CODE
 
 ;******************************************************************************
 ; CONSTANTS
@@ -11,6 +10,7 @@ CTRL_KEY_TABLE      = $eda3
 CURSOR_LR_MASK      = 2
 
 .CODE
+
 ;******************************************************************************
 ; GETCH
 ; Gets a key from the keyboard and returns it

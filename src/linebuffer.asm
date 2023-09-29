@@ -1,6 +1,8 @@
 .include "memory.inc"
 .include "zeropage.inc"
 
+.CODE
+
 ;******************************************************************************_
 ; SHL
 ; Shifts the linebuffer characters at the given index

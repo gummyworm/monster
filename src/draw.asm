@@ -4,6 +4,8 @@
 .include "util.inc"
 .include "zeropage.inc"
 
+.CODE
+
 ;******************************************************************************
 ; HLINE
 ; Draws a horizontal line at the row given in .A

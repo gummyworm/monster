@@ -6,6 +6,7 @@
 .include "zeropage.inc"
 
 .segment "SOURCE"
+
 ;******************************************************************************
 .export macro_addresses
 .export macros
@@ -27,6 +28,7 @@ macros:          .res 512
 ;    -------------------------------------
 
 .CODE
+
 ;******************************************************************************
 ; MAC_INIT
 ; Initializes the macro state by removing all existing macros

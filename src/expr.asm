@@ -10,6 +10,8 @@
 MAX_OPERATORS = $10
 MAX_OPERANDS  = $10/2
 
+.CODE
+
 ;******************************************************************************
 ; EVAL
 ; Resolves the contents of the given zp::line and returns its evaluated value

@@ -3,6 +3,9 @@
 .include "macros.inc"
 .include "zeropage.inc"
 
+;******************************************************************************
+; CONSTANTS
+
 ; $2000	- gencode start address
 ; 6     - sizeof(lda abs) + sizeof(sta abs)
 ; $ff0  - number of pixels to copy

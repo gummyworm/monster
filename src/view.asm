@@ -11,8 +11,9 @@
 .include "text.inc"
 .include "util.inc"
 .include "zeropage.inc"
-.CODE
 
+;******************************************************************************
+; CONSTANTS
 BYTES_TO_DISPLAY=8
 
 COL_START = 7

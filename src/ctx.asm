@@ -5,6 +5,7 @@
 .include "zeropage.inc"
 
 ;******************************************************************************
+; CONSTANTS
 CONTEXT_SIZE = $200	; size of buffer per context
 PARAM_LENGTH = 16	; size of param (stored after the context data)
 MAX_PARAMS   = 4	; max params for a context

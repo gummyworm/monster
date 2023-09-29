@@ -2,6 +2,8 @@
 .include "macros.inc"
 .include "zeropage.inc"
 
+.CODE
+
 ;******************************************************************************
 ; FIND
 ; returns the address to the first occurrence of the text in .YX in the string

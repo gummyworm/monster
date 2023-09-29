@@ -4,12 +4,14 @@
 .include "util.inc"
 .include "zeropage.inc"
 
+.import __BANKCODE_LOAD__
+.import __BANKCODE_SIZE__
+
+;******************************************************************************
+; CONSTANTS
 MAX_LABELS    = 256
 MAX_LOCALS    = 32
 MAX_LABEL_LEN = 16
-
-.import __BANKCODE_LOAD__
-.import __BANKCODE_SIZE__
 
 .BSS
 ;******************************************************************************
