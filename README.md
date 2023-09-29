@@ -41,10 +41,10 @@ and load it as you would any other program on your Vic-20: `LOAD "MONSTER.PRG",8
 If you wish to run it in an emulator (VICE), ensure that VICE is installed on your 
 machine and run `make start` from the root of the project.
 
-## Usage
-The builtin HELP menu (C= + H) provides basic usage details
-Here are some of the supported commands.  When given a prompt the '<-' key
-will exit the prompt and cancel the command
+### Usage
+Below are the basic commands along with their associated key combinations. These
+commands are available regardless of insertion mode (see the navigation section
+below for more info).
 
 #### Command shortcuts
 |  Key   | Name    |   Description                                                               |
@@ -408,7 +408,7 @@ DONE:
 ```
 
 ## Symbol Viewer
-The symbol viewer, activated with C= + Y, displays all the labels in the program
+The symbol viewer, activated with `C= + Y`, displays all the labels in the program
 along with their corresponding address.
 The up/down cursor keys navigate between pages of symbols. The back-arrow
 key returns to the debugger.
@@ -419,7 +419,7 @@ data as you execute your program.  Due to the size of the data needed to
 store the debug information, this feature requires a Final Expansion
 (512k RAM expansion).
 
-The debugger is enabled by pressing CTRL-D
+The debugger is enabled by pressing the `C= + D` key combination.
 This will prompt the user for a label name, which will be used as the start
 address for debugging.  If no label name is provided, execution will begin
 at the base origin of the program (the _lowest_ value set by any `.ORG`

@@ -10,6 +10,7 @@
 .include "memory.inc"
 .include "text.inc"
 .include "util.inc"
+.include "vmem.inc"
 .include "zeropage.inc"
 
 ;******************************************************************************
@@ -44,8 +45,8 @@ memaddr:   .word 0
 .proc __view_edit
 @dst=zp::tmp0
 @odd=zp::tmp4
-@offset=zp::tmp6
-@src=zp::tmp8
+@dstoffset=zp::tmp6
+@src=zp::tmp7
 	stxy @src
 	stxy memaddr
 
@@ -138,6 +139,7 @@ memaddr:   .word 0
 	jsr util::chtohex
 	pha
 
+	; get the base address for the row that the cursor is on
 	lda zp::cury
 	sec
 	sbc #MEMVIEW_START+1
@@ -150,13 +152,16 @@ memaddr:   .word 0
 	adc #$00
 	sta @dst+1
 
+	; get the offset from the row's base address using the curor's x pos
+	; the offset is calcuated by: (zp::curx - COL_START) / 3
 	ldy #$ff
 	lda zp::curx
 	sec
 	sbc #COL_START
 :	iny
-	sbc #$03
+	sbc #$03	; -3 (bytes are 3 cursor positions apart)
 	bpl :-
+	sty @dstoffset
 
 	; get odd/even cursor column
 	lda zp::curx
@@ -170,12 +175,10 @@ memaddr:   .word 0
 
 ;--------------------------------------
 @hinybble:
-.ifdef USE_FINAL
-	ldxa @dst
-	jsr get_byte
-.else
-	lda (@dst),y
-.endif
+	ldxy @dst
+	lda @dstoffset
+	jsr vmem::load_off
+
 	and #$0f
 	sta @odd
 	pla
@@ -188,24 +191,19 @@ memaddr:   .word 0
 
 ;--------------------------------------
 @lownybble:
-.ifdef USE_FINAL
-	ldxa @dst
-	jsr get_byte
-.else
-	lda (@dst),y
-.endif
+	ldxy @dst
+	lda @dstoffset
+	jsr vmem::load_off
+
 	and #$f0
 	sta @odd
 	pla
 	ora @odd
 @store:
 	sta zp::bankval
-.ifdef USE_FINAL
-	ldxa @dst
-	jsr store_byte
-.else
-	sta (@dst),y
-.endif
+	ldxy @dst
+	lda @dstoffset
+	jsr vmem::store_off
 	rts
 
 ;--------------------------------------
@@ -266,12 +264,14 @@ memaddr:   .word 0
 	ldxy memaddr
 	stxy @src
 
+	; draw the title for the memory display
 	ldxy #@title
 	lda #MEMVIEW_START
 	jsr text::print
 	lda #MEMVIEW_START
 	jsr bm::rvsline
 
+	; initialize line to empty (all spaces)
 	lda #40
 	sta zp::tmp0
 	lda #' '
@@ -297,45 +297,41 @@ memaddr:   .word 0
 	ldx #$00
 @l1:	stx @col
 
-; get a byte to display
-.ifdef USE_FINAL
+	; get a byte to display
 	ldy #$00
-	ldxa @src
-	jsr get_byte
-.else
-	ldy #$00
-	lda (@src),y
-.endif
-	incw @src
-	pha
+	ldxy @src
+	jsr vmem::load
+	pha			; save the byte
+
+	incw @src		; update @src to the next byte
 	jsr val2ch
 	ldx @col
 	sta mem::spare+31,x	; write the character representation
-	pla
-	jsr util::hextostr
-	txa
-	pha
-	lda @col
+	pla			; get the byte we're rendering
+	jsr util::hextostr	; convert to hex characters
+	txa			; get LSB char
+	pha			; and save temporarily
+	lda @col		; get col*3 (column to draw byte)
 	asl
 	adc @col
 	tax
-	pla
-	sta mem::spare+8,x	; LSB
-	tya
-	sta mem::spare+7,x	; MSB
+	pla			; restore LSB char to render
+	sta mem::spare+8,x	; store to text buffer
+	tya			; get MSB
+	sta mem::spare+7,x	; store to text buffer
 	ldx @col
 	inx
-	cpx #BYTES_TO_DISPLAY
-	bcc @l1
+	cpx #BYTES_TO_DISPLAY	; have we drawn all columns?
+	bcc @l1			; repeat until we have
 
 	ldx #<mem::spare
 	ldy #>mem::spare
 	lda @row
-	jsr text::puts
+	jsr text::puts		; draw the row of rendered bytes
 	inc @row
 	lda @row
-	cmp #MEMVIEW_STOP
-	bcc @l0
+	cmp #MEMVIEW_STOP	; have we drawn all rows?
+	bcc @l0			; repeat til we have
 	rts
 
 @title: .byte ESCAPE_SPACING,16, "memory",0
@@ -365,9 +361,9 @@ memaddr:   .word 0
 	ldx #TOTAL_BYTES-1
 	stx @cnt
 
-:	ldxa memaddr
-	ldy @cnt
-	jsr get_byte
+:	ldxy memaddr
+	lda @cnt
+	jsr vmem::load_off
 
 	ldx @cnt
 	cmp dirtybuff,x
@@ -380,7 +376,6 @@ memaddr:   .word 0
 	rts
 .endproc
 
-.ifdef USE_FINAL
 ;******************************************************************************
 ; GET_REAL_ADDRESS
 ; Transforms the given address into the actual address used to store the user's
@@ -459,56 +454,6 @@ memaddr:   .word 0
 	lda #FINAL_BANK_USER
 	rts
 .endproc
-
-;******************************************************************************
-; GET_BYTE
-; Reads a byte from the given address. If the address is in a range internal to
-; the Vic or zeropage, it is read from a buffer that stores the user data.
-; IN:
-;  - .AX: the address to read
-;  - .Y: the offset from the address to read
-; OUT:
-;  - .A: the byte at the given address+offset
-.proc get_byte
-@addr=zp::tmpe
-@offset=zp::tmp10
-@bank=zp::tmp11
-@ysave=zp::tmp12
-	sty @ysave
-	jsr get_real_address
-	sta @bank
-	stxy @addr
-	bank_read_byte @bank, @addr
-	ldy @ysave
-	rts
-.endproc
-
-;******************************************************************************
-; STORE_BYTE
-; Writes a byte to the given address. If the address is in a range internal to
-; the Vic or zeropage, it is read from a buffer that stores the user data.
-; IN:
-;  - .AX: the address to write
-;  - .Y: the offset from the address to read
-;  - zp::bankval: the value to store
-; OUT:
-;  - .A: the byte at the given address+offset
-.proc store_byte
-@addr=zp::tmpe
-@offset=zp::tmp10
-@bank=zp::tmp11
-@ysave=zp::tmp12
-	stx @addr
-	sta @addr+1
-	sty @ysave
-
-	jsr get_real_address	; .XY has address, .A has bank
-	jsr fe3::store
-
-	ldy @ysave
-	rts
-.endproc
-.endif
 
 ;******************************************************************************
 ; GET_ADDR

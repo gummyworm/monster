@@ -47,6 +47,21 @@
 .endproc
 
 ;******************************************************************************
+; STORE OFF
+; Stores a byte at the physical address associated with the given virtual
+; address offset by the given offset.
+; IN:
+;  - .XY:         the virtual address
+;  - .A:          the offset from the base address
+;  - zp::bankval: the value to store
+.export __vmem_store_off
+.proc __vmem_store_off
+	sta zp::bankoffset
+	jsr __vmem_translate
+	jmp fe3::store
+.endproc
+
+;******************************************************************************
 ; TRANSLATE
 ; Returns the physical address associated with the given virtual address
 ; IN:
