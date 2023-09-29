@@ -45,8 +45,7 @@
 
 .macro popcur
 	pla
-	tay
+	sta zp::cury
 	pla
-	tax
-	jsr cur::forceset
+	sta zp::curx
 .endmacro

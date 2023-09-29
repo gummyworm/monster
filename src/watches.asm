@@ -115,6 +115,7 @@ row:	.byte 0
 ; Enters the watch editor until the user exits it
 .export __watches_edit
 .proc __watches_edit
+	jsr __watches_view
 	; if there are no watches, just wait for user to quit
 	lda dbg::numwatches
 	bne :++

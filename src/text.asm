@@ -399,7 +399,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	bcc @err	; cursor is limited
 	beq @err
 	lda __text_insertmode
-	beq @moveback
+	beq @moveback	; if REPLACE, just move cursor
 @shift_left:
 	jsr __text_linelen
 	txa
@@ -417,7 +417,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 @printing:
 	pha
 	lda __text_insertmode
-	beq @fastput
+	beq @fastput	; if REPLACE, no need to shift, do fast put
 
 @slowput:
 @shift_right:

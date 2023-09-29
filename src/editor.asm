@@ -1258,26 +1258,18 @@ __edit_refresh:
 ;  - .A: the new size of the editor in rows.
 .export __edit_resize
 .proc __edit_resize
-@newsize=zp::tmp0
-	cmp height
+	cmp height	; is the new height bigger or smaller?
+	sta height
 	beq @done	; same size
 	bcs @bigger	; new size is bigger, redraw screen
 @smaller:
-	sta height
-	jmp refresh
-
-	; TODO: get this working
-	sta @newsize
 @l0:	lda zp::cury
-	cmp @newsize
-	bcc :+		; cursor is in new height's range
+	cmp height
+	bcc @done	; cursor is in new height's range
 	jsr ccup
 	bcc @l0		; loop until cursor is on screen
-:	lda @newsize
-	sta height
 @done:	rts
 @bigger:
-	sta height
 	jmp refresh
 .endproc
 
@@ -1367,15 +1359,10 @@ __edit_set_breakpoint:
 @savex=zp::editortmp
 	lda zp::curx
 	sta @savex
-	beq @insert
-
-@l0:	jsr ccleft
-	lda zp::curx
-	bne @l0
-
+	jsr home	; go to col 0 (or 1 if there's already a breakpoint)
 @insert:
 	lda text::insertmode
-	pha
+	pha			; save insert mode
 	lda #TEXT_INSERT
 	sta text::insertmode
 
@@ -1396,14 +1383,15 @@ __edit_set_breakpoint:
 	jsr text::putch
 
 @cont:	pla
-	sta text::insertmode
+	sta text::insertmode	; restore insert mode
 
 @restore:
+	jsr ccright
+	bcs @done
 	lda zp::curx
 	cmp @savex
-	bcs @done
-	jsr ccright
-	jmp @restore
+	bcc @restore
+
 @done:	rts
 .endproc
 

@@ -1387,10 +1387,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda @command_vectors+1,x ; vector MSB
 	sta zp::jmpvec+1
 
-	pushcur			; save cursor (some editors may change it)
 	jsr zp::jmpaddr
 	jsr showstate		; restore the register display (may be changed)
-	popcur			; restore cursor
 
 @finishloopiter:
 	jsr toggle_highlight	; turn on highlight
@@ -1641,6 +1639,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; EDIT_MEM
 ; Transfers control to the memory viewer/editor until the user exits it
 .proc edit_mem
+	pushcur
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
 	lda #(DEBUG_INFO_START_ROW-1)*8
@@ -1651,7 +1650,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta aux_mode
 
 	ldxy #$1000
-	jmp view::edit
+	jsr view::edit
+	popcur
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1691,7 +1692,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr edit::setbreakpoint		; set a breakpoint in the source
 	ldxy src::line
 	jsr __debug_line2addr
+	bcs @nobrk			; if no line # for this line, skip
 	jmp __debug_toggle_breakpoint	; add the breakpoint to the debugger
+@nobrk:	rts
 .endproc
 
 ;******************************************************************************
