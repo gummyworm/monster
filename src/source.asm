@@ -317,19 +317,32 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ;******************************************************************************
 ; GET_FILENAME
 ; Returns the filename for the active buffer
+; IN:
+;  - .A: the id of the buffer to get the name of
+; OUT:
+;  - .XY: the filename of the buffer or [NO NAME] if it has no name
+; CLOBBERS:
+;  - zp:tmp0-zp::tmp1
 .export __src_get_filename
 .proc __src_get_filename
-	lda __src_activebuff
-	asl
+@name=zp::tmp0
+	asl			; * 16
 	asl
 	asl
 	asl
 	adc #<__src_names
-	tax
+	sta @name
 	lda #$00
 	adc #>__src_names
-	tay
+	sta @name+1
+	ldy #$00
+	lda (@name),y
+	bne :+
+	ldxy #@noname
 	rts
+:	ldxy @name
+	rts
+@noname: .byte "[no name]",0
 .endproc
 
 ;******************************************************************************

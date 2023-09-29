@@ -287,6 +287,7 @@ main:
 	lda zp::gendebuginfo
 	beq @pass1
 	; set the initial file for debugging
+	lda src::activebuff
 	jsr src::filename
 	jsr dbg::setfile
 
@@ -1405,7 +1406,10 @@ __edit_set_breakpoint:
 	ldx zp::curx
 	ldy zp::cury
 	jsr src::new
+	ldxy #@noname
+	jsr src::name	; rename buffer to empty name
 	jmp __edit_init
+@noname: .byte 0
 .endproc
 
 ;******************************************************************************
@@ -1478,21 +1482,21 @@ goto_buffer:
 ; SHOW_BUFFERS
 ; Displays the filenames and their respective ID's for every open buffer
 .proc show_buffers
-@name=zp::tmp7
 @cnt=zp::tmp9
 	jsr bm::save
 
 	lda #$00
 	sta @cnt
-	ldxy #src::names
-	stxy @name
-@l0:
-	lda @name+1
+
+@l0:	ldy #$00
+	lda @cnt
+	jsr src::filename
+	tya
 	pha
-	lda @name
+	txa
 	pha
 
-	lda @cnt
+@id:	lda @cnt
 	clc
 	adc #$01	; display buffer ID as 1-based
 	pha
@@ -1512,13 +1516,7 @@ goto_buffer:
 	ldxy #@buffer_line
 	jsr text::print
 
-@next:	lda @name
-	clc
-	adc #16
-	sta @name
-	bcc :+
-	inc @name+1
-:	inc @cnt
+@next:	inc @cnt
 	lda @cnt
 	cmp src::numbuffers
 	bcc @l0
@@ -1538,6 +1536,7 @@ goto_buffer:
 
 @done:	jmp bm::restore
 
+@noname:       .byte "[no name]",0
 @buffer_line:  .byte ESCAPE_VALUE_DEC," :"
 @dirty_marker: .byte " "
 	       .byte ESCAPE_STRING,0

@@ -107,6 +107,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
 @copy_filename:
 	; filename
+	lda src::activebuff
 	jsr src::filename
 	stxy @filename
 	jsr str::len
@@ -309,8 +310,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	sta @sub+1
 @sub=*+1
 @l1:	lda $ffff
-	beq @cont
-	cmp #' '
 	beq @cont
 	sta @buff,x
 	inc @sub
