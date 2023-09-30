@@ -19,6 +19,7 @@ Some of its features are:
 
 The source code is stored in a gap buffer to allow for efficient insertion/deletion.
 
+---
 ## Requirements
 MONster requires a _completely_ expanded (BLK 2,3, and 5) RAM configuration to function.
 
@@ -41,6 +42,7 @@ and load it as you would any other program on your Vic-20: `LOAD "MONSTER.PRG",8
 If you wish to run it in an emulator (VICE), ensure that VICE is installed on your 
 machine and run `make start` from the root of the project.
 
+---
 ### Usage
 Below are the basic commands along with their associated key combinations. These
 commands are available regardless of insertion mode (see the navigation section
@@ -67,7 +69,6 @@ below for more info).
 |   F3   | Assemble      | assembles the code in the buffer to memory                            |
 |   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
 |   F5   | Show buffers  | displays a list of the currently open buffers                         |
-
 
 #### Navigation/Text keys
 Navigation behaves similar to `vi` and many basic `vi` commands are supported.
@@ -104,13 +105,16 @@ The back arrow (`<-`) key returns to COMMAND mode.
 |    ]       | Next Block | moves to the next empty line or end of file if there isn't one         |
 
 
-## Assembler Syntax
+---
+## Assembler Overview
+
+### Syntax
 The assembler syntax is very similar to any other major assembler.  For basic
 instructions, the canonical 6502 assembly syntax is supported.  That means '$'
 denotes a hex value, '#' and immediate operand, parentheses an indirect address,
 etc.
 :vs
-## Expressions
+### Expressions
 Operands, in addition to basic values and labels, may contain an expression,
 which is evaluated to a value to generate the operand for the generated
 binary.
@@ -201,9 +205,9 @@ the label is an arbitrary 16-bit value as we do with labels that are undefined
 in pass 1, but any subsequent labels would have the wrong address if we guessed 
 any number other than 5.
 
-
-## List of Directives
-### .DB _expression_, ..., _expression_
+---
+### List of Directives
+#### .DB _expression_, ..., _expression_
 Defines a sequence of bytes from the comma-separated list that follows.
 
 Examples:
@@ -212,7 +216,7 @@ Examples:
  | .DB $00, $01, $02 | $00 $01 $02          |
  | .DB "HI",0	     | $48 $49 $00          |
 
-### .DW _expression_, ..., _expression_
+#### .DW _expression_, ..., _expression_
 deines a sequence of words from the comma-separated list that      |
 
 Examples:
@@ -220,12 +224,12 @@ Examples:
  |-------------------|-------------------------|
  | .DW $00, $01, $02 | $00 $00 $01 $00 $02 $00 |
 
-### .ENDIF 
+#### .ENDIF 
 Ends a .IF block
 
 See [.IF](#if-expression)
 
-### .EQU _name_ _expression_
+#### .EQU _name_ _expression_
 Defines a constant which may be used in expressions
 ```
 .EQU BITMAP $1100
@@ -233,7 +237,7 @@ Defines a constant which may be used in expressions
   STA BITMAP+20
 ```
 
-### .IF _expression_
+#### .IF _expression_
 Evaluates the expression 
 Conditionally assembles the lines between this directive and its matching
 `.ENDIF`. 
@@ -247,12 +251,12 @@ Conditionally assembles the lines between this directive and its matching
 .ENDIF
 ```
 
-### .IFDEF _label_
+#### .IFDEF _label_
 Evaluates to TRUE if _label_ is defined.  This is different from .IF because
 _label_ may be defined to be 0 and this will still evaluate to TRUE.
 This can be useful inside macros to determine if a paramter was provided or not.
 
-### .INC _filename_
+#### .INC _filename_
 Includes a file at the line of the directive. The file is loaded line-by-line
 from disk and assembled as if the code was copy/pasted in place of the include directive.
 ```
@@ -261,7 +265,7 @@ from disk and assembled as if the code was copy/pasted in place of the include d
   JSR CHROUT
 ```
 
-### .MAC _name_ _param 1_, ..., _param n_
+#### .MAC _name_ _param 1_, ..., _param n_
 Defines a macro
 ```
 .MAC LDXY VAL
@@ -283,7 +287,7 @@ Macros are invoked with the name of the macro followed by a comma-separated
 list of the parameters.
 
 
-### .ORG _expression_
+#### .ORG _expression_
 Sets the address to assemble code to 
 ```
 .ORG $1000
@@ -293,7 +297,7 @@ Sets the address to assemble code to
 ; main code
 ```
 
-### .RORG _expression_
+#### .RORG _expression_
 Sets the address the code will run at when executed.
 This is useful for code that will be relocated prior to execution.
 ```
@@ -309,7 +313,7 @@ Note that the `.RORG` directive must follow the `.ORG` directive in order to
 avoid the virtual PC being overwritten.
 `.ORG` will set the virtual PC to the same location as the physical PC. 
 
-### .REP _expression_ [, _iterator name_]
+#### .REP _expression_ [, _iterator name_]
 Assembles the code between this directive and `.ENDREP` for the given number of 
 times.
 ```
@@ -340,7 +344,8 @@ Becomes
   INC $F4
 ```
 
-## Macros
+---
+### Macros
 Macros offer a conveinient way to abstract patterns that you find yourself
 frequently writing.
 
@@ -381,7 +386,8 @@ less than the maximum number it expects as in this example:
 .ENDMAC
 ```
 
-## Example program
+---
+### Example program
 Here is a basic hello world program to demonstrate some of the assembler's
 features
 ```
@@ -407,12 +413,14 @@ DONE:
   JMP DONE
 ```
 
+---
 ## Symbol Viewer
 The symbol viewer, activated with `C= + Y`, displays all the labels in the program
 along with their corresponding address.
 The up/down cursor keys navigate between pages of symbols. The back-arrow
 key returns to the debugger.
 
+---
 ## Debugger
 The debugger allows you to step through code, set breakpoints, and watch
 data as you execute your program.  Due to the size of the data needed to 
@@ -436,6 +444,7 @@ and color RAM.
 Editor navigation behaves as normal while debugging (albeit with slightly less
 real estate due to the debug information displayed at the bottom of the screen.)
 
+---
 ### Debug Commands
 The following commands are supported by the debugger and are accessed by their
 respective Key in the table below.
