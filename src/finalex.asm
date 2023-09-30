@@ -47,13 +47,13 @@ bankcode:
 @dst=zp::banktmp
 	sei
 	stxy @dst
-	ldx $9c02	; save current bank
 
-	ora #%10100000	; SUPERRAM mode in final expansion
 	sta $9c02
 	lda zp::bankval
 	ldy zp::bankoffset
 	sta (@dst),y
+
+	ldx #$80
 	stx $9c02	; restore bank
 	ldxy @dst
 	cli
@@ -94,11 +94,10 @@ final_store_size=*-__final_store_byte
 @src=zp::banktmp
 	sei
 	stxy @src
-	ldx $9c02
-	ora #%10100000	; SUPERRAM mode in final expansion
-	sta $9c02
+	sta $9c02	; set bank
 	ldy zp::bankval
 	lda (@src),y
+	ldx #$80
 	stx $9c02	; restore bank
 	ldx @src
 	cli
@@ -109,24 +108,26 @@ final_store_size=*-__final_store_byte
 ; COPY
 ; Copies up to 256 bytes from zp::bankaddr0 to zp::bankaddr1
 ; IN:
-;  - .A: the bank to copy in
-;  - .Y: the number of bytes to copy
+;  - .A:            the bank to perform the copy within
+;  - .Y:            the number of bytes to copy
+;  - zp::bankaddr0: the source address to copy from
+;  - zp::bankaddr1: the destination address to copy to
 ; DESTROYS:
 ;  .A, .Y, .X
 .export __final_copy
 .proc __final_copy
 	sei
-	ldx $9c02
-	ora #%10100000	; SUPERRAM mode in final expansion
 	sta $9c02
 :	lda (zp::bankaddr0),y
 	sta (zp::bankaddr1),y
 	dey
 	bpl :-
+	ldx #$80
 	stx $9c02	; restore bank
 	cli
 	rts
 .endproc
+final_copy_end=*-__final_copy
 
 ;******************************************************************************
 ; CALL
@@ -217,7 +218,7 @@ bankcode_size = *-bankcode
 	lda #$ea	; NOP
 	sta @copyaddr + final_store_size - 2
 
-	lda #$02	; skip bank 1 (main bank)
+	lda #$a2	; skip bank 1 (main bank)
 	sta @bank
 @copybank:
 ; copy the code from ZP to all banks
@@ -234,7 +235,7 @@ bankcode_size = *-bankcode
 	sta zp::bankval	; byte to write
 	ldxy @dst	; destination address
 	lda @bank	; bank to copy to
-	jsr @copyaddr	; call the zeropage code
+	jsr @copyaddr	; call the zeropage code (STORE byte)
 
 	incw @src
 	incw @dst
@@ -242,7 +243,7 @@ bankcode_size = *-bankcode
 	bne @l1
 	inc @bank
 	lda @bank
-	cmp @copyaddr
+	cmp #$b0
 	bne @copybank
 	cli
 	rts

@@ -44,18 +44,6 @@
 	.endif
 .endmacro
 
-; ldxa loads .X with the LSB of arg and .A with the MSB.
-.macro ldxa arg
-	.if .match( .left( 1, {arg} ), # )
-		ldx #<(.right( .tcount( {arg} )-1, {arg} ))
-		lda #>(.right( .tcount( {arg} )-1, {arg} ))
-	.else
-		ldx arg
-		lda arg+1
-	.endif
-.endmacro
-
-
 .macro stxy arg
 	stx arg
 	sty arg+1
