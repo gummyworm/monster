@@ -174,14 +174,13 @@ final_copy_end=*-__final_copy
 
 ;******************************************************************************
 ; BANK_RTI
-; Returns to the given bank and then RTI's
+; Returns to the main bank and then RTI's
 ; IN:
 ;  - zp::bankval: the bank to return to
 .export __final_rti
 .proc __final_rti
 	pha
-	lda zp::bankval
-	ora #$a0
+	lda #$80
 	sta $9c02
 	pla
 	rti

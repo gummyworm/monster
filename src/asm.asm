@@ -1707,11 +1707,17 @@ __asm_include:
 @opaddr=zp::tmpa
 	stxy @opaddr
 .ifdef USE_FINAL
-	bank_read_byte #FINAL_BANK_USER, @opaddr
+	jsr vmem::load
 	sta @op
-	bank_read_byte_rel #FINAL_BANK_USER, @opaddr, #1
+
+	ldxy @opaddr
+	lda #$01
+	jsr vmem::load_off
 	sta @operand
-	bank_read_byte_rel #FINAL_BANK_USER, @opaddr, #2
+
+	ldxy @opaddr
+	lda #$02
+	jsr vmem::load_off
 	sta @operand+1
 .else
 	ldy #$00

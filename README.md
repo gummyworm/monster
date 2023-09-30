@@ -564,6 +564,7 @@ indicate that a breakpoint has been added.
 Pressing the same key combination (`C= + b`) will also remove a breakpoint
 if it is pressed while on a line that already has one.
 
+---
 ## Watches
 Watches are set within the memory editor (`F3`). When the cursor is over the
 desired byte to watch, the user may press `C= + w` to add a watch to the

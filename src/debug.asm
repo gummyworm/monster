@@ -121,7 +121,6 @@ affected:      .byte 0	; OP_REG_A, etc.; the CPU/RAM state affected by a STEP
 op_mode:       .byte 0  ; address modes for current instruction
 
 debug_instruction_save: .res 3	; buffer for debugger's
-user_instruction_save:  .res 3	; buffer for user's instruction
 ;--------------------------------------
 
 ; previous values for registers etc.
@@ -1035,10 +1034,16 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_start
 	stxy pc
 
-	bank_read_byte #FINAL_BANK_USER, pc
+	jsr save_debug_state 		; save the debug state
+
+	ldxy pc
+	stxy prev_pc
+	jsr vmem::load
 	sta startsave
+
+	ldxy pc
 	lda #$00		; BRK
-	bank_store_byte #FINAL_BANK_USER, pc
+	jsr vmem::store
 
 	lda #ACTION_START
 	sta action
@@ -1056,14 +1061,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; init state
 	sta __debug_numwatches
 
-	jsr save_debug_state 		; save the debug state
 	jsr __debug_restore_progstate	; and copy in entire user state to start
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
 
-; execute the user program until BRK
-@runpc:
-	CALL FINAL_BANK_USER, pc
+@runpc:	CALL FINAL_BANK_USER, pc	; execute the user program until BRK
 	rts
 .endproc
 
@@ -1100,13 +1102,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	cmpw @brkaddr
 	beq @next
 
-	bank_read_byte #FINAL_BANK_USER, @brkaddr
+	ldxy @brkaddr
+	jsr vmem::load
 	beq @next		; already a BRK
 	ldx @cnt
 	sta breaksave,x		; save the instruction under the new BRK
 	lda #$00		; BRK
 
-	bank_store_byte #FINAL_BANK_USER, @brkaddr
+	ldxy @brkaddr
+	jsr vmem::store
 
 @next:	dec @cnt
 	bpl @installbrks
@@ -1140,7 +1144,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldx @cnt
 	lda breaksave,x
 	beq @next				; already a BRK
-	bank_store_byte #FINAL_BANK_USER, @addr
+	ldxy @addr
+	jsr vmem::store
 @next:	dec @cnt
 	bpl @uninstall
 @done:	rts
@@ -1314,7 +1319,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	cmp #ACTION_START
 	bne :+
 	lda startsave				; restore opcode
-	bank_store_byte #FINAL_BANK_USER, pc
+	ldxy pc
+	jsr vmem::store
 	jmp @reset_state
 :	cmp #ACTION_STEP_OVER
 	beq @restore_step
@@ -1426,22 +1432,24 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
 	lda pc+1
+	sta prev_pc+1
 	pha
 	lda pc		; restore PC
+	sta prev_pc
 	pha
 	lda reg_p	; restore processor status
 	pha
-
-	lda #FINAL_BANK_USER
-	sta zp::bankval
 
 	; install a NOP IRQ
 	ldxy #$eb15
 	stxy $0314
 
 	lda reg_a
+	sta prev_reg_a
 	ldx reg_x
+	stx prev_reg_x
 	ldy reg_y
+	sty prev_reg_y
 
 	; return from the BRK
 	jmp fe3::bank_rti
@@ -1835,11 +1843,18 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stxy @op
 
 	; get the opcode
-	bank_read_byte #FINAL_BANK_USER, @op
+	ldxy @op
+	jsr vmem::load
 	sta @opcode
-	bank_read_byte_rel #FINAL_BANK_USER, @op, #1
+
+	ldxy @op
+	lda #$01
+	jsr vmem::load_off
 	sta @operand
-	bank_read_byte_rel #FINAL_BANK_USER, @op, #2
+
+	ldxy @op
+	lda #$02
+	jsr vmem::load_off
 	sta @operand+1
 
 	lda @opcode
@@ -2016,19 +2031,16 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy @instruction
 	jsr vmem::load			; opcode
 	sta @opcode
-	sta user_instruction_save
 
 	incw @instruction
 	ldxy @instruction
 	jsr vmem::load			; operand (1st byte)
 	sta @target
-	sta user_instruction_save+1
 
 	incw @instruction
 	ldxy @instruction
 	jsr vmem::load			; operand (2nd byte)
 	sta @target+1
-	sta user_instruction_save+2
 
 	; get the side-effects for this operation
 	ldx @opcode
@@ -2053,10 +2065,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; This routine is called _before_ returning from the BRK interrupt and executing
 ; the user program.
 .proc swapin
+@cnt=zp::tmp0
 	lda swapmem
 	bne @swapall	; we don't know enough to do a limited swap
 
-	ldxy steppoint
+	ldxy pc
 	jsr is_internal_address
 	bne @savemem		; if not internal, skip saving
 
@@ -2065,15 +2078,23 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stxy @smc0
 	stxy @smc1
 	ldx #$02
+	stx @cnt
 @saveloop:
 @smc0=*+1
 	lda $f00d,x
 	sta debug_instruction_save,x
-	lda user_instruction_save,x
-@smc1=*+1
-	sta $f00d,x
 	dex
 	bpl @saveloop
+
+@saveloop2:
+	ldxy pc
+	lda @cnt
+	jsr vmem::load_off
+	ldx @cnt
+@smc1=*+1
+	sta $f00d,x
+	dec @cnt
+	bpl @saveloop2
 
 ; save the debugger's memory value that will be overwritten and restore the
 ; user value at the affected memory address
@@ -2107,10 +2128,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; values for the debugger's values of those.
 ; If not, swap the entire internal RAM state
 .proc swapout
+@cnt=zp::tmp0
 	lda swapmem
 	bne @swapall
 
-	ldxy steppoint
+	ldxy prev_pc
 	jsr is_internal_address	; TODO: could be issue if instruction is @ >= $1ffe
 	bne @savemem
 
@@ -2119,17 +2141,22 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stxy @smc0
 	stxy @smc1
 	ldx #$02
+	stx @cnt
 @saveloop:
 	; get user byte to save and store it
 @smc0=*+1
 	lda $f00d,x
-	jsr vmem::store
+	sta zp::bankval
+	ldxy pc
+	lda @cnt
+	jsr vmem::store_off
 
+	ldx @cnt
 	; get debugger byte to restore
 	lda debug_instruction_save,x
 @smc1=*+1
 	sta $f00d,x
-	dex
+	dec @cnt
 	bpl @saveloop
 
 ; save the debugger's memory value that will be overwritten and restore the
