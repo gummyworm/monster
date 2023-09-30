@@ -42,6 +42,9 @@ start:
 	cpx #@loadinglen
 	bne :-
 
+	ldxy #$eb15
+	stxy $0314
+
 	jsr fe3::init
 	lda #FINAL_BANK_FASTCOPY
 	jsr fcpy::init

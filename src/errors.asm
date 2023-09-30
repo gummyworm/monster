@@ -69,6 +69,9 @@ err_logical_file_in_use:
 err_drive_did_not_respond:
 	.byte "no response from drive",0
 
+err_unnamed_buffer:
+	.byte "unnamed buffer",0
+
 ;******************************************************************************
 errors: .word err_no_err	 ; no error
 	.word err_stack_underflow
@@ -101,6 +104,7 @@ errors: .word err_no_err	 ; no error
 	.word err_too_many_open_files
 	.word err_logical_file_in_use
 	.word err_drive_did_not_respond
+	.word err_unnamed_buffer
 
 .CODE
 ;******************************************************************************

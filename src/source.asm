@@ -334,6 +334,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ; OUT:
 ;  - .XY: the filename of the buffer or [NO NAME] if it has no name
 ; CLOBBERS:
+;  - .C:  set if the file has no name ([NO NAME])
 ;  - zp:tmp0-zp::tmp1
 .export __src_get_filename
 .proc __src_get_filename
@@ -351,9 +352,9 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	lda (@name),y
 	bne :+
 	ldxy #@noname
-	rts
+	RETURN_ERR ERR_UNNAMED_BUFFER
 :	ldxy @name
-	rts
+	RETURN_OK
 @noname: .byte "[no name]",0
 .endproc
 

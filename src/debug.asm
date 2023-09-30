@@ -903,8 +903,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @len=debugtmp+1
 	stxy @filename
 	jsr str::len
+	jmp *
 	sta @len
-	lda numfiles
+	bne :+
+	sec		; if string is 0-length, return with "not found" flag
+	rts
+
+:	lda numfiles
 	beq @notfound
 
 	lda #$00
@@ -989,6 +994,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @filename=zp::tmp2
 	stxy @src
 
+	; if filename is empty, return an error
+	ldy #$00
+	lda (@src),y
+	bne @getfiledst
+	RETURN_ERR ERR_UNNAMED_BUFFER
 @getfiledst:
 	; find the location to store the filename to
 	lda numfiles

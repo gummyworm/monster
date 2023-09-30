@@ -204,7 +204,7 @@ bankcode_size = *-bankcode
 @dst=zp::tmp3
 @cnt=zp::tmp5
 @bank=zp::tmp6
-@copyaddr=$08
+@copyaddr=$33c
 	sei
 
 	; copy the bank code that we wish to copy to ZP

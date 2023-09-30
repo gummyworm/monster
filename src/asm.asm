@@ -1335,7 +1335,9 @@ __asm_include:
 	; add the filename to debug info (if it isn't yet) and reset line no.
 	ldxy @fname
 	jsr dbg::setfile
-	ldxy #1
+	bcc :+
+	rts		; return err
+:	ldxy #1
 	stxy dbg::srcline
 
 ; read a line from file

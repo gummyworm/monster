@@ -46,6 +46,9 @@ ERR_TOO_MANY_OPEN_FILES   = 27
 ERR_LOGICAL_FILE_IN_USE   = 28
 ERR_DRIVE_DID_NOT_RESPOND = 29
 
+;******************************************************************************
+ERR_UNNAMED_BUFFER = 30
+
 .import __err_get
 
 .scope err

@@ -290,8 +290,11 @@ main:
 	beq @pass1
 
 	; set the initial file for debugging
+	ldxy #$01
+	stxy dbg::srcline
 	lda src::activebuff
 	jsr src::filename
+	bcs @err
 	jsr dbg::setfile
 
 ;--------------------------------------
@@ -371,6 +374,7 @@ main:
 ;  - .A: the error code (if error occurred)
 ;  - zp::asmresult: pointer to the end of the program
 .proc display_result
+	jmp *
 	bcc @printresult
 @err:	jsr dbg::getline
 	jmp reporterr
