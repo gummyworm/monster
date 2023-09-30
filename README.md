@@ -43,12 +43,12 @@ If you wish to run it in an emulator (VICE), ensure that VICE is installed on yo
 machine and run `make start` from the root of the project.
 
 ---
-### Usage
+## Usage
 Below are the basic commands along with their associated key combinations. These
 commands are available regardless of insertion mode (see the navigation section
 below for more info).
 
-#### Command shortcuts
+### Command shortcuts
 |  Key   | Name    |   Description                                                               |
 |--------|---------|-----------------------------------------------------------------------------|
 | C= + a | Assemble File | prompts for a filename and assembles it.                              | 
@@ -70,7 +70,7 @@ below for more info).
 |   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
 |   F5   | Show buffers  | displays a list of the currently open buffers                         |
 
-#### Navigation/Text keys
+### Navigation/Text keys
 Navigation behaves similar to `vi` and many basic `vi` commands are supported.
 The following keys are handled in COMMAND mode.  Entering insert mode (`i`)
 allows characters to be entered into the source file at the current cursor
