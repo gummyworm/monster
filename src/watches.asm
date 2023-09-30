@@ -208,10 +208,7 @@ row:	.byte 0
 	tax
 	lda dbg::watches,x
 	ldy dbg::watches+1,x
-
 	tax
-	tya
-	ldy #$00
 
 	jsr vmem::load
 	ldx @cnt
@@ -245,6 +242,7 @@ row:	.byte 0
 	beq @done
 	dex
 	stx @cnt
+
 @l0:	lda @cnt
 	asl
 	tax

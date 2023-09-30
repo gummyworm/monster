@@ -46,7 +46,7 @@ memaddr:   .word 0
 @dst=zp::tmp0
 @odd=zp::tmp4
 @dstoffset=zp::tmp6
-@src=zp::tmp7
+@src=zp::tmp8
 	stxy @src
 	stxy memaddr
 

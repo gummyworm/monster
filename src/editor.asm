@@ -1715,15 +1715,11 @@ goto_buffer:
 ; Rename
 ; Gets user input to rename the buffer and applies the new name.
 .proc rename
-	jsr text::savebuff
-	jsr text::clrline
-	; TODO: use readinput or something
-	; getinput mem::statusline+23,0,23,(40-16)
-	ldxy #mem::linebuffer
-	jsr src::name
-	jsr text::restorebuff
-	lda zp::cury
-	jmp text::drawline
+	ldxy #$0000
+	jsr readinput
+	bcs @done
+	jmp src::name
+@done:	rts
 .endproc
 
 

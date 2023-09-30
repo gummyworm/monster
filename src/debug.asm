@@ -1245,6 +1245,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sbc #$00
 	sta pc+1
 
+	; reinstall the main IRQ
+	ldx #<irq::sys_update
+        ldy #>irq::sys_update
+        lda #$20
+        jsr irq::raster
+
 	; swap the debugger state in
 	jsr swapout
 
@@ -1749,9 +1755,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr bm::clrpart
 	lda #AUX_WATCH
 	sta aux_mode
-
-	; no need to swap all memory. we know exactly what will be written
-	dec swapmem
 
 @setbrk:
 	lda #ACTION_STEP
