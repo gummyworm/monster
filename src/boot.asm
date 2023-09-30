@@ -42,6 +42,7 @@ start:
 	cpx #@loadinglen
 	bne :-
 
+	; install dummmy IRQ
 	ldxy #$eb15
 	stxy $0314
 

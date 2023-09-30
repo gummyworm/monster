@@ -60,10 +60,17 @@ COLMEM_ADDR = $9400
         bne @l0
 	lda #TEXT_COLOR
 
-;clear the color memory
-@l1:    sta COLMEM_ADDR,y
+	jmp __bm_clrcolor
+.endproc
+
+;******************************************************************************
+; CLRCOLOR
+; Reverts all color memory to its initial values (TEXT_COLOR)
+.export __bm_clrcolor
+.proc __bm_clrcolor
+@l0:    sta COLMEM_ADDR,y
         dey
-        bne @l1
+        bne @l0
         rts
 .endproc
 

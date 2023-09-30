@@ -374,7 +374,6 @@ main:
 ;  - .A: the error code (if error occurred)
 ;  - zp::asmresult: pointer to the end of the program
 .proc display_result
-	jmp *
 	bcc @printresult
 @err:	jsr dbg::getline
 	jmp reporterr

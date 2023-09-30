@@ -452,7 +452,8 @@ respective Key in the table below.
 | SPACE    | Swap prog   | swaps in the internal memory for the user program (allows user to see screen state)  | 
 
 ### Stepping through code
-Stepping (`C= + z` or `C= + s`) is a common way to debug a program line-by-line.
+#### Step Into (`C= + z`)
+Stepping is a common way to debug a program line-by-line.
 Stepping _into_ code (`C= + z`) will, if possible, return to the debugger
 after the next instruction (the one currently highlighted if we have debug
 information) is executed. There is a scenario where this is not possible: if
@@ -461,17 +462,31 @@ as step _over_: execution begins after the current instruction.  Note that
 because we don't know what will happen in ROM, it is possible execution will
 never return to the debugger.
 
-Step _over_ (`C= + s`) behaves the same as step _into_, but if the next
+Keeping in mind the aforementioned caveat with ROM, stepping _into_ code gives
+us a lot of information about the instructions we are executed.  The debugger
+behaves almost as a 6502 simulator in this scenario.  When an instruction that
+affects a given register, that register is highlighted *even if the register
+value hasn't changed*. The same is true of watches.  We can activate a watch
+even if we don't store a new value to it. In fact, we can activate them when a
+value is loaded.
+
+#### Step Over (`C= + s`)
+Step _over_ behaves the same as step _into_, but if the next
 instruction is a subroutine call (`JSR`), execution continues until the
 instruction _after_ the `JSR` (after the subroutine returns).
 
+#### Go (`C= + g`)
+The go command begins execution and returns to the debugger only when a
+breakpoint is encountered.
+
+#### Notes on memory swapping
 While the debugger and user program have isolated memory banks in the address space
 above `$1fff`, the RAM _below_ this, `[$00, $2000)`, is internal to the Vic-20
 and cannot be swapped out between debug steps. The debugger has no choice but to
 share this address space with the user program as it is also the only RAM
 that is visible to the video chip (the VIC-I).  It also contains the stack and
 zeropage, which we _could_ avoid, but as long as we need to use the $10th-$20th pages
-of RAM, it makes sense to handle it in the same way.
+of RAM, it makes sense to handle them in the same way.
 
 To handle this, the debugger calculates the bytes that need to be saved in
 between steps and saves these values in between calls to the program.  Values
@@ -493,6 +508,19 @@ Nonetheless, it is apparent when this is happening if you've changed the setup
 of the VIC registers, or anything in the VIC's visible address range, as the
 screen will briefly flash with the state of the user program.
 
+
+
+---
+## Auxiliary Views
+Within the debugger, there are 3 auxiliary views that may be activated with the
+function keys.  Each shows information about the machine or debug state that
+may be useful to the user. Each viewer also contains an editor, which is
+activated with the keys enumerated below next to their corresponding editor.
+
+Pressing the `<-` key will return the user from the auxiliary editor to the
+source code editor.  And `F1` will hide the active viewer to maximize the
+source editor's screen size.
+
 ### Memory Viewer (`F3` while debugging)
 The memory viewer displays the contents of RAM at a given address.  The memory
 viewer is updated upon reentry to the debugger (if active).
@@ -504,16 +532,7 @@ by pressing the `C= + W` key-combination while the cursor is on the desired
 byte to watch. See the _Watch Viewer_ section for more information on
 watches.
 
-As with all editors the back-arrow key (`<-`) exits and returns to the editor.
-
-### Breakpoints
-During normal editing, breakpoints may be set with the `C= + b` key combination.
-A breakpoint symbol (a filled circle) is placed at the beginning of a line to
-indicate that a breakpoint has been added.
-Pressing the same key combination (`C= + b`) will also remove a breakpoint
-if it is pressed while on a line that already has one.
-
-#### Breakpoint Viewer (`F5` while debugging)
+### Breakpoint Viewer (`F5` while debugging)
 The breakpoint viewer displays all the breakpoints that have been set by the
 user.  A circle is displayed next to those that are currently active.
 The user simply navigates the list with the cursor keys and presses RETURN to
@@ -523,9 +542,27 @@ Note that breakpoints correspond to the debug information generated with
 the F4 command.  If the line numbers change after this information is generated,
 breakpoints are unlikely to behave in expected ways.
 
-As with all editors the back-arrow key (`<-`) exits and returns to the editor.
-
 ### Watch Viewer (`F7` while debugging)
 The watch viewer displays all watches that have been set in the memory
 viewer.  The current value of a watch is shown along with its previous
 value (if it has changed since the debugger last took over).
+
+---
+## Breakpoints
+During normal editing, breakpoints may be set with the `C= + b` key combination.
+A breakpoint symbol (a filled circle) is placed at the beginning of a line to
+indicate that a breakpoint has been added.
+Pressing the same key combination (`C= + b`) will also remove a breakpoint
+if it is pressed while on a line that already has one.
+
+## Watches
+Watches are set within the memory editor (`F3`). When the cursor is over the
+desired byte to watch, the user may press `C= + w` to add a watch to the
+address of the byte under the cursor.  A beep will confirm that the watch
+was added, and the watch may be seen by activating the watch editor (`F7`).
+
+The viewer will display the old value and what it was changed to.
+
+When a value is changed the watch view is activated to alert the user to the
+alteration.  If a read or write is detected while stepping _into_ the code,
+we also activate the viewer.  

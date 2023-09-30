@@ -903,7 +903,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @len=debugtmp+1
 	stxy @filename
 	jsr str::len
-	jmp *
 	sta @len
 	bne :+
 	sec		; if string is 0-length, return with "not found" flag
@@ -1614,8 +1613,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Exits the debugger
 .proc quit
 	ldxy #@stopdebugging_msg
-	lda #REGISTERS_LINE
+	lda #DEBUG_MESSAGE_LINE
 	jsr text::putz
+	lda #DEBUG_MESSAGE_LINE
+	jsr bm::rvsline
 
 :	jsr key::getch
 	beq :-
@@ -2480,6 +2481,10 @@ __debug_remove_breakpoint:
 
 @regsline: .byte " pc  a  x  y  sp nv-bdizc  addr",0
 .endproc
+
+;******************************************************************************
+; CLRCOLOR
+; Turns off any coloring that may be done by the text routines
 
 ;******************************************************************************
 ; SHOWBRK
