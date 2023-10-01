@@ -1344,6 +1344,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	inc lineset
 	stxy highlight_line
+	jsr edit::gotoline
 
 ; open the file of the line we BRK'd in
 ; if the buffer is already loaded switch to it. if not, load it into the
@@ -1431,7 +1432,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
-	lda pc+1
+	lda #FINAL_BANK_USER
+	sta zp::bankval		; set default RTI bank
+	ldxy pc
+	jsr is_internal_address
+	bne :+
+	ldx #FINAL_BANK_MAIN	; if internal address, use main bank
+	sta zp::bankval
+:	lda pc+1
 	sta prev_pc+1
 	pha
 	lda pc		; restore PC

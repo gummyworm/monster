@@ -894,17 +894,28 @@ main:
 	lda readonly
 	beq :+
 	rts
+
 :	lda #TEXT_INSERT
 	sta text::insertmode
-	jsr ccdown
+
+	jsr text::linelen
+	cpx #$00
+	bne :+
+	jsr backspace
+	jmp @done
+
+:	jsr ccdown
+	bcs @l0
 	jsr home
 @l0:	jsr backspace
 	lda zp::curx
 	bne @l0
 	jsr src::end
-	bne :+
-	jsr ccup
-:	lda #TEXT_REPLACE
+	bne @done
+	jsr @done
+	jmp ccup
+
+@done:	lda #TEXT_REPLACE
 	sta text::insertmode
 	lda zp::cury
 	jmp text::drawline
@@ -2480,6 +2491,8 @@ goto_buffer:
 ;******************************************************************************
 ; GOTOLINE
 ; Sets the editor to the line in .YX and refreshes the screen.
+; IN:
+;  - .XY: the line number to go to
 .export __edit_gotoline
 __edit_gotoline:
 .proc gotoline
