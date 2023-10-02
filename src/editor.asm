@@ -903,6 +903,7 @@ main:
 :	lda #TEXT_INSERT
 	sta text::insertmode
 
+	; if line length is 0, just do one backspace and we're done
 	jsr text::linelen
 	cpx #$00
 	bne :+
@@ -1053,7 +1054,8 @@ main:
 ;******************************************************************************
 .proc goto_end
 	ldxy #$ffff
-	jmp gotoline
+	jsr gotoline
+	jmp add_jump_point
 .endproc
 
 ;******************************************************************************
@@ -1064,7 +1066,8 @@ main:
 	beq :+
 	rts
 :	ldxy #1
-	jmp gotoline
+	jsr gotoline
+	jmp add_jump_point
 .endproc
 
 ;******************************************************************************
