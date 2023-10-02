@@ -2504,16 +2504,15 @@ goto_buffer:
 ; FIND
 ; Searches for the text given in .YX and moves the cursor to it if it's
 ; found
-; TODO: handle special case of sources with < 16 bytes to seek through
 ; IN:
 ;  - .YX: the text to find (0-terminated)
 .proc __edit_find
 @string=zp::str0
 @seekptr=zp::str2
 @tofind=zp::tmp2
-@cnt=zp::tmp8
 @target=zp::tmp8
 @len=zp::tmpa
+@cnt=zp::tmpd
 @searchbuff=$120	; buffer of bytes to search
 	stxy @string
 	jsr str::len
@@ -2561,7 +2560,6 @@ goto_buffer:
 	jsr src::next
 :	ldy #15
 	sta (@seekptr),y
-	jsr src::end
 	jmp @seekloop		; if not EOF, keep seeking
 
 @notfound:
@@ -2571,7 +2569,7 @@ goto_buffer:
 @found:	ldxy src::line	; get the line we're moving to
 	stxy @target
 
-; for every newline still in the buffer AFTER the text we're looking for
+; for every newline in the buffer AFTER the text we're looking for
 ; decrement 1 from our target line
 	ldy @len
 	dey
@@ -2583,11 +2581,42 @@ goto_buffer:
 	cpy #16
 	bne @l2
 
-	jsr src::popp	; get old source position
+	; move source back to 1st matching character by retreating 16 bytes
+	lda #15
+	sta @cnt
+@l3:	ldx @cnt
+	lda @searchbuff,x
+	beq :+
+	jsr src::prev	; go back 16 bytes (to get to start of buffer)
+:	dec @cnt
+	bpl @l3
+
+	inc @cnt
+
+	; find the x-offset in the line by retreating til newline
+	jsr src::atcursor
+	cmp #$0d
+	beq @move
+
+:	jsr src::prev
+	bcs @move
+	inc @cnt
+	cmp #$0d
+	bne :-
+
+	; move to the line containing the search word
+@move:	jsr src::popp	; get old source position
 	jsr src::goto	; and restore it
 	ldxy @target
-	jmp gotoline	; go to the new line
-	; TODO: update curx to go to the start of the string that we found
+	jsr gotoline	; go to the new line
+
+	; update the x cursor position to the first character of the search
+	lda @cnt
+	beq @done
+:	jsr ccright
+	dec @cnt
+	bne :-
+@done:	rts
 .endproc
 
 ;******************************************************************************
