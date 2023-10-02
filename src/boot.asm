@@ -12,8 +12,6 @@
 
 .import __BSS_LOAD__
 .import __BSS_SIZE__
-.import __SOURCE_LOAD__
-.import __SOURCE_SIZE__
 
 .segment "SETUP"
 ;******************************************************************************
@@ -64,17 +62,6 @@ start:
 	ldxy zp::tmp0
 	cmpw #(__BSS_LOAD__+__BSS_SIZE__)
 	bne @zeromem
-
-	ldxy #__SOURCE_LOAD__
-	stxy zp::tmp0
-@zeromemhi:
-	ldy #$00
-	tya
-	sta (zp::tmp0),y
-	incw zp::tmp0
-	ldxy zp::tmp0
-	cmpw #(__SOURCE_LOAD__+__SOURCE_SIZE__)
-	bne @zeromemhi
 
 @zerozp:
 	sta $00,x

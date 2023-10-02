@@ -5,7 +5,7 @@
 .include "string.inc"
 .include "zeropage.inc"
 
-.segment "SOURCE"
+.BSS
 
 ;******************************************************************************
 .export macro_addresses

@@ -32,7 +32,6 @@ __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
 .export __statusline
 __statusline = __mem_backbuff ;.res 40
 
-.segment "SOURCE"
 .export __mem_copybuff
 __mem_copybuff: .res 40
 

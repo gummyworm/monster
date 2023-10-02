@@ -26,7 +26,7 @@ MAX_BUFFER_NAME_LEN=16  ; max name for each buffer
 ; FLAGS
 FLAG_DIRTY = 1
 
-.segment "SOURCE"
+.BSS
 
 ;******************************************************************************
 data_start:
