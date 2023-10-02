@@ -1135,6 +1135,61 @@ __src_atcursor:
 .endproc
 
 ;******************************************************************************
+; ADD JUMP POINT
+.proc add_jump_point
+@end=zp::tmp0
+@line=zp::tmp1
+	stxy @line
+	lda jumpptr
+	cmp #MAX_JUMPS
+	bcc @cont
+	asl
+	sta @end
+
+	ldx #$00
+; shift all existing jumps down
+:	lda jumplist+2,x
+	sta jumplist,x
+	lda jumplist+3,x
+	sta jumplist+1,x
+	inx
+	inx
+	cpx @end
+	bcc :-
+
+	dec jumpptr
+
+; add the new jump to the end of the jumplist
+@cont:	lda jumpptr
+	asl
+	tax
+	lda @line
+	sta jumplist,x
+	lda @line+1
+	sta jumplist+1,x
+
+	inc jumpptr
+	rts
+.endproc
+
+;******************************************************************************
+; JUMPBACK
+; Jumps back to the last source position the user has jumped from
+.export jumpback
+.proc jumpback
+	lda jumpptr
+	bne :+
+	rts		; jumplist is empty
+
+:	asl
+	tax
+	ldy jumplist+1,x
+	lda jumpist,x
+	tax
+	jmp gotoline
+.endproc
+
+;******************************************************************************
 .proc mark_dirty
 	lda #FLAG_DIRTY
 	ldx activesrc

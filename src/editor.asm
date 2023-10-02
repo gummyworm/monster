@@ -54,6 +54,9 @@ readonly: .byte 0	; if !0 no edits are allowed to be made via the editor
 numhighlights: .byte 0
 highlighted_lines: .res MAX_HIGHLIGHTS*2 ; line numbers that are highlighted
 
+jumplist: .res 8*2	; line #'s between jumps
+jumpptr:  .byte 0	; offset to jumplist
+
 .CODE
 ;******************************************************************************
 ; DRAW_TITLEBAR
