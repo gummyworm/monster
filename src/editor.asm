@@ -36,6 +36,8 @@ SCREEN_H = 23
 
 MAX_HIGHLIGHTS = 8
 
+MAX_JUMPS = 8
+
 ;******************************************************************************
 ; ZEROPAGE
 indent = zp::editor	; number of spaces to insert on newline
@@ -589,7 +591,7 @@ main:
 @command_codes:
 .byte 'g'
 .byte 'd'
-.byte 'o'
+.byte 'e'
 .byte 's'
 .byte 'x'
 .byte 'a'
@@ -1114,9 +1116,9 @@ main:
 	bne :+
 	lda #'d'
 	bne @do
-:	cmp #$b9	; C=<O> (Open)
+:	cmp #K_OPEN	; (Open)
 	bne :+
-	lda #'o'
+	lda #'e'
 	bne @do
 :	cmp #$ae	; C=<S> (Save)
 	bne :+
@@ -1185,6 +1187,7 @@ main:
 	.byte K_CLOSE_BUFF	; close buffer
 	.byte K_NEW_BUFF	; new buffer
 	.byte K_SET_BREAKPOINT	; set breakpoint
+	.byte K_JUMPBACK	; jump back
 
 	.byte K_GOTO_BUFF1	; go-to buffer 1
 	.byte K_GOTO_BUFF2	; go-to buffer 2
@@ -1214,6 +1217,8 @@ main:
 	.word close_buffer
 	.word new_buffer
 	.word set_breakpoint
+	.word jumpback
+
 	.word buffer1
 	.word buffer2
 	.word buffer3
@@ -2933,10 +2938,64 @@ __edit_gotoline:
 	lda @line
 	sec
 	sbc @startline		; will be [0, BRKVIEW_START)
-	RETURN_OK
 
 @done:	sec			; line off screen
 	rts
+.endproc
+
+;******************************************************************************
+; ADD JUMP POINT
+.proc add_jump_point
+@end=zp::tmp0
+@line=zp::tmp1
+	stxy @line
+	lda jumpptr
+	cmp #MAX_JUMPS
+	bcc @cont
+	asl
+	sta @end
+
+	ldx #$00
+; shift all existing jumps down
+:	lda jumplist+2,x
+	sta jumplist,x
+	lda jumplist+3,x
+	sta jumplist+1,x
+	inx
+	inx
+	cpx @end
+	bcc :-
+
+	dec jumpptr
+
+; add the new jump to the end of the jumplist
+@cont:	lda jumpptr
+	asl
+	tax
+	lda @line
+	sta jumplist,x
+	lda @line+1
+	sta jumplist+1,x
+
+	inc jumpptr
+	rts
+.endproc
+
+;******************************************************************************
+; JUMPBACK
+; Jumps back to the last source position the user has jumped from
+.export jumpback
+.proc jumpback
+	lda jumpptr
+	bne :+
+	rts		; jumplist is empty
+
+:	asl
+	tax
+	ldy jumplist+1,x
+	lda jumplist,x
+	tax
+	jmp gotoline
 .endproc
 
 .DATA

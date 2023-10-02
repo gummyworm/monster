@@ -37,4 +37,4 @@ __linebuffer: .res 80
 __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
 
 .export __statusline
-__statusline: .res 40
+__statusline = __mem_backbuff ;.res 40

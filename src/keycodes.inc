@@ -31,6 +31,10 @@ K_GOTO_BUFF5     = $98  ; <C+> + 5
 K_GOTO_BUFF6     = $99  ; <C=> + 6
 K_GOTO_BUFF7     = $9a  ; <C=> + 7
 K_GOTO_BUFF8     = $9b  ; <C=> + 8
+K_JUMPBACK       = $b9	; <C=> + o
+K_JUMPFORWARD    = $a2	; <C=> + i
+
+K_OPEN           = $b1	; <C=> + e
 
 ; DEBUGGER KEYS
 K_SRCVIEW      = $85	; F1
