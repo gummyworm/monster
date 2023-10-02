@@ -2494,7 +2494,8 @@ goto_buffer:
 	cmpw #$0000
 	bne :+
 	ldxy #$0001
-:	jmp gotoline
+:	jsr gotoline		; go to the target line
+	jmp add_jump_point	; save the current position as a jump point
 @done:	rts
 .endproc
 
@@ -2945,10 +2946,9 @@ __edit_gotoline:
 
 ;******************************************************************************
 ; ADD JUMP POINT
+; Adds a jump point at the current source position
 .proc add_jump_point
 @end=zp::tmp0
-@line=zp::tmp1
-	stxy @line
 	lda jumpptr
 	cmp #MAX_JUMPS
 	bcc @cont
@@ -2972,9 +2972,9 @@ __edit_gotoline:
 @cont:	lda jumpptr
 	asl
 	tax
-	lda @line
+	lda src::line
 	sta jumplist,x
-	lda @line+1
+	lda src::line+1
 	sta jumplist+1,x
 
 	inc jumpptr
@@ -2990,7 +2990,9 @@ __edit_gotoline:
 	bne :+
 	rts		; jumplist is empty
 
-:	asl
+:	dec jumpptr
+	lda jumpptr
+	asl
 	tax
 	ldy jumplist+1,x
 	lda jumplist,x
