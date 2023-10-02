@@ -43,10 +43,14 @@ If you wish to run it in an emulator (VICE), ensure that VICE is installed on yo
 machine and run `make start` from the root of the project.
 
 ---
-## Usage
+## Editor Overview
+The editor is a substantial part of this assembler.  In addition to offering
+a high-density 40-column display, it has, by 8-bit standards, advanced navigation 
+functionality.
+
 Below are the basic commands along with their associated key combinations. These
 commands are available regardless of insertion mode (see the navigation section
-below for more info).
+below for more info on modes).
 
 ### Command shortcuts
 |  Key   | Name    |   Description                                                               |
@@ -76,6 +80,7 @@ The following keys are handled in COMMAND mode.  Entering insert mode (`i`)
 allows characters to be entered into the source file at the current cursor
 position.
 The back arrow (`<-`) key returns to COMMAND mode.
+
 |  Key       | Name       | Description                                                            |
 |------------|------------|------------------------------------------------------------------------|
 | HOME       | Home       | moves the cursor to column 0                                           |
@@ -83,6 +88,8 @@ The back arrow (`<-`) key returns to COMMAND mode.
 | C= + [1-8] | Goto Buffer| opens the buffer corresponding to the number key that is pressed       |
 | C= + <     | Prev Buffer| opens the buffer before the active one (if there is one)               |
 | C= + >     | Next Buffer| opens the buffer after the active one (if there is one)                |
+| C= + i     | Jump up    | jumps forward to the next source position that was "jumped" to         |
+| C= + o     | Jump back  | jumps back to the last source position that was "jumped" to            |
 |    $       | End of Line| moves the cursor to the end of the current line                        |
 |    ;;      | Banner     | inserts a banner (full line of semicolons) below the cursor            |
 |    gg      | Top of File| moves the cursor to the first character in the file                    |
@@ -100,10 +107,22 @@ The back arrow (`<-`) key returns to COMMAND mode.
 |    A       | append line| enters insert mode and moves to the last character in the current line |
 |    o       | open line  | opens a new line below the cursror and moves to it                     |
 |    O       | open line ^| opens a new line above the cursor and moves to it                      |
+|    p       | paste below| pastes the contents of the copy-buffer to the line below the cursor    |
+|    P       | paste above| pastes the contents of the copy-buffer to the line above the cursor    |
 |    I       | Insert line| enters insert mode and moves to the first character in the current line|
 |    [       | Prev Block | moves to the previous empty line or start of file if there isn't one   |
 |    ]       | Next Block | moves to the next empty line or end of file if there isn't one         |
 
+### Copy buffer
+When text is deleted (delete line, delete word) it is stored to a buffer where
+it may be recalled by the paste commands (`p`, paste below and `P` paste above).
+When the paste command is executed, the buffer is cleared.
+
+### Jump Lists
+When the user "jumps" to a different position in the source (`gg`, `G`, `goto line`,
+`find`, `[`, and `]`) the editor tracks this new position.  To recall these
+jump points there are two commands.
+These are _jump-forward_ (`C= + i`) and _jump-backward_ (`C= + o`).
 
 ---
 ## Assembler Overview

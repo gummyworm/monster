@@ -678,7 +678,9 @@ main:
 	.byte $41	; A (append to line/insert)
 	.byte $61	; a (append to character)
 	.byte $64	; d (delete)
-	.byte $70	; p (paste)
+	.byte $70	; p (paste below)
+	.byte $50	; p (paste above)
+	.byte $70	; P (paste above)
 	.byte $78	; x (erase char)
 	.byte $77	; w (word advance)
 	.byte $30	; 0 (column 0)
@@ -701,10 +703,10 @@ main:
 .linecont +
 .define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
-	append_char, delete, paste_below, delete_char, word_advance, home, last_line, \
-	home_line, ccdel, ccright, goto_end, goto_start, open_line_above, \
-	open_line_below, end_of_line, prev_empty_line, next_empty_line, \
-	begin_next_line, comment_out
+	append_char, delete, paste_below, paste_above, delete_char, \
+	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
+	goto_start, open_line_above, open_line_below, end_of_line, \
+	prev_empty_line, next_empty_line, begin_next_line, comment_out
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs
 @command_vecs_hi: .hibytes cmd_vecs
@@ -979,14 +981,34 @@ main:
 ; PASTE BELOW
 ; Pastes the contents of the copy buffer to the line below the cursor
 .proc paste_below
+	jsr enter_insert
 	jsr ccdown
 	jsr home
+	jmp paste_buff
+.endproc
+
+;******************************************************************************
+; PASTE ABOVE
+; Pastes the contents of the copy buffer to the line above the cursor
+.proc paste_above
+	jsr enter_insert
+	jsr ccup
+	jsr home
+	jmp paste_buff
+.endproc
+
+;******************************************************************************
+; PASTE BUFFER
+; Inserts the contents of the buffer at the current cursor position and returns
+; to command mode
+.proc paste_buff
 :	jsr buff_getch
 	bcs @done
 	jsr insert
 	jmp :-
-@done:	rts
+@done:	jmp enter_command
 .endproc
+
 
 ;******************************************************************************
 .proc comment_out
