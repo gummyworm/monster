@@ -26,15 +26,18 @@ __mem_prog9400 = __mem_progsave+$210
 
 __mem_debugsave=__mem_backbuff+$300 	; backup for the user's program during debug
 
-.export __linebuffer2
-__linebuffer2: .res 40		; backup buffer for when the linebuffer must be saved
-
-.export __linebuffer
-__linebuffer: .res 80
-;__linebuffer=$150	; the buffer for the line being edited
-
 .export __mem_ctxbuffer
 __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
 
 .export __statusline
 __statusline = __mem_backbuff ;.res 40
+
+.segment "SOURCE"
+.export __mem_copybuff
+__mem_copybuff: .res 40
+
+.export __linebuffer
+__linebuffer: .res 80
+
+.export __linebuffer2
+__linebuffer2: .res 40		; backup buffer for when the linebuffer must be saved

@@ -1,6 +1,8 @@
 ; NAVIGATION KEYS
 K_LEFT      = $9d	; cursor left
 K_RIGHT     = $1d	; cursor right
+K_UP        = $91       ; cursor up
+K_DOWN      = $11       ; cursor down
 K_HOME      = $13	; HOME
 
 K_PREV_BUFF  = $3c	; <

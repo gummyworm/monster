@@ -59,6 +59,8 @@ highlighted_lines: .res MAX_HIGHLIGHTS*2 ; line numbers that are highlighted
 jumplist: .res 8*2	; line #'s between jumps
 jumpptr:  .byte 0	; offset to jumplist
 
+buffptr: .byte 0	; copy buffer pointer (also bytes in copy buffer)
+
 .CODE
 ;******************************************************************************
 ; DRAW_TITLEBAR
@@ -676,6 +678,7 @@ main:
 	.byte $41	; A (append to line/insert)
 	.byte $61	; a (append to character)
 	.byte $64	; d (delete)
+	.byte $70	; p (paste)
 	.byte $78	; x (erase char)
 	.byte $77	; w (word advance)
 	.byte $30	; 0 (column 0)
@@ -698,7 +701,7 @@ main:
 .linecont +
 .define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
-	append_char, delete, delete_char, word_advance, home, last_line, \
+	append_char, delete, paste_below, delete_char, word_advance, home, last_line, \
 	home_line, ccdel, ccright, goto_end, goto_start, open_line_above, \
 	open_line_below, end_of_line, prev_empty_line, next_empty_line, \
 	begin_next_line, comment_out
@@ -914,6 +917,7 @@ main:
 	bcs @l0
 	jsr home
 @l0:	jsr backspace
+	jsr buff_putch
 	lda zp::curx
 	bne @l0
 	jsr src::end
@@ -969,6 +973,19 @@ main:
 	beq @l0
 
 @done:  jmp redraw_to_end_of_line
+.endproc
+
+;******************************************************************************
+; PASTE BELOW
+; Pastes the contents of the copy buffer to the line below the cursor
+.proc paste_below
+	jsr ccdown
+	jsr home
+:	jsr buff_getch
+	bcs @done
+	jsr insert
+	jmp :-
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2351,11 +2368,16 @@ goto_buffer:
 ;  - mem::linebuffer: the new rendering of the line
 ;  - zp::curx: updated
 ;  - zp::cury: update
+;  - .A: the character that was deleted (0 if none)
 .proc backspace
 @cnt=zp::tmp6
 @line2len=zp::tmp7
+@char=zp::tmp8
+	lda #$00
+	sta @char
 	jsr src::backspace
 	bcs @done
+	sta @char
 	lda #$14
 	jsr text::putch
 	bcc @done
@@ -2412,7 +2434,8 @@ goto_buffer:
 	jsr src::next
 	dec @cnt
 	bpl @endofline
-@done:	rts
+@done:	lda @char
+	rts
 .endproc
 
 ;******************************************************************************
@@ -3003,13 +3026,48 @@ __edit_gotoline:
 	jmp gotoline
 .endproc
 
+;******************************************************************************
+; BUFF PUTCH
+; Pushes the given character onto the copy/paste buffer
+; IN:
+;  - .A: the character to put into the buffer
+; OUT:
+;  - .C: set if the buffer is full (couldn't add char)
+.proc buff_putch
+	ldx buffptr
+	cpx #40
+	bcs :+			; buffer full
+	sta mem::copybuff,x
+	inc buffptr
+	clc
+:	rts
+.endproc
+
+;******************************************************************************
+; BUFF GETCH
+; Gets the last character that was PUT to the buffer
+; OUT:
+;  - .A: the last character PUT into the buffer (0 if none)
+;  - .C: set if the buffer is empty
+.proc buff_getch
+	lda #$00
+	sec
+	ldx buffptr
+	beq :+
+	dec buffptr
+	dex
+	lda mem::copybuff,x
+	clc
+:	rts
+.endproc
+
 .DATA
 ;******************************************************************************
 controlcodes:
-.byte $9d	; left
-.byte $1d	; right
-.byte $91	; up arrow
-.byte $11	; down
+.byte K_LEFT	; left
+.byte K_RIGHT	; right
+.byte K_UP	; up arrow
+.byte K_DOWN	; down
 numccodes=*-controlcodes
 
 ;******************************************************************************

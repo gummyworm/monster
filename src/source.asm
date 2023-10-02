@@ -592,6 +592,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 ; BACKSPACE
 ; Deletes the character immediately before the current cursor position.
 ; OUT:
+;  - .A: the character that was deleted
 ;  - .C: set if the backspace failed (we're at the START of the source)
 .export __src_backspace
 .proc __src_backspace
@@ -599,11 +600,13 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	jsr __src_start
 	beq @skip
 	jsr atcursor
+	pha
 	cmp #$0d
 	bne :+
 	decw line
 	decw lines
 :	decw pre
+	pla
 	clc
 	rts
 @skip:	sec

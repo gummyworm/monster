@@ -1,4 +1,5 @@
 .import __mem_asmctx
+.import __mem_copybuff
 .import __mem_ctxbuffer
 .import __mem_spare
 .import __mem_spareend
@@ -21,6 +22,7 @@
 	linebuffer      = __linebuffer
 	linebuffer2     = __linebuffer2
 	statusline	= __statusline
+	copybuff        = __mem_copybuff
 
 	progsave	= __mem_progsave
 	prog00		= __mem_prog00
