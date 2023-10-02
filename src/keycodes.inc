@@ -21,6 +21,7 @@ K_REFRESH        = $bc  ; <C=> + c
 K_RENAME         = $b2  ; <C=> + r
 K_DIR            = $b6  ; <C=> + l
 K_LIST_SYMBOLS   = $b7  ; <C=> + y
+K_FIND           = $2f	; /
 K_GOTO_LINE	 = $a7	; <C=> + m
 K_GOTO_BUFF1     = $81  ; <C=> + 1
 K_GOTO_BUFF2     = $95  ; <C=> + 2

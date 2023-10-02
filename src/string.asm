@@ -155,13 +155,14 @@
 ; IN:
 ;  zp::str0: one of the strings to compare
 ;  zp::str2: the other string to compare
+;  .A:       the max length to compare
 ; OUT:
 ;  .Z: set if the strings are equal
 .export __str_compare
 .proc __str_compare
-	tay
+	tay		; is length 0?
 	dey
-	bmi @match
+	bmi @match	; if 0-length comparison, it's a match by default
 
 @l0:	lda (zp::str0),y
 	cmp (zp::str2),y
@@ -172,6 +173,33 @@
 @match:	lda #$00
 	rts
 .endproc
+
+;******************************************************************************
+; COMPAREZ
+; Compares the 0-terminated string in (str0) with (str2).
+; If str0 matches just the first part of str2, will return a match but not
+; vise-versa.
+; IN:
+;  zp::str0: one of the strings to compare
+;  zp::str2: the other string to compare
+; OUT:
+;  .Z: set if the strings are equal
+.export __str_comparez
+.proc __str_comparez
+	ldy #$00
+@l0:	lda (zp::str0),y
+	beq @match
+	cmp (zp::str2),y
+	beq :+
+	rts			; not equal
+:	iny
+	bpl @l0
+	rts
+
+@match:	lda #$00
+	rts
+.endproc
+
 
 ;******************************************************************************
 ; CAT

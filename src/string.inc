@@ -1,5 +1,6 @@
 .import __str_cat
 .import __str_compare
+.import __str_comparez
 .import __str_copy
 .import __str_find
 .import __str_len
@@ -7,13 +8,14 @@
 .import __str_toupper
 
 .scope str
-	cat     = __str_cat
-	compare = __str_compare
-	copy    = __str_copy
-	find    = __str_find
-	len     = __str_len
-	replace = __str_replace
-	toupper = __str_toupper
+	cat      = __str_cat
+	compare  = __str_compare
+	comparez = __str_comparez
+	copy     = __str_copy
+	find     = __str_find
+	len      = __str_len
+	replace  = __str_replace
+	toupper  = __str_toupper
 .endscope
 
 ;******************************************************************************

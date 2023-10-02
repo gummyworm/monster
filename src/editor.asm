@@ -1178,6 +1178,7 @@ main:
 	.byte K_DIR		; dir
 	.byte K_LIST_SYMBOLS	; list symbols
 	.byte K_GOTO_LINE	; gotoline
+	.byte K_FIND		; find
 	.byte K_CLOSE_BUFF	; close buffer
 	.byte K_NEW_BUFF	; new buffer
 	.byte K_SET_BREAKPOINT	; set breakpoint
@@ -1206,6 +1207,7 @@ main:
 	.word dir
 	.word list_symbols
 	.word command_gotoline
+	.word command_find
 	.word close_buffer
 	.word new_buffer
 	.word set_breakpoint
@@ -2486,6 +2488,106 @@ goto_buffer:
 	ldxy #$0001
 :	jmp gotoline
 @done:	rts
+.endproc
+
+;******************************************************************************
+; COMMAND_FIND
+; Gets a string from the user and searches (forward) for it in the source file
+.proc command_find
+	ldxy #$0000
+	jsr readinput
+	jmp __edit_find
+@done:	rts
+.endproc
+
+;******************************************************************************
+; FIND
+; Searches for the text given in .YX and moves the cursor to it if it's
+; found
+; TODO: handle special case of sources with < 16 bytes to seek through
+; IN:
+;  - .YX: the text to find (0-terminated)
+.proc __edit_find
+@string=zp::str0
+@seekptr=zp::str2
+@tofind=zp::tmp2
+@cnt=zp::tmp8
+@target=zp::tmp8
+@len=zp::tmpa
+@searchbuff=$120	; buffer of bytes to search
+	stxy @string
+	jsr str::len
+	sta @len
+	bne :+
+	rts		; if 0-length string, don't search
+
+:	jsr src::pushp	; save source position
+	lda #$00
+	sta @cnt
+
+; fill the search buffer (16 bytes)
+@l0:	jsr src::next
+	jsr src::end
+	bne :+
+	lda #$00
+:	ldy @cnt
+	sta @searchbuff,y
+	inc @cnt
+	cpy #15
+	bne @l0
+
+	ldxy #@searchbuff
+	stxy @seekptr
+
+; see if the text we're looking for is in the buffer
+@seekloop:
+	jsr str::comparez
+	beq @found
+
+; if no match, shift the buffer, load a new byte, and try again
+@next:	lda @searchbuff+1
+	beq @notfound	  ; if buffer starts with 0 (EOF), we're done
+	ldx #$00
+@l1:	lda @searchbuff+1,x
+	sta @searchbuff,x
+	inx
+	cpx #15
+	bcc @l1
+
+	; get a new byte (use 0 if EOF)
+	lda #$00
+	jsr src::end
+	beq :+
+	jsr src::next
+:	ldy #15
+	sta (@seekptr),y
+	jsr src::end
+	jmp @seekloop		; if not EOF, keep seeking
+
+@notfound:
+	jsr src::popp
+	jmp src::goto
+
+@found:	ldxy src::line	; get the line we're moving to
+	stxy @target
+
+; for every newline still in the buffer AFTER the text we're looking for
+; decrement 1 from our target line
+	ldy @len
+	dey
+@l2:	lda @searchbuff,y
+	cmp #$0d
+	bne :+
+	decw @target
+:	iny
+	cpy #16
+	bne @l2
+
+	jsr src::popp	; get old source position
+	jsr src::goto	; and restore it
+	ldxy @target
+	jmp gotoline	; go to the new line
+	; TODO: update curx to go to the start of the string that we found
 .endproc
 
 ;******************************************************************************
