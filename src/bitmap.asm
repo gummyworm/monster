@@ -185,6 +185,91 @@ COLMEM_ADDR = $9400
 .endproc
 
 ;******************************************************************************
+; SHR
+; Shifts the bitmap right 8 pixels (one "char") at the given row
+; IN:
+;  - .A: the row to shift
+;  - .Y: the column to start shifting at
+.export __bm_shr
+.proc __bm_shr
+@dst=zp::tmp0
+@end=zp::tmp2
+@odd=zp::tmp3
+@ystart=zp::tmp4
+	; get the start row
+	asl
+	asl
+	asl
+	pha
+	tax
+
+	adc #$08
+	sta @end
+
+	; get the offset to jump into (how many columns to skip)
+	tya
+	and #$01
+	sta @odd
+
+	; calculate jump address based on # of columns we need to skip
+	tya
+	lsr
+	sta @dst
+	asl
+	sta @ystart
+	adc @dst		; *3 (sizeof ror abs,x)
+	adc #<@target
+	sta @jumpaddr
+	lda #>@target
+	adc #$00
+	sta @jumpaddr+1
+
+; jump into the unrolled loop below at the calculated offset
+; ROR BITMAP_ADDR+$c0
+; ROR BITMAP_ADDR+$c0*2
+; ROR BITMAP_ADDR+$c0*3
+; ...
+@l0:	ldy #$03
+@l1:	clc
+@jumpaddr=*+1
+	jmp *+3
+@target=*
+.repeat 20,i
+	ror BITMAP_ADDR+($c0*(i)),x
+.endrepeat
+	dey
+	bpl @l1
+	inx
+	cpx @end
+	bne @l0
+
+	pla			; restore character row
+	tax			; transfer to .X (pixel row index)
+
+	lda @odd		; is this an odd character?
+	beq @done		; if not, we're done
+
+	; if odd, shift the first column back
+	ldy @ystart
+	lda __bm_columns,y
+	sta @first
+	lda __bm_columns+1,y
+	sta @first+1
+
+@l2:	ldy #$03
+@l3:
+@first=*+1
+	asl $f00d,x
+	dey
+	bpl @l3
+	inx
+	cpx @end
+	bne @l2
+
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; SAVE
 ; Saves the bitmap to the backup buffer. It may then be restored with a call
 ; to bm::restore

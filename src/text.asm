@@ -433,16 +433,14 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	dex
 	bpl @shr
 :	jsr cur::off
-	pla
-	pha
-	ldx zp::curx
-	sta mem::linebuffer,x
-	ldxy #mem::linebuffer
+
+	; shift the bitmap
+	ldy zp::curx
 	lda zp::cury
-	jsr __text_print
-	pla
-	beq @done
-	jmp @updatecur
+	jsr bm::shr
+
+	ldx zp::curx
+	jmp @cont
 
 @fastput:
 	; replace the underlying character
@@ -450,7 +448,8 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	ldx zp::curx
 	lda #$00
 	sta mem::linebuffer+1,x
-	pla
+
+@cont:	pla
 	sta mem::linebuffer,x
 	bne :+
 	rts			; terminating 0, we're done
