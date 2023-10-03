@@ -1,6 +1,7 @@
 .import  __cur_forceset
 .import __cur_on
 .import __cur_off
+.import __cur_mode
 .import __cur_move
 .import __cur_set
 .import __cur_up
@@ -16,6 +17,9 @@
 .import __cur_maxy
 .import __cur_miny
 
+CUR_NORMAL = 0
+CUR_SELECT = 1
+
 .scope cur
 	on       = __cur_on
 	off      = __cur_off
@@ -23,6 +27,7 @@
 	minx     = __cur_minx
 	maxy     = __cur_maxy
 	miny     = __cur_miny
+	mode     = __cur_mode
 	move     = __cur_move
 	set      = __cur_set
 	up       = __cur_up

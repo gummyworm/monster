@@ -29,6 +29,7 @@
 ; CONSTANTS
 MODE_COMMAND = 1
 MODE_INSERT  = 2
+MODE_VISUAL  = 3
 
 START_MODE = MODE_COMMAND
 
@@ -60,6 +61,9 @@ jumplist: .res 8*2	; line #'s between jumps
 jumpptr:  .byte 0	; offset to jumplist
 
 buffptr: .byte 0	; copy buffer pointer (also bytes in copy buffer)
+
+visual_start_y: .word 0	; the line # a selection began at
+visual_start_x: .byte 0	; the x-position a selection began at
 
 .CODE
 ;******************************************************************************
@@ -121,8 +125,11 @@ main:
 	beq @done
 
 	pha
+	lda mode
+	cmp #MODE_VISUAL
+	beq :+			; leave cursor on if in VISUAL mode
 	jsr cur::off
-	pla
+:	pla
 
 	jsr __edit_handle_key
 
@@ -145,9 +152,11 @@ main:
 .export __edit_handle_key
 .proc __edit_handle_key
 	ldx mode
+	cpx #MODE_VISUAL	; handle keys in VISUAL mode like COMMAND
+	beq @cmd
 	cpx #MODE_COMMAND
 	bne @ins
-	jsr onkey_cmd
+@cmd:	jsr onkey_cmd
 	jmp @validate
 @ins:	jsr onkey
 @validate:
@@ -696,6 +705,9 @@ main:
 	.byte $5d	; ] (next empty line)
 	.byte $0d	; RETURN (go to start of next line)
 	.byte $3b	; ; (comment out)
+	.byte $76	; v (enter visual mode)
+	.byte $56	; V (enter visual line mode)
+	.byte $79	; y (yank)
 @numcommands=*-@commands
 
 ; command tables for COMMAND mode key commands
@@ -705,7 +717,8 @@ main:
 	append_char, delete, paste_below, paste_above, delete_char, \
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, open_line_above, open_line_below, end_of_line, \
-	prev_empty_line, next_empty_line, begin_next_line, comment_out
+	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
+	enter_visual, enter_visual, yank
 .linecont -
 @command_vecs_lo: .lobytes cmd_vecs
 @command_vecs_hi: .hibytes cmd_vecs
@@ -715,8 +728,8 @@ main:
 ; ENTER_INSERT
 ; Enters INSERT mode
 .proc enter_insert
-	lda readonly
-	bne @done		; can't INSERT in r/o mode
+	jsr is_readonly
+	beq @done		; can't INSERT in r/o mode
 	lda #MODE_INSERT
 	sta mode
 	lda #TEXT_INSERT
@@ -733,7 +746,33 @@ main:
 	beq @done
 	sta mode
 	jsr ccleft	; insert places cursor after char
+	lda #CUR_NORMAL
+	sta cur::mode
 @done:  rts
+.endproc
+
+;******************************************************************************_
+; ENTER VISUAL
+; Enters VISUAL mode
+.proc enter_visual
+	lda #MODE_VISUAL
+	sta mode
+	lda #CUR_SELECT
+	sta cur::mode
+	lda #TEXT_REPLACE
+	sta text::insertmode
+
+	; save current editor position
+	ldxy src::line
+	stxy visual_start_y
+	lda zp::curx
+	sta visual_start_x
+
+	; save current source position
+	jsr src::pushp
+	jsr cur::off
+
+	rts
 .endproc
 
 ;******************************************************************************_
@@ -743,6 +782,8 @@ main:
 	sta mode
 	lda #TEXT_REPLACE
 	sta text::insertmode
+	lda #CUR_NORMAL
+	sta cur::mode
 	rts
 .endproc
 
@@ -750,8 +791,8 @@ main:
 ; REPLACE_CHAR
 .proc replace_char
 @ch=zp::tmp0
-	lda readonly
-	bne @done
+	jsr is_readonly
+	beq @done
 :	jsr key::getch	; get the character to replace with
 	beq :-
 	sta @ch
@@ -900,8 +941,8 @@ main:
 
 ;******************************************************************************_
 .proc delete_line
-	lda readonly
-	beq :+
+	jsr is_readonly
+	bne :+
 	rts
 
 :	lda #TEXT_INSERT
@@ -1010,6 +1051,51 @@ main:
 .endproc
 
 ;******************************************************************************
+; YANK
+; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
+; mode, does nothing
+.proc yank
+@cur=zp::tmp0
+@end=zp::tmp2
+	lda mode
+	cmp #MODE_VISUAL
+	bne @done
+
+	jsr src::pos	; get the current source position
+	stxy @cur
+	jsr src::popp	; get the source position we started at
+	cmpw @end
+	bcc @cont
+
+	; end position > start pos; swap cur with our new end position
+	txa
+	lda @cur
+	sta @end
+	stx @cur
+	tya
+	lda @cur+1
+	sta @end+1
+	sty @cur
+
+@cont:	ldxy @end	; starting from the END, copy to copy buffer
+	jsr src::goto	; go to the start position
+
+@copy:	jsr src::prev
+	jsr buff_putch	; add the character to the copy buffer
+	jsr src::pos
+	cmpw @cur	; are we back at the START of the selection yet?
+	bne @copy	; continue until we are
+
+	; we're done yanking, go back to where we began the selection
+	ldxy visual_start_y
+	jsr gotoline
+	lda visual_start_x
+	sta zp::curx
+
+@done:	rts
+.endproc
+
+;******************************************************************************
 .proc comment_out
 :	jsr key::getch	; get a key to decide what to comment out
 	beq :-
@@ -1110,8 +1196,8 @@ main:
 
 ;******************************************************************************
 .proc open_line_above
-	lda readonly
-	beq :+
+	jsr is_readonly
+	bne :+
 	rts
 :	jsr enter_insert
 	jsr home	; move to start of line
@@ -1121,8 +1207,8 @@ main:
 
 ;******************************************************************************
 .proc open_line_below
-	lda readonly
-	beq :+
+	jsr is_readonly
+	bne :+
 	rts
 :	jsr enter_insert
 	jsr end_of_line
@@ -1934,12 +2020,11 @@ goto_buffer:
 	jsr file::load
 	bcs @err
 
-	; clear flags on the source buffer
-	jsr src::setflags
-	jsr src::rewind
-	ldx #$00
-	ldy #$00
-	jsr cur::set
+	jsr src::setflags	; clear flags on the source buffer
+	jsr src::rewind		; rewind the source
+	lda #$00
+	sta zp::curx
+	sta zp::cury		; reset cursor
 	jsr refresh
 	RETURN_OK
 
@@ -1971,8 +2056,8 @@ goto_buffer:
 
 ;******************************************************************************
 .proc newl
-	lda readonly
-	beq :+
+	jsr is_readonly
+	bne :+
 	jmp begin_next_line
 
 :	; insert \n into source buffer and terminate text buffer
@@ -2002,8 +2087,8 @@ goto_buffer:
 ; Attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
 @i=zp::tmpa
-	lda readonly
-	beq :+
+	jsr is_readonly
+	bne :+
 	jmp begin_next_line
 
 :	; insert \n into source buffer and terminate text buffer
@@ -2166,8 +2251,8 @@ goto_buffer:
 ; INSERT
 ; Adds a character at the cursor position.
 .proc insert
-	ldx readonly
-	beq :+
+	jsr is_readonly
+	bne :+
 @done:	rts
 
 :	cmp #$80
@@ -2257,8 +2342,8 @@ goto_buffer:
 ; OUT:
 ;  - .C: set if no character could be deleted.
 .proc delch
-	lda readonly
-	bne @no_del
+	jsr is_readonly
+	beq @no_del
 
 	jsr src::end
 	beq @no_del
@@ -2331,17 +2416,26 @@ goto_buffer:
 ; OUT:
 ;  - .C: clear if the cursor was moved DOWN or screen scrolled
 .proc ccdown
-@newy=zp::tmp7
-@xend=zp::tmp8
+@xend=zp::tmpa
 	jsr src::end
 	bne :+
 	sec		; cursor could not be moved
 	rts		; cursor is at end of source file, return
 
-:	lda zp::cury
-	sta @newy
+:	lda zp::curx
+	sta @xend
 
-	jsr src::down
+	; if we are in VISUAL mode, highlight to the end of the line
+	lda mode
+	cmp #MODE_VISUAL
+	bne @cont
+
+@sel:	jsr ccright
+	bcs @cont
+	jsr cur::on
+	jmp @sel
+
+@cont:	jsr src::down
 	bcc @down
 
 	; can't move down, move cursor to end of line
@@ -2352,22 +2446,13 @@ goto_buffer:
 	rts
 
 @down:	jsr src::get	; get the data for this in linebuffer
-	inc @newy	; move row down
-	lda zp::curx
-	sta @xend
+	inc zp::cury	; move row down
 	lda #$00
 	sta zp::curx
-	beq @movecur	; cursor is at column 0, place it in the new line
-
-@movex:	jsr ccright
-	bcs @movecur
-	lda zp::curx
-	cmp @xend
-	bcc @movex
 
 @movecur:
-	ldy @newy
-	cpy height
+	lda zp::cury
+	cmp height
 	beq @redraw
 	bcc @redraw	; no need to scroll
 
@@ -2375,13 +2460,29 @@ goto_buffer:
 	ldx #EDITOR_ROW_START
 	lda height
 	jsr text::scrollup	; cursor wasn't moved, scroll
-	ldy height
+	lda height
+	sta zp::cury
+
 @redraw:
-	ldx zp::curx
-	jsr cur::set
-	lda zp::cury
 	jsr text::drawline
-	RETURN_OK
+
+@movex:	lda @xend
+	beq @done
+@xloop:	jsr ccright
+	bcs @done
+	lda mode
+	cmp #MODE_VISUAL
+	bne :+
+	jsr cur::toggle	; if we're selecting, highlight
+:	lda zp::curx
+	cmp @xend
+	bcc @xloop
+	lda mode
+	cmp #MODE_VISUAL
+	bne @done
+	jsr cur::toggle	; cursor will be highlighted again
+
+@done:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -2475,8 +2576,8 @@ goto_buffer:
 	cmp #MODE_COMMAND	; handle COMMAND mode like REPLACE
 	beq @del_rep
 
-	lda readonly
-	bne @del_rep
+	jsr is_readonly
+	beq @del_rep		; handle DEL in r/o mode the same as REPLACE
 	lda text::insertmode
 	bne @del_ins
 
@@ -2990,6 +3091,7 @@ __edit_gotoline:
 	lda @line
 	sec
 	sbc @startline		; will be [0, BRKVIEW_START)
+	RETURN_OK
 
 @done:	sec			; line off screen
 	rts
@@ -3084,6 +3186,20 @@ __edit_gotoline:
 	lda mem::copybuff,x
 	clc
 :	rts
+.endproc
+
+;******************************************************************************
+; IS READONLY
+; Returns .Z set if the buffer should not allow edits (true if readonly has
+; been explictly enabled or if we are in a VISUAL editing mode)
+.proc is_readonly
+	ldx readonly
+	bne @ro
+	ldx mode
+	cpx #MODE_VISUAL
+	rts
+@ro:	ldx #$00
+	rts
 .endproc
 
 .DATA

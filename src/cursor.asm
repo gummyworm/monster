@@ -11,6 +11,12 @@ R_INSERT_MASK  = $08
 L_REPLACE_MASK = $f0
 R_REPLACE_MASK = $0f
 
+
+;******************************************************************************
+.BSS
+.export __cur_mode
+__cur_mode: .byte 0	; 0 = NORMAL, 1 = SELECT
+
 .CODE
 
 ;******************************************************************************
@@ -56,6 +62,8 @@ __cur_off:
 ; Turns on the cursor if it is off. Has no effect if the cursor is already on.
 .export __cur_on
 __cur_on:
+	lda __cur_mode
+	bne __cur_toggle	; always turn ON in SELECT mode
 	lda curstatus
 	beq __cur_toggle
 	rts
@@ -67,14 +75,8 @@ __cur_toggle:
 @dst=zp::tmp0
 	ldx zp::curx
 	ldy zp::cury
-	lda curstatus
-	beq :+		; cursor is being turned on
-	ldx prev_x
-	ldy prev_y
-	cpx #$ff	; old cursor is undefined, don't clear
-	beq @done
 
-:	txa
+	txa
 	and #$fe
 	tax
 	tya
@@ -101,10 +103,8 @@ __cur_toggle:
 	eor curstatus
 	sta curstatus
 
-@done:  lda zp::curx
-	sta prev_x
-	lda zp::cury
-	sta prev_y
+@done:  ldx zp::curx
+	ldy zp::cury
 	rts
 
 ;******************************************************************************
@@ -148,9 +148,7 @@ __cur_toggle:
 	lda zp::curx
 	cmp #39
 	bcs @done
-	ldy #0
-	ldx #1
-	jmp __cur_move
+	inc zp::curx
 @done:	rts
 .endproc
 
@@ -162,9 +160,7 @@ __cur_toggle:
 .proc __cur_left
 	lda zp::curx
 	beq @done
-	ldy #0
-	ldx #$ff
-	jmp __cur_move
+	dec zp::curx
 @done:	rts
 .endproc
 
@@ -176,11 +172,14 @@ __cur_toggle:
 ;  - .Y: the signed number of rows to move
 .export __cur_move
 .proc __cur_move
-	stx zp::tmp2
-	sty zp::tmp3
+@xdst=zp::tmp2
+@ydst=zp::tmp3
+	stx @xdst
+	sty @ydst
+	lda __cur_mode
+	bne :+
 	jsr __cur_off
-
-	lda zp::tmp2
+:	lda @xdst
 	clc
 	adc zp::curx
 	bmi @movey
@@ -190,7 +189,7 @@ __cur_toggle:
 	bcc @movey
 	sta zp::curx
 
-@movey: lda zp::tmp3
+@movey: lda @ydst
 	clc
 	adc zp::cury
 	bmi @done
@@ -306,6 +305,3 @@ miny: .byte 0
 .export __cur_maxy
 __cur_maxy:
 maxy: .byte 0
-
-prev_x: .byte 0
-prev_y: .byte 0

@@ -148,7 +148,6 @@ final_copy_end=*-__final_copy
 	ldx $9c02
 	stx @oldbank	; save current bank
 
-	ora #%10100000	; SUPERRAM mode in final expansion
 	sta $9c02
 
 	jsr zp::jmpaddr
@@ -181,7 +180,6 @@ final_copy_end=*-__final_copy
 .proc __final_rti
 	pha
 	lda zp::bankval
-	ora #$a0
 	sta $9c02
 	pla
 	rti

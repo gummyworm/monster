@@ -565,6 +565,16 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 .endproc
 
 ;******************************************************************************
+; POS
+; Returns the current source position.  You may go to this position with the
+; src::goto routine.  Note that if the source changes since this procedure is
+; called, this may not be the same (or expected) position
+; OUT:
+;  - .XY: the current source position
+.export __src_pos
+__src_pos = __src_start	 ; start implements the same behavior
+
+;******************************************************************************
 ; END
 ; Returns .Z set if the cursor is at the end of the buffer.
 ; OUT:

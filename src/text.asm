@@ -137,7 +137,9 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 .export __text_update
 .proc __text_update
 	jsr update_statusline
-@blink: dec zp::curtmr
+@blink: lda cur::mode
+	bne @done			; if not NORMAL (SELECT), don't blink
+	dec zp::curtmr
 	bne @done
 
 	jsr cur::toggle
@@ -391,7 +393,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	bne @printing
 
 	; backspace
-	jsr cur::off
 	lda zp::curx
 	beq @err	; cannot delete (cursor is at left side of screen)
 	cmp cur::minx
@@ -432,9 +433,8 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	beq :+
 	dex
 	bpl @shr
-:	jsr cur::off
 
-	; shift the bitmap
+:	; shift the bitmap
 	ldy zp::curx
 	lda zp::cury
 	jsr bm::shr
@@ -444,7 +444,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
 @fastput:
 	; replace the underlying character
-	jsr cur::off
 	ldx zp::curx
 	lda #$00
 	sta mem::linebuffer+1,x
@@ -576,8 +575,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	sta @dst+1
 	sta @src+1
 
-	jsr cur::off	 ; disable cursor
-
 @l0:	ldy #$00
 @l1:	lda (@src),y
 	sta (@dst),y
@@ -647,8 +644,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	lda #>BITMAP_ADDR
 	sta @src+1
 	sta @dst+1
-
-	jsr cur::off	 ; disable cursor
 
 @l0:	ldy @rows
 @l1:
