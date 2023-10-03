@@ -679,8 +679,7 @@ main:
 	.byte $61	; a (append to character)
 	.byte $64	; d (delete)
 	.byte $70	; p (paste below)
-	.byte $50	; p (paste above)
-	.byte $70	; P (paste above)
+	.byte $50	; P (paste above)
 	.byte $78	; x (erase char)
 	.byte $77	; w (word advance)
 	.byte $30	; 0 (column 0)
@@ -984,7 +983,8 @@ main:
 	jsr enter_insert
 	jsr ccdown
 	jsr home
-	jmp paste_buff
+	jsr paste_buff
+	jmp ccup
 .endproc
 
 ;******************************************************************************
@@ -992,9 +992,9 @@ main:
 ; Pastes the contents of the copy buffer to the line above the cursor
 .proc paste_above
 	jsr enter_insert
-	jsr ccup
 	jsr home
-	jmp paste_buff
+	jsr paste_buff
+	jmp ccup
 .endproc
 
 ;******************************************************************************
@@ -1008,7 +1008,6 @@ main:
 	jmp :-
 @done:	jmp enter_command
 .endproc
-
 
 ;******************************************************************************
 .proc comment_out
