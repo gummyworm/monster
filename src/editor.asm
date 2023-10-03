@@ -2023,6 +2023,10 @@ goto_buffer:
 	jsr asm::tokenize
 	bcs @err
 
+	; clear the error row
+	lda #STATUS_ROW-1
+	jsr bm::clrline
+
 	; reset indent
 	ldx #$00
 	stx indent

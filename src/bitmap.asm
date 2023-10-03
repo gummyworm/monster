@@ -118,6 +118,39 @@ COLMEM_ADDR = $9400
 .endproc
 
 ;******************************************************************************
+; BM CLRLINE
+; Clears the given character row
+; IN:
+;  - .A: the row to clear
+.export __bm_clrline
+.proc __bm_clrline
+@dst=zp::tmp0
+	asl
+	asl
+	asl
+	adc #<BITMAP_ADDR
+	sta @dst
+	lda #>BITMAP_ADDR
+	sta @dst+1
+
+	ldx #20
+@l0:	ldy #$07
+	lda #$00
+@l1:	sta (@dst),y
+	dey
+	bpl @l1
+	lda @dst
+	clc
+	adc #$c0
+	sta @dst
+	bcc :+
+	inc @dst+1
+:	dex
+	bne @l0
+	rts
+.endproc
+
+;******************************************************************************
 ; RVSLINE
 ; Reverses 1 character (8 pixels high) in the given row
 ; IN:
