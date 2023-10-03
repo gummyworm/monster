@@ -133,6 +133,9 @@ main:
 
 	jsr __edit_handle_key
 
+	lda mode
+	cmp #MODE_VISUAL
+	beq @done
 	jsr cur::on
 
 @done:	jsr text::update
@@ -2281,12 +2284,25 @@ goto_buffer:
 @ch=zp::tmpa
 	jsr src::atcursor
 	sta @ch
-	jsr src::up	; move up a line or to start of line
+
+	ldx zp::curx
+	stx @xend
+	beq @up
+
+	; if we are in VISUAL mode, highlight to the beginning of the line
+	lda mode
+	cmp #MODE_VISUAL
+	bne @up
+
+@sel:	jsr ccleft
+	bcc @sel
+
+@up:	jsr src::up	; move up a line or to start of line
 	bcc @cont
 	lda @ch
 	cmp #$0d
-	beq @cont	; if we crossed a newline, scroll, etc.
-	jsr src::get
+	beq @cont	; if we crossed a newline, continue
+	jsr src::get	; get the contents of the line we're on now
 	lda #$00	; start of source, just move to the leftmost column
 	sta zp::curx
 	sta zp::cury
@@ -2294,7 +2310,6 @@ goto_buffer:
 	rts
 
 @cont:	ldx zp::curx
-	stx @xend	; store current x as max column to move to
 	beq :+
 	jsr src::up	; move to start of line we're moving to
 :	jsr src::get	; read the line we're moving to into linebuffer
@@ -2302,36 +2317,33 @@ goto_buffer:
 	lda #$00
 	sta zp::curx
 
-	; move source to lesser of curx or newline ($0d)
-	lda @xend
-	beq @checkscroll
-@movex: jsr ccright
-	bcs @checkscroll
-	lda zp::curx
-	cmp @xend
-	bcc @movex
-
 @checkscroll:
 	ldy zp::cury		; is cursor at row 0?
 	beq @scroll		; if it is, scroll the screen down
-	dey			; if not, decrement it
-	ldx zp::curx
-	jsr cur::set		; and return
-	clc
-	rts
+	dec zp::cury		; if not, decrement it
+	bpl @redraw
 
 @scroll:
 	lda #EDITOR_ROW_START
 	ldx height
 	jsr text::scrolldown	; cursor wasn't moved, scroll
-	ldy #$00
-	ldx zp::curx
-	jsr cur::set
 @redraw:
 	lda zp::cury
 	jsr text::drawline
-	clc
-	rts
+
+@movex: lda @xend
+	beq @done
+	lda mode
+	cmp #MODE_VISUAL
+	bne @xloop
+	jsr cur::toggle
+@xloop:	jsr ccright
+	bcs @done
+	lda zp::curx
+	cmp @xend
+	bcc @xloop
+
+@done:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -2377,7 +2389,13 @@ goto_buffer:
 	lda zp::curx
 	beq @nomove
 	jsr cur::left
-	jsr src::prev
+
+	lda mode
+	cmp #MODE_VISUAL
+	bne :+
+	jsr cur::toggle
+
+:	jsr src::prev
 	clc
 	rts
 @nomove:
@@ -2406,7 +2424,11 @@ goto_buffer:
 	rts
 
 @ok:	jsr cur::right
-	clc
+	lda mode
+	cmp #MODE_VISUAL
+	bne :+
+	jsr cur::toggle
+:	clc
 	rts
 .endproc
 
@@ -2431,9 +2453,7 @@ goto_buffer:
 	bne @cont
 
 @sel:	jsr ccright
-	bcs @cont
-	jsr cur::on
-	jmp @sel
+	bcc @sel
 
 @cont:	jsr src::down
 	bcc @down
@@ -2450,7 +2470,6 @@ goto_buffer:
 	lda #$00
 	sta zp::curx
 
-@movecur:
 	lda zp::cury
 	cmp height
 	beq @redraw
@@ -2468,20 +2487,15 @@ goto_buffer:
 
 @movex:	lda @xend
 	beq @done
+	lda mode
+	cmp #MODE_VISUAL
+	bne @xloop
+	jsr cur::toggle
 @xloop:	jsr ccright
 	bcs @done
-	lda mode
-	cmp #MODE_VISUAL
-	bne :+
-	jsr cur::toggle	; if we're selecting, highlight
-:	lda zp::curx
+	lda zp::curx
 	cmp @xend
 	bcc @xloop
-	lda mode
-	cmp #MODE_VISUAL
-	bne @done
-	jsr cur::toggle	; cursor will be highlighted again
-
 @done:	RETURN_OK
 .endproc
 
