@@ -185,6 +185,116 @@ COLMEM_ADDR = $9400
 .endproc
 
 ;******************************************************************************
+; RVSLINE PART
+; Reverses the given number of character (8 pixels high) in the given row
+; IN:
+;  - .A: the text row to reverse (pixel number / 8)
+;  - .Y: the first column to reverse
+;  - .X: the last column to reverse
+.export __bm_rvsline_part
+.proc __bm_rvsline_part
+@dst=zp::tmp0
+@odd=zp::tmp2	; !0 if the character to end at is odd
+@start=zp::tmp3
+	asl
+	asl
+	asl
+	pha		; save character row
+
+	; swap Y and X if (X > Y)
+	sty @start
+	cpx @start
+	beq @done	; if start/stop are equal we're done
+	bcs :+
+	txa
+	ldx @start
+	tay
+
+:	lda #$00
+	sta @odd
+
+	; check whether the start column is even/odd
+	tya
+	lsr
+	sta @start
+	ror @odd
+
+	asl
+	tay
+	pla
+	adc __bm_columns,y
+	sta @dst
+	lda __bm_columns+1,y
+	adc #$00
+	sta @dst+1
+
+	lda @odd
+	beq @cont
+
+	; reverse half of the first column
+	ldy #$07
+@col0:	lda (@dst),y
+	eor #$0f
+	sta (@dst),y
+	dey
+	bpl @col0
+
+	; move to next column
+	lda @dst
+	clc
+	adc #$c0
+	sta @dst
+	bcc @cont
+	inc @dst+1
+	dex
+
+@cont:	; divide character # by 2 to get bitmap column
+	txa
+	lsr
+	tax
+
+	; check if end column is even or odd
+	lda #$00
+	adc #$00
+	sta @odd
+
+	cpx @start
+	beq @lastcol
+
+@l0:	ldy #$07
+@l1: 	lda (@dst),y
+	eor #$ff
+	sta (@dst),y
+	dey
+	bpl @l1
+	lda @dst
+	clc
+	adc #$c0
+	sta @dst
+	lda @dst+1
+	adc #$00
+	sta @dst+1
+	dex
+	cpx @start
+	bne @l0
+
+@lastcol:
+	lda @odd
+	beq @done
+
+	; reverse half of the last column
+	ldy #$07
+@l2:	lda (@dst),y
+	eor #$f0
+	sta (@dst),y
+	dey
+	bpl @l2
+
+@done:	rts
+.endproc
+
+
+;******************************************************************************
 ; SHR
 ; Shifts the bitmap right 8 pixels (one "char") at the given row
 ; IN:

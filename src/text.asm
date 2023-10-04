@@ -20,8 +20,8 @@ ESCAPE_VALUE     = $fe
 ESCAPE_VALUE_DEC = $fd
 ESCAPE_SPACING   = $fc
 ESCAPE_BYTE      = $fb
-ESCAPE_RVS_ON    = $01
-ESCAPE_RVS_OFF   = $02
+ESCAPE_RVS_ON    = $12
+ESCAPE_RVS_OFF   = $92
 STATUS_LINE      = 23
 STATUS_COL       = 0
 
@@ -29,7 +29,9 @@ STATUS_COL       = 0
 ;******************************************************************************
 .export __text_len
 __text_len: .byte 0
-rvs: .byte 0	; reverse text state (1 = reverse on, 0 = reverse off)
+
+.export __text_rvs
+__text_rvs: .byte 0	; reverse text state ($ff = rvs on, $00 = rvs off)
 
 .export __text_insertmode
 __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
@@ -167,6 +169,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 ; get operands
 ; IN:
 ;  - .XY: the address of the message to print
+;  - .A:  the row to print the string at
 .export __text_print
 .proc __text_print
 @str = zp::text+9
@@ -519,23 +522,26 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	lda #40
 	sta __text_len
 	sta zp::tmp0
-	ldx #<mem::spare
-	ldy #>mem::spare
+	ldxy #mem::spare
 	lda #' '
 	jsr util::memset
 
 	ldx #$00
+	ldy #$00
 @l0:	lda mem::linebuffer,x
 	beq @done
 	cmp #' '
 	bcc :+
 	sta mem::spare,x
+:	cmp #ESCAPE_RVS_OFF
+	bne :+
+	dey
 :	inx
-	cpx #40
+	iny
+	cpy #40
 	bcc @l0
 
-@done:	ldx #<mem::spare
-	ldy #>mem::spare
+@done:	ldxy #mem::spare
 	pla
 	jmp __text_puts
 .endproc
@@ -732,12 +738,11 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
         lda #<BITMAP_ADDR
         adc @txtdst
         sta @txtdst
-        lda #$00
-	sta rvs
+	lda #$00
+	tay
         adc #>BITMAP_ADDR
         sta @txtdst+1
 
-        ldy #$00
 @l0:    lda (@txtsrc),y
 	jsr @handlecc
 	iny
@@ -782,11 +787,11 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
         pha
         ldy #$00
 @l1:    lda (@txtleft),y
-	eor rvs
+	eor __text_rvs
         and #$f0
         sta @txtbyte
         lda (@txtright),y
-	eor rvs
+	eor __text_rvs
         and #$0f
         ora @txtbyte
         sta (@txtdst),y
@@ -805,24 +810,31 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 @nextch:
 	cpy __text_len
 	bcc @l0
+
+	; turn off RVS for next line
+        lda #$00
+	sta __text_rvs
         rts
 
 ;------------------
 @handlecc:
-	cmp #$12	; RVS on?
+	cmp #ESCAPE_RVS_ON	; RVS on?
 	bne :+
 	lda #$ff
 	bne @setrvs
-:	cmp #$92	; RVS off
+:	cmp #ESCAPE_RVS_OFF	; RVS off
 	bne @done
 	lda #$00
 @setrvs:
-	sta rvs
+	sta __text_rvs
 	iny
 	pla
 	pla
 	inc __text_len
-	jmp @nextch
+	tya
+	and #$01
+	bne @right
+	jmp @l0
 @done:  rts
 .endproc
 

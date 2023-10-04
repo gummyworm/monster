@@ -8,6 +8,7 @@ COLMEM_ADDR = $9400
 .import __bm_clrline
 .import __bm_columns
 .import __bm_rvsline
+.import __bm_rvsline_part
 .import __bm_save
 .import __bm_shr
 .import __bm_restore
@@ -20,6 +21,7 @@ COLMEM_ADDR = $9400
 	clrpart  = __bm_clr_part
         columns  = __bm_columns
 	rvsline  = __bm_rvsline
+	rvsline_part = __bm_rvsline_part
 	save     = __bm_save
 	shr      = __bm_shr
 	restore  = __bm_restore

@@ -12,6 +12,7 @@
 .import __text_print
 .import __text_putch
 .import __text_puterr
+.import __text_rvs
 .import __text_restorebuff
 .import __text_savebuff
 .import __text_scrolldown
@@ -25,11 +26,14 @@ ESCAPE_VALUE     = $fe	; 2 byte: value to print in hex
 ESCAPE_VALUE_DEC = $fd	; 2 byte: value to print in decimal
 ESCAPE_SPACING   = $fc	; 1 byte: number of spaces to insert
 ESCAPE_BYTE      = $fb  ; 1 byte: the value to print in hex
-ESCAPE_RVS_ON    = $01
-ESCAPE_RVS_OFF   = $02
+ESCAPE_RVS_ON    = $12
+ESCAPE_RVS_OFF   = $92
 
 TEXT_INSERT  = 1
 TEXT_REPLACE = 0
+
+RVS_ON  = $ff
+RVS_OFF = $00
 
 BREAKPOINT_CHAR     = 133
 BREAKPOINT_OFF_CHAR = 134
@@ -49,6 +53,7 @@ CH_R_ARROW	    = 135
 	putch         = __text_putch
         puts          = __text_puts
 	putz   	      = __text_putz
+	rvs           = __text_rvs
 	savebuff      = __text_savebuff
 	scrolldown    = __text_scrolldown
 	scrollup      = __text_scrollup

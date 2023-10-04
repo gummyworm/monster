@@ -62,8 +62,8 @@ jumpptr:  .byte 0	; offset to jumplist
 
 buffptr: .byte 0	; copy buffer pointer (also bytes in copy buffer)
 
-visual_start_y: .word 0	; the line # a selection began at
-visual_start_x: .byte 0	; the x-position a selection began at
+visual_start_line: .word 0	; the line # a selection began at
+visual_start_x:    .byte 0	; the x-position a selection began at
 
 .CODE
 ;******************************************************************************
@@ -767,7 +767,7 @@ main:
 
 	; save current editor position
 	ldxy src::line
-	stxy visual_start_y
+	stxy visual_start_line
 	lda zp::curx
 	sta visual_start_x
 
@@ -1090,7 +1090,7 @@ main:
 	bne @copy	; continue until we are
 
 	; we're done yanking, go back to where we began the selection
-	ldxy visual_start_y
+	ldxy visual_start_line
 	jsr gotoline
 	lda visual_start_x
 	sta zp::curx
@@ -2282,10 +2282,22 @@ goto_buffer:
 .proc ccup
 @xend=zp::tmp9
 @ch=zp::tmpa
+@deselecting=zp::tmpb
 	jsr src::atcursor
 	sta @ch
 
-	ldx zp::curx
+	lda mode
+	cmp #MODE_VISUAL
+	bne :+
+	ldxy visual_start_line	; get the selection's start line
+	cmpw src::line		; is it above the source?
+	lda #$00
+	adc #$ff
+	sta @deselecting
+	beq :+
+	jsr cur::toggle		; if we're deselecting, toggle cursor off
+
+:	ldx zp::curx
 	stx @xend
 	beq @up
 
@@ -2312,7 +2324,8 @@ goto_buffer:
 @cont:	ldx zp::curx
 	beq :+
 	jsr src::up	; move to start of line we're moving to
-:	jsr src::get	; read the line we're moving to into linebuffer
+:	jsr text::clrline
+	jsr src::get	; read the line we're moving to into linebuffer
 
 	ldxy #mem::linebuffer
 	jsr str::len
@@ -2335,18 +2348,36 @@ goto_buffer:
 	lda zp::cury
 	jsr text::drawline
 
+	; if we are deselecting (line is already selected) highlight the line
+	lda @deselecting
+	beq @movex
+	ldxy src::line
+	cmpw visual_start_line
+	bne :+
+	ldy visual_start_x
+	skw
+:	ldy #$00
+	ldx zp::curx
+	beq @movex
+	lda zp::cury
+	inx
+	jsr bm::rvsline_part
+
 @movex: lda zp::curx
 	cmp @xend
 	bcc @done
-	lda mode
-	cmp #MODE_VISUAL
-	bne @xloop
+	lda @deselecting
+	beq @xloop
 	jsr cur::toggle
 @xloop:	jsr ccleft
 	bcs @done
 	lda @xend
 	cmp zp::curx
 	bcc @xloop
+
+	lda @deselecting
+	beq @done
+	jsr cur::toggle
 
 @done:	RETURN_OK
 .endproc
@@ -2391,12 +2422,33 @@ goto_buffer:
 ; OUT:
 ;  - .C: set if cursor could not be moved
 .proc ccleft
+@deselect=zp::tmp0
 	lda zp::curx
 	beq @nomove
+
+	lda #$00
+	sta @deselect
+
+	; unhighlight if we're deselecting
+	ldxy src::line
+	cmpw visual_start_line
+	bne @movecur
+	lda zp::curx
+	cmp visual_start_x
+	beq @movecur
+	lda #$00
+	adc #$00
+	sta @deselect
+	beq @movecur
+	jsr cur::toggle		; turn off (deselect) old cursor position
+
+@movecur:
 	jsr cur::left
 
 	lda mode
 	cmp #MODE_VISUAL
+	bne :+
+	lda @deselect
 	bne :+
 	jsr cur::toggle
 
@@ -2414,6 +2466,7 @@ goto_buffer:
 ; OUT:
 ;  - .C: set if cursor could not be moved
 .proc ccright
+@deselect=zp::tmp0
 	lda text::insertmode
 	cmp #TEXT_INSERT
 	beq @ins
@@ -2428,9 +2481,31 @@ goto_buffer:
 	sec
 	rts
 
-@ok:	jsr cur::right
+@ok:	; turn off the old cursor if we're unhighlighting
+	lda #$00
+	sta @deselect
+
 	lda mode
 	cmp #MODE_VISUAL
+	bne @movecur
+
+	ldxy src::line
+	cmpw visual_start_line
+	bne @movecur
+	lda visual_start_x
+	cmp zp::curx
+	beq @movecur
+	lda #$00
+	adc #$00
+	sta @deselect
+	beq @movecur
+	jsr cur::toggle
+@movecur:
+	jsr cur::right
+	lda mode
+	cmp #MODE_VISUAL
+	bne :+
+	lda @deselect
 	bne :+
 	jsr cur::toggle
 :	clc
@@ -2444,10 +2519,22 @@ goto_buffer:
 ;  - .C: clear if the cursor was moved DOWN or screen scrolled
 .proc ccdown
 @xend=zp::tmpa
+@deselecting=zp::tmpb
 	jsr src::end
 	bne :+
 	sec		; cursor could not be moved
 	rts		; cursor is at end of source file, return
+
+:	lda mode
+	cmp #MODE_VISUAL
+	bne :+
+	ldxy src::line
+	cmpw visual_start_line
+	lda #$00
+	adc #$ff
+	sta @deselecting
+	beq :+
+	jsr cur::toggle		; if we're deselecting, toggle cursor off
 
 :	lda zp::curx
 	sta @xend
@@ -2490,6 +2577,7 @@ goto_buffer:
 @redraw:
 	jsr text::drawline
 
+
 @movex:	lda @xend
 	beq @done
 	lda mode
@@ -2501,6 +2589,27 @@ goto_buffer:
 	lda zp::curx
 	cmp @xend
 	bcc @xloop
+
+	; if we are deselecting (line is already selected) highlight the line
+	lda @deselecting
+	beq @done
+	ldxy #mem::linebuffer
+	jsr str::len
+	pha
+
+	ldxy src::line
+	cmpw visual_start_line
+	bne :+
+	pla
+	ldx visual_start_x
+	jmp :++
+:	ldy #$00
+	pla
+	tax
+:	lda zp::cury
+	jsr bm::rvsline_part
+	jsr cur::toggle
+
 @done:	RETURN_OK
 .endproc
 
@@ -3205,6 +3314,37 @@ __edit_gotoline:
 	lda mem::copybuff,x
 	clc
 :	rts
+.endproc
+
+;******************************************************************************
+; DESELECT
+; Unselects any text that is currently selected
+.proc deselect
+@line=zp::tmp0
+	lda #MODE_VISUAL
+	bne @done
+
+	ldxy visual_start_line	; get the line the selection starts at
+	stxy @line
+
+@yloop:	ldxy @line
+	jsr __edit_src2screen	; is the line we're unhighlighting on screen?
+	bcs @next		; if line is offscreen, get next
+	cmp zp::cury		; is the current line the selection start line?
+	beq @handlex		; if so, all full lines are deselected
+
+@next:	ldxy @line
+	cmpw src::line		; is line
+	beq @handlex
+	bcc @fwd
+@back:	decw @line
+	jmp @yloop
+@fwd:	incw @line
+	jmp @yloop
+
+@handlex:
+
+@done:	rts
 .endproc
 
 ;******************************************************************************
