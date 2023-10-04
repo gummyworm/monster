@@ -30,7 +30,7 @@ __mem_debugsave=__mem_backbuff+$300 	; backup for the user's program during debu
 __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
 
 .export __statusline
-__statusline = __mem_backbuff ;.res 40
+__statusline: .res 40
 
 .export __mem_copybuff
 __mem_copybuff: .res 40

@@ -2314,8 +2314,12 @@ goto_buffer:
 	jsr src::up	; move to start of line we're moving to
 :	jsr src::get	; read the line we're moving to into linebuffer
 
-	lda #$00
+	ldxy #mem::linebuffer
+	jsr str::len
 	sta zp::curx
+
+:	jsr src::right
+	bcc :-
 
 @checkscroll:
 	ldy zp::cury		; is cursor at row 0?
@@ -2331,16 +2335,17 @@ goto_buffer:
 	lda zp::cury
 	jsr text::drawline
 
-@movex: lda @xend
-	beq @done
+@movex: lda zp::curx
+	cmp @xend
+	bcc @done
 	lda mode
 	cmp #MODE_VISUAL
 	bne @xloop
 	jsr cur::toggle
-@xloop:	jsr ccright
+@xloop:	jsr ccleft
 	bcs @done
-	lda zp::curx
-	cmp @xend
+	lda @xend
+	cmp zp::curx
 	bcc @xloop
 
 @done:	RETURN_OK
