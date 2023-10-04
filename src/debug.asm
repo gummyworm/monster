@@ -1022,7 +1022,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	RETURN_OK
 .endproc
 
-
 ;******************************************************************************
 ; START
 ; Begins debugging at the given address
@@ -1350,7 +1349,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; if the buffer is already loaded switch to it. if not, load it into the
 ; DEBUG bank
 @openfile:
-	sta file
+	lda file
 	asl
 	asl
 	asl
