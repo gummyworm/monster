@@ -2282,7 +2282,7 @@ goto_buffer:
 .proc ccup
 @xend=zp::tmp9
 @ch=zp::tmpa
-@deselecting=zp::tmpb
+@selecting=zp::tmpb
 	jsr src::atcursor
 	sta @ch
 
@@ -2291,10 +2291,13 @@ goto_buffer:
 	bne :+
 	ldxy visual_start_line	; get the selection's start line
 	cmpw src::line		; is it above the source?
-	lda #$00
-	adc #$ff
-	sta @deselecting
-	beq :+
+	bne :+
+	lda zp::curx
+	cmp visual_start_x
+:	lda #$00
+	rol
+	sta @selecting
+	bne :+
 	jsr cur::toggle		; if we're deselecting, toggle cursor off
 
 :	ldx zp::curx
@@ -2348,38 +2351,67 @@ goto_buffer:
 	lda zp::cury
 	jsr text::drawline
 
-	; if we are deselecting (line is already selected) highlight the line
-	lda @deselecting
-	beq @movex
+@movex: ldx zp::curx
+	beq @rvs
+	cpx @xend
+	beq @rvs
+	dec zp::curx
+	jsr src::prev
+	bcc @movex
+
+@rvs:	jsr ccup_highlight	; handle highlight for the new row
+@done:	RETURN_OK
+.endproc
+
+;******************************************************************************
+; CCUP HIGHLIGHT
+; Highlights the line that the cursor is on if the editor is in VISUAL mode
+; This is called after the ccup logic
+; the logic defining what to highlight is as follows:
+;  if we are SELECTING (current line < visual-start-line):
+;    hightlight from [cur-x, end-of-line]
+;  if DESELECTING (visual-start-line < current line):
+;    highlight from [0, cur-x]
+;  if cur line == start line:
+;    highlight from [cur-x, visual-start-x]
+;
+; If the editor is not in visual mode, this routine does nothing
+.proc ccup_highlight
+@togglecur=zp::tmp6
+	lda mode
+	cmp #MODE_VISUAL
+	bne @done
+
+	lda #$00
+	sta @togglecur
+
 	ldxy src::line
 	cmpw visual_start_line
-	bne :+
-	ldy visual_start_x
-	skw
-:	ldy #$00
+	bcc @sel
+	beq @eq
+
+@desel:	; highlight from [0, cur-x]
+	ldy #$00
 	ldx zp::curx
-	beq @movex
-	lda zp::cury
-	inx
+	inc @togglecur
+	jmp @rvs
+
+@sel:	; highlight from [cur-x, end-of-line]
+	jsr text::linelen
+	ldy zp::curx
+	jmp @rvs
+
+@eq:	; highlight between cur-x and visual-start-x
+	ldy zp::curx
+	ldx visual_start_x
+	inc @togglecur
+
+@rvs:	lda zp::cury
 	jsr bm::rvsline_part
-
-@movex: lda zp::curx
-	cmp @xend
-	bcc @done
-	lda @deselecting
-	beq @xloop
-	jsr cur::toggle
-@xloop:	jsr ccleft
-	bcs @done
-	lda @xend
-	cmp zp::curx
-	bcc @xloop
-
-	lda @deselecting
+	lda @togglecur
 	beq @done
 	jsr cur::toggle
-
-@done:	RETURN_OK
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2491,12 +2523,14 @@ goto_buffer:
 
 	ldxy src::line
 	cmpw visual_start_line
+	lda #$01
+	bcc :+
 	bne @movecur
 	lda visual_start_x
 	cmp zp::curx
 	beq @movecur
 	lda #$00
-	adc #$00
+:	adc #$00
 	sta @deselect
 	beq @movecur
 	jsr cur::toggle
@@ -2519,7 +2553,7 @@ goto_buffer:
 ;  - .C: clear if the cursor was moved DOWN or screen scrolled
 .proc ccdown
 @xend=zp::tmpa
-@deselecting=zp::tmpb
+@selecting=zp::tmpb
 	jsr src::end
 	bne :+
 	sec		; cursor could not be moved
@@ -2531,10 +2565,8 @@ goto_buffer:
 	ldxy src::line
 	cmpw visual_start_line
 	lda #$00
-	adc #$ff
-	sta @deselecting
-	beq :+
-	jsr cur::toggle		; if we're deselecting, toggle cursor off
+	rol
+	sta @selecting
 
 :	lda zp::curx
 	sta @xend
@@ -2546,6 +2578,11 @@ goto_buffer:
 
 @sel:	jsr ccright
 	bcc @sel
+
+	; if this is a selection, toggle the cursor
+	lda @selecting
+	bne @cont
+	jsr cur::toggle
 
 @cont:	jsr src::down
 	bcc @down
@@ -2577,40 +2614,68 @@ goto_buffer:
 @redraw:
 	jsr text::drawline
 
-
 @movex:	lda @xend
 	beq @done
-	lda mode
-	cmp #MODE_VISUAL
-	bne @xloop
-	jsr cur::toggle
-@xloop:	jsr ccright
-	bcs @done
+@xloop:	jsr src::right
+	bcs @rvs
+	inc zp::curx
 	lda zp::curx
 	cmp @xend
 	bcc @xloop
 
-	; if we are deselecting (line is already selected) highlight the line
-	lda @deselecting
-	beq @done
-	ldxy #mem::linebuffer
-	jsr str::len
-	pha
+@rvs:	jsr ccdown_highlight
+@done:	RETURN_OK
+.endproc
+
+;******************************************************************************
+; CCDOWN HIGHLIGHT
+; Highlights the line that the cursor is on if the editor is in VISUAL mode
+; This is called after the ccdown logic
+; the logic defining what to highlight is as follows:
+;  if we are SELECTING (current line > visual-start-line):
+;    hightlight from [0, cur-x}
+;  if DESELECTING (visual-start-line > current line):
+;    highlight from [cur-x, end-of-line]
+;  if cur line == start line:
+;    highlight from [cur-x, visual-start-x]
+;
+; If the editor is not in visual mode, this routine does nothing
+.proc ccdown_highlight
+@togglecur=zp::tmp6
+	lda mode
+	cmp #MODE_VISUAL
+	bne @done
+
+	lda #$00
+	sta @togglecur
 
 	ldxy src::line
 	cmpw visual_start_line
-	bne :+
-	pla
-	ldx visual_start_x
-	jmp :++
-:	ldy #$00
-	pla
-	tax
-:	lda zp::cury
-	jsr bm::rvsline_part
-	jsr cur::toggle
+	beq @eq
+	bcs @sel
 
-@done:	RETURN_OK
+@desel:	; highlight from [cur-x, end-of-line]
+	jsr text::linelen
+	ldy zp::curx
+	jmp @rvs
+
+@sel:	; highlight from [0, cur-x]
+	inc @togglecur
+	ldx zp::curx
+	ldy #$00
+	beq @rvs
+
+@eq:	; highlight between cur-x and visual-start-x
+	ldy zp::curx
+	ldx visual_start_x
+	inc @togglecur
+
+@rvs:	lda zp::cury
+	jsr bm::rvsline_part
+	lda @togglecur
+	beq @done
+	jsr cur::toggle
+@done:	rts
 .endproc
 
 ;******************************************************************************

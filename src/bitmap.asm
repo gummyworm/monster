@@ -199,12 +199,13 @@ COLMEM_ADDR = $9400
 	asl
 	asl
 	asl
-	pha		; save character row
 
-	; swap Y and X if (X > Y)
+	; swap Y and X if (X < Y)
 	sty @start
 	cpx @start
 	beq @done	; if start/stop are equal we're done
+	pha		; save character row
+
 	bcs :+
 	txa
 	ldx @start
@@ -219,6 +220,7 @@ COLMEM_ADDR = $9400
 	sta @start
 	ror @odd
 
+	; get the first column to reverse
 	asl
 	tay
 	pla
@@ -244,9 +246,9 @@ COLMEM_ADDR = $9400
 	clc
 	adc #$c0
 	sta @dst
-	bcc @cont
+	bcc :+
 	inc @dst+1
-	dex
+:	inc @start	; first column is done
 
 @cont:	; divide character # by 2 to get bitmap column
 	txa

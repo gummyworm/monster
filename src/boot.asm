@@ -1,4 +1,5 @@
 .include "asm.inc"
+.include "bitmap.inc"
 .include "debug.inc"
 .include "edit.inc"
 .include "fastcopy.inc"
