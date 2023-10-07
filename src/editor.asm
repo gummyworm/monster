@@ -1059,14 +1059,15 @@ main:
 ; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
 ; mode, does nothing
 .proc yank
-@cur=zp::tmp0
-@end=zp::tmp2
+@cur=zp::editortmp+1
+@end=zp::editortmp+3
+@size=zp::editortmp+3
 	lda mode
 	cmp #MODE_VISUAL
 	bne @done
 
 	jsr src::pos	; get the current source position
-	stxy @cur
+	stxy @end
 	jsr src::popp	; get the source position we started at
 	cmpw @end
 	bcc @cont
@@ -1081,8 +1082,13 @@ main:
 	sta @end+1
 	sty @cur
 
-@cont:	ldxy @end	; starting from the END, copy to copy buffer
+@cont:	stxy @cur
+	ldxy @end	; starting from the END, copy to copy buffer
 	jsr src::goto	; go to the start position
+
+	ldxy @end
+	sub16 @cur
+	stxy @size
 
 @copy:	jsr src::prev
 	jsr buff_putch	; add the character to the copy buffer
@@ -1096,7 +1102,17 @@ main:
 	lda visual_start_x
 	sta zp::curx
 
-@done:	rts
+	; display message
+	lda @size
+	pha
+	lda @size+1
+	pha
+	ldxy #@yoinkmsg
+	lda #STATUS_ROW-1
+	jsr text::print
+
+@done:	jmp enter_command
+@yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
 .endproc
 
 ;******************************************************************************
