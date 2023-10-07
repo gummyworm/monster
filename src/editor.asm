@@ -758,6 +758,8 @@ main:
 ; ENTER VISUAL
 ; Enters VISUAL mode
 .proc enter_visual
+	jsr cur::on
+
 	lda #MODE_VISUAL
 	sta mode
 	lda #CUR_SELECT
@@ -773,7 +775,6 @@ main:
 
 	; save current source position
 	jsr src::pushp
-	jsr cur::on
 
 	rts
 .endproc
@@ -2403,6 +2404,8 @@ goto_buffer:
 
 @eq:	; highlight between cur-x and visual-start-x
 	ldy zp::curx
+	cpy visual_start_x
+	beq @toggle
 	ldx visual_start_x
 	inc @togglecur
 
@@ -2528,17 +2531,20 @@ goto_buffer:
 
 	ldxy src::line
 	cmpw visual_start_line
-	lda #$01
-	bcc :+
-	bne @movecur
-	lda visual_start_x
+	beq @eq
+	bcs @movecur
+@desel:	lda #$01
+	bne :+
+
+@eq:	lda visual_start_x
 	cmp zp::curx
 	beq @movecur
 	lda #$00
-:	adc #$00
-	sta @deselect
+	adc #$00
+:	sta @deselect
 	beq @movecur
 	jsr cur::toggle
+
 @movecur:
 	jsr cur::right
 	lda mode
@@ -2673,6 +2679,8 @@ goto_buffer:
 
 @eq:	; highlight between cur-x and visual-start-x
 	ldy zp::curx
+	cpy visual_start_x
+	beq @toggle
 	ldx visual_start_x
 	inc @togglecur
 
