@@ -497,6 +497,7 @@ respective Key in the table below.
 |  C=+g    | Go          | begins execution at the cursor                                                       |
 |  C=+s    | StepOver    | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
 |  C=+z    | Step        | steps to the next instruction.                                                       | 
+|  C=+t    | Trace       | like GO but the debugger takes control between each instruction                      |
 |   <-     | Exit        | exits the debugger and returns to the editor                                         |
 | SPACE    | Swap prog   | swaps in the internal memory for the user program (allows user to see screen state)  | 
 
@@ -527,6 +528,13 @@ instruction _after_ the `JSR` (after the subroutine returns).
 #### Go (`C= + g`)
 The go command begins execution and returns to the debugger only when a
 breakpoint is encountered.
+
+#### Trace (`C= + t`)
+Trace is similar to `GO`, but the debugger executes the program as a series 
+of STEPs instead of running the program binary directly.
+This is useful because it allows the debugger to break if any watched memory
+location is accessed.
+
 
 #### Notes on memory swapping
 While the debugger and user program have isolated memory banks in the address space

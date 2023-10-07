@@ -69,6 +69,7 @@ ACTION_STEP_OVER = 2	; action for STEP OVER command
 ACTION_START     = 3	; action for initial debug entry
 ACTION_GO_START  = 4	; action for first instruction of GO command
 ACTION_GO        = 5	; action for subsequent GO instructions
+ACTION_TRACE     = 6	; action for TRACE command
 
 ;******************************************************************************
 ; Debug info pointers
@@ -1293,9 +1294,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda action
 	cmp #ACTION_GO_START
 	bne @update_watches
+
+	; continue the GO command
 	jsr step_restore
 	lda #ACTION_GO
 	sta action
+
+@continue_debug:
 	jsr install_breakpoints	 ; reinstall rest of breakpoints
 	jmp @debug_done		 ; continue execution
 
@@ -1303,12 +1308,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr watch::update
 	jsr show_aux		; display the auxiliary mode
 
+	; check if action was STEP or TRACE
 	lda action
 	cmp #ACTION_STEP
 	beq @handle_action
+	cmp #ACTION_TRACE
+	beq @handle_action
 
 @reset_affected:
-	; if action was anything but STEP, we don't know enough to say
+	; if action wasn't STEP or TRACE, we don't know enough to say
 	; what was affected since last BRK
 	lda #$00
 	sta affected
@@ -1325,8 +1333,16 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq @restore_step
 	cmp #ACTION_STEP
 	bne @reset_state
+	cmp #ACTION_TRACE
+	bne @reset_state
 @restore_step:
 	jsr step_restore
+
+	; if we are doing a TRACE, install breakpoints and continue
+	lda action
+	cmp #ACTION_TRACE
+	bne @reset_state
+	jmp @continue_debug
 
 @reset_state:
 	lda #$00
@@ -1468,6 +1484,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.byte K_STEP
 	.byte K_STEPOVER
 	.byte K_GO
+	.byte K_TRACE
 	.byte K_SRCVIEW
 	.byte K_MEMVIEW
 	.byte K_BRKVIEW
@@ -1481,6 +1498,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	.word step
 	.word step_over
 	.word go
+	.word trace
 	.word edit_source
 	.word edit_mem
 	.word edit_breakpoints
@@ -1620,6 +1638,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #ACTION_GO_START
 	sta action
 	inc advance		; continue program execution
+	rts
+.endproc
+
+;******************************************************************************
+; TRACE
+; Puts the debugger into TRACE mode and steps to the next instruction to
+; begin the trace
+.proc trace
+	jsr step
+	lda #ACTION_TRACE
+	sta action
 	rts
 .endproc
 

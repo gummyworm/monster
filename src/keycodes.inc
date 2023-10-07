@@ -45,8 +45,9 @@ K_BRKVIEW      = $87	; F5
 K_WATCHVIEW    = $88	; F7
 K_SWAP_USERMEM = $20	; SPACE
 
+K_GO        = $a5	; <C=> + g
 K_STEP      = $ad	; <C=> + z
 K_STEPOVER  = $ae	; <C=> + s
-K_GO        = $a5	; <C=> + g
+K_TRACE     = $a3	; <C=> + t
 
 K_SET_WATCH = $b3	; <C=>+W

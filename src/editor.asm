@@ -1062,12 +1062,18 @@ main:
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
 @size=zp::editortmp+3
+@start=zp::tmpa
 	lda mode
 	cmp #MODE_VISUAL
 	bne @done
 
+	jsr deselect	; unhighlight selection
+
+	pushcur		; save position to return to
+
 	jsr src::pos	; get the current source position
-	stxy @end
+	stxy @start
+	stxy @end	; position we'll return to when done
 	jsr src::popp	; get the source position we started at
 	cmpw @end
 	bcc @cont
@@ -1096,11 +1102,10 @@ main:
 	cmpw @cur	; are we back at the START of the selection yet?
 	bne @copy	; continue until we are
 
-	; we're done yanking, go back to where we began the selection
-	ldxy visual_start_line
-	jsr gotoline
-	lda visual_start_x
-	sta zp::curx
+	; restore source & cursor position
+	ldxy @start
+	jsr src::goto
+	popcur
 
 	; display message
 	lda @size
@@ -3416,30 +3421,9 @@ __edit_gotoline:
 ; DESELECT
 ; Unselects any text that is currently selected
 .proc deselect
-@line=zp::tmp0
 	lda #MODE_VISUAL
 	bne @done
-
-	ldxy visual_start_line	; get the line the selection starts at
-	stxy @line
-
-@yloop:	ldxy @line
-	jsr __edit_src2screen	; is the line we're unhighlighting on screen?
-	bcs @next		; if line is offscreen, get next
-	cmp zp::cury		; is the current line the selection start line?
-	beq @handlex		; if so, all full lines are deselected
-
-@next:	ldxy @line
-	cmpw src::line		; is line
-	beq @handlex
-	bcc @fwd
-@back:	decw @line
-	jmp @yloop
-@fwd:	incw @line
-	jmp @yloop
-
-@handlex:
-
+	jmp refresh
 @done:	rts
 .endproc
 
