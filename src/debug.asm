@@ -1332,7 +1332,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 :	cmp #ACTION_STEP_OVER
 	beq @restore_step
 	cmp #ACTION_STEP
-	bne @reset_state
+	beq @restore_step
 	cmp #ACTION_TRACE
 	bne @reset_state
 @restore_step:
@@ -1342,6 +1342,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda action
 	cmp #ACTION_TRACE
 	bne @reset_state
+@trace:
+	; check if the BRK that was triggered is a breakpoint or just the
+	; step point. If the latter, continue tracing
+	ldxy pc
+	jsr get_breakpoint
+	bcs :+			; not a breakpoint, continue tracing
+	bcc @reset_state	; return control to debugger
+:	jsr trace
 	jmp @continue_debug
 
 @reset_state:
@@ -1423,7 +1431,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda @command_vectors+1,x ; vector MSB
 	sta zp::jmpvec+1
 
-	jsr zp::jmpaddr
+	jsr zp::jmpaddr		; call the command
 	jsr showstate		; restore the register display (may be changed)
 
 @finishloopiter:
@@ -2359,29 +2367,13 @@ __debug_remove_breakpoint:
 .proc remove_breakpoint
 @addr=debugtmp
 @end=debugtmp+2
-	stxy @addr
-	lda @addr
-
-	lda numbreakpoints
-	beq @notfound	; nothing to remove
+	jsr get_breakpoint
+	bcs @ret
 	asl
 	tax
 
-@l0:	lda @addr
-	cmp breakpoints,x
-	bne @next
-	lda @addr+1
-	cmp breakpoints+1,x
-	beq @found
-@next:	dex
-	dex
-	bpl @l0
-@notfound:
-	ldxy @addr
-	sec
-	rts		; not found - nothing to remove
-
-@found:	; shift breakpoints down
+@remove:
+	; shift breakpoints down
 	lda numbreakpoints
 	asl
 	sta @end
@@ -2398,7 +2390,40 @@ __debug_remove_breakpoint:
 @removed:
 	dec numbreakpoints
 @done:	clc
-	rts
+@ret:	rts
+.endproc
+
+;******************************************************************************
+; GET BREAKPOINT
+; IN:
+;  - .XY: the address to return the breakpoint for
+; OUT:
+;  - .C:  set if no breakpoint is found
+;  - .A: the id of the breakpoint
+.proc get_breakpoint
+@addr=debugtmp
+	stxy @addr
+	lda numbreakpoints
+	beq @notfound
+	asl
+	tax
+@l0:	lda @addr
+	cmp breakpoints,x
+	bne @next
+	lda @addr+1
+	cmp breakpoints+1,x
+	beq @found
+@next:	dex
+	dex
+	bpl @l0
+@notfound:
+	ldxy @addr
+	sec
+	rts		; not found - nothing to remove
+
+@found: txa
+	lsr
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
