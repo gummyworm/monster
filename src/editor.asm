@@ -2291,7 +2291,6 @@ goto_buffer:
 
 @novis:	ldx zp::curx
 	stx @xend
-	beq @up
 
 	; if we are in VISUAL mode, highlight to the beginning of the line
 	lda mode
@@ -2393,6 +2392,7 @@ goto_buffer:
 @desel:	; highlight from [0, cur-x]
 	ldy #$00
 	ldx zp::curx
+	beq @toggle
 	inc @togglecur
 	jmp @rvs
 
@@ -2410,6 +2410,7 @@ goto_buffer:
 	jsr bm::rvsline_part
 	lda @togglecur
 	beq @done
+@toggle:
 	jsr cur::toggle
 @done:	rts
 .endproc
@@ -2619,7 +2620,7 @@ goto_buffer:
 	jsr text::drawline
 
 @movex:	lda @xend
-	beq @done
+	beq @rvs
 @xloop:	jsr src::right
 	bcs @rvs
 	inc zp::curx
@@ -2666,6 +2667,7 @@ goto_buffer:
 @sel:	; highlight from [0, cur-x]
 	inc @togglecur
 	ldx zp::curx
+	beq @toggle	; col 0: just toggle the cursor
 	ldy #$00
 	beq @rvs
 
@@ -2678,6 +2680,7 @@ goto_buffer:
 	jsr bm::rvsline_part
 	lda @togglecur
 	beq @done
+@toggle:
 	jsr cur::toggle
 @done:	rts
 .endproc

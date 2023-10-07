@@ -203,7 +203,6 @@ COLMEM_ADDR = $9400
 	; swap Y and X if (X < Y)
 	sty @start
 	cpx @start
-	beq @done	; if start/stop are equal we're done
 	pha		; save character row
 
 	bcs :+
@@ -262,6 +261,7 @@ COLMEM_ADDR = $9400
 
 	cpx @start
 	beq @lastcol
+	bcc @done
 
 @l0:	ldy #$07
 @l1: 	lda (@dst),y
@@ -280,10 +280,11 @@ COLMEM_ADDR = $9400
 	cpx @start
 	bne @l0
 
-@lastcol:
+	; check if we need to do the odd column
 	lda @odd
 	beq @done
 
+@lastcol:
 	; reverse half of the last column
 	ldy #$07
 @l2:	lda (@dst),y
