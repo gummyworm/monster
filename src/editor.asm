@@ -773,7 +773,7 @@ main:
 
 	; save current source position
 	jsr src::pushp
-	jsr cur::off
+	jsr cur::on
 
 	rts
 .endproc

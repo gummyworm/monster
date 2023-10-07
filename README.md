@@ -48,11 +48,11 @@ The editor is a substantial part of this assembler.  In addition to offering
 a high-density 40-column display, it has, by 8-bit standards, advanced navigation 
 functionality.
 
+### Command shortcuts
 Below are the basic commands along with their associated key combinations. These
-commands are available regardless of insertion mode (see the navigation section
+commands are available regardless of insertion mode (see the Editor Modes section
 below for more info on modes).
 
-### Command shortcuts
 |  Key   | Name    |   Description                                                               |
 |--------|---------|-----------------------------------------------------------------------------|
 | C= + a | Assemble File | prompts for a filename and assembles it.                              | 
@@ -74,12 +74,17 @@ below for more info on modes).
 |   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
 |   F5   | Show buffers  | displays a list of the currently open buffers                         |
 
-### Navigation/Text keys
+## Editor Modes
+The editor is a _modal_ editor, that is, it behaves differently depending on which _mode_ it is
+in.  The modes are all accessed from the default mode (called _COMMAND_ mode) and each returns
+to the base _COMMAND_ mode when the `<-` key is pressed.  Below is a list of the modes along with
+the key that enters that mode
+
+### Command Mode
+Command mode is the default mode.  The primary function of command mode is to navigate around the 
+source code and to enter other modes.
 Navigation behaves similar to `vi` and many basic `vi` commands are supported.
-The following keys are handled in COMMAND mode.  Entering insert mode (`i`)
-allows characters to be entered into the source file at the current cursor
-position.
-The back arrow (`<-`) key returns to COMMAND mode.
+The following keys are handled in COMMAND mode.  
 
 |  Key       | Name       | Description                                                            |
 |------------|------------|------------------------------------------------------------------------|
@@ -113,8 +118,24 @@ The back arrow (`<-`) key returns to COMMAND mode.
 |    [       | Prev Block | moves to the previous empty line or start of file if there isn't one   |
 |    ]       | Next Block | moves to the next empty line or end of file if there isn't one         |
 
+### Insert Mode (i, a, etc.)
+Entering insert mode allows the user to enter text at the cursor location.  Keystrokes are
+interpreted as their corresponding ASCII character value in this mode, so there are no special
+commands accessed via them.
+
+### Visual Mode (v)
+In _VISUAL_ mode (accessed via `v` in _COMMAND_ mode), the user can select
+a block of text which may then be deleted or copied.  Below is the table of supported commands 
+while in visual mode. The `<-` key will return the user to to _COMMAND_ mode.
+
+|  Key       | Name       | Description                                                            |
+|------------|------------|------------------------------------------------------------------------|
+|    d       | delete     | deletes the selected text _and_ copies it to the copy buffer           |
+|    y       | yank       | copies the selected text (in VISUAL mode) to the copy buffer           |
+
+---
 ### Copy buffer
-When text is deleted (delete line, delete word) it is stored to a buffer where
+When text is deleted (delete line, delete word) or _yanked_, it is stored to a buffer where
 it may be recalled by the paste commands (`p`, paste below and `P` paste above).
 When the paste command is executed, the buffer is cleared.
 
