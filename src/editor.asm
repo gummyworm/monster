@@ -2282,25 +2282,14 @@ goto_buffer:
 .proc ccup
 @xend=zp::tmp9
 @ch=zp::tmpa
-@selecting=zp::tmpb
 	jsr src::atcursor
 	sta @ch
 
 	lda mode
 	cmp #MODE_VISUAL
-	bne :+
-	ldxy visual_start_line	; get the selection's start line
-	cmpw src::line		; is it above the source?
-	bne :+
-	lda zp::curx
-	cmp visual_start_x
-:	lda #$00
-	rol
-	sta @selecting
-	bne :+
-	jsr cur::toggle		; if we're deselecting, toggle cursor off
+	bne @novis
 
-:	ldx zp::curx
+@novis:	ldx zp::curx
 	stx @xend
 	beq @up
 
@@ -2311,6 +2300,17 @@ goto_buffer:
 
 @sel:	jsr ccleft
 	bcc @sel
+
+	; handle cursor state for VISUAL mode
+	ldxy src::line
+	cmpw visual_start_line
+	bcc @up
+	bne @toggle
+	lda zp::curx
+	cmp visual_start_x
+	bcc @up
+@toggle:
+	jsr cur::toggle	; if we're deselecting, toggle cursor off
 
 @up:	jsr src::up	; move up a line or to start of line
 	bcc @cont
@@ -2454,23 +2454,27 @@ goto_buffer:
 ; OUT:
 ;  - .C: set if cursor could not be moved
 .proc ccleft
-@deselect=zp::tmp0
+@deselect=zp::tmp2
 	lda zp::curx
 	beq @nomove
 
 	lda #$00
 	sta @deselect
 
-	; unhighlight if we're deselecting
+	; if (cur-line > visual_start_line) we are DESELECTING: unhighlight
 	ldxy src::line
 	cmpw visual_start_line
-	bne @movecur
-	lda zp::curx
+	beq @eq
+	bcc @movecur
+@desel: lda #$01
+	bne :+
+
+@eq:	lda zp::curx
 	cmp visual_start_x
 	beq @movecur
 	lda #$00
 	adc #$00
-	sta @deselect
+:	sta @deselect
 	beq @movecur
 	jsr cur::toggle		; turn off (deselect) old cursor position
 
