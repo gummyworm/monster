@@ -1,3 +1,5 @@
+.include "config.inc"
+
 .BSS
 
 ;******************************************************************************
@@ -33,7 +35,7 @@ __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
 __statusline: .res 40
 
 .export __mem_copybuff
-__mem_copybuff: .res 40
+__mem_copybuff: .res MAX_COPY_SIZE
 
 .export __linebuffer
 __linebuffer: .res 80

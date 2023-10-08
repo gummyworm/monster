@@ -1,5 +1,6 @@
 .include "errors.inc"
 .include "macros.inc"
+.include "memory.inc"
 .include "zeropage.inc"
 
 .CODE
@@ -291,5 +292,108 @@
 	sta (@str),y
 @next:	iny
 	bne @l0
+@done:	rts
+.endproc
+
+;******************************************************************************
+; UNCOMPRESS
+; Uncompresses the 5-bit compressed string
+;
+; The bytes are arranged in the following format (5 characters = 3 bytes)
+; byte 0
+;  char 0[4:0] | 5 bits
+;  char 1[4:1] | 3 bits
+; byte 1
+;  char 1[1:0] | 2 bits
+;  char 2[4:0] | 5 bits
+;  char 3[4]   | 1 bit
+; byte 2
+;  char 3[3:0] | 3 bits
+;  char 4[4:0] | 5 bits
+;
+; IN:
+;  - .XY: the string to uncompress
+; OUT:
+;  - mem::spare: the uncompressed string
+.export __str_uncompress
+.proc __str_uncompress
+@rptr=zp::str0
+@wptr=zp::str2
+@tmp=zp::tmp0
+@tmp2=zp::tmp1
+@chars=zp::tmp2		; 5 bytes
+	stxy @rptr
+	ldxy #mem::spare
+	stxy @wptr
+
+@l0:	ldy #$00
+	lda (@rptr),y		; get byte containing chars 0 and 1[4:1]
+	tax
+	lsr
+	lsr
+	lsr
+	sta @chars		; store char 0
+	iny
+	lda (@rptr),y
+	sta @tmp2
+
+	; build char 1
+	and #$c0		; get top 2 bits
+	asl
+	rol
+	rol
+	sta @tmp
+	txa
+	ora @tmp
+	sta @chars+1
+
+	; build char 2
+	lda @tmp2
+	lsr
+	and #$1f
+	sta @chars+2
+
+	; build char 3
+	iny
+	lda (@rptr),y
+	asl
+	rol
+	rol
+	rol
+	sta @tmp
+	lda @tmp2
+	and #$80
+	asl
+	rol
+	ora @tmp
+	sta @chars+3
+
+	; build char 4
+	lda (@rptr),y
+	and #$1f
+	sta @chars+4
+
+	; update pointer
+	lda @rptr
+	clc
+	adc #$03
+	sta @rptr
+	bcc :+
+	inc @rptr+1
+
+:	; write the 5 extracted bytes
+	ldy #4
+:	lda @chars,y
+	beq @done	; if we found the terminating 0, we're done
+	sta (@wptr),y
+	dey
+	bpl :-
+	lda @wptr
+	adc #$05
+	sta @wptr
+	bcc @l0
+	inc @wptr+1
+	bne @l0
+
 @done:	rts
 .endproc

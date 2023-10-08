@@ -60,7 +60,7 @@ highlighted_lines: .res MAX_HIGHLIGHTS*2 ; line numbers that are highlighted
 jumplist: .res 8*2	; line #'s between jumps
 jumpptr:  .byte 0	; offset to jumplist
 
-buffptr: .byte 0	; copy buffer pointer (also bytes in copy buffer)
+buffptr: .word 0 	; copy buffer pointer (also bytes in copy buffer)
 
 visual_start_line: .word 0	; the line # a selection began at
 visual_start_x:    .byte 0	; the x-position a selection began at
@@ -104,6 +104,9 @@ visual_start_x:    .byte 0	; the x-position a selection began at
 
 	lda #START_MODE
 	sta mode
+
+	ldxy #mem::copybuff
+	stxy buffptr
 
 	ldx #$00
 	ldy #EDITOR_ROW_START
@@ -3397,13 +3400,16 @@ __edit_gotoline:
 ; OUT:
 ;  - .C: set if the buffer is full (couldn't add char)
 .proc buff_putch
-	ldx buffptr
-	cpx #40
-	bcs :+			; buffer full
-	sta mem::copybuff,x
-	inc buffptr
+@buff=zp::tmp0
+	ldxy buffptr
+	stxy @buff
+	cmpw #MAX_COPY_SIZE	; buffer is full
+	bcs @done
+	ldy #$00
+	sta (@buff),y
+	incw buffptr
 	clc
-:	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -3413,15 +3419,17 @@ __edit_gotoline:
 ;  - .A: the last character PUT into the buffer (0 if none)
 ;  - .C: set if the buffer is empty
 .proc buff_getch
-	lda #$00
-	sec
-	ldx buffptr
-	beq :+
-	dec buffptr
-	dex
-	lda mem::copybuff,x
+@buff=zp::tmp0
+	ldxy buffptr
+	stxy @buff
+	cmpw #mem::copybuff
+	beq @done		; buffer empty
+
+	ldy #$00
+	lda (@buff),y
+	decw buffptr
 	clc
-:	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
