@@ -744,13 +744,12 @@ main:
 ; ENTER_COMMAND
 ; Enters COMMAND mode
 .proc enter_command
-	lda #MODE_COMMAND
-	cmp mode
-	beq @done
-	sta mode
+	jsr deselect	; unhighlight selection (if we were in VISUAL mode)
 	jsr ccleft	; insert places cursor after char
 	lda #CUR_NORMAL
 	sta cur::mode
+	lda #MODE_COMMAND
+	sta mode
 @done:  rts
 .endproc
 
@@ -3421,7 +3420,8 @@ __edit_gotoline:
 ; DESELECT
 ; Unselects any text that is currently selected
 .proc deselect
-	lda #MODE_VISUAL
+	lda mode
+	cmp #MODE_VISUAL
 	bne @done
 	jmp refresh
 @done:	rts

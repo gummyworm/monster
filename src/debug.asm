@@ -1460,7 +1460,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy pc
 	jsr is_internal_address
 	bne :+
-	ldx #FINAL_BANK_MAIN	; if internal address, use main bank
+	lda #FINAL_BANK_MAIN	; if internal address, use main bank
 	sta zp::bankval
 :	lda pc+1
 	sta prev_pc+1

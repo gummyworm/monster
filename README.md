@@ -1,7 +1,38 @@
 # MONster
 ![helloworld](https://github.com/gummyworm/monster/assets/4626914/ba7345da-db81-4603-b381-7bc5cab56b52)
 
+ - [Requirement](https://github.com/gummyworm/monster#requirements)
+ - [Building](https://github.com/gummyworm/monster#building)
+ - [Running](https://github.com/gummyworm/monster#running)
+
+ - [Editor](https://github.com/gummyworm/monster#editor-overview)
+   - [Command Shortcuts](https://github.com/gummyworm/monster#command-shortcuts)
+   - [Editor Modes](https://github.com/gummyworm/monster#editor-modes)
+     - [Command Mode](https://github.com/gummyworm/monster#command-mode)
+     - [Insert Mode](https://github.com/gummyworm/monster#insert-mode-i-a-etc)
+     - [Visual Mode](https://github.com/gummyworm/monster#visual-mode-v)
+  - [Assembler](https://github.com/gummyworm/monster#assembler-overview)
+    - [Syntax](https://github.com/gummyworm/monster#syntax)
+    - [Expressions](https://github.com/gummyworm/monster#expressions)
+    - [Formatting](https://github.com/gummyworm/monster#formatting)
+    - [Labels](https://github.com/gummyworm/monster#labels)
+  - [File I/O](https://github.com/gummyworm/monster#files)
+    - [Directory Viewer](https://github.com/gummyworm/monster#directory-viewer-c--l)
+ - [Debugger](https://github.com/gummyworm/monster#debugger)
+    - [Debug Commands](https://github.com/gummyworm/monster#debug-commands)
+    - [Stepping through code](https://github.com/gummyworm/monster#stepping-through-code)
+    - [Auxiliary Views](https://github.com/gummyworm/monster#auxiliary-views)
+      - [Memory View](https://github.com/gummyworm/monster#memory-viewer-f3-while-debugging)
+      - [Breakpoint View)(https://github.com/gummyworm/monster#breakpoint-viewer-f5-while-debugging)
+      - [Watch Viewer](https://github.com/gummyworm/monster#watch-viewer-f7-while-debugging)
+    - [Breakpoints](https://github.com/gummyworm/monster#breakpoints)
+    - [Watches](https://github.com/gummyworm/monster#watches)
+
 MONster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
+It's is designed with an uncompromising philosophy.  Virtually any feature that
+I deem valuable in an editor/assembler is included. That means there are no
+weird limitations on label names, robust expression evaluation, and many, many
+other usability nice-to-haves.
 
 Some of its features are:
  - 40 column bitmap-based editor
@@ -11,6 +42,7 @@ Some of its features are:
  - memory viewer/editor
  - file I/O (save/load)
  - directory viewer
+ - symbol viewer
  - auto-formatter and realtime syntax checking
  - improved keyboard routine (3-key rollover)
  - macro support
@@ -21,17 +53,21 @@ The source code is stored in a gap buffer to allow for efficient insertion/delet
 
 ---
 ## Requirements
-MONster requires a _completely_ expanded (BLK 2,3, and 5) RAM configuration to function.
+For now MONster requires a [Final Expansion](https://github.com/edi-z/FE3) to
+function.  It could easily be modified for other 512k+ carts.
+Much of this RAM is used to store the multiple source code buffers (up to 8),
+but it is also used to store debug info and some code.
 
-Debugging requires a [Final Expansion](https://github.com/edi-z/FE3).
-This is because it is very memory-expensive to store all the debug info.
-When this project matures to a fairly stable point, I'd like to distribute it on a cartridge based on the FE design, but for now...
+The banked memory allows the user program to execute in almost complete
+isolation.  Everything except address $9c02 (the bank select register) is 
+preserved when control moves between the editor and the user program.
 
+## Building
 Building the source requires `ca65`. The easiest way to install this is to 
 install the latest release of [cc65](https://github.com/cc65/cc65). I've tested 
 with v2.18.
 
-## Building
+#### Build Steps
  1. Clone this repo `git clone https://github.com/gummyworm/monster.git`
  2. `cd` to the directory you cloned to and run `make` 
 
@@ -185,20 +221,6 @@ a 1 byte value.
 Spacing is not important, but instructions are auto-formatted to be indented
 by two spaces.  Labels and directives are, by convention, not indented.  The
 formatter will also take care of this.
-
-## Files
-Monster holds the active source file in memory (for editing), but assembles
-all included files directly from file.
-Files are stored with $0d line endings, but if you save your file with UNIX
-style line-endings, they will be automatically converted when the file is
-read in.
-
-As with any work done with Commodore disk I/O, it is wise to regularly back up your files
-
-### Directory Viewer (`C= + L`)
-The directory viewer offers a paginated view of all files on the disk.
-Pressing `RETURN` while the row of the desired file is highlighted will load
-that file into a new buffer and activate that buffer.
 
 ## Labels
 Labels begin with either an alpha-character or, in the case of _local_
@@ -453,7 +475,23 @@ DONE:
   JMP DONE
 ```
 
+## Files
+Monster holds the active source file in memory (for editing), but assembles
+all included files directly from file.
+Files are stored with $0d line endings, but if you save your file with UNIX
+style line-endings, they will be automatically converted when the file is
+read in.
+
+As with any work done with Commodore disk I/O, it is wise to regularly back up your files
+
+### Directory Viewer (`C= + L`)
+The directory viewer offers a paginated view of all files on the disk.
+Pressing `RETURN` while the row of the desired file is highlighted will load
+that file into a new buffer and activate that buffer.
+
+
 ---
+
 ## Symbol Viewer
 The symbol viewer, activated with `C= + Y`, displays all the labels in the program
 along with their corresponding address.
@@ -461,6 +499,7 @@ The up/down cursor keys navigate between pages of symbols. The back-arrow
 key returns to the debugger.
 
 ---
+
 ## Debugger
 The debugger allows you to step through code, set breakpoints, and watch
 data as you execute your program.  Due to the size of the data needed to 
@@ -485,6 +524,7 @@ Editor navigation behaves as normal while debugging (albeit with slightly less
 real estate due to the debug information displayed at the bottom of the screen.)
 
 ---
+
 ### Debug Commands
 The following commands are supported by the debugger and are accessed by their
 respective Key in the table below.
@@ -568,6 +608,7 @@ screen will briefly flash with the state of the user program.
 
 
 ---
+
 ## Auxiliary Views
 Within the debugger, there are 3 auxiliary views that may be activated with the
 function keys.  Each shows information about the machine or debug state that
@@ -605,6 +646,7 @@ viewer.  The current value of a watch is shown along with its previous
 value (if it has changed since the debugger last took over).
 
 ---
+
 ## Breakpoints
 During normal editing, breakpoints may be set with the `C= + b` key combination.
 A breakpoint symbol (a filled circle) is placed at the beginning of a line to
@@ -613,6 +655,7 @@ Pressing the same key combination (`C= + b`) will also remove a breakpoint
 if it is pressed while on a line that already has one.
 
 ---
+
 ## Watches
 Watches are set within the memory editor (`F3`). When the cursor is over the
 desired byte to watch, the user may press `C= + w` to add a watch to the
