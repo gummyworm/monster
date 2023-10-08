@@ -299,17 +299,14 @@
 ; UNCOMPRESS
 ; Uncompresses the 5-bit compressed string
 ;
-; The bytes are arranged in the following format (5 characters = 3 bytes)
+; The bytes are arranged in the following format (3 characters = 2 bytes)
 ; byte 0
 ;  char 0[4:0] | 5 bits
 ;  char 1[4:1] | 3 bits
 ; byte 1
 ;  char 1[1:0] | 2 bits
+;  x           | 1 bit (unused)
 ;  char 2[4:0] | 5 bits
-;  char 3[4]   | 1 bit
-; byte 2
-;  char 3[3:0] | 3 bits
-;  char 4[4:0] | 5 bits
 ;
 ; IN:
 ;  - .XY: the string to uncompress
@@ -321,14 +318,20 @@
 @wptr=zp::str2
 @tmp=zp::tmp0
 @tmp2=zp::tmp1
-@chars=zp::tmp2		; 5 bytes
+@chars=zp::tmp2		; 3 bytes
 	stxy @rptr
 	ldxy #mem::spare
 	stxy @wptr
 
-@l0:	ldy #$00
+@l0:	ldy #$02
+	lda #$00
+:	sta @chars,y
+	dey
+	bpl :-
+
+	ldy #$00
 	lda (@rptr),y		; get byte containing chars 0 and 1[4:1]
-	tax
+	sta @tmp
 	lsr
 	lsr
 	lsr
@@ -338,58 +341,48 @@
 	sta @tmp2
 
 	; build char 1
-	and #$c0		; get top 2 bits
+	; get top 2 bits of byte 1 (bottom bits of char 1)
 	asl
 	rol
 	rol
-	sta @tmp
-	txa
-	ora @tmp
+	and #$03
+	sta @chars+1
+	; combine with bottom 3 bytes of byte 0
+	lda @tmp
+	and #$07
+	asl
+	asl
+	ora @chars+1
 	sta @chars+1
 
 	; build char 2
 	lda @tmp2
-	lsr
 	and #$1f
 	sta @chars+2
-
-	; build char 3
-	iny
-	lda (@rptr),y
-	asl
-	rol
-	rol
-	rol
-	sta @tmp
-	lda @tmp2
-	and #$80
-	asl
-	rol
-	ora @tmp
-	sta @chars+3
-
-	; build char 4
-	lda (@rptr),y
-	and #$1f
-	sta @chars+4
 
 	; update pointer
 	lda @rptr
 	clc
-	adc #$03
+	adc #$02
 	sta @rptr
 	bcc :+
 	inc @rptr+1
 
 :	; write the 5 extracted bytes
-	ldy #4
+	ldy #$00
 :	lda @chars,y
 	beq @done	; if we found the terminating 0, we're done
+	; TODO: handle special chars
+	clc
+	adc #'a'-1	; a is actually character 1 (0 is for terminating NULL)
 	sta (@wptr),y
-	dey
-	bpl :-
+	iny
+	cpy #$03
+	bne :-
+
 	lda @wptr
-	adc #$05
+	clc
+	adc #$03
 	sta @wptr
 	bcc @l0
 	inc @wptr+1
