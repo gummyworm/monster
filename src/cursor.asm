@@ -11,11 +11,29 @@ R_INSERT_MASK  = $08
 L_REPLACE_MASK = $f0
 R_REPLACE_MASK = $0f
 
-
 ;******************************************************************************
 .BSS
 .export __cur_mode
 __cur_mode: .byte 0	; 0 = NORMAL, 1 = SELECT
+
+.export __cur_status
+__cur_status: .byte 0	; 0 = OFF, 1 = ON
+
+.export __cur_minx
+__cur_minx:
+minx: .byte 0
+
+.export __cur_maxx
+__cur_maxx:
+maxx: .byte 0
+
+.export __cur_miny
+__cur_miny:
+miny: .byte 0
+
+.export __cur_maxy
+__cur_maxy:
+maxy: .byte 0
 
 .CODE
 
@@ -54,7 +72,7 @@ __cur_mode: .byte 0	; 0 = NORMAL, 1 = SELECT
 ; Turns off the cursor if it is on. Has no effect if the cursor is already off.
 .export __cur_off
 __cur_off:
-	lda curstatus
+	lda __cur_status
 	bne __cur_toggle
 	rts
 ;******************************************************************************
@@ -64,7 +82,7 @@ __cur_off:
 __cur_on:
 	lda __cur_mode
 	bne __cur_toggle	; always turn ON in SELECT mode
-	lda curstatus
+	lda __cur_status
 	beq __cur_toggle
 	rts
 ;******************************************************************************
@@ -100,8 +118,8 @@ __cur_toggle:
 	bpl @l0
 
 	lda #1
-	eor curstatus
-	sta curstatus
+	eor __cur_status
+	sta __cur_status
 
 @done:  ldx zp::curx
 	ldy zp::cury
@@ -286,22 +304,3 @@ __cur_toggle:
 	jmp __cur_setmax
 .endproc
 
-.BSS
-;******************************************************************************
-curstatus: .byte 0
-
-.export __cur_minx
-__cur_minx:
-minx: .byte 0
-
-.export __cur_maxx
-__cur_maxx:
-maxx: .byte 0
-
-.export __cur_miny
-__cur_miny:
-miny: .byte 0
-
-.export __cur_maxy
-__cur_maxy:
-maxy: .byte 0

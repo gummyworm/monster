@@ -773,9 +773,7 @@ main:
 	sta visual_start_x
 
 	; save current source position
-	jsr src::pushp
-
-	rts
+	jmp src::pushp
 .endproc
 
 ;******************************************************************************_
@@ -1060,34 +1058,40 @@ main:
 .proc yank
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
-@size=zp::editortmp+3
-@start=zp::tmpa
+@size=zp::editortmp+5
+@start=zp::editortmp+7
 	lda mode
 	cmp #MODE_VISUAL
-	bne @done
+	beq :+
+	rts
 
-	jsr deselect	; unhighlight selection
-
-	pushcur		; save position to return to
-
-	jsr src::pos	; get the current source position
+:	jsr src::pos	; get the current source position
 	stxy @start
-	stxy @end	; position we'll return to when done
-	jsr src::popp	; get the source position we started at
-	cmpw @end
-	bcc @cont
+	stxy @cur
 
-	; end position > start pos; swap cur with our new end position
-	txa
+	jsr src::popp	; get the source position we started at
+	stxy @end
+	cmpw @cur
+	beq @done	; nothing copied
+	bcs @cont	; end > cur, don't swap
+
+	; end > cur; swap them
 	lda @cur
 	sta @end
-	stx @cur
-	tya
 	lda @cur+1
 	sta @end+1
-	sty @cur
+	stxy @cur
 
-@cont:	stxy @cur
+@cont:	; Update pointer:
+	;  1. the source pos ends on the character BEFORE the one we want to
+	;  copy (+1)
+	;  2. When iterating with src::prev, the source is updated BEFORE we
+	;     read the character that it returns (+1)
+	; Similarly, the cur pointer needs to be updated for the same reason as
+	; the above list item #2.
+	incw @end
+	incw @end
+	incw @cur
 	ldxy @end	; starting from the END, copy to copy buffer
 	jsr src::goto	; go to the start position
 
@@ -1097,16 +1101,17 @@ main:
 
 @copy:	jsr src::prev
 	jsr buff_putch	; add the character to the copy buffer
+	bcs :+		; buffer is full
 	jsr src::pos
 	cmpw @cur	; are we back at the START of the selection yet?
-	bne @copy	; continue until we are
+	bcs @copy	; continue until we are
 
-	; restore source & cursor position
+:	; restore source position
 	ldxy @start
 	jsr src::goto
-	popcur
 
 	; display message
+	jsr refresh	; unhighlight selection
 	lda @size
 	pha
 	lda @size+1
@@ -2482,6 +2487,9 @@ goto_buffer:
 	lda zp::curx
 	beq @nomove
 
+	lda mode
+	cmp #MODE_VISUAL
+	bne @movecur
 	lda #$00
 	sta @deselect
 
@@ -3423,7 +3431,7 @@ __edit_gotoline:
 	lda mode
 	cmp #MODE_VISUAL
 	bne @done
-	jmp refresh
+	;jmp refresh
 @done:	rts
 .endproc
 
