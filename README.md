@@ -5,7 +5,8 @@ Table of Contents
 =================
 
   * Getting Started
-      * [Requirement](https://github.com/gummyworm/monster#requirements)
+      * [Overview](https://github.com/gummyworm/monster#overview)
+      * [Requirements](https://github.com/gummyworm/monster#requirements)
       * [Building](https://github.com/gummyworm/monster#building)
       * [Running](https://github.com/gummyworm/monster#running)
   * [Editor](https://github.com/gummyworm/monster#editor-overview)
@@ -30,6 +31,10 @@ Table of Contents
           * [Watch Viewer](https://github.com/gummyworm/monster#watch-viewer-f7-while-debugging)
       * [Breakpoints](https://github.com/gummyworm/monster#breakpoints)
       * [Watches](https://github.com/gummyworm/monster#watches)
+
+---
+
+## Overview
 
 MONster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
 It's is designed with an uncompromising philosophy.  Virtually any feature that
