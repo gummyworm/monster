@@ -240,7 +240,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	jsr __src_save	; save current source data
 @init:
 	; clear the state for the new buffer
-	ldx #data_end-data_start
+	ldx #data_end-data_start-1
 	lda #$00
 :	sta data_start-1,x
 	dex
@@ -534,7 +534,6 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 :	asl
 	tax
 	inc sp
-
 	lda pre
 	sta stack,x
 	lda pre+1
@@ -557,8 +556,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	lda sp
 	asl
 	tax
-	lda stack+1,x
-	tay
+	ldy stack+1,x
 	lda stack,x
 	tax
 	RETURN_OK

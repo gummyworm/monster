@@ -1049,9 +1049,12 @@ main:
 	;     read the character that it returns (+1)
 	; Similarly, the cur pointer needs to be updated for the same reason as
 	; the above list item #2.
-	incw @end
-	incw @end
-	incw @cur
+	lda @end
+	adc #$02
+	sta @end
+	bcc :+
+	inc @end+1
+:	incw @cur
 	ldxy @end	; starting from the END, copy to copy buffer
 	jsr src::goto	; go to the start position
 
