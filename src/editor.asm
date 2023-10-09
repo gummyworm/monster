@@ -1043,18 +1043,8 @@ main:
 	stxy @cur
 
 @cont:	; Update pointer:
-	;  1. the source pos ends on the character BEFORE the one we want to
-	;  copy (+1)
-	;  2. When iterating with src::prev, the source is updated BEFORE we
-	;     read the character that it returns (+1)
-	; Similarly, the cur pointer needs to be updated for the same reason as
-	; the above list item #2.
-	lda @end
-	adc #$02
-	sta @end
-	bcc :+
-	inc @end+1
-:	incw @cur
+	;  the source pos ends on the character BEFORE the one we want to copy
+	incw @end
 	ldxy @end	; starting from the END, copy to copy buffer
 	jsr src::goto	; go to the start position
 
@@ -1062,9 +1052,10 @@ main:
 	sub16 @cur
 	stxy @size
 
-@copy:	jsr src::prev
+@copy:	jsr src::atcursor
 	jsr buff_putch	; add the character to the copy buffer
 	bcs :+		; buffer is full
+	jsr src::prev
 	jsr src::pos
 	cmpw @cur	; are we back at the START of the selection yet?
 	bne @copy	; continue until we are

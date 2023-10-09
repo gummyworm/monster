@@ -1033,12 +1033,16 @@ __src_atcursor:
 	beq @done
 	bcc @backwards
 @forwards:
+	jsr __src_end
+	beq @done
 	jsr __src_next
 	ldxy pre
 	cmpw @dest
 	bne @forwards
 	rts
 @backwards:
+	jsr __src_start
+	beq @done
 	jsr __src_prev
 	ldxy pre
 	cmpw @dest
