@@ -33,10 +33,15 @@ for i in range(0, len(text), 3):
     out0 = (ch0 << 3) | ((ch1 & 0x1c) >> 2)
     out1 = ((ch1 & 0x03) << 6) | (ch2 & 0x1f)
 
-    end = "\n" if (i+3 >= len(text)) else ", "
-    print("${a:x}, ${b:x}".format(a=out0, b=out1), end=end)
+    end = "\n" if (i+3 >= len(text)) else ","
 
-    size += 2
+    # if only need to output the 1st byte if it contains a 0
+    if ch0 == 0:
+        print("${a:x}".format(a=out0), end=end)
+        size += 1
+    else:
+        print("${a:x},${b:x}".format(a=out0, b=out1), end=end)
+        size += 2
 
 print("")
 print("input size: {size}".format(size=len(sys.argv[1])))

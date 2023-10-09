@@ -3257,6 +3257,7 @@ __edit_gotoline:
 
 	lda @err
 	jsr err::get	; get the address of the error
+	jsr str::uncompress
 
 	lda #<@line_err
 	sta zp::tmp0
@@ -3286,6 +3287,7 @@ __edit_gotoline:
 	cmp #$00
 	beq @done	; no error
 	jsr err::get
+	jsr str::uncompress
 	lda #STATUS_ROW-1
 	jsr text::print
 @done:	rts

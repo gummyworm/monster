@@ -10,6 +10,7 @@
 .import __text_putz
 .import __text_plot
 .import __text_print
+.import __text_print_compressed
 .import __text_putch
 .import __text_puterr
 .import __text_rvs
@@ -40,24 +41,25 @@ BREAKPOINT_OFF_CHAR = 134
 CH_R_ARROW	    = 135 
 
 .scope text
-        charmap       = __text_charmap
-	clrline       = __text_clrline
-	drawline      = __text_drawline
-	hiline        = __text_hiline
-	hioff         = __text_hioff
-	insertmode    = __text_insertmode
-        len           = __text_len
-	linelen       = __text_linelen
-	plot          = __text_plot
-	print         = __text_print
-	putch         = __text_putch
-        puts          = __text_puts
-	putz   	      = __text_putz
-	rvs           = __text_rvs
-	savebuff      = __text_savebuff
-	scrolldown    = __text_scrolldown
-	scrollup      = __text_scrollup
-	status        = __text_status
-	restorebuff   = __text_restorebuff
-	update        = __text_update
+        charmap          = __text_charmap
+	clrline          = __text_clrline
+	drawline         = __text_drawline
+	hiline           = __text_hiline
+	hioff            = __text_hioff
+	insertmode       = __text_insertmode
+        len              = __text_len
+	linelen          = __text_linelen
+	plot             =  __text_plot
+	print            = __text_print
+	print_compressed = __text_print_compressed
+	putch            = __text_putch
+        puts             = __text_puts
+	putz   	         = __text_putz
+	rvs              = __text_rvs
+	savebuff         = __text_savebuff
+	scrolldown       = __text_scrolldown
+	scrollup         = __text_scrollup
+	status           = __text_status
+	restorebuff      = __text_restorebuff
+	update           = __text_update
 .endscope

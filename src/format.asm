@@ -11,10 +11,9 @@
 ; Formats linebuffer as a label.
 .export __fmt_label
 .proc __fmt_label
-	ldx #$00
-:	lda mem::linebuffer,x
-	inx
-	cmp #$00
+	ldx #$ff
+:	inx
+	lda mem::linebuffer,x
 	beq :-
 	dex
 

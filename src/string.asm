@@ -3,6 +3,10 @@
 .include "memory.inc"
 .include "zeropage.inc"
 
+;******************************************************************************
+; CONSTANTS
+SPACE = 'z'-'a'+1+1	; SPACE constant for 5-bit compression
+
 .CODE
 
 ;******************************************************************************
@@ -312,6 +316,7 @@
 ;  - .XY: the string to uncompress
 ; OUT:
 ;  - mem::spare: the uncompressed string
+;  - .XY:        the address of the uncompressed string
 .export __str_uncompress
 .proc __str_uncompress
 @rptr=zp::str0
@@ -319,8 +324,9 @@
 @tmp=zp::tmp0
 @tmp2=zp::tmp1
 @chars=zp::tmp2		; 3 bytes
+@dst=mem::linebuffer2
 	stxy @rptr
-	ldxy #mem::spare
+	ldxy #@dst
 	stxy @wptr
 
 @l0:	ldy #$02
@@ -370,15 +376,18 @@
 
 :	; write the 5 extracted bytes
 	ldy #$00
-:	lda @chars,y
+@l1:	lda @chars,y
 	beq @done	; if we found the terminating 0, we're done
 	; TODO: handle special chars
-	clc
-	adc #'a'-1	; a is actually character 1 (0 is for terminating NULL)
+	cmp #SPACE
+	bne :+
+	lda #' '
+	skw
+:	adc #'a'-1	; a is actually character 1 (0 is for terminating NULL)
 	sta (@wptr),y
 	iny
 	cpy #$03
-	bne :-
+	bne @l1
 
 	lda @wptr
 	clc
@@ -388,5 +397,6 @@
 	inc @wptr+1
 	bne @l0
 
-@done:	rts
+@done:	ldxy #@dst
+	rts
 .endproc

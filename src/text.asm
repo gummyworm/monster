@@ -349,6 +349,18 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 .endproc
 
 ;******************************************************************************
+; PRINT_COMPRESSED
+; Print the 5-bit-per-character compressed text string. This is equivalent to
+; calling str::uncompress and text::print with the resulting string.
+; IN:
+;  - .XY: the address of the encoded string
+.export __text_print_compressed
+.proc __text_print_compressed
+	jsr str::uncompress
+	jmp __text_putz
+.endproc
+
+;******************************************************************************
 ; PLOT
 ; Puts given character onto the screen at the given (X,Y) corrdinates
 ; IN:
