@@ -983,10 +983,8 @@ main:
 ; Pastes the contents of the copy buffer to the line below the cursor
 .proc paste_below
 	jsr enter_insert
-	jsr ccdown
-	jsr home
-	jsr paste_buff
-	jmp ccup
+	jsr ccright
+	jmp paste_buff
 .endproc
 
 ;******************************************************************************
