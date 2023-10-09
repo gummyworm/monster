@@ -1238,18 +1238,14 @@ main:
 	sta zp::jmpvec
 	lda ccvectorshi,x
 	sta zp::jmpvec+1
-	jmp *
 	jsr zp::jmpaddr
 	sec
 	rts
 
 @special:
-	txa
-	asl
-	tax
-	lda @specialkeys_vectors,x
+	lda @specialvecslo,x
 	sta zp::jmpvec
-	lda @specialkeys_vectors+1,x
+	lda @specialvecshi,x
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr
 	sec
@@ -1297,41 +1293,17 @@ main:
 	.byte K_QUIT		; <- (return to COMMAND mode)
 @num_special_keys=*-@specialkeys
 
-@specialkeys_vectors:
-	.word home
-	.word command_asm
-	.word command_asmdbg
-	.word show_buffers
-	.word refresh
-	.word rename
-	.word dir
-	.word list_symbols
-	.word command_gotoline
-	.word command_find
-	.word close_buffer
-	.word new_buffer
-	.word set_breakpoint
-	.word jumpback
-
-	.word buffer1
-	.word buffer2
-	.word buffer3
-	.word buffer4
-	.word buffer5
-	.word buffer6
-	.word buffer7
-	.word buffer8
-	.word next_buffer
-	.word prev_buffer
-
-	.word command_go
-	.word command_debug
-	.word command_load
-	.word save
-	.word scratch
-	.word assemble_file
-
-	.word cancel
+.linecont +
+.define specialvecs home, command_asm, command_asmdbg, show_buffers, refresh, \
+	rename, dir, list_symbols, command_gotoline, command_find, \
+	close_buffer, new_buffer, set_breakpoint, jumpback, \
+	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
+	next_buffer, prev_buffer, \
+	command_go, command_debug, command_load, save, scratch, assemble_file, \
+	cancel
+.linecont -
+@specialvecslo: .lobytes specialvecs
+@specialvecshi: .hibytes specialvecs
 .endproc
 
 ;******************************************************************************
