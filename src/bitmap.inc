@@ -2,6 +2,7 @@ BITMAP_ADDR = $1100
 COLMEM_ADDR = $9400
 
 .import __bm_init
+.import __bm_char_addr
 .import __bm_clr
 .import __bm_clrcolor
 .import __bm_clr_part
@@ -15,6 +16,7 @@ COLMEM_ADDR = $9400
 
 .scope bm
         init     = __bm_init
+	charaddr = __bm_char_addr
         clr      = __bm_clr
 	clrcolor = __bm_clrcolor
 	clrline  = __bm_clrline

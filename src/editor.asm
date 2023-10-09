@@ -1802,7 +1802,7 @@ goto_buffer:
 	jsr util::parse_enquoted_string
 	jsr bm::restore
 	ldxy #@namebuff
-	jmp command_load	; load the file
+	jmp __edit_load 	; load the file
 
 @exit:  jmp bm::restore
 @dirmsg: .byte "dir:",0

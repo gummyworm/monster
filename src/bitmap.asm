@@ -125,13 +125,9 @@ COLMEM_ADDR = $9400
 .export __bm_clrline
 .proc __bm_clrline
 @dst=zp::tmp0
-	asl
-	asl
-	asl
-	adc #<BITMAP_ADDR
-	sta @dst
-	lda #>BITMAP_ADDR
-	sta @dst+1
+	jsr __bm_char_addr
+	stx @dst
+	sty @dst+1
 
 	ldx #20
 @l0:	ldy #$07
@@ -158,13 +154,9 @@ COLMEM_ADDR = $9400
 .export __bm_rvsline
 .proc __bm_rvsline
 @dst=zp::tmp0
-	asl
-	asl
-	asl
-	adc #<BITMAP_ADDR
-	sta @dst
-	lda #>BITMAP_ADDR
-	sta @dst+1
+	jsr __bm_char_addr
+	stxy @dst
+
 	ldx #20
 @l0:	ldy #$07
 @l1: 	lda (@dst),y
@@ -176,10 +168,9 @@ COLMEM_ADDR = $9400
 	clc
 	adc #$c0
 	sta @dst
-	lda @dst+1
-	adc #$00
-	sta @dst+1
-	dex
+	bcc :+
+	inc @dst+1
+:	dex
 	bne @l0
 	rts
 .endproc
@@ -296,7 +287,6 @@ COLMEM_ADDR = $9400
 @done:	rts
 .endproc
 
-
 ;******************************************************************************
 ; SHR
 ; Shifts the bitmap right 8 pixels (one "char") at the given row
@@ -399,6 +389,26 @@ COLMEM_ADDR = $9400
 .export __bm_restore
 .proc __bm_restore
 	copy #BITMAP_ADDR, #mem::backbuff, #(20*192)
+	rts
+.endproc
+
+;******************************************************************************
+; CHAR ADDR
+; Returns the bitmap address for the "character row" of the given row.
+; Characters are 8 pixels tall, so this is BITMAP_ADDR+(8*row) where row is
+; the provided row.
+; IN:
+;  - .A: the character row to get the bitmap address of
+; OUT:
+;  - .XY: the bitmap address
+.export __bm_char_addr
+.proc __bm_char_addr
+	asl
+	asl
+	asl
+	adc #<BITMAP_ADDR
+	tax
+	ldy #>BITMAP_ADDR
 	rts
 .endproc
 
