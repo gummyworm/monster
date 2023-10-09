@@ -43,7 +43,7 @@ mostly designed with memory efficiency in mind.
 Virtually any feature that
 I deem valuable in an editor/assembler is included. That means there are no
 weird limitations on label names, robust expression evaluation, a powerful
-environment for text editing, and many, many other usability nice-to-haves.  
+environment for text editing, and many, many other usability nice-to-haves.
 
 Some of its features are:
  - 40 column bitmap-based editor

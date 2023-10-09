@@ -2003,7 +2003,6 @@ goto_buffer:
 	ldxy #$0000
 	jsr readinput
 	bcs @err
-	jmp *
 
 	jsr __edit_load
 	bcs @err

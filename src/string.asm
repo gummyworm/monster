@@ -5,7 +5,13 @@
 
 ;******************************************************************************
 ; CONSTANTS
-SPACE = 'z'-'a'+1+1	; SPACE constant for 5-bit compression
+
+; constants for special symbols in 5-bit compresed strings
+SPECIAL_CHARS_START = 'z'-'a'+2
+
+SPACE = SPECIAL_CHARS_START
+DOT   = SPECIAL_CHARS_START+1
+SLASH = SPECIAL_CHARS_START+2
 
 .CODE
 
@@ -329,13 +335,7 @@ SPACE = 'z'-'a'+1+1	; SPACE constant for 5-bit compression
 	ldxy #@dst
 	stxy @wptr
 
-@l0:	ldy #$02
-	lda #$00
-:	sta @chars,y
-	dey
-	bpl :-
-
-	ldy #$00
+@l0:	ldy #$00
 	lda (@rptr),y		; get byte containing chars 0 and 1[4:1]
 	sta @tmp
 	lsr
@@ -378,10 +378,10 @@ SPACE = 'z'-'a'+1+1	; SPACE constant for 5-bit compression
 	ldy #$00
 @l1:	lda @chars,y
 	beq @done	; if we found the terminating 0, we're done
-	; TODO: handle special chars
-	cmp #SPACE
-	bne :+
-	lda #' '
+	cmp #SPECIAL_CHARS_START
+	bcc :+
+	tax
+	lda @special_chars-SPECIAL_CHARS_START,x
 	skw
 :	adc #'a'-1	; a is actually character 1 (0 is for terminating NULL)
 	sta (@wptr),y
@@ -399,4 +399,7 @@ SPACE = 'z'-'a'+1+1	; SPACE constant for 5-bit compression
 
 @done:	ldxy #@dst
 	rts
+
+@special_chars:
+	.byte ' ', '.', '/'
 .endproc
