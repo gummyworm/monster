@@ -208,9 +208,14 @@ main:
 ; IN:
 ;  - .XY: the address of the label to start debugging at
 .proc command_go
+	ldxy #$0000
+	jsr readinput
+	bcs @ret
+	rts
+
 	jsr label_addr_or_org
 	bcc :+
-	rts
+@ret:	rts
 	stxy zp::jmpvec
 	jmp zp::jmpaddr
 .endproc
@@ -224,10 +229,14 @@ main:
 ;  - .XY: the address of the label to start debugging at
 .proc command_debug
 @addr=zp::editortmp
+	ldxy #$0000
+	jsr readinput
+	bcs @ret
+
 	jsr label_addr_or_org
 	stxy @addr
 	bcc :+
-	rts		; address not found
+@ret:	rts		; address not found
 
 :	jsr enter_command
 	lda #REGISTERS_LINE-1
@@ -253,7 +262,12 @@ main:
 ;******************************************************************************
 .proc assemble_file
 @filename=mem::backbuff
-	lda #<@filename
+	ldxy #$0000
+	jsr readinput
+	bcc :+
+	rts
+
+:	lda #<@filename
 	sta zp::tmp0
 	lda #>@filename
 	sta zp::tmp0+1
@@ -563,63 +577,6 @@ main:
 	pla
 	sta zp::editor_mode	; restore editor mode
 	rts
-.endproc
-
-;******************************************************************************
-; DOCOMMAND
-; Executes the given command ID
-; IN:
-;  - .A: the command ID for the command to execute
-.proc docommand
-@prompt=$100
-@cmd=@prompt
-	sta @prompt
-
-	; construct the prompt
-	lda #$00
-	sta $101
-	ldxy #@prompt
-	jsr readinput
-	bcc :+
-	rts
-
-:	ldx #@num_commands-1
-	lda @cmd
-:	cmp @command_codes,x
-	beq @found
-	dex
-	bpl :-
-	rts
-
-@found:
-	txa
-	asl
-	tax
-	lda @command_table,x
-	sta zp::jmpvec
-	lda @command_table+1,x
-	sta zp::jmpvec+1
-
-	ldx #<$102
-	ldy #>$102
-	jmp zp::jmpaddr
-
-; commands
-@command_codes:
-.byte 'g'
-.byte 'd'
-.byte 'e'
-.byte 's'
-.byte 'x'
-.byte 'a'
-@num_commands=*-@command_codes
-@command_table:
-.word command_go
-.word command_debug
-.word command_load
-.word save
-.word scratch
-.word assemble_file
 .endproc
 
 ;******************************************************************************
@@ -1107,7 +1064,7 @@ main:
 	bcs :+		; buffer is full
 	jsr src::pos
 	cmpw @cur	; are we back at the START of the selection yet?
-	bcs @copy	; continue until we are
+	bne @copy	; continue until we are
 
 :	; restore source position
 	ldxy @start
@@ -1262,46 +1219,6 @@ main:
 	dex
 	bpl @l0
 
-	; handle the "docommand" functions
-	cmp #$b0	; C=<A> (Assemble file)
-	bne :+
-	lda #'a'
-	bne @do
-:	cmp #$a5	; C=<G> (Go)
-	bne :+
-	lda #'g'
-	bne @do
-:	cmp #$ac	; C=<D> (Debug)
-	bne :+
-	lda #'d'
-	bne @do
-:	cmp #K_OPEN	; (Open)
-	bne :+
-	lda #'e'
-	bne @do
-:	cmp #$ae	; C=<S> (Save)
-	bne :+
-	lda #'s'
-	bne @do
-:	cmp #$bd	; C=<X> (Scratch)
-	bne @check_ccodes
-	lda #'x'
-@do:	jsr docommand
-	sec
-	rts
-
-@special:
-	txa
-	asl
-	tax
-	lda @specialkeys_vectors,x
-	sta zp::jmpvec
-	lda @specialkeys_vectors+1,x
-	sta zp::jmpvec+1
-	jsr zp::jmpaddr
-	sec
-	rts
-
 @check_ccodes:
 	cmp #$80
 	bcs @controlcodes
@@ -1317,12 +1234,22 @@ main:
 	clc
 	rts
 
-@cc:	txa
+@cc:	lda ccvectorslo,x
+	sta zp::jmpvec
+	lda ccvectorshi,x
+	sta zp::jmpvec+1
+	jmp *
+	jsr zp::jmpaddr
+	sec
+	rts
+
+@special:
+	txa
 	asl
 	tax
-	lda ccvectors,x
+	lda @specialkeys_vectors,x
 	sta zp::jmpvec
-	lda ccvectors+1,x
+	lda @specialkeys_vectors+1,x
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr
 	sec
@@ -1359,6 +1286,14 @@ main:
 
 	.byte K_NEXT_BUFF	; C= + > next buffer
 	.byte K_PREV_BUFF	; C= + < previous buffer
+
+	.byte K_GO		; go
+	.byte K_DEBUG		; debug
+	.byte K_OPEN		; open file
+	.byte K_SAVE		; save file
+	.byte K_SCRATCH		; scratch file
+	.byte K_ASM_FILE	; assemble file
+
 	.byte K_QUIT		; <- (return to COMMAND mode)
 @num_special_keys=*-@specialkeys
 
@@ -1388,6 +1323,14 @@ main:
 	.word buffer8
 	.word next_buffer
 	.word prev_buffer
+
+	.word command_go
+	.word command_debug
+	.word command_load
+	.word save
+	.word scratch
+	.word assemble_file
+
 	.word cancel
 .endproc
 
@@ -1928,6 +1871,10 @@ goto_buffer:
 ;  - .XY: the filename to save the source to
 .proc save
 @file=zp::tmp9
+	ldxy #$0000
+	jsr readinput
+	bcs @ret
+
 	stxy @file
 
 	ldxy #@savingmsg
@@ -1956,7 +1903,7 @@ goto_buffer:
 	ldxy #@errmsg
 	lda #STATUS_ROW
 	jsr text::print
-	rts
+@ret:	rts
 @savingmsg:
 	.byte "saving...",0
 @errmsg:
@@ -1970,8 +1917,11 @@ goto_buffer:
 ;  - .XY: the filename of the file to delete
 .proc scratch
 @file=zp::tmp9
-	stx @file
-	sty @file+1
+	ldxy #$0000
+	jsr readinput
+	bcs @ret
+
+	stxy @file
 
 	; get the file length
 	jsr str::len
@@ -1987,7 +1937,7 @@ goto_buffer:
 	jsr file::scratch
 	cmp #$00
 	bne @err
-	rts	; no error
+@ret:	rts	; no error
 @err:
 	pha
 	lda #$00
@@ -2078,6 +2028,11 @@ goto_buffer:
 ; COMMAND_LOAD
 ; Handles the load command
 .proc command_load
+	ldxy #$0000
+	jsr readinput
+	bcs @err
+	jmp *
+
 	jsr __edit_load
 	bcs @err
 
@@ -3405,7 +3360,7 @@ __edit_gotoline:
 @buff=zp::tmp0
 	ldxy buffptr
 	stxy @buff
-	cmpw #MAX_COPY_SIZE	; buffer is full
+	cmpw #mem::copybuff+MAX_COPY_SIZE	; buffer is full
 	bcs @done
 	ldy #$00
 	sta (@buff),y
@@ -3428,8 +3383,9 @@ __edit_gotoline:
 	beq @done		; buffer empty
 
 	ldy #$00
-	lda (@buff),y
 	decw buffptr
+	decw @buff
+	lda (@buff),y
 	clc
 @done:	rts
 .endproc
@@ -3470,7 +3426,6 @@ numccodes=*-controlcodes
 
 ;******************************************************************************
 ccvectors:
-.word ccleft    ; left
-.word ccright	; right
-.word ccup      ; up
-.word ccdown	; down
+.define ccvectors ccleft, ccright, ccup, ccdown
+ccvectorslo: .lobytes ccvectors
+ccvectorshi: .hibytes ccvectors

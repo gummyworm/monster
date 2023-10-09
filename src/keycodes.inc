@@ -18,12 +18,15 @@ K_QUIT      = $5f	; <-
 K_SET_BREAKPOINT = $bf	; <C=> + B
 K_ASM            = $86	; F3
 K_ASM_DEBUG      = $8a  ; F4 (shift + F3)
+K_ASM_FILE       = $b0	; C= + a
 K_SHOW_BUFFERS   = $87	; F5
 K_REFRESH        = $bc  ; <C=> + c
 K_RENAME         = $b2  ; <C=> + r
+K_DEBUG		 = $ac	; <C=> + d
 K_DIR            = $b6  ; <C=> + l
 K_LIST_SYMBOLS   = $b7  ; <C=> + y
 K_FIND           = $2f	; /
+K_GO             = $a5	; <C=> + g
 K_GOTO_LINE	 = $a7	; <C=> + m
 K_GOTO_BUFF1     = $81  ; <C=> + 1
 K_GOTO_BUFF2     = $95  ; <C=> + 2
@@ -35,8 +38,9 @@ K_GOTO_BUFF7     = $9a  ; <C=> + 7
 K_GOTO_BUFF8     = $9b  ; <C=> + 8
 K_JUMPBACK       = $b9	; <C=> + o
 K_JUMPFORWARD    = $a2	; <C=> + i
-
 K_OPEN           = $b1	; <C=> + e
+K_SCRATCH	 = $bd	; <C=> + x
+K_SAVE 	         = $ae	; <C=> + s
 
 ; DEBUGGER KEYS
 K_SRCVIEW      = $85	; F1
@@ -45,7 +49,7 @@ K_BRKVIEW      = $87	; F5
 K_WATCHVIEW    = $88	; F7
 K_SWAP_USERMEM = $20	; SPACE
 
-K_GO        = $a5	; <C=> + g
+;K_GO        = $a5	; <C=> + g
 K_STEP      = $ad	; <C=> + z
 K_STEPOVER  = $ae	; <C=> + s
 K_TRACE     = $a3	; <C=> + t
