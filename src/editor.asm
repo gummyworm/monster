@@ -705,9 +705,9 @@ main:
 ; Enters COMMAND mode
 .proc enter_command
 	jsr deselect	; unhighlight selection (if we were in VISUAL mode)
-	jsr ccleft	; insert places cursor after char
 	lda #CUR_NORMAL
 	sta cur::mode
+	jsr ccleft	; insert places cursor after char
 	lda #MODE_COMMAND
 	sta mode
 @done:  rts
@@ -3371,6 +3371,8 @@ __edit_gotoline:
 	lda mode
 	cmp #MODE_VISUAL
 	bne @done
+	lda #CUR_OFF
+	sta cur::status
 	;jmp refresh
 @done:	rts
 .endproc
