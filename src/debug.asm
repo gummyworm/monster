@@ -1035,7 +1035,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stxy pc
 
 	jsr save_debug_state 		; save the debug state
-
 	ldxy pc
 	stxy prev_pc
 	jsr vmem::load
@@ -1180,7 +1179,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @savecolor
 
 	; backup the screen
-	CALL FINAL_BANK_FASTCOPY, #fcpy::save
+	CALL FINAL_BANK_FASTCOPY2, #fcpy::save
 	rts
 .endproc
 
@@ -1222,7 +1221,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @savecolor
 
 	; backup the user $1000 data
-	CALL FINAL_BANK_FASTCOPY2, #fcpy::save
+	CALL FINAL_BANK_FASTCOPY, #fcpy::save
 	rts
 .endproc
 
@@ -1580,7 +1579,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; reinit the bitmap
 	jsr bm::init
 	; restore the screen
-	CALL FINAL_BANK_FASTCOPY, #fcpy::restore
+	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
 	rts
 .endproc
 
@@ -1623,7 +1622,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$4c
 	sta zp::jmpaddr
 	; restore the user $1000 data
-	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
+	CALL FINAL_BANK_FASTCOPY, #fcpy::restore
 	rts
 .endproc
 
@@ -2141,6 +2140,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldx #$02
 	stx @cnt
 @saveloop:
+	; save the debugger's byte at the location we're swapping
 @smc0=*+1
 	lda $f00d,x
 	sta debug_instruction_save,x
@@ -2148,6 +2148,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bpl @saveloop
 
 @saveloop2:
+	; store the user's byte at the location we're swapping
 	ldxy pc
 	lda @cnt
 	jsr vmem::load_off

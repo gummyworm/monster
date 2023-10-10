@@ -1,4 +1,4 @@
-.org $7700
+.org $1400
 main:
 	jsr $e5b5	; INIT VIC
 	jsr $e55f	; CLRSCR
