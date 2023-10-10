@@ -2206,10 +2206,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stx @cnt
 @saveloop:
 	; get user byte to save and store it
+	ldx @cnt
 @smc0=*+1
 	lda $f00d,x
 	sta zp::bankval
-	ldxy pc
+	ldxy prev_pc
 	lda @cnt
 	jsr vmem::store_off
 
