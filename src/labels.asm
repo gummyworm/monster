@@ -218,7 +218,7 @@ label_addresses: .res 256 * 2
 @offset=zp::tmp10
 @islocal=zp::tmp11
 	stxy @name
-	jsr isvalid
+	jsr __label_isvalid
 	bcc @seek
 	RETURN_ERR ERR_ILLEGAL_LABEL
 
@@ -615,47 +615,12 @@ label_addresses: .res 256 * 2
 .endproc
 
 ;******************************************************************************
-; ISVALID
-; Checks if the label in (zp::tmp4) is valid
-; OUT:
-;  - .C: set if the label is invalid, clear if valid characters for a label.
-.proc isvalid
-@name=zp::tmp4
-	ldy #$00
-
-; first character must be a letter or '@'
-:	lda (@name),y
-	iny
-	jsr util::is_whitespace
-	beq :-
-	cmp #$40	; '@'
-	beq @l0
-	cmp #'a'
-	bcc @err
-	cmp #'Z'+1
-	bcs @err
-
-; following characters are between '0' and ')'
-@l0:	lda (@name),y
-	beq @done
-	jsr util::is_whitespace
-	beq @done
-	cmp #' '
-	bcc @err
-	cmp #'Z'+1
-	iny
-	bcc @l0
-@err:   RETURN_ERR ERR_ILLEGAL_LABEL
-@done:  RETURN_OK
-.endproc
-
-;******************************************************************************
 ; IS_LOCAL
 ; Returns with .Z set if the given label is a local label (begins with '@')
 ; IN:
 ;  - .XY: the label to test
 ; OUT:
-;  - .A: nonzero if the label is local
+;  - .Z: set if label is local, clear if not
 .export __label_is_local
 .proc __label_is_local
 @l=zp::labels
@@ -663,10 +628,6 @@ label_addresses: .res 256 * 2
 	ldy #$00
 	lda (@l),y
 	cmp #'@'
-	bne :+
-	lda #$01
-	rts
-:	lda #$00
 	rts
 .endproc
 
@@ -765,7 +726,7 @@ label_addresses: .res 256 * 2
 .export __label_isvalid
 .proc __label_isvalid
 	ldy #$00
-; first character must be a letter
+; first character must be a letter or '@'
 :	lda (zp::line),y
 	iny
 	jsr util::is_whitespace

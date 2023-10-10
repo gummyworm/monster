@@ -4,7 +4,6 @@
 .import __BANKCODE_SIZE__
 .import __BANKCODE_LOAD__
 
-
 ;******************************************************************************
 ; BANK CODE
 ; The following procedures have stable positions in every bank.

@@ -392,7 +392,7 @@ __asm_tokenize:
 	jsr lbl::add
 	ldxy zp::line
 	jsr lbl::islocal
-	bne :+
+	beq :+
 	jsr lbl::clrlocals	; clear locals if this is a non-local label
 :	jsr process_word
 	jsr @finishline
