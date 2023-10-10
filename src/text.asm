@@ -353,10 +353,13 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 ; Print the 5-bit-per-character compressed text string. This is equivalent to
 ; calling str::uncompress and text::print with the resulting string.
 ; IN:
+;  - .A:  the row to print at
 ;  - .XY: the address of the encoded string
 .export __text_print_compressed
 .proc __text_print_compressed
+	pha
 	jsr str::uncompress
+	pla
 	jmp __text_putz
 .endproc
 
@@ -738,23 +741,23 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 @txtright = zp::text+3
 @txtdst   = zp::text+5
 @txtsrc   = zp::text+7
-        stx @txtsrc
-        sty @txtsrc+1
-        asl
+	stx @txtsrc
+	sty @txtsrc+1
+	asl
         asl
         asl
         sta @txtdst
 
-	lda #40
-	sta __text_len
         lda #<BITMAP_ADDR
         adc @txtdst
         sta @txtdst
-	lda #$00
-	tay
-        adc #>BITMAP_ADDR
+	lda #>BITMAP_ADDR
         sta @txtdst+1
 
+	lda #40
+	sta __text_len
+
+	ldy #$00
 @l0:    lda (@txtsrc),y
 	jsr @handlecc
 	iny

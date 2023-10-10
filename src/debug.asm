@@ -1260,10 +1260,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta pc+1
 
 	; reinstall the main IRQ
-	ldx #<irq::sys_update
-        ldy #>irq::sys_update
-        lda #$20
-        jsr irq::raster
+	;ldx #<irq::sys_update
+        ;ldy #>irq::sys_update
+	;lda #$20
+        ;jsr irq::raster
 
 	; swap the debugger state in
 	jsr swapout
@@ -1272,6 +1272,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; swap in the entire user RAM before we return from this BRK
 	lda #$01
 	sta swapmem
+
+	lda #$00
+	sta lineset		; flag that line # is (yet) unknown
 
 	; if the instruction we executed was destructive, show its new value
 	lda affected
@@ -1358,8 +1361,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 @showbrk:
 	; get the address before the BRK and go to it
-	lda #$00
-	sta lineset		; flag that line # is (yet) unknown
 	ldxy pc
 	jsr __debug_addr2line	; get the line #
 	sta file
@@ -1384,9 +1385,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	adc #$00
 	tay
 	jsr edit::load
-	; TODO: handle err
-
-	jsr toggle_highlight
+	bcs @print	; couldn't load file, just show BRK
+	jsr toggle_highlight	; highlight line
 
 @print:	jsr showstate		; show regs/BRK message
 	jsr src::get		; update linebuffer with whatever we're at
@@ -1402,9 +1402,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq @debugloop
 
 	pha
-	jsr toggle_highlight	; turn off highlight
-
 	cli
+	jsr toggle_highlight	; turn off highlight
 
 	lda #$00
 	sta advance	; by default, don't return to program after command
@@ -2081,10 +2080,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr vmem::load			; operand (1st byte)
 	sta @target
 
+	lda #$00
+	ldx @opsz
+	cpx #$03
+	bcc :+
 	incw @instruction
 	ldxy @instruction
 	jsr vmem::load			; operand (2nd byte)
-	sta @target+1
+:	sta @target+1
 
 	; get the side-effects for this operation
 	ldx @opcode
@@ -2241,8 +2244,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @target=zp::tmp5
 	lda op_mode
 	cmp #MODE_X_INDEXED|MODE_ZP|MODE_INDIRECT	; x,ind?
-	bne @check_ind_y				; nope, try ind,y
+	bne @check_ind_y
 	; add .X register to ZP target to get target address (wrapping is fine)
+	; THEN load the address at this target
 	lda reg_x
 	clc
 	adc @target
@@ -2251,6 +2255,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;--------------------------------------
 @check_ind_y:
+	lda op_mode
 	cmp #MODE_Y_INDEXED|MODE_ZP|MODE_INDIRECT	; y,ind?
 	bne @check_rel_y
 	; get the value of the ZP location in the *user* ZP
@@ -2270,8 +2275,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;--------------------------------------
 @check_rel_y:
-	cmp #MODE_Y_INDEXED|MODE_ABS	; abs,y?
-	bne @check_rel_x
+	lda op_mode
+	and #MODE_Y_INDEXED		; y indexed?
+	beq @check_rel_x
 	; add the value of .Y to get the target address
 	lda reg_y
 	clc
@@ -2283,8 +2289,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;--------------------------------------
 @check_rel_x:
-	cmp #MODE_X_INDEXED|MODE_ABS	; abs,x?
-	bne @abs_or_zp			; if not, this is a simple ZP/abs store
+	lda op_mode
+	and #MODE_X_INDEXED		; x indexed?
+	beq @abs_or_zp			; if not, this is a simple ZP/abs store
 	; add the value of .X to get the target address
 	lda reg_x
 	clc
@@ -2588,6 +2595,7 @@ __debug_remove_breakpoint:
 	lda pc+1
 	pha
 	ldxy #@brk_message_addr
+	jmp *
 	jmp @print
 
 @showline:
@@ -2602,8 +2610,8 @@ __debug_remove_breakpoint:
 	lda #DEBUG_MESSAGE_LINE
 	jmp bm::rvsline
 
-@brk_message_line: .byte "brk in line ",$fd,0 ; when line number is resolved
-@brk_message_addr: .byte "brk @ ", $fe, 0      ; when line is unresolvable
+@brk_message_line: .byte "brk in line ",ESCAPE_VALUE_DEC,0 ; when line number is resolved
+@brk_message_addr: .byte "brk @ ", ESCAPE_VALUE, 0      ; when line is unresolvable
 .endproc
 
 ;******************************************************************************

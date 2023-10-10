@@ -1,5 +1,6 @@
-BITMAP_ADDR = $1100
-COLMEM_ADDR = $9400
+BITMAP_ADDR   = $1100
+COLMEM_ADDR   = $9400
+BITMAP_HEIGHT = 192
 
 .import __bm_init
 .import __bm_char_addr

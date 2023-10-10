@@ -884,7 +884,7 @@ bbb10_modes:
 	.byte $ff		        ; 100
 	.byte MODE_ZP | MODE_X_INDEXED  ; 101 (Y_INDEXED for STX,LDX)
 	.byte $ff		        ; 110
-	.byte ABS | MODE_X_INDEXED	; 111 (Y_INDEXED for STX,LDX)
+	.byte MODE_ABS | MODE_X_INDEXED	; 111 (Y_INDEXED for STX,LDX)
 
 ;******************************************************************************
 ; GETTEXT

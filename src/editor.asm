@@ -1927,6 +1927,8 @@ goto_buffer:
 ;******************************************************************************
 ; LOAD
 ; Loads the file from disk into the source buffer
+; OUT:
+;  - .C: set if file could not be loaded into a buffer
 .export __edit_load
 .proc __edit_load
 @file=zp::tmp9
@@ -1946,7 +1948,7 @@ goto_buffer:
 ; buffer already loaded, switch to it
 	cmp src::activebuff
 	bne :+
-	rts			; buffer already active; quit
+	RETURN_OK		; buffer already active; quit
 :	pha
 	jsr src::save		; save the current buffer's state
 	pla
@@ -1989,7 +1991,7 @@ goto_buffer:
 	ldxy #@errmsg
 	lda #STATUS_ROW-1
 	jsr text::print
-	sec
+	sec			; error
 	rts
 @loadingmsg:
 	.byte "loading...",0
