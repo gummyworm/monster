@@ -3243,7 +3243,7 @@ __edit_gotoline:
 	sta @startline+1
 
 	lda @startline
-	clc
+	sec			; +1
 	adc height
 	sta @endline
 	lda @startline+1
