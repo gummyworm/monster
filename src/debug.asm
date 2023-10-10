@@ -1919,7 +1919,21 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 @notjsr:
 	beq @jmpjsr
-	cmp #$4c	; JMP?
+	cmp #$6c	; JMP (ind)?
+	bne :+
+
+	ldxy @operand
+	jsr vmem::load
+	pha
+	incw @operand
+	ldxy @operand
+	jsr vmem::load
+	tay
+	pla
+	tax
+	rts
+
+:	cmp #$4c	; JMP?
 	bne @notjmp
 
 ; for JMP and JSR just set PC to the operand
@@ -2291,6 +2305,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @check_rel_x:
 	lda op_mode
 	and #MODE_X_INDEXED		; x indexed?
+	beq @check_ind
 	beq @abs_or_zp			; if not, this is a simple ZP/abs store
 	; add the value of .X to get the target address
 	lda reg_x
@@ -2299,6 +2314,22 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @target
 	bcc @done
 	inc @target+1
+	bcs @done
+
+@check_ind:
+	lda op_mode
+	cmp #MODE_INDIRECT|MODE_ABS	; JMP (ind) ?
+	bne @abs_or_zp
+	; read the target of the indirect JMP and set @target to it
+	ldxy @target
+	jsr vmem::load
+	pha
+	incw @target
+	ldxy @target
+	jsr vmem::load
+	sta @target+1
+	pla
+	sta @target
 
 @abs_or_zp:
 @done:	ldxy @target
@@ -2595,7 +2626,6 @@ __debug_remove_breakpoint:
 	lda pc+1
 	pha
 	ldxy #@brk_message_addr
-	jmp *
 	jmp @print
 
 @showline:

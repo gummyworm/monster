@@ -1885,7 +1885,13 @@ __asm_include:
 @get_addrmode:
 	; get bbb and find the addressing mode for the instruction
 	lda @op
-	lsr
+	cmp #$6c	; handle JMP (ind) - it doesn't match "normal" encoding
+	bne :+
+	lda #MODE_INDIRECT | MODE_ABS
+	sta @modes
+	bne @cont
+
+:	lsr
 	lsr
 	and #$07
 	sta @bbb
@@ -1980,6 +1986,7 @@ __asm_include:
 	sta (@dst),y
 	incw @dst
 	incw @dst
+	ldy #$00
 
 @chkindexed:
 	lda @modes

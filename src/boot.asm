@@ -9,6 +9,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "source.inc"
+.include "vmem.inc"
 .include "zeropage.inc"
 
 .import __BSS_LOAD__
