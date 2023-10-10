@@ -58,7 +58,7 @@
 .proc __vmem_store_off
 	sta zp::bankoffset
 	jsr __vmem_translate
-	jmp fe3::store
+	jmp fe3::store_off
 .endproc
 
 ;******************************************************************************
