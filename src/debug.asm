@@ -1442,6 +1442,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr toggle_highlight
 
 @debug_done:
+	jsr cur::off
 	jsr swapin
 	; clear watch flags
 	lda #$00
