@@ -2068,6 +2068,7 @@ goto_buffer:
 	ldy #>mem::linebuffer
 	jsr asm::tokenize
 	bcs @err
+	pha		; save token type
 
 	; clear the error row
 	lda #STATUS_ROW-1
@@ -2078,6 +2079,7 @@ goto_buffer:
 	stx indent
 @format:
 	; format the line
+	pla			; get token type
 @fmt:	cmp #ASM_COMMENT	; if this is a comment, don't indent
 	bne :+
 	ldx #INDENT_LEVEL	; anything but a comment, indent

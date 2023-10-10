@@ -15,7 +15,6 @@
 :	inx
 	lda mem::linebuffer,x
 	beq :-
-	dex
 
 	ldy #$00
 :	lda mem::linebuffer,x
