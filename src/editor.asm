@@ -1172,8 +1172,16 @@ main:
 	beq :+
 	rts
 :	ldxy #1
+	lda mode
+	cmp #MODE_VISUAL
+	bne @gotoline
+	; if we're in visual mode, go up line by line to highlight
+:	jsr ccup
+	bcc :-
+	bcs @done
+@gotoline:
 	jsr gotoline
-	jmp add_jump_point
+@done:	jmp add_jump_point
 .endproc
 
 ;******************************************************************************
