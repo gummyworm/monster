@@ -256,7 +256,6 @@ SLASH = SPECIAL_CHARS_START+2
 	bcs @toolong
 	bcc :-
 @done:
-
 	ldxy #@buff
 	RETURN_OK
 .endproc
@@ -397,7 +396,8 @@ SLASH = SPECIAL_CHARS_START+2
 	inc @wptr+1
 	bne @l0
 
-@done:	ldxy #@dst
+@done:	sta (@wptr),y	; write the 0
+	ldxy #@dst
 	rts
 
 @special_chars:

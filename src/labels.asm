@@ -430,7 +430,6 @@ label_addresses: .res 256 * 2
 	RETURN_OK
 .endproc
 
-
 ;******************************************************************************
 ; LABEL_ADDRESS
 ; Returns the address of the label in (.YX)
@@ -620,7 +619,7 @@ label_addresses: .res 256 * 2
 ; IN:
 ;  - .XY: the label to test
 ; OUT:
-;  - .Z: set if label is local, clear if not
+;  - .A: nonzero if the label is local
 .export __label_is_local
 .proc __label_is_local
 @l=zp::labels
@@ -628,6 +627,10 @@ label_addresses: .res 256 * 2
 	ldy #$00
 	lda (@l),y
 	cmp #'@'
+	bne :+
+	lda #$01
+	rts
+:	lda #$00
 	rts
 .endproc
 

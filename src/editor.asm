@@ -239,7 +239,7 @@ main:
 @ret:	rts		; address not found
 
 :	jsr enter_command
-	lda #REGISTERS_LINE-1
+	lda #DEBUG_MESSAGE_LINE-1
 	sta height
 	inc readonly	; enable read-only mode
 	jsr home_line	; avoid problems with cursor-y being below new height
