@@ -381,7 +381,8 @@ __asm_tokenize:
 :	rts
 
 ; check if the line is a label definition
-@label: jsr lbl::isvalid
+@label: ldxy zp::line
+	jsr lbl::isvalid
 	bcs @getopws
 	sta resulttype
 	ldxy zp::line
@@ -1434,6 +1435,7 @@ __asm_include:
 ;******************************************************************************
 ; DEFINECONST
 .proc defineconst
+	ldxy zp::line
 	jsr lbl::isvalid
 	bcs @err
 	lda zp::line		; save label name's address
@@ -2039,6 +2041,7 @@ __asm_include:
 	sta @id
 	ldx #$fe	; -2
 
+	; read all the parameters for the macro
 @l0:	ldy #$00
 	inx
 	inx

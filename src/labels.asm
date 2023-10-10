@@ -723,14 +723,18 @@ label_addresses: .res 256 * 2
 
 ;******************************************************************************
 ; ISVALID
-; checks if the label name in (zp::line) is a valid label name
+; checks if the label name given is a valid label name
+; IN:
+;  - .XY: the address of the label
 ; OUT:
 ;  - .C: set if the label is NOT valid
 .export __label_isvalid
 .proc __label_isvalid
+@name=zp::tmp4
+	stxy @name
 	ldy #$00
 ; first character must be a letter or '@'
-:	lda (zp::line),y
+:	lda (@name),y
 	iny
 	jsr util::is_whitespace
 	beq :-
@@ -748,7 +752,7 @@ label_addresses: .res 256 * 2
 
 ; following characters must be between '0' and 'Z'
 @l0:
-	lda (zp::line),y
+	lda (@name),y
 	beq @done
 	jsr util::isseparator
 	beq @done
