@@ -1063,6 +1063,7 @@ main:
 	jsr src::goto
 
 	; display message
+	jsr enter_command
 	jsr refresh	; unhighlight selection
 	lda @size
 	pha
