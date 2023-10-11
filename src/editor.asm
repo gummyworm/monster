@@ -18,6 +18,7 @@
 .include "source.inc"
 .include "state.inc"
 .include "string.inc"
+.include "strings.inc"
 .include "text.inc"
 .include "util.inc"
 .include "view.inc"
@@ -617,16 +618,16 @@ main:
 	beq :-
 
 @check_cmds:
-	ldx #@numcommands-1
-:	cmp @commands,x
+	ldx #numcommands-1
+:	cmp commands,x
 	beq @found
 	dex
 	bpl :-
 	rts		; no key found
 
-@found:	lda @command_vecs_lo,x
+@found:	lda command_vecs_lo,x
 	sta zp::jmpvec
-	lda @command_vecs_hi,x
+	lda command_vecs_hi,x
 	sta zp::jmpvec+1
 
 ; repeat the command for the number of reps the user requested
@@ -636,55 +637,6 @@ main:
 	bne @doreps
 	rts
 
-@commands:
-	.byte $68	; j (left)
-	.byte $6c	; l (right)
-	.byte $6b	; k (up)
-	.byte $6a	; j (down)
-	.byte $65	; e (end of word)
-	.byte $62	; b (beginning of word)
-	.byte $49	; I (insert start of line)
-	.byte $69	; i (insert)
-	.byte $72	; r (replace char)
-	.byte $52	; r (replace mode)
-	.byte $41	; A (append to line/insert)
-	.byte $61	; a (append to character)
-	.byte $64	; d (delete)
-	.byte $70	; p (paste below)
-	.byte $50	; P (paste above)
-	.byte $78	; x (erase char)
-	.byte $77	; w (word advance)
-	.byte $30	; 0 (column 0)
-	.byte $4c	; L (last line)
-	.byte $48	; H (home [first] line)
-	.byte $14	; DEL (back)
-	.byte $20	; SPACE (right)
-	.byte $47	; G (goto end)
-	.byte $67	; g (goto start)
-	.byte $4f	; O (Open line above cursor)
-	.byte $6f	; o (Open line below cursor)
-	.byte $24	; $ (end of line)
-	.byte $5b	; [ (previous empty line)
-	.byte $5d	; ] (next empty line)
-	.byte $0d	; RETURN (go to start of next line)
-	.byte $3b	; ; (comment out)
-	.byte $76	; v (enter visual mode)
-	.byte $56	; V (enter visual line mode)
-	.byte $79	; y (yank)
-@numcommands=*-@commands
-
-; command tables for COMMAND mode key commands
-.linecont +
-.define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
-	insert_start, enter_insert, replace_char, replace, append_to_line, \
-	append_char, delete, paste_below, paste_above, delete_char, \
-	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
-	goto_start, open_line_above, open_line_below, end_of_line, \
-	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual, yank
-.linecont -
-@command_vecs_lo: .lobytes cmd_vecs
-@command_vecs_hi: .hibytes cmd_vecs
 .endproc
 
 ;******************************************************************************_
@@ -1507,10 +1459,9 @@ __edit_set_breakpoint:
 	ldx zp::curx
 	ldy zp::cury
 	jsr src::new
-	ldxy #@noname
+	ldxy #strings::null
 	jsr src::name	; rename buffer to empty name
 	jmp __edit_init
-@noname: .byte 0
 .endproc
 
 ;******************************************************************************
@@ -1850,7 +1801,7 @@ goto_buffer:
 
 	stxy @file
 
-	ldxy #@savingmsg
+	ldxy #strings::saving
 	lda #STATUS_ROW
 	jsr text::print
 
@@ -1873,14 +1824,10 @@ goto_buffer:
 @err:	pha		; push error code
 	lda #$00
 	pha
-	ldxy #@errmsg
+	ldxy #strings::edit_file_save_failed
 	lda #STATUS_ROW
 	jsr text::print
 @ret:	rts
-@savingmsg:
-	.byte "saving...",0
-@errmsg:
-.byte "failed to save file; error ", $fe, 0
 .endproc
 
 ;******************************************************************************
@@ -1900,7 +1847,7 @@ goto_buffer:
 	jsr str::len
 	pha
 
-	ldxy #@savingmsg
+	ldxy #strings::deleting
 	lda #STATUS_ROW
 	jsr text::print
 
@@ -1915,13 +1862,9 @@ goto_buffer:
 	pha
 	lda #$00
 	pha
-	ldxy #@errmsg
+	ldxy #strings::edit_file_delete_failed
 	lda #STATUS_ROW
 	jmp text::print
-@savingmsg:
-	.byte "deleting...",0
-@errmsg:
-	.byte "failed to delete file; error ", $fe, 0
 .endproc
 
 ;******************************************************************************
@@ -1967,7 +1910,7 @@ goto_buffer:
 	pha
 
 	; display loading...
-	ldxy #@loadingmsg
+	ldxy #strings::loading
 	lda #STATUS_ROW-1
 	jsr text::print
 
@@ -1988,15 +1931,11 @@ goto_buffer:
 @err:	pha
 	lda #$00
 	pha
-	ldxy #@errmsg
+	ldxy #strings::edit_file_load_failed
 	lda #STATUS_ROW-1
 	jsr text::print
 	sec			; error
 	rts
-@loadingmsg:
-	.byte "loading...",0
-@errmsg:
-.byte "failed to load file; error $", $fe, 0
 .endproc
 
 ;******************************************************************************
@@ -3190,9 +3129,9 @@ __edit_gotoline:
 	jsr err::get	; get the address of the error
 	jsr str::uncompress
 
-	lda #<@line_err
+	lda #<strings::edit_line_err
 	sta zp::tmp0
-	lda #>@line_err
+	lda #>strings::edit_line_err
 	sta zp::tmp0+1
 	jsr str::cat
 
@@ -3204,7 +3143,6 @@ __edit_gotoline:
 	ldx #40
 	iny
 	jmp cur::setmax
-@line_err: .byte ";pass ", ESCAPE_VALUE_DEC,";line ", ESCAPE_VALUE_DEC,0
 .endproc
 
 ;******************************************************************************
@@ -3393,7 +3331,7 @@ __edit_gotoline:
 	rts
 .endproc
 
-.DATA
+.RODATA
 ;******************************************************************************
 controlcodes:
 .byte K_LEFT	; left
@@ -3407,3 +3345,54 @@ ccvectors:
 .define ccvectors ccleft, ccright, ccup, ccdown
 ccvectorslo: .lobytes ccvectors
 ccvectorshi: .hibytes ccvectors
+
+;******************************************************************************
+commands:
+	.byte $68	; j (left)
+	.byte $6c	; l (right)
+	.byte $6b	; k (up)
+	.byte $6a	; j (down)
+	.byte $65	; e (end of word)
+	.byte $62	; b (beginning of word)
+	.byte $49	; I (insert start of line)
+	.byte $69	; i (insert)
+	.byte $72	; r (replace char)
+	.byte $52	; r (replace mode)
+	.byte $41	; A (append to line/insert)
+	.byte $61	; a (append to character)
+	.byte $64	; d (delete)
+	.byte $70	; p (paste below)
+	.byte $50	; P (paste above)
+	.byte $78	; x (erase char)
+	.byte $77	; w (word advance)
+	.byte $30	; 0 (column 0)
+	.byte $4c	; L (last line)
+	.byte $48	; H (home [first] line)
+	.byte $14	; DEL (back)
+	.byte $20	; SPACE (right)
+	.byte $47	; G (goto end)
+	.byte $67	; g (goto start)
+	.byte $4f	; O (Open line above cursor)
+	.byte $6f	; o (Open line below cursor)
+	.byte $24	; $ (end of line)
+	.byte $5b	; [ (previous empty line)
+	.byte $5d	; ] (next empty line)
+	.byte $0d	; RETURN (go to start of next line)
+	.byte $3b	; ; (comment out)
+	.byte $76	; v (enter visual mode)
+	.byte $56	; V (enter visual line mode)
+	.byte $79	; y (yank)
+numcommands=*-commands
+
+; command tables for COMMAND mode key commands
+.linecont +
+.define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
+	insert_start, enter_insert, replace_char, replace, append_to_line, \
+	append_char, delete, paste_below, paste_above, delete_char, \
+	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
+	goto_start, open_line_above, open_line_below, end_of_line, \
+	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
+	enter_visual, enter_visual, yank
+.linecont -
+command_vecs_lo: .lobytes cmd_vecs
+command_vecs_hi: .hibytes cmd_vecs

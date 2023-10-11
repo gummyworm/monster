@@ -17,6 +17,7 @@
 .include "source.inc"
 .include "util.inc"
 .include "state.inc"
+.include "strings.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
 
@@ -107,7 +108,7 @@ origin: .word 0	; the lowest address in the program
 .export asmbuffer
 asmbuffer: .res 40
 
-.DATA
+.RODATA
 ;******************************************************************************
 NUM_OPCODES = 58
 CC_00       = 0
@@ -237,6 +238,123 @@ directive_vectors:
 .word create_macro
 .word handle_repeat
 
+;******************************************************************************
+; see MODE_ constants in asmflags.inc
+bbb_modes:
+bbb00_modes:
+	.byte MODE_IMMEDIATE | MODE_ZP	; 000
+	.byte MODE_ZP		        ; 001
+	.byte $ff		        ; 010
+	.byte MODE_ABS		        ; 011
+	.byte $ff		        ; 100
+	.byte MODE_ZP | MODE_X_INDEXED  ; 101
+	.byte $ff		        ; 110
+	.byte MODE_ABS | MODE_X_INDEXED	; 111
+bbb01_modes:
+	.byte MODE_ZP | MODE_X_INDEXED | MODE_INDIRECT
+	.byte MODE_ZP
+	.byte MODE_IMMEDIATE | MODE_ZP
+	.byte MODE_ABS
+	.byte MODE_ZP | MODE_INDIRECT | MODE_Y_INDEXED
+	.byte MODE_ZP | MODE_X_INDEXED
+	.byte MODE_ABS | MODE_Y_INDEXED
+	.byte MODE_ABS | MODE_X_INDEXED
+
+bbb10_modes:
+	.byte MODE_IMMEDIATE | MODE_ZP	; 000
+	.byte MODE_ZP		        ; 001
+	.byte MODE_IMPLIED	        ; 010
+	.byte MODE_ABS		        ; 011
+	.byte $ff		        ; 100
+	.byte MODE_ZP | MODE_X_INDEXED  ; 101 (Y_INDEXED for STX,LDX)
+	.byte $ff		        ; 110
+	.byte MODE_ABS | MODE_X_INDEXED	; 111 (Y_INDEXED for STX,LDX)
+
+;******************************************************************************
+; ADDRESS MODE TABLES
+; The following tables store the bbb values for the encoding for various
+; configurations of addressing, e.g. zeropage, x-indexed.
+; They are stored consistently such that the same addressing type maps to
+; the same location in each table.  This makes it easy to translate from the
+; type of addressing we're doing and the bit representation of the bbb encoding
+; for the instruction.
+; There are 3 tables, each represents the bbb values for a given set of cc
+; instructions: cc 01, cc 10, and cc 00.
+; A $ff in the table represents an invalid addressing mode for that type of
+; instruction.
+IMPLIED=0
+IMMEDIATE=1
+ZEROPAGE=2
+ZEROPAGE_X=3
+ZEROPAGE_X_INDIRECT=4
+ZEROPAGE_Y_INDIRECT=5
+ABS=6
+ABS_X=7
+ABS_Y=8
+ABS_IND=9
+bbb01:
+	.byte $ff ; implied/accumulator
+	.byte $02 ; immediate
+	.byte $01 ; zp
+	.byte $05 ; zp,x
+	.byte $00 ; (zp,x)
+	.byte $04 ; (zp),y
+	.byte $03 ; abs
+	.byte $07 ; abs,x
+	.byte $06 ; abs,y
+	.byte $ff ; (abs)
+
+bbb10:
+	.byte $02 ; implied/accumulator
+	.byte $00 ; immediate
+	.byte $01 ; zp
+	.byte $05 ; zp,x
+	.byte $ff ; (zp,x)
+	.byte $ff ; (zp),y
+	.byte $03 ; abs
+	.byte $07 ; abs,x
+	.byte $ff ; abs,y
+	.byte $ff ; (abs)
+
+bbb00:
+	.byte $ff ; implied/accumulator
+	.byte $00 ; immediate
+	.byte $01 ; zp
+	.byte $05 ; zp,x
+	.byte $ff ; (zp,x)
+	.byte $ff ; (zp),y
+	.byte $03 ; abs
+	.byte $07 ; abs,x
+	.byte $ff ; abs,y
+	.byte $ff ; (abs)
+
+illegal_opcodes:
+.byte %10001001 ; STA #imm
+
+.byte %00000010 ; ASL #imm
+.byte %00100010 ; ROL #imm
+.byte %01000010 ; LSR #imm
+.byte %01100010 ; ROR #imm
+.byte %10000010 ; STX #imm
+.byte %11000010 ; DEC #imm
+.byte %11100010 ; INC #imm
+.byte %10001010 ; STX A
+.byte %10101010 ; LDX A
+.byte %11001010 ; DEC A
+.byte %11101010 ; INC A
+.byte %10011110 ; STX ABS,X
+
+.byte %00100000 ; BIT #imm
+.byte %00110100 ; BIT zp,x
+.byte %00111100 ; BIT abs,x
+.byte %10000000 ; STY #imm
+.byte %10011100	; STY abs,x
+.byte %11010100 ; CPY zp,x
+.byte %11011100 ; CPY abs,x
+.byte %11110100 ; CPX zp,x
+.byte %11111100 ; CPX abs,x
+num_illegals = *-illegal_opcodes
+
 .CODE
 ;******************************************************************************
 ; VALIDATE
@@ -332,8 +450,7 @@ __asm_tokenize:
 	bcc @noctx
 	RETURN_OK
 
-@noctx:
-	ldy #$00
+@noctx:	ldy #$00
 	sty indirect
 	sty indexed
 	sty operandsz
@@ -682,41 +799,14 @@ __asm_tokenize:
 	ora @optmp
 
 ; finally, check for invalid instructions ("gaps" in the ISA)
-	ldx #@num_illegals-1
-:	cmp @illegal_opcodes,x
+	ldx #num_illegals-1
+:	cmp illegal_opcodes,x
 	beq @err
 	dex
 	bpl :-
 	jsr writeb
 	bcc @noerr
 	rts		; return err
-
-@illegal_opcodes:
-.byte %10001001 ; STA #imm
-
-.byte %00000010 ; ASL #imm
-.byte %00100010 ; ROL #imm
-.byte %01000010 ; LSR #imm
-.byte %01100010 ; ROR #imm
-.byte %10000010 ; STX #imm
-.byte %11000010 ; DEC #imm
-.byte %11100010 ; INC #imm
-.byte %10001010 ; STX A
-.byte %10101010 ; LDX A
-.byte %11001010 ; DEC A
-.byte %11101010 ; INC A
-.byte %10011110 ; STX ABS,X
-
-.byte %00100000 ; BIT #imm
-.byte %00110100 ; BIT zp,x
-.byte %00111100 ; BIT abs,x
-.byte %10000000 ; STY #imm
-.byte %10011100	; STY abs,x
-.byte %11010100 ; CPY zp,x
-.byte %11011100 ; CPY abs,x
-.byte %11110100 ; CPX zp,x
-.byte %11111100 ; CPX abs,x
-@num_illegals = *-@illegal_opcodes
 
 .endproc
 
@@ -795,97 +885,6 @@ __asm_tokenize:
 	RETURN_ERR ERR_OVERSIZED_OPERAND
 .endproc
 
-;******************************************************************************
-; ADDRESS MODE TABLES
-; The following tables store the bbb values for the encoding for various
-; configurations of addressing, e.g. zeropage, x-indexed.
-; They are stored consistently such that the same addressing type maps to
-; the same location in each table.  This makes it easy to translate from the
-; type of addressing we're doing and the bit representation of the bbb encoding
-; for the instruction.
-; There are 3 tables, each represents the bbb values for a given set of cc
-; instructions: cc 01, cc 10, and cc 00.
-; A $ff in the table represents an invalid addressing mode for that type of
-; instruction.
-IMPLIED=0
-IMMEDIATE=1
-ZEROPAGE=2
-ZEROPAGE_X=3
-ZEROPAGE_X_INDIRECT=4
-ZEROPAGE_Y_INDIRECT=5
-ABS=6
-ABS_X=7
-ABS_Y=8
-ABS_IND=9
-
-bbb01:
-	.byte $ff ; implied/accumulator
-	.byte $02 ; immediate
-	.byte $01 ; zp
-	.byte $05 ; zp,x
-	.byte $00 ; (zp,x)
-	.byte $04 ; (zp),y
-	.byte $03 ; abs
-	.byte $07 ; abs,x
-	.byte $06 ; abs,y
-	.byte $ff ; (abs)
-
-bbb10:
-	.byte $02 ; implied/accumulator
-	.byte $00 ; immediate
-	.byte $01 ; zp
-	.byte $05 ; zp,x
-	.byte $ff ; (zp,x)
-	.byte $ff ; (zp),y
-	.byte $03 ; abs
-	.byte $07 ; abs,x
-	.byte $ff ; abs,y
-	.byte $ff ; (abs)
-
-bbb00:
-	.byte $ff ; implied/accumulator
-	.byte $00 ; immediate
-	.byte $01 ; zp
-	.byte $05 ; zp,x
-	.byte $ff ; (zp,x)
-	.byte $ff ; (zp),y
-	.byte $03 ; abs
-	.byte $07 ; abs,x
-	.byte $ff ; abs,y
-	.byte $ff ; (abs)
-
-
-;******************************************************************************
-; see MODE_ constants in asmflags.inc
-bbb_modes:
-bbb00_modes:
-	.byte MODE_IMMEDIATE | MODE_ZP	; 000
-	.byte MODE_ZP		        ; 001
-	.byte $ff		        ; 010
-	.byte MODE_ABS		        ; 011
-	.byte $ff		        ; 100
-	.byte MODE_ZP | MODE_X_INDEXED  ; 101
-	.byte $ff		        ; 110
-	.byte MODE_ABS | MODE_X_INDEXED	; 111
-bbb01_modes:
-	.byte MODE_ZP | MODE_X_INDEXED | MODE_INDIRECT
-	.byte MODE_ZP
-	.byte MODE_IMMEDIATE | MODE_ZP
-	.byte MODE_ABS
-	.byte MODE_ZP | MODE_INDIRECT | MODE_Y_INDEXED
-	.byte MODE_ZP | MODE_X_INDEXED
-	.byte MODE_ABS | MODE_Y_INDEXED
-	.byte MODE_ABS | MODE_X_INDEXED
-
-bbb10_modes:
-	.byte MODE_IMMEDIATE | MODE_ZP	; 000
-	.byte MODE_ZP		        ; 001
-	.byte MODE_IMPLIED	        ; 010
-	.byte MODE_ABS		        ; 011
-	.byte $ff		        ; 100
-	.byte MODE_ZP | MODE_X_INDEXED  ; 101 (Y_INDEXED for STX,LDX)
-	.byte $ff		        ; 110
-	.byte MODE_ABS | MODE_X_INDEXED	; 111 (Y_INDEXED for STX,LDX)
 
 ;******************************************************************************
 ; GETTEXT
@@ -1094,9 +1093,9 @@ bbb10_modes:
 @l1:	; assemble the lines until .endrep
 	jsr ctx::getline
 	bcc :+
-	rts			; propagate error, exit
-:	streq @endrep, 7	; are we at .endrep?
-	beq @next		; yep, do next iteration
+	rts				; propagate error, exit
+:	streq strings::endrep, 7	; are we at .endrep?
+	beq @next			; yep, do next iteration
 
 	; save the context
 	lda zp::ctx
@@ -1131,8 +1130,6 @@ bbb10_modes:
 	ldxy zp::ctx+repctx::params
 	jsr lbl::del	; delete the iterator label
 @done:	jmp ctx::pop	; pop the context
-
-@endrep: .byte ".endrep"
 .endproc
 
 ;******************************************************************************

@@ -28,7 +28,7 @@ COLMEM_ADDR = $9400
         ldy #$05
 @2:     clc
         lda $ede4,y
-        adc @inittab,y
+        adc inittab,y
         sta $9000,y
         dey
         bpl @2
@@ -36,7 +36,6 @@ COLMEM_ADDR = $9400
 	lda #(BG_COLOR<<4 | BORDER_COLOR)
 	sta $900f
         rts
-@inittab: .byte $02,$fe,$fe,$eb,$00,$0c
 .endproc
 
 ;******************************************************************************
@@ -412,7 +411,7 @@ COLMEM_ADDR = $9400
 	rts
 .endproc
 
-.DATA
+.RODATA
 ;******************************************************************************
 .export __bm_columns
 __bm_columns:
@@ -436,3 +435,5 @@ __bm_columns:
 .word $1dc0
 .word $1e80
 .word $1f40
+
+inittab: .byte $02,$fe,$fe,$eb,$00,$0c

@@ -5,6 +5,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "string.inc"
+.include "strings.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
@@ -56,7 +57,6 @@ lens:	  .res MAX_SOURCES*2	; buffers for each source
 __src_names:
 names:	   .res MAX_SOURCES*MAX_BUFFER_NAME_LEN
 
-.BSS
 ;******************************************************************************
 .export __src_numbuffers
 __src_numbuffers:
@@ -351,11 +351,10 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	ldy #$00
 	lda (@name),y
 	bne :+
-	ldxy #@noname
+	ldxy #strings::noname
 	RETURN_ERR ERR_UNNAMED_BUFFER
 :	ldxy @name
 	RETURN_OK
-@noname: .byte "[no name]",0
 .endproc
 
 ;******************************************************************************
@@ -411,10 +410,8 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 :	cmp #$01
 	bne :+
 ; only one buffer open; re-initialize it
-	dec numsrcs	; set num sources down to 0
+	dec numsrcs	; set num sources back to 0
 	jsr __src_new	; and initialize the buffer
-	ldxy #@new
-	jmp __src_name	; set name to NEW
 
 :	asl
 	sta @end
@@ -462,7 +459,6 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 	cpx numsrcs
 	bne :-
 
-
 	; copy the names down
 	pla
 	asl
@@ -492,7 +488,6 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 :	lda activesrc
 	jsr __src_set
 @done:	rts
-@new: .byte "new",0
 .endproc
 
 ;******************************************************************************

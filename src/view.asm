@@ -8,6 +8,7 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "strings.inc"
 .include "text.inc"
 .include "util.inc"
 .include "vmem.inc"
@@ -265,7 +266,7 @@ memaddr:   .word 0
 	stxy @src
 
 	; draw the title for the memory display
-	ldxy #@title
+	ldxy #strings::memview_title
 	lda #MEMVIEW_START
 	jsr text::print
 	lda #MEMVIEW_START
@@ -333,8 +334,6 @@ memaddr:   .word 0
 	cmp #MEMVIEW_STOP	; have we drawn all rows?
 	bcc @l0			; repeat til we have
 	rts
-
-@title: .byte ESCAPE_SPACING,16, "memory",0
 .endproc
 
 ;******************************************************************************

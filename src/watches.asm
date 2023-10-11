@@ -10,6 +10,7 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "source.inc"
+.include "strings.inc"
 .include "text.inc"
 .include "util.inc"
 .include "vmem.inc"
@@ -43,7 +44,7 @@ row:	.byte 0
 .proc __watches_view
 @cnt=zp::tmp13
 	; display the title
-	ldxy #@title
+	ldxy #strings::watches_title
 	lda #MEMVIEW_START
 	jsr text::print
 	lda #MEMVIEW_START
@@ -62,7 +63,7 @@ row:	.byte 0
 	pha
 
 	lda #$00
-	sta @watchline_end		; restore string if it was changed
+	sta strings::watches_line_end	; restore string if it was changed
 
 	; push the value of the watch
 	lda dbg::watch_flags,x
@@ -71,7 +72,7 @@ row:	.byte 0
 	lda dbg::watch_prevs,x
 	pha				; push previous value if dirty
 	lda #CH_R_ARROW
-:	sta @watchline_end		; insert a > between old/new values
+:	sta strings::watches_line_end	; insert a > between old/new values
 
 	; push the address of the watch
 	lda @cnt
@@ -85,7 +86,7 @@ row:	.byte 0
 	tay
 
 	; print the watch info
-	ldxy #@watchline
+	ldxy #strings::watches_line
 	lda @cnt
 	sec
 	sbc scroll
@@ -101,13 +102,6 @@ row:	.byte 0
 	jmp @l0		; next watch
 
 @done:	rts
-
-; <"address>: <val>
-@watchline:
-.byte "$", ESCAPE_VALUE, ": ", ESCAPE_BYTE, 0
-@watchline_end=*-1
-.byte ESCAPE_BYTE,0	; if line is DIRTY, this part is appended to @watchline
-@title: .byte ESCAPE_SPACING,16, "watches",0
 .endproc
 
 ;******************************************************************************

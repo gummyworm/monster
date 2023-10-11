@@ -3,6 +3,7 @@
 .include "labels.inc"
 .include "macros.inc"
 .include "string.inc"
+.include "strings.inc"
 .include "zeropage.inc"
 
 .BSS
@@ -112,7 +113,7 @@ macros:          .res 512
 	cmp #'.'
 	bne @next
 	ldxy @src
-	streq @endmac, 7	; are we at .endmac?
+	streq strings::endmac, 7	; are we at .endmac?
 	beq @done
 
 @next:	sta (@dst),y
@@ -144,8 +145,6 @@ macros:          .res 512
 	lda @dst+1
 	sta (@addr),y
 	RETURN_OK
-
-@endmac: .byte ".endmac"
 .endproc
 
 ;******************************************************************************

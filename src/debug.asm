@@ -18,6 +18,7 @@
 .include "memory.inc"
 .include "source.inc"
 .include "string.inc"
+.include "strings.inc"
 .include "text.inc"
 .include "util.inc"
 .include "watches.inc"
@@ -1408,11 +1409,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta advance	; by default, don't return to program after command
 	jsr cur::off
 	pla
-	ldx #@num_commands
+	ldx #num_commands
 @getcmd:
 	dex
 	bmi @nocmd	; unrecognized key, give to editor
-	cmp @commands,x
+	cmp commands,x
 	bne @getcmd
 	beq @runcmd
 
@@ -1424,9 +1425,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	txa
 	asl
 	tax
-	lda @command_vectors,x	 ; vector LSB
+	lda command_vectors,x	 ; vector LSB
 	sta zp::jmpvec
-	lda @command_vectors+1,x ; vector MSB
+	lda command_vectors+1,x ; vector MSB
 	sta zp::jmpvec+1
 
 	jsr zp::jmpaddr		; call the command
@@ -1484,34 +1485,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; return from the BRK
 	jmp fe3::bank_rti
 
-;******************************************************************************
-@commands:
-	.byte K_QUIT
-	.byte $b0	; C=+a (toggle auto swap memory)
-	.byte K_STEP
-	.byte K_STEPOVER
-	.byte K_GO
-	.byte K_TRACE
-	.byte K_SRCVIEW
-	.byte K_MEMVIEW
-	.byte K_BRKVIEW
-	.byte K_WATCHVIEW
-	.byte K_SET_BREAKPOINT
-	.byte K_SWAP_USERMEM
-@num_commands=*-@commands
-@command_vectors:
-	.word quit
-	.word auto_toggle_memory_swap
-	.word step
-	.word step_over
-	.word go
-	.word trace
-	.word edit_source
-	.word edit_mem
-	.word edit_breakpoints
-	.word edit_watches
-	.word set_breakpoint
-	.word swap_user_mem
 .endproc
 
 ;******************************************************************************
@@ -1663,7 +1636,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; QUIT
 ; Exits the debugger
 .proc quit
-	ldxy #@stopdebugging_msg
+	ldxy #strings::debug_stop_debugging
 	lda #DEBUG_MESSAGE_LINE
 	jsr text::putz
 	lda #DEBUG_MESSAGE_LINE
@@ -1687,9 +1660,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pla
 	pla
 	rts
-
-@stopdebugging_msg:
-	.byte "stop debugging? (press 'y' to quit)",0
 .endproc
 
 ;******************************************************************************
@@ -1999,10 +1969,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda @opcode
 	and #$20
 	beq :+			; if bit y is 0, use $00
-	lda @branch_masks,x	; if bit y is 1, use the mask
+	lda branch_masks,x	; if bit y is 1, use the mask
 :	sta @y
 
-	lda @branch_masks,x
+	lda branch_masks,x
 	and reg_p	; isolate the bit we're interested in
 	eor @y		; if y != .P[xx], no branch
 	beq @takebranch
@@ -2046,12 +2016,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	tay
 	rts
 
-; corresponding masks for top 2 bits of opcode to flags in the status register
-@branch_masks:
-.byte $80	; negative
-.byte $40	; overflow
-.byte $01	; carry
-.byte $02	; zero
 .endproc
 
 ;******************************************************************************
@@ -2485,7 +2449,7 @@ __debug_remove_breakpoint:
 @tmp=zp::asm+6
 @flag=zp::asm+7
 	; display the register names
-	ldxy #@regsline
+	ldxy #strings::debug_registers
 	lda #REGISTERS_LINE
 	jsr text::putz
 
@@ -2607,8 +2571,6 @@ __debug_remove_breakpoint:
 @print:	ldxy #mem::linebuffer
 	lda #REGISTERS_LINE+1
 	jmp text::puts
-
-@regsline: .byte " pc  a  x  y  sp nv-bdizc  addr",0
 .endproc
 
 ;******************************************************************************
@@ -2628,7 +2590,7 @@ __debug_remove_breakpoint:
 	pha
 	lda pc+1
 	pha
-	ldxy #@brk_message_addr
+	ldxy #strings::debug_brk_addr
 	jmp @print
 
 @showline:
@@ -2637,14 +2599,11 @@ __debug_remove_breakpoint:
 	pha
 	lda highlight_line+1
 	pha
-	ldxy #@brk_message_line
+	ldxy #strings::debug_brk_line
 @print:	lda #DEBUG_MESSAGE_LINE
 	jsr text::print		; break in line <line #>
 	lda #DEBUG_MESSAGE_LINE
 	jmp bm::rvsline
-
-@brk_message_line: .byte "brk in line ",ESCAPE_VALUE_DEC,0 ; when line number is resolved
-@brk_message_addr: .byte "brk @ ", ESCAPE_VALUE, 0      ; when line is unresolvable
 .endproc
 
 ;******************************************************************************
@@ -2770,7 +2729,7 @@ __debug_remove_breakpoint:
 ; End the .DEBUG segment
 
 ;******************************************************************************
-.DATA
+.RODATA
 ;******************************************************************************
 ; OERATION SIDE EFFECTS TABLE
 ; This table contains all opcodes and what state they affect.
@@ -3067,3 +3026,40 @@ side_effects_tab:
 .byte OP_LOAD|OP_FLAG|OP_REG_A	; $fd SBC abs,x
 .byte OP_LOAD|OP_STORE|OP_FLAG	; $fe INC abs,x
 .byte $00			; ---
+
+;******************************************************************************
+; corresponding masks for top 2 bits of opcode to flags in the status register
+branch_masks:
+.byte $80	; negative
+.byte $40	; overflow
+.byte $01	; carry
+.byte $02	; zero
+
+;******************************************************************************
+commands:
+	.byte K_QUIT
+	.byte $b0	; C=+a (toggle auto swap memory)
+	.byte K_STEP
+	.byte K_STEPOVER
+	.byte K_GO
+	.byte K_TRACE
+	.byte K_SRCVIEW
+	.byte K_MEMVIEW
+	.byte K_BRKVIEW
+	.byte K_WATCHVIEW
+	.byte K_SET_BREAKPOINT
+	.byte K_SWAP_USERMEM
+num_commands=*-commands
+command_vectors:
+	.word quit
+	.word auto_toggle_memory_swap
+	.word step
+	.word step_over
+	.word go
+	.word trace
+	.word edit_source
+	.word edit_mem
+	.word edit_breakpoints
+	.word edit_watches
+	.word set_breakpoint
+	.word swap_user_mem

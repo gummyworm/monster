@@ -971,6 +971,8 @@ hicolor=*+1
 .endproc
 
 
+.RODATA
+
 ;******************************************************************************
 ; CHARMAP
 ; This is the 40 column character set for the text routines

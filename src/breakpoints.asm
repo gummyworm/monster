@@ -7,6 +7,7 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "source.inc"
+.include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"
 
@@ -38,7 +39,7 @@ row:	.byte 0
 .export __breakpoint_edit
 .proc __breakpoint_edit
 	; display the title
-	ldxy #@title
+	ldxy #strings::breakpoints_title
 	lda #MEMVIEW_START
 	jsr text::print
 	lda #MEMVIEW_START
@@ -118,8 +119,6 @@ row:	.byte 0
 	adc #BRKVIEW_START+1
 	jsr bm::rvsline
 	jmp @loop
-
-@title: .byte ESCAPE_SPACING,14, "breakpoints",0
 .endproc
 
 ;******************************************************************************
@@ -153,9 +152,9 @@ row:	.byte 0
 	jsr lbl::by_addr
 	bcc @getname
 @noname:
-	lda #>@unknown_symbol
+	lda #>strings::question_marks
 	pha
-	lda #<@unknown_symbol
+	lda #<strings::question_marks
 	pha
 	jmp @lineno
 
@@ -179,9 +178,9 @@ row:	.byte 0
 	pha
 	pha
 
-	lda #>@unknown_symbol
+	lda #>strings::question_marks
 	pha
-	lda #<@unknown_symbol
+	lda #<strings::question_marks
 	pha
 	jmp @print
 
@@ -206,10 +205,10 @@ row:	.byte 0
 	beq :+
 	ldy #BREAKPOINT_CHAR
 
-:	sty @brkline
+:	sty strings::breakpoints_line
 
 	; print the breakpoint info
-	ldxy #@brkline
+	ldxy #strings::breakpoints_line
 	lda @cnt
 	sec
 	sbc scroll
@@ -224,12 +223,6 @@ row:	.byte 0
 	inc @cnt
 	jmp @l0		; next breakpoint
 @done:	rts
-
-; <filename> l: <line no.> <symbol> : <addr>
-; <addr>:<sybmol> L:<line no.> in <filename
-@brkline:
-.byte " ", ESCAPE_STRING, " l:", ESCAPE_VALUE_DEC, " [", ESCAPE_STRING, "] $", ESCAPE_VALUE,0
-@unknown_symbol: .byte "???",0
 .endproc
 
 ;******************************************************************************
