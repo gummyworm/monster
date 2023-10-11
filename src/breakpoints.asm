@@ -6,6 +6,7 @@
 .include "labels.inc"
 .include "layout.inc"
 .include "macros.inc"
+.include "memory.inc"
 .include "source.inc"
 .include "strings.inc"
 .include "text.inc"
@@ -129,14 +130,16 @@ row:	.byte 0
 @cnt=zp::tmp13
 @addr=zp::tmp14
 @file=zp::tmp16
+@namebuff=mem::spare+40
 	; get the first visible breakpoint's offset
 	lda scroll
 	sta @cnt
 
 @l0:	lda @cnt
 	cmp dbg::numbreakpoints
-	bcs @done
-	asl
+	bcc :+
+	rts
+:	asl
 
 	; push the address of the breakpoint
 	tay
@@ -159,11 +162,13 @@ row:	.byte 0
 	jmp @lineno
 
 @getname:
-	jsr lbl::name_by_id
-	tya
+	lda #>@namebuff
 	pha
-	txa
+	sta zp::tmp0+1
+	lda #<@namebuff
 	pha
+	sta zp::tmp0
+	jsr lbl::getname
 
 @lineno:
 	; get the line number and file

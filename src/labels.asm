@@ -672,6 +672,7 @@ label_addresses: .res 256 * 2
 ;  - .C: set if no label is found
 .export __label_by_addr
 .proc __label_by_addr
+@other=zp::tmpc
 @addr=zp::tmpe
 @cnt=zp::tmp10
 	stxy @addr
@@ -682,11 +683,17 @@ label_addresses: .res 256 * 2
 	cmpw numlabels
 	beq @notfound
 	jsr __label_by_id
-	cmpw @addr
+	stxy @other
+	bank_read_byte #FINAL_BANK_SYMBOLS, @other
+	cmp @addr
 	bne @l0
-@found:	clc
-	ldxy @cnt
-	rts
+	incw @other
+	bank_read_byte #FINAL_BANK_SYMBOLS, @other
+	cmp @addr+1
+	bne @l0
+
+@found:	ldxy @cnt
+	RETURN_OK
 
 @notfound:
 	sec
