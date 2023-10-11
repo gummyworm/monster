@@ -219,6 +219,7 @@ directives:
 .byte "ifdef",0
 .byte "endmac",0
 .byte "endrep",0
+.byte "incbin",0
 directives_len=*-directives
 
 ;******************************************************************************
@@ -237,6 +238,7 @@ directive_vectors:
 .word do_ifdef
 .word create_macro
 .word handle_repeat
+.word incbinfile
 
 ;******************************************************************************
 ; see MODE_ constants in asmflags.inc
@@ -1186,8 +1188,7 @@ __asm_tokenize:
 	txa
 	jsr writeb
 	bcs @ret
-	incw zp::asmresult
-	incw zp::virtualpc
+	jsr incpc
 	jmp @commaorws
 
 @text:	jsr gettext
@@ -1254,10 +1255,8 @@ __asm_tokenize:
 	jsr writeb
 	bcs @ret		; return error
 
-	incw zp::asmresult
-	incw zp::asmresult
-	incw zp::virtualpc
-	incw zp::virtualpc
+	jsr incpc
+	jsr incpc
 @commaorws:
 	ldy #$00
 	lda (zp::line),y
@@ -1271,6 +1270,37 @@ __asm_tokenize:
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
 @done:	clc
 @ret:	rts
+.endproc
+
+;******************************************************************************
+; INCBINFILE
+; Includes the enquoted binary file
+; The contents of the file are inserted directly as binary values at the
+; current assembly address.
+.proc incbinfile
+@filename=$100
+	lda #<@filename
+	sta zp::tmp0
+	lda #>@filename
+	sta zp::tmp0+1
+	ldxy zp::line
+	jsr util::parse_enquoted_string
+	bcs @err
+
+	ldxy #@filename
+	jsr file::open
+
+@l0:	; read the binary file contents
+	jsr file::readb
+	bcs @done
+	jsr writeb
+	jsr incpc
+	jmp @l0
+
+@done:	cmp #$00	; error set?
+	bne @err
+	clc		; return without err
+@err:	rts
 .endproc
 
 ;******************************************************************************
@@ -2292,6 +2322,15 @@ __asm_include:
 :	inc contextstacksp
 	sta contextstack,x
 	sta ctx::type
+	rts
+.endproc
+
+;******************************************************************************
+; INCPC
+; Updates the asmresult and virtualpc pointers by 1
+.proc incpc
+	incw zp::asmresult
+	incw zp::virtualpc
 	rts
 .endproc
 

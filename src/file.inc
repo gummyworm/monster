@@ -3,9 +3,9 @@
 .import __file_load
 .import __file_loaddir
 .import __file_open
+.import __file_readb
 .import __file_save
 .import __file_scratch
-
 
 .scope file
 	close   = __file_close
@@ -13,6 +13,7 @@
 	load    = __file_load
 	loaddir = __file_loaddir
 	open    = __file_open
+	readb   = __file_readb
 	save    = __file_save
 	scratch = __file_scratch
 .endscope

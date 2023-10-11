@@ -348,6 +348,30 @@ isbin        = zp::tmp17	; flag for binary save/load
 .endproc
 
 ;******************************************************************************
+; READB
+; Reads a byte from the open file
+; OUT:
+;  - .C: set on error or EOF
+;  - .A: the byte that was read
+.export __file_readb
+.proc __file_readb
+	jsr $ffb7     ; call READST (read status byte)
+	cmp #$00
+	bne @eof      ; either EOF or read error
+	jsr $ffcf     ; call CHRIN (get a byte from file)
+	RETURN_OK
+
+; read drive err chan and translate CBM DOS error code to ours if possible
+@eof:  	jsr io::readerr
+	txa
+	cmp #62		; FILE NOT FOUND
+	bne :+
+	lda #ERR_FILE_NOT_FOUND
+:	cmp #$01	; set .C if error > 0
+	rts
+.endproc
+
+;******************************************************************************
 ; GETLINE
 ; Reads the file handle given in .A until EOF or a newline ($0d or $0a) is
 ; encountered and stores the data at the address given in .XY
@@ -366,10 +390,8 @@ isbin        = zp::tmp17	; flag for binary save/load
 	jsr $ffc6     ; CHKIN (file in .A now used as input)
 
 	ldy #$00
-@l0:	jsr $ffb7     ; call READST (read status byte)
-	cmp #$00
-	bne @eof      ; either EOF or read error
-	jsr $ffcf     ; call CHRIN (get a byte from file)
+@l0:	jsr __file_readb
+	bcs @ret	; return err
 	cmp #$0d
 	beq @done
 	cmp #$0a
@@ -384,16 +406,8 @@ isbin        = zp::tmp17	; flag for binary save/load
 @done:  lda #$00
 	sta (@dst),y	; 0-terminate the string
 	tya		; put # of bytes read in .A
-	RETURN_OK
-
-; read drive err chan and translate CBM DOS error code to ours if possible
-@eof:  	jsr io::readerr
-	txa
-	cmp #62		; FILE NOT FOUND
-	bne :+
-	lda #ERR_FILE_NOT_FOUND
-:	cmp #$01	; set .C if error > 0
-	rts
+	clc		; no error
+@ret:	rts
 .endproc
 
 ;******************************************************************************

@@ -341,6 +341,22 @@ from disk and assembled as if the code was copy/pasted in place of the include d
   JSR CHROUT
 ```
 
+#### .INCBIN _filename_
+Includes the binary file. The binary contents are stored at the current location
+of the assembly target when this directive is encountered
+```
+.EQ BITMAP $1100
+  LDX #$07
+L0:
+  LDA SPRITES,X
+  STA BITMAP,X
+  DEX
+  BPL L0
+
+SPRITES:
+.INCBIN "SPRITES.BIN"
+```
+
 #### .MAC _name_ _param 1_, ..., _param n_
 Defines a macro
 ```
