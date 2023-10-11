@@ -367,7 +367,7 @@ isbin        = zp::tmp17	; flag for binary save/load
 	cmp #62		; FILE NOT FOUND
 	bne :+
 	lda #ERR_FILE_NOT_FOUND
-:	cmp #$01	; set .C if error > 0
+:	sec
 	rts
 .endproc
 
@@ -406,8 +406,9 @@ isbin        = zp::tmp17	; flag for binary save/load
 @done:  lda #$00
 	sta (@dst),y	; 0-terminate the string
 	tya		; put # of bytes read in .A
-	clc		; no error
-@ret:	rts
+	RETURN_OK	; no error
+@ret:	cmp #$01	; set .C if error > 0
+	rts
 .endproc
 
 ;******************************************************************************
