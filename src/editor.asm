@@ -2013,7 +2013,7 @@ goto_buffer:
 	jsr text::putch
 
 	lda zp::curx
-	beq @format	; @ column 0, skip to insert (format will be ignored)
+	beq @nextline	; @ column 0, skip tokenization and go to the next line
 
 	lda #$00
 	sta zp::gendebuginfo

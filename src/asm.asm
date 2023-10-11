@@ -387,6 +387,7 @@ __asm_tokenize:
 
 	ldy #$00
 	lda (zp::line),y
+	beq @noasm		; empty line
 	cmp #BREAKPOINT_CHAR
 	bne @copy
 
