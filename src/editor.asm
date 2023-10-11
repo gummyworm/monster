@@ -512,7 +512,8 @@ main:
 	inx
 	bne @saveres
 
-:	; get address of the result
+:	jsr cur::off
+	; get address of the result
 	ldx @result_offset
 	ldy #$01
 
@@ -530,9 +531,10 @@ main:
 ; OUT:
 ;  - .C: set if no input was read (the user pressed <-)
 .proc readinput
-@prompt=zp::tmp0
+@prompt=zp::tmp2
 @result_offset=zp::tmp8
 	stxy @prompt
+	jsr cur::off
 	jsr text::savebuff
 	jsr text::clrline
 
@@ -543,10 +545,7 @@ main:
 	pha
 	lda text::insertmode	; save current insertion mode
 	pha
-	lda #MODE_INSERT
-	sta zp::editor_mode	; use INSERT mode for input
-	lda #TEXT_INSERT
-	sta text::insertmode	; also TEXT INSERT mode (rendering)
+	jsr enter_insert
 
 	ldxy @prompt
 	cmpw #0
@@ -666,12 +665,17 @@ main:
 ; ENTER_COMMAND
 ; Enters COMMAND mode
 .proc enter_command
-	jsr deselect	; unhighlight selection (if we were in VISUAL mode)
+	lda mode
+	pha
 	lda #CUR_NORMAL
 	sta cur::mode
-	jsr ccleft	; insert places cursor after char
 	lda #MODE_COMMAND
 	sta mode
+	pla
+	cmp #MODE_VISUAL
+	bne :+
+	jsr refresh	; unhighlight selection (if we were in VISUAL mode)
+:	jsr ccleft	; insert places cursor after char
 @done:  rts
 .endproc
 
@@ -1026,7 +1030,6 @@ main:
 
 	; display message
 	jsr enter_command
-	jsr refresh	; unhighlight selection
 	lda @size
 	pha
 	lda @size+1
@@ -1034,6 +1037,7 @@ main:
 	ldxy #@yoinkmsg
 	lda #STATUS_ROW-1
 	jsr text::print
+	rts
 
 @done:	jmp enter_command
 @yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
@@ -1286,7 +1290,8 @@ __edit_refresh:
 .proc refresh
 @saveline=zp::editortmp
 	jsr bm::clr
-	jsr cur::off
+	lda #CUR_OFF
+	sta cur::status
 
 	ldxy src::line
 	stxy @saveline
@@ -3311,19 +3316,6 @@ __edit_gotoline:
 	decw @buff
 	lda (@buff),y
 	clc
-@done:	rts
-.endproc
-
-;******************************************************************************
-; DESELECT
-; Unselects any text that is currently selected
-.proc deselect
-	lda mode
-	cmp #MODE_VISUAL
-	bne @done
-	lda #CUR_OFF
-	sta cur::status
-	;jmp refresh
 @done:	rts
 .endproc
 

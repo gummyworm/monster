@@ -1041,6 +1041,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr vmem::load
 	sta startsave
 
+	lda #CUR_SELECT
+	sta cur::mode
+
 	ldxy pc
 	lda #$00		; BRK
 	jsr vmem::store
