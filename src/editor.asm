@@ -2047,6 +2047,7 @@ goto_buffer:
 	jsr text::update
 
 	; redraw everything from <cursor> to EOL on next line
+	jsr text::clrline
 	jsr src::get
 	ldxy #mem::linebuffer
 	lda zp::cury

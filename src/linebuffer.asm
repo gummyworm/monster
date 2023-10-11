@@ -9,7 +9,7 @@
 ; to the left by the given number of characters
 ; IN:
 ;  - .X: the index to start shifting down
-;  - .Y: the number of character positions to shift
+;  - .Y: the last index to shift
 ; OUT:
 ;  - .Z: clear
 .export __linebuffer_shl
