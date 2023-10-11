@@ -54,11 +54,8 @@ __str_saving: .byte "saving...",0
 .export __str_edit_file_save_failed
 __str_edit_file_save_failed: .byte "failed to save file; error ", $fe, 0
 
-.export __str_memview_title
-__str_memview_title: .byte ESCAPE_SPACING,16, "memory",0
-
 .export __str_watches_title
-__str_watches_title: .byte ESCAPE_SPACING,16, "memory",0
+__str_watches_title: .byte ESCAPE_SPACING,16, "watches",0
 
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA
@@ -74,3 +71,5 @@ __str_watches_line:
 .export __str_watches_line_end
 __str_watches_line_end=*-1
 
+.export __str_memview_title
+__str_memview_title: .byte "          memory[$1000]",0

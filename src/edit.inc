@@ -1,3 +1,4 @@
+.import __edit_gets
 .import __edit_gotoline
 .import __edit_handle_key
 .importzp __edit_height
@@ -10,6 +11,7 @@
 .import __edit_run
 
 .scope edit
+	gets          = __edit_gets
 	gotoline      = __edit_gotoline
 	handlekey     = __edit_handle_key
 	height        = __edit_height

@@ -53,7 +53,7 @@
 ; CHTOHEX
 ; Returns the binary representation of the character given in .A
 ; IN:
-;  - .A: the character to get the hex representation of
+;  - .A: the character to get the representation of
 ; OUT:
 ;  - .X: the hex representation of the least significant nybble
 ;  - .Y: the hex representation of the most significant nybble
@@ -323,6 +323,10 @@ result=mem::spare
 	cmp #'*'
 	beq :+
 	cmp #'/'
+	beq :+
+	cmp #'['
+	beq :+
+	cmp #']'
 :	rts
 .endproc
 

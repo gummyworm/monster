@@ -464,6 +464,63 @@ main:
 .endproc
 
 ;******************************************************************************
+; GETS
+; Accepts user input at the current cursor position and returns the input
+; after the user presses RETURN
+; IN:
+;  - .XY: callback to a function to accept/validate input (e.g. key::getch)
+; OUT:
+;  - .XY: 	      address of the string that was read
+;  - .C:              set if no input was given (e.g. <-)
+;  - mem::linebuffer: the string contents
+.export __edit_gets
+.proc __edit_gets
+@result_offset=zp::tmp8
+	stxy zp::jmpvec
+
+	ldx zp::curx
+	stx @result_offset	; offset to the user-input in line buffer
+
+@getloop:
+        lda #$70
+        cmp $9004
+        bne *-3
+	jsr text::update
+
+	jsr zp::jmpaddr		; call key-get func
+	cmp #$00
+	beq @getloop
+	cmp #K_RETURN
+	beq @done
+	cmp #K_QUIT	; <- (done)
+	beq @exit
+	jsr text::putch
+	lda zp::cury
+	jsr text::drawline
+	jmp @getloop
+
+@done:	clc 	; clear carry for success
+@exit:	    	; carry is implicitly set by CMP for ==
+	php	; save success state
+
+	; move the read text into $100
+	ldx @result_offset
+@saveres:
+	lda mem::linebuffer,x
+	sta $100,x
+	beq :+
+	inx
+	bne @saveres
+
+:	; get address of the result
+	ldx @result_offset
+	ldy #$01
+
+	plp			; get success state
+	rts
+.endproc
+
+;******************************************************************************
 ; READINPUT
 ; Reads command input and returns it (0-terminated) in mem::linebuffer
 ; a prompt may be given in the address XY. If XY is 0, a ':' will be
@@ -475,17 +532,13 @@ main:
 .proc readinput
 @prompt=zp::tmp0
 @result_offset=zp::tmp8
-	txa
-	pha
-	tya
-	pha
+	stxy @prompt
 	jsr text::savebuff
 	jsr text::clrline
-	pla
-	tay
-	pla
-	tax
 
+	pushcur			; save the cursor state
+
+	; save insert mode etc.
 	lda zp::editor_mode
 	pha
 	lda text::insertmode	; save current insertion mode
@@ -495,88 +548,45 @@ main:
 	lda #TEXT_INSERT
 	sta text::insertmode	; also TEXT INSERT mode (rendering)
 
+	ldxy @prompt
 	cmpw #0
 	beq @terminate_prompt
-	stxy @prompt
 	ldy #$00
+
+	; read the user prompt into the linebuffer
 :	lda (@prompt),y
 	beq @terminate_prompt
 	sta mem::linebuffer,y
 	iny
 	bne :-
+
 @terminate_prompt:
 	lda #':'
 	sta mem::linebuffer,y
-
-	lda zp::curx
-	pha
-	lda zp::cury
-	pha
-
 	iny
-	sty @result_offset
+	sty cur::minx
+	sty zp::curx
+	lda #STATUS_ROW		; Y = status line
+	sta zp::cury
+	jsr text::drawline	; clear line & display prompt
+	ldxy #key::getch	; key-input callback
+	jsr __edit_gets		; read the user input
+	php			; save success state
 
-	; set cursor limit for the prompt
-	ldx @result_offset
-	ldy #STATUS_ROW-1
-	jsr cur::setmin
-	ldx #40
-	ldy #STATUS_ROW+1
-	jsr cur::setmax
+	lda #40
+	sta cur::maxx		; restore cursor x limit
 
-	; set the cursor
-	ldx @result_offset
-	ldy #STATUS_ROW
-	jsr cur::set
-
-	lda #STATUS_ROW
-	jsr text::drawline
-@getkey:
-        lda #$70
-        cmp $9004
-        bne *-3
-	jsr text::update
-
-	jsr key::getch
-	beq @getkey
-	cmp #$0d
-	beq @done
-	cmp #$5f	; <- (done)
-	beq @exit
-	jsr text::putch
-	lda zp::cury
-	jsr text::drawline
-	jmp @getkey
-
-@done:	clc ; clear carry for success
-@exit:	    ; carry is implicitly set by CMP for ==
-	php
-	jsr edit
-	plp
-	pla
-	tay
-	pla
-	tax
-	php	; save success state
-	; restore curosr/editor
-	jsr cur::set
-	; move the read text into $100
-	ldx @result_offset
-@saveres:
-	lda mem::linebuffer,x
-	sta $100,x
-	beq :+
-	inx
-	bne @saveres
-
-:	jsr text::restorebuff
+	jsr text::restorebuff
 	ldx @result_offset
 	ldy #$01
+
 	plp			; get success state
 	pla
 	sta text::insertmode	; restore insert mode
 	pla
 	sta zp::editor_mode	; restore editor mode
+	popcur			; restore cursor
+
 	rts
 .endproc
 

@@ -5,6 +5,8 @@ K_UP        = $91       ; cursor up
 K_DOWN      = $11       ; cursor down
 K_HOME      = $13	; HOME
 
+K_UP_ARROW  = $5e	; up arrow
+
 K_PREV_BUFF  = $3c	; <
 K_NEXT_BUFF  = $3e	; >
 K_NEW_BUFF   = $aa	; <C=> + n
@@ -13,6 +15,7 @@ K_CLOSE_BUFF = $ab	; <C=> + q
 ; GLOBAL INTERFACE KEYS
 K_RETURN    = $0d	; RETURN
 K_QUIT      = $5f	; <-
+K_DEL       = $14	; DELETE
 
 ; EDITOR KEYS
 K_SET_BREAKPOINT = $bf	; <C=> + B

@@ -2,6 +2,8 @@
 .include "bitmap.inc"
 .include "cursor.inc"
 .include "debug.inc"
+.include "edit.inc"
+.include "expr.inc"
 .include "finalex.inc"
 .include "key.inc"
 .include "keycodes.inc"
@@ -39,17 +41,15 @@ memaddr:   .word 0
 
 ;******************************************************************************
 ; EDIT
-; Starts the memory editor at the address given in .YX
-; IN:
-;  - .XY: the address to edit memory at
+; Starts the memory editor
 .export __view_edit
 .proc __view_edit
 @dst=zp::tmp0
 @odd=zp::tmp4
 @dstoffset=zp::tmp6
 @src=zp::tmp8
+	ldxy memaddr
 	stxy @src
-	stxy memaddr
 
 	ldx #COL_START
 	ldy #MEMVIEW_START+1
@@ -66,9 +66,7 @@ memaddr:   .word 0
 	lda #$00	; REPLACE mode
 	sta text::insertmode
 
-	ldxy @src
 	jsr __view_mem
-
 	jsr cur::on
 
 ; until user exits (<- or RETURN), get input and update memory
@@ -76,12 +74,16 @@ memaddr:   .word 0
 	jsr key::getch
 	beq @edit
 
-	cmp #$5f	; <- (done)
+	cmp #'z'
+	bne :+
+	jsr getset_addr
+	jmp __view_edit	; reactivate editor at new address
+:	cmp #K_QUIT	; <- (done)
 	beq @done
-	cmp #$0d	; RETURN (done)
+	cmp #K_RETURN	; RETURN (done)
 	beq @done
 
-	cmp #$91	; up arrow
+	cmp #K_UP	; up arrow
 	bne :+
 	ldy #$ff
 	ldx #0
@@ -253,17 +255,74 @@ memaddr:   .word 0
 .endproc
 
 ;******************************************************************************
+; GETSET ADDR
+; Gets an address from the user (as input in the memory title area) and updates
+; the memory view to render that area of memory.
+.proc getset_addr
+	pushcur
+
+	; copy title to linebuffer
+	ldx #25-1
+:	lda strings::memview_title,x
+	sta mem::linebuffer,x
+	dex
+	bpl :-
+
+	; set bounds for the input
+	lda #18
+	sta cur::minx
+	sta zp::curx
+	lda #18+4
+	sta cur::maxx
+
+	lda #MEMVIEW_START
+	sta zp::cury
+
+	ldxy #gethex
+	jsr edit::gets
+	ldxy #mem::linebuffer+17
+	stxy zp::line
+	jsr expr::eval
+	bcs :+		; couldn't convert (TODO: should be impossible)
+	stxy memaddr
+:	popcur
+	rts
+.endproc
+
+;******************************************************************************
+.proc gethex
+	jsr key::getch
+	cmp #K_DEL	; allow delete
+	beq :+
+	cmp #K_RETURN
+	beq :+
+	jsr key::ishex
+	bcs :+
+	lda #$00	; don't accept non-hex characters
+:	rts
+.endproc
+
+;******************************************************************************
 ; MEM
 ; Displays the contents of memory in a large block beginning with the
-; address in (YX).
+; address in memaddr
 ; The address is that which was set with the most recent call to mem::edit
 .export __view_mem
 .proc __view_mem
 @src=zp::tmpa
 @col=zp::tmpc
 @row=zp::tmpd
-	ldxy memaddr
-	stxy @src
+	lda memaddr
+	sta @src
+	jsr util::hextostr
+	stx strings::memview_title+21
+	sty strings::memview_title+20
+
+	lda memaddr+1
+	sta @src+1
+	jsr util::hextostr
+	stx strings::memview_title+19
+	sty strings::memview_title+18
 
 	; draw the title for the memory display
 	ldxy #strings::memview_title

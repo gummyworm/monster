@@ -433,6 +433,10 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	rts
 
 @printing:
+	ldx zp::curx
+	cpx cur::maxx
+	bcs @err	; cursor is limited
+
 	pha
 	lda __text_insertmode
 	beq @fastput	; if REPLACE, no need to shift, do fast put
@@ -463,9 +467,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 @fastput:
 	; replace the underlying character
 	ldx zp::curx
-	lda #$00
-	sta mem::linebuffer+1,x
-
 @cont:	pla
 	sta mem::linebuffer,x
 	bne :+
@@ -532,33 +533,10 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 ;  - mem::linebuffer: the text to draw
 .export __text_drawline
 .proc __text_drawline
-	pha
-
-	lda #40
-	sta __text_len
-	sta zp::tmp0
-	ldxy #mem::spare
-	lda #' '
-	jsr util::memset
-
-	ldx #$00
-	ldy #$00
-@l0:	lda mem::linebuffer,x
-	beq @done
-	cmp #' '
-	bcc :+
-	sta mem::spare,x
-:	cmp #ESCAPE_RVS_OFF
-	bne :+
-	dey
-:	inx
-	iny
-	cpy #40
-	bcc @l0
-
-@done:	ldxy #mem::spare
-	pla
-	jmp __text_puts
+	ldx #40
+	stx __text_len
+	ldxy #mem::linebuffer
+	jmp __text_print
 .endproc
 
 ;******************************************************************************

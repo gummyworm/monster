@@ -1686,7 +1686,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #AUX_MEM
 	sta aux_mode
 
-	ldxy #$1000
 	jsr view::edit
 	popcur
 	rts
