@@ -144,8 +144,6 @@ main:
 
 @done:	jsr text::update
 	jsr text::status
-	lda #EDITOR_HEIGHT
-	sta height
 	jmp main
 .endproc
 
@@ -436,6 +434,7 @@ main:
 	pha
 
 @success:
+	jsr clrerror		; clear the error if there is one
 	ldxy #@success_msg
 	lda #STATUS_ROW-1
 	jsr text::print
@@ -2162,10 +2161,13 @@ goto_buffer:
 ; CLRERROR
 ; Clears any error message
 .proc clrerror
-	jsr text::clrline
-	ldxy #mem::linebuffer
+	lda height
+	cmp #ERROR_ROW
+	bcs :+
 	lda #ERROR_ROW
-	jsr text::putz
+	jsr bm::clrline		; clear the error line
+:	lda #STATUS_ROW-1
+	jmp bm::clrline		; clear the status line
 .endproc
 
 ;******************************************************************************
@@ -2752,11 +2754,9 @@ goto_buffer:
 ; Returns to COMMAND mode.
 ; If an error is being displayed, hides it.
 .proc cancel
-	ldy #EDITOR_HEIGHT
-	sty height
-	ldx #40
-	iny
-	jsr cur::setmax
+	jsr clrerror
+	lda #EDITOR_HEIGHT
+	jsr __edit_resize
 
 	lda #TEXT_REPLACE
 	sta text::insertmode
@@ -3157,11 +3157,8 @@ __edit_gotoline:
 	lda #ERROR_ROW
 	jsr text::print
 
-	ldy #ERROR_ROW-1
-	sty height
-	ldx #40
-	iny
-	jmp cur::setmax
+	lda #ERROR_ROW-1
+	jmp __edit_resize
 .endproc
 
 ;******************************************************************************

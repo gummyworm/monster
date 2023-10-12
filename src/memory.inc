@@ -1,3 +1,4 @@
+.import __linesave
 .import __mem_asmctx
 .import __mem_copybuff
 .import __mem_ctxbuffer
@@ -21,6 +22,7 @@
 	backbuff        = __mem_backbuff
 	linebuffer      = __linebuffer
 	linebuffer2     = __linebuffer2
+	linesave        = __linesave
 	statusline	= __statusline
 	copybuff        = __mem_copybuff
 

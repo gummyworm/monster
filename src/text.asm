@@ -931,10 +931,9 @@ hicolor=*+1
 .proc __text_savebuff
 	ldy #39
 :	lda mem::linebuffer,y
-	sta mem::linebuffer2,y
+	sta mem::linesave,y
 	dey
 	bpl :-
-	rts
 .endproc
 
 ;******************************************************************************
@@ -944,7 +943,7 @@ hicolor=*+1
 .export __text_restorebuff
 .proc __text_restorebuff
 	ldy #39
-:	lda mem::linebuffer2,y
+:	lda mem::linesave,y
 	sta mem::linebuffer,y
 	dey
 	bpl :-

@@ -34,6 +34,9 @@ __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
 .export __statusline
 __statusline: .res 40
 
+.export __linesave
+__linesave: .res 40
+
 .export __mem_copybuff
 __mem_copybuff: .res MAX_COPY_SIZE
 
