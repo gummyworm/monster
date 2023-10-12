@@ -25,6 +25,7 @@ Table of Contents
       * [Directory Viewer](https://github.com/gummyworm/monster#directory-viewer-c--l)
   * [Debugger](https://github.com/gummyworm/monster#debugger)
       * [Debug Commands](https://github.com/gummyworm/monster#debug-commands)
+      * [Stopwatch](https://github.com/gummyworm/monster#stopwatch)
       * [Stepping through code](https://github.com/gummyworm/monster#stepping-through-code)
       * [Auxiliary Views](https://github.com/gummyworm/monster#auxiliary-views)
           * [Memory View](https://github.com/gummyworm/monster#memory-viewer-f3-while-debugging)
