@@ -46,11 +46,12 @@ K_SCRATCH	 = $bd	; <C=> + x
 K_SAVE 	         = $ae	; <C=> + s
 
 ; DEBUGGER KEYS
-K_SRCVIEW      = $85	; F1
-K_MEMVIEW      = $86	; F3
-K_BRKVIEW      = $87	; F5
-K_WATCHVIEW    = $88	; F7
-K_SWAP_USERMEM = $20	; SPACE
+K_SRCVIEW         = $85	; F1
+K_MEMVIEW         = $86	; F3
+K_BRKVIEW         = $87	; F5
+K_WATCHVIEW       = $88	; F7
+K_SWAP_USERMEM    = $20	; SPACE
+K_RESET_STOPWATCH = $b2	; <C=> + r
 
 ;K_GO        = $a5	; <C=> + g
 K_STEP      = $ad	; <C=> + z

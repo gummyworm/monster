@@ -3238,6 +3238,7 @@ commands:
 	.byte K_WATCHVIEW
 	.byte K_SET_BREAKPOINT
 	.byte K_SWAP_USERMEM
+	.byte K_RESET_STOPWATCH
 num_commands=*-commands
 command_vectors:
 	.word quit
@@ -3252,3 +3253,4 @@ command_vectors:
 	.word edit_watches
 	.word set_breakpoint
 	.word swap_user_mem
+	.word reset_stopwatch
