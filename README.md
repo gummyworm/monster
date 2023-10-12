@@ -1,5 +1,6 @@
 # MONster
-![helloworld](https://github.com/gummyworm/monster/assets/4626914/ba7345da-db81-4603-b381-7bc5cab56b52)
+![hello](https://github.com/gummyworm/monster/assets/4626914/81ac6747-faba-4463-a6e1-8f17d8a6f5b7)
+
 
 Table of Contents
 =================
