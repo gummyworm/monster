@@ -446,7 +446,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	; insert a new char and redraw the line
 	jsr __text_linelen
 	cpx zp::curx
-	beq @fastput
+	beq @fastputi
 	lda #$00
 	sta mem::linebuffer+2,x
 @shr:	lda mem::linebuffer,x
@@ -464,9 +464,12 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	ldx zp::curx
 	jmp @cont
 
+@fastputi:
+	lda #$00
+	sta mem::linebuffer+1,x	; keep the line 0-terminated
+	ldx zp::curx
 @fastput:
 	; replace the underlying character
-	ldx zp::curx
 @cont:	pla
 	sta mem::linebuffer,x
 	bne :+

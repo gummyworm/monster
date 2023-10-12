@@ -967,7 +967,7 @@ main:
 .endproc
 
 ;******************************************************************************
-; PASTE BUFFER
+; PASTE BUFF
 ; Inserts the contents of the buffer at the current cursor position and returns
 ; to command mode
 .proc paste_buff
