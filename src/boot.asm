@@ -15,6 +15,10 @@
 .import __BSS_LOAD__
 .import __BSS_SIZE__
 
+.import __DATA_LOAD__
+.import __DATA_RUN__
+.import __DATA_SIZE__
+
 .segment "SETUP"
 ;******************************************************************************
 ; BASIC header: SYS 4621
@@ -65,6 +69,21 @@ start:
 	cmpw #(__BSS_LOAD__+__BSS_SIZE__)
 	bne @zeromem
 
+; relocate segments that need to be
+	ldxy #__DATA_LOAD__
+	stxy zp::tmp0
+	ldxy #__DATA_RUN__
+	stxy zp::tmp2
+@reloc:
+	ldy #$00
+	lda (zp::tmp0),y
+	sta (zp::tmp2),y
+	incw zp::tmp0
+	incw zp::tmp2
+	ldxy zp::tmp0
+	cmpw #(__DATA_LOAD__+__DATA_SIZE__)
+	bne @reloc
+
 @zerozp:
 	sta $00,x
 	dex
@@ -91,6 +110,8 @@ start:
 	; save current screen for debugger
 	jsr dbg::save_progstate
 
+	; TODO: enable write-protection for the $2000-$8000 blocks when
+	; all SMC is removed from the segments in that range
 	lda #$80
 	sta $9c02	; enable 35K of RAM for final expansion
 

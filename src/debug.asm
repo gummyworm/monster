@@ -116,11 +116,12 @@ pc:     .word 0
 
 mem_usersave:  .byte 0	; user byte when stepping @ mem_saveaddr
 mem_debugsave: .byte 0  ; debug byte when stepping @ mem_saveaddr
+effective_addr:
 mem_saveaddr:  .word 0  ; address of byte loaded/stored in a given STEP
-destructive:   .byte 0	; flag that a value was changed
 op_type:       .byte 0  ; REG, LOAD, or STORE
 affected:      .byte 0	; OP_REG_A, etc.; the CPU/RAM state affected by a STEP
 op_mode:       .byte 0  ; address modes for current instruction
+branch_taken:  .byte 0  ; if !0, a relative branch will be taken next STEP
 
 debug_instruction_save: .res 3	; buffer for debugger's
 ;--------------------------------------
@@ -132,6 +133,8 @@ prev_reg_y:  .byte 0
 prev_reg_p:  .byte 0
 prev_reg_sp: .byte 0
 prev_pc:     .word 0
+
+stopwatch:   .res 4	; number of cycles counted since stopwatch is reset
 
 prev_mem_save:     .byte 0
 prev_mem_saveaddr: .word 0
@@ -1278,6 +1281,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	lda #$00
 	sta lineset		; flag that line # is (yet) unknown
+	sta branch_taken 	; clear branch taken flag
 
 	; if the instruction we executed was destructive, show its new value
 	lda affected
@@ -1756,9 +1760,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; the current instruction and RUNning.
 .proc step
 @mode=zp::tmp0
-	ldxy #$100	; TODO: use ROM addr? (we don't need the string)
-	stxy zp::tmp0	; TODO: make way to not disassemble to string
-	ldxy pc		; get address of next instruction
+	ldxy #$100		; TODO: use ROM addr? (we don't need the string)
+	stxy zp::tmp0		; TODO: make way to not disassemble to string
+	ldxy pc			; get address of next instruction
 	jsr asm::disassemble  ; disassemble it to get its size (next BRK offset)
 	stx op_mode
 	bcc @ok
@@ -1794,14 +1798,24 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #ACTION_STEP
 	sta action		; flag that we are STEPing
 	pla			; get instruction size
+	pha			; save instruction size again
 	ldxy pc			; and address of instruction to-be-executed
 	jsr next_instruction	; get the address of the next instruction
 	stxy steppoint
+
 	jsr vmem::load
 	sta stepsave
 	lda #$00		; BRK
 	ldxy steppoint
 	jsr vmem::store
+
+	pla			; get the instruction size
+	tax
+	lda stepsave		; get the opcode
+	jsr count_cycles	; get the # of cycles for the instruction
+	clc
+	adc stopwatch
+	sta stopwatch
 
 	lda #$00
 	sta break_after_sr 	; reset step over
@@ -1829,6 +1843,101 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$01
 	sta break_after_sr
 	jmp step
+.endproc
+
+;******************************************************************************
+; COUNT CYCLES
+; Counts the number of cycles that the given instruction will execute
+; IN:
+;  - .A: the opcode of the instruction
+;  - .X: the size of the instruction
+; OUT:
+;  - .A: the number of cycles the instruction will use
+.proc count_cycles
+@cycles=zp::tmp0
+@opcode=zp::tmp2
+	sta @opcode
+	lda #$02	; minimum cycles an instruction may take
+	sta @cycles
+
+	txa
+	cmp #$01
+	beq @chkmem
+	adc #$00
+	sta @cycles	; 1 + 1 cycle for each byte of instruction
+
+@chkmem:
+	lda affected
+	and #OP_LOAD|OP_STORE
+	bne @chkind
+	inc @cycles	; if we read or write, +1 cycle
+
+@chkind:
+	lda op_mode
+	and #MODE_INDIRECT
+	bne @chkzpindex
+	inc @cycles	; 1 cycle for each byte read of the indirect address
+	inc @cycles
+
+;Zero page,X, zero page,Y, and (zero page,X) addressing modes spend an extra cycle reading the unindexed zero page address.
+@chkzpindex:
+	lda op_mode
+	and #MODE_ZP
+	bne @chkrmw
+	lda op_mode
+	and #MODE_INDIRECT|MODE_Y_INDEXED
+	cmp #MODE_INDIRECT|MODE_Y_INDEXED
+	beq @chkindexed		; if (zp),y- skip ahead
+
+	; if zp,y (zp,x) or zp,x add a penalty cycle
+	lda op_mode
+	and #MODE_Y_INDEXED|MODE_X_INDEXED|MODE_INDIRECT
+	bne @penalty		; (zp,x) or zp,x
+
+@chkrmw:
+	lda affected
+	and #OP_LOAD|OP_STORE	; RMW instructions need a cycle to modify
+	bne @penalty
+
+@chkindexed:
+	lda op_mode
+	and #MODE_X_INDEXED|MODE_Y_INDEXED
+	bne @chkbra
+
+@handleindexed:
+	lda affected
+	and #OP_STORE
+	beq :+
+	inc @cycles		; penalty if write to memory
+
+:	lda effective_addr
+	cmp #$ff		; is effective address LSB $ff?
+	bne @chkbra		; no penalty if not (no page boundary crossed)
+	inc @cycles
+
+@chkbra:
+	lda branch_taken
+	bne @chkstack		; if no branch was taken continue
+	lda steppoint+1
+	cmp pc+1		; is the target on the same page?
+	bne @penalty		; different page -> 1 cycle penalty
+
+@chkstack:
+	lda affected
+	and #OP_STACK|OP_LOAD	; pulling off stack requires extra cycle
+	bne @penalty
+
+@chkrts:
+	lda @opcode
+	cmp #$60	; RTS needs +1 cycle to inc return address
+	beq @penalty
+	cmp #$20	; JSR needs +1 cycle to handle return address internally
+	bne @done
+@penalty:
+	inc @cycles
+
+@done:	lda @cycles
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1992,6 +2101,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ; branch is taken, add the operand (offset) + 2
 @takebranch:
+	inc branch_taken
 	lda @operand
 	bpl :+
 	lda #$ff
@@ -2483,6 +2593,8 @@ __debug_remove_breakpoint:
 @addr=zp::asm+4
 @tmp=zp::asm+6
 @flag=zp::asm+7
+@cnt=zp::tmp0
+@col=zp::tmp1
 	; display the register names
 	ldxy #strings::debug_registers
 	lda #REGISTERS_LINE
@@ -2592,7 +2704,7 @@ __debug_remove_breakpoint:
 	sta mem::linebuffer+28
 	sta mem::linebuffer+29
 	sta mem::linebuffer+30
-	bne @print
+	bne @clk
 
 :	lda mem_saveaddr+1
 	jsr util::hextostr
@@ -2602,6 +2714,23 @@ __debug_remove_breakpoint:
 	jsr util::hextostr
 	sty mem::linebuffer+29
 	stx mem::linebuffer+30
+
+@clk:	lda #4-1
+	sta @cnt
+	lda #$00
+	sta @col
+:	ldx @cnt
+	lda stopwatch,x
+	jsr util::hextostr
+	tya
+	ldy @col
+	sta mem::linebuffer+32,y
+	txa
+	sta mem::linebuffer+33,y
+	inc @col
+	inc @col
+	dec @cnt
+	bpl :-
 
 @print:	ldxy #mem::linebuffer
 	lda #REGISTERS_LINE+1
@@ -2781,7 +2910,7 @@ side_effects_tab:
 .byte $00			; ---
 .byte $00			; ---
 .byte OP_REG_A|OP_LOAD		; $05 ORA zpg
-.byte OP_REG_A|OP_LOAD|OP_STORE ; $06 ASL zpg
+.byte OP_LOAD|OP_STORE 		; $06 ASL zpg
 .byte $00			; ---
 .byte OP_STACK|OP_STORE		; $08 PHP
 .byte OP_REG_A			; $09 ORA #
@@ -2799,7 +2928,7 @@ side_effects_tab:
 .byte $00			; ---
 .byte $00			; ---
 .byte OP_REG_A|OP_LOAD		; $15 ORA zpg,x
-.byte OP_REG_A|OP_LOAD|OP_STORE ; $16 ASL zpg,x
+.byte OP_LOAD|OP_STORE 		; $16 ASL zpg,x
 .byte $00			; ---
 .byte OP_FLAG			; $18 CLC
 .byte OP_REG_A|OP_LOAD		; $19 ORA abs,y
