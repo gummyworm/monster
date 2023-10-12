@@ -543,6 +543,12 @@ address for debugging.  If no label name is provided, execution will begin
 at the base origin of the program (the _lowest_ value set by any `.ORG`
 directive)
 
+When you enter the debugger, you will be presented with a view of the state
+of the processor at the current step or breakpoint.
+This include the state of the registers (A, X, Y, P, SP, and PC) as well as
+any effective address that was calculated for reading/writing by the last
+instruction.
+
 While debugging, most navigation commands work as normal. Breakpoints may
 be set as they would in the editor prior to assembly, and they will be installed
 in realtime.
@@ -560,17 +566,29 @@ real estate due to the debug information displayed at the bottom of the screen.)
 The following commands are supported by the debugger and are accessed by their
 respective Key in the table below.
 
-|  Key   | Name          |   Description                                                                        |
-|--------|---------------|--------------------------------------------------------------------------------------|
-|  F1      | Source View | maximizes the screen area for viewing the source code                                |
-|  F3      | Mem View    | activates the memory window, which takes control until `<-` is pressed               |
-|  F5      | Break View  | displays the breakpoints that have been set and allows them to be enabled/disabled   |
-|  C=+g    | Go          | begins execution at the cursor                                                       |
-|  C=+s    | StepOver    | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
-|  C=+z    | Step        | steps to the next instruction.                                                       | 
-|  C=+t    | Trace       | like GO but the debugger takes control between each instruction                      |
-|   <-     | Exit        | exits the debugger and returns to the editor                                         |
-| SPACE    | Swap prog   | swaps in the internal memory for the user program (allows user to see screen state)  | 
+|  Key     | Name            |   Description                                                                        |
+|--------  |-----------------|--------------------------------------------------------------------------------------|
+|  F1      | Source View     | maximizes the screen area for viewing the source code                                |
+|  F3      | Mem View        | activates the memory window, which takes control until `<-` is pressed               |
+|  F5      | Break View      | displays the breakpoints that have been set and allows them to be enabled/disabled   |
+|  C=+g    | Go              | begins execution at the cursor                                                       |
+|  C=+s    | StepOver        | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
+|  C=+z    | Step            | steps to the next instruction.                                                       | 
+|  C=-r    | Reset Stopwatch | resets the value of the stopwatch to 0                                               |
+|  C=+t    | Trace           | like GO but the debugger takes control between each instruction                      |
+|   <-     | Exit            | exits the debugger and returns to the editor                                         |
+| SPACE    | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  | 
+
+### Stopwatch
+
+Next to the registers, under the CLK label, is a 24-bit counter that displays the
+number of cycles executed by the instructions that have been STEP'd into.
+The stopwatch can be reset to 0 with the `C= + r` key combination.
+
+Note that the number of cylces is displayed in decimal unlike the rest of the
+information in the debug view, which is displayed in hexadecimal.
+
+---
 
 ### Stepping through code
 #### Step Into (`C= + z`)

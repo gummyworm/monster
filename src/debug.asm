@@ -1868,6 +1868,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$02	; minimum cycles an instruction may take
 	sta @cycles
 
+	lda op_mode
+	and #MODE_IMMEDIATE
+	bne @done
+
 	txa
 	cmp #$01
 	beq @chkmem
@@ -1875,15 +1879,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @cycles	; 1 + 1 cycle for each byte of instruction
 
 @chkmem:
-	lda affected
-	and #OP_LOAD|OP_STORE
-	bne @chkind
-	inc @cycles	; if we read or write, +1 cycle
-
 @chkind:
 	lda op_mode
 	and #MODE_INDIRECT
-	bne @chkzpindex
+	beq @chkzpindex
 	inc @cycles	; 1 cycle for each byte read of the indirect address
 	inc @cycles
 
@@ -1891,11 +1890,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @chkzpindex:
 	lda op_mode
 	and #MODE_ZP
-	bne @chkrmw
+	beq @chkrmw
 	lda op_mode
 	and #MODE_INDIRECT|MODE_Y_INDEXED
 	cmp #MODE_INDIRECT|MODE_Y_INDEXED
-	beq @chkindexed		; if (zp),y- skip ahead
+	bne @chkindexed		; if (zp),y- skip ahead
 
 	; if zp,y (zp,x) or zp,x add a penalty cycle
 	lda op_mode
@@ -1933,7 +1932,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @chkstack:
 	lda affected
 	and #OP_STACK|OP_LOAD	; pulling off stack requires extra cycle
-	bne @penalty
+				; this will also catch the extra JSR byte read
+	beq @chkrts
+	inc @cycles
 
 @chkrts:
 	lda @opcode
