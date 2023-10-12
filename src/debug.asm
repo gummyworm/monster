@@ -1263,10 +1263,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta pc+1
 
 	; reinstall the main IRQ
-	;ldx #<irq::sys_update
-        ;ldy #>irq::sys_update
-	;lda #$20
-        ;jsr irq::raster
+	ldx #<irq::sys_update
+        ldy #>irq::sys_update
+	lda #$20
+        jsr irq::raster
 
 	; swap the debugger state in
 	jsr swapout

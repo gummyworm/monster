@@ -586,6 +586,9 @@ main:
 	sta zp::editor_mode	; restore editor mode
 	popcur			; restore cursor
 
+	lda #$00
+	sta cur::minx
+
 	rts
 .endproc
 
@@ -1436,7 +1439,7 @@ __edit_set_breakpoint:
 	sta text::insertmode
 
 	jsr src::after_cursor
-	cmp #BREAKPOINT_CHAR
+	cmp #BREAKPOINT_CHAR	; is there already a breakpoint here?
 	bne @add
 @remove:
 	jsr src::delete
