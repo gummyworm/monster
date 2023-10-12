@@ -7,6 +7,7 @@
 .import __util_memset
 .import __util_memcpy
 .import __util_todec
+.import __util_todec24
 .import atoi
 .import __util_isoperator
 .import __util_is_separator
@@ -25,6 +26,7 @@
 	memcpy                = __util_memcpy
 	parse_enquoted_string = __util_parse_enquoted_string
 	todec                 = __util_todec
+	todec24		      = __util_todec24
 .endscope
 
 .macro copy dst, src, len

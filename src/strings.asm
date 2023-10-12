@@ -28,7 +28,7 @@ __str_debug_brk_line: .byte "brk in line ",ESCAPE_VALUE_DEC,0
 __str_debug_brk_addr: .byte "brk @ ", ESCAPE_VALUE,0
 
 .export __str_debug_registers
-__str_debug_registers: .byte " pc  a  x  y  sp nv-bdizc  addr clk",0
+__str_debug_registers: .byte " pc  a  x  y  sp nv-bdizc  addr      clk",0
 
 .export __str_debug_stop_debugging
 __str_debug_stop_debugging: .byte "stop debugging? (press 'y' to quit)",0

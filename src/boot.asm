@@ -90,7 +90,7 @@ start:
 	bne @zerozp
 
 ; initialize the JMP vector
-	lda #$4c	; JMP
+	lda #$4c		; JMP
 	sta zp::jmpaddr
 
 	ldx #<irq::sys_update

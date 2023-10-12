@@ -134,7 +134,7 @@ prev_reg_p:  .byte 0
 prev_reg_sp: .byte 0
 prev_pc:     .word 0
 
-stopwatch:   .res 4	; number of cycles counted since stopwatch is reset
+stopwatch:   .res 3	; number of cycles counted since stopwatch is reset
 
 prev_mem_save:     .byte 0
 prev_mem_saveaddr: .word 0
@@ -1067,6 +1067,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; init state
 	sta __debug_numwatches
 
+	jsr reset_stopwatch
+
 	jsr __debug_restore_progstate	; and copy in entire user state to start
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
@@ -1816,6 +1818,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	clc
 	adc stopwatch
 	sta stopwatch
+	lda stopwatch+1
+	adc #$00
+	sta stopwatch+1
+	lda stopwatch+2
+	adc #$00
+	sta stopwatch+2
 
 	lda #$00
 	sta break_after_sr 	; reset step over
@@ -2715,22 +2723,28 @@ __debug_remove_breakpoint:
 	sty mem::linebuffer+29
 	stx mem::linebuffer+30
 
-@clk:	lda #4-1
-	sta @cnt
-	lda #$00
-	sta @col
-:	ldx @cnt
-	lda stopwatch,x
-	jsr util::hextostr
-	tya
-	ldy @col
-	sta mem::linebuffer+32,y
-	txa
-	sta mem::linebuffer+33,y
-	inc @col
-	inc @col
-	dec @cnt
-	bpl :-
+@clk:	ldx stopwatch
+	ldy stopwatch+1
+	lda stopwatch+2
+	jsr util::todec24
+
+	lda $100+7
+	sta mem::linebuffer+32+7
+
+	ldx #$00
+:	inx
+	cpx #$07
+	beq @print
+	lda $100,x
+	cmp #'0'
+	beq :-
+
+@cpyclk:
+	lda $100,x
+	sta mem::linebuffer+32,x
+	inx
+	cpx #$07
+	bcc @cpyclk
 
 @print:	ldxy #mem::linebuffer
 	lda #REGISTERS_LINE+1
@@ -2887,6 +2901,17 @@ __debug_remove_breakpoint:
 	bcc :+
 	inc line+1
 :	RETURN_OK
+.endproc
+
+;******************************************************************************
+; RESET STOPWATCH
+; Resets the stopwatch
+.proc reset_stopwatch
+	lda #$00
+	sta stopwatch
+	sta stopwatch+1
+	sta stopwatch+2
+	rts
 .endproc
 
 ;******************************************************************************

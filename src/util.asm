@@ -272,6 +272,75 @@ result=mem::spare
 .endproc
 
 ;******************************************************************************
+; TODEC24
+; Converts the given 24 bit binary value to a decimal string
+; IN:
+;  - .A: the MSB of the value
+;  - .Y: the 2nd LSB of the value
+;  - .X: the LSB of the value
+; OUT:
+;  - .XY: the address of the string to convert
+.export __util_todec24
+.proc __util_todec24
+@input=zp::tmp0		; 3 bytes
+@result=zp::tmp3	; 8 bytes
+@str=$100
+	sta @input+2
+	sty @input+1
+	stx @input
+
+	lda #0
+	ldx #8-1
+:	sta @result+0,x
+	dex
+	bpl :-
+
+	sed
+
+	ldx #24		; 3 bytes
+@l0:	asl @input
+	rol @input+1
+	rol @input+2
+	ldy #0
+:	lda @result,y
+	adc @result,y
+	sta @result,y
+	iny
+	tya
+	and #$08	; is bit 3 set (.Y == 8)
+	beq :-		; loop until it is
+	dex
+	bne @l0
+
+	cld
+
+	ldx #$00
+	ldy #$07
+:	lda @result,x
+	pha
+	clc
+	and #$0f
+	adc #'0'
+	sta @str,y
+	dey
+	pla
+	and #$f0
+	lsr
+	lsr
+	lsr
+	lsr
+	adc #'0'
+	sta @str,y
+	dey
+	inx
+	cpx #8
+	bcc :-
+
+	ldxy #@str
+	rts
+.endproc
+
+;******************************************************************************
 ; IS_WHITESPACE
 ; Checks if the given character is a whitespace character
 ; IN:
