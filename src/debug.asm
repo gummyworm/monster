@@ -2315,8 +2315,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @addr=zp::tmp0
 	stxy @addr
 	lda __debug_numwatches
+	beq :+
+
+	; check if watch already exists
+	jsr getwatch
+	beq @done		; already a watch here, exit
+
+	lda __debug_numwatches
 	asl
-	tax
+:	tax
 
 	lda @addr
 	sta __debug_watches,x
@@ -2329,7 +2336,33 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta __debug_watch_vals,x
 
 	inc __debug_numwatches
-	rts
+@done:	rts
+.endproc
+
+;******************************************************************************
+; GETWATCH
+; Returns the index of the watch at the given address
+; IN:
+;  - zp::tmp0: the address of the watch
+;
+; OUT:
+;  - .C: set if the watch exists
+;  - .X: the id of the watch * 2
+.proc getwatch
+@addr=zp::tmp0
+	lda __debug_numwatches
+	asl
+	tax
+@l0:	lda @addr
+	cmp __debug_watches,x
+	bne @next
+	lda @addr+1
+	cmp __debug_watches+1,x
+	beq @done
+@next:	dex
+	dex
+	bpl @l0
+@done:	rts
 .endproc
 
 ;******************************************************************************
