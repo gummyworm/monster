@@ -283,7 +283,7 @@ result=mem::spare
 .export __util_todec24
 .proc __util_todec24
 @input=zp::tmp0		; 3 bytes
-@result=zp::tmp3	; 8 bytes
+@result=zp::tmp3	; 4 bytes
 @str=$100
 	sta @input+2
 	sty @input+1
@@ -301,13 +301,13 @@ result=mem::spare
 @l0:	asl @input
 	rol @input+1
 	rol @input+2
-	ldy #0
+	ldy #$00
 :	lda @result,y
 	adc @result,y
 	sta @result,y
 	iny
 	tya
-	and #$08	; is bit 3 set (.Y == 8)
+	and #$04	; is bit 2 set (.Y == 8)
 	beq :-		; loop until it is
 	dex
 	bne @l0
@@ -315,7 +315,7 @@ result=mem::spare
 	cld
 
 	ldx #$00
-	ldy #$07
+	ldy #8-1
 :	lda @result,x
 	pha
 	clc
@@ -333,7 +333,7 @@ result=mem::spare
 	sta @str,y
 	dey
 	inx
-	cpx #8
+	cpx #4
 	bcc :-
 
 	ldxy #@str

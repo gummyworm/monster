@@ -695,15 +695,13 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	bpl :-
 
 	iny
-@l0:
-	lda (@src),y
+@l0:	lda (@src),y
 	beq @done
 	sta mem::spare,y
 	iny
 	cpy #40
 	bcc @l0
-@done:
-	ldxy #mem::spare
+@done:	ldxy #mem::spare
 	pla
 	jmp __text_puts
 .endproc
