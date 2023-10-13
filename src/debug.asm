@@ -273,6 +273,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 steppoint: 	.word 0		; address we STEP from
 startsave:
 stepsave:	.byte 0		; opcode to save under BRK
+debug_stepsave: .byte 0 	; debugger byte under BRK (if internal)
 
 ;******************************************************************************
 ; pointers used when building the debug info
@@ -1340,15 +1341,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda action
 	cmp #ACTION_START
 	bne :+
-	lda startsave				; restore opcode
+	lda startsave		; restore opcode
 	ldxy pc
 	jsr vmem::store
 	jmp @reset_state
-:	cmp #ACTION_STEP_OVER
-	beq @restore_step
-	cmp #ACTION_STEP
-	beq @restore_step
-	cmp #ACTION_TRACE
+:	jsr stepping		; are we stepping?
 	bne @reset_state
 @restore_step:
 	jsr step_restore
@@ -2213,12 +2210,19 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; the user program.
 .proc swapin
 @cnt=zp::tmp0
+@steppt=zp::tmp1
 	lda swapmem
 	bne @swapall	; we don't know enough to do a limited swap
 
+	ldxy steppoint
+	stxy @steppt
+	ldy #$00
+	lda (@steppt),y
+	sta debug_stepsave
+
 	ldxy pc
 	jsr is_internal_address
-	bne @savemem		; if not internal, skip saving
+	bne @savestep		; if not internal, skip saving
 
 ; save the debugger's memory values at the address of the instruction and
 ; swap in the user values at the affected memory address
@@ -2244,6 +2248,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $f00d,x
 	dec @cnt
 	bpl @saveloop2
+
+; store the step point to its real address if it's internal
+@savestep:
+	ldxy steppoint
+	jsr is_internal_address
+	bne @savemem
+	; store the BRK at the physical address, and save the debugger's
+	; byte that is currently there
+	lda #$00		; BRK
+	tay
+	sta (@steppt),y
 
 ; save the debugger's memory value that will be overwritten and restore the
 ; user value at the affected memory address
@@ -2278,12 +2293,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; If not, swap the entire internal RAM state
 .proc swapout
 @cnt=zp::tmp0
+@tmp=zp::tmp0
 	lda swapmem
 	bne @swapall
 
 	ldxy prev_pc
 	jsr is_internal_address	; TODO: could be issue if instruction is @ >= $1ffe
-	bne @savemem
+	bne @restorestep
 
 ; save the user's memory values at the address of the instruction and
 ; swap in the user values at the affected memory address
@@ -2308,6 +2324,19 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $f00d,x
 	dec @cnt
 	bpl @saveloop
+
+@restorestep:
+	jsr stepping
+	bne @savemem
+	; if there was a STEP in internal RAM, restore the debugger's
+	; byte that we overwrote with the BRKpoint
+	ldxy steppoint
+	jsr is_internal_address
+	bne @savemem
+	stxy @tmp
+	ldy #$00
+	lda debug_stepsave
+	sta (@tmp),y
 
 ; save the debugger's memory value that will be overwritten and restore the
 ; user value at the affected memory address
@@ -2888,6 +2917,26 @@ __debug_remove_breakpoint:
 @internal:
 	lda #$00
 	rts
+.endproc
+
+;******************************************************************************
+; Stepping
+; Returns with the .Z flag set if we are currently "stepping"
+; This means that we are executing in a step-by-step fashion as with
+;  STEP
+;  TRACE
+;  STEP-OVER
+;  GO-START
+.proc stepping
+	lda action
+	cmp #ACTION_GO_START
+	beq @yes
+	cmp #ACTION_STEP
+	beq @yes
+	cmp #ACTION_STEP_OVER
+	beq @yes
+	cmp #ACTION_TRACE
+@yes:	rts
 .endproc
 
 ;******************************************************************************
