@@ -75,7 +75,8 @@
 	cmpw #$100
 	bcs :+
 
-@00:	add16 #(mem::prog00-$00)
+@00:	; $00-$100 is stored in the prog00 buffer
+	add16 #(mem::prog00-$00)
 	lda #FINAL_BANK_MAIN
 	rts
 
@@ -84,14 +85,15 @@
 	cmpw #$1100
 	bcs :+
 
-@1000:	add16 #(mem::prog1000-$1000)
+@1000:	; $1000-$1100 is stored in the prog1000 buffer
+	add16 #(mem::prog1000-$1000)
 	lda #FINAL_BANK_MAIN
 	rts
 
 :	cmpw #$2000
 	bcs :+
 
-@1100:	; read from the screen buffer bank (stored at $a000)
+@1100:	; $1100-$2000 is stored in the "fast copy" bank
 	add16 #($a000-$1100)
 	lda #FINAL_BANK_FASTCOPY
 	rts
@@ -101,7 +103,8 @@
 	cmpw #$9010
 	bcs :+
 
-@9000:	add16 #(mem::prog9000-$9000)
+@9000:	; $9000-$9010 is stored in the prog9000 buffer
+	add16 #(mem::prog9000-$9000)
 	lda #FINAL_BANK_MAIN
 	rts
 
@@ -110,10 +113,13 @@
 	cmpw #$9500
 	bcs @done
 
-@9400:	add16 #(mem::prog9400-$9400)
+@9400:	; $9400-$9500 is stored in the prog9400 buffer
+	add16 #(mem::prog9400-$9400)
 	lda #FINAL_BANK_MAIN
 	rts
 
-@done:	lda #FINAL_BANK_USER
+@done:	; everything else is stored at its unaltered address in the
+	; USER bank
+	lda #FINAL_BANK_USER
 	rts
 .endproc

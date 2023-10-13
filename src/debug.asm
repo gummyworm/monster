@@ -1661,14 +1661,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 
 @quit:	jsr toggle_highlight
-	lda #$00
+	lda #$00		; clear BRK flag
 	pha
 	plp
-	sei
 
+	pla			; command return address
 	pla
-	pla
-	pla
+	pla			; debug START return address
 	pla
 	rts
 .endproc
@@ -2750,7 +2749,7 @@ __debug_remove_breakpoint:
 
 @print:	ldxy #mem::linebuffer
 	lda #REGISTERS_LINE+1
-	jsr text::puts
+	jmp text::puts
 .endproc
 
 ;******************************************************************************
