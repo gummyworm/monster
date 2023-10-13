@@ -722,8 +722,8 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 @txtright = zp::text+3
 @txtdst   = zp::text+5
 @txtsrc   = zp::text+7
-	stx @txtsrc
-	sty @txtsrc+1
+@ysave	  = zp::text+9
+	stxy @txtsrc
 	asl
         asl
         asl
@@ -740,7 +740,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
 	ldy #$00
 @l0:    lda (@txtsrc),y
-	jsr @handlecc
 	iny
         sta @txtleft
         lda #$00
@@ -759,9 +758,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
         adc #<((__text_charmap-256) / 256)
         sta @txtleft+1
 
-@right:
-        lda (@txtsrc),y
-	jsr @handlecc
+@right:	lda (@txtsrc),y
         iny
         sta @txtright
         lda #$00
@@ -779,23 +776,19 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
         lda @txtright+1
         adc #<((__text_charmap-256) / 256)
         sta @txtright+1
-        tya
-        pha
+	sty @ysave
         ldy #$00
 @l1:    lda (@txtleft),y
-	eor __text_rvs
         and #$f0
         sta @txtbyte
         lda (@txtright),y
-	eor __text_rvs
         and #$0f
         ora @txtbyte
         sta (@txtdst),y
         iny
         cpy #8
         bne @l1
-        pla
-        tay
+	ldy @ysave
         clc
         lda @txtdst
         adc #192
@@ -806,32 +799,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 @nextch:
 	cpy __text_len
 	bcc @l0
-
-	; turn off RVS for next line
-        lda #$00
-	sta __text_rvs
         rts
-
-;------------------
-@handlecc:
-	cmp #ESCAPE_RVS_ON	; RVS on?
-	bne :+
-	lda #$ff
-	bne @setrvs
-:	cmp #ESCAPE_RVS_OFF	; RVS off
-	bne @done
-	lda #$00
-@setrvs:
-	sta __text_rvs
-	iny
-	pla
-	pla
-	inc __text_len
-	tya
-	and #$01
-	bne @right
-	jmp @l0
-@done:  rts
 .endproc
 
 ;******************************************************************************

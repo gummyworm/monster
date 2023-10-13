@@ -1258,6 +1258,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	tsx
 	stx reg_sp
 
+	; clear decimal in case user set it
+	cld
+
 	; BRK pushes PC + 2, subtract 2 from PC
 	lda pc
 	sec
@@ -1373,7 +1376,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy pc
 	jsr __debug_addr2line	; get the line #
 	sta file
-	bcs @print
+	bcs @print		; if we failed to get line #, continue
 
 	inc lineset
 	stxy highlight_line
@@ -1493,7 +1496,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; return from the BRK
 	jmp fe3::bank_rti
-
 .endproc
 
 ;******************************************************************************
@@ -2599,11 +2601,8 @@ __debug_remove_breakpoint:
 ;   PC  A  X  Y  SP NV-BDIZC ADDR
 ;  f59c 02 02 00 f7 00100000 1003
 .proc showregs
-@addr=zp::asm+4
 @tmp=zp::asm+6
 @flag=zp::asm+7
-@cnt=zp::tmp0
-@col=zp::tmp1
 	; display the register names
 	ldxy #strings::debug_registers
 	lda #REGISTERS_LINE
@@ -2729,9 +2728,11 @@ __debug_remove_breakpoint:
 	lda stopwatch+2
 	jsr util::todec24
 
+	; set the last character of the stopwatch always
 	lda $100+7
 	sta mem::linebuffer+32+7
 
+	; ignore leading zeroes
 	ldx #$00
 :	inx
 	cpx #$07
@@ -2743,13 +2744,13 @@ __debug_remove_breakpoint:
 @cpyclk:
 	lda $100,x
 	sta mem::linebuffer+32,x
-	inx
 	cpx #$07
+	inx
 	bcc @cpyclk
 
 @print:	ldxy #mem::linebuffer
 	lda #REGISTERS_LINE+1
-	jmp text::puts
+	jsr text::puts
 .endproc
 
 ;******************************************************************************
