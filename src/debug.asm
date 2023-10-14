@@ -2346,6 +2346,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr vmem::store
 
 	lda mem_debugsave
+	ldy #$00
 	sta (@save),y
 @done:	rts
 
@@ -2411,14 +2412,18 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @target
 	bcc :+
 	inc @target+1
-:	jmp @done
+:	lda op_mode
+	and #MODE_ZP
+	beq @done
+	lda #$00		; if ZP,x clear the MSB of target
+	sta @target+1
+	beq @done
 
 ;--------------------------------------
 @check_rel_x:
 	lda op_mode
 	and #MODE_X_INDEXED		; x indexed?
 	beq @check_ind
-	beq @abs_or_zp			; if not, this is a simple ZP/abs store
 	; add the value of .X to get the target address
 	lda reg_x
 	clc
@@ -2426,7 +2431,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @target
 	bcc @done
 	inc @target+1
-	bcs @done
+	lda op_mode
+	and #MODE_ZP
+	beq @done
+	lda #$00		; if ZP,x clear the MSB of target
+	sta @target+1
+	beq @done
 
 @check_ind:
 	lda op_mode
