@@ -2211,10 +2211,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc swapin
 @cnt=zp::tmp0
 @steppt=zp::tmp1
+@save=zp::tmp3
 	lda swapmem
-	bne @swapall	; we don't know enough to do a limited swap
+	beq :+
+	jmp @swapall	; we don't know enough to do a limited swap
 
-	ldxy steppoint
+:	ldxy steppoint
 	stxy @steppt
 	ldy #$00
 	lda (@steppt),y
@@ -2226,16 +2228,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ; save the debugger's memory values at the address of the instruction and
 ; swap in the user values at the affected memory address
-	stxy @smc0
-	stxy @smc1
-	ldx #$02
-	stx @cnt
+	stxy @save
+	ldy #$02
+	sty @cnt
 @saveloop:
 	; save the debugger's byte at the location we're swapping
-@smc0=*+1
-	lda $f00d,x
-	sta debug_instruction_save,x
-	dex
+	lda (@save),y
+	sta debug_instruction_save,y
+	dey
 	bpl @saveloop
 
 @saveloop2:
@@ -2243,9 +2243,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy pc
 	lda @cnt
 	jsr vmem::load_off
-	ldx @cnt
-@smc1=*+1
-	sta $f00d,x
+	ldy @cnt
+	sta (@save),y
 	dec @cnt
 	bpl @saveloop2
 
@@ -2266,14 +2265,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy mem_saveaddr
 	jsr is_internal_address
 	bne @done		; if not internal, skip saving
-	stxy @smc2
-	stxy @smc3
-@smc2=*+1
-	lda $f00d
+	stxy @save
+
+	ldy #$00
+	lda (@save),y
 	sta mem_debugsave
 	lda mem_usersave
-@smc3=*+1
-	sta $f00d
+	sta (@save),y
 @done:	rts
 
 @swapall:
@@ -2294,6 +2292,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc swapout
 @cnt=zp::tmp0
 @tmp=zp::tmp0
+@save=zp::tmp1
 	lda swapmem
 	bne @swapall
 
@@ -2303,25 +2302,22 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ; save the user's memory values at the address of the instruction and
 ; swap in the user values at the affected memory address
-	stxy @smc0
-	stxy @smc1
-	ldx #$02
-	stx @cnt
+	stxy @save
+	ldy #$02
+	sty @cnt
 @saveloop:
 	; get user byte to save and store it
-	ldx @cnt
-@smc0=*+1
-	lda $f00d,x
+	ldy @cnt
+	lda (@save),y
 	sta zp::bankval
 	ldxy prev_pc
 	lda @cnt
 	jsr vmem::store_off
 
-	ldx @cnt
+	ldy @cnt
 	; get debugger byte to restore
-	lda debug_instruction_save,x
-@smc1=*+1
-	sta $f00d,x
+	lda debug_instruction_save,y
+	sta (@save),y
 	dec @cnt
 	bpl @saveloop
 
@@ -2344,15 +2340,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy mem_saveaddr
 	jsr is_internal_address
 	bne @done
-	stxy @smc2
-	stxy @smc3
-@smc2=*+1
-	lda $f00d
+	stxy @save
+	ldy #$00
+	lda (@save),y
 	jsr vmem::store
 
 	lda mem_debugsave
-@smc3=*+1
-	sta $f00d
+	sta (@save),y
 @done:	rts
 
 @swapall:

@@ -295,6 +295,7 @@ COLMEM_ADDR = $9400
 .export __bm_shr
 .proc __bm_shr
 @dst=zp::tmp0
+@jumpaddr=@dst
 @end=zp::tmp2
 @odd=zp::tmp3
 @ystart=zp::tmp4
@@ -333,8 +334,7 @@ COLMEM_ADDR = $9400
 ; ...
 @l0:	ldy #$03
 @l1:	clc
-@jumpaddr=*+1
-	jmp *+3
+	jmp (@jumpaddr)
 @target=*
 .repeat 20,i
 	ror BITMAP_ADDR+($c0*(i)),x

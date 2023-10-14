@@ -172,6 +172,7 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 ;  - .A:  the row to print the string at
 .export __text_print
 .proc __text_print
+@sub = zp::text+7	; address of string to replace escape char with
 @str = zp::text+9
 @row = zp::text+11
 @savex = zp::text+12
@@ -313,14 +314,15 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	sta @sub
 	pla
 	sta @sub+1
-@sub=*+1
-@l1:	lda $ffff
-	beq @cont
-	sta @buff,x
-	inc @sub
+	sty @savey
+	ldy #$00
+@l1:	lda (@sub),y
 	bne :+
-	inc @sub+1
-:	inx
+	ldy @savey
+	bpl @cont	; branch always
+:	sta @buff,x
+	iny
+	inx
 	cpx #40
 	bcs @disp
 	bne @l1
@@ -829,40 +831,6 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 .endproc
 
 ;******************************************************************************
-; HILINE
-; Highlights the specified row with the specified color.
-; This routine install an IRQ that will hilight the given line until disabled
-; (hioff).
-; IN:
-;  - .A: the row to highlight
-;  - .X: the color to highlight with
-.export __text_hiline
-.proc __text_hiline
-	stx hicolor
-	ldx #<hiirq
-	ldy #>hiirq
-	asl
-	asl
-	adc #13
-	jsr irq::raster
-	rts
-.endproc
-
-hiirq:  ldx #65/5-1
-	dex
-	bne *-1
-hicolor=*+1
-	lda #$00
-	sta $900f
-	ldx #(65)/5*8-3
-:	dex
-	bne :-
-	nop
-	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
-	sta $900f
-	jmp $eb15
-
-;******************************************************************************
 ; LINELEN
 ; Returns the length of mem::linebuffer
 ; OUT:
@@ -876,16 +844,6 @@ hicolor=*+1
 	cpx #40
 	bne @l0
 @done:	rts
-.endproc
-
-;******************************************************************************
-; HIOFF
-; Clears any active line highlight
-.export __text_hioff
-.proc __text_hioff
-	lda #$08 | (BG_COLOR<<4) | BORDER_COLOR
-	sta hicolor
-	rts
 .endproc
 
 ;******************************************************************************

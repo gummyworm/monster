@@ -1,8 +1,6 @@
 .import __text_charmap
 .import __text_clrline
 .import __text_drawline
-.import __text_hiline
-.import __text_hioff
 .import __text_insertmode
 .import __text_len
 .import __text_linelen
@@ -44,8 +42,6 @@ CH_R_ARROW	    = 135
         charmap          = __text_charmap
 	clrline          = __text_clrline
 	drawline         = __text_drawline
-	hiline           = __text_hiline
-	hioff            = __text_hioff
 	insertmode       = __text_insertmode
         len              = __text_len
 	linelen          = __text_linelen

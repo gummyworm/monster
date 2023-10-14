@@ -128,6 +128,7 @@
 @scale=zp::tmp14
 @val=zp::tmp15
 @tmp2=zp::tmp17
+@offset=zp::util
 	stxy @str
 	lda #$00
 	sta @val
@@ -176,8 +177,7 @@
 
 	ldx @val
 	ldy @val+1
-@offset=*+1
-	lda #$00
+	lda @offset
 	RETURN_OK
 @unexpectedchar:
 	lda #ERR_UNEXPECTED_CHAR
