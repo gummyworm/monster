@@ -1478,12 +1478,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda reg_p	; restore processor status
 	pha
 
-	jsr save_debug_zp
-	jsr restore_user_zp
-
 	; install a NOP IRQ
 	ldxy #$eb15
 	stxy $0314
+
+	jsr save_debug_zp
+	jsr restore_user_zp
 
 	lda reg_a
 	sta prev_reg_a
@@ -1563,6 +1563,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;******************************************************************************
 ; SAVE DEBUG ZP
 ; Saves the state of the debugger's zeropage
+; TODO: only save/restore the ZP locations clobbered by the debugger
+; (will require some overall restructure of ZP usage.
 .proc save_debug_zp
 @zp=mem::debugsave+$10
 	ldx #$00

@@ -21,17 +21,17 @@ c:
     asl $18,x
     asl $1919
     asl $2020,x
-    ;bcc *+2
-    ;bcs *+2
-    ;beq *+2
-    ;bit $24
-    ;bit $2525
-    ;bmi *+2
-    ;bne *+2
-    ;bpl *+2
+    bcc *+2
+    bcs *+2
+    beq *+2
+    bit $24
+    bit $2525
+    bmi *+2
+    bne *+2
+    bpl *+2
     ;brk
-    ;bvc *+2
-    ;bvs *+2
+    bvc *+2
+    bvs *+2
     clc
     cld
     cli
