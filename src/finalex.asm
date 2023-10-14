@@ -4,6 +4,10 @@
 .import __BANKCODE_SIZE__
 .import __BANKCODE_LOAD__
 
+.BSS
+.export __final_rti_bank
+__final_rti_bank:	.byte 0	; NOTE: only available in the main bank
+
 ;******************************************************************************
 ; BANK CODE
 ; The following procedures have stable positions in every bank.
@@ -173,12 +177,13 @@ final_copy_end=*-__final_copy
 ;******************************************************************************
 ; BANK_RTI
 ; Returns to the given bank and then RTI's
+; MUST be called from the main bank (0)
 ; IN:
 ;  - zp::bankval: the bank to return to
 .export __final_rti
 .proc __final_rti
 	pha
-	lda zp::bankval
+	lda __final_rti_bank
 	sta $9c02
 	pla
 	rti

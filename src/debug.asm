@@ -81,7 +81,7 @@ line           = zp::debug+5
 srcline        = zp::debug+7
 segstart       = zp::debug+9
 segstop        = zp::debug+$b
-break_after_sr = zp::debug+$d	; if !0, NEXT_INSTRUCTION will skip subroutines
+numlines       = zp::debug+$d
 debugtmp       = zp::debug+$10
 
 .export __debug_src_line
@@ -808,7 +808,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda @addr+1
 	cmp segstart+1
 	bcc @next	; addr < segstart, skip to the next segment
-	lda @addr
+	beq :+
+	bcs @findline	; segstart <= addr < segstop, find the line #
+:	lda @addr
 	cmp segstart
 	bcs @findline	; segstart <= addr < segstop, find the line #
 
@@ -845,6 +847,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @nextline:
 	jsr nextline
 	bcc @findline
+	jmp *
 	rts
 .endproc
 
@@ -1074,6 +1077,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
 
+	jsr save_debug_zp
+	jsr restore_user_zp
+
 @runpc:	CALL FINAL_BANK_USER, pc	; execute the user program until BRK
 	rts
 .endproc
@@ -1166,7 +1172,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; program (namely the screen)
 .proc save_debug_state
 @vicsave=mem::debugsave
-@savezp=mem::debugsave+$10
 @colorsave=mem::debugsave+$110
 	ldx #$10
 @savevic:
@@ -1174,11 +1179,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @vicsave-1,x
 	dex
 	bne @savevic
-@save_zp:
-	lda $00,x
-	sta @savezp,x
-	dex
-	bne @save_zp
 
 	ldx #$f0
 ; save $9400-$94f0
@@ -1208,12 +1208,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @vicsave-1,x
 	dex
 	bne @savevic
-
-@save_zp:
-	lda $00,x
-	sta @zpsave,x
-	dex
-	bne @save_zp
 
 ; save $1000-$1100
 @save1000:
@@ -1276,6 +1270,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
         ldy #>irq::sys_update
 	lda #$20
         jsr irq::raster
+
+	; restore the debugger's zeropage
+	jsr save_user_zp
+	jsr restore_debug_zp
 
 	; swap the debugger state in
 	jsr swapout
@@ -1465,12 +1463,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
 	lda #FINAL_BANK_USER
-	sta zp::bankval		; set default RTI bank
+	sta fe3::rti_bank	; set default RTI bank
 	ldxy pc
 	jsr is_internal_address
 	bne :+
 	lda #FINAL_BANK_MAIN	; if internal address, use main bank
-	sta zp::bankval
+	sta fe3::rti_bank
 :	lda pc+1
 	sta prev_pc+1
 	pha
@@ -1479,6 +1477,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pha
 	lda reg_p	; restore processor status
 	pha
+
+	jsr save_debug_zp
+	jsr restore_user_zp
 
 	; install a NOP IRQ
 	ldxy #$eb15
@@ -1536,7 +1537,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Restores the saved debugger state
 .proc restore_debug_state
 @vicsave=mem::debugsave	; $0-$10
-@savezp=mem::debugsave+$10	 ; $10-$110
 @colorsave=mem::debugsave+$110
 	ldx #$10
 @restorevic:
@@ -1544,11 +1544,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $9000-1,x
 	dex
 	bne @restorevic
-@restore_zp:
-	lda @savezp,x
-	sta $00,x
-	dex
-	bne @restore_zp
 
 	ldx #$f0
 ; save $9400-$94f0
@@ -1566,11 +1561,62 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
+; SAVE DEBUG ZP
+; Saves the state of the debugger's zeropage
+.proc save_debug_zp
+@zp=mem::debugsave+$10
+	ldx #$00
+@l0:	lda $00,x
+	sta @zp,x
+	dex
+	bne @l0
+	rts
+.endproc
+
+;******************************************************************************
+; RESTORE DEBUG ZP
+; Restores the state of the debugger's zeropage
+.proc restore_debug_zp
+@zp=mem::debugsave+$10
+	ldx #$00
+@l0:	lda @zp,x
+	sta $00,x
+	dex
+	bne @l0
+	rts
+.endproc
+
+;******************************************************************************
+; SAVE USER ZP
+; Saves the state of the user's zeropage
+.proc save_user_zp
+@zp=mem::prog00
+	ldx #$00
+@l0:	lda $00,x
+	sta @zp,x
+	dex
+	bne @l0
+	rts
+.endproc
+
+;******************************************************************************
+; RESTORE USER ZP
+; Restores the state of the user's zeropage
+.proc restore_user_zp
+@zp=mem::prog00
+	ldx #$00
+@l0:	lda @zp,x
+	sta $00,x
+	dex
+	bne @l0
+	rts
+.endproc
+
+;******************************************************************************
 ; RESTORE_PROGSTATE
 ; restores the saved program state
 .export __debug_restore_progstate
 .proc __debug_restore_progstate
-@savezp=mem::prog00
 @vicsave=mem::prog9000
 @internalmem=mem::prog1000
 @colorsave=mem::prog9400
@@ -1580,11 +1626,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $9000-1,x
 	dex
 	bne @restorevic
-@restore_zp:
-	lda @savezp,x
-	sta $00,x
-	dex
-	bne @restore_zp
 
 ; restore $1000-$1100
 @restore1000:
@@ -1823,8 +1864,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	adc #$00
 	sta stopwatch+2
 
-	lda #$00
-	sta break_after_sr 	; reset step over
 	inc advance		; continue program execution
 	rts			; return to the debugger
 .endproc
@@ -1846,8 +1885,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Unlike STEP, if the next procedure is a JSR, execution will continue
 ; at the line after the subroutine (after the subroutine has run)
 .proc step_over
-	lda #$01
-	sta break_after_sr
 	jmp step
 .endproc
 
@@ -2372,13 +2409,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda op_mode
 	cmp #MODE_X_INDEXED|MODE_ZP|MODE_INDIRECT	; x,ind?
 	bne @check_ind_y
+@ind_x:
 	; add .X register to ZP target to get target address (wrapping is fine)
 	; THEN load the address at this target
-	lda reg_x
-	clc
-	adc @target
+	ldx reg_x
+	ldy @target
+	lda mem::prog00,y
 	sta @target
-	jmp @done
+	iny
+	lda mem::prog00,x
+	sta @target+1
+	jmp @get_ind
 
 ;--------------------------------------
 @check_ind_y:
@@ -2388,8 +2429,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; get the value of the ZP location in the *user* ZP
 	ldy @target
 	lda mem::prog00,y
-	sta @target
-	lda mem::prog00+1,y
+	iny
+	lda mem::prog00,y
 	sta @target+1
 	; add the .Y register value to the address from the ZP
 	lda reg_y
@@ -2405,7 +2446,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda op_mode
 	and #MODE_Y_INDEXED		; y indexed?
 	beq @check_rel_x
-	; add the value of .Y to get the target address
+	; add the value of .Y to the target get the target address
 	lda reg_y
 	clc
 	adc @target
@@ -2415,7 +2456,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 :	lda op_mode
 	and #MODE_ZP
 	beq @done
-	lda #$00		; if ZP,x clear the MSB of target
+	lda #$00		; if ZP,y clear the MSB of target
 	sta @target+1
 	beq @done
 
@@ -2443,6 +2484,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	cmp #MODE_INDIRECT|MODE_ABS	; JMP (ind) ?
 	bne @abs_or_zp
 	; read the target of the indirect JMP and set @target to it
+@get_ind:
 	ldxy @target
 	jsr vmem::load
 	pha
@@ -2851,6 +2893,7 @@ __debug_remove_breakpoint:
 ;  segstart: the start address of the segment
 ;  segstop: the stop address of the segment
 ;  line: the address of the line data for the segment
+;  numlines: the number of lines in the segment
 ;  .C: set if the segment doesn't exist, clear on success
 .proc get_segment_by_id
 @info=zp::tmp0
@@ -2871,21 +2914,12 @@ __debug_remove_breakpoint:
 	adc #$00
 	sta seg+1
 
-	; get the start address of the segment
-	ldy #SEG_START_ADDR
-	jsr read_from_seg
-	sta segstart
-	iny
-	jsr read_from_seg
-	sta segstart+1
-
-	; get the stop address of the segment
-	iny
-	jsr read_from_seg
-	sta segstop
-	iny
-	jsr read_from_seg
-	sta segstop+1
+; get the start address of the segment, stop address, and number of lines
+	ldy #SEG_START_ADDR + (2*3) - 1
+@copy:	jsr read_from_seg
+	sta segstart,y
+	dey
+	bpl @copy
 
 	; get the address of the segment data
 	pla
@@ -2950,11 +2984,19 @@ __debug_remove_breakpoint:
 ;  - .C: set if there are no lines left in the active segment (seg)
 .proc nextline
 	lda line
+	clc
 	adc #$05
 	sta line
 	bcc :+
 	inc line+1
-:	RETURN_OK
+:	decw numlines
+	lda numlines
+	bne @ok
+	lda numlines+1
+	bne @ok
+	sec
+	rts
+@ok:	RETURN_OK
 .endproc
 
 ;******************************************************************************

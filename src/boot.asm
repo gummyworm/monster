@@ -60,14 +60,14 @@ start:
 
 	ldxy #__BSS_LOAD__
 	stxy zp::tmp0
-@zeromem:
+@zerobss:
 	ldy #$00
 	tya
 	sta (zp::tmp0),y
 	incw zp::tmp0
 	ldxy zp::tmp0
 	cmpw #(__BSS_LOAD__+__BSS_SIZE__)
-	bne @zeromem
+	bne @zerobss
 
 ; relocate segments that need to be
 	ldxy #__DATA_LOAD__
@@ -84,11 +84,6 @@ start:
 	cmpw #(__DATA_LOAD__+__DATA_SIZE__)
 	bne @reloc
 
-@zerozp:
-	sta $00,x
-	dex
-	bne @zerozp
-
 ; initialize the JMP vector
 	lda #$4c		; JMP
 	sta zp::jmpaddr
@@ -103,7 +98,7 @@ start:
 	lda #>start
 	sta $0317		; BRK
 	sta $0319		; NMI
-	jsr $ffe7	; CLALL (close all files)
+	jsr $ffe7		; CLALL (close all files)
 	lda #$a
 	sta zp::device
 

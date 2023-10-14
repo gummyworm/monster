@@ -20,6 +20,7 @@
 .import __final_init
 .import __final_brk
 .import __final_rti
+.import __final_rti_bank
 .import __final_bank_store_rel
 
 USE_FINAL = 1	; enable final expansion
@@ -86,6 +87,7 @@ FINAL_BANK_FASTCOPY  = $a0|$f
 	load_off = __final_load_byte_off
 	break    = __final_brk
 	bank_rti = __final_rti
+	rti_bank = __final_rti_bank
 .endscope
 
 ;--------------------------------------

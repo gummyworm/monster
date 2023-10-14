@@ -121,8 +121,8 @@ next:
     ror $16,x
     ror $1717
     ror $1818,x
-    rti
-    rts
+    ;rti
+    ;rts
     sbc #$21
     sbc $22
     sbc $23,x
