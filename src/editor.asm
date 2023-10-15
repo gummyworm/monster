@@ -28,9 +28,10 @@
 
 ;******************************************************************************
 ; CONSTANTS
-MODE_COMMAND = 1
-MODE_INSERT  = 2
-MODE_VISUAL  = 3
+MODE_COMMAND     = 1
+MODE_INSERT      = 2
+MODE_VISUAL      = 3
+MODE_VISUAL_LINE = 4
 
 START_MODE = MODE_COMMAND
 
@@ -131,14 +132,19 @@ main:
 	pha
 	lda mode
 	cmp #MODE_VISUAL
-	beq :+			; leave cursor on if in VISUAL mode
+	beq :+			; leave cursor on if in VISUAL/VISUAL_LINE mode
+	cmp #MODE_VISUAL_LINE
+	beq :+
 	jsr cur::off
+
 :	pla
 
 	jsr __edit_handle_key
 
 	lda mode
 	cmp #MODE_VISUAL
+	beq @done
+	cmp #MODE_VISUAL_LINE
 	beq @done
 	jsr cur::on
 
@@ -158,6 +164,8 @@ main:
 .proc __edit_handle_key
 	ldx mode
 	cpx #MODE_VISUAL	; handle keys in VISUAL mode like COMMAND
+	beq @cmd
+	cpx #MODE_VISUAL_LINE	; handle VISUAL_LINE mode like COMMAND
 	beq @cmd
 	cpx #MODE_COMMAND
 	bne @ins
@@ -675,9 +683,12 @@ main:
 	sta mode
 	pla
 	cmp #MODE_VISUAL
-	bne :+
+	beq @refresh
+	cmp #MODE_VISUAL_LINE
+	bne @left
+@refresh:
 	jsr refresh	; unhighlight selection (if we were in VISUAL mode)
-:	jsr ccleft	; insert places cursor after char
+@left:	jsr ccleft	; insert places cursor after char
 @done:  rts
 .endproc
 
@@ -702,6 +713,23 @@ main:
 
 	; save current source position
 	jmp src::pushp
+.endproc
+
+;******************************************************************************_
+; ENTER VISUAL LINE
+; Enters VISUAL_LINE mode
+.proc enter_visual_line
+	jsr enter_visual
+	jsr cur::off
+	lda #MODE_VISUAL_LINE
+	sta mode
+
+	ldxy #mem::linebuffer		; get the length of the current line
+	jsr str::len
+	tax
+	ldy #$00
+	lda zp::cury
+	jmp bm::rvsline_part
 .endproc
 
 ;******************************************************************************_
@@ -2205,13 +2233,22 @@ goto_buffer:
 	jsr src::atcursor
 	sta @ch
 
-	lda mode
-	cmp #MODE_VISUAL
-	bne @novis
-
-@novis:	ldx zp::curx
+	ldx zp::curx
 	stx @xend
 
+	lda mode
+	cmp #MODE_VISUAL_LINE
+	bne @chkvis
+	; if we're below the start line, redraw the current line (deselect)
+	ldxy src::line
+	cmpw visual_start_line
+	beq @up
+	bcc @up
+	lda zp::cury
+	jsr text::drawline
+	jmp @up
+
+@chkvis:
 	; if we are in VISUAL mode, highlight to the beginning of the line
 	lda mode
 	cmp #MODE_VISUAL
@@ -2241,7 +2278,7 @@ goto_buffer:
 	sta zp::curx
 	sta zp::cury
 	sec
-	rts
+	rts		; done
 
 @cont:	ldx zp::curx
 	beq :+
@@ -2269,6 +2306,15 @@ goto_buffer:
 @redraw:
 	lda zp::cury
 	jsr text::drawline
+
+	; if in VISUAL_LINE mode, just rvs the line and return
+	lda mode
+	cmp #MODE_VISUAL_LINE
+	bne @movex
+	ldy #$00
+	ldx zp::curx
+	lda zp::cury
+	jmp bm::rvsline_part
 
 @movex: ldx zp::curx
 	beq @rvs
@@ -2378,7 +2424,12 @@ goto_buffer:
 ;  - .C: set if cursor could not be moved
 .proc ccleft
 @deselect=zp::tmp2
-	lda zp::curx
+	lda mode
+	cmp #MODE_VISUAL_LINE
+	bne :+
+	rts			; do nothing on LEFT if in VISUAL_LINE mode
+
+:	lda zp::curx
 	beq @nomove
 
 	lda mode
@@ -2429,7 +2480,12 @@ goto_buffer:
 ;  - .C: set if cursor could not be moved
 .proc ccright
 @deselect=zp::tmp0
-	lda text::insertmode
+	lda mode
+	cmp #MODE_VISUAL_LINE
+	bne :+
+	rts			; do nothing on RIGHT if in VISUAL_LINE mode
+
+:	lda text::insertmode
 	cmp #TEXT_INSERT
 	beq @ins
 
@@ -2493,6 +2549,19 @@ goto_buffer:
 	rts		; cursor is at end of source file, return
 
 :	lda mode
+	cmp #MODE_VISUAL_LINE
+	bne @chkvis
+
+	; if we're above the start line, redraw the current line (deselect)
+	ldxy src::line
+	cmpw visual_start_line
+	bcs @cont
+	lda zp::cury
+	jsr text::drawline
+	jmp @cont
+
+@chkvis:
+	lda mode
 	cmp #MODE_VISUAL
 	bne :+
 	ldxy src::line
@@ -2546,6 +2615,18 @@ goto_buffer:
 
 @redraw:
 	jsr text::drawline
+
+	; if in VISUAL_LINE mode, just rvs the line and return
+	lda mode
+	cmp #MODE_VISUAL_LINE
+	bne @movex
+	jsr src::get
+	ldxy #mem::linebuffer
+	jsr str::len
+	tax
+	ldy #$00
+	lda zp::cury
+	jmp bm::rvsline_part
 
 @movex:	lda @xend
 	beq @rvs
@@ -3089,34 +3170,6 @@ __edit_gotoline:
 .endproc
 
 ;******************************************************************************
-; HIGHLIGHT_LINE
-; IN:
-;  - .XY: the line number to highlight
-.export __highlight_line
-.proc __highlight_line
-@x=zp::tmp0
-	stx @x
-	lda numhighlights
-	asl
-	tax
-	lda @x
-	sta highlighted_lines,x
-	tya
-	sta highlighted_lines+1,x
-	inc numhighlights
-	rts
-.endproc
-
-;******************************************************************************
-; CLEAR_HIGHLIGHTS
-; Removes all highlights
-.export clear_highlights
-.proc clear_highlights
-	lda #$00
-	sta numhighlights
-.endproc
-
-;******************************************************************************
 ; REPORTERR
 ; reports the given error
 ; in:
@@ -3395,7 +3448,7 @@ numcommands=*-commands
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual, yank
+	enter_visual, enter_visual_line, yank
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs

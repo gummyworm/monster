@@ -28,9 +28,7 @@
 .byte $9e
 .asciiz "4621"
 @next: .word 0
-	jmp start
 
-.CODE
 ;******************************************************************************
 ; START
 ; Entrypoint to program
@@ -115,11 +113,7 @@ start:
 @loading: .byte "initializing..."
 @loadinglen=*-@loading
 
-;******************************************************************************
-; IRQHANDLER
-irq_handler:
-	jmp $eb15	; ack timer and rti
-
+.CODE
 ;******************************************************************************
 ; ENTER
 ; Entrypoint after initialization, from here on we're safe to use the bitmap

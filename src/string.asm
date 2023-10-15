@@ -380,7 +380,7 @@ SLASH = SPECIAL_CHARS_START+2
 	cmp #SPECIAL_CHARS_START
 	bcc :+
 	tax
-	lda @special_chars-SPECIAL_CHARS_START,x
+	lda special_chars-SPECIAL_CHARS_START,x
 	skw
 :	adc #'a'-1	; a is actually character 1 (0 is for terminating NULL)
 	sta (@wptr),y
@@ -400,6 +400,9 @@ SLASH = SPECIAL_CHARS_START+2
 	ldxy #@dst
 	rts
 
-@special_chars:
-	.byte ' ', '.', '/'
 .endproc
+
+.RODATA
+
+special_chars:
+	.byte ' ', '.', '/'

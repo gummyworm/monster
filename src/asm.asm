@@ -394,10 +394,10 @@ __asm_tokenize:
 @setbrk:
 	lda zp::pass
 	cmp #2
-	bne @copy		; only set breakpoints in pass 2
-	ldxy zp::virtualpc	; current PC (address)
+	bne @copy			; only set breakpoints in pass 2
+	ldxy zp::virtualpc		; current PC (address)
 	jsr dbg::toggle_breakpoint	; set the breakpoint
-	incw zp::line		; advance line beyond the breakpoint
+	incw zp::line			; advance line beyond the breakpoint
 
 @copy:	; copy the line to a new buffer and make it uppercase (assembly is
 	; case-insensitive)
