@@ -115,15 +115,27 @@ pc:     .word 0
 ;  2. restore 3 bytes of debug memory at (prev_pc)
 
 mem_usersave:  .byte 0	; user byte when stepping @ mem_saveaddr
-mem_debugsave: .byte 0  ; debug byte when stepping @ mem_saveaddr
+startsave:
+stepsave:	.byte 0	; opcode to save under BRK
+
 effective_addr:
 mem_saveaddr:  .word 0  ; address of byte loaded/stored in a given STEP
+
 op_type:       .byte 0  ; REG, LOAD, or STORE
 affected:      .byte 0	; OP_REG_A, etc.; the CPU/RAM state affected by a STEP
 op_mode:       .byte 0  ; address modes for current instruction
 branch_taken:  .byte 0  ; if !0, a relative branch will be taken next STEP
 
+;******************************************************************************
+; Debug state values for internal RAM locations
+; NOTE:
+; these must be stored next to each other as they are backed up/restored as
+; a unit.
+debug_state_save:
 debug_instruction_save: .res 3	; buffer for debugger's
+mem_debugsave:          .byte 0 ; byte under effective address during STEP
+debug_stepsave: 	.byte 0 ; debugger byte under BRK (if internal)
+
 ;--------------------------------------
 
 ; previous values for registers etc.
@@ -271,9 +283,6 @@ breakpoint_flags: .res MAX_BREAKPOINTS ; active state of breakpoints
 breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 steppoint: 	.word 0		; address we STEP from
-startsave:
-stepsave:	.byte 0		; opcode to save under BRK
-debug_stepsave: .byte 0 	; debugger byte under BRK (if internal)
 
 ;******************************************************************************
 ; pointers used when building the debug info
@@ -1265,15 +1274,16 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sbc #$00
 	sta pc+1
 
+	sei
+	; restore the debugger's zeropage
+	jsr save_user_zp
+	jsr restore_debug_zp
+
 	; reinstall the main IRQ
 	ldx #<irq::sys_update
         ldy #>irq::sys_update
 	lda #$20
         jsr irq::raster
-
-	; restore the debugger's zeropage
-	jsr save_user_zp
-	jsr restore_debug_zp
 
 	; swap the debugger state in
 	jsr swapout
@@ -2249,69 +2259,73 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; the user program.
 .proc swapin
 @cnt=zp::tmp0
-@steppt=zp::tmp1
-@save=zp::tmp3
+@addr=zp::tmp1
+@tosave=zp::tmp3
 	lda swapmem
-	beq :+
-	jmp @swapall	; we don't know enough to do a limited swap
+	bne @swapall	; we don't know enough to do a limited swap
 
-:	ldxy steppoint
-	stxy @steppt
-	ldy #$00
-	lda (@steppt),y
-	sta debug_stepsave
+@fastswap:
+	; save [mem_saveaddr], [step_point], and [pc, pc+2] for the debugger
+	lda pc+1
+	sta @tosave+1
+	sta @tosave+3
+	sta @tosave+5
+	ldx pc
+	stx @tosave
+	inx
+	bne :+
+	inc @tosave+3
+	inc @tosave+5
+:	stx @tosave+2
+	inx
+	bne :+
+	inc @tosave+5
+:	stx @tosave+4
 
-	ldxy pc
-	jsr is_internal_address
-	bne @savestep		; if not internal, skip saving
-
-; save the debugger's memory values at the address of the instruction and
-; swap in the user values at the affected memory address
-	stxy @save
-	ldy #$02
-	sty @cnt
-@saveloop:
-	; save the debugger's byte at the location we're swapping
-	lda (@save),y
-	sta debug_instruction_save,y
-	dey
-	bpl @saveloop
-
-@saveloop2:
-	; store the user's byte at the location we're swapping
-	ldxy pc
-	lda @cnt
-	jsr vmem::load_off
-	ldy @cnt
-	sta (@save),y
-	dec @cnt
-	bpl @saveloop2
-
-; store the step point to its real address if it's internal
-@savestep:
-	ldxy steppoint
-	jsr is_internal_address
-	bne @savemem
-	; store the BRK at the physical address, and save the debugger's
-	; byte that is currently there
-	lda #$00		; BRK
-	tay
-	sta (@steppt),y
-
-; save the debugger's memory value that will be overwritten and restore the
-; user value at the affected memory address
-@savemem:
 	ldxy mem_saveaddr
-	jsr is_internal_address
-	bne @done		; if not internal, skip saving
-	stxy @save
+	stxy @tosave+6
+	ldxy steppoint
+	stxy @tosave+8
 
+; save the debugger's memory values at affected addresses
+	ldy #8
+	sty @cnt
+	ldx #5-1
+@save:	ldy @cnt
+	lda @tosave,y
+	sta @addr
+	lda @tosave+1,y
+	sta @addr+1
 	ldy #$00
-	lda (@save),y
-	sta mem_debugsave
-	lda mem_usersave
-	sta (@save),y
-@done:	rts
+	lda (@addr),y
+	sta debug_state_save,x
+	dec @cnt
+	dec @cnt
+	dex
+	bpl @save
+
+; read the virtual memory values for the affected locations and store
+; them to their physical addresses
+	ldx #8
+	stx @cnt
+@store: lda @cnt
+	tax
+	lsr
+	tay
+	lda @tosave,x
+	sta @addr
+	ldy @tosave+1,x
+	sty @addr+1
+	tax
+
+	jsr vmem::load		; load the user byte to store from vmem
+	ldy #$00
+	sta (@addr),y		; store it to the physical address
+	dec @cnt
+	dec @cnt
+	bpl @store
+
+	rts			; done
 
 @swapall:
 	; swap entire user RAM in (needed if we don't know what memory will
@@ -2330,69 +2344,76 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; If not, swap the entire internal RAM state
 .proc swapout
 @cnt=zp::tmp0
-@tmp=zp::tmp0
-@save=zp::tmp1
+@addr=zp::tmp1
+@tosave=zp::tmp3
 	lda swapmem
 	bne @swapall
 
-	ldxy prev_pc
-	jsr is_internal_address	; TODO: could be issue if instruction is @ >= $1ffe
-	bne @restorestep
+	; save [prevpc, prevpc+2], [msave], and [steppoint] for the user
+	; program
+	lda prev_pc+1
+	sta @tosave+1
+	sta @tosave+3
+	sta @tosave+5
+	ldx prev_pc
+	stx @tosave
+	inx
+	bne :+
+	inc @tosave+3
+	inc @tosave+5
+:	stx @tosave+2
+	inx
+	bne :+
+	inc @tosave+5
+:	stx @tosave+4
 
-; save the user's memory values at the address of the instruction and
-; swap in the user values at the affected memory address
-	stxy @save
-	ldy #$02
-	sty @cnt
-@saveloop:
-	; get user byte to save and store it
-	ldy @cnt
-	lda (@save),y
-	sta zp::bankval
-	ldxy prev_pc
-	lda @cnt
-	jsr vmem::store_off
-
-	ldy @cnt
-	; get debugger byte to restore
-	lda debug_instruction_save,y
-	sta (@save),y
-	dec @cnt
-	bpl @saveloop
-
-@restorestep:
-	jsr stepping
-	bne @savemem
-	; if there was a STEP in internal RAM, restore the debugger's
-	; byte that we overwrote with the BRKpoint
-	ldxy steppoint
-	jsr is_internal_address
-	bne @savemem
-	stxy @tmp
-	ldy #$00
-	lda debug_stepsave
-	sta (@tmp),y
-
-; save the debugger's memory value that will be overwritten and restore the
-; user value at the affected memory address
-@savemem:
 	ldxy mem_saveaddr
-	jsr is_internal_address
-	bne @done
-	stxy @save
-	ldy #$00
-	lda (@save),y
-	jsr vmem::store
+	stxy @tosave+6
+	ldxy steppoint
+	stxy @tosave+8
 
-	lda mem_debugsave
+	; save the user values affected by the previous instruction
+	; to their virtual address
+	ldx #8
+	stx @cnt
+@save:	ldx @cnt
+	lda @tosave,x
+	sta @addr
+	ldy @tosave+1,x
+	sty @addr+1
+	tax
 	ldy #$00
-	sta (@save),y
-@done:	rts
+	lda (@addr),y		; read the physical address
+	ldy @addr+1
+	jsr vmem::store		; store to the virtual (user) address
+	dec @cnt
+	dec @cnt
+	bpl @save
+
+	; restore the debug values at the affected locations
+	ldx #8
+	stx @cnt
+@store: lda @cnt
+	tax
+	lsr
+	tay
+	lda @tosave,x
+	sta @addr
+	lda @tosave+1,x
+	sta @addr+1
+	lda debug_state_save,y	; get the byte to restore
+	ldy #$00
+	sta (@addr),y		; restore the byte
+	dec @cnt
+	dec @cnt
+	bpl @store
+
+	rts			; done
 
 @swapall:
 	; save the program state before we restore the debugger's
 	jsr __debug_save_prog_state
-	jsr restore_debug_state	; restore debugger state
+	jmp restore_debug_state	; restore debugger state
 .endproc
 
 ;******************************************************************************
