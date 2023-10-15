@@ -3,6 +3,7 @@
 .include "draw.inc"
 .include "edit.inc"
 .include "key.inc"
+.include "keycodes.inc"
 .include "labels.inc"
 .include "layout.inc"
 .include "macros.inc"
@@ -50,7 +51,7 @@ row:	.byte 0
 	lda dbg::numbreakpoints
 	bne :++
 :	jsr key::getch
-	cmp #$5f	; <-
+	cmp #K_QUIT	; <-
 	bne :-
 	rts
 
@@ -61,11 +62,11 @@ row:	.byte 0
 
 @loop:	jsr key::getch
 	beq @loop
-	cmp #$5f	; <-
+	cmp #K_QUIT	; <-
 	bne @up
 	rts
 
-@up:	cmp #$91	; up
+@up:	cmp #K_UP	; up
 	bne @down
 	dec row
 	bpl @redraw
@@ -75,7 +76,7 @@ row:	.byte 0
 	inc scroll
 	jmp @redraw
 
-@down:	cmp #$11	; down
+@down:	cmp #K_DOWN	; down
 	bne @enter
 	inc row
 	lda row
@@ -93,7 +94,7 @@ row:	.byte 0
 	dec scroll
 	jmp @redraw
 
-@enter:	cmp #$0d
+@enter:	cmp #K_RETURN
 	bne @del
 	; toggle the breakpoint's active status
 	lda row
@@ -102,7 +103,7 @@ row:	.byte 0
 	jsr toggle_breakpoint
 	jmp @redraw
 
-@del:	cmp #$11		; DEL
+@del:	cmp #K_DEL		; DEL
 	bne @loop
 	lda row
 	clc

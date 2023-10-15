@@ -3188,9 +3188,9 @@ __edit_gotoline:
 ;  - .C: set if the line number is not on screen
 .export __edit_src2screen
 .proc __edit_src2screen
-@line=zp::tmp0
-@startline=zp::tmp2
-@endline=zp::tmp4
+@line=zp::editortmp
+@startline=zp::editortmp+2
+@endline=zp::editortmp+4
 	stxy @line
 	lda src::line
 	sec
