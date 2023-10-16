@@ -16,6 +16,7 @@ Table of Contents
           * [Command Mode](https://github.com/gummyworm/monster#command-mode)
           * [Insert Mode](https://github.com/gummyworm/monster#insert-mode-i-a-etc)
           * [Visual Mode](https://github.com/gummyworm/monster#visual-mode-v)
+          * [Visual Line Mode](https://github.com/gummyworm/monster#visual-line-mode-v)
   * [Assembler](https://github.com/gummyworm/monster#assembler-overview)
       * [Syntax](https://github.com/gummyworm/monster#syntax)
       * [Expressions](https://github.com/gummyworm/monster#expressions)
@@ -184,6 +185,12 @@ while in visual mode. The `<-` key will return the user to to _COMMAND_ mode.
 |------------|------------|------------------------------------------------------------------------|
 |    d       | delete     | deletes the selected text _and_ copies it to the copy buffer           |
 |    y       | yank       | copies the selected text (in VISUAL mode) to the copy buffer           |
+
+### Visual Line Mode (V)
+_VISUAL LINE_, which is entered with the `SHIFT - v` key combination from _COMMAND_ mode is similar to _VISUAL_ mode,
+but selections include only entire lines.  Upon entering _VISUAL LINE_ mode, the current row is selected. 
+Navigating to rows above or below will select additional lines.  The delete and yank keys behave the same as they do
+in _VISUAL_ mode.
 
 ---
 ### Copy buffer
