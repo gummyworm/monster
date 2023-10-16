@@ -37,10 +37,10 @@ __str_debug_stop_debugging: .byte "stop debugging? (press 'y' to quit)",0
 __str_edit_line_err: .byte ";pass ", ESCAPE_VALUE_DEC,";line ", ESCAPE_VALUE_DEC,0
 
 .export __str_edit_file_load_failed
-__str_edit_file_load_failed: .byte "failed to load file; error $",$fe,0
+__str_edit_file_load_failed: .byte "failed to load file; error $",ESCAPE_BYTE,0
 
 .export __str_edit_file_delete_failed
-__str_edit_file_delete_failed: .byte "failed to delete file; error ", $fe, 0
+__str_edit_file_delete_failed: .byte "failed to delete file; error ", ESCAPE_BYTE, 0
 
 .export __str_deleting
 __str_deleting: .byte "deleting...",0
@@ -52,7 +52,7 @@ __str_loading: .byte "loading...",0
 __str_saving: .byte "saving...",0
 
 .export __str_edit_file_save_failed
-__str_edit_file_save_failed: .byte "failed to save file; error ", $fe, 0
+__str_edit_file_save_failed: .byte "failed to save file; error ", ESCAPE_BYTE, 0
 
 .export __str_watches_title
 __str_watches_title: .byte ESCAPE_SPACING,16, "watches",0

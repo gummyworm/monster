@@ -17,6 +17,7 @@
 .import __text_scrolldown
 .import __text_scrollup
 .import __text_status 
+.import __text_status_mode
 .import __text_update
 
 ; ESCAPE CODES
@@ -55,6 +56,7 @@ CH_R_ARROW	    = 135
 	savebuff         = __text_savebuff
 	scrolldown       = __text_scrolldown
 	scrollup         = __text_scrollup
+	statusmode       = __text_status_mode
 	status           = __text_status
 	restorebuff      = __text_restorebuff
 	update           = __text_update

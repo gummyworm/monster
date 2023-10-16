@@ -41,13 +41,15 @@ MAX_HIGHLIGHTS = 8
 
 MAX_JUMPS = 8
 
+VISUAL      = 1
+VISUAL_LINE = 2
+
 ;******************************************************************************
 ; ZEROPAGE
 indent = zp::editor	; number of spaces to insert on newline
 height = zp::editor+1	; height of the text-editor (shrinks when displaying
 			; error, showing debugger, etc.
 mode   = zp::editor_mode	; editor mode (COMMAND, INSERT)
-
 
 .export __edit_height
 __edit_height = height
@@ -66,6 +68,7 @@ buffptr: .word 0 	; copy buffer pointer (also bytes in copy buffer)
 
 visual_start_line: .word 0	; the line # a selection began at
 visual_start_x:    .byte 0	; the x-position a selection began at
+selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
 
 .CODE
 ;******************************************************************************
@@ -104,8 +107,7 @@ visual_start_x:    .byte 0	; the x-position a selection began at
 	lda #CUR_BLINK_SPEED
 	sta zp::curtmr
 
-	lda #START_MODE
-	sta mode
+	jsr enter_command
 
 	ldxy #mem::copybuff
 	stxy buffptr
@@ -130,21 +132,15 @@ main:
 	beq @done
 
 	pha
-	lda mode
-	cmp #MODE_VISUAL
-	beq :+			; leave cursor on if in VISUAL/VISUAL_LINE mode
-	cmp #MODE_VISUAL_LINE
-	beq :+
+	jsr is_visual
+	beq :+ 		; leave cursor on if in VISUAL/VISUAL_LINE mode
 	jsr cur::off
 
 :	pla
 
 	jsr __edit_handle_key
 
-	lda mode
-	cmp #MODE_VISUAL
-	beq @done
-	cmp #MODE_VISUAL_LINE
+	jsr is_visual
 	beq @done
 	jsr cur::on
 
@@ -668,6 +664,8 @@ main:
 	sta mode
 	lda #TEXT_INSERT
 	sta text::insertmode
+	lda #'i'
+	sta text::statusmode
 @done:	rts
 .endproc
 
@@ -689,7 +687,9 @@ main:
 @refresh:
 	jsr refresh	; unhighlight selection (if we were in VISUAL mode)
 @left:	jsr ccleft	; insert places cursor after char
-@done:  rts
+@done:  lda #'c'
+	sta text::statusmode
+	rts
 .endproc
 
 ;******************************************************************************_
@@ -711,6 +711,9 @@ main:
 	lda zp::curx
 	sta visual_start_x
 
+	lda #'v'
+	sta text::statusmode
+
 	; save current source position
 	jmp src::pushp
 .endproc
@@ -723,6 +726,11 @@ main:
 	jsr cur::off
 	lda #MODE_VISUAL_LINE
 	sta mode
+
+	jsr home			; go to column 0
+
+	lda #'l'
+	sta text::statusmode
 
 	ldxy #mem::linebuffer		; get the length of the current line
 	jsr str::len
@@ -741,6 +749,8 @@ main:
 	sta text::insertmode
 	lda #CUR_NORMAL
 	sta cur::mode
+	lda #'r'
+	sta text::statusmode
 	rts
 .endproc
 
@@ -978,8 +988,13 @@ main:
 ; PASTE BELOW
 ; Pastes the contents of the copy buffer to the line below the cursor
 .proc paste_below
-	jsr enter_insert
-	jsr ccright
+	lda selection_type
+	cmp #VISUAL
+	beq :+
+	jsr ccdown
+	jsr home
+	jmp paste_buff
+:	jsr ccright
 	jmp paste_buff
 .endproc
 
@@ -987,7 +1002,6 @@ main:
 ; PASTE ABOVE
 ; Pastes the contents of the copy buffer to the line above the cursor
 .proc paste_above
-	jsr enter_insert
 	jsr home
 	jsr paste_buff
 	jmp ccup
@@ -998,6 +1012,7 @@ main:
 ; Inserts the contents of the buffer at the current cursor position and returns
 ; to command mode
 .proc paste_buff
+	jsr enter_insert
 :	jsr buff_getch
 	bcs @done
 	jsr insert
@@ -1014,35 +1029,21 @@ main:
 @end=zp::editortmp+3
 @size=zp::editortmp+5
 @start=zp::editortmp+7
-	lda mode
-	cmp #MODE_VISUAL
+	jsr is_visual
 	beq :+
 	rts
+:	jsr get_selection_bounds
+	bcs @done
 
-:	jsr src::pos	; get the current source position
-	stxy @start
-	stxy @cur
+	; set the selection type so we know how to handle the eventual paste
+	lda #$01
+	sta selection_type
+	lda mode
+	cmp #MODE_VISUAL_LINE
+	bne :+
+	inc selection_type
 
-	jsr src::popp	; get the source position we started at
-	stxy @end
-	cmpw @cur
-	beq @done	; nothing copied
-	bcs @cont	; end > cur, don't swap
-
-	; end > cur; swap them
-	lda @cur
-	sta @end
-	lda @cur+1
-	sta @end+1
-	stxy @cur
-
-@cont:	; Update pointer:
-	;  the source pos ends on the character BEFORE the one we want to copy
-	incw @end
-	ldxy @end	; starting from the END, copy to copy buffer
-	jsr src::goto	; go to the start position
-
-	ldxy @end
+:	ldxy @end
 	sub16 @cur
 	stxy @size
 
@@ -1071,6 +1072,58 @@ main:
 
 @done:	jmp enter_command
 @yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
+.endproc
+
+;******************************************************************************
+; GET SELECTION BOUNDS
+; Returns the start and stop source positions for the current selection
+; OUT:
+;  - .C: set if nothing is selected
+;  - zp::editortmp+1: the start position
+;  - zp::editortmp+3: the end position
+.proc get_selection_bounds
+@cur=zp::editortmp+1
+@end=zp::editortmp+3
+@start=zp::editortmp+7
+	jsr src::pos	; get the current source position
+	stxy @start
+	stxy @cur
+
+	jsr src::popp	; get the source position we started at
+	stxy @end
+
+	lda mode
+	cmp #MODE_VISUAL_LINE
+	beq :+		; if in VISUAL LINE mode, allow start line == stop line
+
+	cmpw @cur
+	beq @done	; nothing copied
+
+:	cmpw @cur
+	bcs @cont	; end > cur, don't swap
+
+	; end > cur; swap them
+	lda @cur
+	sta @end
+	lda @cur+1
+	sta @end+1
+	stxy @cur
+
+@cont:	; Update pointer:
+	;  the source pos ends on the character BEFORE the one we want to copy
+	incw @end
+	ldxy @end	; starting from the END, copy to copy buffer
+	jsr src::goto	; go to the start position
+
+	lda mode
+	cmp #MODE_VISUAL_LINE	; are we selecting in LINE mode?
+	bne @ok
+	jsr src::down	; if we're selecting the whole line, go to end of it
+	jsr src::pos
+	stxy @end
+
+@ok:	clc
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1867,8 +1920,6 @@ goto_buffer:
 	jmp src::setflags
 
 @err:	pha		; push error code
-	lda #$00
-	pha
 	ldxy #strings::edit_file_save_failed
 	lda #STATUS_ROW
 	jsr text::print
@@ -1904,8 +1955,6 @@ goto_buffer:
 	bne @err
 @ret:	rts	; no error
 @err:
-	pha
-	lda #$00
 	pha
 	ldxy #strings::edit_file_delete_failed
 	lda #STATUS_ROW
@@ -1974,8 +2023,6 @@ goto_buffer:
 	RETURN_OK
 
 @err:	pha
-	lda #$00
-	pha
 	ldxy #strings::edit_file_load_failed
 	lda #STATUS_ROW-1
 	jsr text::print
@@ -3385,6 +3432,19 @@ __edit_gotoline:
 	rts
 @ro:	ldx #$00
 	rts
+.endproc
+
+;******************************************************************************
+; IS VISUAL
+; Returns .Z set if the current mode is VISUAL or VISUAL_LINE
+; OUT:
+;  - .Z: set if current mode is VISUAL or VISUAL_LINE
+.proc is_visual
+	lda mode
+	cmp #MODE_VISUAL
+	beq :+
+	cmp #MODE_VISUAL_LINE
+:	rts
 .endproc
 
 .RODATA

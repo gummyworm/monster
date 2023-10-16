@@ -36,6 +36,9 @@ __text_rvs: .byte 0	; reverse text state ($ff = rvs on, $00 = rvs off)
 .export __text_insertmode
 __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
+.export __text_status_mode
+__text_status_mode: .byte 0	; the mode to display on the status line
+
 .CODE
 ;******************************************************************************
 .export __text_status
@@ -97,15 +100,9 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 	dex
 	bpl :-
 
-	; current edit mode (insert or replace) if in INSERT mode
-	lda zp::editor_mode
-	cmp #MODE_COMMAND
-	beq @copy_filename
-	ldx #'r'
-	lda __text_insertmode
-	beq :+
-	ldx #'i'
-:	stx mem::statusline+@modestart
+	; add the editor mode
+	lda __text_status_mode
+	sta mem::statusline+@modestart
 
 @copy_filename:
 	; filename
