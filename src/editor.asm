@@ -1160,7 +1160,7 @@ main:
 ;******************************************************************************
 .proc comment_banner
 @cnt=zp::editortmp+2
-	lda #38
+	lda #40
 	sta @cnt
 :	lda #';'
 	jsr insert

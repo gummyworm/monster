@@ -417,13 +417,13 @@ __asm_tokenize:
 ; check if we're in an .IF (FALSE) and if we are, return
 @checkifs:
 	lda ifstacksp
-	beq @directive	; no active .IF
+	beq @chk_comment	; no active .IF
 	ldx #$00
 :	inx
 	lda ifstack,x
 	beq @if_false
 	cpx ifstacksp
-	beq @directive
+	beq @chk_comment
 	bne :-
 
 @if_false:
@@ -437,6 +437,22 @@ __asm_tokenize:
 @noasm:	lda #ASM_NONE
 	RETURN_OK
 
+; check if the line is a full line comment
+@chk_comment:
+	lda (zp::line),y
+	cmp #';'
+	bne @assemble
+	; rest of the line is a comment, we're done
+	lda #ASM_COMMENT
+	sta resulttype
+	RETURN_OK
+
+
+; assembly entrypoint for successive single-line assembly
+; if a label is found, for example, we will reenter here after adding the label
+; to assemble any opcode, directive, etc. that may still be in the line
+@assemble:
+	jsr process_ws
 ; 1. check if the line contains a directive
 @directive:
 	jsr getdirective
@@ -460,17 +476,6 @@ __asm_tokenize:
 	sty immediate
 	sty lsb
 	sty msb
-
-; check if the line is a comment
-@full_line_comment:
-	lda (zp::line),y
-	cmp #';'
-	bne @opcode
-
-	; rest of the line is a comment, we're done
-	lda #ASM_COMMENT
-	sta resulttype
-	RETURN_OK
 
 ; check if the line contains an instruction
 @opcode:
@@ -515,10 +520,14 @@ __asm_tokenize:
 	jsr lbl::islocal
 	bne :+
 	jsr lbl::clrlocals	; clear locals if this is a non-local label
-:	jsr process_word
-	jsr @finishline
+:	jsr process_word	; read past the label name
+	ldxy zp::line
+	jsr @assemble		; assemble the rest of the line
 	bcs :+
-	lda #ASM_LABEL
+	cmp #ASM_LABEL
+	beq :+			; if we found another label, return error
+	lda #ASM_LABEL		; return as LABEL (don't indent this line)
+	clc
 :	rts
 
 ; from here on we are either reading a comment or an operand
