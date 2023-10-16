@@ -12,10 +12,12 @@ jmpvec  = $01 ; $00 stores a JMP instruction, this is its address
 ; $04-$07 is used for final expansion temp
 final   = $04
 bankval = $07	; the value written by store_byte
+bankjmpaddr = $08
+bankjmpvec = $09
 
 ;******************************************************************************
-; $0a-$0f are reserved for math
-math =  $0a
+; $0b-$0f are reserved for math
+math =  $0b
 
 ;******************************************************************************
 ; $10-$30 is reserved for debug info generation

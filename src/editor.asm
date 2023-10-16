@@ -71,18 +71,6 @@ visual_start_x:    .byte 0	; the x-position a selection began at
 selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
 
 .CODE
-;******************************************************************************
-; DRAW_TITLEBAR
-; Draws a titlebar at the top of the screen
-.IFDEF DRAW_TITLEBAR
-	.proc draw_titlebar
-		ldxy #titlebar
-	lda #$00
-	jsr text::puts
-	lda #$00
-	jmp bm::rvsline
-.endproc
-.ENDIF
 
 ;******************************************************************************
 ; INIT

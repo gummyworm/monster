@@ -145,15 +145,15 @@ final_copy_end=*-__final_copy
 @bank=zp::banktmp+2
 @oldbank=zp::banktmp+3
 	sei
-	stxy zp::jmpvec
+	stxy zp::bankjmpvec
 	ldx #$4c
-	stx zp::jmpaddr	; write the JMP instruction
+	stx zp::bankjmpaddr	; write the JMP instruction
 	ldx $9c02
-	stx @oldbank	; save current bank
+	stx @oldbank		; save current bank
 
 	sta $9c02
 
-	jsr zp::jmpaddr
+	jsr zp::bankjmpaddr
 
 	lda @oldbank
 	sta $9c02	; restore bank

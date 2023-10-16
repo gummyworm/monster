@@ -53,6 +53,9 @@ FINAL_BANK_SYMBOLS = $a0|$d	; symbols bank (label names and their addresses)
 FINAL_BANK_FASTCOPY2 = $a0|$e
 FINAL_BANK_FASTCOPY  = $a0|$f
 
+; FASTTEXT lives at the top 4k of the FASTCOPY2 bank
+FINAL_BANK_FASTTEXT  = $a0|$e
+
 ;******************************************************************************
 ; MEMORY BANKS
 .scope bank

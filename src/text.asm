@@ -4,7 +4,9 @@
 .include "cursor.inc"
 .include "draw.inc"
 .include "edit.inc"
+.include "fasttext.inc"
 .include "file.inc"
+.include "finalex.inc"
 .include "irq.inc"
 .include "key.inc"
 .include "linebuffer.inc"
@@ -405,7 +407,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 @mask=zp::text+2
 @dst=zp::text+4
 @clrmask=zp::text+6
-@dsttmp=zp::text+7
+@char=zp::text+7
 	cmp #$14
 	bne @printing
 
@@ -474,55 +476,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bne :+
 	rts			; terminating 0, we're done
 
-:	jsr get_char_addr	; zp::text contains char address
-
-	; get destination
-	lda zp::cury
-	asl
-	asl
-	asl
-	sta @dst
-
-	lda zp::curx
-	lsr
-	asl
-	tax
-	lda bm::columns,x
-	clc
-	adc @dst
-	sta @dst
-	lda bm::columns+1,x
-	adc #$00
-	sta @dst+1
-
-	lda zp::curx
-	and #$01
-	bne @right
-
-@left:	lda #$f0
-	skw
-@right:	lda #$0f
-	sta @mask
-	eor #$ff
-	sta @clrmask
-	ldy #$07
-
-@blit:	; clear the pixels we're going to overwrite with the new half-char
-	lda @clrmask
-	and (@dst),y
-	sta @dsttmp
-
-	; write the new half-char
-	lda @mask
-	and (@src),y
-	ora @dsttmp
-	sta (@dst),y
-	dey
-	bpl @blit
-
-@updatecur:
-	inc zp::curx
-
+:	sta @char
+	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
 @done:	clc	; "put" was successful
 	rts
 .endproc
@@ -714,116 +669,14 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .A: the text to display
 .export __text_puts
 .proc __text_puts
-@txtbyte  = zp::text
-@txtleft  = zp::text+1
-@txtright = zp::text+3
 @txtdst   = zp::text+5
-@txtsrc   = zp::text+7
-@ysave	  = zp::text+9
+@txtsrc = zp::text+7
 	stxy @txtsrc
 	asl
         asl
         asl
         sta @txtdst
-
-        lda #<BITMAP_ADDR
-        adc @txtdst
-        sta @txtdst
-	lda #>BITMAP_ADDR
-        sta @txtdst+1
-
-	lda #40
-	sta __text_len
-
-	ldy #$00
-@l0:    lda (@txtsrc),y
-	iny
-        sta @txtleft
-        lda #$00
-        asl @txtleft
-        rol
-        asl @txtleft
-        rol
-        asl @txtleft
-        rol
-        sta @txtleft+1
-        clc
-        lda @txtleft
-        adc #<((__text_charmap-256) .mod 256)
-        sta @txtleft
-        lda @txtleft+1
-        adc #<((__text_charmap-256) / 256)
-        sta @txtleft+1
-
-@right:	lda (@txtsrc),y
-        iny
-        sta @txtright
-        lda #$00
-        asl @txtright
-        rol
-        asl @txtright
-        rol
-        asl @txtright
-        rol
-        sta @txtright+1
-        clc
-        lda @txtright
-        adc #<((__text_charmap-256) .mod 256)
-        sta @txtright
-        lda @txtright+1
-        adc #<((__text_charmap-256) / 256)
-        sta @txtright+1
-	sty @ysave
-        ldy #$00
-@l1:    lda (@txtleft),y
-        and #$f0
-        sta @txtbyte
-        lda (@txtright),y
-        and #$0f
-        ora @txtbyte
-        sta (@txtdst),y
-        iny
-        cpy #8
-        bne @l1
-	ldy @ysave
-        clc
-        lda @txtdst
-        adc #192
-        sta @txtdst
-        lda @txtdst+1
-        adc #0
-        sta @txtdst+1
-@nextch:
-	cpy __text_len
-	bcc @l0
-        rts
-.endproc
-
-;******************************************************************************
-; GET_CHAR_ADDR
-; Returns the address of the character in .A
-; IN:
-;  - .A: the character to get the address of
-; OUT:
-;  zp::text: the address of the character
-.proc get_char_addr
-@ch=zp::text
-	sta @ch
-        lda #$00
-	asl @ch
-        rol
-	asl @ch
-        rol
-	asl @ch
-        rol
-	sta @ch+1
-        clc
-	lda @ch
-        adc #<((__text_charmap-256) .mod 256)
-	sta @ch
-	lda @ch+1
-        adc #<((__text_charmap-256) / 256)
-	sta @ch+1
+	CALL FINAL_BANK_FASTTEXT, #ftxt::puts
 	rts
 .endproc
 
@@ -872,116 +725,3 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	rts
 .endproc
 
-.RODATA
-
-;******************************************************************************
-; CHARMAP
-; This is the 40 column character set for the text routines
-.export __text_charmap
-__text_charmap:
-.byte   0,   0,   0,   0,   0,   0,   0,   0
-.byte   0,  34,  34,  34,  34,   0,  34,   0
-.byte   0,  85,  85,   0,   0,   0,   0,   0
-.byte   0,  85, 119,  85,  85, 119,  85,   0
-.byte   0,  34,  51, 102,  51, 102,  34,   0
-.byte   0,  85,  17,  34,  34,  68,  85,   0
-.byte   0, 102, 102,  51, 102, 102,  51,   0
-.byte  34,  34,   0,   0,   0,   0,   0,   0
-.byte   0,  17,  34,  34,  34,  34,  17,   0
-.byte   0,  68,  34,  34,  34,  34,  68,   0
-.byte   0,   0,   0,  85,  34,  85,   0,   0
-.byte   0,   0,   0,  34, 119,  34,   0,   0
-.byte   0,   0,   0,   0,   0,   0,  34,  68
-.byte   0,   0,   0,   0, 119,   0,   0,   0
-.byte   0,   0,   0,   0,   0,   0,  34,   0
-.byte   0,  17,  17,  34,  34,  68,  68,   0
-.byte   0, 119,  85,  85,  85,  85, 119,   0
-.byte   0,  17,  17,  17,  17,  17,  17,   0
-.byte   0, 119,  17, 119,  68,  68, 119,   0
-.byte   0, 119,  17, 119,  17,  17, 119,   0
-.byte   0,  85,  85, 119,  17,  17,  17,   0
-.byte   0, 119,  68, 119,  17,  17, 119,   0
-.byte   0, 119,  68, 119,  85,  85, 119,   0
-.byte   0, 119,  17,  17,  17,  17,  17,   0
-.byte   0, 119,  85, 119,  85,  85, 119,   0
-.byte   0, 119,  85, 119,  17,  17, 119,   0
-.byte   0,   0,   0,  34,   0,   0,  34,   0
-.byte   0,   0,   0,  34,   0,   0,  34,  68
-.byte   0,   0,  17,  34,  68,  34,  17,   0
-.byte   0,   0,   0, 119,   0, 119,   0,   0
-.byte   0,   0,  68,  34,  17,  34,  68,   0
-.byte   0,  34,  85,  17,  34,   0,  34,   0
-.byte   0,  51,  85,  85,  85,  68,  51,   0
-.byte   0,  34,  85,  85, 119,  85,  85,   0
-.byte   0, 102,  85, 102,  85,  85, 102,   0
-.byte   0,  51,  68,  68,  68,  68,  51,   0
-.byte   0, 102,  85,  85,  85,  85, 102,   0
-.byte   0, 119,  68, 102,  68,  68, 119,   0
-.byte   0, 119,  68, 102,  68,  68,  68,   0
-.byte   0,  51,  68,  68,  85,  85,  51,   0
-.byte   0,  85,  85, 119,  85,  85,  85,   0
-.byte   0, 119,  34,  34,  34,  34, 119,   0
-.byte   0,  51,  17,  17,  17,  85,  34,   0
-.byte   0,  85,  85, 102,  85,  85,  85,   0
-.byte   0,  68,  68,  68,  68,  68, 119,   0
-.byte   0,  85, 119,  85,  85,  85,  85,   0
-.byte   0, 102,  85,  85,  85,  85,  85,   0
-.byte   0,  34,  85,  85,  85,  85,  34,   0
-.byte   0, 102,  85,  85, 102,  68,  68,   0
-.byte   0,  34,  85,  85,  85, 102,  51,   0
-.byte   0, 102,  85,  85, 102,  85,  85,   0
-.byte   0,  51,  68,  34,  17,  17, 102,   0
-.byte   0, 119,  34,  34,  34,  34,  34,   0
-.byte   0,  85,  85,  85,  85,  85,  51,   0
-.byte   0,  85,  85,  85,  85,  34,  34,   0
-.byte   0,  85,  85,  85,  85, 119,  85,   0
-.byte   0,  85,  85,  34,  85,  85,  85,   0
-.byte   0,  85,  85,  85,  34,  34,  34,   0
-.byte   0, 119,  17,  34,  34,  68, 119,   0
-.byte   0,  51,  34,  34,  34,  34,  51,   0
-.byte   0,  68,  68,  34,  34,  17,  17,   0
-.byte   0, 102,  34,  34,  34,  34, 102,   0
-.byte  34,  85,   0,   0,   0,   0,   0,   0
-.byte   0,   0,   0,   0,   0,   0,   0, 255
-.byte  34,  17,   0,   0,   0,   0,   0,   0
-.byte   0,   0,   0,  51,  85,  85,  51,   0
-.byte   0,  68,  68, 102,  85,  85, 102,   0
-.byte   0,   0,   0,  51,  68,  68,  51,   0
-.byte   0,  17,  17,  51,  85,  85,  51,   0
-.byte   0,   0,   0,  34,  85, 102,  51,   0
-.byte   0,  17,  34, 119,  34,  34,  34,   0
-.byte   0,   0,   0,  51,  85,  51,  17, 102
-.byte   0,  68,  68, 102,  85,  85,  85,   0
-.byte   0,  34,   0,  34,  34,  34,  34,   0
-.byte   0,  34,   0,  34,  34,  34,  34,  68
-.byte   0,  68,  68,  85, 102,  85,  85,   0
-.byte   0,  34,  34,  34,  34,  34,  34,   0
-.byte   0,   0,   0,  85, 119,  85,  85,   0
-.byte   0,   0,   0, 102,  85,  85,  85,   0
-.byte   0,   0,   0,  34,  85,  85,  34,   0
-.byte   0,   0,   0, 102,  85, 102,  68,  68
-.byte   0,   0,   0,  51,  85,  51,  17,  17
-.byte   0,   0,   0, 102,  85,  68,  68,   0
-.byte   0,   0,   0,  51, 102,  51, 102,   0
-.byte   0,  34,  34, 119,  34,  34,  51,   0
-.byte   0,   0,   0,  85,  85,  85,  51,   0
-.byte   0,   0,   0,  85,  85,  34,  34,   0
-.byte   0,   0,   0,  85,  85, 119,  85,   0
-.byte   0,   0,   0,  85,  34,  34,  85,   0
-.byte   0,   0,   0,  85,  85,  51,  17, 102
-.byte   0,   0,   0, 119,  17,  34, 119,   0
-.byte   0,  51,  34,  68,  34,  34,  51,   0
-.byte   0,  34,  34,   0,  34,  34,  34,   0
-.byte   0, 102,  34,  17,  34,  34, 102,   0
-.byte   0,   0,   0,  85, 170,   0,   0,   0
-.byte   0,   0,   0,   0,   0,   0,   0,   0
-
-;CUSTOM CHARS. starting @ 128
-.byte   $44,$44,$44,$44,$44,$44,$44,$44   ; 128  |
-.byte   $ff,$00,$00,$00,$00,$00,$00,$ff	  ; 129
-.byte   $88,$88,$88,$88,$88,$88,$88,$88	  ; 130
-.byte   $ff,$00,$00,$00,$00,$00,$00,$00	  ; 131
-.byte   $ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff	  ; 132 cursor
-.byte   $00,$00,$22,$77,$77,$22,$00,$00	  ; 133 bullet/breakpoint symbol
-.byte   $00,$00,$22,$55,$55,$22,$00,$00	  ; 134 unfilled bullet/breakpoint unset
-.byte   $00,$44,$66,$77,$77,$66,$44,$00	  ; 135 arrow pointing right

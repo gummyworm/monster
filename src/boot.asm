@@ -19,6 +19,10 @@
 .import __DATA_RUN__
 .import __DATA_SIZE__
 
+.import __FASTTEXT_LOAD__
+.import __FASTTEXT_SIZE__
+.import __FASTTEXT_RUN__
+
 .segment "SETUP"
 ;******************************************************************************
 ; BASIC header: SYS 4621
@@ -67,7 +71,7 @@ start:
 	cmpw #(__BSS_LOAD__+__BSS_SIZE__)
 	bne @zerobss
 
-; relocate segments that need to be
+; relocate segments that need to be moved
 	ldxy #__DATA_LOAD__
 	stxy zp::tmp0
 	ldxy #__DATA_RUN__
@@ -81,6 +85,21 @@ start:
 	ldxy zp::tmp0
 	cmpw #(__DATA_LOAD__+__DATA_SIZE__)
 	bne @reloc
+
+; copy the fast text code to its bank
+	ldxy #__FASTTEXT_LOAD__
+	stxy zp::tmp0
+	ldxy #__FASTTEXT_RUN__
+	stxy zp::tmp2
+@fasttxt:
+	ldy #$00
+	lda (zp::tmp0),y
+	bank_store_byte #FINAL_BANK_FASTTEXT, zp::tmp2
+	incw zp::tmp0
+	incw zp::tmp2
+	ldxy zp::tmp0
+	cmpw #__FASTTEXT_LOAD__+__FASTTEXT_SIZE__
+	bne @fasttxt
 
 ; initialize the JMP vector
 	lda #$4c		; JMP

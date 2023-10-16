@@ -5,7 +5,7 @@
 ;******************************************************************************
 .export __mem_spare
 .export __mem_spareend
-__mem_spare=$0400
+__mem_spare=$0500
 __mem_spareend = $1000
 
 .export __mem_backbuff
@@ -32,7 +32,7 @@ __mem_debugsave=__mem_backbuff+$300 	; backup for the user's program during debu
 __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
 
 .export __statusline
-__statusline: .res 40
+__statusline = __mem_spare+80
 
 .export __linesave
 __linesave: .res 40
@@ -41,7 +41,9 @@ __linesave: .res 40
 __mem_copybuff: .res MAX_COPY_SIZE
 
 .export __linebuffer
-__linebuffer: .res 80
+__linebuffer = $0400
+;__linebuffer: .res 80
 
 .export __linebuffer2
-__linebuffer2: .res 80		; backup buffer for when the linebuffer must be saved
+;__linebuffer2: .res 80		; backup buffer for when the linebuffer must be saved
+__linebuffer2 = $0400+$80
