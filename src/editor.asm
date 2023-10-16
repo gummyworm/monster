@@ -2020,6 +2020,7 @@ goto_buffer:
 	sta zp::curx
 	sta zp::cury		; reset cursor
 	jsr refresh
+	jsr enter_command
 	RETURN_OK
 
 @err:	pha
