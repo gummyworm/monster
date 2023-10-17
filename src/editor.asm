@@ -2096,16 +2096,11 @@ goto_buffer:
 	lda #STATUS_ROW-1
 	jsr bm::clrline
 
-	; reset indent
-	ldx #$00
-	stx indent
 @format:
 	; format the line
 	pla			; get token type
 @fmt:	cmp #ASM_COMMENT	; if this is a comment, don't indent
-	bne :+
-	ldx #INDENT_LEVEL	; anything but a comment, indent
-:	stx indent
+	beq @nextline
 	jsr fmt::line
 
 @nextline:
@@ -2122,15 +2117,14 @@ goto_buffer:
 	jsr text::print
 
 ; insert spaces for the indent in the source
-	lda indent
-	beq @done
+	lda #INDENT_LEVEL-1
 	sta @i
-
 @ident:	lda #' '
 	jsr src::insert
 	jsr text::putch
 	dec @i
 	bne @ident
+	rts
 
 @done:	lda zp::curx
 	beq @ret

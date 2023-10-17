@@ -537,7 +537,10 @@ __asm_tokenize:
 	bne @pound
 	jmp @done
 
-@pound: ldy #$00
+@pound: cmp #';'		; are we at a comment?
+	bne :+
+	jmp @done		; if comment, we're done
+:	ldy #$00
 	lda (zp::line),y
 	cmp #'#'
 	bne @lparen

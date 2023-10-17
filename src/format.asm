@@ -125,7 +125,6 @@
 	lda @linecontent
 	and #ASM_COMMENT ; if comment, don't format at all
 	bne @done
-@ident: inc $900f
-	jmp __fmt_opcode ; anything else- indent
+@ident: jmp __fmt_opcode ; anything else- indent
 @done:  rts
 .endproc
