@@ -1306,7 +1306,6 @@ main:
 	.byte K_DIR		; dir
 	.byte K_LIST_SYMBOLS	; list symbols
 	.byte K_GOTO_LINE	; gotoline
-	.byte K_FIND		; find
 	.byte K_CLOSE_BUFF	; close buffer
 	.byte K_NEW_BUFF	; new buffer
 	.byte K_SET_BREAKPOINT	; set breakpoint
@@ -1336,7 +1335,7 @@ main:
 
 .linecont +
 .define specialvecs home, command_asm, command_asmdbg, show_buffers, refresh, \
-	rename, dir, list_symbols, command_gotoline, command_find, \
+	rename, dir, list_symbols, command_gotoline, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
 	next_buffer, prev_buffer, \
@@ -3490,6 +3489,7 @@ commands:
 	.byte $76	; v (enter visual mode)
 	.byte $56	; V (enter visual line mode)
 	.byte $79	; y (yank)
+	.byte K_FIND		; find
 numcommands=*-commands
 
 ; command tables for COMMAND mode key commands
@@ -3500,7 +3500,7 @@ numcommands=*-commands
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual_line, yank
+	enter_visual, enter_visual_line, yank, command_find
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs

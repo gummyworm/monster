@@ -55,8 +55,8 @@
 ; IN:
 ;  - .A: the character to get the representation of
 ; OUT:
-;  - .X: the hex representation of the least significant nybble
-;  - .Y: the hex representation of the most significant nybble
+;  - .A: the binary representation of the given character
+;  - .C: set if the character is not a valid hex digit
 .export __util_chtohex
 .proc __util_chtohex
 	cmp #'f'+1
@@ -64,14 +64,17 @@
 	cmp #'a'
 	bcc @numeric
 	sbc #'a'-$a
-	rts
+	RETURN_OK
+
 @numeric:
 	cmp #'9'+1
 	bcs @done
 	cmp #'0'
 	bcc @done
 	sbc #'0'
-@done:
+	RETURN_OK
+
+@done:	sec
 	rts
 .endproc
 
@@ -128,7 +131,7 @@
 @scale=zp::tmp14
 @val=zp::tmp15
 @tmp2=zp::tmp17
-@offset=zp::util
+@offset=zp::util+1
 	stxy @str
 	lda #$00
 	sta @val
@@ -181,6 +184,7 @@
 	RETURN_OK
 @unexpectedchar:
 	lda #ERR_UNEXPECTED_CHAR
+	sec
 @err:	rts
 
 ;------------------
@@ -381,22 +385,19 @@ result=mem::spare
 ;  - .Z: set if the char in .A is an operator ('+', '-', etc.)
 .export __util_isoperator
 .proc __util_isoperator
-	cmp #'('
-	beq :+
-	cmp #')'
-	beq :+
-	cmp #'+'
-	beq :+
-	cmp #'-'
-	beq :+
-	cmp #'*'
-	beq :+
-	cmp #'/'
-	beq :+
-	cmp #'['
-	beq :+
-	cmp #']'
-:	rts
+@xsave=zp::util+2
+	stx @xsave
+	ldx #@numops-1
+:	cmp @ops,x
+	beq @end
+	dex
+	bpl :-
+@end:	php
+	ldx @xsave
+	plp
+	rts
+@ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.'
+@numops = *-@ops
 .endproc
 
 ;******************************************************************************

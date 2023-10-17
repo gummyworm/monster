@@ -96,8 +96,8 @@
 .proc __math_div16
 @divisor = zp::tmp2
 @dividend = zp::tmp0
-@remainder = zp::tmpa
-@result = @dividend ;save memory by reusing divident to store the result
+@remainder = zp::tmp4
+@result = @dividend	;return quotient in dividend's place
 	lda #0	        ;preset remainder to 0
 	sta @remainder
 	sta @remainder+1

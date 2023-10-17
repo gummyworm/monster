@@ -41,7 +41,7 @@ MAX_OPERANDS  = $10/2
 
 @l0:	ldy #$00
 	lda (zp::line),y
-	cmp #' '
+	cmp #' '		; eat whitespace
 	bne :+
 	incw zp::line
 	jmp @l0
@@ -113,13 +113,12 @@ MAX_OPERANDS  = $10/2
 
 @getoperand:
 	jsr isval
-	bcs @label	; not a val, try label
+	bcs @label		; not a val, try label
 	jsr __expr_getval	; is this a value?
 	bcc @pushoperand
-	rts		; return err
+	rts			; return err
 
-@label:
-	ldxy zp::line
+@label: ldxy zp::line
 	jsr get_label	; is it a label?
 	bcs @err
 @pushoperand:
@@ -217,11 +216,25 @@ MAX_OPERANDS  = $10/2
 	beq @prio2
 	cmp #'/'
 	beq @prio2
-	lda #$00
+	cmp #'&'
+	beq @prio3
+	cmp #'^'
+	beq @prio4
+	cmp #'.'
+	beq @prio5
+
+	lda #$00	; unknown
 	rts
+
 @prio1:	lda #$01
 	rts
 @prio2: lda #$02
+	rts
+@prio3: lda #$03
+	rts
+@prio4:	lda #$04
+	rts
+@prio5:	lda #$05
 	rts
 
 ;------------------
@@ -297,7 +310,7 @@ MAX_OPERANDS  = $10/2
 	tay
 	jmp @pushval
 
-:	cmp #':'	; EOR
+:	cmp #'^'	; EOR
 	bne @unknown_op
 	lda @val1
 	eor @val2
@@ -400,6 +413,7 @@ MAX_OPERANDS  = $10/2
 	bcc @err
 	cmp #'9'+1
 	bcs @err
+
 @ok:	iny
 	bne @cont
 
@@ -484,24 +498,11 @@ MAX_OPERANDS  = $10/2
 	jsr util::isseparator
 	beq @done
 
-	cmp #'0'
-	bcc @err
-	cmp #'9'+1
-	bcs @convertchar
-	sec
-	sbc #'0'
-	jmp @next
+	jsr util::chtohex
+	bcc @next
 
 @badchar:
 	RETURN_ERR ERR_UNEXPECTED_CHAR
-
-@convertchar:
-	cmp #'a'
-	bcc @badchar
-	cmp #'f'+1
-	bcs @badchar
-	sec
-	sbc #'a'-$a
 
 @next:	asl
 	asl
@@ -523,7 +524,7 @@ MAX_OPERANDS  = $10/2
 	iny
 	bne @l0
 
-@done:  tya
+@done: 	tya
 	clc
 	adc zp::line
 	sta zp::line
