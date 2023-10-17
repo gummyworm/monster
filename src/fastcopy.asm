@@ -294,7 +294,7 @@ __fast_clr = $2100
 
 	incw @addr
 	ldxy @addr
-	cmpw #__fast_clr+($ef0*3)+2	; sizeof(lda #$00)+$ef0*sizeof(sta abs)
+	cmpw #__fast_clr+($f00*3)+2	; sizeof(lda #$00)+$ef0*sizeof(sta abs)
 	bne @gen_sta
 
 	lda #$60			; RTS

@@ -8,7 +8,7 @@ CUR_BLINK_SPEED  = 40	; number of updates before blink
 
 ;******************************************************************************
 ; source formatting
-.define INDENT_LEVEL 2			; .define'd for use as macro param
+.define INDENT_LEVEL 8			; .define'd for use as macro param
 
 ;******************************************************************************
 ; editor configuration

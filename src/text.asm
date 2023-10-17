@@ -555,7 +555,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	lda @dst+1
 	adc #$00
 	sta @dst+1
-	cmp #$1f
+	cmp #$20
 	bne @l0
 	rts
 .endproc
@@ -624,7 +624,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	lda @dst+1
 	adc #$00
 	sta @dst+1
-	cmp #$1f
+	cmp #$20
 	bcc @l0
 	rts
 .endproc

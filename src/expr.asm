@@ -268,13 +268,43 @@ MAX_OPERANDS  = $10/2
 	jmp @pushval
 
 :	cmp #'/'
-	bne @unknown_op
+	bne :+
 	ldxy @val1
 	stxy zp::tmp2
 	ldxy @val2
 	stxy zp::tmp0
 	jsr m::div16
 	ldxy zp::tmp0
+	jmp @pushval
+
+:	cmp #'&'	; AND
+	bne :+
+	lda @val1
+	and @val2
+	tax
+	lda @val1+1
+	and @val2+1
+	tay
+	jmp @pushval
+
+:	cmp #'.'	; OR
+	bne :+
+	lda @val1
+	ora @val2
+	tax
+	lda @val1+1
+	ora @val2+1
+	tay
+	jmp @pushval
+
+:	cmp #':'	; EOR
+	bne @unknown_op
+	lda @val1
+	eor @val2
+	tax
+	lda @val1+1
+	eor @val2+1
+	tay
 	jmp @pushval
 
 @unknown_op:
