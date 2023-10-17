@@ -3,6 +3,7 @@
 .include "linebuffer.inc"
 .include "memory.inc"
 .include "source.inc"
+.include "zeropage.inc"
 
 .CODE
 
@@ -11,20 +12,51 @@
 ; Formats linebuffer as a label.
 .export __fmt_label
 .proc __fmt_label
-	ldx #$ff
-:	inx
-	lda mem::linebuffer,x
-	beq :-
+@curr=zp::tmp6
+@cnt=zp::tmp6
+	jsr src::up
 
+	; read past the label
 	ldy #$00
-:	lda mem::linebuffer,x
-	sta mem::linebuffer,y
-	iny
-	inx
-	cpx #40
-	bcc :-
+	sty @curr
+@l0:	jsr src::next
+	inc @curr
+	cmp #' '
+	beq @l1
+	ldy @curr
+	cpy #8		; max label length
+	bne @l0
 
-	rts
+	; read until the opcode/macro/etc.
+@l1:	jsr src::next
+	inc @curr
+	cmp #' '
+	beq @l1
+	jsr src::prev
+
+	lda @curr
+	cmp #INDENT_LEVEL	; is opcode already in column 10?
+	beq @cont	; continue if so
+	bcs @shl	; if >10, delete extra padding
+
+@shr:	lda #' '
+	jsr src::insert
+	inc @curr
+	lda @curr
+	cmp #INDENT_LEVEL
+	bcc @shr
+	bcs @cont
+
+@shl:	jsr src::backspace
+	dec @curr
+	lda @curr
+	cmp #INDENT_LEVEL
+	bcs @shl
+
+@cont:	jsr src::up
+	jsr src::get
+	jsr src::down
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -32,23 +64,27 @@
 ; Formats linebuffer as an opcode.
 .export __fmt_opcode
 .proc __fmt_opcode
-	ldy #INDENT_LEVEL
-@l1:	ldx #38
-@l0:	lda mem::linebuffer,x
+@cnt=zp::tmp6
+	ldy #INDENT_LEVEL-1
+@l0:	ldx #39-1
+@l1:	lda mem::linebuffer,x
 	sta mem::linebuffer+1,x
 	dex
-	bpl @l0
+	bpl @l1
 	dey
-	bne @l1
+	bne @l0
 
 	jsr src::up		; return to start of source
 
-	; add 2 spaces to the linebuffer and source
+	; indent the linebuffer and source
+	lda #INDENT_LEVEL-2
+	sta @cnt
 	lda #' '
-.repeat INDENT_LEVEL, I
-	sta mem::linebuffer+I
+@l2:	ldx @cnt
+	sta mem::linebuffer,x
 	jsr src::insert
-.endrepeat
+	dec @cnt
+	bpl @l2
 	; move to the next line
 	jmp src::down
 .endproc
@@ -63,7 +99,8 @@
 ;  - .A: the line length
 .export __fmt_line
 .proc __fmt_line
-	pha		; save the type to format
+@linecontent=zp::tmp6
+	sta @linecontent	; save the types to format
 
 	; remove spaces from start of line
 	jsr src::up
@@ -79,14 +116,16 @@
 
 @left_aligned:
 	jsr src::down
-	pla		; get the type of line we're formatting
-	beq @done	; if ASM_NONE, don't format
-	cmp #ASM_LABEL
-	bne @notlabel
+	lda @linecontent 	; get the type of line we're formatting
+	beq @done		; if ASM_NONE, don't format
+	and #ASM_LABEL
+	beq @notlabel
 	jmp __fmt_label
 @notlabel:
-	cmp #ASM_COMMENT ; if comment, don't format at all
-	beq @done
-@ident: jmp __fmt_opcode ; anything else- indent
+	lda @linecontent
+	and #ASM_COMMENT ; if comment, don't format at all
+	bne @done
+@ident: inc $900f
+	jmp __fmt_opcode ; anything else- indent
 @done:  rts
 .endproc

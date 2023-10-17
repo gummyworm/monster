@@ -1668,33 +1668,6 @@ __asm_include:
 .endproc
 
 ;******************************************************************************
-; PROCESS_END_OF_LINE
-; Reads (line) and updates it to point to the terminating 0
-; OUT:
-;  - .C: set if any invalid characters were encountered
-.proc process_end_of_line
-@l0:	ldy #$00
-	lda (zp::line),y
-	beq @done
-	cmp #' '
-	beq @next
-	cmp #';'
-	bne @err
-
-@cmnt:	; read comment
-	lda (zp::line),y
-	beq @done
-	incw zp::line
-	jmp @cmnt
-
-@next:	incw zp::line
-	jmp @l0
-
-@err:	RETURN_ERR ERR_SYNTAX_ERROR
-@done:	RETURN_OK
-.endproc
-
-;******************************************************************************
 ; RESET
 ; Resets the internal assembly context (labels and pointer to target)
 .export __asm_reset
