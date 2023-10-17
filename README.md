@@ -247,7 +247,13 @@ formatter will also take care of this.
 
 ## Labels
 Labels begin with either an alpha-character or, in the case of _local_
-labels, a '@' character.
+labels, a '@' character.  They are limited to 8 characters, which is primarily
+a formatting consideration (this limitation allows _all_ labels to coexist with
+an instruction on a single line without bumping the instruction beyond its
+normal home in column 10.
+
+Local labels are defined by prefixing the label with a '@' symbol.  This _does_
+count toward the 8-character label limit.
 Local labels are valid until the next non-local label is defined as shown in
 the following example.
 ```
@@ -265,6 +271,18 @@ PROC1:
 Note that the scope of the `@L0` defined under `PROC0` is valid until the next
 non-local label (`PROC1`) at which point the name is recylced and may be used
 again.
+Because of the implementation of local labels, they _can_ be accessed by
+prepending the global label that encapsulates them.  This can be used to
+emulate structural data types e.g.
+```
+PLAYER
+@X: .db 0
+@Y: .db 0
+
+GAME:
+	LDA PLAYER@X
+```
+
 
 ## Directives
 Directives begin with a `.` character and instead of being directly assembled,
