@@ -271,7 +271,9 @@ PROC1:
 Note that the scope of the `@L0` defined under `PROC0` is valid until the next
 non-local label (`PROC1`) at which point the name is recylced and may be used
 again.
-Because of the implementation of local labels, they _can_ be accessed by
+
+Because of the way local labels are implemented they are not totally 
+inaccessible. They _can_ be accessed by
 prepending the global label that encapsulates them.  This can be used to
 emulate structural data types e.g.
 ```
