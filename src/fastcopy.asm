@@ -8,8 +8,8 @@
 
 ; $2000	- gencode start address
 ; 6     - sizeof(lda abs) + sizeof(sta abs)
-; $ff0  - number of pixels to copy
-GENCODE_END = ($2000 + 6*$ff0)
+; $ef0  - number of pixels to copy
+GENCODE_END = ($2000 + 6*$ef0)
 
 .SEGMENT "FASTCOPY"
 
@@ -23,6 +23,9 @@ __fastcopy_save = $2100
 
 .export __fastcopy_restore
 __fastcopy_restore = $2100 + $2f00
+
+.export __fast_clr
+__fast_clr = $2100
 
 .segment "SETUP"
 ;******************************************************************************
@@ -222,7 +225,7 @@ __fastcopy_restore = $2100 + $2f00
 	lda @bank
 	jsr fe3::store
 
-	rts
+	jmp gen_bm_clr
 
 @prefix:
 	ldx #$00
@@ -244,4 +247,60 @@ __fastcopy_restore = $2100 + $2f00
 	beq :+
 	jmp $5002
 :	rts
+.endproc
+
+;******************************************************************************
+.proc gen_bm_clr
+@addr=zp::tmp0
+@target=zp::tmp2
+	lda #$a9	; LDA #
+	sta zp::bankval
+	ldxy #__fast_clr
+	lda #FINAL_BANK_FAST
+	jsr fe3::store
+
+	lda #$00
+	sta zp::bankval
+	ldxy #__fast_clr+1
+	lda #FINAL_BANK_FAST
+	jsr fe3::store
+
+	ldxy #__fast_clr+2
+	stxy @addr
+	ldxy #$1100
+	stxy @target
+@gen_sta:
+	lda #$8d	; STA ABS
+	sta zp::bankval
+	ldxy @addr
+	lda #FINAL_BANK_FAST
+	jsr fe3::store
+
+	incw @addr
+	lda @target
+	sta zp::bankval
+	ldxy @addr
+	lda #FINAL_BANK_FAST
+	jsr fe3::store
+
+	incw @addr
+	lda @target+1
+	sta zp::bankval
+	ldxy @addr
+	lda #FINAL_BANK_FAST
+	jsr fe3::store
+
+	incw @target
+
+	incw @addr
+	ldxy @addr
+	cmpw #__fast_clr+($ef0*3)+2	; sizeof(lda #$00)+$ef0*sizeof(sta abs)
+	bne @gen_sta
+
+	lda #$60			; RTS
+	sta zp::bankval
+	ldxy @addr
+	lda #FINAL_BANK_FAST
+	jsr fe3::store
+	rts
 .endproc

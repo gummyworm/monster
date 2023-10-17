@@ -42,9 +42,8 @@ FINAL_BANK_SOURCE5 = $a0|9	; source bank
 FINAL_BANK_SOURCE6 = $a0|$a	; source bank
 FINAL_BANK_SOURCE7 = $a0|$b	; source bank
 
-; This bank is used to load source files (other than those already open)
-; while debugging.
-FINAL_BANK_DEBUG_FILE = $a0|$c 
+; used for unrolled loops to make stuff fast
+FINAL_BANK_FAST = $a0|$0c
 			
 FINAL_BANK_SYMBOLS = $a0|$d	; symbols bank (label names and their addresses)
 

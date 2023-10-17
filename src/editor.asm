@@ -907,6 +907,9 @@ main:
 	jsr text::linelen
 	cpx #$00
 	bne :+
+	ldxy src::line
+	cmpw #1
+	beq :+			; if we are on first line, do normal behavior
 	jsr backspace
 	jmp @done
 

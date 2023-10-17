@@ -1,3 +1,5 @@
+.include "fastcopy.inc"
+.include "finalex.inc"
 .include "config.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -43,23 +45,9 @@ COLMEM_ADDR = $9400
 ; Clears the bitmap and sets the color memory to TEXT_COLOR
 .export __bm_clr
 .proc __bm_clr
-        lda #>BITMAP_ADDR
-        sta zp::tmp0+1
-        lda #$00
-        sta zp::tmp0
-        ldx #$0f
-        tay
-
-;clear the character memory (bitmap)
-@l0:    sta (zp::tmp0),y
-        dey
-        bne @l0
-        inc zp::tmp0+1
-        dex
-        bne @l0
+	CALL FINAL_BANK_FAST, #fcpy::clr
 	lda #TEXT_COLOR
-
-	jmp __bm_clrcolor
+	; fall through
 .endproc
 
 ;******************************************************************************
@@ -67,6 +55,7 @@ COLMEM_ADDR = $9400
 ; Reverts all color memory to its initial values (TEXT_COLOR)
 .export __bm_clrcolor
 .proc __bm_clrcolor
+	ldy #$00
 @l0:    sta COLMEM_ADDR,y
         dey
         bne @l0

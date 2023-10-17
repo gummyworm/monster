@@ -81,8 +81,6 @@
 .export __ftxt_puts
 .proc __ftxt_puts
 @txtbyte  = zp::text
-@txtleft  = zp::text+1
-@txtright = zp::text+3
 @txtdst   = zp::text+5
 @txtsrc   = zp::text+7
 @ysave	  = zp::text+9
@@ -113,10 +111,12 @@
 	sty @ysave
 
         ldy #8-1
-@l1:    lda (@txtleft),y
+@txtleft=*+1
+@l1:    lda $f00d,y
         and #$f0
         sta @txtbyte
-        lda (@txtright),y
+@txtright=*+1
+	lda $f00d,y
         and #$0f
         ora @txtbyte
         sta (@txtdst),y
