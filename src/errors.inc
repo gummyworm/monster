@@ -48,6 +48,7 @@ ERR_DRIVE_DID_NOT_RESPOND = 29
 
 ;******************************************************************************
 ERR_UNNAMED_BUFFER = 30
+ERR_NO_OPEN_SCOPE  = 31
 
 .import __err_get
 

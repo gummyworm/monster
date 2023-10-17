@@ -11,14 +11,16 @@
 ; CONSTANTS
 MAX_LABELS    = 256
 MAX_LOCALS    = 32
-MAX_LABEL_LEN = 16
+MAX_LABEL_LEN = 16	; 8 bytes for namespace + 8 for label name
+SCOPE_LEN     = 8	; max len of namespace (scope)
 
 .BSS
 ;******************************************************************************
 .export __label_num
 __label_num:
 numlabels: .word 0   	; total number of labels
-numlocals: .byte 0	; number of local labels
+
+scope: .res 8		; buffer containing the current scope
 
 ;******************************************************************************
 ; LABELS
@@ -43,7 +45,67 @@ label_addresses: .res 256 * 2
 .endif
 
 .CODE
+
 ;******************************************************************************
+; SET SCOPE
+; Sets the current scope to the given scope.
+; This affects local labels, which will be namespaced by prepending the scope.
+; IN:
+;  - .XY: the address of the scope string to set as the current scope
+.export __label_setscope
+.proc __label_setscope
+@scope=zp::tmp0
+	stxy @scope
+	ldy #$00
+:	lda (@scope),y
+	jsr util::isseparator
+	beq @done
+	sta scope,y
+	iny
+	cpy #SCOPE_LEN
+	bne :-
+@done:  rts
+.endproc
+
+;******************************************************************************
+; PREPEND SCOPE
+; Prepends the current scope to the label in .XY and returns a buffer containing
+; the namespaced label.
+; IN:
+;  - .XY: the label to add the scope to
+; OUT:
+;  - .XY: pointer to the buffer containing the scope namespaced label
+;  - .C: set if there is no open scope
+.proc prepend_scope
+@buff=$100
+@lbl=zp::labels
+	stxy @lbl
+	ldx #$00
+	lda scope
+	bne @l0
+	RETURN_ERR ERR_NO_OPEN_SCOPE
+
+@l0:	lda scope,x
+	beq :+
+	sta @buff,x
+	inx
+	cpx #$08
+	bne @l0
+
+:	ldy #$00
+@l1:	lda (@lbl),y
+	jsr util::isseparator
+	beq @done
+	sta @buff,x
+	iny
+	inx
+	cpx #MAX_LABEL_LEN
+	bne @l1
+@done:	lda #$00
+	sta @buff,x
+	ldxy #@buff
+	RETURN_OK
+.endproc
 
 ;******************************************************************************
 ; CLR
@@ -51,9 +113,9 @@ label_addresses: .res 256 * 2
 .export __label_clr
 .proc __label_clr
 	lda #$00
+	sta scope
 	sta numlabels
 	sta numlabels+1
-	sta numlocals
 	rts
 .endproc
 
@@ -74,20 +136,21 @@ label_addresses: .res 256 * 2
 @ch=zp::tmpe
 @offset=zp::tmpf
 @ch2=zp::tmp10
-@islocal=zp::tmp11
 	stxy @label
 
 	; check (and flag) if the label is local. if it is, we will start
 	; searching at the end of the label table, where locals are stored
 	jsr __label_is_local
-	sta @islocal
-	beq :+
-	lda numlocals
-	bne :+
-	ldxy numlabels	; if there are no local labels; this must be the first
-	RETURN_ERR ERR_LABEL_UNDEFINED
+	beq @cont
 
-:	ldx numlabels
+	; if local, prepend the scope as the namespace
+	ldxy @label
+	jsr prepend_scope
+	bcc :+
+	rts		; return err
+:	stxy @label
+
+@cont:	ldx numlabels
 	bne :+
 	ldy numlabels+1
 	bne :+
@@ -98,37 +161,6 @@ label_addresses: .res 256 * 2
 	sta @cnt+1
 	ldxy #labels
 	stxy @search
-
-	lda @islocal
-	beq @seek
-
-	; if local; start searching from labels + 16*(numlabels-numlocals)
-	; @cnt = (numlabels-numlocals)
-	lda numlabels
-	sec
-	sbc numlocals
-	sta @cnt
-	lda numlabels+1
-	sbc #$00
-	sta @cnt+1
-
-	; @cnt *= 16
-	lda @cnt
-	asl
-	rol @cnt+1
-	asl
-	rol @cnt+1
-	asl
-	rol @cnt+1
-	asl
-	rol @cnt+1
-
-	; seek = labels + @cnt
-	adc #<labels
-	sta @search
-	lda @cnt+1
-	adc #>labels
-	sta @search+1
 
 @seek:	ldy #$00
 @l0:	lda (@label),y
@@ -175,24 +207,12 @@ label_addresses: .res 256 * 2
 	inc @search+1
 :	incw @cnt
 	ldxy @cnt
-	lda @islocal
-	beq @notlocal
-@local:
-	cmpw numlocals
-	bne @seek
-	beq @notfound
-@notlocal:
 	cmpw numlabels
 	bne @seek
 
 @notfound:
 	ldxy @cnt
-	lda @islocal
-	beq :+
-	; calculate the offset from labels (not labels + (numlabels-numlocals))
-	add16 numlabels	; cnt += numlabels
-	sub16 numlocals	; cnt -= numlocals
-:	RETURN_ERR ERR_LABEL_UNDEFINED
+	RETURN_ERR ERR_LABEL_UNDEFINED
 
 @found:	tya
 	ldxy @cnt
@@ -216,7 +236,6 @@ label_addresses: .res 256 * 2
 @cnt=zp::tmpa
 @addr=zp::tmpc
 @offset=zp::tmp10
-@islocal=zp::tmp11
 	stxy @name
 	jsr __label_isvalid
 	bcc @seek
@@ -251,7 +270,14 @@ label_addresses: .res 256 * 2
 	; flag if label is local or not
 	ldxy @name
 	jsr __label_is_local
-	sta @islocal
+	beq @shift
+
+	; if local, prepend the scope
+	ldxy @name
+	jsr prepend_scope
+	bcc :+
+	rts			; return err
+:	stxy @name
 
 ;------------------
 ; open a space for the new label by shifting everything left
@@ -423,10 +449,7 @@ label_addresses: .res 256 * 2
 	sta (@addr),y
 .endif
 	incw numlabels
-	lda @islocal
-	beq :+
-	incw numlocals
-:	ldxy @id
+	ldxy @id
 	RETURN_OK
 .endproc
 
@@ -607,10 +630,7 @@ label_addresses: .res 256 * 2
 	bne @nameloop
 	decw numlabels
 	ldxy @name
-	jsr __label_is_local
-	beq :+
-	decw numlocals
-:	RETURN_OK
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -620,6 +640,7 @@ label_addresses: .res 256 * 2
 ;  - .XY: the label to test
 ; OUT:
 ;  - .A: nonzero if the label is local
+;  - .Z: clear if label is local, set if not
 .export __label_is_local
 .proc __label_is_local
 @l=zp::labels
@@ -841,21 +862,5 @@ label_addresses: .res 256 * 2
 	lda (@src),y
 	tay
 .endif
-	rts
-.endproc
-
-;******************************************************************************
-; CLR_LOCALS
-; Clears all local labels from the label table
-.export __label_clr_locals
-.proc __label_clr_locals
-	lda numlabels
-	sec
-	sbc numlocals
-	sta numlabels
-	bcs :+
-	dec numlabels+1
-:	lda #$00
-	sta numlocals
 	rts
 .endproc

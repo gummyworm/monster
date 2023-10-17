@@ -519,7 +519,8 @@ __asm_tokenize:
 	ldxy zp::line
 	jsr lbl::islocal
 	bne :+
-	jsr lbl::clrlocals	; clear locals if this is a non-local label
+	ldxy zp::line
+	jsr lbl::setscope	; set the non-local label as the new scope
 :	jsr process_word	; read past the label name
 	ldxy zp::line
 	jsr @assemble		; assemble the rest of the line
