@@ -373,15 +373,28 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ; The binary representation of the above command looks like this:
 ;  ` $02 $0030 $0c`
 .proc obj_rel_word
+@tmp=zp::tmp0
 	ldy #$00
 	lda (objptr),y
-	sta (segptr),y
+	sta @tmp
 	incw objptr
-	incw segptr
 	lda (objptr),y
+	sta @tmp+1
+	incw objptr
+
+	; add the offset
+	lda (objptr),y
+	clc
+	adc @tmp
+	sta (segptr),y
+	iny
+	lda (objptr),y
+	adc @tmp+1
 	sta (segptr),y
 
 	; update object code and segment pointers
+	incw objptr
+	incw segptr
 	incw objptr
 	incw segptr
 	rts
