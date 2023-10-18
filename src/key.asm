@@ -33,17 +33,25 @@ REPEAT_TIME2  = 1	; time after successive repeats to repeat
 	sta $9113
 
 	lda rep_counter
-	beq :+
+	beq @cont
 	dec rep_counter
-	bne :+
-	lda #$00
-	sta BufferOld
-	sta BufferOld+1
-	sta BufferOld+2
+	bne @cont
+
+@dorepeat:
+	ldx #$ff
+:	inx
+	cpx #2
+	beq @reset_rep
+	lda BufferOld,x
+	cmp #$ff
+	beq :-
+@reset_rep:
+	lda #$ff
+	sta BufferOld,x
 	lda #REPEAT_TIME2
 	sta rep_counter
 
-:	pla
+@cont:	pla
 
 	bcs @nokey
 	cmp #$ff

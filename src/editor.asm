@@ -1996,7 +1996,7 @@ goto_buffer:
 	; load the file
 	ldxy @file
 	pla
-	jsr file::load
+	jsr file::loadsrc	; load to SOURCE buff
 	bcs @err
 
 	jsr src::setflags	; clear flags on the source buffer

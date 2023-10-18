@@ -57,6 +57,21 @@ __str_edit_file_save_failed: .byte "failed to save file; error ", ESCAPE_BYTE, 0
 .export __str_watches_title
 __str_watches_title: .byte ESCAPE_SPACING,16, "watches",0
 
+.export __str_dir
+__str_dir: .byte "$"
+
+.export __str_memory
+__str_memory: .byte "memory",0
+
+.export __str_segments
+__str_segments: .byte "segments",0
+
+.export __str_load
+__str_load: .byte "load",0
+
+.export __str_run
+__str_run: .byte "run",0
+
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA
 .DATA

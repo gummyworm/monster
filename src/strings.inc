@@ -7,14 +7,19 @@
 .import __str_debug_brk_addr
 .import __str_debug_registers
 .import __str_debug_stop_debugging
+.import __str_dir
+.import __str_deleting
+.import __str_load
 .import __str_edit_line_err
 .import __str_edit_file_load_failed
 .import __str_edit_file_save_failed
 .import __str_endmac
+.import __str_memory
 .import __str_memview_title
-.import __str_deleting
 .import __str_loading
+.import __str_run
 .import __str_saving
+.import __str_segments
 .import __str_null
 .import __str_watches_line
 .import __str_watches_line_end
@@ -29,8 +34,10 @@
 	debug_brk_line        = __str_debug_brk_line
 	debug_brk_addr        = __str_debug_brk_addr
 	debug_registers       = __str_debug_registers
+
 	debug_stop_debugging    = __str_debug_stop_debugging
 	deleting                = __str_deleting
+	dir                     = __str_dir
 	edit_line_err           = __str_edit_line_err
 	edit_file_load_failed   = __str_edit_file_load_failed
 	edit_file_delete_failed = __str_edit_file_load_failed

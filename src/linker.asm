@@ -1,7 +1,10 @@
 .include "errors.inc"
+.include "file.inc"
 .include "labels.inc"
 .include "macros.inc"
+.include "memory.inc"
 .include "string.inc"
+.include "strings.inc"
 .include "zeropage.inc"
 
 ;******************************************************************************
@@ -201,11 +204,23 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ;
 ; IN:
 ;  - .XY: pointer to the link filename
+;  - .A:  length of the filename
 ; OUT:
 ;  - .C: set if the file could not be successfully opened or parsed
 .export __link_parse
 .proc __link_parse
+@filebuff=mem::spare
+	pha
+	lda #<@filebuff
+	sta file::loadaddr
+	lda #>@filebuff
+	sta file::loadaddr+1
+	pla
 
+	jsr file::load		; load link file into filebuff
+	bcs @done		; return err if .C set
+
+@done:	rts
 .endproc
 
 ;******************************************************************************

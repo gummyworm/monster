@@ -5,6 +5,7 @@
 .include "memory.inc"
 .include "source.inc"
 .include "string.inc"
+.include "strings.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
@@ -18,6 +19,11 @@ file_devices = $261	; KERNAL device ID table
 kernal_sas   = $26d	; KERNAL secondary address table
 
 isbin        = zp::tmp17	; flag for binary save/load
+load_source = zp::tmpd	; !0 means we will insert to source instead of copying
+			; to memory
+
+.export __file_load_address
+__file_load_address = zp::tmpb
 
 ;******************************************************************************
 ; LOADDIR
@@ -27,30 +33,65 @@ isbin        = zp::tmp17	; flag for binary save/load
 ;  - .C: set on error, clear on success
 .export __file_loaddir
 .proc __file_loaddir
-@dst=zp::tmpb
 	lda #$00
 	sta secondaryaddr
-	ldx #<(mem::spare+40)
-	ldy #>(mem::spare+40)
-	stx @dst
-	sty @dst+1
-	ldxy #@dir
+	sta load_source
+	ldxy #(mem::spare+40)
+	stxy __file_load_address
+	ldxy #strings::dir
 	lda #$01
 	jmp load
-@dir:  .byte "$"
 .endproc
 
 ;******************************************************************************
 ; LOAD
+; loads the given file into the given memory address
+; IN:
+;  .XY:                the filename to load
+;  .A: 		       the length of the file
+;  file::file_load_address: the address to load the file to
+.export __file_load
+__file_load:
+	pha
+	lda #$00
+	sta load_source
+	pla
+	jmp doload
+
+;******************************************************************************
+; LOAD SOURCE
 ; loads the given file into a new source buffer
+; IN:
+;  .XY: the filename to load
+;  .A: the length of the file
+.export __file_load_src
+__file_load_src:
+@filename=zp::tmp10
+	stxy @filename
+	pha
+
+	lda #$01
+	sta load_source
+
+	jsr src::new
+	ldxy @filename
+	jsr src::name
+
+	pla
+	ldxy @filename
+
+	; fall through
+
+;******************************************************************************
+; DOLOAD
+; loads the given file into memory or a source file
 ; IN:
 ;  .XY: the filename to load
 ;  .A: the length of the file
 ;  zp::tmpb: the address to load the file to
 ; OUT:
 ;  .C: set on error, clear on success
-.export __file_load
-.proc __file_load
+.proc doload
 @filename=zp::tmp10
 @file=zp::tmp12
 	pha
@@ -76,10 +117,6 @@ isbin        = zp::tmp17	; flag for binary save/load
 	bcs @err
 	jsr __file_close
 
-	jsr src::new
-	ldxy @filename
-	jsr src::name
-
 	lda #$03
 	sta secondaryaddr
 	ldxy @filename
@@ -87,10 +124,9 @@ isbin        = zp::tmp17	; flag for binary save/load
 	; fallthrough
 .endproc
 ;--------------------------------------
-; load loads the filename given in (YX) (of length given in .A)
-; into the address contained by zp::tmp0
+; LOAD
+; This entrypoint loads the open file (in file 3)
 .proc load
-@dst=zp::tmpb
 @errcode=zp::tmpb
 @dev=$ba
 	pha
@@ -136,11 +172,11 @@ isbin        = zp::tmp17	; flag for binary save/load
 :	cmp #$09      ; convert TAB to space
 	bne :+
 	lda #' '
-:	ldx secondaryaddr
+:	ldx load_source	; are we loading to SOURCE?
 	bne @src
-@dir:	; if loading directory, write to memory
-	sta (@dst),y
-	incw @dst
+@dir:	; if not loading to SOURCE, write to memory
+	sta (__file_load_address),y
+	incw __file_load_address
 	bne @l0
 @src:	jsr src::insert
 	jmp @l0
@@ -384,8 +420,7 @@ isbin        = zp::tmp17	; flag for binary save/load
 ;  - .C: is set if an error occurred
 .export __file_getline
 .proc __file_getline
-@dst=zp::tmp0
-	stxy @dst
+	stxy __file_load_address
 	tax
 	jsr $ffc6     ; CHKIN (file in .A now used as input)
 
@@ -399,12 +434,12 @@ isbin        = zp::tmp17	; flag for binary save/load
 	cmp #$09	; TAB
 	bne :+
 	lda #' '
-:	sta (@dst),y
+:	sta (__file_load_address),y
 	iny
 	bne @l0
 
 @done:  lda #$00
-	sta (@dst),y	; 0-terminate the string
+	sta (__file_load_address),y	; 0-terminate the string
 	tya		; put # of bytes read in .A
 	RETURN_OK	; no error
 @ret:	cmp #$01	; set .C if error > 0
