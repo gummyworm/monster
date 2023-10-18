@@ -9,7 +9,7 @@ CBM_KEY_TABLE       = $ece0
 CTRL_KEY_TABLE      = $eda3
 CURSOR_LR_MASK      = 2
 
-REPEAT_TIME1 = 8	; time after 1st keypress to repeat
+REPEAT_TIME1 = 64	; time after 1st keypress to repeat
 REPEAT_TIME2  = 1	; time after successive repeats to repeat
 
 .CODE

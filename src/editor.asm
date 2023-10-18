@@ -111,12 +111,7 @@ selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
 ; Runs the main loop for the editor
 .export __edit_run
 .proc __edit_run
-main:
-	lda #$70
-	cmp $9004
-	bne *-3
-
-	jsr key::getch
+main:	jsr key::getch
 	beq @done
 
 	pha
@@ -131,10 +126,10 @@ main:
 	jsr is_visual
 	beq @done
 	jsr cur::on
+	jsr text::status
 
 @done:	jsr text::update
-	jsr text::status
-	jmp main
+	jmp main	; we've used enough time, go straight to getting a key
 .endproc
 
 ;******************************************************************************

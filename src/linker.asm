@@ -1,6 +1,7 @@
 .include "errors.inc"
 .include "labels.inc"
 .include "macros.inc"
+.include "string.inc"
 .include "zeropage.inc"
 
 ;******************************************************************************
@@ -70,6 +71,8 @@ segments_startlo: .res MAX_SEGMENTS
 segments_starthi: .res MAX_SEGMENTS
 segments_stoplo:  .res MAX_SEGMENTS
 segments_stophi:  .res MAX_SEGMENTS
+
+segment_names: .res 8*MAX_SEGMENTS
 
 ;******************************************************************************
 ; OBJECT CODE overview
@@ -530,6 +533,30 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 ;  - .A: the ID of the segment
 ;  - .C: set if no segment exists by the given name
 .proc get_segment_by_name
-	; TODO:
+@name=zp::str0
+@other=zp::str2
+@cnt=zp::tmp0
+	stxy @name
+	ldxy #segment_names
+	stxy @other
+
+	lda #$00
+	sta @cnt
+@l0:	lda #$08
+	jsr str::compare
+	beq @found
+	lda @other
+	clc
+	adc #$08
+	sta @other
+	ldx @cnt
+	inx
+	stx @cnt
+	cpx numsegments
+	bcc @l0
+@notfound:
+	rts
+
+@found: lda @cnt
 	rts
 .endproc
