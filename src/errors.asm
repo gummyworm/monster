@@ -134,6 +134,14 @@ err_no_open_scope:
 	; .byte "no open scope",0
 	.byte $73,$db,$7c,$5,$76,$d3,$1b,$d0,$28,$0
 
+err_no_sections:
+	; .byte "no sections",0
+	.byte $73,$db,$99,$43,$a2,$4f,$74,$c0
+
+err_section_too_small:
+	; .byte "section too small",0
+	.byte $99,$43,$a2,$4f,$76,$d4,$7b,$db,$9b,$41,$63,$0
+
 ;******************************************************************************
 errors: .word err_no_err	 ; no error
 	.word err_stack_underflow
