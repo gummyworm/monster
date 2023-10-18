@@ -73,6 +73,9 @@
 MAX_IFS      = 4 ; max nesting depth for .if/.endif
 MAX_CONTEXTS = 3 ; max nesting depth for contexts (activated by .MAC, .REP, etc)
 
+MAX_IMPORTS = 64
+MAX_EXPORTS = 32
+
 ;******************************************************************************
 ; $40-$4B available for assembly
 indirect   = zp::asm    ; 1=indirect, 0=absolute
@@ -101,6 +104,17 @@ contextstacksp: .byte 0
 .export __asm_origin
 __asm_origin:
 origin: .word 0	; the lowest address in the program
+
+;******************************************************************************
+; OBJ code data
+; the following variables are used for generating the object code during
+; assembly.  They are valid only for the compilation unit actively being
+; assembled (not the global assembly of every file)
+numexports: .byte 0
+exports:    .res MAX_EXPORTS*8
+
+numimports: .byte 0
+imports:    .res MAX_EXPORTS*8
 
 ;******************************************************************************
 ; ASMBUFFER
@@ -220,6 +234,9 @@ directives:
 .byte "endmac",0
 .byte "endrep",0
 .byte "incbin",0
+.byte "seg",0
+.byte "import",0
+.byte "export",0
 directives_len=*-directives
 
 ;******************************************************************************
@@ -1284,6 +1301,85 @@ __asm_tokenize:
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
 @done:	clc
 @ret:	rts
+.endproc
+
+;******************************************************************************
+; SET SEGMENT
+; Handles the .SEG directive. This sets the current segment to the segment whose
+; name follows the directive.
+;  e.g. `.SEG CODE`
+; NOTE: this directive is only meaningful when generating object code.  If we
+; are assembling to memory, .ORG directives should be used to set the program
+; counter.
+.proc set_segment
+
+.endproc
+
+;******************************************************************************
+; EXPORT
+; Exports the label that follows to the object file produced when the assembly
+; code is assembled.
+; e.g.
+; ```
+; .EXPORT LAB
+; LAB:
+;   ...
+; ```
+.proc export
+@lbl=zp::tmp0
+	jsr process_ws
+
+	lda numexports
+	asl
+	asl
+	asl
+	tax
+	adc #<exports
+	sta @lbl
+	lda #>exports
+	adc #$00
+	sta @lbl+1
+
+	; add the export to the list of exports
+	ldy #8-1
+:	lda (zp::line),y
+	sta (@lbl),y
+	dey
+	bpl :-
+	rts
+.endproc
+
+;******************************************************************************
+; IMPORT
+; Imports the label that follows to the object file produced when the assembly
+; code is assembled.
+; e.g.
+; ```
+; .IMPORT LAB
+; jsr LAB
+; ```
+.proc import
+@lbl=zp::tmp0
+	jsr process_ws
+
+	lda numimports
+	asl
+	asl
+	asl
+	tax
+	adc #<imports
+	sta @lbl
+	lda #>imports
+	adc #$00
+	sta @lbl+1
+
+	; add the export to the list of exports
+	ldy #8-1
+:	lda (zp::line),y
+	sta (@lbl),y
+	dey
+	bpl :-
+	rts
 .endproc
 
 ;******************************************************************************

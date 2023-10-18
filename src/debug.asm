@@ -34,7 +34,7 @@
 ;******************************************************************************
 ; Debug info constants
 MAX_FILES       = 24	; max files that debug info may be generated for
-MAX_SEGMENTS    = 32	; max segments that debug info may be generated for
+MAX_SEGMENTS    = 8	; max segments that debug info may be generated for
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
 MAX_WATCHPOINTS = 8	; max number of watchpoints that may be set
 MAX_LINES       = 8000	; max number of lines across all segments
@@ -177,7 +177,7 @@ filenames: .res MAX_FILES * 16
 numsegments: .byte 0
 
 ; 0-terminated names for each segment, can be 0-length for unnamed segments
-segmentnames: .byte 0
+segmentnames: .res MAX_SEGMENTS * 8
 
 ; table of start addresses for each segment
 .export segaddresses
@@ -437,12 +437,28 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; INITSEG
 ; Initializes a segment (as with .ORG)
 ; IN:
-;  .XY: the start address of the segment
+;  .XY:      the start address of the segment
+;  zp::tmp0: the name of the segment
 .export __debug_init_segment
 .proc __debug_init_segment
-@tmp=zp::tmp1
-@addr=zp::tmp2
+@name=zp::tmp0
+@tmp=zp::tmp2
+@addr=zp::tmp3
 	stxy @addr
+
+	; copy the segment name
+	lda numsegments
+	asl
+	asl
+	asl
+	tax
+	ldy #$00
+@l0:	lda (@name),y
+	sta segmentnames,x
+	iny
+	inx
+	cpy #$08
+	bne @l0
 
 	; get the address of the segment
 	lda numsegments	; *6 to get offset for this segment
@@ -620,16 +636,46 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Activates the initialized segment (see dbg::initseg) from the given name
 ; This is for use with the .SEG directive
 ; IN:
-;  - .XY: name of the segment
+;  - .XY: name of the segment (as 0-terminated string)
 ; OUT:
 ;  - .C: set on error
 .export __debug_startsegment_byname
 .proc __debug_startsegment_byname
-@name=zp::tmp0
+@name=zp::str0
+@other=zp::str2
+@cnt=zp::tmp0
 	stxy @name
+	ldxy #segmentnames
+	stxy @other
+	lda #$00
+	sta @cnt
+@l0:	jsr str::comparez
+	beq @found
+	lda @other
+	clc
+	adc #$08
+	sta @other
+	bcc :+
+	inc @other+1
+:	inc @cnt
+	lda @cnt
+	cmp numsegments
+	bne @l0
 
-	; find the address of the segment from its name
-	; TODO:
+	sec		; segment not found
+	rts
+
+@found:
+	; load pointers for this segment and return
+	; TODO: verify stop address is within designated memory section)
+	lda @cnt
+	jsr get_segment_by_id
+
+	; set addr to the current STOP address
+	lda segstop
+	sta addr
+	lda segstop+1
+	sta addr+1
 	RETURN_OK
 .endproc
 

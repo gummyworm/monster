@@ -9,6 +9,9 @@ CBM_KEY_TABLE       = $ece0
 CTRL_KEY_TABLE      = $eda3
 CURSOR_LR_MASK      = 2
 
+REPEAT_TIME1 = 8	; time after 1st keypress to repeat
+REPEAT_TIME2  = 1	; time after successive repeats to repeat
+
 .CODE
 
 ;******************************************************************************
@@ -20,14 +23,27 @@ CURSOR_LR_MASK      = 2
 .proc __key_getch
 @x=zp::tmpe
 	jsr Keyboard
-
 	pha
+
+
 	; restore DDR
 	lda #$00
 	sta $9112
 	lda #$80
 	sta $9113
-	pla
+
+	lda rep_counter
+	beq :+
+	dec rep_counter
+	bne :+
+	lda #$00
+	sta BufferOld
+	sta BufferOld+1
+	sta BufferOld+2
+	lda #REPEAT_TIME2
+	sta rep_counter
+
+:	pla
 
 	bcs @nokey
 	cmp #$ff
@@ -412,6 +428,9 @@ ScanLoop:
 	inc BufferQuantity
 	ldy BufferQuantity
 	sta Buffer,y
+
+	lda #REPEAT_TIME1
+	sta rep_counter
 	; Keep track of how many new Alphanumeric keys are detected
 	inc SimultaneousKeys
 	beq TooManyNewKeys
@@ -462,3 +481,6 @@ BufferOld:                        .byte $00, $00, $00
 Buffer:                           .byte $00, $00, $00, $00
 BufferQuantity:                   .byte $00
 SimultaneousAlphanumericKeysFlag: .byte $00
+
+; global counter for when BufferOld is cleared
+rep_counter: .byte 0
