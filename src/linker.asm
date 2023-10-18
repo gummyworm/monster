@@ -18,11 +18,18 @@ SEGMENT_RO     = $01
 SEGMENT_DEFINE = $02
 
 ;******************************************************************************
+; ZEROPAGE variables
+objptr=zp::asm
+segptr=zp::asm+2
+
+;******************************************************************************
 .BSS
 
 numsegments: .byte 0
 numsections: .byte 0
 numfiles:    .byte 0
+
+activeseg: .byte 0	; the current SEGMENT being assembled to
 
 ;******************************************************************************
 ; SECTIONS
@@ -61,6 +68,8 @@ segments_sizehi: .res MAX_SEGMENTS
 
 segments_startlo: .res MAX_SEGMENTS
 segments_starthi: .res MAX_SEGMENTS
+segments_stoplo:  .res MAX_SEGMENTS
+segments_stophi:  .res MAX_SEGMENTS
 
 ;******************************************************************************
 ; OBJECT CODE overview
@@ -97,8 +106,9 @@ segments_starthi: .res MAX_SEGMENTS
 ;******************************************************************************
 ; OBJ Code Constants
 ; These represent the "instructions" of the object code
-OBJ_BYTES = $01 	; defines a literal byte value
-OBJ_RELWORD = $02	; defines a value of an imported symbol W LAB
+OBJ_BYTES   = $01 	; defines literal byte values e.g. "B 4 0 1 2 3"
+OBJ_RELWORD = $02	; defines a value of an imported symbol "W LAB"
+OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 
 ;******************************************************************************
 .CODE
@@ -271,20 +281,29 @@ OBJ_RELWORD = $02	; defines a value of an imported symbol W LAB
 ; Handles the main block of the object code defintion using the data extracted
 ; from the OBJ headers.
 .proc link_object
-@fptr=zp::tmp0
 	; TODO: set IMPORTs for this OBJ file
 
 @l0:	ldy #$00
-	lda (@fptr),y	; get an "instruction" from the OBJ code
+	lda (objptr),y	; get an "instruction" from the OBJ code
+	incw objptr	; move past "opcode"
+	clc
 	beq @done
-	cmp #OBJ_BYTES
+
+	cmp #OBJ_BYTES		; bytes
 	bne :+
 	jsr obj_bytes
 	jmp @l0
-:	cmp #OBJ_RELWORD
+
+:	cmp #OBJ_RELWORD	; relative word?
 	bne :+
 	jsr obj_rel_word
 	jmp @l0
+
+:	cmp #OBJ_SETSEG		; set segment?
+	bne @done		; unrecognized "opcode"
+	jsr set_seg
+	bcc @l0			; if no, error continue loop
+
 @done:	rts
 .endproc
 
@@ -294,6 +313,25 @@ OBJ_RELWORD = $02	; defines a value of an imported symbol W LAB
 ; Assembles the bytes that follow to the address of the current segment pointer,
 ; which is updated upon doing so
 .proc obj_bytes
+@ptr=zp::tmp0
+@cnt=zp::tmp2
+	ldy #$00
+	lda (objptr),y ; read the number of bytes to output
+	sta @cnt
+
+	incw objptr
+	lda (objptr),y ; read the number of bytes to output (hi)
+	sta @cnt+1
+
+	incw objptr
+
+@l0:	lda (objptr),y	; get the byte to write to the binary
+	sta (segptr),y	; output the byte from the object file
+	incw segptr
+	incw objptr
+	decw @cnt
+	bne @l0
+
 	rts
 .endproc
 
@@ -309,7 +347,59 @@ OBJ_RELWORD = $02	; defines a value of an imported symbol W LAB
 ; The binary representation of the above command looks like this:
 ;  ` $02 $0030 $0c`
 .proc obj_rel_word
+	ldy #$00
+	lda (objptr),y
+	sta (segptr),y
+	incw objptr
+	incw segptr
+	lda (objptr),y
+	sta (segptr),y
+
+	; update object code and segment pointers
+	incw objptr
+	incw segptr
 	rts
+.endproc
+
+;******************************************************************************
+; SET SEG
+; Sets the segment to the given segment name
+; e.g.
+;  SEG "DATA"
+; The binary representatino is similar
+;  $03 "DATA",0
+; Where $03 is the binary opcode for "SEG" and "DATA" is still the literal
+; segment data (0-terminated)
+.proc set_seg
+	; store the current end address of the active segment
+	ldx activeseg
+	lda segptr
+	sta segments_stoplo,x
+	lda segptr+1
+	sta segments_stophi,x
+
+	ldxy objptr
+	jsr get_segment_by_name
+	bcs @done		; return error if not found
+	sta activeseg
+	tax
+	lda segments_stoplo,x
+	sta segptr
+	lda segments_stophi,x
+	sta segptr+1
+
+	; move past the name
+	ldy #$ff
+:	iny
+	lda (objptr),y
+	bne :-
+
+	tya
+	sec			; +1 (get past the 0)
+	adc objptr
+	bcc @done
+	inc objptr+1
+@done:	rts
 .endproc
 
 ;******************************************************************************
