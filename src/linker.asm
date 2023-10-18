@@ -97,8 +97,8 @@ segments_starthi: .res MAX_SEGMENTS
 ;******************************************************************************
 ; OBJ Code Constants
 ; These represent the "instructions" of the object code
-OBJ_BYTES = $01 ; defines a literal byte value
-OBJ_WORDS = $02	; defines a value of an imported symbol W LAB
+OBJ_BYTES = $01 	; defines a literal byte value
+OBJ_RELWORD = $02	; defines a value of an imported symbol W LAB
 
 ;******************************************************************************
 .CODE
@@ -262,16 +262,53 @@ OBJ_WORDS = $02	; defines a value of an imported symbol W LAB
 	bcc @ok
 @err:	RETURN_ERR ERR_SECTION_TOO_SMALL
 
-@ok:	jmp link_objects
+@ok:	jmp link_object
 	; finally, read through each .obj file's body and build the binary
 .endproc
 
 ;******************************************************************************
-; LINK OBJCODE
+; LINK OBJECT
 ; Handles the main block of the object code defintion using the data extracted
 ; from the OBJ headers.
-.proc link_objects
-	; TODO:
+.proc link_object
+@fptr=zp::tmp0
+	; TODO: set IMPORTs for this OBJ file
+
+@l0:	ldy #$00
+	lda (@fptr),y	; get an "instruction" from the OBJ code
+	beq @done
+	cmp #OBJ_BYTES
+	bne :+
+	jsr obj_bytes
+	jmp @l0
+:	cmp #OBJ_RELWORD
+	bne :+
+	jsr obj_rel_word
+	jmp @l0
+@done:	rts
+.endproc
+
+;******************************************************************************
+; OBJ_BYTES
+; Handles the OBJ_BYTES command
+; Assembles the bytes that follow to the address of the current segment pointer,
+; which is updated upon doing so
+.proc obj_bytes
+	rts
+.endproc
+
+;******************************************************************************
+; OBJ_REL_WORD
+; Handles the OBJ_REL_WORD command
+; Inserts a WORD with the value of the symobl that follows + an offset to
+; the current address of the segment pointer
+; A textual representation of this command looks like this:
+;  `RW LABEL 12`
+; LABEL is defined in the IMPORT section for the object code, so its binary
+; representation refers to the offset in the IMPORT table
+; The binary representation of the above command looks like this:
+;  ` $02 $0030 $0c`
+.proc obj_rel_word
 	rts
 .endproc
 
