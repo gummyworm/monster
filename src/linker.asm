@@ -6,8 +6,9 @@
 
 ;******************************************************************************
 ; CONSTANTS
-MAX_SECTIONS = 8
-MAX_SEGMENTS = 8
+MAX_SECTIONS = 8	; the maximum number of memory sections
+MAX_SEGMENTS = 8	; the maximum number of segments across all objects
+MAX_OBJS     = 16	; the maximum number of object files that may be used
 
 ;******************************************************************************
 ; SECTION flags
@@ -26,10 +27,12 @@ segptr=zp::asm+2
 ;******************************************************************************
 .BSS
 
+numobjects:  .byte 0
 numsegments: .byte 0
 numsections: .byte 0
 numfiles:    .byte 0
 
+activeobj: .byte 0
 activeseg: .byte 0	; the current SEGMENT being assembled to
 
 ;******************************************************************************
@@ -48,6 +51,14 @@ sections_starthi: .res MAX_SECTIONS
 sections_stoplo:  .res MAX_SECTIONS
 sections_stophi:  .res MAX_SECTIONS
 sections_flags:   .res MAX_SECTIONS
+
+;******************************************************************************
+; IMPORT TABLES
+; Each object file has its own table of imports. This allows the object code to
+; store refrences to external labels in a more efficient manner: by storing the
+; index to the label in the IMPORT table instead of the label itself.
+import_tabslo: .res MAX_OBJS
+import_tabshi: .res MAX_OBJS
 
 ;******************************************************************************
 ; SEGMENTS
@@ -211,12 +222,13 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 	; init the segment/section pointers using the linker state defined by
 	; the link file
 	ldx numsegments
-	bne :+
+	bne @initsegments
 	; TODO:create a default CODE segment
 	sec
 	rts
 
-:	dex
+@initsegments:
+	dex
 	txa
 	asl
 	tay
@@ -231,10 +243,11 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 
 	; init secptrs to the start addresses of each section
 	ldx numsections
-	bne :+
+	bne @initsections
 	RETURN_ERR ERR_NO_SECTIONS
 
-:	dex
+@initsections:
+	dex
 	txa
 	asl
 	tay
@@ -268,15 +281,24 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 	; make sure START is still less than STOP for the SECTION
 	lda sections_starthi,y
 	cmp sections_stophi,y
-	bcc @ok
+	bcc @objects
 	bne @err			; if STARTHI > STOPHI, return err
 	lda sections_startlo,y
 	cmp sections_stoplo,y
-	bcc @ok
+	bcc @objects			; if ok, link the objects
 @err:	RETURN_ERR ERR_SECTION_TOO_SMALL
 
-@ok:	jmp link_object
-	; finally, read through each .obj file's body and build the binary
+; iterate over each object file and link them
+@objects:
+	lda #$00
+	jsr link_object		; link the object
+	bcs @done		; if .C set, return with error
+	inc activeobj		; next object
+	lda activeobj
+	cmp numobjects
+	bne @objects
+	clc			; success
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -284,6 +306,7 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ; Handles the main block of the object code defintion using the data extracted
 ; from the OBJ headers.
 .proc link_object
+	ldx activeobj
 	; TODO: set IMPORTs for this OBJ file
 
 @l0:	ldy #$00
