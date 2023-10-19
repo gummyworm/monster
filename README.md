@@ -722,6 +722,10 @@ characters provided) and looks for that value in memory.
 If it is found, the memory view is updated to begin at the first address
 that was found containing the specified value.
 
+Note that when seeking for a 16 bit value, the value is searched in little-endian
+format.  If the input for the search is given as `$1234` the result will be
+the first occurrence of the byte value `$34` followed by `$12`.
+
 ### *Breakpoint Viewer (`F5` while debugging)*
 The breakpoint viewer displays all the breakpoints that have been set by the
 user.  A circle is displayed next to those that are currently active.

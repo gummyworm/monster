@@ -260,7 +260,10 @@ memaddr:   .word 0
 
 ;--------------------------------------
 @find:	pushcur
+@len=zp::tmp0
 	jsr text::clrline
+	lda #MEMVIEW_STOP
+	sta zp::cury
 	jsr text::drawline
 
 	lda #$00
@@ -270,12 +273,11 @@ memaddr:   .word 0
 	lda #TEXT_INSERT
 	sta text::insertmode
 
-	lda #MEMVIEW_STOP
-	sta zp::cury
 	lda #$00
 	sta zp::curx
 	ldxy #key::getch
 	jsr edit::gets		; get the string to parse
+	sta @len		; save the string len; 1-2: byte, >2: word
 
 	popcur
 	lda #CUR_SELECT
@@ -285,8 +287,15 @@ memaddr:   .word 0
 
 	jsr util::parsehex	; parse the user's given hex string
 	bcs @find		; if invalid hex, retry
-	jsr find_word		; look for the value
-	bcs @reset
+	lda @len
+	cmp #$03
+	bcs @word			; 3-4 characters -> find a word
+	txa
+	ldxy memaddr
+	jsr find_byte		; find byte
+	jmp @cont
+@word:	jsr find_word		; find the word we're looking for
+@cont:	bcs @reset
 	stxy memaddr		; set address of word to memaddr
 @reset: jmp __view_mem		; restart the viewer at the word's address
 .endproc

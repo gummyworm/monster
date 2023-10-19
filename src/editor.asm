@@ -457,11 +457,13 @@ main:	jsr key::getch
 ;  - .XY: callback to a function to accept/validate input (e.g. key::getch)
 ; OUT:
 ;  - .XY: 	      address of the string that was read
+;  - .A:              length of the string that was read
 ;  - .C:              set if no input was given (e.g. <-)
 ;  - mem::linebuffer: the string contents
 .export __edit_gets
 .proc __edit_gets
 @result_offset=zp::tmp8
+@len=zp::tmp9
 	stxy zp::jmpvec
 
 	ldx zp::curx
@@ -495,10 +497,13 @@ main:	jsr key::getch
 	inx
 	bne @saveres
 
-:	jsr cur::off
+:	stx @len		; store the length of the string
+	jsr cur::off
+
 	; get address of the result
 	ldx @result_offset
 	ldy #$01
+	lda @len
 
 	plp			; get success state
 	rts
