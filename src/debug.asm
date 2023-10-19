@@ -904,7 +904,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @nextline:
 	jsr nextline
 	bcc @findline
-	jmp *
 	rts
 .endproc
 
@@ -1990,6 +1989,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq @penalty
 	cmp #$20	; JSR needs +1 cycle to handle return address internally
 	bne @done
+	inc @cycles
 @penalty:
 	inc @cycles
 
@@ -2311,18 +2311,19 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stx @cnt
 @store: lda @cnt
 	tax
-	lsr
-	tay
+
 	lda @tosave,x
 	sta @addr
 	ldy @tosave+1,x
 	sty @addr+1
 	tax
+	jsr is_internal_address
+	bne :+			; skip if not internal address
 
 	jsr vmem::load		; load the user byte to store from vmem
 	ldy #$00
 	sta (@addr),y		; store it to the physical address
-	dec @cnt
+:	dec @cnt
 	dec @cnt
 	bpl @store
 
@@ -2347,9 +2348,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @cnt=zp::tmp0
 @addr=zp::tmp1
 @tosave=zp::tmp3
+@ysave=zp::tmp5
 	lda swapmem
 	bne @swapall
 
+@fastswap:
 	; save [prevpc, prevpc+2], [msave], and [steppoint] for the user
 	; program
 	lda prev_pc+1
@@ -2397,15 +2400,21 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @store: lda @cnt
 	tax
 	lsr
-	tay
+	sta @ysave
+
+	ldy @tosave+1,x
+	sty @addr+1
 	lda @tosave,x
 	sta @addr
-	lda @tosave+1,x
-	sta @addr+1
+	tax
+	jsr is_internal_address	; if not an internal address, leave it alone
+	bne :+
+
+	ldy @ysave
 	lda debug_state_save,y	; get the byte to restore
 	ldy #$00
 	sta (@addr),y		; restore the byte
-	dec @cnt
+:	dec @cnt
 	dec @cnt
 	bpl @store
 
