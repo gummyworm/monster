@@ -695,7 +695,7 @@ Pressing the `<-` key will return the user from the auxiliary editor to the
 source code editor.  And `F1` will hide the active viewer to maximize the
 source editor's screen size.
 
-### Memory Viewer (`F3` while debugging)
+### *Memory Viewer (`F3` while debugging)*
 The memory viewer displays the contents of RAM at a given address.  The memory
 viewer is updated upon reentry to the debugger (if active).
 Memory values may be updated by navigating to the value the user wishes to
@@ -716,13 +716,13 @@ by pressing the `C= + w` key-combination while the cursor is on the desired
 byte to watch. See the _Watch Viewer_ section for more information on
 watches.
 
-#### Find Value
+#### Find Value (`/`)
 Prompts the user for an 8 or 16 bit value (determined by the number of
 characters provided) and looks for that value in memory.
 If it is found, the memory view is updated to begin at the first address
 that was found containing the specified value.
 
-### Breakpoint Viewer (`F5` while debugging)
+### *Breakpoint Viewer (`F5` while debugging)*
 The breakpoint viewer displays all the breakpoints that have been set by the
 user.  A circle is displayed next to those that are currently active.
 The user simply navigates the list with the cursor keys and presses RETURN to
@@ -732,7 +732,7 @@ Note that breakpoints correspond to the debug information generated with
 the F4 command.  If the line numbers change after this information is generated,
 breakpoints are unlikely to behave in expected ways.
 
-### Watch Viewer (`F7` while debugging)
+### *Watch Viewer (`F7` while debugging)*
 The watch viewer displays all watches that have been set in the memory
 viewer.  The current value of a watch is shown along with its previous
 value (if it has changed since the debugger last took over).
