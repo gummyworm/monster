@@ -705,7 +705,7 @@ In addition to hexadecimal keys to edit memory values, the following commands
 are supported within the memory viewer:
 
 | Shortcut | Name      |  Description                                      |
-|--------------------------------------------------------------------------|
+|----------|-----------|---------------------------------------------------|
 | C= + w   | Add watch | Add watch to the highlighted address              |
 |    /     | Find Value| Seeks from current memory address for given value |
 |   <-     |  Exit     | Returns to the debugger                           |
