@@ -234,7 +234,6 @@ directives:
 .byte "endmac",0
 .byte "endrep",0
 .byte "incbin",0
-.byte "seg",0
 .byte "import",0
 .byte "export",0
 directives_len=*-directives
@@ -1301,18 +1300,6 @@ __asm_tokenize:
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
 @done:	clc
 @ret:	rts
-.endproc
-
-;******************************************************************************
-; SET SEGMENT
-; Handles the .SEG directive. This sets the current segment to the segment whose
-; name follows the directive.
-;  e.g. `.SEG CODE`
-; NOTE: this directive is only meaningful when generating object code.  If we
-; are assembling to memory, .ORG directives should be used to set the program
-; counter.
-.proc set_segment
-
 .endproc
 
 ;******************************************************************************

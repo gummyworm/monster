@@ -157,7 +157,6 @@ advance:   .byte 0	; not zero if a command continues program execution
 swapmem:   .byte 0      ; not zero if we need to swap in user RAM
 
 aux_mode:         .byte 0	; the active auxiliary view
-auto_swap_memory: .byte 0	; if 1, ALL memory will be swapped on BRK
 highlight_line:	  .word 0 	; the line we are highlighting
 
 action:	.byte 0		; the last action performed e.g. ACTION_STEP
@@ -241,7 +240,10 @@ segaddresses: .res MAX_SEGMENTS * 2
 ; Address/lines are stored sequentially within a segment until a .ORG is
 ; encountered at which point a new segment begins.
 ;
-; TODO: support .SEG
+; NOTE: the term "segment" in the debugger refers to a contiguous block of
+; lines. That is, lines that all reside within the segment's start and stop
+; addresses.
+;
 ; TODO: store more compactly? e.g. store offsets for line/addr from previous
 ;******************************************************************************
 
@@ -1011,11 +1013,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .A: the file ID to get the filename of
 ; OUT:
 ;  - .XY: the filename for the given file ID
-;  - .C: set if no filename could be resolved
+;  - .C: set if there is no filename for the given file (XY will STILL
+;        point to the address the filename WOULD exist at)
 .export __debug_get_filename
 .proc __debug_get_filename
-	cmp numfiles
-	bcs @done
+	pha
 	asl
 	asl
 	asl
@@ -1025,7 +1027,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #>filenames
 	adc #$00
 	tay
-@done:	rts
+	pla
+	cmp numfiles		; set .C if file ID is >= numfiles
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1052,8 +1056,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .A: the file ID for the newly copied file
 ;  - .C: clear on success, set on error
 .proc storefile
-@src=zp::tmp0
-@filename=zp::tmp2
+@src=zp::tmp2
+@filename=zp::tmp0
 	stxy @src
 
 	; if filename is empty, return an error
@@ -1064,24 +1068,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @getfiledst:
 	; find the location to store the filename to
 	lda numfiles
-	asl		; *2
-	asl		; *4
-	asl		; *8
-	asl		; *16
-	adc #<filenames
-	sta @filename
-	lda #>filenames
-	adc #$00
-	sta @filename+1
+	jsr __debug_get_filename ; get the address where the new file will be
+	stxy @filename		 ; store as filename dest
 
-	ldy #$00
-@copyfilename:
-	lda (@src),y
-	sta (@filename),y
-	beq :+
-	iny
-	bne @copyfilename
-:	lda numfiles
+	ldxy @src
+	jsr str::copy		; copy @src to zp::tmp0 (@filename)
+
+	lda numfiles
 	inc numfiles
 	RETURN_OK
 .endproc
@@ -1472,25 +1465,21 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta advance	; by default, don't return to program after command
 	jsr cur::off
 	pla
-	ldx #num_commands
+	ldx #num_commands-1
 @getcmd:
-	dex
-	bmi @nocmd	; unrecognized key, give to editor
 	cmp commands,x
-	bne @getcmd
 	beq @runcmd
+	dex
+	bpl @getcmd
 
 @nocmd:	jsr edit::handlekey
 	jmp @finishloopiter
 
 @runcmd:
 	sei
-	txa
-	asl
-	tax
-	lda command_vectors,x	 ; vector LSB
+	lda command_vectorslo,x	 ; vector LSB
 	sta zp::jmpvec
-	lda command_vectors+1,x ; vector MSB
+	lda command_vectorshi,x  ; vector MSB
 	sta zp::jmpvec+1
 
 	jsr zp::jmpaddr		; call the command
@@ -1704,14 +1693,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta zp::jmpaddr
 	; restore the user $1000 data
 	CALL FINAL_BANK_FASTCOPY, #fcpy::restore
-	rts
-.endproc
-
-;******************************************************************************
-.proc auto_toggle_memory_swap
-	lda #$01
-	eor auto_swap_memory
-	sta auto_swap_memory
 	rts
 .endproc
 
@@ -3392,7 +3373,6 @@ branch_masks:
 ;******************************************************************************
 commands:
 	.byte K_QUIT
-	.byte $b0	; C=+a (toggle auto swap memory)
 	.byte K_STEP
 	.byte K_STEPOVER
 	.byte K_GO
@@ -3405,17 +3385,11 @@ commands:
 	.byte K_SWAP_USERMEM
 	.byte K_RESET_STOPWATCH
 num_commands=*-commands
-command_vectors:
-	.word quit
-	.word auto_toggle_memory_swap
-	.word step
-	.word step_over
-	.word go
-	.word trace
-	.word edit_source
-	.word edit_mem
-	.word edit_breakpoints
-	.word edit_watches
-	.word set_breakpoint
-	.word swap_user_mem
-	.word reset_stopwatch
+
+.linecont +
+.define command_vectors quit, step, step_over, go, \
+	trace, edit_source, edit_mem, edit_breakpoints, edit_watches, \
+	set_breakpoint, swap_user_mem, reset_stopwatch
+.linecont -
+command_vectorslo: .lobytes command_vectors
+command_vectorshi: .hibytes command_vectors
