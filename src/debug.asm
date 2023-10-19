@@ -1554,29 +1554,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 :	rts
 .endproc
 
-
-;******************************************************************************
-.export __debug_handle_fkeys
-.proc __debug_handle_fkeys
-	cmp #$85	; F1
-	bcc @done
-	cmp #$88	; F7
-	bcs @done
-	sec
-	sbc #$85
-	tax
-	lda @lo,x
-	sta zp::jmpvec
-	lda @hi,x
-	sta zp::jmpvec
-	jmp zp::jmpaddr
-@done:	rts
-
-.define handlers edit_source, edit_mem, edit_breakpoints
-@lo: .lobytes handlers
-@hi: .hibytes handlers
-.endproc
-
 ;******************************************************************************
 ; RESTORE_DEBUG_STATE
 ; Restores the saved debugger state
