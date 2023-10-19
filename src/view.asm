@@ -86,6 +86,7 @@ memaddr:   .word 0
 
 	cmp #K_UP
 	bne :+
+	jsr cur::off
 	ldy #$ff
 	ldx #0
 	jsr cur::move
@@ -94,6 +95,7 @@ memaddr:   .word 0
 
 :	cmp #K_DOWN
 	bne :+
+	jsr cur::off
 	ldy #1
 	ldx #0
 	jsr cur::move
@@ -268,13 +270,12 @@ memaddr:   .word 0
 
 	lda #$00
 	sta cur::minx
+	sta zp::curx
 	lda #CUR_NORMAL
 	sta cur::mode
 	lda #TEXT_INSERT
 	sta text::insertmode
 
-	lda #$00
-	sta zp::curx
 	ldxy #key::getch
 	jsr edit::gets		; get the string to parse
 	sta @len		; save the string len; 1-2: byte, >2: word
@@ -297,7 +298,7 @@ memaddr:   .word 0
 @word:	jsr find_word		; find the word we're looking for
 @cont:	bcs @reset
 	stxy memaddr		; set address of word to memaddr
-@reset: jmp __view_mem		; restart the viewer at the word's address
+@reset: jmp __view_edit		; restart the viewer at the word's address
 .endproc
 
 ;******************************************************************************
@@ -375,6 +376,10 @@ memaddr:   .word 0
 	lda #MEMVIEW_START
 	jsr text::print
 	lda #MEMVIEW_START
+	jsr bm::rvsline
+	lda #MEMVIEW_STOP
+	jsr bm::clrline
+	lda #MEMVIEW_STOP
 	jsr bm::rvsline
 
 	; initialize line to empty (all spaces)

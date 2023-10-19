@@ -36,8 +36,8 @@
 
 	lda @curr
 	cmp #INDENT_LEVEL	; is opcode already in column 10?
-	beq @cont	; continue if so
-	bcs @shl	; if >10, delete extra padding
+	beq @cont		; continue if so
+	bcs @shl		; if >10, delete extra padding
 
 @shr:	lda #' '
 	jsr src::insert
