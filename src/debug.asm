@@ -1951,12 +1951,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @chkrmw:
 	lda affected
 	and #OP_LOAD|OP_STORE	; RMW instructions need a cycle to modify
-	bne @penalty
+	cmp #OP_LOAD|OP_STORE
+	beq @penalty
 
 @chkindexed:
 	lda op_mode
 	and #MODE_X_INDEXED|MODE_Y_INDEXED
-	bne @chkbra
+	beq @chkbra
 
 @handleindexed:
 	lda affected
@@ -1971,16 +1972,18 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 @chkbra:
 	lda branch_taken
-	bne @chkstack		; if no branch was taken continue
-	lda steppoint+1
+	beq @chkstack		; if no branch was taken continue
+	inc @cycles		; +1 cycle if branch taken
+	lda steppoint+1		; get target MSB
 	cmp pc+1		; is the target on the same page?
-	bne @penalty		; different page -> 1 cycle penalty
+	bne @penalty		; different page -> 1 MORE cycle penalty
 
 @chkstack:
 	lda affected
 	and #OP_STACK|OP_LOAD	; pulling off stack requires extra cycle
 				; this will also catch the extra JSR byte read
-	beq @chkrts
+	cmp #OP_STACK|OP_LOAD
+	bne @chkrts
 	inc @cycles
 
 @chkrts:
@@ -2931,10 +2934,9 @@ __debug_remove_breakpoint:
 .proc get_segment_by_id
 @info=zp::tmp0
 	cmp numsegments
-	bcc :+
-	rts		; err, segment doesn't exist
+	bcs @done	; return error
 
-:	pha
+	pha
 
 	; multiply segment number by 6 (sizeof(segdata))
 	sta @info
@@ -2963,7 +2965,8 @@ __debug_remove_breakpoint:
 	lda segaddresses+1,x
 	sta line+1
 
-	RETURN_OK
+	clc			; OK
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -3042,7 +3045,6 @@ __debug_remove_breakpoint:
 	sta stopwatch+2
 	rts
 .endproc
-
 ;******************************************************************************
 ; End the .DEBUG segment
 
