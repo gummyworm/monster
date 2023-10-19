@@ -6,6 +6,7 @@
 .import __util_is_null_return_space_comma_closingparen_newline
 .import __util_memset
 .import __util_memcpy
+.import __util_parsehex
 .import __util_todec
 .import __util_todec24
 .import atoi
@@ -25,6 +26,7 @@
 	memset                = __util_memset
 	memcpy                = __util_memcpy
 	parse_enquoted_string = __util_parse_enquoted_string
+	parsehex	      = __util_parsehex
 	todec                 = __util_todec
 	todec24		      = __util_todec24
 .endscope

@@ -421,6 +421,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	beq @moveback	; if REPLACE, just move cursor
 @shift_left:
 	jsr __text_linelen
+	lda #$00
+	sta mem::linebuffer,x
 	txa
 	tay
 	ldx zp::curx

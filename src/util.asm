@@ -114,6 +114,54 @@
 .endproc
 
 ;******************************************************************************
+; PARSE HEX
+; Returns the 16-bit binary value of the given hex string.
+; IN:
+;  - .XY: the address of the string to parse
+; OUT:
+;  - .XY: set
+;  - .C:  set on error
+.export __util_parsehex
+.proc __util_parsehex
+@str=zp::util
+@result=zp::util+2
+	lda #$00
+	sta @result
+	sta @result+1
+	stxy @str
+
+	ldy #$ff
+@l0:	iny
+	lda (@str),y
+	bne @l0
+
+	dey			; go back to the last character (the LSB)
+	ldx #$00
+@l1:	lda (@str),y
+	jsr __util_chtohex
+	bcs @done		; return err
+	sta @result,x
+	dey
+	bmi @ok
+	lda (@str),y
+	jsr __util_chtohex
+	bcs @done
+	asl
+	asl
+	asl
+	asl
+	ora @result,x
+	sta @result,x
+	inx
+	dey
+	bpl @l1
+
+@ok:	clc
+	ldxy @result
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; ATOI
 ; Returns the value of the decimal string given in .XY.
 ; The string must be terminated by a \0, $0d (newline), or ','.

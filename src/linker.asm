@@ -220,6 +220,8 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 	jsr file::load		; load link file into filebuff
 	bcs @done		; return err if .C set
 
+	; TODO: parse the file buff for sections and segments
+
 @done:	rts
 .endproc
 
@@ -228,7 +230,9 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ; Links all files that were added to the linker (link::addfile) and produces
 ; the linked executable as a file with the given name.
 ; IN:
-;  - .XY: the filename to produce from the linked files
+;  - .XY:            the filename to produce from the linked files
+;  - .A:             the number of input files
+;  - link::objfiles: array of the files to link
 ; OUT:
 ;  - .C: set on error
 .proc __link_link
@@ -274,6 +278,9 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 	dey
 	dey
 	bpl @l1
+
+	; load each .obj file
+
 
 	; extract header data foreach file and update pointers to each file
 	; to the main block of the .obj file

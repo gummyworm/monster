@@ -1,7 +1,7 @@
 .import __file_close
 .import __file_getline
 .import __file_load
-.import __file_load_address
+.importzp __file_load_address
 .import __file_loaddir
 .import __file_load_src
 .import __file_open

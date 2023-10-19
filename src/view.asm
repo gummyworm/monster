@@ -3,6 +3,7 @@
 .include "cursor.inc"
 .include "debug.inc"
 .include "edit.inc"
+.include "errors.inc"
 .include "expr.inc"
 .include "finalex.inc"
 .include "key.inc"
@@ -63,7 +64,7 @@ memaddr:   .word 0
 	ldx #COL_START
 	jsr cur::set
 
-	lda #$00	; REPLACE mode
+	lda #TEXT_REPLACE
 	sta text::insertmode
 
 	jsr __view_mem
@@ -83,7 +84,7 @@ memaddr:   .word 0
 	cmp #K_RETURN	; RETURN (done)
 	beq @done
 
-	cmp #K_UP	; up arrow
+	cmp #K_UP
 	bne :+
 	ldy #$ff
 	ldx #0
@@ -91,7 +92,7 @@ memaddr:   .word 0
 	jsr cur::on
 	jmp @edit
 
-:	cmp #$11
+:	cmp #K_DOWN
 	bne :+
 	ldy #1
 	ldx #0
@@ -99,20 +100,24 @@ memaddr:   .word 0
 	jsr cur::on
 	jmp @edit
 
-:	cmp #$14	; delete
+:	cmp #K_DEL
 	beq @retreat
-	cmp #$9d	; left
+	cmp #K_LEFT
 	bne :+
 @retreat:
 	jsr @prev_x
 	jsr cur::on
 	jmp @edit
 
-:	cmp #$1d	; right
+:	cmp #K_RIGHT
 	bne :+
 	jsr @next_x
 	jsr cur::on
 	jmp @edit
+
+:	cmp #K_FIND
+	bne :+
+	jmp @find
 
 :	jsr key::ishex
 	bcs @replace_val
@@ -252,6 +257,38 @@ memaddr:   .word 0
 	.byte COL_START+17
 	.byte COL_START+20
 @num_x_skips=*-@x_skips
+
+;--------------------------------------
+@find:	pushcur
+	jsr text::clrline
+	jsr text::drawline
+
+	lda #$00
+	sta cur::minx
+	lda #CUR_NORMAL
+	sta cur::mode
+	lda #TEXT_INSERT
+	sta text::insertmode
+
+	lda #MEMVIEW_STOP
+	sta zp::cury
+	lda #$00
+	sta zp::curx
+	ldxy #key::getch
+	jsr edit::gets		; get the string to parse
+
+	popcur
+	lda #CUR_SELECT
+	sta cur::mode
+	lda #TEXT_REPLACE
+	sta text::insertmode
+
+	jsr util::parsehex	; parse the user's given hex string
+	bcs @find		; if invalid hex, retry
+	jsr find_word		; look for the value
+	bcs @reset
+	stxy memaddr		; set address of word to memaddr
+@reset: jmp __view_mem		; restart the viewer at the word's address
 .endproc
 
 ;******************************************************************************
@@ -475,3 +512,71 @@ memaddr:   .word 0
 	rts
 .endproc
 
+;******************************************************************************
+; FIND WORD
+; Seeks forward from the address in memaddr for the given WORD value.
+; IN:
+;  - .XY: the word to seek for
+; OUT:
+;  - .XY: the address of the first occurrence of the value
+;  - .C:  set if the value was not found
+.proc find_word
+@val=zp::tmp0
+@addr=zp::tmp2
+	stxy @val
+	ldxy memaddr
+	stxy @addr
+
+@l0:	lda @val
+	ldxy @addr
+	jsr find_byte		; look for the LSB
+	bcs @done		; return with .C set
+
+	stxy @addr		; store the address of the LSB
+	lda #$01		; next byte
+	jsr vmem::load_off
+	cmp @val+1		; is the MSB a match our value's?
+	beq @found		; if so, we found our word
+@next:	incw @addr		; try from the next address
+	cmpw memaddr
+	bne @l0
+@notfound:
+	rts			; return with .C set
+
+@found:	ldxy @addr
+	clc
+@done:	rts
+.endproc
+
+;******************************************************************************
+; FIND BYTE
+; Searches for the given byte value starting at the given address and ending at
+; the given address (wrapping around if needed)
+; IN:
+;  - .A:  the byte value to look for
+;  - .XY: the start address
+; OUT:
+;  - .XY: the address of the first occurrence of the value
+;  - .C:  set if the value was not found
+.proc find_byte
+@addr=zp::tmp4
+@val=zp::tmp6
+@start=zp::tmp7
+	stxy @start
+	stxy @addr
+	sta @val
+
+@l0:	ldxy @addr	; get current address to seek at
+	jsr vmem::load	; load the value at the next address
+	cmp @val	; == val we're looking for?
+	beq @found	; if so, we're done
+	incw @addr	; move to the next address
+	ldxy @addr	; get current address
+	cmpw @start	; are we back at the start address?
+	bne @l0
+	sec		; not found
+	rts
+
+@found:	ldxy @addr
+	RETURN_OK
+.endproc

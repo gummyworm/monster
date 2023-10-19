@@ -468,9 +468,6 @@ main:	jsr key::getch
 	stx @result_offset	; offset to the user-input in line buffer
 
 @getloop:
-        lda #$70
-        cmp $9004
-        bne *-3
 	jsr text::update
 
 	jsr zp::jmpaddr		; call key-get func
