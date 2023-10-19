@@ -143,38 +143,43 @@ err_section_too_small:
 	.byte $99,$43,$a2,$4f,$76,$d4,$7b,$db,$9b,$41,$63,$0
 
 ;******************************************************************************
-errors: .word err_no_err	 ; no error
-	.word err_stack_underflow
-	.word err_stack_overflow
-	.word err_line_too_long
-	.word err_invalid_expression
-	.word err_invalid_args_for_macro
-	.word err_syntax
-	.word err_invalid_directive
-	.word err_undefined_label
-
-	.word err_unmatched_endif
-	.word err_unaligned_label
-	.word err_illegal_opcode
-	.word err_illegal_addrmode
-	.word err_oversized_operand
-	.word err_illegal_label
-	.word err_unexpected_char
-	.word err_io
-	.word err_no_macro_name
-	.word err_unresolvable_label
-	.word err_cyclic_include
-	.word err_overlapping_segments
-	.word err_max_files_exceeded
-	.word err_param_name_too_long
-	.word err_no_origin
-	.word err_branch_out_of_range
-	.word err_file_not_found
-	.word err_unknown_segment
-	.word err_too_many_open_files
-	.word err_logical_file_in_use
-	.word err_drive_did_not_respond
-	.word err_unnamed_buffer
+.linecont +
+.define errors \
+	err_no_err, \
+	err_stack_underflow, \
+	err_stack_overflow, \
+	err_line_too_long, \
+	err_invalid_expression, \
+	err_invalid_args_for_macro, \
+	err_syntax, \
+	err_invalid_directive, \
+	err_undefined_label, \
+	\
+	err_unmatched_endif, \
+	err_unaligned_label, \
+	err_illegal_opcode, \
+	err_illegal_addrmode, \
+	err_oversized_operand,\
+	err_illegal_label, \
+	err_unexpected_char, \
+	err_io, \
+	err_no_macro_name, \
+	err_unresolvable_label, \
+	err_cyclic_include, \
+	err_overlapping_segments, \
+	err_max_files_exceeded, \
+	err_param_name_too_long, \
+	err_no_origin, \
+	err_branch_out_of_range, \
+	err_file_not_found, \
+	err_unknown_segment, \
+	err_too_many_open_files, \
+	err_logical_file_in_use, \
+	err_drive_did_not_respond, \
+	err_unnamed_buffer
+.linecont -
+errorslo: .lobytes errors
+errorshi: .hibytes errors
 
 .CODE
 ;******************************************************************************
@@ -186,10 +191,9 @@ errors: .word err_no_err	 ; no error
 ;  -.XY: the address of the error message
 .export __err_get
 .proc __err_get
-	asl
 	tax
-	ldy errors+1,x
-	lda errors,x
+	ldy errorshi,x
+	lda errorslo,x
 	tax
 	rts
 .endproc

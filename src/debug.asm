@@ -1449,9 +1449,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ; main debug loop
 @debugloop:
-	lda #$70
-	cmp $9004
-	bne *-3
 	cli
 	jsr text::update
 	jsr key::getch
