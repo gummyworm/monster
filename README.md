@@ -683,7 +683,6 @@ of the VIC registers, or anything in the VIC's visible address range, as the
 screen will briefly flash with the state of the user program.
 
 
-
 ---
 
 ## Auxiliary Views
@@ -702,10 +701,26 @@ viewer is updated upon reentry to the debugger (if active).
 Memory values may be updated by navigating to the value the user wishes to
 change and overwriting it with a new hex value. The change occurs immediately.
 
+In addition to hexadecimal keys to edit memory values, the following commands
+are supported within the memory viewer:
+
+| Shortcut | Name      |  Description                                      |
+|--------------------------------------------------------------------------|
+| C= + w   | Add watch | Add watch to the highlighted address              |
+|    /     | Find Value| Seeks from current memory address for given value |
+|   <-     |  Exit     | Returns to the debugger                           |
+
+#### Set Watch (`C= + w`)
 Watches may be placed while navigating in the memory editor.  This is done
-by pressing the `C= + W` key-combination while the cursor is on the desired
+by pressing the `C= + w` key-combination while the cursor is on the desired
 byte to watch. See the _Watch Viewer_ section for more information on
 watches.
+
+#### Find Value
+Prompts the user for an 8 or 16 bit value (determined by the number of
+characters provided) and looks for that value in memory.
+If it is found, the memory view is updated to begin at the first address
+that was found containing the specified value.
 
 ### Breakpoint Viewer (`F5` while debugging)
 The breakpoint viewer displays all the breakpoints that have been set by the
