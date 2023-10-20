@@ -2314,10 +2314,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @addr
 	lda @tosave+1,y
 	sta @addr+1
+	jsr is_internal_address
+	bne :+
 	ldy #$00
 	lda (@addr),y
 	sta debug_state_save,x
-	dec @cnt
+:	dec @cnt
 	dec @cnt
 	dex
 	bpl @save
@@ -2364,10 +2366,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc swapout
 @cnt=zp::tmp0
 @addr=zp::tmp1
-@tosave=zp::tmp3
-@ysave=zp::tmp5
+@ysave=zp::tmp3
+@tosave=zp::tmp4
 	lda swapmem
-	bne @swapall
+	beq @fastswap
+	jmp @swapall
 
 @fastswap:
 	; save [prevpc, prevpc+2], [msave], and [steppoint] for the user
@@ -2416,6 +2419,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; restore the debug values at the affected locations
 	ldx #8
 	stx @cnt
+	jmp *
 @store: lda @cnt
 	tax
 	lsr
@@ -2878,10 +2882,6 @@ __debug_remove_breakpoint:
 	lda #REGISTERS_LINE+1
 	jmp text::puts
 .endproc
-
-;******************************************************************************
-; CLRCOLOR
-; Turns off any coloring that may be done by the text routines
 
 ;******************************************************************************
 ; SHOWBRK
