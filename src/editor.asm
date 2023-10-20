@@ -194,15 +194,10 @@ main:	jsr key::getch
 ; IN:
 ;  - .XY: the address of the label to start debugging at
 .proc command_go
-	ldxy #$0000
-	jsr readinput
-	bcs @ret
-	rts
-
 	jsr label_addr_or_org
 	bcc :+
-@ret:	rts
-	stxy zp::jmpvec
+	rts			; address not found
+:	stxy zp::jmpvec
 	jmp zp::jmpaddr
 .endproc
 
@@ -215,10 +210,6 @@ main:	jsr key::getch
 ;  - .XY: the address of the label to start debugging at
 .proc command_debug
 @addr=zp::editortmp
-	ldxy #$0000
-	jsr readinput
-	bcs @ret
-
 	jsr label_addr_or_org
 	stxy @addr
 	bcc :+
@@ -248,16 +239,12 @@ main:	jsr key::getch
 ;******************************************************************************
 .proc assemble_file
 @filename=mem::backbuff
-	ldxy #$0000
-	jsr readinput
-	bcc :+
-	rts
-
-:	lda #<@filename
+	lda #<@filename
 	sta zp::tmp0
 	lda #>@filename
 	sta zp::tmp0+1
-	jsr str::copy
+	jsr str::copy		; copy .XY to (zp::tmp0)
+
 	jsr dbg::init
 	jsr reset
 
@@ -1305,7 +1292,6 @@ main:	jsr key::getch
 	.byte K_RENAME		; rename
 	.byte K_DIR		; dir
 	.byte K_LIST_SYMBOLS	; list symbols
-	.byte K_GOTO_LINE	; gotoline
 	.byte K_CLOSE_BUFF	; close buffer
 	.byte K_NEW_BUFF	; new buffer
 	.byte K_SET_BREAKPOINT	; set breakpoint
@@ -1322,25 +1308,14 @@ main:	jsr key::getch
 
 	.byte K_NEXT_BUFF	; C= + > next buffer
 	.byte K_PREV_BUFF	; C= + < previous buffer
-
-	.byte K_GO		; go
-	.byte K_DEBUG		; debug
-	.byte K_OPEN		; open file
-	.byte K_SAVE		; save file
-	.byte K_SCRATCH		; scratch file
-	.byte K_ASM_FILE	; assemble file
-
 	.byte K_QUIT		; <- (return to COMMAND mode)
 @num_special_keys=*-@specialkeys
-
 .linecont +
 .define specialvecs home, command_asm, command_asmdbg, show_buffers, refresh, \
-	rename, dir, list_symbols, command_gotoline, \
+	rename, dir, list_symbols, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
-	next_buffer, prev_buffer, \
-	command_go, command_debug, command_load, save, scratch, assemble_file, \
-	cancel
+	next_buffer, prev_buffer, cancel
 .linecont -
 @specialvecslo: .lobytes specialvecs
 @specialvecshi: .hibytes specialvecs
@@ -1853,13 +1828,65 @@ goto_buffer:
 ; Rename
 ; Gets user input to rename the buffer and applies the new name.
 .proc rename
+	jmp src::name		; renmae to the buffer in .XY
+.endproc
+
+;******************************************************************************=
+; GET COMMAND
+; Prompts the user for a command and executes it (if valid).
+.proc get_command
+@cmdbuff=$100
+@arg=zp::tmp0
 	ldxy #$0000
 	jsr readinput
 	bcs @done
-	jmp src::name
-@done:	rts
-.endproc
 
+; read the command (the first character)
+	lda @cmdbuff+1
+	ldx #@num_ex_commands-1
+
+@l0:	cmp @ex_commands,x
+	beq @found
+	dex
+	bpl @l0
+	ldxy #(@cmdbuff+1)
+	jmp command_gotoline	; if command isn't found try GOTOLINE
+
+; set the jump vector for the appropriate command
+@found:
+	lda @exvecslo,x
+	sta zp::jmpvec
+	lda @exvecshi,x
+	sta zp::jmpvec+1
+
+; get the argument for the command and send it along to the vector
+@parsearg:
+	ldx #$01
+:	lda @cmdbuff+1,x
+	inx
+	cmp #' '
+	beq :-
+	ldy #>@cmdbuff
+	jmp zp::jmpaddr
+
+@done:  rts			; no input
+
+@ex_commands:
+	.byte $67		; g - go
+	.byte $64		; d - debug
+	.byte $65		; e - open file
+	.byte $73		; s - save file
+	.byte $78		; x - scratch file
+	.byte $61		; a - assemble file
+@num_ex_commands=*-@ex_commands
+
+.linecont +
+.define ex_command_vecs command_go, command_debug, \
+	command_load, save, scratch, assemble_file
+.linecont -
+@exvecslo: .lobytes ex_command_vecs
+@exvecshi: .hibytes ex_command_vecs
+.endproc
 
 ;******************************************************************************
 ; EDIT
@@ -1877,16 +1904,20 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
+; SAVE BIN
+; Prompts the user for a filename then saves the contents of the assembled
+; program (as of the most recent assembly) to that filename.
+; Does nothing if no program has not been successfully assembled.
+.proc command_savebin
+
+.endproc
+
+;******************************************************************************
 ; SAVE
-; Writes the source buffer to a file.
-; IN:
-;  - .XY: the filename to save the source to
+; Prompts the user for a filename adn writes the source buffer to a file of
+; the given name.
 .proc save
 @file=zp::tmp9
-	ldxy #$0000
-	jsr readinput
-	bcs @ret
-
 	stxy @file
 
 	ldxy #strings::saving
@@ -1923,10 +1954,6 @@ goto_buffer:
 ;  - .XY: the filename of the file to delete
 .proc scratch
 @file=zp::tmp9
-	ldxy #$0000
-	jsr readinput
-	bcs @ret
-
 	stxy @file
 
 	; get the file length
@@ -2025,10 +2052,6 @@ goto_buffer:
 ; COMMAND_LOAD
 ; Handles the load command
 .proc command_load
-	ldxy #$0000
-	jsr readinput
-	bcs @err
-
 	jsr __edit_load
 	bcs @err
 
@@ -2880,9 +2903,7 @@ goto_buffer:
 ; COMMAND_GOTOLINE
 ; Gets a line number from the user and moves the cursor and source to that line
 .proc command_gotoline
-	ldxy #$0000
-	jsr readinput
-	jsr atoi	; convert (YX) to line #
+	jsr atoi		; convert (YX) to line #
 	bcs @done
 	cmpw #$0000
 	bne :+
@@ -3458,7 +3479,7 @@ commands:
 	.byte $49	; I (insert start of line)
 	.byte $69	; i (insert)
 	.byte $72	; r (replace char)
-	.byte $52	; r (replace mode)
+	.byte $52	; R (replace mode)
 	.byte $41	; A (append to line/insert)
 	.byte $61	; a (append to character)
 	.byte $64	; d (delete)
@@ -3483,7 +3504,8 @@ commands:
 	.byte $76	; v (enter visual mode)
 	.byte $56	; V (enter visual line mode)
 	.byte $79	; y (yank)
-	.byte K_FIND		; find
+	.byte K_FIND	; find
+	.byte K_GETCMD  ; get command
 numcommands=*-commands
 
 ; command tables for COMMAND mode key commands
@@ -3494,7 +3516,7 @@ numcommands=*-commands
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual_line, yank, command_find
+	enter_visual, enter_visual_line, yank, command_find, get_command
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs

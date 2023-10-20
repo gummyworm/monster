@@ -29,6 +29,7 @@ K_DEBUG		 = $ac	; <C=> + d
 K_DIR            = $b6  ; <C=> + l
 K_LIST_SYMBOLS   = $b7  ; <C=> + y
 K_FIND           = $2f	; /
+K_GETCMD         = ':'  ; :
 K_GO             = $a5	; <C=> + g
 K_GOTO_LINE	 = $a7	; <C=> + m
 K_GOTO_BUFF1     = $81  ; <C=> + 1

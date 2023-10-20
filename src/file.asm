@@ -7,6 +7,7 @@
 .include "string.inc"
 .include "strings.inc"
 .include "util.inc"
+.include "vmem.inc"
 .include "zeropage.inc"
 
 ;******************************************************************************
@@ -30,8 +31,6 @@ __file_load_address = zp::tmpb
 __file_save_address     = zp::tmpb
 .export __file_save_address_end
 __file_save_address_end = zp::tmpd
-.export __file_save_bank
-__file_save_bank = zp::tmpf
 
 ;******************************************************************************
 ; LOADDIR
@@ -221,7 +220,6 @@ __file_load_src:
 @namelen=zp::tmpa
 @end=zp::tmpc
 @src=zp::tmpe
-@bank=zp::tmp10
 @dev=$ba
 @namebuff=mem::spare
 	sta @namelen
@@ -309,18 +307,17 @@ __file_load_src:
 
 ;******************************************************************************
 ; SAVEBIN
-; Saves the binary from the given bank, at the given address, to the given
-; filename
+; Saves the binary from the given address, to the given filename.
+; NOTE: the address refers to the virtual memory address not the physical
+; one.
 ; IN:
 ;  - .XY:                     the filename to save the memory range to
-;  - .A: 		      the source bank to save
 ;  - __file_save_address:     the start of the address range to save
 ;  - __file_save_address_end: the end address to save
 ; OUT:
 ;  .C: set on error, clear on success
 .export __file_save_bin
 .proc __file_save_bin
-	sta __file_save_bank
 	lda #$01
 	sta isbin
 	jmp dosave
@@ -469,7 +466,8 @@ __file_load_src:
 	lda zp::numfiles
 	cmp #MAX_OPEN_FILES
 	bcc :+
-	RETURN_ERR ERR_MAX_FILES_EXCEEDED
+	lda #ERR_MAX_FILES_EXCEEDED
+	rts
 
 :	stxy @filename
 	jsr str::len
@@ -507,14 +505,18 @@ __file_load_src:
 @getopenerr:
 	cmp #$01
 	bne :+
-	RETURN_ERR ERR_TOO_MANY_OPEN_FILES
+	lda #ERR_TOO_MANY_OPEN_FILES
+	rts
 :	cmp #$02
 	bne :+
-	RETURN_ERR ERR_LOGICAL_FILE_IN_USE
+	lda #ERR_LOGICAL_FILE_IN_USE
+	rts
 :	cmp #$05
 	bne :+
-	RETURN_ERR ERR_DRIVE_DID_NOT_RESPOND
-:	RETURN_ERR ERR_IO_ERROR	; unknown error
+	lda #ERR_DRIVE_DID_NOT_RESPOND
+	rts
+
+:	RETURN_ERR ERR_IO_ERROR		; unknown error
 .endproc
 
 ;******************************************************************************
@@ -548,12 +550,11 @@ __file_load_src:
 	;jsr $ffd2	; CHROUT (write byte to file)
 
 @use_bin:
-	bank_read_byte __file_save_bank, __file_save_address
-	pha
+	ldxy __file_save_address
+	jsr vmem::load
 	incw __file_save_address
 	ldxy __file_save_address
 	cmpw __file_save_address_end ; set .C if src >= end address
-	pla
 @done:	rts
 .endproc
 
