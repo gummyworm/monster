@@ -475,6 +475,8 @@ main:	jsr key::getch
 	jsr zp::jmpaddr		; call key-get func
 	cmp #$00
 	beq @getloop
+	cmp #$80		; > $80 -> not printable
+	bcs @getloop
 	cmp #K_RETURN
 	beq @done
 	cmp #K_QUIT	; <- (done)

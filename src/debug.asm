@@ -1910,22 +1910,34 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .A: the number of cycles the instruction will use
 .proc count_cycles
 @cycles=zp::tmp0
-@opcode=zp::tmp2
+@opcode=zp::tmp1
+@operandsz=zp::tmp2
+	dex
+	stx @operandsz
+
 	sta @opcode
 	lda #$02	; minimum cycles an instruction may take
 	sta @cycles
 
 	lda op_mode
 	and #MODE_IMMEDIATE
-	bne @done
+	beq @chkload
+	jmp @done
 
-	txa
-	cmp #$01
-	beq @chkmem
-	adc #$00
-	sta @cycles	; 1 + 1 cycle for each byte of instruction
+@chkload:
+	lda affected
+	and #OP_LOAD
+	beq @chkstore
+	lda #$02	; base # of cycles
+	adc @operandsz	; +1 if ZP, +2 if ABS
+	sta @cycles
 
-@chkmem:
+@chkstore:
+	lda affected
+	and #OP_STORE
+	beq @chkind
+	inc @cycles	; writes require +1 cycle
+
 @chkind:
 	lda op_mode
 	and #MODE_INDIRECT
@@ -1941,18 +1953,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda op_mode
 	and #MODE_INDIRECT|MODE_Y_INDEXED
 	cmp #MODE_INDIRECT|MODE_Y_INDEXED
-	bne @chkindexed		; if (zp),y- skip ahead
+	beq @chkindexed		; if (zp),y- skip ahead
 
 	; if zp,y (zp,x) or zp,x add a penalty cycle
 	lda op_mode
 	and #MODE_Y_INDEXED|MODE_X_INDEXED|MODE_INDIRECT
-	bne @penalty		; (zp,x) or zp,x
+	beq @chkrmw
+	inc @cycles		; zp,y zp,x or (zp,x)
 
 @chkrmw:
 	lda affected
 	and #OP_LOAD|OP_STORE	; RMW instructions need a cycle to modify
 	cmp #OP_LOAD|OP_STORE
-	beq @penalty
+	bne @chkindexed
+	inc @cycles
 
 @chkindexed:
 	lda op_mode
@@ -2389,11 +2403,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldy @tosave+1,x
 	sty @addr+1
 	tax
+	jsr is_internal_address
+	bne :+			; if not internal, don't do this
 	ldy #$00
 	lda (@addr),y		; read the physical address
 	ldy @addr+1
 	jsr vmem::store		; store to the virtual (user) address
-	dec @cnt
+:	dec @cnt
 	dec @cnt
 	bpl @save
 
@@ -3104,7 +3120,7 @@ side_effects_tab:
 .byte OP_REG_A|OP_LOAD		; $25 AND zpg
 .byte OP_LOAD|OP_STORE 		; $26 ROL zpg
 .byte $00			; ---
-.byte OP_FLAG|OP_STACK		; $28 PLP
+.byte OP_FLAG|OP_STACK|OP_LOAD	; $28 PLP
 .byte OP_REG_A     		; $29 AND #
 .byte OP_REG_A			; $2a ROL A
 .byte $00			; ---
