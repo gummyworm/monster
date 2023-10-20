@@ -19,7 +19,9 @@
 	; read past the label
 	ldy #$00
 	sty @curr
-@l0:	jsr src::next
+@l0:	jsr src::end
+	beq @done	; if EOL, no more formatting needed
+	jsr src::next
 	inc @curr
 	cmp #' '
 	beq @l1
@@ -28,7 +30,9 @@
 	bne @l0
 
 	; read until the opcode/macro/etc.
-@l1:	jsr src::next
+@l1:	jsr src::end		; if we hit EOL before finding anything- done
+	beq @done
+	jsr src::next
 	inc @curr
 	cmp #' '
 	beq @l1

@@ -111,6 +111,8 @@ selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
 ; Runs the main loop for the editor
 .export __edit_run
 .proc __edit_run
+	jsr text::update
+	jsr text::status
 main:	jsr key::getch
 	beq @done
 

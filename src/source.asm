@@ -913,10 +913,11 @@ __src_atcursor:
 .proc atcursor
 	jsr cursor
 	sub16 #1
-	stxy zp::tmp0
 .IFDEF USE_FINAL
-	bank_read_byte bank, zp::tmp0
+	lda bank
+	jsr fe3::load
 .ELSE
+	stxy zp::tmp0
 	ldy #$00
 	lda (zp::tmp0),y
 .ENDIF
