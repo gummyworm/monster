@@ -1901,7 +1901,7 @@ goto_buffer:
 	jsr src::name
 	pla
 	ldxy @file
-	jsr file::save
+	jsr file::savesrc
 
 	cmp #$00
 	bne @err

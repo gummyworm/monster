@@ -19,11 +19,19 @@ file_devices = $261	; KERNAL device ID table
 kernal_sas   = $26d	; KERNAL secondary address table
 
 isbin        = zp::tmp17	; flag for binary save/load
-load_source = zp::tmpd	; !0 means we will insert to source instead of copying
-			; to memory
+				; to memory
 
+; The address to load from during a binary LOAD
 .export __file_load_address
 __file_load_address = zp::tmpb
+
+; The address to save to during a binary SAVE
+.export __file_save_address
+__file_save_address     = zp::tmpb
+.export __file_save_address_end
+__file_save_address_end = zp::tmpd
+.export __file_save_bank
+__file_save_bank = zp::tmpf
 
 ;******************************************************************************
 ; LOADDIR
@@ -35,28 +43,29 @@ __file_load_address = zp::tmpb
 .proc __file_loaddir
 	lda #$00
 	sta secondaryaddr
-	sta load_source
 	ldxy #(mem::spare+40)
 	stxy __file_load_address
 	ldxy #strings::dir
 	lda #$01
+	sta isbin
 	jmp load
 .endproc
 
 ;******************************************************************************
-; LOAD
+; LOADBIN
 ; loads the given file into the given memory address
 ; IN:
 ;  .XY:                the filename to load
 ;  .A: 		       the length of the file
 ;  file::file_load_address: the address to load the file to
-.export __file_load
-__file_load:
+.export __file_load_bin
+.proc __file_load_bin
 	pha
-	lda #$00
-	sta load_source
+	lda #$01
+	sta isbin
 	pla
 	jmp doload
+.endproc
 
 ;******************************************************************************
 ; LOAD SOURCE
@@ -70,12 +79,11 @@ __file_load_src:
 	stxy @filename
 	pha
 
-	lda #$01
-	sta load_source
-
 	jsr src::new
 	ldxy @filename
 	jsr src::name
+	lda #$00
+	sta isbin
 
 	pla
 	ldxy @filename
@@ -84,7 +92,7 @@ __file_load_src:
 
 ;******************************************************************************
 ; DOLOAD
-; loads the given file into memory or a source file
+; loads the given file into memory or a source buffer
 ; IN:
 ;  .XY: the filename to load
 ;  .A: the length of the file
@@ -123,6 +131,7 @@ __file_load_src:
 	pla
 	; fallthrough
 .endproc
+
 ;--------------------------------------
 ; LOAD
 ; This entrypoint loads the open file (in file 3)
@@ -133,16 +142,16 @@ __file_load_src:
 	lda #$0a
 	sta @dev
 	pla
-	jsr $ffbd	; SETNAM
+	jsr $ffbd		; SETNAM
 
-	lda #$03	; file #3
-	ldx @dev	; last used device number
+	lda #$03		; file #3
+	ldx @dev		; last used device number
 	bne :+
-	ldx #$0a 	; default to device 10
-:	ldy secondaryaddr ; SA
-	jsr $ffba 	; SETLFS
+	ldx #$0a 		; default to device 10
+:	ldy secondaryaddr 	; SA
+	jsr $ffba 		; SETLFS
 
-	jsr $ffc0 	; call OPEN
+	jsr $ffc0 		; call OPEN
 	bcc @ok
 	pha
 	bcs @closepla
@@ -165,21 +174,16 @@ __file_load_src:
 	cmp #$00
 	bne @eof      ; either EOF or read error
 	jsr $ffcf     ; call CHRIN (get a byte from file)
-	ldy #$00
-	cmp #$0a 	; convert LF to CR
+	ldy isbin     ; skip conversions for binary LOAD
+	bne @put
+	cmp #$0a      ; convert LF to CR
 	bne :+
 	lda #$0d
-:	cmp #$09      ; convert TAB to space
-	bne :+
+:	cmp #$09	; convert TAB to space
+	bne @put
 	lda #' '
-:	ldx load_source	; are we loading to SOURCE?
-	bne @src
-@dir:	; if not loading to SOURCE, write to memory
-	sta (__file_load_address),y
-	incw __file_load_address
-	bne @l0
-@src:	jsr src::insert
-	jmp @l0
+@put:	jsr putb	; write the byte to source/memory
+	jmp @l0		; and continue
 
 @eof:	eor #$40
 	beq @close	; if EOF, close with errcode 0
@@ -204,14 +208,15 @@ __file_load_src:
 .endproc
 
 ;******************************************************************************
-; SAVE
-; Saves the source buffer to the given file.
+; DOSAVE
+; Saves the source buffer or binary block to the given file.
+; This is called by __file_save and __file_savebin after those routines
+; initialize the flags necessary to save source or memory respectively.
 ; IN:
 ;  .XY: the 0-terminated filename to save the buffer to
 ; OUT:
 ;  .C: set on error, clear on success
-.export __file_save
-.proc __file_save
+.proc dosave
 @name=zp::tmp8
 @namelen=zp::tmpa
 @end=zp::tmpc
@@ -263,38 +268,22 @@ __file_load_src:
 	jsr $ffc9	; CHKOUT (file 3 now used as output)
 
 	jsr src::rewind
+
 @save:  jsr $ffb7       ; READST (read status byte)
-	bne @done
-
-@chout: lda isbin
-	beq @use_src
-; if we are saving binary, read a byte and write it out
-@use_bin:
-	bank_read_byte @bank, @src
+	bne @error	; error or EOF
+@chout: jsr getb
+	php		; save EOF flag
 	jsr $ffd2
-	incw @src
-	ldxy @src
-	cmpw @end
-	bne @save
-	beq @done
+	plp		; get EOF flag
+	bcc @save	; loop if !EOF
 
-; if we are saving the source, get a byte and write it out
-@use_src:
-	jsr src::next
-	cmp #$80
-	bcs :+		; skip non-printable chars (e.g. breakpoints)
-	jsr $ffd2	; CHROUT (write byte to file)
-:	jsr src::end	; done yet?
-	bne @save
-
-@done:
-@error:
-	jsr io::readerr
+@error:	jsr io::readerr
 	lda #$03      ; filenumber 3
 	jsr $ffc3     ; CLOSE
 	jsr $ffcc     ; call CLRCHN
 	RETURN_ERR ERR_IO_ERROR
 
+; if errcode was 63, try deleting the file and doing the SAVE again
 @retry: lda #$03	; filenumber 3
 	jsr $ffc3	; CLOSE 3
 	lda #$0f	; filenumber 15
@@ -314,8 +303,6 @@ __file_load_src:
 	clc
 	adc #$04	; strlen(@p_w)
 	jmp @resave
-
-;------------------
 @p_w:	.byte ",p,w"
 @p_w_len=*-@p_w
 .endproc
@@ -325,13 +312,32 @@ __file_load_src:
 ; Saves the binary from the given bank, at the given address, to the given
 ; filename
 ; IN:
-;  - .XY: the filename to save to
-;  - .A: the source bank to save
-;  - zp::tmp0: the start address to save
-;  - zp::tmp2: the end address to save
-.export __file_savebin
-.proc __file_savebin
+;  - .XY:                     the filename to save the memory range to
+;  - .A: 		      the source bank to save
+;  - __file_save_address:     the start of the address range to save
+;  - __file_save_address_end: the end address to save
+; OUT:
+;  .C: set on error, clear on success
+.export __file_save_bin
+.proc __file_save_bin
+	sta __file_save_bank
+	lda #$01
+	sta isbin
+	jmp dosave
+.endproc
 
+;******************************************************************************
+; SAVE SRC
+; Saves the active source buffer to a file of the given name
+; IN:
+;  .XY: the 0-terminated filename to save the source buffer to
+; OUT:
+;  .C: set on error, clear on success
+.export __file_save_src
+.proc __file_save_src
+	lda #$00
+	sta isbin
+	jmp dosave
 .endproc
 
 ;******************************************************************************
@@ -522,6 +528,50 @@ __file_load_src:
 	sei
 	jsr $ffc3
 	jmp $ffb7
+.endproc
+
+;******************************************************************************
+; GETB
+; During SAVE: reads the next byte to be saved.
+; OUT:
+;  - .A: the character that was read
+;  - .C: set if EOF
+.proc getb
+	lda isbin	; are we reading from memory or source
+	bne @use_bin
+
+@use_src:
+	jsr src::next
+	jmp src::end
+	;cmp #$80
+	;bcs @done	; skip non-printable chars (e.g. breakpoints)
+	;jsr $ffd2	; CHROUT (write byte to file)
+
+@use_bin:
+	bank_read_byte __file_save_bank, __file_save_address
+	pha
+	incw __file_save_address
+	ldxy __file_save_address
+	cmpw __file_save_address_end ; set .C if src >= end address
+	pla
+@done:	rts
+.endproc
+
+;******************************************************************************
+; PUTB
+; Outputs a byte to the __file_load_address (if isbin is !0) or to the current
+; source if not.
+; IN:
+;  - .A: the byte to output
+.proc putb
+	ldx isbin
+	beq @src
+
+	; if not loading to SOURCE, write to memory
+	sta (__file_load_address),y
+	incw __file_load_address
+	rts
+@src:	jmp src::insert
 .endproc
 
 .BSS
