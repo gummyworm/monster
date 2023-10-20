@@ -1461,7 +1461,7 @@ __asm_include:
 	ldxy @fname
 	jsr dbg::setfile
 	bcc :+
-	rts		; return err
+	rts			; return err
 :	ldxy #1
 	stxy dbg::srcline
 
@@ -1470,6 +1470,7 @@ __asm_include:
 	ldxy #mem::spare
 	lda zp::file
 	jsr file::getline	; read a line from the file
+	sta @err
 	bcc @ok
 	jmp @close		; close file and return the error
 
@@ -1494,9 +1495,9 @@ __asm_include:
 
 @close:	; restore debug line and file info
 	pla
-	sta dbg::srcline
-	pla
 	sta dbg::srcline+1
+	pla
+	sta dbg::srcline
 	pla
 	sta dbg::file
 

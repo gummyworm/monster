@@ -419,7 +419,7 @@ __file_load_src:
 ;  - .XY: the address to read the line into
 ;  - .A: the file ID
 ; OUT:
-;  - .A: contains the # of bytes read
+;  - .A: contains the # of bytes read OR the error code
 ;  - .C: is set if an error occurred
 .export __file_getline
 .proc __file_getline

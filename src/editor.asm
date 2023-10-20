@@ -252,8 +252,12 @@ main:	jsr key::getch
 
 	lda #$01
 	sta state::verify	; verify for 1st pass
+	sta dbg::srcline
 	sta zp::gendebuginfo
 	sta zp::pass
+
+	lda #$00
+	sta dbg::srcline+1
 
 ; do the first pass of assembly
 @pass1:
