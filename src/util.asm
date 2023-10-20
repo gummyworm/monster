@@ -280,8 +280,7 @@
 ;  - .XY: the value to get the decimal representation of
 ; OUT:
 ;  - mem::spare: contains the decimal representation fo the value.
-;   The returned string is 5 bytes in length (not 0 terminated).
-;   Leading zeros are present if the value is < 10000
+;   The returned string is 0-terminated
 .export __util_todec
 .proc __util_todec
 result=mem::spare
@@ -320,6 +319,47 @@ result=mem::spare
 	clc
 	adc #10+'0'
 	sta result+4
+
+; skip leading zeroes
+	ldx #$00
+	ldy #$00
+@format:
+	lda result,x
+	cmp #'0'
+	bne @shift
+	inx
+	cpx #4
+	bne @format
+@shift:	lda result,x
+	sta result,y
+	iny
+	inx
+	cpx #5
+	bcc @shift
+	lda #$00
+	sta result,y
+	rts
+.endproc
+
+;******************************************************************************
+; TODEC8
+; A small (faster) routine to convert a small number to decimal
+; IN:
+;  - .A: the number to convert
+; OUT:
+;  - YXA: the 100's, 10's and 1's place of the decimal # respectively
+.export __util_todec8
+.proc __util_todec8
+	ldy #$2f
+	ldx #$3a
+	sec
+:	iny
+	sbc #100
+	bcs :-
+:	dex
+	adc #10
+	bmi :-
+	adc #$2f
 	rts
 .endproc
 

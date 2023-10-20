@@ -2061,8 +2061,7 @@ goto_buffer:
 	jsr __edit_load
 	bcs @err
 
-	; reinitialize the editor (clear screen, etc.)
-	jmp reset
+	jmp reset	; reinitialize
 @err:	rts
 .endproc
 

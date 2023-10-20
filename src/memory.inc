@@ -5,6 +5,7 @@
 .import __mem_spare
 .import __mem_spareend
 .import __mem_backbuff
+.import __mem_drive_err
 .import __linebuffer
 .import __linebuffer2
 .import __mem_progsave
@@ -25,6 +26,7 @@
 	linesave        = __linesave
 	statusline	= __statusline
 	copybuff        = __mem_copybuff
+	drive_err	= __mem_drive_err
 
 	progsave	= __mem_progsave
 	prog00		= __mem_prog00

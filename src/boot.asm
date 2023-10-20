@@ -127,6 +127,10 @@ start:
 	lda #$80
 	sta $9c02	; enable 35K of RAM for final expansion
 
+	; clear the drive error
+	lda #$00
+	sta mem::drive_err
+
 	jmp enter
 
 @loading: .byte "initializing..."

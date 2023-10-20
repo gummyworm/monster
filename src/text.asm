@@ -60,6 +60,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - mem::statusline: contains the new status info
 .proc update_statusline
 @filename=zp::tmp0
+@tmp=zp::tmp0
+
 @columnstart=STATUS_COL+3
 @linestart=STATUS_COL+6
 @sizestart=STATUS_COL+13
@@ -70,39 +72,49 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	dex
 	bpl @clr
 
-	ldy #$00
-	ldx zp::curx
-	jsr util::todec
+	lda zp::curx
+	jsr util::todec8
 
-	lda mem::spare+3
-	sta mem::statusline+@columnstart
-	lda mem::spare+4
-	sta mem::statusline+@columnstart+1
+	; display the column
+	ldy #$00
+	cpx #'0'
+	beq :+
+	stx mem::statusline+@columnstart
+	iny
+:	sta mem::statusline+@columnstart,y
+
 	lda #','
-	sta mem::statusline+@columnstart+2
+	sta mem::statusline+@columnstart+1,y
 
 	; display current line
 	ldxy src::line
 	jsr util::todec
-	ldx #4
-:	lda mem::spare,x
+	ldx #$00
+@l0:	lda mem::spare,x
+	beq :+
 	sta mem::statusline+@linestart,x
-	dex
-	bpl :-
+	inx
+	bne @l0
 
-	lda #'/'
-	sta mem::statusline+@linestart+5
+:	lda #'/'
+	sta mem::statusline+@linestart,x
+
+	stx @tmp
 
 	; display total lines
 	ldxy src::lines
 	jsr util::todec
-	ldx #4
-:	lda mem::spare,x
-	sta mem::statusline+@linestart+6,x
-	dex
-	bpl :-
 
-	; add the editor mode
+	ldx @tmp
+	ldy #$00
+@l1:	lda mem::spare,y
+	beq :+
+	sta mem::statusline+@linestart+1,x
+	iny
+	inx
+	bne @l1
+
+:	; add the editor mode
 	lda __text_status_mode
 	sta mem::statusline+@modestart
 
@@ -127,7 +139,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	beq @done
 	lda #'*'
 	sta mem::statusline,x
-
 @done:	rts
 .endproc
 
@@ -261,19 +272,12 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	jsr util::todec
 	ldy #0
 	ldx @savex
-:	lda mem::spare,y
-	cmp #'0'
-	bne :+		; skip leading zeros
-	iny
-	cpy #4
-	bcc :-
-:	lda mem::spare,y
+:	lda mem::spare,x
+	beq @decdone
 	sta @buff,x
 	inx
-	iny
-	cpy #5
-	bcc :-
-
+	bne :-
+@decdone:
 	ldy @savey
 	jmp @cont
 

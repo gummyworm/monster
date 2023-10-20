@@ -1705,12 +1705,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 :	jsr key::getch
 	beq :-
+	cmp #K_QUIT
+	beq @done
 	cmp #$59		; Y
-	beq @quit
-@return:
-	rts
+	bne :-
 
 @quit:	jsr toggle_highlight
+	jsr text::clrline
+
 	lda #$00		; clear BRK flag
 	pha
 	plp
@@ -1719,7 +1721,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pla
 	pla			; debug START return address
 	pla
-	rts
+	pla
+	pla
+	pla
+	pla
+	jmp *
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2419,7 +2426,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; restore the debug values at the affected locations
 	ldx #8
 	stx @cnt
-	jmp *
 @store: lda @cnt
 	tax
 	lsr

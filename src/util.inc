@@ -8,6 +8,7 @@
 .import __util_memcpy
 .import __util_parsehex
 .import __util_todec
+.import __util_todec8
 .import __util_todec24
 .import atoi
 .import __util_isoperator
@@ -28,6 +29,7 @@
 	parse_enquoted_string = __util_parse_enquoted_string
 	parsehex	      = __util_parsehex
 	todec                 = __util_todec
+	todec8		      = __util_todec8
 	todec24		      = __util_todec24
 .endscope
 
