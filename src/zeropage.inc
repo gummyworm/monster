@@ -82,6 +82,8 @@ bankoffset   = $a5	; offset for relative reads/writes
 bankaddr0    = $a6
 bankaddr1    = $a8
 
+curi         = $aa	; index to character position in current line
+
 ;******************************************************************************
 ; $ac-$ba is reserved for text displaying/bitmap stuff
 text = $ac

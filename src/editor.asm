@@ -46,7 +46,6 @@ VISUAL_LINE = 2
 
 ;******************************************************************************
 ; ZEROPAGE
-indent = zp::editor	; number of spaces to insert on newline
 height = zp::editor+1	; height of the text-editor (shrinks when displaying
 			; error, showing debugger, etc.
 mode   = zp::editor_mode	; editor mode (COMMAND, INSERT)
@@ -58,13 +57,13 @@ __edit_height = height
 ;******************************************************************************
 readonly: .byte 0	; if !0 no edits are allowed to be made via the editor
 
-numhighlights: .byte 0
+numhighlights:     .byte 0
 highlighted_lines: .res MAX_HIGHLIGHTS*2 ; line numbers that are highlighted
 
 jumplist: .res 8*2	; line #'s between jumps
 jumpptr:  .byte 0	; offset to jumplist
 
-buffptr: .word 0 	; copy buffer pointer (also bytes in copy buffer)
+buffptr:  .word 0 	; copy buffer pointer (also bytes in copy buffer)
 
 visual_start_line: .word 0	; the line # a selection began at
 visual_start_x:    .byte 0	; the x-position a selection began at
@@ -101,8 +100,7 @@ selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
 	stxy buffptr
 
 	ldx #$00
-	ldy #EDITOR_ROW_START
-	stx indent
+	ldy #$00
 	jmp cur::forceset
 .endproc
 
@@ -713,9 +711,8 @@ main:	jsr key::getch
 	lda #'l'
 	sta text::statusmode
 
-	ldxy #mem::linebuffer		; get the length of the current line
-	jsr str::len
-	tax
+	; get the length of the current line
+	jsr text::rendered_line_len
 	ldy #$00
 	lda zp::cury
 	jmp bm::rvsline_part
@@ -750,7 +747,7 @@ main:	jsr key::getch
 	sta text::insertmode
 	lda @ch
 	jsr insert
-	dec zp::curx	; don't advance cursor
+	jsr cur::left	; don't advance cursor
 	pla
 	sta text::insertmode
 @done:	rts
@@ -782,7 +779,7 @@ main:	jsr key::getch
 	jsr src::end
 	beq @done
 	jsr src::next
-	inc zp::curx
+	jsr cur::right
 @done:	rts
 .endproc
 
@@ -1295,7 +1292,6 @@ main:	jsr key::getch
 	.byte K_ASM_DEBUG	; debug
 	.byte K_SHOW_BUFFERS	; show buffers
 	.byte K_REFRESH		; refresh
-	.byte K_RENAME		; rename
 	.byte K_DIR		; dir
 	.byte K_LIST_SYMBOLS	; list symbols
 	.byte K_CLOSE_BUFF	; close buffer
@@ -1318,7 +1314,7 @@ main:	jsr key::getch
 @num_special_keys=*-@specialkeys
 .linecont +
 .define specialvecs home, command_asm, command_asmdbg, show_buffers, refresh, \
-	rename, dir, list_symbols, \
+	dir, list_symbols, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
 	next_buffer, prev_buffer, cancel
@@ -1356,6 +1352,7 @@ __edit_refresh:
 	; redraw the visible lines
 @l0:	jsr text::clrline
 	jsr src::readline
+	jsr text::rendered_line_len
 	sta zp::curx
 	php
 	lda zp::cury
@@ -1884,11 +1881,12 @@ goto_buffer:
 	.byte $73		; s - save file
 	.byte $78		; x - scratch file
 	.byte $61		; a - assemble file
+	.byte $72		; r - rename
 @num_ex_commands=*-@ex_commands
 
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
-	command_load, save, scratch, assemble_file
+	command_load, save, scratch, assemble_file, rename
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
@@ -2088,7 +2086,8 @@ goto_buffer:
 @done:	lda zp::curx
 	beq @ret
 :	jsr src::prev
-	dec zp::curx
+	jsr cur::left
+	lda zp::curx
 	bne :-
 @ret:	rts
 .endproc
@@ -2144,20 +2143,15 @@ goto_buffer:
 	lda zp::cury
 	jsr text::print
 
-; insert spaces for the indent in the source
-	lda #INDENT_LEVEL-1
-	sta @i
-@ident:	lda #' '
+	lda #$18		; TAB
 	jsr src::insert
-	jsr text::putch
-	dec @i
-	bne @ident
-	rts
+	jmp text::putch
 
 @done:	lda zp::curx
 	beq @ret
 :	jsr src::prev
-	dec zp::curx
+	jsr cur::left
+	lda zp::curx
 	bne :-
 @ret:	rts
 
@@ -2281,7 +2275,8 @@ goto_buffer:
 	jsr src::replace
 	jmp text::putch
 @put:	jsr src::insert
-	jmp text::putch
+	jsr text::putch
+	rts
 .endproc
 
 ;******************************************************************************
@@ -2346,9 +2341,8 @@ goto_buffer:
 :	jsr text::clrline
 	jsr src::get	; read the line we're moving to into linebuffer
 
-	ldxy #mem::linebuffer
-	jsr str::len
-	sta zp::curx
+	jsr text::rendered_line_len
+	stx zp::curx
 
 :	jsr src::right
 	bcc :-
@@ -2372,7 +2366,7 @@ goto_buffer:
 	cmp #MODE_VISUAL_LINE
 	bne @movex
 	ldy #$00
-	ldx zp::curx
+	jsr text::char_index
 	lda zp::cury
 	jmp bm::rvsline_part
 
@@ -2380,7 +2374,7 @@ goto_buffer:
 	beq @rvs
 	cpx @xend
 	beq @rvs
-	dec zp::curx
+	jsr cur::left
 	jsr src::prev
 	bcc @movex
 
@@ -2423,7 +2417,7 @@ goto_buffer:
 	jmp @rvs
 
 @sel:	; highlight from [cur-x, end-of-line]
-	jsr text::linelen
+	jsr text::rendered_line_len
 	ldy zp::curx
 	jmp @rvs
 
@@ -2540,6 +2534,7 @@ goto_buffer:
 ;  - .C: set if cursor could not be moved
 .proc ccright
 @deselect=zp::tmp0
+@tabcnt=zp::tmp1
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne :+
@@ -2560,6 +2555,18 @@ goto_buffer:
 	rts
 
 @ok:	; turn off the old cursor if we're unhighlighting
+	cmp #$18		; did we move over a TAB?
+	bne @curr
+
+	; handle TAB (repeat the MOVE RIGHT logic TAB_WIDTH times)
+	lda #TAB_WIDTH
+	sta @tabcnt
+:	jsr @curr
+	dec @tabcnt
+	bne :-
+	rts
+
+@curr:
 	lda #$00
 	sta @deselect
 
@@ -2650,9 +2657,8 @@ goto_buffer:
 	bcc @down
 
 	; can't move down, move cursor to end of line
-	ldxy #mem::linebuffer
-	jsr str::len
-	sta zp::curx
+	jsr text::rendered_line_len
+	stx zp::curx
 	sec		; cursor could not be moved down
 	rts
 
@@ -2681,9 +2687,7 @@ goto_buffer:
 	cmp #MODE_VISUAL_LINE
 	bne @movex
 	jsr src::get
-	ldxy #mem::linebuffer
-	jsr str::len
-	tax
+	jsr text::rendered_line_len
 	ldy #$00
 	lda zp::cury
 	jmp bm::rvsline_part
@@ -2729,7 +2733,7 @@ goto_buffer:
 	bcs @sel
 
 @desel:	; highlight from [cur-x, end-of-line]
-	jsr text::linelen
+	jsr text::rendered_line_len
 	ldy zp::curx
 	jmp @rvs
 
@@ -2811,15 +2815,14 @@ goto_buffer:
 	cmp #$0d
 	beq @done
 
-	ldxy #mem::linebuffer
-	jsr str::len
-	sta @line2len
+	jsr text::rendered_line_len
+	stx @line2len
 
 	; get the new cursor position ( new_line_len - (old_line2_len))
 	jsr src::up
 	jsr src::get
-	ldxy #mem::linebuffer
-	jsr str::len
+	jsr text::rendered_line_len
+	txa
 	sec
 	sbc @line2len
 	sta @cnt
@@ -2856,7 +2859,7 @@ goto_buffer:
 	; if we're replacing (or in r/o mode), just decrement cursor if we can
 	lda zp::curx
 	beq @done
-	dec zp::curx
+	jsr cur::left
 	jmp src::prev
 
 @del_ins:

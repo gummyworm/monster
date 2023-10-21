@@ -441,7 +441,9 @@ result=mem::spare
 ;  - .Z: set if if the character in .A is whitespace
 .export __util_is_whitespace
 .proc __util_is_whitespace
-	cmp #$0d
+	cmp #$0d	; newline
+	beq :+
+	cmp #$18	; TAB
 	beq :+
 	cmp #' '
 :	rts

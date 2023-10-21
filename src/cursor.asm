@@ -1,6 +1,8 @@
 .include "bitmap.inc"
+.include "config.inc"
 .include "edit.inc"
 .include "macros.inc"
+.include "memory.inc"
 .include "zeropage.inc"
 .include "text.inc"
 
@@ -167,6 +169,13 @@ __cur_toggle:
 	cmp #39
 	bcs @done
 	inc zp::curx
+
+	ldx zp::curx
+	lda mem::linebuffer,x
+	cmp #$18		; TAB
+	bne @done
+	adc #TAB_WIDTH-2	; .C is set
+	sta zp::curx
 @done:	rts
 .endproc
 
@@ -178,7 +187,14 @@ __cur_toggle:
 .proc __cur_left
 	lda zp::curx
 	beq @done
-	dec zp::curx
+	jsr text::char_index
+	dex
+	lda mem::linebuffer,x
+	cmp #$18		; TAB
+	bne :+
+	sbc #TAB_WIDTH-1
+	sta zp::curx
+:	dec zp::curx
 @done:	rts
 .endproc
 

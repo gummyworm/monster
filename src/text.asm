@@ -126,7 +126,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	jsr str::len
 	tay
 	dey
-	beq @done
+	beq @drive
 	ldx #39
 :	lda (@filename),y
 	sta mem::statusline,x
@@ -136,9 +136,26 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 
 ; display a '*' if the file is dirty
 	jsr src::isdirty
-	beq @done
+	beq @drive
 	lda #'*'
 	sta mem::statusline,x
+
+; display the drive name followed by a colon to the left of the filename
+@drive:	lda #':'
+	sta mem::statusline-1,x
+
+	stx @tmp
+	lda zp::device
+	jsr util::todec8
+	ldy @tmp
+	sta mem::statusline-2,y
+	cpx #'0'
+	beq :+
+	txa
+	dey
+	sta mem::statusline-2,y
+:	lda #'#'
+	sta mem::statusline-3,y
 @done:	rts
 .endproc
 
@@ -182,12 +199,12 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .A:  the row to print the string at
 .export __text_print
 .proc __text_print
-@sub = zp::text+7	; address of string to replace escape char with
-@str = zp::text+9
-@row = zp::text+11
-@savex = zp::text+12
-@savey = zp::text+13
-@ret = zp::text+14
+@sub = zp::text	; address of string to replace escape char with
+@str = zp::text+2
+@row = zp::text+4
+@savex = zp::text+5
+@savey = zp::text+6
+@ret = zp::text+8
 @buff = mem::linebuffer2
         stx @str
         sty @str+1
@@ -205,17 +222,17 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bne :+
 	jmp @disp
 
-:	cmp #$18	; TAB
+:	cmp #$18		; TAB
 	bne :+
+
+	sty @savey
+	ldy #TAB_WIDTH
 	lda #' '
-	sta @buff,x
-	sta @buff+1,x
-	sta @buff+2,x
-	sta @buff+3,x
+@tab:	sta @buff,x
 	inx
-	inx
-	inx
-	inx
+	dey
+	bne @tab
+	ldy @savey
 	jmp @cont
 
 :	cmp #ESCAPE_STRING
@@ -412,6 +429,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 @dst=zp::text+4
 @clrmask=zp::text+6
 @char=zp::text+7
+@len=zp::text+7
 	cmp #$14
 	bne @printing
 
@@ -434,9 +452,9 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	jsr linebuff::shl
 @moveback:
 	dec zp::curx
-	clc	; "put" was successful
+	clc		; "put" was successful
 	rts
-@err:	sec	; couldn't perform action
+@err:	sec		; couldn't perform action
 	rts
 
 @printing:
@@ -452,9 +470,10 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 @shift_right:
 	; insert a new char and redraw the line
 	jsr __text_linelen
-	cpx zp::curx
+	stx @len
+	jsr __text_char_index
+	cpx @len
 	beq @fastputi
-	lda #$00
 	sta mem::linebuffer+2,x
 @shr:	lda mem::linebuffer,x
 	sta mem::linebuffer+1,x
@@ -464,23 +483,31 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bpl @shr
 
 :	; shift the bitmap
-	ldy zp::curx
+	ldy @len
 	lda zp::cury
 	jsr bm::shr
 
-	ldx zp::curx
+	jsr __text_linelen
 	jmp @cont
 
 @fastputi:
 	lda #$00
 	sta mem::linebuffer+1,x	; keep the line 0-terminated
-	ldx zp::curx
 @fastput:
 	; replace the underlying character
 @cont:	pla
 	sta mem::linebuffer,x
 	bne :+
 	rts			; terminating 0, we're done
+
+:	cmp #$18		; TAB
+	bne :+
+@tab:	lda zp::curx
+	clc
+	adc #TAB_WIDTH
+	sta zp::curx
+	lda zp::cury
+	jmp __text_drawline	; rerender whole line
 
 :	sta @char
 	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
@@ -699,6 +726,52 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	beq @done
 	cpx #40
 	bne @l0
+@done:	rts
+.endproc
+
+;******************************************************************************
+; RENDERED LINE LEN
+; Returns the length of mem::linebuffer in number of rendered characters
+; OUT:
+;  - .X: the length of mem::linebuffer as it appears on screen
+.proc __text_rendered_line_len
+.export __text_rendered_line_len
+	ldx #$ff
+	ldy #$ff
+@l0:	iny
+	inx
+	lda mem::linebuffer,y
+	beq @done
+	cmp #$18
+	bne :+
+	txa
+	adc #TAB_WIDTH-2	; -2 because .C is set and we've already INX'd
+	tax
+:	cpx #40
+	bcc @l0
+@done:	rts
+.endproc
+
+;******************************************************************************
+; LINE INDEX
+; Returns the character index of the current cursor position
+; OUT:
+;  X: the x column position of the cursor
+.export __text_char_index
+.proc __text_char_index
+	ldx #$ff
+	ldy #$ff
+@l0:	iny
+	inx
+	lda mem::linebuffer,y
+	beq @done
+	cmp #$18
+	bne :+
+	txa
+	adc #TAB_WIDTH-2
+	tax
+:	cpx zp::curx
+	bcc @l0
 @done:	rts
 .endproc
 

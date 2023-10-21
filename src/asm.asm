@@ -1729,8 +1729,8 @@ __asm_include:
 	ldy #$00
 	lda (zp::line),y
 	bmi :+
-	beq @done	; set .Z if 0
-	cmp #' '
+	beq @done		; set .Z if 0
+	jsr util::is_whitespace
 	bne @done
 :	incw zp::line
 	bne process_ws

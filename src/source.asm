@@ -681,6 +681,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 ; Moves to the next character unless it is a newline
 ; OUT:
 ;  - .C: set if the cursor wasn't moved, clear if it was
+;  - .A: the character at the position that was moved to
 .export __src_right
 .proc __src_right
 	jsr __src_end

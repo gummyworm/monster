@@ -69,28 +69,19 @@
 .export __fmt_opcode
 .proc __fmt_opcode
 @cnt=zp::tmp6
-	ldy #INDENT_LEVEL-1
-@l0:	ldx #39-1
-@l1:	lda mem::linebuffer,x
+	ldx #39-1
+@l0:	lda mem::linebuffer,x
 	sta mem::linebuffer+1,x
 	dex
-	bpl @l1
-	dey
-	bne @l0
+	bpl @l0
 
 	jsr src::up		; return to start of source
 
-	; indent the linebuffer and source
-	lda #INDENT_LEVEL-2
-	sta @cnt
-	lda #' '
-@l2:	ldx @cnt
-	sta mem::linebuffer,x
+	lda #$18		; TAB
+	sta mem::linebuffer
 	jsr src::insert
-	dec @cnt
-	bpl @l2
-	; move to the next line
-	jmp src::down
+
+	jmp src::down		; move to the next line
 .endproc
 
 ;******************************************************************************
@@ -111,8 +102,10 @@
 @removespaces:
 	lda mem::linebuffer
 	cmp #' '
+	beq @del
+	cmp #$18
 	bne @left_aligned
-	jsr src::delete
+@del:	jsr src::delete
 	ldx #$00
 	ldy #39
 	jsr linebuff::shl

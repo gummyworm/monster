@@ -321,7 +321,7 @@ COLMEM_ADDR = $9400
 ; ROR BITMAP_ADDR+$c0*2
 ; ROR BITMAP_ADDR+$c0*3
 ; ...
-@l0:	ldy #$03
+@l0:	ldy #$03		; 1 char width
 @l1:	clc
 	jmp (@jumpaddr)
 @target=*

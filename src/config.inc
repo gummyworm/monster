@@ -9,6 +9,7 @@ CUR_BLINK_SPEED  = 250	; number of updates before blink
 ;******************************************************************************
 ; source formatting
 .define INDENT_LEVEL 10			; .define'd for use as macro param
+TAB_WIDTH = INDENT_LEVEL
 
 ;******************************************************************************
 ; editor configuration
