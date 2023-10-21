@@ -136,18 +136,11 @@ __file_load_src:
 ; This entrypoint loads the open file (in file 3)
 .proc load
 @errcode=zp::tmpb
-@dev=$ba
-	pha
-	lda #$0a
-	sta @dev
-	pla
 	jsr $ffbd		; SETNAM
 
 	lda #$03		; file #3
-	ldx @dev		; last used device number
-	bne :+
-	ldx #$0a 		; default to device 10
-:	ldy secondaryaddr 	; SA
+	ldx zp::device		; last used device number
+	ldy secondaryaddr 	; SA
 	jsr $ffba 		; SETLFS
 
 	jsr $ffc0 		; call OPEN
@@ -220,7 +213,6 @@ __file_load_src:
 @namelen=zp::tmpa
 @end=zp::tmpc
 @src=zp::tmpe
-@dev=$ba
 @namebuff=mem::spare
 	sta @namelen
 	stxy @name
@@ -248,7 +240,7 @@ __file_load_src:
 	jsr $ffbd 	; SETNAM
 	lda #$03
 	tay
-	ldx #$0a	; device 10
+	ldx zp::device
 	jsr $ffba	; SETLFS
 
 	jsr $ffc0 	; call OPEN
@@ -370,7 +362,7 @@ __file_load_src:
 	jsr $ffbd 	; SETNAM
 	lda #$0f
 	ldy #$0f
-	ldx #$0a	; device 10
+	ldx zp::device
 	jsr $ffba	; SETLFS
 	jsr $ffc0 	; OPEN 15,9,15 "S:FILE"
 	bcs @err
@@ -492,9 +484,6 @@ __file_load_src:
 
 	lda @file	; file handle
 	ldx zp::device	; last used device number
-	bne :+
-	ldx #$0a 	; default to device 10
-:	ldx #$0a
 	ldy @file	; file #
 	jsr $ffba 	; SETLFS
 	jsr $ffc0 	; call OPEN
