@@ -2140,18 +2140,29 @@ goto_buffer:
 	; redraw everything from <cursor> to EOL on next line
 	jsr text::clrline
 	jsr src::get
+
+	; shift the text buffer right by INDENT_LEVEL
+	jsr text::linelen
+:	lda mem::linebuffer,x
+	sta mem::linebuffer+INDENT_LEVEL-1,x
+	dex
+	bpl :-
+
+	; insert spaces into the linebuffer and source
+	lda #INDENT_LEVEL-2
+	sta @i
+	lda #' '
+:	jsr src::insert
+	ldx @i
+	sta mem::linebuffer,x
+	dec @i
+	bpl :-
+
 	ldxy #mem::linebuffer
+	lda #INDENT_LEVEL-1
+	sta zp::curx
 	lda zp::cury
 	jsr text::print
-
-; insert spaces for the indent in the source
-	lda #INDENT_LEVEL-1
-	sta @i
-@ident:	lda #' '
-	jsr src::insert
-	jsr text::putch
-	dec @i
-	bne @ident
 	rts
 
 @done:	lda zp::curx
