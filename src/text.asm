@@ -289,10 +289,11 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	jsr util::todec
 	ldy #0
 	ldx @savex
-:	lda mem::spare,x
+:	lda mem::spare,y
 	beq @decdone
 	sta @buff,x
 	inx
+	iny
 	bne :-
 @decdone:
 	ldy @savey

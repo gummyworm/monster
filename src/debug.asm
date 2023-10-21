@@ -1721,11 +1721,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pla
 	pla			; debug START return address
 	pla
-	pla
-	pla
-	pla
-	pla
-	jmp *
 @done:	rts
 .endproc
 
@@ -2914,6 +2909,7 @@ __debug_remove_breakpoint:
 	ldxy #strings::debug_brk_line
 @print:	lda #DEBUG_MESSAGE_LINE
 	jsr text::print		; break in line <line #>
+	jmp *
 	lda #DEBUG_MESSAGE_LINE
 	jmp bm::rvsline
 .endproc
