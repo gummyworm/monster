@@ -2940,6 +2940,26 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
+; NEXT DRIVE
+.proc next_drive
+	lda zp::device
+	cmp #$0f
+	bcs :+
+	inc zp::device
+:	rts
+.endproc
+
+;******************************************************************************
+; PREV DRIVE
+.proc prev_drive
+	lda zp::device
+	cmp #$09
+	bcc :+
+	dec zp::device
+:	rts
+.endproc
+
+;******************************************************************************
 ; FIND
 ; Searches for the text given in .YX and moves the cursor to it if it's
 ; found
@@ -3521,6 +3541,8 @@ commands:
 	.byte $56	; V (enter visual line mode)
 	.byte $79	; y (yank)
 	.byte K_FIND	; find
+	.byte K_NEXT_DRIVE ; next drive
+	.byte K_PREV_DRIVE ; prev drive
 	.byte K_GETCMD  ; get command
 numcommands=*-commands
 
@@ -3532,7 +3554,8 @@ numcommands=*-commands
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual_line, yank, command_find, get_command
+	enter_visual, enter_visual_line, yank, command_find, next_drive, \
+	prev_drive, get_command
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs

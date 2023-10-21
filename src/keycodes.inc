@@ -45,6 +45,8 @@ K_JUMPFORWARD    = $a2	; <C=> + i
 K_OPEN           = $b1	; <C=> + e
 K_SCRATCH	 = $bd	; <C=> + x
 K_SAVE 	         = $ae	; <C=> + s
+K_NEXT_DRIVE     = $a6  ; <C=> + +
+K_PREV_DRIVE     = $dc  ; <C=> + -
 
 ; DEBUGGER KEYS
 K_SRCVIEW         = $85	; F1

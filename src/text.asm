@@ -126,7 +126,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	jsr str::len
 	tay
 	dey
-	beq @done
+	beq @drive
 	ldx #39
 :	lda (@filename),y
 	sta mem::statusline,x
@@ -136,9 +136,26 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 
 ; display a '*' if the file is dirty
 	jsr src::isdirty
-	beq @done
+	beq @drive
 	lda #'*'
 	sta mem::statusline,x
+
+; display the drive name followed by a colon to the left of the filename
+@drive:	lda #':'
+	sta mem::statusline-1,x
+
+	stx @tmp
+	lda zp::device
+	jsr util::todec8
+	ldy @tmp
+	sta mem::statusline-2,y
+	cpx #'0'
+	beq :+
+	txa
+	dey
+	sta mem::statusline-2,y
+:	lda #'#'
+	sta mem::statusline-3,y
 @done:	rts
 .endproc
 
@@ -182,12 +199,12 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .A:  the row to print the string at
 .export __text_print
 .proc __text_print
-@sub = zp::text+7	; address of string to replace escape char with
-@str = zp::text+9
-@row = zp::text+11
-@savex = zp::text+12
-@savey = zp::text+13
-@ret = zp::text+14
+@sub = zp::text	; address of string to replace escape char with
+@str = zp::text+2
+@row = zp::text+4
+@savex = zp::text+5
+@savey = zp::text+6
+@ret = zp::text+8
 @buff = mem::linebuffer2
         stx @str
         sty @str+1
