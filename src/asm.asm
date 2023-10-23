@@ -542,12 +542,15 @@ __asm_tokenize:
 :	jsr process_word	; read past the label name
 	ldxy zp::line
 	jsr @assemble		; assemble the rest of the line
-	bcs :+
+	bcs @ret		; return error
 	cmp #ASM_LABEL
-	beq :+			; if we found another label, return error
-	lda #ASM_LABEL		; return as LABEL (don't indent this line)
+	bne :+
+
+	; if we found another label, return error
+	RETURN_ERR ERR_UNEXPECTED_CHAR
+:	lda #ASM_LABEL		; return as LABEL (don't indent this line)
 	clc
-:	rts
+	rts
 
 ; from here on we are either reading a comment or an operand
 @getopws:
