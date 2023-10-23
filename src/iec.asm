@@ -8,10 +8,10 @@
 
 ;******************************************************************************
 ; READERR
-; Reads the drive's error into $100 (0-terminated)
+; Reads the drive's error into mem::drive_err (0-terminated)
 ; NOTE: file #15 is opened and should be closed by the caller when done
 ; OUT:
-;  $100: the drive error message
+;  mem::driveerr: the drive error message
 .export __io_readerr
 .proc __io_readerr
 @ch=zp::tmpf
@@ -36,7 +36,7 @@
 	ldx @ch
 	cpx #20		; cap size of string
 	bcs @done
-	sta $0100,x
+	sta mem::drive_err,x
 	inc @ch
 	bne @loop	; next byte
 
@@ -46,7 +46,7 @@
 	ldx @ch
 	dex
 	dex
-:	lda $0100,x
+:	lda mem::drive_err,x
 	sta mem::statusline+DRIVE_ERR_COL,x
 
 	dex
@@ -55,6 +55,6 @@
 	; TODO: why does save fail if this is closed?
 	;lda #$0f
 	;jsr $ffc3	; CLOSE
-	ldxy #$100
+	ldxy #mem::drive_err
 	jmp atoi
 .endproc

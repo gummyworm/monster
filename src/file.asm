@@ -248,9 +248,6 @@ __file_load_src:
 
 	jsr io::readerr
 	cpx #$00
-	beq @drive_ok
-	cpx #63		; FILE EXISTS
-	beq @retry
 	bne @error
 
 @drive_ok:
@@ -272,27 +269,6 @@ __file_load_src:
 	jsr $ffc3     ; CLOSE
 	jsr $ffcc     ; call CLRCHN
 	RETURN_ERR ERR_IO_ERROR
-
-; if errcode was 63, try deleting the file and doing the SAVE again
-@retry: lda #$03	; filenumber 3
-	jsr $ffc3	; CLOSE 3
-	lda #$0f	; filenumber 15
-	jsr $ffc3	; CLOSE 15
-	jsr $ffcc	; CLRCHN
-
-	; delete old file
-	ldxy #@namebuff
-	lda @namelen
-	jsr __file_scratch
-	beq :+
-	sec
-	rts		; scratch failed, leave error from io:readerr for user
-
-: 	; retry the save
-	lda @namelen
-	clc
-	adc #$04	; strlen(@p_w)
-	jmp @resave
 @p_w:	.byte ",p,w"
 @p_w_len=*-@p_w
 .endproc
@@ -310,8 +286,10 @@ __file_load_src:
 ;  .C: set on error, clear on success
 .export __file_save_bin
 .proc __file_save_bin
+	pha
 	lda #$01
 	sta isbin
+	pla
 	jmp dosave
 .endproc
 
@@ -320,12 +298,15 @@ __file_load_src:
 ; Saves the active source buffer to a file of the given name
 ; IN:
 ;  .XY: the 0-terminated filename to save the source buffer to
+;  .A:  the length of the filename
 ; OUT:
 ;  .C: set on error, clear on success
 .export __file_save_src
 .proc __file_save_src
+	pha
 	lda #$00
 	sta isbin
+	pla
 	jmp dosave
 .endproc
 
@@ -364,8 +345,10 @@ __file_load_src:
 	ldy #$0f
 	ldx zp::device
 	jsr $ffba	; SETLFS
-	jsr $ffc0 	; OPEN 15,9,15 "S:FILE"
-	bcs @err
+	jsr $ffc0 	; OPEN 15,<device>,15 "S:FILE"
+	bcc @close
+	cmp #$00
+	bne @err
 
 @close: lda #15		; filenumber 3
 	jsr $ffc3	; CLOSE 15
@@ -533,7 +516,13 @@ __file_load_src:
 
 @use_src:
 	jsr src::next
-	jmp src::end
+	jsr src::end
+	beq :+		; if EOF, return with .C set
+	clc		; !EOF, return with .C clear
+	rts
+:	sec
+	rts
+
 	;cmp #$80
 	;bcs @done	; skip non-printable chars (e.g. breakpoints)
 	;jsr $ffd2	; CHROUT (write byte to file)

@@ -70,6 +70,8 @@ visual_start_line: .word 0	; the line # a selection began at
 visual_start_x:    .byte 0	; the x-position a selection began at
 selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
 
+overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
+
 .CODE
 
 ;******************************************************************************
@@ -1847,6 +1849,8 @@ goto_buffer:
 @cmdbuff=$100
 @arg=zp::tmp0
 	ldxy #$0000
+	stx overwrite		; clear OVERWRITE flag (for SAVEs)
+
 	jsr readinput
 	bcs @done
 
@@ -1868,9 +1872,16 @@ goto_buffer:
 	lda @exvecshi,x
 	sta zp::jmpvec+1
 
+	ldx #$01
+
+	lda @cmdbuff+2
+	cmp #'@'		; check overwrite flag (for SAVE commands)
+	bne @parsearg
+	stx overwrite		; set OVERWRITE flag
+	inx			; move past '@'
+
 ; get the argument for the command and send it along to the vector
 @parsearg:
-	ldx #$01
 :	lda @cmdbuff+1,x
 	inx
 	cmp #' '
@@ -1927,22 +1938,31 @@ goto_buffer:
 ; Prompts the user for a filename adn writes the source buffer to a file of
 ; the given name.
 .proc save
-@file=zp::tmp9
+@len=zp::tmp7
+@file=zp::tmp8
 	stxy @file
+	jsr str::len
+	sta @len
 
 	ldxy #strings::saving
 	lda #STATUS_ROW
 	jsr text::print
 
+	lda overwrite
+	beq @cont	; if overwrite flag isn't set, continue
+@scratch:
 	ldxy @file
-	jsr str::len	; get the file length
-	pha
+	jsr scratch	; (try to) delete the existing file
+	bcs @ret
 
+@cont:	ldxy @file
+	jsr src::name		; rename the buffer to the given name
+
+	jsr src::rewind
+
+	lda @len
 	ldxy @file
-	jsr src::name
-	pla
-	ldxy @file
-	jsr file::savesrc
+	jsr file::savesrc	; save the buffer
 
 	cmp #$00
 	bne @err
@@ -1963,29 +1983,32 @@ goto_buffer:
 ; IN:
 ;  - .XY: the filename of the file to delete
 .proc scratch
-@file=zp::tmp9
+@len=zp::tmp7
+@file=zp::tmp8
 	stxy @file
 
 	; get the file length
 	jsr str::len
-	pha
+	sta @len
 
 	ldxy #strings::deleting
 	lda #STATUS_ROW
 	jsr text::print
 
-	ldx @file
-	ldy @file+1
-	pla
+	ldxy @file
+	lda @len
+	jmp *
 	jsr file::scratch
 	cmp #$00
 	bne @err
-@ret:	rts	; no error
-@err:
-	pha
+@ret:	RETURN_OK	; no error
+
+@err:	pha
 	ldxy #strings::edit_file_delete_failed
 	lda #STATUS_ROW
-	jmp text::print
+	jsr text::print
+	sec
+	rts
 .endproc
 
 ;******************************************************************************

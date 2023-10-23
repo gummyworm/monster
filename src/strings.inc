@@ -11,6 +11,7 @@
 .import __str_deleting
 .import __str_load
 .import __str_edit_line_err
+.import __str_edit_file_delete_failed
 .import __str_edit_file_load_failed
 .import __str_edit_file_save_failed
 .import __str_endmac
@@ -40,7 +41,7 @@
 	dir                     = __str_dir
 	edit_line_err           = __str_edit_line_err
 	edit_file_load_failed   = __str_edit_file_load_failed
-	edit_file_delete_failed = __str_edit_file_load_failed
+	edit_file_delete_failed = __str_edit_file_delete_failed
 	edit_file_save_failed   = __str_edit_file_save_failed
 
 	watches_line            = __str_watches_line
