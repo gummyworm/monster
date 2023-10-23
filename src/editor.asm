@@ -2158,7 +2158,7 @@ goto_buffer:
 	jsr fmt::line
 
 @nextline:
-	jsr drawline
+	jsr drawline		; draw the formatted line
 
 	; redraw the cleared status line
 	jsr text::update
@@ -2168,6 +2168,8 @@ goto_buffer:
 	jsr src::get
 
 	; shift the text buffer right by INDENT_LEVEL
+	lda zp::curx
+	beq @indentdone				; skip indent if curx == 0 
 	jsr text::linelen
 :	lda mem::linebuffer,x
 	sta mem::linebuffer+INDENT_LEVEL-1,x
@@ -2187,9 +2189,10 @@ goto_buffer:
 	ldxy #mem::linebuffer
 	lda #INDENT_LEVEL-1
 	sta zp::curx
+
+@indentdone:
 	lda zp::cury
-	jsr text::print
-	rts
+	jmp text::drawline
 
 @done:	lda zp::curx
 	beq @ret
