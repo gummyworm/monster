@@ -19,6 +19,15 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
 .export __irq_sys_update
 .proc __irq_sys_update
 	jsr beep::update
+        lda $f5
+        pha
+        lda $f6
+        pha
+        jsr $eb1e               ; scan keyboard
+        pla
+        sta $f6
+        pla
+        sta $f5
 	jmp $eb15
 .endproc
 

@@ -3,6 +3,8 @@
 .BSS
 
 ;******************************************************************************
+__mem_keybuff=$277
+
 .export __mem_spare
 .export __mem_spareend
 __mem_spare=$0500

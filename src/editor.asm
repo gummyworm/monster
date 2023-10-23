@@ -113,7 +113,10 @@ selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
 .proc __edit_run
 	jsr text::update
 	jsr text::status
-main:	jsr key::getch
+main:	lda #$70
+	cmp $9004
+	bne *-3
+	jsr key::getch
 	beq @done
 
 	pha
@@ -1295,7 +1298,6 @@ main:	jsr key::getch
 	.byte K_ASM_DEBUG	; debug
 	.byte K_SHOW_BUFFERS	; show buffers
 	.byte K_REFRESH		; refresh
-	.byte K_RENAME		; rename
 	.byte K_DIR		; dir
 	.byte K_LIST_SYMBOLS	; list symbols
 	.byte K_CLOSE_BUFF	; close buffer
@@ -1318,7 +1320,7 @@ main:	jsr key::getch
 @num_special_keys=*-@specialkeys
 .linecont +
 .define specialvecs home, command_asm, command_asmdbg, show_buffers, refresh, \
-	rename, dir, list_symbols, \
+	dir, list_symbols, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
 	next_buffer, prev_buffer, cancel
@@ -1881,6 +1883,7 @@ goto_buffer:
 	.byte $67		; g - go
 	.byte $64		; d - debug
 	.byte $65		; e - open file
+	.byte $72		; r - rename
 	.byte $73		; s - save file
 	.byte $78		; x - scratch file
 	.byte $61		; a - assemble file
@@ -1888,7 +1891,7 @@ goto_buffer:
 
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
-	command_load, save, scratch, assemble_file
+	command_load, rename, save, scratch, assemble_file
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs

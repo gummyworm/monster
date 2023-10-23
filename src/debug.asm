@@ -2909,7 +2909,6 @@ __debug_remove_breakpoint:
 	ldxy #strings::debug_brk_line
 @print:	lda #DEBUG_MESSAGE_LINE
 	jsr text::print		; break in line <line #>
-	jmp *
 	lda #DEBUG_MESSAGE_LINE
 	jmp bm::rvsline
 .endproc

@@ -91,6 +91,11 @@ text = $ac
 device = $ba	; the last used drive #
 file   = $bb	; the most recently accessed file
 
+keycnt = $cb	; # of keys in key buffer
+key    = $cb	; current keypress 
+
+keytab = $f5	; key decode table
+
 ;******************************************************************************
 ; $d0-$d5 assembly state
 asmresult = $d0	; pointer where code is assembled
