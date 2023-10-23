@@ -1997,7 +1997,6 @@ goto_buffer:
 
 	ldxy @file
 	lda @len
-	jmp *
 	jsr file::scratch
 	cmp #$00
 	bne @err
