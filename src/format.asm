@@ -61,7 +61,7 @@
 @shl:	jsr src::backspace
 	dec @curr
 	lda @curr
-	cmp #INDENT_LEVEL
+	cmp #INDENT_LEVEL+1
 	bcs @shl
 
 @cont:	jsr src::up

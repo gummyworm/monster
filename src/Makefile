@@ -4,8 +4,8 @@ TESTS=$(wildcard tests/*.s)
 TEST_INCS=$(wildcard tests/*.inc)
 TEST_TXTS=$(wildcard tests/*.txt)
 
-XVIC=xvic
-FE3BIN=fe3vice.bin
+XVIC=/mnt/c/VICE/xvic.exe
+FE3BIN=../fe3vice.bin
 
 monster.prg: boot.asm $(SRC) 
 	cl65 -t vic20 -o $@ -C link.config $^ -Ln labels.txt -v -m map.txt
