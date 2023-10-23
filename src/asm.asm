@@ -497,13 +497,15 @@ __asm_tokenize:
 @opcode:
 	jsr getopcode
 	bcs @macro
+
+	; we found an opcode, store it and continue to operand, etc.
 	lda #ASM_OPCODE
 	sta resulttype
 	stx opcode	; save the opcode
 	txa
 	ldy #$00
-	jsr writeb
-	bcc @getopws
+	jsr writeb	; store the opcode
+	bcc @getopws	; continue if no error
 	rts		; return err
 
 ; check if the line contains a macro
@@ -554,16 +556,19 @@ __asm_tokenize:
 	jmp @done
 
 @pound: cmp #';'		; are we at a comment?
-	bne :+
+	bne @parse_operand
 	jmp @done		; if comment, we're done
-:	ldy #$00
-	lda (zp::line),y
+
+@parse_operand:
 	cmp #'#'
-	bne @lparen
-	inc immediate
+	bne @lparen		; if not '#' check for a paren (indirect)
+	inc immediate		; flag operand as IMMEDIATE
 	incw zp::line
-	lda (zp::line),y
-	jmp @hi_or_low_byte	; if immediate, skip parentheses (treat as part of expression)
+	lda (zp::line),y	; get the next character
+
+	; if IMMEDIATE, skip parentheses (treat as part of expression)
+	jmp @hi_or_low_byte
+
 @lparen:
 	cmp #'('
 	bne @hi_or_low_byte
@@ -574,113 +579,127 @@ __asm_tokenize:
 @hi_or_low_byte:
 	cmp #'<'
 	bne :+
-	inc lsb
+	inc lsb			; flag LSB
 	incw zp::line
+	jmp @evalexpr		; continue (can't be both MSB and LSB)
+
 :	cmp #'>'
-	bne @abslabelorvalue
-	inc msb
+	bne @evalexpr
+	inc msb			; flag MSB
 	incw zp::line
 
-@abslabelorvalue:
+; all chars not part of expression have been processed, evaluate the expression
+@evalexpr:
 	jsr expr::eval
 	bcc @store_value
-	rts		; eval failed
+	rts			; return error, eval failed
 
-; store the value, note that we don't really care if
-; we write 2 bytes when we only need one (the next
-; instruction will overwrite it and it doesn't affect our program size count).
+; store the value, note that we don't really care if we write 2 bytes when we
+; only need one (the next instruction will overwrite it and it doesn't affect
+; our program size count).
 @store_value:
-	sta operandsz
-	lda lsb		; handle '<' character
-	beq :+
+	sta operandsz		; save size of the operand
+	lda lsb			; handle '<' character
+	beq :+			; skip if '<' flag not set
+	lda #$01
+	sta operandsz		; update operand size to 1 (only want LSB)
+	bne @store_lsb
+
+:	lda msb			; handle '>' character
+	beq @store_msb
+	tya			; move .Y (MSB) to .X (LSB)
+	tax
 	lda #$01
 	sta operandsz
 	bne @store_lsb
-:	lda msb		; handle '>' character
-	beq @store_msb
-	lda #$01
-	sta operandsz
-	tya
-	tax
-	jmp @store_lsb
-@store_msb:
-	tya
-	ldy #$02
-	jsr writeb
-	bcc @store_lsb
-@ret:	rts		; return err
-@store_lsb:
-	txa
-	ldy #$01
-	jsr writeb
-	bcs @ret	; if error, return
 
-; we've written the value of the operand, now look for
-; ',X' or ',Y' to see if this is indexed addressing
-@cont:	ldy #$00
-	lda indirect
-	beq @index
+@store_msb:
+	tya			; .A = MSB
+	ldy #$02
+	jsr writeb		; write the MSB (or garbage)
+	bcc @store_lsb		; if successful, write LSB
+@ret:	rts			; return err
+
+@store_lsb:
+	txa			; .X = LSB
+	ldy #$01
+	jsr writeb		; write the LSB
+	bcs @ret		; if error, return
+
+; we've evaluated the expression, now look for a right parentheses,
+; ',X' or ',Y' to conclude if this is indirect or indexed addressing
+@cont:	jsr process_ws
+	ldy #$00
+	lda indirect		; is indirect flagged? (we saw a '(' earlier)?
+	beq @index		; if not, skip to absolute
+
+; handle indirect. May be x pre-indexed, indirect or indirect: ',X)' or ')'
 @rparen:
 ; look for closing paren or ",X"
-	lda (zp::line),y
-	incw zp::line
-	cmp #','
-	bne @rparen_noprex
-	lda (zp::line),y
-	incw zp::line
-	cmp #'x'
-	beq :+
-	jmp @err
-:	lda (zp::line),y
-	incw zp::line
-	cmp #')'
-	beq :+
-	jmp @err
-:	inc indexed	; inc once to flag ,X indexed
-	jmp @getws2
+	lda (zp::line),y	; get first char
+	cmp #','		; is it a ','?
+	bne @rparen_noprex	; if not, only valid string is a plain ')'
 
+	jsr nextch		; eat any WS and get next char
+	cmp #'x'		; is it an .X?
+	beq :+			; if so, continue
+	RETURN_ERR ERR_UNEXPECTED_CHAR
+
+:	jsr nextch		; get next char after ",X"
+	inc indexed		; inc once to flag X-indexed
+	cmp #')'
+	beq @finishline		; if ')', continue
+	RETURN_ERR ERR_UNEXPECTED_CHAR
+
+; look for a plain ')' (indirect addressing) or '),y'  (indirect y-indexed)
 @rparen_noprex:
+	incw zp::line
 	cmp #')'
 	beq @index
-	jmp @err
+	RETURN_ERR ERR_UNEXPECTED_CHAR
 
 @index:
 	ldy #$00
 	lda (zp::line),y
 	cmp #','
 	bne @getws2
-	incw zp::line
+	jsr nextch		; get next char (past any whitespace)
+
 @getindexx:
-	lda (zp::line),y
 	cmp #'x'
-	bne @getindexy
-	jsr is_ldx_stx
-	bcs :+
-	RETURN_ERR ERR_ILLEGAL_ADDRMODE	 ; ,X is illegal for LDX/STX
-:	inc indexed	 ; inc once to flag ,X indexed
-	incw zp::line
+	bne @getindexy		; if not X check Y
+	jsr is_ldx_stx		; check the special case of LDX y-indexed
+	bcs :+			; if not LDX y-indexed continue
+	; ,X is illegal for LDX/STX
+	RETURN_ERR ERR_ILLEGAL_ADDRMODE
+
+:	inc indexed	 	; inc once to flag ,X indexed
+	bne @finishline		; validate nothing but a comment from here on
+
 @getindexy:
 	cmp #'y'
-	bne @getws2
-	inc indexed	 ; inc twice to flag ,Y indexed
-	jsr is_ldx_stx
-	bcc :+		 ; treat like ,X for encoding if LDX ,Y or STX ,Y
-	inc indexed
-:	incw zp::line
+	beq :+
+	RETURN_ERR ERR_UNEXPECTED_CHAR
 
-;------------------
+:	inc indexed	 ; inc once for X-indexed
+	jsr is_ldx_stx	 ; check LDX y-indexed
+	bcc @finishline	 ; treat like ,X for encoding if LDX ,Y or STX ,Y
+	inc indexed	 ; if NOT LDX y-indexed, inc twice for Y-indexed
+
+;------------------------------------------------------------------------------
 ; finish the line by checking for whitespace and/or a comment
 @finishline:
+	incw zp::line		; next char
 @getws2:
 	jsr process_ws
 
 ; check for comment or garbage
 @comment:
-	lda (zp::line),y
 	jsr islineterminator
 	beq @done
 	RETURN_ERR ERR_UNEXPECTED_CHAR
 
+;------------------------------------------------------------------------------
 ; done, create the assembled result based upon the opcode, operand, and addr mode
 @done:
 	lda resulttype
@@ -774,7 +793,8 @@ __asm_tokenize:
 	beq @noerr
 @err:	RETURN_ERR ERR_ILLEGAL_ADDRMODE
 
-@noerr: ;------------------
+@noerr:
+;------------------
 ; store debug info if enabled
 @dbg:	lda zp::gendebuginfo
 	beq @updatevpc
@@ -839,7 +859,6 @@ __asm_tokenize:
 	jsr writeb
 	bcc @noerr
 	rts		; return err
-
 .endproc
 
 ;******************************************************************************
@@ -1718,20 +1737,29 @@ __asm_include:
 .endproc
 
 ;******************************************************************************
+; NEXTCH
+; advances the character and THEN processes whitespace
+; (equivalent to incw zp::line : jsr process_ws)
+.proc nextch
+	incw zp::line
+	; fall through
+.endproc
+
+;******************************************************************************
 ; PROCESS_WS
 ; Reads (line) and updates it to point past ' ' chars and non-printing chars
 ; out:
-;  .Z: set if we're at the endo of the line
+;  .Z: set if we're at the end of the line
 ;  .A: the last character processed
 ;  .Y: 0
 ;  zp::line: updated to first non ' ' character
 .proc process_ws
 	ldy #$00
 	lda (zp::line),y
-	bmi :+
-	beq @done	; set .Z if 0
+	bmi :+			; skip non-printing chars
+	beq @done		; if end of line, we're done
 	cmp #' '
-	bne @done
+	bne @done		; if not space, we're done
 :	incw zp::line
 	bne process_ws
 @done:	rts

@@ -162,9 +162,10 @@ main:	lda #$70
 	jsr src::after_cursor
 	cmp #$80
 	bcc @keydone
-	jsr ccright	; try to move past the non-source char
+	jsr ccright		; try to move past the non-source char
 	bcc @validate
 @keydone:
+	jmp text::update	; update status in case something was changed
 	rts
 .endproc
 
@@ -1875,8 +1876,8 @@ goto_buffer:
 	cmp #' '
 	beq :-
 	ldy #>@cmdbuff
-	jmp zp::jmpaddr
-
+	jsr zp::jmpaddr
+	jmp text::update
 @done:  rts			; no input
 
 @ex_commands:
