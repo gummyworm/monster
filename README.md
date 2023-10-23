@@ -126,6 +126,8 @@ below for more info on modes).
 |   F3   | Assemble      | assembles the code in the buffer to memory                            |
 |   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
 |   F5   | Show buffers  | displays a list of the currently open buffers                         |
+| C= + + | Next Drive    | Selects the next drive (limited to #15)                               |
+| C= + - | Prev Drive    | Selects the previous drive (limited to #8)                            |
 
 ## Editor Modes
 The editor is a _modal_ editor, that is, it behaves differently depending on which _mode_ it is
@@ -543,11 +545,15 @@ read in.
 
 As with any work done with Commodore disk I/O, it is wise to regularly back up your files
 
+### Drive Selection (`C= + +` and `C= + -`)
+Selects the next or previous drive (within the valid range of 8-15).
+`C= + + (plus)` selects the _next_ available drive and `C= + - (minus)` selects
+the _previous_ available drive.
+
 ### Directory Viewer (`C= + L`)
 The directory viewer offers a paginated view of all files on the disk.
 Pressing `RETURN` while the row of the desired file is highlighted will load
 that file into a new buffer and activate that buffer.
-
 
 ---
 
