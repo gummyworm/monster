@@ -136,7 +136,7 @@ COLMEM_ADDR = $9400
 
 ;******************************************************************************
 ; RVSLINE
-; Reverses 1 character (8 pixels high) in the given row
+; Reverses 1 row of characters (8 pixels high) at the given row character row
 ; IN:
 ;  - .A: the text row to reverse (pixel number / 8)
 .export __bm_rvsline

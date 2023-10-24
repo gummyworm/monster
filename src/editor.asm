@@ -3164,6 +3164,7 @@ __edit_gotoline:
 @seekforward=zp::tmp9	; 0=backwards 1=forwards
 @diff=zp::tmpa		; lines to move up or down
 @rowsave=zp::tmpc
+@cnt=zp::tmpd
 	cmpw src::lines	; is target < total # of lines?
 	bcc :+		; yes, move to target
 	ldxy src::lines ; no, move to the last line
@@ -3235,8 +3236,33 @@ __edit_gotoline:
 	ldy @diff
 	ldx #$00
 @shortdone:
+	jsr is_visual	; are we in VISUAL mode
+	bne @movecur
+	; highlight all rows between cursor and destination
+	lda @diff
+	sta @cnt
+	dec @cnt
+	beq @movecur
+
+	lda zp::cury
+	sta @row
+@hiloop:
+	lda @seekforward
+	beq :+
+	inc @row
+	skw
+:	dec @row
+
+	lda @row
+	jsr bm::rvsline
+	dec @cnt
+	bne @hiloop
+	ldy @diff
+	ldx #$00
+@movecur:
 	jsr cur::move
-	jmp src::get
+	jsr src::get
+	jmp cur::on
 
 @long:  ; get first line of source buffer to render
 	; (target +/- (EDITOR_HEIGHT - cury))
