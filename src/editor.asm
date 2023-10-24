@@ -2123,10 +2123,11 @@ goto_buffer:
 ; LINEDONE
 ; Attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
-@i=zp::tmpa
+@indent=zp::tmpa	; indent boolean (!0 = indent)
+@i=zp::tmpa		; loop counter for indentation loop
 	jsr is_readonly
 	bne :+
-	jmp begin_next_line
+	jmp begin_next_line	; if READONLY, just go down a line
 
 :	; insert \n into source buffer and terminate text buffer
 	lda #$0d
@@ -2134,14 +2135,14 @@ goto_buffer:
 	lda #$00
 	jsr text::putch
 
-	lda zp::curx
+	ldx zp::curx
 	beq @nextline	; @ column 0, skip tokenization and go to the next line
 
 	lda #$00
 	sta zp::gendebuginfo
-	; check if the current line is valid
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
+
+	; tokenize (1st pass) to check if the current line is valid
+	ldxy #mem::linebuffer
 	jsr asm::tokenize
 	bcs @err
 	pha		; save token type
@@ -2153,11 +2154,15 @@ goto_buffer:
 @format:
 	; format the line
 	pla			; get token type
-@fmt:	cmp #ASM_COMMENT	; if this is a comment, don't indent
+@fmt:	ldx #$00		; init flag to NO indentation
+	cmp #ASM_COMMENT	; if this is a comment, don't indent
 	beq @nextline
 	jsr fmt::line
 
+	ldx #$01		; do indent
+
 @nextline:
+	stx @indent		; set indent flag
 	jsr drawline		; draw the formatted line
 
 	; redraw the cleared status line
@@ -2168,8 +2173,8 @@ goto_buffer:
 	jsr src::get
 
 	; shift the text buffer right by INDENT_LEVEL
-	lda zp::curx
-	beq @indentdone				; skip indent if curx == 0 
+	lda @indent
+	beq @indentdone				; skip indent if curx == 0
 	jsr text::linelen
 :	lda mem::linebuffer,x
 	sta mem::linebuffer+INDENT_LEVEL-1,x
