@@ -1699,7 +1699,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc quit
 	ldxy #strings::debug_stop_debugging
 	lda #DEBUG_MESSAGE_LINE
-	jsr text::putz
+	jsr text::print
 	lda #DEBUG_MESSAGE_LINE
 	jsr bm::rvsline
 
@@ -1710,10 +1710,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	cmp #$59		; Y
 	bne :-
 
-@quit:	jsr toggle_highlight
-	jsr text::clrline
-
-	lda #$00		; clear BRK flag
+@quit:	lda #$00		; clear BRK flag
 	pha
 	plp
 

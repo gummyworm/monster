@@ -72,6 +72,8 @@ selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
 
 overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
 
+cmdreps: .byte 0	; number of times to REPEAT current command
+
 .CODE
 
 ;******************************************************************************
@@ -233,7 +235,8 @@ main:	lda #$70
 	dec readonly
 	lda #EDITOR_HEIGHT
 	sta height
-	jmp refresh
+	jsr refresh
+	rts
 .endproc
 
 ;******************************************************************************
@@ -597,13 +600,12 @@ main:	lda #$70
 ; ONKEY_CMD
 ; Handles a keypress from the user in COMMAND mode
 .proc onkey_cmd
-@reps=zp::editortmp
 	jsr handle_universal_keys
 	bcc :+
 	rts
 
 :	ldx #$01
-	stx @reps		; init reps to 1
+	stx cmdreps		; init reps to 1
 @getreps:
 	cmp #$5f		; <-
 	bne :+
@@ -614,9 +616,9 @@ main:	lda #$70
 	cmp #'0'
 	beq @check_cmds
 	sbc #'0'		; .C already set
-	sta @reps
+	sta cmdreps
 
-:	jsr key::getch	; get another key for the command to do @reps times
+:	jsr key::getch	; get another key for the command to do cmdreps times
 	beq :-
 
 @check_cmds:
@@ -635,10 +637,9 @@ main:	lda #$70
 ; repeat the command for the number of reps the user requested
 @doreps:
 	jsr zp::jmpaddr
-	dec @reps
+	dec cmdreps
 	bne @doreps
 	rts
-
 .endproc
 
 ;******************************************************************************_
@@ -1887,6 +1888,8 @@ goto_buffer:
 	cmp #' '
 	beq :-
 	ldy #>@cmdbuff
+
+	; run the command
 	jsr zp::jmpaddr
 	jmp text::update
 @done:  rts			; no input
