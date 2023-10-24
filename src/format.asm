@@ -74,25 +74,26 @@
 ; Formats linebuffer as an opcode.
 .export __fmt_opcode
 .proc __fmt_opcode
-@cnt=zp::tmp6
-	ldy #INDENT_LEVEL-1
-@l0:	ldx #39-1
-@l1:	lda mem::linebuffer,x
-	sta mem::linebuffer+1,x
+@cnt=zp::tmp8
+	ldx #39-INDENT_LEVEL-1
+@l0:	lda mem::linebuffer,x
+	sta mem::linebuffer+INDENT_LEVEL-1,x
 	dex
-	bpl @l1
-	dey
-	bne @l0
+	bpl @l0
+
+	lda #' '
+:	sta mem::linebuffer,x
+	inx
+	cpx #INDENT_LEVEL-1
+	bne :-
 
 	; indent the linebuffer and source
 	lda #INDENT_LEVEL-2
 	sta @cnt
 	lda #' '
-@l2:	ldx @cnt
-	sta mem::linebuffer,x
-	jsr src::insert
+@l1:	jsr src::insert
 	dec @cnt
-	bpl @l2
+	bpl @l1
 	rts
 .endproc
 
