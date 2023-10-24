@@ -864,8 +864,26 @@ main:	lda #$70
 ;******************************************************************************_
 ; DELETE
 .proc delete
-:	jsr key::getch	; get a key to decide what to delete
-	beq :-
+	jsr is_visual
+	bne @cont
+
+; VISUAL mode; delete the selection
+@delvis:
+@cur=zp::editortmp+1
+@end=zp::editortmp+3
+	jsr yank			; yank the selection
+	bcs @notfound			; quit if error occurred
+	ldxy @end
+	jsr src::goto
+@delsel:
+	jsr src::backspace
+	jsr src::pos
+	cmpw @cur
+	bne @delsel
+	jmp enter_command		; done, refresh and return to COMMAND
+
+@cont:	jsr key::getch			; get a key to decide what to delete
+	beq @cont
 	ldx #@numcmds-1
 :	cmp @subcmds,x
 	beq @found
@@ -1012,9 +1030,35 @@ main:	lda #$70
 .endproc
 
 ;******************************************************************************
+; COMMAND YANK
+; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
+; mode, does nothing
+.proc command_yank
+	jsr yank
+	bcs @done
+
+	txa
+	pha
+	tya
+	pha
+
+	; display message
+	jsr enter_command
+	ldxy #@yoinkmsg
+	lda #STATUS_ROW-1
+	jsr text::print
+	RETURN_OK
+@done:	rts
+@yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
+.endproc
+
+;******************************************************************************
 ; YANK
 ; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
 ; mode, does nothing
+; OUT:
+;  - .XY: the number of bytes yanked
+;  - .C: set if selection was not able to be yanked
 .proc yank
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
@@ -1046,23 +1090,15 @@ main:	lda #$70
 	cmpw @cur	; are we back at the START of the selection yet?
 	bne @copy	; continue until we are
 
-:	; restore source position
+:	; restore source position and return size of copy
 	ldxy @start
 	jsr src::goto
+	ldxy @size	; return size
+	RETURN_OK
 
-	; display message
-	jsr enter_command
-	lda @size
-	pha
-	lda @size+1
-	pha
-	ldxy #@yoinkmsg
-	lda #STATUS_ROW-1
-	jsr text::print
+@done:	jsr enter_command
+	sec
 	rts
-
-@done:	jmp enter_command
-@yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
 .endproc
 
 ;******************************************************************************
@@ -3591,8 +3627,8 @@ numcommands=*-commands
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual_line, yank, command_find, next_drive, \
-	prev_drive, get_command
+	enter_visual, enter_visual_line, command_yank, command_find, \
+	next_drive, prev_drive, get_command
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs
