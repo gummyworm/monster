@@ -307,6 +307,10 @@ memaddr:   .word 0
 ; the memory view to render that area of memory.
 .proc getset_addr
 	pushcur
+	jsr cur::off
+
+	lda #$01
+	sta text::rvs		; enable RVS
 
 	; copy title to linebuffer
 	ldx #25-1
@@ -327,6 +331,10 @@ memaddr:   .word 0
 
 	ldxy #gethex
 	jsr edit::gets
+	
+	lda #$00
+	sta text::rvs		; disable reverse
+
 	ldxy #mem::linebuffer+17
 	stxy zp::line
 	jsr expr::eval

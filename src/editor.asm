@@ -471,12 +471,16 @@ main:	lda #$70
 	ldx zp::curx
 	stx @result_offset	; offset to the user-input in line buffer
 
+	jsr cur::on
 @getloop:
 	jsr text::update
 
 	jsr zp::jmpaddr		; call key-get func
 	cmp #$00
 	beq @getloop
+	pha
+	jsr cur::off
+	pla
 	cmp #$80		; > $80 -> not printable
 	bcs @getloop
 	cmp #K_RETURN
@@ -486,6 +490,7 @@ main:	lda #$70
 	jsr text::putch
 	lda zp::cury
 	jsr text::drawline
+	jsr cur::on
 	jmp @getloop
 
 @done:	clc 		; clear carry for success

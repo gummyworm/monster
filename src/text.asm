@@ -368,7 +368,14 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	ldx #<@buff
 	ldy #>@buff
 	lda @row
-	jmp __text_puts
+	jsr __text_puts
+	
+	; if __text_rvs is set, reverse the line after drawing it
+	lda __text_rvs
+	bne :+
+	rts
+:	lda @row
+	jmp bm::rvsline
 .endproc
 
 ;******************************************************************************
