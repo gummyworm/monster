@@ -1162,7 +1162,6 @@ main:	lda #$70
 	sta @end+1
 	stxy @cur
 
-
 @cont:	lda mode
 	cmp #MODE_VISUAL_LINE	; are we selecting in LINE mode?
 	bne @ok
@@ -1177,6 +1176,7 @@ main:	lda #$70
 	stxy @cur
 
 :	ldxy @end
+	jsr src::goto
 	jsr src::down	; if we're selecting the whole line, go to end of it
 	jsr src::pos
 	stxy @end
