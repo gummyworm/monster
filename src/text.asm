@@ -32,6 +32,9 @@ STATUS_COL       = 0
 .export __text_len
 __text_len: .byte 0
 
+.export  __text_buffer
+__text_buffer: .byte 0	; if 0, putch immediately draws to the screen
+
 .export __text_rvs
 __text_rvs: .byte 0	; reverse text state ($ff = rvs on, $00 = rvs off)
 
@@ -488,12 +491,14 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	dex
 	bpl @shr
 
-:	; shift the bitmap
+:	; shift the bitmap (if buffering is disabled)
+	lda __text_buffer
+	bne :+
 	ldy zp::curx
 	lda zp::cury
 	jsr bm::shr
 
-	ldx zp::curx
+:	ldx zp::curx
 	jmp @cont
 
 @fastputi:
@@ -508,8 +513,11 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	rts			; terminating 0, we're done
 
 :	sta @char
+	ldx __text_buffer
+	bne @done		; if BUFFER is enabled, don't blit
 	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
-@done:	clc	; "put" was successful
+@done:	inc zp::curx
+	clc	; "put" was successful
 	rts
 .endproc
 

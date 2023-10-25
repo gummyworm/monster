@@ -4,6 +4,7 @@
 
 .segment "FASTTEXT"
 
+
 ;******************************************************************************
 ; FAST PUTCH
 ; Puts the character given at the current cursor position
@@ -63,9 +64,6 @@
 	sta (@dst),y
 	dey
 	bpl @blit
-
-@updatecur:
-	inc zp::curx
 
 @done:	clc	; "put" was successful
 	rts

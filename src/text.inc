@@ -1,3 +1,4 @@
+.import __text_buffer
 .import __text_clrline
 .import __text_drawline
 .import __text_insertmode
@@ -39,6 +40,7 @@ BREAKPOINT_OFF_CHAR = 134
 CH_R_ARROW	    = 135 
 
 .scope text
+	buffer           = __text_buffer
 	clrline          = __text_clrline
 	drawline         = __text_drawline
 	insertmode       = __text_insertmode

@@ -1030,12 +1030,27 @@ main:	lda #$70
 	pha
 	lda #$00
 	sta format
+	lda #$01
+	sta text::buffer	; enable buffering
+
 	jsr enter_insert
-:	jsr buff_getch
+@l0:	jsr buff_getch
 	bcs @done
-	jsr insert
-	jmp :-
-@done:	pla
+	cmp #$0d
+	bne :+
+	jsr linedone
+	jmp @l0
+:	jsr insert
+	jmp @l0
+
+@done:	lda zp::curx
+	beq :+
+	lda zp::cury
+	jsr text::drawline	; draw the last line (if it contains anything)
+
+:	lda #$00
+	sta text::buffer	; disable buffering
+	pla
 	sta format
 	jmp enter_command
 .endproc
