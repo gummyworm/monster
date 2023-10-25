@@ -69,9 +69,9 @@ buffptr: .word 0 	; copy buffer pointer (also bytes in copy buffer)
 visual_start_line: .word 0	; the line # a selection began at
 visual_start_x:    .byte 0	; the x-position a selection began at
 selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
+format:            .byte 0	; if 0, formatting is not applied on line-end
 
 overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
-
 cmdreps: .byte 0	; number of times to REPEAT current command
 
 .CODE
@@ -1026,12 +1026,18 @@ main:	lda #$70
 ; Inserts the contents of the buffer at the current cursor position and returns
 ; to command mode
 .proc paste_buff
+	lda format
+	pha
+	lda #$00
+	sta format
 	jsr enter_insert
 :	jsr buff_getch
 	bcs @done
 	jsr insert
 	jmp :-
-@done:	jmp enter_command
+@done:	pla
+	sta format
+	jmp enter_command
 .endproc
 
 ;******************************************************************************
@@ -2219,6 +2225,8 @@ goto_buffer:
 	; shift the text buffer right by INDENT_LEVEL
 	lda @indent
 	beq @indentdone				; skip indent if curx == 0
+	lda format				; also skip if format disabled
+	beq @indentdone
 	jsr text::linelen
 :	lda mem::linebuffer,x
 	sta mem::linebuffer+INDENT_LEVEL-1,x
