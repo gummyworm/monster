@@ -1147,20 +1147,32 @@ main:	lda #$70
 	sta @end+1
 	stxy @cur
 
-@cont:	; Update pointer:
+
+@cont:	lda mode
+	cmp #MODE_VISUAL_LINE	; are we selecting in LINE mode?
+	bne @ok
+
+	ldxy @cur
+	jsr src::goto
+	jsr src::atcursor
+	cmp #$0d
+	beq :+
+	jsr src::up	; if cursor is not at start of line, move it there
+	jsr src::pos
+	stxy @cur
+
+:	ldxy @end
+	jsr src::down	; if we're selecting the whole line, go to end of it
+	jsr src::pos
+	stxy @end
+	RETURN_OK
+
+@ok:	; Update end pointer:
 	;  the source pos ends on the character BEFORE the one we want to copy
 	incw @end
 	ldxy @end	; starting from the END, copy to copy buffer
 	jsr src::goto	; go to the start position
-
-	lda mode
-	cmp #MODE_VISUAL_LINE	; are we selecting in LINE mode?
-	bne @ok
-	jsr src::down	; if we're selecting the whole line, go to end of it
-	jsr src::pos
-	stxy @end
-
-@ok:	clc
+	clc
 @done:	rts
 .endproc
 
