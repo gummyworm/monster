@@ -2901,6 +2901,7 @@ goto_buffer:
 
 	; scroll everything up from below the line we deleted
 	ldx zp::cury
+	beq @noscroll	; if cursor is at row 0, nothing to scroll
 	inx
 	cpx height
 	beq @noscroll	; if cursor is at end of screen, nothing to scroll
