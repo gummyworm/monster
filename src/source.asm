@@ -967,16 +967,6 @@ __src_atcursor:
 .endproc
 
 ;******************************************************************************
-; READB
-; Reads one byte at the cursor positon and advances the cursor
-; OUT:
-;  - .A: the byte that was read
-.export __src_readb
-.proc __src_readb
-	jmp __src_next
-.endproc
-
-;******************************************************************************
 ; READLINE
 ; Reads one line at the cursor positon and advances the cursor
 ; OUT:
@@ -993,7 +983,7 @@ __src_atcursor:
 	jsr __src_end
 	beq @eofdone
 
-@l0:	jsr __src_readb
+@l0:	jsr __src_next
 	ldx @cnt
 	cmp #$0d
 	bne :+
