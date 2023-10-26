@@ -768,7 +768,17 @@ value (if it has changed since the debugger last took over).
 ---
 
 ## Breakpoints
-During normal editing, breakpoints may be set with the `C= + b` key combination.
+Breakpoints may be set/removed during both normal editing and while debugging.
+Setting a breakpoint inserts a special character into the source buffer, which 
+tells the assembler, during assembly, to generate a breakpoint for the line
+that this character resides on.
+Because the breakpoint is represented as a character within the source code itself,
+it will automatically move as lines are inserted and deleted.  The character itself
+is not editable (the cursor will not move to breakpoint characters).  You may remove
+it by toggling the breakpoint off _or_ by deleting the entire line.
+
+### Set Breakpoint (`C= + b`)
+During normal editing, breakpoints may be set and removed  with the `C= + b` key combination.
 A breakpoint symbol (a filled circle) is placed at the beginning of a line to
 indicate that a breakpoint has been added.
 Pressing the same key combination (`C= + b`) will also remove a breakpoint
