@@ -128,7 +128,7 @@ The following commands are entered at the "Ex Command" prompt (accessed with the
 Most accept an argument (as described in each commands description below)
 
 |Key| Name          |   Args                          | Description                                                  |
-|---|---------------|------------------------------------------------------------------------------------------------|
+|---|---------------|---------------------------------|--------------------------------------------------------------|
 | a | Assemble File | Filename                        | assembles the given filename sembles it.                     | 
 | d | Start Debugger| Symbol to debug at (optional)   | prompts for a label and begins debugging at it               | 
 | e | Edit          | Filename                        | loads the buffer with the contents of the given file         |
@@ -136,7 +136,6 @@ Most accept an argument (as described in each commands description below)
 | r | Rename        | Name                            | renames the buffer to the given name                         |
 | s | Save          | Filename                        | saves the buffer to the given filename                       |
 | x | Scratch       | Filename                        | scratches (deletes) the given filename                       |
-
 
 ## Editor Modes
 The editor is a _modal_ editor, that is, it behaves differently depending on which _mode_ it is
