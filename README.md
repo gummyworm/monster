@@ -574,6 +574,10 @@ key returns to the debugger.
 ---
 
 ## Debugger
+
+https://github.com/gummyworm/monster/assets/4626914/840f5d66-03cb-4daf-9ed2-41a4d37d4c2d
+
+
 The debugger allows you to step through code, set breakpoints, and watch
 data as you execute your program.  Due to the size of the data needed to 
 store the debug information, this feature requires a Final Expansion
