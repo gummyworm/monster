@@ -2915,7 +2915,6 @@ goto_buffer:
 	cpx height
 	beq @noscroll	; if cursor is at end of screen, nothing to scroll
 	lda height
-	dex
 	jsr text::scrollup
 
 @noscroll:
