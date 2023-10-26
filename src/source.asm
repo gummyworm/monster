@@ -9,13 +9,9 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-.ifdef USE_FINAL
-	.import __BANKCODE_LOAD__
-	.import __BANKCODE_SIZE__
-	MAX_SOURCES=8
-.else
-	MAX_SOURCES=1
-.endif
+.import __BANKCODE_LOAD__
+.import __BANKCODE_SIZE__
+MAX_SOURCES=8
 
 ;******************************************************************************
 ; CONSTANTS
@@ -64,23 +60,18 @@ numsrcs:    .byte 0		; number of buffers
 .export __src_activebuff
 __src_activebuff:
 activesrc:  .byte 0		; index of active buffer (also bank offset)
-.ifdef USE_FINAL
+
 bank:	    .byte 0
 buffs_curx: .res MAX_SOURCES	; cursor X positions for each inactive buffer
 buffs_cury: .res MAX_SOURCES	; cursor Y positions for each inactive buffer
-.endif
+
 flags:	.res MAX_SOURCES	; flags for each source buffer
 banks:  .res MAX_SOURCES	; the corresponding bank for each buffer
 ;******************************************************************************
 
 ;******************************************************************************
 ; DATA
-.ifndef USE_FINAL
-data:
-.res 1024*4
-.else
 data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
-.endif
 
 .CODE
 ;******************************************************************************
@@ -657,15 +648,9 @@ __src_pos = __src_start	 ; start implements the same behavior
 	stx @src
 	sty @src+1
 
-.IFDEF USE_FINAL
 	bank_read_byte bank, @src
 	bank_store_byte bank, @dst
 	lda zp::bankval
-.ELSE
-	ldy #$00
-	lda (@src),y
-	sta (@dst),y
-.ENDIF
 
 	cmp #$0d
 	bne :+
@@ -746,15 +731,11 @@ __src_pos = __src_start	 ; start implements the same behavior
 
 	decw @src
 	decw @dst
-.IFDEF USE_FINAL
+
 	bank_read_byte bank, @src
 	bank_store_byte bank, @dst
 	lda zp::bankval
-.ELSE
-	ldy #$00
-	lda (@src),y
-	sta (@dst),y
-.ENDIF
+
 	cmp #$0d
 	bne :+
 	decw line
@@ -835,13 +816,9 @@ __src_pos = __src_start	 ; start implements the same behavior
 	add16 len
 	stxy @dst
 
-.IFDEF USE_FINAL
 	ldxy len
 	lda bank
 	jsr fe3::copy
-.ELSE
-	copy @dst, @src, len
-.ENDIF
 
 	; double size of buffer (new gap size is the size of the old buffer)
 	asl len
@@ -850,13 +827,10 @@ __src_pos = __src_start	 ; start implements the same behavior
 @ins:	jsr cursor
 	stxy @dst
 	pla
-.IFDEF USE_FINAL
+
 	bank_store_byte bank, @dst
 	lda zp::bankval
-.ELSE
-	ldy #$00
-	sta (@dst),y
-.ENDIF
+
 	cmp #$0d
 	bne :+
 	incw line
@@ -913,15 +887,8 @@ __src_atcursor:
 .proc atcursor
 	jsr cursor
 	sub16 #1
-.IFDEF USE_FINAL
 	lda bank
-	jsr fe3::load
-.ELSE
-	stxy zp::tmp0
-	ldy #$00
-	lda (zp::tmp0),y
-.ENDIF
-	rts
+	jmp fe3::load
 .endproc
 
 ;******************************************************************************
@@ -1010,7 +977,7 @@ __src_atcursor:
 ; GOTO
 ; Goes to the source position given
 ; IN:
-;  - .XY: the line to go to
+;  - .XY: the source position to go to (see src::pos, src::pushp, src::popp)
 .export __src_goto
 .proc __src_goto
 @dest=zp::tmp4
@@ -1062,17 +1029,14 @@ __src_atcursor:
 	incw @cnt
 
 	ldy #$00
-@l0:
-.IFDEF USE_FINAL
-	sty zp::bankval
+
+@l0:	sty zp::bankval
 	ldxy @src
 	lda bank
 	jsr fe3::load_off
 	ldy zp::bankval
 	cmp #$00
-.ELSE
-	lda (@src),y
-.ENDIF
+
 	beq @done
 	cmp #$0d
 	beq @done
@@ -1136,6 +1100,10 @@ __src_atcursor:
 .endproc
 
 ;******************************************************************************
+; MARK DIRTY
+; Marks the given buffer as "dirty" by setting its appropriate flag.
+; IN:
+;  - .A: the buffer ID to flag as DIRTY
 .proc mark_dirty
 	lda #FLAG_DIRTY
 	ldx activesrc

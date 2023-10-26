@@ -27,22 +27,14 @@ scope: .res 8		; buffer containing the current scope
 ; Table of label names. Each entry corresponds to an entry in label_addresses,
 ; which contains the value for the label name.
 .export labels
-.ifdef USE_FINAL
 labels = __BANKCODE_LOAD__+__BANKCODE_SIZE__	; ~$20xx-$8000
-.else
-labels: .res MAX_LABELS * MAX_LABEL_LEN
-.endif
 
 ;******************************************************************************
 ; LABEL_ADDRESSES
 ; Table of addresses for each label
 ; The address of a given label id is label_addresses + (id * 2)
 .export label_addresses
-.ifdef USE_FINAL
 label_addresses = $a000
-.else
-label_addresses: .res 256 * 2
-.endif
 
 .CODE
 
@@ -247,20 +239,13 @@ label_addresses: .res 256 * 2
 
 	; label exists, overwrite its old value
 	jsr __label_by_id ; get the address of the label
-
 	lda zp::label_value
-.ifdef USE_FINAL
+
 	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
 	incw @addr
 	lda zp::label_value+1
 	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
-.else
-	ldy #$00
-	sta (@addr),y
-	iny
-	lda zp::label_value+1
-	sta (@addr),y
-.endif
+
 	RETURN_OK
 
 @insert:
@@ -348,8 +333,8 @@ label_addresses: .res 256 * 2
 	jmp @storelabel
 
 @sh0:
+	; copy the label (16 bytes) to the SYMBOL bank
 	ldy #MAX_LABEL_LEN-1
-.ifdef USE_FINAL
 	lda @src
 	sta zp::bankaddr0
 	lda @src+1
@@ -360,34 +345,13 @@ label_addresses: .res 256 * 2
 	sta zp::bankaddr1+1
 	lda #FINAL_BANK_SYMBOLS
 	jsr fe3::fcopy
-.else
-@sh1:
-	lda (@src),y
-	sta (@dst),y
-	dey
-	bpl @sh1
-.endif
 
 ; shift the address too
-.ifdef USE_FINAL
 	bank_read_byte #FINAL_BANK_SYMBOLS, @addr
 	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @addr, #$02
 	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @addr, #$01
 	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @addr, #$03
-.else
-	iny
-	lda (@addr),y
-	tax
-	iny
-	lda (@addr),y
-	pha
-	iny
-	txa
-	sta (@addr),y
-	iny
-	pla
-	sta (@addr),y
-.endif
+
 	decw @cnt
 	iszero @cnt
 	beq @storelabel
@@ -417,13 +381,10 @@ label_addresses: .res 256 * 2
 	beq @storeaddr
 
 	; copy a byte to the label name
-.ifdef USE_FINAL
 	sty @offset
 	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @src, @offset
 	ldy @offset
-.else
-	sta (@src),y
-.endif
+
 	iny
 	cpy #MAX_LABEL_LEN
 	bcc :-
@@ -431,23 +392,15 @@ label_addresses: .res 256 * 2
 @storeaddr:
 	; 0-terminate the label name and write the label value
 	lda #$00
-.ifdef USE_FINAL
 	sty @offset
+
 	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @src, @offset
 	lda zp::label_value
 	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
 	lda zp::label_value+1
 	incw @addr
 	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
-.else
-	sta (@src),y
-	ldy #$00
-	lda zp::label_value
-	sta (@addr),y
-	lda zp::label_value+1
-	iny
-	sta (@addr),y
-.endif
+
 	incw numlabels
 	ldxy @id
 	RETURN_OK
@@ -484,7 +437,6 @@ label_addresses: .res 256 * 2
 	adc #>label_addresses
 	sta @table+1
 
-.ifdef USE_FINAL
 	bank_read_byte #FINAL_BANK_SYMBOLS, @table
 	pha
 	incw @table
@@ -493,14 +445,7 @@ label_addresses: .res 256 * 2
 	pla
 	tax
 	cpy #$00
-.else
-	ldy #$00
-	lda (@table),y
-	tax
-	iny
-	lda (@table),y
-	tay
-.endif
+
 	bne :+		; get the size of the label's address in .A
 	lda #$01
 	skw
@@ -552,23 +497,14 @@ label_addresses: .res 256 * 2
 
 	; move the addresses down
 :
-.ifdef USE_FINAL
 	bank_read_byte #FINAL_BANK_SYMBOLS, @src
 	bank_store_byte #FINAL_BANK_SYMBOLS, @dst
-.else
-	ldy #$00
-	lda (@src),y
-	sta (@dst),y
-.endif
+
 	incw @src
 	incw @dst
-.ifdef USE_FINAL
+
 	bank_read_byte #FINAL_BANK_SYMBOLS, @src
 	bank_store_byte #FINAL_BANK_SYMBOLS, @dst
-.else
-	lda (@src),y
-	sta (@dst),y
-.endif
 
 	incw @src
 	incw @dst
@@ -591,7 +527,6 @@ label_addresses: .res 256 * 2
 
 	; move the names down
 @nameloop:
-.ifdef USE_FINAL
 	lda @src
 	sta zp::bankaddr0
 	lda @src+1
@@ -600,16 +535,10 @@ label_addresses: .res 256 * 2
 	sta zp::bankaddr1
 	lda @dst+1
 	sta zp::bankaddr1+1
-	ldy #15
+	ldy #MAX_LABEL_LEN-1
 	lda #FINAL_BANK_SYMBOLS
 	jsr fe3::fcopy
-.else
-	ldy #15
-:	lda (@src),y
-	sta (@dst),y
-	dey
-	bpl :-
-.endif
+
 	lda @src
 	clc
 	adc #16
@@ -846,7 +775,6 @@ label_addresses: .res 256 * 2
 	jsr __label_by_id
 	stxy @src
 
-.ifdef USE_FINAL
 	bank_read_byte #FINAL_BANK_SYMBOLS, @src
 	pha
 	incw @src
@@ -854,13 +782,6 @@ label_addresses: .res 256 * 2
 	tay
 	pla
 	tax
-.else
-	ldy #$01
-	lda (@src),y
-	tax
-	dey
-	lda (@src),y
-	tay
-.endif
+
 	rts
 .endproc

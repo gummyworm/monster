@@ -1756,7 +1756,6 @@ __asm_include:
 @aaa=zp::tmp9
 @opaddr=zp::tmpa
 	stxy @opaddr
-.ifdef USE_FINAL
 	jsr vmem::load
 	sta @op
 
@@ -1769,17 +1768,6 @@ __asm_include:
 	lda #$02
 	jsr vmem::load_off
 	sta @operand+1
-.else
-	ldy #$00
-	lda (@opaddr),y
-	sta @op
-	iny
-	lda (@opaddr),y
-	sta @operand
-	iny
-	lda (@opaddr),y
-	sta @operand+1
-.endif
 
 ; check for single byte opcodes
 	lda @op
@@ -2359,62 +2347,46 @@ __asm_include:
 ; WRITEB
 ; Stores a byte to (zp::asmresult),y
 ; Also checks if the origin has been set
+; IN:
+;  - .A: the value to write to (zp::asmresult),y
+;  - .Y: the offset from (zp::asmresult) to write to
 ; OUT:
 ;  - .C: set on error, clear on success
 .proc writeb
-	pha
+@savex=zp::tmpe
+@savey=zp::tmpf
+	sta zp::bankval
 	lda pcset
 	bne :+
 	pla
 	RETURN_ERR ERR_NO_ORIGIN
 
-:	pla
-.ifdef USE_FINAL
-	sta zp::bankval
-	txa
-	pha
-	tya
-	pha
-	clc
-	adc zp::asmresult
-	tax
-	lda zp::asmresult+1
-	adc #$00
-	tay
-	lda zp::bankval
-	jsr vmem::store
-	pla
-	tay
-	pla
-	tax
-	lda zp::bankval
-.else
-	sta (zp::asmresult),y
-.endif
+:	stx @savex
+	sty @savey
+	tya			; .A = offset
+	ldxy zp::asmresult
+	jsr vmem::store_off
+	ldx @savex
+	ldy @savey
 	RETURN_OK
 .endproc
 
 ;******************************************************************************
 ; READB
 ; Reads a byte from (zp::asmresult),y
+; IN:
+;  - .Y: the offset from (zp::asmresult) to read from vmem
 ; OUT:
 ;  - .A: contains the byte from (zp::asmresult),y
 .proc readb
-.ifdef USE_FINAL
-	txa
-	pha
-	tya
-	pha
+@savex=zp::tmpe
+@savey=zp::tmpf
+	stx @savex
+	sty @savey
+	tya			; .A = offset to load
 	ldxy zp::asmresult
-	jsr vmem::load_off
-	sta zp::bankval
-	pla
-	tay
-	pla
-	tax
-	lda zp::bankval
-.else
-	lda (zp::asmresult),y
-.endif
+	jsr vmem::load_off	; load the byte from VMEM
+	ldy @savey
+	ldx @savex
 	rts
 .endproc
