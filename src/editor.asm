@@ -86,9 +86,6 @@ cmdreps: .byte 0	; number of times to REPEAT current command
 	jsr edit
 	jsr cancel
 
-.IFDEF DRAW_TITLEBAR
-	jsr draw_titlebar
-.ENDIF
 	jsr reset
 	jsr text::clrline
 
@@ -2222,21 +2219,14 @@ goto_buffer:
 	ldxy #mem::linebuffer
 	jsr asm::tokenize
 	bcs @err
-	pha		; save token type
 
-	; clear the error row
-	lda #STATUS_ROW-1
-	jsr bm::clrline
-
-@format:
-	; format the line
-	pla			; get token type
+; format the line based on the line's contents (in .A from tokenize)
 @fmt:	ldx #$00		; init flag to NO indentation
 	cmp #ASM_COMMENT	; if this is a comment, don't indent
 	beq @nextline
 	jsr fmt::line
 
-	ldx #$01		; do indent
+	ldx #$01		; default to indent ON
 
 @nextline:
 	stx @indent		; set indent flag
@@ -2255,6 +2245,7 @@ goto_buffer:
 	lda format				; also skip if format disabled
 	beq @indentdone
 	jsr text::linelen
+
 :	lda mem::linebuffer,x
 	sta mem::linebuffer+INDENT_LEVEL-1,x
 	dex
@@ -2360,6 +2351,7 @@ goto_buffer:
 :	iny
 	tya
 	ldx height
+	dex
 	jsr text::scrolldown
 
 	ldy zp::cury
@@ -2374,8 +2366,8 @@ goto_buffer:
 ; Clears any error message
 .proc clrerror
 	lda height
-	cmp #ERROR_ROW
-	bcs :+
+	cmp #ERROR_ROW		; is there an error being displayed?
+	bcs :+			; if not, continue
 	lda #ERROR_ROW
 	jsr bm::clrline		; clear the error line
 :	lda #STATUS_ROW-1
@@ -2398,6 +2390,7 @@ goto_buffer:
 	jmp ccdel
 :	cmp #$0d
 	bne :+
+	jsr clrerror		; clear error so we can report on THIS line
 	jmp linedone		; handle RETURN
 :	ldx text::insertmode
 	bne @put

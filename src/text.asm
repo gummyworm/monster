@@ -372,7 +372,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	ldy #>@buff
 	lda @row
 	jsr __text_puts
-	
+
 	; if __text_rvs is set, reverse the line after drawing it
 	lda __text_rvs
 	bne :+

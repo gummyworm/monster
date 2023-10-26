@@ -2358,7 +2358,6 @@ __asm_include:
 	sta zp::bankval
 	lda pcset
 	bne :+
-	pla
 	RETURN_ERR ERR_NO_ORIGIN
 
 :	stx @savex
