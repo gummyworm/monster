@@ -114,10 +114,7 @@ cmdreps: .byte 0	; number of times to REPEAT current command
 .proc __edit_run
 	jsr text::update
 	jsr text::status
-main:	lda #$70
-	cmp $9004
-	bne *-3
-	jsr key::getch
+main:	jsr key::getch
 	beq @done
 
 	pha
