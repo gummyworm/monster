@@ -2736,6 +2736,7 @@ __debug_remove_breakpoint:
 .proc showregs
 @tmp=zp::asm+6
 @flag=zp::asm+7
+@buff=mem::linebuffer2
 	; display the register names
 	ldxy #strings::debug_registers
 	lda #REGISTERS_LINE
@@ -2743,27 +2744,27 @@ __debug_remove_breakpoint:
 
 	ldy #39
 	lda #' '
-:	sta mem::linebuffer,y
+:	sta @buff,y
 	dey
 	bpl :-
 
 	; draw .Y
 	lda reg_y
 	jsr util::hextostr
-	sty mem::linebuffer+11
-	stx mem::linebuffer+12
+	sty @buff+11
+	stx @buff+12
 
 	; draw .X
 	lda reg_x
 	jsr util::hextostr
-	sty mem::linebuffer+8
-	stx mem::linebuffer+9
+	sty @buff+8
+	stx @buff+9
 
 	; draw .A
 	lda reg_a
 	jsr util::hextostr
-	sty mem::linebuffer+5
-	stx mem::linebuffer+6
+	sty @buff+5
+	stx @buff+6
 
 	; draw .P (status)
 	lda reg_p
@@ -2778,7 +2779,7 @@ __debug_remove_breakpoint:
 	lda #'0'
 	skw
 :	lda #'1'
-	sta mem::linebuffer+17,x
+	sta @buff+17,x
 :	lsr @flag
 	inx
 	cpx #2
@@ -2789,19 +2790,19 @@ __debug_remove_breakpoint:
 @getsp:
 	lda reg_sp
 	jsr util::hextostr
-	sty mem::linebuffer+14
-	stx mem::linebuffer+15
+	sty @buff+14
+	stx @buff+15
 
 @getaddr:
 	lda pc+1
 	jsr util::hextostr
-	sty mem::linebuffer
-	stx mem::linebuffer+1
+	sty @buff
+	stx @buff+1
 
 	lda pc
 	jsr util::hextostr
-	sty mem::linebuffer+2
-	stx mem::linebuffer+3
+	sty @buff+2
+	stx @buff+3
 
 ; if registers were affected, highlight them
 
@@ -2841,20 +2842,20 @@ __debug_remove_breakpoint:
 	and #OP_LOAD|OP_STORE
 	bne :+
 	lda #'-'
-	sta mem::linebuffer+27
-	sta mem::linebuffer+28
-	sta mem::linebuffer+29
-	sta mem::linebuffer+30
+	sta @buff+27
+	sta @buff+28
+	sta @buff+29
+	sta @buff+30
 	bne @clk
 
 :	lda mem_saveaddr+1
 	jsr util::hextostr
-	sty mem::linebuffer+27
-	stx mem::linebuffer+28
+	sty @buff+27
+	stx @buff+28
 	lda mem_saveaddr
 	jsr util::hextostr
-	sty mem::linebuffer+29
-	stx mem::linebuffer+30
+	sty @buff+29
+	stx @buff+30
 
 @clk:	ldx stopwatch
 	ldy stopwatch+1
@@ -2863,7 +2864,7 @@ __debug_remove_breakpoint:
 
 	; set the last character of the stopwatch always
 	lda $100+7
-	sta mem::linebuffer+32+7
+	sta @buff+32+7
 
 	; ignore leading zeroes
 	ldx #$00
@@ -2876,12 +2877,12 @@ __debug_remove_breakpoint:
 
 @cpyclk:
 	lda $100,x
-	sta mem::linebuffer+32,x
+	sta @buff+32,x
 	cpx #$07
 	inx
 	bcc @cpyclk
 
-@print:	ldxy #mem::linebuffer
+@print:	ldxy #@buff
 	lda #REGISTERS_LINE+1
 	jmp text::puts
 .endproc
