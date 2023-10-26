@@ -741,7 +741,7 @@ Note that when seeking for a 16 bit value, the value is searched in little-endia
 format.  If the input for the search is given as `$1234` the result will be
 the first occurrence of the byte value `$34` followed by `$12`.
 
-### Set Address (`^`/`up-arrow`)
+#### Set Address (`^`/`up-arrow`)
 Moves the cursor to the address of the viewer, then prompts the user for a new
 value to set the memory viewer to.  Pressing `RETURN` confirms the new address
 and `<-` cancels and returns the user to the editor without changing the address 
