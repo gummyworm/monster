@@ -2917,15 +2917,21 @@ goto_buffer:
 	lda height
 	dex
 	jsr text::scrollup
-.IFDEF DRAW_TITLEBAR
-	jsr draw_titlebar
-.ENDIF
 
 @noscroll:
-	; clear the last line on the screen
-	jsr text::clrline
+	; go to the bottom row and read the line that was moved up
+	jsr src::pushp	; save current source pos
 	lda height
-	jsr text::drawline
+	sec
+	sbc zp::cury
+	tax
+	ldy #$00
+	jsr src::downn		; move to the line that we're bringing up
+	jsr src::get
+	lda height
+	jsr text::drawline	; draw the new line that was scrolled up
+	jsr src::popp
+	jsr src::goto		; restore source position
 
 	; get the line we're moving up to in linebuffer
 	jsr src::get

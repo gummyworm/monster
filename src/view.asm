@@ -75,7 +75,7 @@ memaddr:   .word 0
 	jsr key::getch
 	beq @edit
 
-	cmp #'z'
+	cmp #K_UP_ARROW
 	bne :+
 	jsr getset_addr
 	jmp __view_edit	; reactivate editor at new address
