@@ -1788,7 +1788,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy src::line
 	jsr __debug_line2addr
 	bcs @nobrk			; if no line # for this line, skip
-	jmp __debug_toggle_breakpoint	; add the breakpoint to the debugger
+	jsr __debug_toggle_breakpoint	; add the breakpoint to the debugger
+	lda aux_mode
+	cmp #AUX_BRK
+	bne @done			; done if breakpoint viewer isn't active
+	jmp show_aux			; refresh viewer
+@done:
 @nobrk:	rts
 .endproc
 
@@ -2923,6 +2928,10 @@ __debug_remove_breakpoint:
 	sta zp::jmpvec
 	lda @auxhis-1,x
 	sta zp::jmpvec+1
+
+	lda #(DEBUG_INFO_START_ROW+1)*8
+	jsr bm::clrpart
+
 	jmp zp::jmpaddr
 @done:	rts
 .define auxtab view::mem, brkpt::view, watch::view
