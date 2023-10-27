@@ -777,7 +777,7 @@ it will automatically move as lines are inserted and deleted.  The character its
 is not editable (the cursor will not move to breakpoint characters).  You may remove
 it by toggling the breakpoint off _or_ by deleting the entire line.
 
-### Set Breakpoint (`C= + b`)
+### Toggle Breakpoint (`C= + b`)
 During normal editing, breakpoints may be set and removed  with the `C= + b` key combination.
 A breakpoint symbol (a filled circle) is placed at the beginning of a line to
 indicate that a breakpoint has been added.

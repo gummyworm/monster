@@ -158,6 +158,7 @@ swapmem:   .byte 0      ; not zero if we need to swap in user RAM
 
 aux_mode:         .byte 0	; the active auxiliary view
 highlight_line:	  .word 0 	; the line we are highlighting
+highlight_file:   .word 0	; filename of line we are highlighting
 
 action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
@@ -1461,6 +1462,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta advance	; by default, don't return to program after command
 	jsr cur::off
 	pla
+
+ ; check if the key has a debugger command associated with it
 	ldx #num_commands-1
 @getcmd:
 	cmp commands,x
@@ -1468,6 +1471,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	dex
 	bpl @getcmd
 
+; check if the key should be ignored (not sent to be handled by the editor)
+	ldx #num_disabled_commands-1
+@chkdisabled:
+	cmp disabled_commands,x
+	beq @finishloopiter	; if key is marked as disabled, ignore it
+	dex
+	bpl @chkdisabled
+
+; propagate the key to the editor
 @nocmd:	jsr edit::handlekey
 	jmp @finishloopiter
 
@@ -1543,6 +1555,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc toggle_highlight
 	lda lineset
 	beq :+			; line # not known
+
+	jsr src::filename	; get filename (zp::tmp0 = name)
 	ldxy highlight_line
 	jsr edit::src2screen
 	bcs :+			; off screen
@@ -3380,6 +3394,9 @@ branch_masks:
 .byte $02	; zero
 
 ;******************************************************************************
+; COMMANDS
+; This table contains the keys used to invoke the corresponding command
+; within the debugger
 commands:
 	.byte K_QUIT
 	.byte K_STEP
@@ -3402,3 +3419,13 @@ num_commands=*-commands
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
+
+;******************************************************************************
+; DISABLED COMMANDS
+; the following commands are NOT propagated to the editor. they become a nop
+; when handled by the debugger
+disabled_commands:
+	.byte K_CLOSE_BUFF
+	.byte K_ASM
+	.byte K_ASM_DEBUG
+num_disabled_commands=*-commands

@@ -245,6 +245,9 @@ row:	.byte 0
 	eor #BREAKPOINT_ENABLED
 	sta dbg::breakpoint_flags,x
 
+	; get the current filename
+	jsr src::filename  	; (returns name in zp::tmp0)
+
 	; get the line # of the breakpoint
 	txa
 	asl

@@ -286,7 +286,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 @names=zp::tmp0
 @cnt=zp::tmp2
 @len=zp::tmp3
-	jsr str::len
+	jsr str::len	; sets @name (str0) to .XY
 	sta @len
 
 	ldxy #names
