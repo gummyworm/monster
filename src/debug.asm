@@ -265,11 +265,17 @@ __debug_watch_vals:  .res MAX_WATCHPOINTS   ; values of the set watchpoints
 __debug_watch_prevs: .res MAX_WATCHPOINTS   ; previous values of watches
 __debug_watch_flags: .res MAX_WATCHPOINTS   ; flags for watches (e.g. DIRTY)
 
+; the following are used for watches that represent a range of values
+; e.g. [$1000, $1100)
+__debug_watches_changed: .res MAX_WATCHPOINTS*2 ; the address that was changed
+__debug_watches_stop:    .res MAX_WATCHPOINTS*2 ; end address of watch range
+
 .export __debug_watches
 .export __debug_watch_vals
 .export __debug_watch_prevs
 .export __debug_numwatches
 .export __debug_watch_flags
+.export __debug_watches_stop
 
 ;******************************************************************************
 ; BREAKPOINTS
@@ -1857,7 +1863,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq @setbrk		; if not, skip ahead to setting the next BRK
 	ldxy mem_saveaddr	; if so, mark the watch if there is one
 	jsr watch::mark		; if there's a watch at this addr, mark it
-	bcs @setbrk		; if there's no watch, contiue
+	bcc @setbrk		; if there's no watch, contiue
 
 	; activate the watch window so user sees change
 	lda #(DEBUG_INFO_START_ROW-1)*8
@@ -2573,65 +2579,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	RETURN_OK
 .endproc
 
-;******************************************************************************
-; ADDWATCH
-; Adds a watch for the given memory location.
-; IN:
-;  - .XY: the address to add a watch for
-.export __debug_addwatch
-.proc __debug_addwatch
-@addr=zp::tmp0
-	stxy @addr
-	lda __debug_numwatches
-	beq :+
-
-	; check if watch already exists
-	jsr getwatch
-	beq @done		; already a watch here, exit
-
-	lda __debug_numwatches
-	asl
-:	tax
-
-	lda @addr
-	sta __debug_watches,x
-	lda @addr+1
-	sta __debug_watches+1,x
-
-	ldxy @addr
-	jsr vmem::load
-	ldx __debug_numwatches
-	sta __debug_watch_vals,x
-
-	inc __debug_numwatches
-@done:	rts
-.endproc
-
-;******************************************************************************
-; GETWATCH
-; Returns the index of the watch at the given address
-; IN:
-;  - zp::tmp0: the address of the watch
-;
-; OUT:
-;  - .C: set if the watch exists
-;  - .X: the id of the watch * 2
-.proc getwatch
-@addr=zp::tmp0
-	lda __debug_numwatches
-	asl
-	tax
-@l0:	lda @addr
-	cmp __debug_watches,x
-	bne @next
-	lda @addr+1
-	cmp __debug_watches+1,x
-	beq @done
-@next:	dex
-	dex
-	bpl @l0
-@done:	rts
-.endproc
 
 ;******************************************************************************
 ; TOGGLE_BREAKPOINT

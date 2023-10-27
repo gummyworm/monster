@@ -14,6 +14,7 @@
 .include "strings.inc"
 .include "text.inc"
 .include "util.inc"
+.include "watches.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
 
@@ -128,7 +129,8 @@ memaddr:   .word 0
 
 @setwatch:
 	jsr get_addr	; get the address of the byte under the cursor
-	jsr dbg::addwatch
+	stxy zp::tmp0	; also set as STOP address
+	jsr watch::add
 	jsr beep::short	; beep to confirm add
 	jmp @edit
 
@@ -331,7 +333,7 @@ memaddr:   .word 0
 
 	ldxy #gethex
 	jsr edit::gets
-	
+
 	lda #$00
 	sta text::rvs		; disable reverse
 

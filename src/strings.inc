@@ -25,6 +25,7 @@
 .import __str_watches_line
 .import __str_watches_line_end
 .import __str_watches_title
+.import __str_watches_range_line
 
 .scope strings
 	noname                = __str_noname
@@ -46,6 +47,7 @@
 
 	watches_line            = __str_watches_line
 	watches_line_end        = __str_watches_line_end
+	watches_range_line      = __str_watches_range_line
 	watches_title           = __str_watches_title
 
 	memview_title           = __str_memview_title

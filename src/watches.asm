@@ -1,14 +1,18 @@
 .include "bitmap.inc"
+.include "cursor.inc"
 .include "debug.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
+.include "expr.inc"
 .include "finalex.inc"
 .include "flags.inc"
 .include "key.inc"
+.include "keycodes.inc"
 .include "labels.inc"
 .include "layout.inc"
 .include "macros.inc"
+.include "memory.inc"
 .include "source.inc"
 .include "strings.inc"
 .include "text.inc"
@@ -74,7 +78,7 @@ row:	.byte 0
 	lda #CH_R_ARROW
 :	sta strings::watches_line_end	; insert a > between old/new values
 
-	; push the address of the watch
+	; push the START address of the watch
 	lda @cnt
 	asl
 	tay
@@ -114,7 +118,7 @@ row:	.byte 0
 	lda dbg::numwatches
 	bne :++
 :	jsr key::getch
-	cmp #$5f	; <-
+	cmp #K_QUIT
 	bne :-
 	rts
 
@@ -125,66 +129,89 @@ row:	.byte 0
 
 @loop:	jsr key::getch
 	beq @loop
-	cmp #$5f	; <-
-	bne @up
-	rts
+	cmp #K_QUIT
+	bne :+
+	rts		; quit
 
-@up:	cmp #$91	; up
-	bne @down
-	dec row
-	bpl @redraw
-	inc row
-	dec scroll
-	bpl @redraw
-	inc scroll
-	jmp @redraw
+:	ldx #num_commands-1
+@getcmd:
+	cmp commands,x
+	beq @runcmd
+	dex
+	bpl @getcmd
+	bmi @loop	; unknown command
 
-@down:	cmp #$11	; down
-	bne @edit
-	inc row
-	lda row
-	cmp dbg::numwatches
-	bcs :+
-	cmp #HEIGHT
-	bcc @redraw
-:	dec row
-	inc scroll
-	lda scroll
-	clc
-	adc row
-	cmp dbg::numwatches
-	bcc @redraw
-	dec scroll
-	jmp @redraw
+@runcmd:
+	lda command_vectorslo,x	 ; vector LSB
+	sta zp::jmpvec
+	lda command_vectorshi,x  ; vector MSB
+	sta zp::jmpvec+1
+	jsr zp::jmpaddr		 ; call the command
 
-@edit:	cmp #$0d
-	bne @loop
-
-@editloop:
-	jsr key::getch
-	beq @editloop
-	cmp #$5f		; <- (quit)
-	beq @loop
-	cmp #$0d		; RETURN
-	beq @loop
-
-	jsr key::ishex
-	bne @editloop
-	jsr util::chtohex	; get the MSB
-	bne @editloop
-
+; redraw after handling the command
 @redraw:
 	jsr __watches_view
 	lda row			; highlight the row selected
 	clc
 	adc #WATCHVIEW_START+1
 	jsr bm::rvsline
-	jmp @loop
+
+	jmp @loop		; continue the watch-viewer loop
+.endproc
+
+;******************************************************************************
+; COMMANDS
+; Table of the command keys valid within the watch viewer
+commands:
+	.byte K_DEL_WATCH
+	.byte K_ADD_WATCH	; prompt for an expression and add watch
+	.byte K_DOWN
+	.byte K_UP
+num_commands=*-commands
+
+.define command_vectors command_delete_watch, command_add_watch, down, up
+
+command_vectorslo: .lobytes command_vectors
+command_vectorshi: .hibytes command_vectors
+
+;******************************************************************************
+; UP
+; Handles the UP key
+.proc up
+	dec row
+	bpl :+
+	inc row
+	dec scroll
+	bpl :+
+	inc scroll
+:	rts
+.endproc
+
+;******************************************************************************
+; DOWN
+; Handles the DOWN key
+.proc down
+	inc row
+	lda row
+	cmp dbg::numwatches
+	bcs :+
+	cmp #HEIGHT
+	bcc @done
+:	dec row
+	inc scroll
+	lda scroll
+	clc
+	adc row
+	cmp dbg::numwatches
+	bcc @done
+	dec scroll
+@done:	rts
 .endproc
 
 ;******************************************************************************
 ; UPDATE
 ; Reads the new values of all locations being watched and stores them
+; If the watch represents a RANGE of values, does not store new value
 .export __watches_update
 .proc __watches_update
 @cnt=zp::tmp0
@@ -220,39 +247,192 @@ row:	.byte 0
 .endproc
 
 ;******************************************************************************
+; IN RANGE
+; Checks if the given address is in the range of the given watch
+; IN:
+;  - .XY: the address to check
+;  - .A:  the ID of the watch to check
+; OUT:
+;  - .Z: set if the given address IS within the given watch's range
+.proc in_range
+@addr=zp::tmp0
+@watchstart=zp::tmp2
+@watchstop=zp::tmp4
+	stxy @addr
+	asl
+	tax
+	lda dbg::watches,x
+	sta @watchstart
+	lda dbg::watches_stop,x
+	sta @watchstop
+
+	lda dbg::watches+1,x
+	sta @watchstart+1
+	lda dbg::watches_stop+1,x
+	sta @watchstop+1
+
+	ldxy @addr
+	cmpw @watchstart
+	bcc @no
+	cmpw @watchstop
+	beq @yes
+	bcs @no
+
+@yes:	RETURN_OK
+@no:	rts
+.endproc
+
+;******************************************************************************
 ; MARK
 ; Marks the watch for the given address (if there is one) as DIRTY. Even if
 ; its value has not changed.
 ; IN:
 ;  - .XY: the address to mark dirty (if a watch exists for it)
 ; OUT:
-;  - .C: clear if the given address was being watched
+;  - .C: set if the given address was being watched by at least 1 watch
 .export __watches_mark
 .proc __watches_mark
-@cnt=zp::tmp0
-@addr=zp::tmp1
+@cnt=zp::tmp6
+@addr=zp::tmp7
+@found=zp::tmp9
 	stxy @addr
 	ldx dbg::numwatches
 	beq @done
 	dex
 	stx @cnt
 
+	lda #$00
+	sta @found
+
 @l0:	lda @cnt
+	ldxy @addr
+	jsr in_range		; is the address in range for this watch?
+	bne @next
+	ldx @cnt
+	lda #WATCH_DIRTY
+	sta dbg::watch_flags,x	; mark this watchpoint as DIRTY
+	inc @found
+
+@next:	dec @cnt
+	bpl @l0
+@done:	lda @found
+	cmp #$01		; set .C if @found >= 1
+	rts
+.endproc
+
+;******************************************************************************
+; COMMAND ADD WATCH
+; Prompts for a start address and (optional) stop address and adds a watch
+; at that location
+.proc command_add_watch
+	pushcur
+	jsr cur::off
+
+	lda #$01
+	sta text::rvs		; enable RVS
+
+	; set bounds for the input
+	lda #$00
+	sta zp::curx
+	lda #18+4
+	sta cur::maxx
+	lda #WATCHVIEW_STOP
+	sta zp::cury
+
+	ldxy key::getch
+	jsr edit::gets
+
+	; evaluate the expression to get start address
+	ldxy #mem::linebuffer
+	stxy zp::line
+	jsr expr::eval
+
+	lda #$00
+	sta text::rvs		; disable reverse
+
+	popcur
+	rts
+.endproc
+
+;******************************************************************************
+; COMMAND DELETE WATCH
+; Deletes the watch under the cursor row
+.proc command_delete_watch
+	; TODO:
+	rts
+.endproc
+
+
+;******************************************************************************
+; ADD
+; Adds a watch for the given memory location.
+; IN:
+;  - .XY:      the address to add a watch for
+;  - zp::tmp0: the STOP address to add the watch for
+;  - .A:       the type of watch (WATCH_LOAD, WATCH_STORE, or WATCH_LOAD_STORE)
+.export __watches_add
+.proc __watches_add
+@stop=zp::tmp0
+@addr=zp::tmp2
+@flags=zp::tmp4
+	sta @flags
+	stxy @addr
+	ldx dbg::numwatches
+	beq :+
+
+	; check if watch already exists
+	jsr getwatch
+	beq @done		; already a watch here, exit
+
+	lda dbg::numwatches
+	asl
+:	tax
+
+	lda @addr
+	sta dbg::watches,x
+	lda @addr+1
+	sta dbg::watches+1,x
+
+	ldxy @stop
+	sta dbg::watches_stop,x
+	lda @stop+1
+	sta dbg::watches_stop+1,x
+
+	ldxy @addr
+	jsr vmem::load
+	ldx dbg::numwatches
+	sta dbg::watch_vals,x
+
+	lda @flags
+	sta dbg::watch_flags,x
+
+	inc dbg::numwatches
+@done:	rts
+.endproc
+
+;******************************************************************************
+; GETWATCH
+; Returns the index of the watch at the given address
+; IN:
+;  - zp::tmp0: the address of the watch
+;
+; OUT:
+;  - .C: set if the watch exists
+;  - .X: the id of the watch * 2
+.proc getwatch
+@addr=zp::tmp2
+	lda dbg::numwatches
 	asl
 	tax
-	lda @addr
+@l0:	lda @addr
 	cmp dbg::watches,x
 	bne @next
 	lda @addr+1
 	cmp dbg::watches+1,x
-	beq @found
-@next:	dec @cnt
+	beq @done
+@next:	dex
+	dex
 	bpl @l0
-@done:	sec
-	rts
-
-@found:	ldx @cnt
-	lda #WATCH_DIRTY
-	sta dbg::watch_flags,x	; mark this watchpoint as DIRTY
-	RETURN_OK
+@done:	rts
 .endproc
+

@@ -61,4 +61,6 @@ K_STEP      = $ad	; <C=> + z
 K_STEPOVER  = $ae	; <C=> + s
 K_TRACE     = $a3	; <C=> + t
 
-K_SET_WATCH = $b3	; <C=>+W
+K_SET_WATCH = $b3	; <C=>+w (for use in MEMORY editor)
+K_ADD_WATCH = $b3	; <C=>+w (for use in WATCH editor)
+K_DEL_WATCH = $ac	; <C=>+d
