@@ -325,6 +325,8 @@ command_vectorshi: .hibytes command_vectors
 ; Prompts for a start address and (optional) stop address and adds a watch
 ; at that location
 .proc command_add_watch
+@addr=zp::tmp4
+@stop=zp::tmp6
 	pushcur
 	jsr cur::off
 
@@ -339,17 +341,25 @@ command_vectorshi: .hibytes command_vectors
 	lda #WATCHVIEW_STOP
 	sta zp::cury
 
-	ldxy key::getch
+	ldxy #key::getch
 	jsr edit::gets
 
 	; evaluate the expression to get start address
 	ldxy #mem::linebuffer
 	stxy zp::line
 	jsr expr::eval
+	bcs @done		; if eval failed, return without adding
+	stxy @addr
 
-	lda #$00
+	; evaluate the 2nd expression (if any) to get stop address
+	jsr expr::eval
+	bcs @done
+	stxy zp::tmp0		; stop address
+	ldxy @addr		; get start address
+@add:	jsr __watches_add	; add the watch
+
+@done:	lda #$00
 	sta text::rvs		; disable reverse
-
 	popcur
 	rts
 .endproc
