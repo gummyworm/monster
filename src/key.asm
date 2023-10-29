@@ -40,7 +40,7 @@ CURSOR_LR_MASK      = 2
 ;******************************************************************************
 ; GETHEX
 ; Gets a key from the keyboard, and returns its value ONLY
-; if it is a hex value, a DELETE, or a RETURN
+; if it is a hex value, a DELETE, a RETURN, or a QUIT (<-)
 ; OUT:
 ;  - .A: the key pressed (if valid)
 .export __key_gethex
@@ -49,6 +49,8 @@ CURSOR_LR_MASK      = 2
 	cmp #K_DEL	; allow delete
 	beq :+
 	cmp #K_RETURN
+	beq :+
+	cmp #K_QUIT
 	beq :+
 	jsr __key_ishex
 	bcs :+
