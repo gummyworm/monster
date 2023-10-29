@@ -47,6 +47,7 @@ K_SCRATCH	 = $bd	; <C=> + x
 K_SAVE 	         = $ae	; <C=> + s
 K_NEXT_DRIVE     = $a6  ; <C=> + +
 K_PREV_DRIVE     = $dc  ; <C=> + -
+K_EDIT_STATE     = $89	; F2
 
 ; DEBUGGER KEYS
 K_SRCVIEW         = $85	; F1

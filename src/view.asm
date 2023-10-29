@@ -331,7 +331,7 @@ memaddr:   .word 0
 	lda #MEMVIEW_START
 	sta zp::cury
 
-	ldxy #gethex
+	ldxy #key::gethex
 	jsr edit::gets
 
 	lda #$00
@@ -344,19 +344,6 @@ memaddr:   .word 0
 	stxy memaddr
 :	popcur
 	rts
-.endproc
-
-;******************************************************************************
-.proc gethex
-	jsr key::getch
-	cmp #K_DEL	; allow delete
-	beq :+
-	cmp #K_RETURN
-	beq :+
-	jsr key::ishex
-	bcs :+
-	lda #$00	; don't accept non-hex characters
-:	rts
 .endproc
 
 ;******************************************************************************

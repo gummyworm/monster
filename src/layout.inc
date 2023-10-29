@@ -7,8 +7,6 @@ EDITOR_HEIGHT = STATUS_ROW - EDITOR_ROW_START - 2
 DRAW_DRIVE_ERR = 1
 DRIVE_ERR_COL = 14
 
-;DRAW_TITLEBAR = 1
-
 ;******************************************************************************
 ; DEBUG LAYOUT
 REGISTERS_LINE = 22

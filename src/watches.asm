@@ -324,6 +324,8 @@ command_vectorshi: .hibytes command_vectors
 ; COMMAND ADD WATCH
 ; Prompts for a start address and (optional) stop address and adds a watch
 ; at that location
+; The syntax for the entry is:
+;  <expression> Optional[, <expression>]
 .proc command_add_watch
 @addr=zp::tmp4
 @stop=zp::tmp6
@@ -332,6 +334,10 @@ command_vectorshi: .hibytes command_vectors
 
 	lda #$01
 	sta text::rvs		; enable RVS
+
+	jsr text::clrline
+	lda #WATCHVIEW_STOP
+	jsr text::drawline	; clear the entry line
 
 	; set bounds for the input
 	lda #$00
@@ -352,6 +358,7 @@ command_vectorshi: .hibytes command_vectors
 	stxy @addr
 
 	; evaluate the 2nd expression (if any) to get stop address
+	incw zp::line		; move past the separator (,)
 	jsr expr::eval
 	bcs @done
 	stxy zp::tmp0		; stop address
@@ -360,7 +367,7 @@ command_vectorshi: .hibytes command_vectors
 
 @done:	lda #$00
 	sta text::rvs		; disable reverse
-	popcur
+	popcur			; restore cursor
 	rts
 .endproc
 
