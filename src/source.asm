@@ -1016,7 +1016,7 @@ __src_atcursor:
 	jsr gaplen
 	add16 pre
 	add16 #data
-	stxy @src
+	stxy zp::bankaddr0
 
 	jsr __src_end
 	bne :+
@@ -1025,37 +1025,14 @@ __src_atcursor:
 	sec
 	rts
 
-:	stxy @cnt
-	incw @cnt
-
-	ldy #$00
-
-@l0:	sty zp::bankval
-	ldxy @src
+:	ldxy #mem::linebuffer
+	stxy zp::bankaddr1
 	lda bank
-	jsr fe3::load_off
-	ldy zp::bankval
-	cmp #$00
+	jsr fe3::copyline
 
-	beq @done
-	cmp #$0d
-	beq @done
-	sta mem::linebuffer,y
-	decw @cnt
-	lda @cnt+1
-	bne :+
-	lda @cnt
-	beq @done
-:	iny
-	cpy #79
-	bcc @l0
-
-@eof:	sec
-	skb
-@done:	clc
 	lda #$00
 	sta mem::linebuffer,y
-	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************

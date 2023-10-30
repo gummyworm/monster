@@ -82,6 +82,7 @@ CURSOR_LR_MASK      = 2
 	clc
 @done:	rts
 .endproc
+
 ;******************************************************************************_
 ; ISDEC
 ; Returns .C set if the given key is 0-9

@@ -130,7 +130,38 @@ final_store_size=*-__final_store_byte
 	cli
 	rts
 .endproc
+
+;******************************************************************************
+; COPY LINE
+; Copies up to 256 bytes from zp::bankaddr0 to zp::bankaddr1 stopping at the
+; first $0d or $00
+; IN:
+;  - .A:            the bank to perform the copy within
+;  - .Y:            the number of bytes to copy
+;  - zp::bankaddr0: the source address to copy from
+;  - zp::bankaddr1: the destination address to copy to
+;  OUT:
+;   - .Y: the number of bytes copied
+;   - .A: the last byte copied
+.export __final_copy_line
+.proc __final_copy_line
+	sei
+	sta $9c02
+	ldy #$00
+:	lda (zp::bankaddr0),y
+	sta (zp::bankaddr1),y
+	beq @done
+	cmp #$0d
+	beq @done
+	iny
+	bne :-
+@done:	ldx #$80
+	stx $9c02	; restore bank
+	cli
+	rts
+.endproc
 final_copy_end=*-__final_copy
+
 
 ;******************************************************************************
 ; CALL
