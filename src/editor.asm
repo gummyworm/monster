@@ -481,6 +481,8 @@ main:	jsr key::getch
 	beq @done
 	cmp #K_QUIT	; <- (done)
 	beq @exit
+	jsr key::isprinting
+	bcs @getloop		; don't print if not printable
 	jsr text::putch
 	lda zp::cury
 	jsr text::drawline
@@ -2389,7 +2391,11 @@ goto_buffer:
 	bne :+
 	jsr clrerror		; clear error so we can report on THIS line
 	jmp linedone		; handle RETURN
-:	ldx text::insertmode
+
+:	jsr key::isprinting
+	bcs @done
+
+	ldx text::insertmode
 	bne @put
 @replace:
 	jsr src::replace

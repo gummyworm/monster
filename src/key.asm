@@ -102,3 +102,21 @@ CURSOR_LR_MASK      = 2
 	clc
 @done:	rts
 .endproc
+
+;******************************************************************************_
+; IS PRINTING
+; Returns with .C set if the given character is printable
+; IN:
+;  - .A: the character to check for printability
+; OUT:
+;  - .C: set if the character is not printable
+.export __key_is_printing
+.proc __key_is_printing
+	cmp #' '
+	bcc @no
+	cmp #$7b
+	bcs @no
+@yes:	rts
+@no:	sec
+	rts
+.endproc
