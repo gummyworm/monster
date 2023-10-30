@@ -47,6 +47,10 @@ row:	.byte 0
 .export __watches_view
 .proc __watches_view
 @cnt=zp::tmp13
+@range=zp::tmp3			; if !0, start != stop (watch is a range)
+@start=zp::tmp4			; start address
+@stop=zp::tmp6			; stop address (same as start if NOT range)
+@val=zp::tmp8			; value of watch (if NOT range)
 	; display the title
 	ldxy #strings::watches_title
 	lda #MEMVIEW_START
@@ -67,36 +71,72 @@ row:	.byte 0
 	pha
 
 	lda #$00
+	sta @range			; init RANGE flag to false
 	sta strings::watches_line_end	; restore string if it was changed
 
-	; push the value of the watch
+	; push the previous value of the watch
 	lda dbg::watch_flags,x
 	and #WATCH_DIRTY		; dirty?
-	beq :+
+	beq :+				; if NOT dirty, don't push previous value
 	lda dbg::watch_prevs,x
 	pha				; push previous value if dirty
 	lda #CH_R_ARROW
 :	sta strings::watches_line_end	; insert a > between old/new values
 
-	; push the START address of the watch
+	; get the START and STOP addresses of the watch
 	lda @cnt
 	asl
 	tay
 	lda dbg::watches,y
-	pha
+	cmp dbg::watches_stop,y
+	beq :+
+	inc @range			; flag that start != stop
+:	sta @start
+
 	tax
+	lda dbg::watches_stop,y
+	sta @stop
 	lda dbg::watches+1,y
-	pha
-	tay
+	cmp dbg::watches_stop+1,y
+	beq :+
+	inc @range
+:	sta @start+1
+	lda dbg::watches_stop+1,y
+	sta @stop+1
 
 	; print the watch info
-	ldxy #strings::watches_line
-	lda @cnt
-	sec
-	sbc scroll
-	adc #WATCHVIEW_START	; +1 (carry set)
-	jsr text::print
+	lda @range			; is it a range of addresses?
+	beq @valline			; not a range
 
+; if the start address != stop address, print both
+@rangeline:
+	; push the stop address
+	lda @stop
+	pha
+	lda @stop+1
+	pha
+	
+	; push the start address
+	lda @start
+	pha
+	lda @start+1
+	pha
+
+	; if start addr != stop addr, print the address range
+	ldxy #strings::watches_line
+	jsr @print			; print this line
+	jmp @nextline 			; and continue to next
+
+; if the start address == stop address, just print the one address and its val
+@valline:
+	lda @start
+	pha
+	lda @start+1
+	pha
+	ldxy #strings::watches_line
+	jsr @print
+
+ @nextline:
 	lda @cnt
 	sec
 	sbc scroll
@@ -106,6 +146,13 @@ row:	.byte 0
 	jmp @l0		; next watch
 
 @done:	rts
+
+@print:	lda @cnt
+	sec
+	sbc scroll
+	adc #WATCHVIEW_START	; +1 (carry set)
+	jsr text::print
+	rts
 .endproc
 
 ;******************************************************************************
