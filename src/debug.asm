@@ -1793,8 +1793,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc edit_watches
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
-	lda #(DEBUG_INFO_START_ROW)*8
-	jsr bm::clrpart
 	jsr showstate		; restore the state
 
 	lda #AUX_WATCH
@@ -1878,8 +1876,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bcc @setbrk		; if there's no watch, contiue
 
 	; activate the watch window so user sees change
-	lda #(DEBUG_INFO_START_ROW+1)*8
-	jsr bm::clrpart
 	lda #AUX_WATCH
 	sta aux_mode
 	jsr watch::view

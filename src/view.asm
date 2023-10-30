@@ -30,6 +30,9 @@ TOTAL_BYTES = BYTES_TO_DISPLAY*(MEMVIEW_STOP-MEMVIEW_START)
 .BSS
 ;******************************************************************************
 dirtybuff: .res TOTAL_BYTES
+
+.export __view_addr
+__view_addr:
 memaddr:   .word 0
 
 .CODE

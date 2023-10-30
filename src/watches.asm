@@ -17,6 +17,7 @@
 .include "strings.inc"
 .include "text.inc"
 .include "util.inc"
+.include "view.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
 
@@ -51,6 +52,9 @@ row:	.byte 0
 @start=zp::tmp4			; start address
 @stop=zp::tmp6			; stop address (same as start if NOT range)
 @val=zp::tmp8			; value of watch (if NOT range)
+	lda #(DEBUG_INFO_START_ROW)*8
+	jsr bm::clrpart
+
 	; display the title
 	ldxy #strings::watches_title
 	lda #MEMVIEW_START
@@ -223,9 +227,10 @@ commands:
 	.byte K_ADD_WATCH	; prompt for an expression and add watch
 	.byte K_DOWN
 	.byte K_UP
+	.byte K_RETURN
 num_commands=*-commands
 
-.define command_vectors command_delete_watch, command_add_watch, down, up
+.define command_vectors command_delete_watch, command_add_watch, down, up, select
 
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
@@ -262,6 +267,23 @@ command_vectorshi: .hibytes command_vectors
 	bcc @done
 	dec scroll
 @done:	rts
+.endproc
+
+;******************************************************************************
+; SELECT
+; Handles the RETURN key
+; Invokes the memory editor/viewer at the address of the selected watch
+.proc select
+	lda row
+	clc
+	adc scroll
+	asl
+	tax
+	lda dbg::watches,x
+	sta view::addr
+	lda dbg::watches+1,x
+	sta view::addr+1
+	jmp view::edit		; invoke the memory editor
 .endproc
 
 ;******************************************************************************

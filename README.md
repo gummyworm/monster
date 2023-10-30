@@ -773,6 +773,30 @@ The watch viewer displays all watches that have been set in the memory
 viewer.  The current value of a watch is shown along with its previous
 value (if it has changed since the debugger last took over).
 
+A watched address (or range) will also be prefixed with a '!' if it was modified
+during the trace or step.  This is especially important for knowing that a range
+was modified as ranges do not list the previous or current values for the watch.
+
+The following keys are supported within the watch viewer:
+
+| Shortcut     | Name       |  Description                                            |
+|--------------|------------|---------------------------------------------------------|
+| C= + w       | Add watch  | Prompt the user for expressions to watch                |
+|  RETURN      | Select/Edit| Enters the memory editor at the watch's address         |
+|   <-         |  Exit      | Returns to the debugger                                 |
+
+#### Add Watch (`C= + w`)
+While in the watch editor, the `C= + w` key combination prompts the user for an
+address or address range to watch.  These are given as expressions, so you may
+provide, for example `myval+3` to set a watch at the address of the label myval plus 3.
+To set a watch for an address range, simply provide two expressions, separated by a comma,
+at the prompt.  If the expression(s) are invalid, no watch is added.
+
+#### Edit Watch (`RETURN`)
+Pressing RETURN will invoke the _memory editor_ at the location of the watch
+that was selected.  Returning from the memory editor will return the user
+back to the watch editor.
+
 ---
 
 ## Breakpoints
@@ -805,3 +829,4 @@ The viewer will display the old value and what it was changed to.
 When a value is changed the watch view is activated to alert the user to the
 alteration.  If a read or write is detected while stepping _into_ the code,
 we also activate the viewer.  
+
