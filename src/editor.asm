@@ -3470,7 +3470,6 @@ __edit_gotoline:
 ; Takes the given source line number and returns its row position on the screen.
 ; IN:
 ;  - .XY:      the line number to get the screen row of
-;  - zp::tmp0: the filename of the file to get the screen position of
 ; OUT:
 ;  - .A: the row that the line number resides on
 ;  - .C: set if the line number is not on screen
@@ -3481,12 +3480,6 @@ __edit_gotoline:
 @startline=zp::editortmp+2
 @endline=zp::editortmp+4
 	stxy @line
-
-	ldxy @fname
-	jsr src::buffer_by_name
-	bcs @done
-	cmp src::activebuff	; check if the buffer is even active
-	bne @done		; if buffer is not active, can't be visible
 
 	lda src::line
 	sec

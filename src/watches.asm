@@ -109,6 +109,15 @@ row:	.byte 0
 	lda @start+1
 	pha
 
+	; push SPACE if not dirty or '!' if dirty
+	ldy #' '
+	lda dbg::watch_flags,x
+	and #WATCH_DIRTY		; dirty?
+	beq :+				; if NOT dirty, don't push previous value
+	ldy #'!'			; dirty
+:	tya
+	pha
+
 	; if start addr != stop addr, print the address range
 	ldxy #strings::watches_range_line
 	jmp @print			; print this line and continue
@@ -133,6 +142,16 @@ row:	.byte 0
 	pha
 	lda @start+1
 	pha
+
+	; push SPACE if not dirty or '!' if dirty
+	ldy #' '
+	lda dbg::watch_flags,x
+	and #WATCH_DIRTY		; dirty?
+	beq :+				; if NOT dirty, don't push previous value
+	ldy #'!'			; dirty
+:	tya
+	pha
+
 	ldxy #strings::watches_line
 
 @print:	lda @cnt
@@ -296,27 +315,33 @@ command_vectorshi: .hibytes command_vectors
 @watchstart=zp::tmp2
 @watchstop=zp::tmp4
 	stxy @addr
+
 	asl
 	tax
-	lda dbg::watches,x
-	sta @watchstart
-	lda dbg::watches_stop,x
-	sta @watchstop
+@chklo:
+	lda @addr+1
+	cmp dbg::watches+1,x
+	bcc @no 		; if MSB < addr's, not in range of this watch
+	beq :+
+	bcs @chkstop		; if MSB > addr's, addr is above low bound
 
-	lda dbg::watches+1,x
-	sta @watchstart+1
-	lda dbg::watches_stop+1,x
-	sta @watchstop+1
+:	lda @addr
+	cmp dbg::watches,x
+	bcc @no			; if MSB == addr's and LSB > addr's, try next
 
-	ldxy @addr
-	cmpw @watchstart
-	bcc @no
-	cmpw @watchstop
+@chkstop:
+	lda @addr+1
+	cmp dbg::watches_stop+1,x
+	bcc @yes
+	beq :+
+	bcs @no			; if MSB > addr, not in range of this watch
+:	lda @addr
+	cmp dbg::watches_stop,x ; if LSB <= addr, addr is in range
 	beq @yes
-	bcs @no
-
+	bcc @yes
+@no:	sec
+	rts
 @yes:	RETURN_OK
-@no:	rts
 .endproc
 
 ;******************************************************************************
@@ -344,7 +369,7 @@ command_vectorshi: .hibytes command_vectors
 @l0:	lda @cnt
 	ldxy @addr
 	jsr in_range		; is the address in range for this watch?
-	bne @next
+	bcs @next
 	ldx @cnt
 	lda #WATCH_DIRTY
 	sta dbg::watch_flags,x	; mark this watchpoint as DIRTY

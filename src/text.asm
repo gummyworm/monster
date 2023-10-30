@@ -22,6 +22,7 @@ ESCAPE_VALUE     = $fe
 ESCAPE_VALUE_DEC = $fd
 ESCAPE_SPACING   = $fc
 ESCAPE_BYTE      = $fb
+ESCAPE_CHAR      = $fa
 ESCAPE_RVS_ON    = $12
 ESCAPE_RVS_OFF   = $92
 STATUS_LINE      = 23
@@ -237,6 +238,11 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	inx
 	inx
 	jmp @cont
+
+:	cmp #ESCAPE_CHAR
+	bne :+
+	pla			; get the character
+	jmp @ch			; and continue to printing it
 
 :	cmp #ESCAPE_STRING
 	bne :+

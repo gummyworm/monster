@@ -1517,13 +1517,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @debug_done:
 	jsr cur::off
 	jsr swapin
-	; clear watch flags
-	lda #$00
-	ldx __debug_numwatches
-	beq @restore_regs
-:	sta __debug_watch_flags-1,x
-	dex
-	bne :-
+
 
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
@@ -1866,6 +1860,16 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ; for updating watches and just general info for the user, save the current
 ; state of memory that will be altered
+
+	; clear watch flags
+	lda #$00
+	ldx __debug_numwatches
+	beq @check_effects
+:	sta __debug_watch_flags-1,x
+	dex
+	bne :-
+
+@check_effects:
 	lda affected
 	and #OP_LOAD|OP_STORE	; was there a write to memory?
 	beq @setbrk		; if not, skip ahead to setting the next BRK
@@ -1878,6 +1882,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr bm::clrpart
 	lda #AUX_WATCH
 	sta aux_mode
+	jsr watch::view
 
 @setbrk:
 	lda #ACTION_STEP

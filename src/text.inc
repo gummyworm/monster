@@ -26,6 +26,7 @@ ESCAPE_VALUE     = $fe	; 2 byte: value to print in hex
 ESCAPE_VALUE_DEC = $fd	; 2 byte: value to print in decimal
 ESCAPE_SPACING   = $fc	; 1 byte: number of spaces to insert
 ESCAPE_BYTE      = $fb  ; 1 byte: the value to print in hex
+ESCAPE_CHAR      = $fa	; 1 byte: the literal char to print
 ESCAPE_RVS_ON    = $12
 ESCAPE_RVS_OFF   = $92
 
