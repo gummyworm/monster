@@ -388,11 +388,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy #debuginfo
 	stxy seg
 
-	lda #$01
-	sta @cnt
-	cmp numsegments
-	beq @done	; if there's only 1 segment, we're done
-
 @l0:	ldy #SEG_LINE_COUNT	; get the line count for the segment
 	jsr read_from_seg
 	sta @lines
@@ -445,7 +440,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @next:	inc @cnt
 	lda @cnt
 	cmp numsegments
-	bne @l0
+	bcc @l0
 
 @done:	RETURN_OK
 .endproc
@@ -1879,7 +1874,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bcc @setbrk		; if there's no watch, contiue
 
 	; activate the watch window so user sees change
-	lda #(DEBUG_INFO_START_ROW-1)*8
+	lda #(DEBUG_INFO_START_ROW+1)*8
 	jsr bm::clrpart
 	lda #AUX_WATCH
 	sta aux_mode

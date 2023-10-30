@@ -102,7 +102,7 @@ row:	.byte 0
 	pha
 	lda @stop+1
 	pha
-	
+
 	; push the start address
 	lda @start
 	pha
@@ -332,14 +332,14 @@ command_vectorshi: .hibytes command_vectors
 @cnt=zp::tmp6
 @addr=zp::tmp7
 @found=zp::tmp9
+	lda #$00
+	sta @found
+
 	stxy @addr
 	ldx dbg::numwatches
 	beq @done
 	dex
 	stx @cnt
-
-	lda #$00
-	sta @found
 
 @l0:	lda @cnt
 	ldxy @addr
