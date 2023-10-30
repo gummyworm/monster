@@ -73,7 +73,7 @@ __str_load: .byte "load",0
 __str_run: .byte "run",0
 
 .export __str_watches_range_line
-__str_watches_range_line: .byte "$", ESCAPE_VALUE, "-$", ESCAPE_VALUE
+__str_watches_range_line: .byte "$", ESCAPE_VALUE, "-$", ESCAPE_VALUE,0
 
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA
@@ -88,6 +88,7 @@ __str_watches_line:
 .byte "$", ESCAPE_VALUE, ": ", ESCAPE_BYTE, 0
 .export __str_watches_line_end
 __str_watches_line_end=*-1
+.byte ESCAPE_BYTE,0
 
 
 .export __str_memview_title

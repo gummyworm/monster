@@ -64,24 +64,12 @@ row:	.byte 0
 
 @l0:	ldx @cnt
 	cpx dbg::numwatches
-	bcs @done
+	bcc :+
+	rts
 
-	; push current value of the watch
-	lda dbg::watch_vals,x
-	pha
-
-	lda #$00
+:	lda #$00
 	sta @range			; init RANGE flag to false
 	sta strings::watches_line_end	; restore string if it was changed
-
-	; push the previous value of the watch
-	lda dbg::watch_flags,x
-	and #WATCH_DIRTY		; dirty?
-	beq :+				; if NOT dirty, don't push previous value
-	lda dbg::watch_prevs,x
-	pha				; push previous value if dirty
-	lda #CH_R_ARROW
-:	sta strings::watches_line_end	; insert a > between old/new values
 
 	; get the START and STOP addresses of the watch
 	lda @cnt
@@ -93,7 +81,6 @@ row:	.byte 0
 	inc @range			; flag that start != stop
 :	sta @start
 
-	tax
 	lda dbg::watches_stop,y
 	sta @stop
 	lda dbg::watches+1,y
@@ -123,18 +110,36 @@ row:	.byte 0
 	pha
 
 	; if start addr != stop addr, print the address range
-	ldxy #strings::watches_line
-	jsr @print			; print this line
-	jmp @nextline 			; and continue to next
+	ldxy #strings::watches_range_line
+	jmp @print			; print this line and continue
 
 ; if the start address == stop address, just print the one address and its val
 @valline:
+	; push current value of the watch
+	lda dbg::watch_vals,x
+	pha
+
+	; push the previous value of the watch
+	lda dbg::watch_flags,x
+	and #WATCH_DIRTY		; dirty?
+	beq :+				; if NOT dirty, don't push previous value
+	lda dbg::watch_prevs,x
+	pha				; push previous value if dirty
+	lda #CH_R_ARROW
+	sta strings::watches_line_end	; insert a > between old/new values
+
+:	; push the address
 	lda @start
 	pha
 	lda @start+1
 	pha
 	ldxy #strings::watches_line
-	jsr @print
+
+@print:	lda @cnt
+	sec
+	sbc scroll
+	adc #WATCHVIEW_START	; +1 (carry set)
+	jsr text::print
 
  @nextline:
 	lda @cnt
@@ -144,15 +149,7 @@ row:	.byte 0
 	bcs @done
 	inc @cnt
 	jmp @l0		; next watch
-
 @done:	rts
-
-@print:	lda @cnt
-	sec
-	sbc scroll
-	adc #WATCHVIEW_START	; +1 (carry set)
-	jsr text::print
-	rts
 .endproc
 
 ;******************************************************************************
@@ -161,15 +158,8 @@ row:	.byte 0
 .export __watches_edit
 .proc __watches_edit
 	jsr __watches_view
-	; if there are no watches, just wait for user to quit
-	lda dbg::numwatches
-	bne :++
-:	jsr key::getch
-	cmp #K_QUIT
-	bne :-
-	rts
 
-:	lda #$00
+	lda #$00
 	sta row
 	sta scroll
 	jmp @redraw	; highlight the first row
@@ -426,7 +416,6 @@ command_vectorshi: .hibytes command_vectors
 	rts
 .endproc
 
-
 ;******************************************************************************
 ; ADD
 ; Adds a watch for the given memory location.
@@ -441,7 +430,7 @@ command_vectorshi: .hibytes command_vectors
 @flags=zp::tmp4
 	sta @flags
 	stxy @addr
-	ldx dbg::numwatches
+	lda dbg::numwatches
 	beq :+
 
 	; check if watch already exists
@@ -457,7 +446,7 @@ command_vectorshi: .hibytes command_vectors
 	lda @addr+1
 	sta dbg::watches+1,x
 
-	ldxy @stop
+	lda @stop
 	sta dbg::watches_stop,x
 	lda @stop+1
 	sta dbg::watches_stop+1,x

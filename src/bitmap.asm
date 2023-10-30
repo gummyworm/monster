@@ -84,9 +84,10 @@ COLMEM_ADDR = $9400
 	sbc @offset
 	sta @offset
 
-	ldx #20-1		; number of columns
+	ldx #20			; number of columns
 
 @l0:	ldy @offset
+	dey
 	lda #$00
 ;clear the character memory (bitmap)
 @l1:    sta (zp::tmp0),y
