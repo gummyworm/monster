@@ -503,6 +503,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldy #SEG_LINE_COUNT
 	lda #$00
 	jsr write_to_seg
+	iny
+	lda #$00
+	jsr write_to_seg
 	inc numsegments
 	RETURN_OK
 .endproc

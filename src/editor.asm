@@ -294,7 +294,7 @@ main:	jsr key::getch
 
 ;******************************************************************************
 ; COMMAND_ASM
-; Assembles the entire source into mem::program
+; Assembles the entire source
 .export command_asm
 .proc command_asm
 	jsr dbg::init
