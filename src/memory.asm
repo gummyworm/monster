@@ -45,9 +45,13 @@ __linesave: .res 40
 .export __mem_copybuff
 __mem_copybuff: .res MAX_COPY_SIZE
 
+;******************************************************************************
+; LINEBUFFER
+; The linebuffer must live in lower RAM, which is NOT switched out with the
+; upper RAM upon switching banks
+; This allows the buffer to be manipulated from any bank
 .export __linebuffer
 __linebuffer = $0400
-;__linebuffer: .res 80
 
 .export __linebuffer2
 ;__linebuffer2: .res 80		; backup buffer for when the linebuffer must be saved
