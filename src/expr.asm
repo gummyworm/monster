@@ -18,9 +18,10 @@ MAX_OPERANDS  = $10/2
 ; IN:
 ;  - zp::line: pointer to the expression to evaluate
 ; OUT:
-;  - .A: the size of the returned value in bytes
-;  - .XY: the result of the evaluated expression
-;  - .C: clear on success or set on failure
+;  - .A:       the size of the returned value in bytes
+;  - .XY:      the result of the evaluated expression
+;  - .C:       clear on success or set on failure
+;  - zp::line: updated to point beyond the parsed expression
 .export __expr_eval
 .proc __expr_eval
 @val1=zp::expr
@@ -99,10 +100,10 @@ MAX_OPERANDS  = $10/2
 	cmp @priorities,x
 	beq :+
 	bcs @process_ops_done
-:	pha		; save priority
-	jsr @eval	; evaluate the top 2 elements of the operand stack
-	pla		; get priority
-	jmp @process_ops	; continue until the op to the left has lower priority
+:	pha			; save priority
+	jsr @eval		; evaluate top 2 elements of the operand stack
+	pla			; get priority
+	jmp @process_ops	; continue til op on left has lower priority
 
 @process_ops_done:
 	pla
@@ -135,10 +136,9 @@ MAX_OPERANDS  = $10/2
 	beq @done
 	RETURN_ERR ERR_LABEL_UNDEFINED
 
-@done:
-	ldx @num_operators
-	beq @getresult
-	jsr @eval
+@done:	ldx @num_operators	; if there are still ops on stack
+	beq @getresult		; no operators: just get the result
+	jsr @eval		; evaluate each remaining operator
 	jmp @done
 
 @getresult:

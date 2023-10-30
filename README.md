@@ -615,6 +615,7 @@ respective Key in the table below.
 |  Key     | Name            |   Description                                                                        |
 |--------  |-----------------|--------------------------------------------------------------------------------------|
 |  F1      | Source View     | maximizes the screen area for viewing the source code                                |
+|  F2      | Register Editor | enters the register editor                                                           |
 |  F3      | Mem View        | activates the memory window, which takes control until `<-` is pressed               |
 |  F5      | Break View      | displays the breakpoints that have been set and allows them to be enabled/disabled   |
 |  C=+g    | Go              | begins execution at the cursor                                                       |
@@ -624,6 +625,13 @@ respective Key in the table below.
 |  C=+t    | Trace           | like GO but the debugger takes control between each instruction                      |
 |   <-     | Exit            | exits the debugger and returns to the editor                                         |
 | SPACE    | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  | 
+
+### Register Editor (`F2`)
+Pressing F2 moves the cursor to the register contents and allows the user to enter
+new values for them.  Pressing `RETURN` will confirm the new register values
+and update them to those values the next time the user program is invoked.
+Pressing `<-` will abort this process and leave the old register values
+intact.
 
 ### Stopwatch
 

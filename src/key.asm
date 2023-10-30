@@ -1,3 +1,4 @@
+.include "keycodes.inc"
 .include "macros.inc"
 .include "zeropage.inc"
 
@@ -26,7 +27,7 @@ CURSOR_LR_MASK      = 2
 	bcs :+
 	eor #$20
 	rts
-	
+
 :	cmp #$c1
 	bcc @done
 	cmp #$db
@@ -35,6 +36,29 @@ CURSOR_LR_MASK      = 2
 @done:	cmp #$00
 	rts
 .endproc
+
+;******************************************************************************
+; GETHEX
+; Gets a key from the keyboard, and returns its value ONLY
+; if it is a hex value, a DELETE, a RETURN, or a QUIT (<-)
+; OUT:
+;  - .A: the key pressed (if valid)
+.export __key_gethex
+.proc __key_gethex
+	jsr __key_getch
+	cmp #K_DEL	; allow delete
+	beq :+
+	cmp #K_RETURN
+	beq :+
+	cmp #K_QUIT
+	beq :+
+	jsr __key_ishex
+	bcs :+
+	lda #$00	; don't accept non-hex characters
+:	cmp #$00
+	rts
+.endproc
+
 ;******************************************************************************_
 ; ISHEX
 ; Returns .C set if the given key is 0-9 or A-F
@@ -58,6 +82,7 @@ CURSOR_LR_MASK      = 2
 	clc
 @done:	rts
 .endproc
+
 ;******************************************************************************_
 ; ISDEC
 ; Returns .C set if the given key is 0-9
@@ -76,4 +101,22 @@ CURSOR_LR_MASK      = 2
 @notdec:
 	clc
 @done:	rts
+.endproc
+
+;******************************************************************************_
+; IS PRINTING
+; Returns with .C set if the given character is printable
+; IN:
+;  - .A: the character to check for printability
+; OUT:
+;  - .C: set if the character is not printable
+.export __key_is_printing
+.proc __key_is_printing
+	cmp #' '
+	bcc @no
+	cmp #$7b
+	bcs @no
+@yes:	rts
+@no:	sec
+	rts
 .endproc

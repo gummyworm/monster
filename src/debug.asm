@@ -61,6 +61,12 @@ OP_PC    = $80	; constant for an operation that modifies PC (branches)
 
 BREAKPOINT_ENABLED = 1
 
+REG_PC_OFFSET = 0
+REG_A_OFFSET = 5
+REG_X_OFFSET = 8
+REG_Y_OFFSET = 11
+REG_SP_OFFSET = 14
+
 ;******************************************************************************
 ; ACTION constants
 ; These tell us what command the user last executed when we return to the
@@ -92,12 +98,13 @@ __debug_file = file
 ;******************************************************************************
 ; Program state variables
 .BSS
+register_state:
+pc:     .word 0
 reg_a:  .byte 0
 reg_x:  .byte 0
 reg_y:  .byte 0
-reg_p:  .byte 0
 reg_sp: .byte 0
-pc:     .word 0
+reg_p:  .byte 0
 
 ;--------------------------------------
 ; Up to 4 bytes need to be saved in a given STEP.
@@ -2682,11 +2689,127 @@ __debug_remove_breakpoint:
 .endproc
 
 ;******************************************************************************
+; EDIT STATE
+; Moves the cursor to the registers area and allows the user to modify
+; their values with hex input
+.proc edit_state
+	pushcur
+	lda #$00
+	sta zp::curx
+	lda #REGISTERS_LINE+1
+	sta zp::cury
+
+	jsr showstate		; fill linebuffer with register state
+	jsr cur::on
+
+@edit:	jsr key::getch
+	beq @edit
+	pha
+	jsr cur::off
+	pla
+
+	cmp #K_LEFT
+	beq @back
+	cmp #K_DEL
+	bne @ret
+@back:	lda zp::curx
+	beq @edit		; can't move LEFT
+	dec zp::curx
+	ldx #6
+@prevx:	cmp @offsets,x		; was cursor at start of offset?
+	bcc @prev		; if cursor is < offset, check prev offset
+	bne @ok			; if it was NOT at offset start, it is now
+	lda @offsets-1,x
+	adc #$00		; +1
+	sta zp::curx
+	jmp @refresh
+@prev:	dex
+	bpl @prevx
+	bmi @edit
+
+@ret:	cmp #K_RETURN
+	beq @updatevals
+@quit:	cmp #K_QUIT
+	bne @right
+	beq @exit
+@right:	cmp #K_RIGHT
+	beq @fwd
+
+@hex:	jsr key::ishex
+	bcc @refresh
+
+	ldx zp::curx
+	sta mem::linebuffer2,x
+
+@fwd:   lda zp::curx
+	cmp #REG_SP_OFFSET+1	; check offset
+	bcs @refresh		; if already at last column, don't advance
+	inc zp::curx		; bump up curx
+	ldx #$00
+; align x-position to either a value in @offsets or a value in @offests+1
+@nextx:	cmp @offsets,x		; was X at the start of the offset?
+	beq @refresh		; if so, incrementing it by 1 was sufficient
+	bcs @next		; if X
+@ok:	lda @offsets,x		; if @offsets,x <= curx, set curx to it
+	sta zp::curx
+	jmp @refresh
+@next:	inx
+	cpx #6
+	bne @nextx
+
+@refresh:
+	lda #REGISTERS_LINE+1
+	ldxy #mem::linebuffer2
+	jsr text::puts
+	jsr cur::on
+	jmp @edit
+
+;--------------------------------------
+; parse the linebuffer2 and update all registers
+@updatevals:
+@val=zp::tmp0
+	ldxy #mem::linebuffer2
+	stxy @val
+
+	ldx #6-1
+@l0:	ldy @offsets,x
+	lda (@val),y
+	jsr util::chtohex	; get MSB
+	asl
+	asl
+	asl
+	asl
+	sta register_state,x
+
+	iny
+	lda (@val),y		; get LSB
+	jsr util::chtohex
+	ora register_state,x
+	sta register_state,x
+
+	dex
+	bpl @l0
+
+	; swap PC LSB and MSB
+	ldx pc
+	lda pc+1
+	sta pc
+	stx pc+1
+
+@exit:	popcur
+	rts
+
+@offsets:
+.byte REG_PC_OFFSET, REG_PC_OFFSET+2, REG_A_OFFSET, REG_X_OFFSET, REG_Y_OFFSET
+.byte REG_SP_OFFSET
+.endproc
+
+;******************************************************************************
 ; SHOWSTATE
 ; Shows the current debug state (registers and BRK line)
 .proc showstate
-	jsr showregs
-	jmp showbrk
+	jsr showbrk
+	jmp showregs
 .endproc
 
 ;******************************************************************************
@@ -3357,12 +3480,13 @@ commands:
 	.byte K_SET_BREAKPOINT
 	.byte K_SWAP_USERMEM
 	.byte K_RESET_STOPWATCH
+	.byte K_EDIT_STATE
 num_commands=*-commands
 
 .linecont +
 .define command_vectors quit, step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, edit_watches, \
-	set_breakpoint, swap_user_mem, reset_stopwatch
+	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
@@ -3375,4 +3499,4 @@ disabled_commands:
 	.byte K_CLOSE_BUFF
 	.byte K_ASM
 	.byte K_ASM_DEBUG
-num_disabled_commands=*-commands
+num_disabled_commands=*-disabled_commands

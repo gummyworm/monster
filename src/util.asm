@@ -6,6 +6,30 @@
 .CODE
 
 ;******************************************************************************
+; FINDB
+; Finds the given byte value in the provided list and returns its index
+; IN:
+;  - .A:  the value to look for
+;  - .XY: the address of list to seek for the value in
+;  - zp::tmp0: the # of items in the list
+; OUT:
+;  - .Y: the index of the item (if found)
+;  - .Z: set if the item was found in the list
+.export __util_findb
+.proc __util_findb
+@list=zp::util
+@cnt=zp::tmp0
+	stxy @list
+	ldy @cnt
+	dey
+:	cmp (@list),y
+	beq @done
+	dey
+	bpl :-
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; MEMSET
 ; Sets zp::tmp0 bytes of the memory at (YX) to .A.
 ; IN:
@@ -119,7 +143,7 @@
 ; IN:
 ;  - .XY: the address of the string to parse
 ; OUT:
-;  - .XY: set
+;  - .XY: the binary representation of the hex string
 ;  - .C:  set on error
 .export __util_parsehex
 .proc __util_parsehex

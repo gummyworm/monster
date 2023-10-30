@@ -17,6 +17,7 @@
 .import __final_load_byte_off
 .import __final_memcpy
 .import __final_copy
+.import __final_copy_line
 .import __final_init
 .import __final_brk
 .import __final_rti
@@ -82,6 +83,7 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 	call     = __final_call
 	fcopy    = __final_copy
 	copy     = __final_memcpy
+	copyline = __final_copy_line
 	init     = __final_init
 	store    = __final_store_byte
 	store_off= __final_bank_store_rel
