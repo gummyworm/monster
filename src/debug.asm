@@ -2728,8 +2728,7 @@ __debug_remove_breakpoint:
 	bmi @edit
 
 @ret:	cmp #K_RETURN
-	bne @quit
-@done:	jmp @updatevals
+	beq @updatevals
 @quit:	cmp #K_QUIT
 	bne @right
 	beq @exit
@@ -2786,6 +2785,7 @@ __debug_remove_breakpoint:
 	lda (@val),y		; get LSB
 	jsr util::chtohex
 	ora register_state,x
+	sta register_state,x
 
 	dex
 	bpl @l0
