@@ -479,11 +479,13 @@ main:	jsr key::getch
 	bcs @getloop
 	cmp #K_RETURN
 	beq @done
-	cmp #K_QUIT	; <- (done)
+	cmp #K_QUIT		; <- (done)
 	beq @exit
+	cmp #K_DEL
+	beq :+			; let DELETE through
 	jsr key::isprinting
 	bcs @getloop		; don't print if not printable
-	jsr text::putch
+:	jsr text::putch
 	lda zp::cury
 	jsr text::drawline
 	jsr cur::on
