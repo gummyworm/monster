@@ -154,6 +154,7 @@ prev_reg_sp: .byte 0
 prev_pc:     .word 0
 
 stopwatch:   .res 3	; number of cycles counted since stopwatch is reset
+sw_valid:    .byte 0    ; if !0, stopwatch is valid
 
 prev_mem_save:     .byte 0
 prev_mem_saveaddr: .word 0
@@ -1703,6 +1704,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; for the first instruction, just STEP, this lets us keep the breakpoint
 	; we are on (if there is one) intact
 	jsr step
+	lda #$00
+	sta sw_valid		; invalidate stopwatch
 	lda #ACTION_GO_START
 	sta action
 	inc advance		; continue program execution
@@ -1928,6 +1931,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Unlike STEP, if the next procedure is a JSR, execution will continue
 ; at the line after the subroutine (after the subroutine has run)
 .proc step_over
+	lda #$00
+	sta sw_valid		; invalidate stopwatch
 	jmp step
 .endproc
 
@@ -2097,6 +2102,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; re-increment swapmem to force full RAM swap
 	lda #ACTION_STEP_OVER
 	sta action
+	lda #$00
+	sta sw_valid	; invalidate stopwatch
 	inc swapmem
 	bcs @nocontrol	; set breakpoint to PC+3
 
@@ -2941,7 +2948,16 @@ __debug_remove_breakpoint:
 	sty @buff+29
 	stx @buff+30
 
-@clk:	ldx stopwatch
+@clk:	lda sw_valid
+	bne :+
+	; if stopwatch is invalid, show ???
+	lda #'?'
+	sta @buff+37
+	sta @buff+38
+	sta @buff+39
+	bne @print
+
+:	ldx stopwatch
 	ldy stopwatch+1
 	lda stopwatch+2
 	jsr util::todec24
@@ -3147,6 +3163,8 @@ __debug_remove_breakpoint:
 ; RESET STOPWATCH
 ; Resets the stopwatch
 .proc reset_stopwatch
+	lda #$01
+	sta sw_valid
 	lda #$00
 	sta stopwatch
 	sta stopwatch+1
