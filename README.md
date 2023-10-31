@@ -804,10 +804,15 @@ Breakpoints may be set/removed during both normal editing and while debugging.
 Setting a breakpoint inserts a special character into the source buffer, which 
 tells the assembler, during assembly, to generate a breakpoint for the line
 that this character resides on.
+
 Because the breakpoint is represented as a character within the source code itself,
 it will automatically move as lines are inserted and deleted.  The character itself
 is not editable (the cursor will not move to breakpoint characters).  You may remove
 it by toggling the breakpoint off _or_ by deleting the entire line.
+
+*NOTE:* Debug information is only generated for instructions _NOT data_.  This means
+that, for example, you can set a breakpoint on `LDA #$00` or a macro that expands
+to such an instruction, but setting one on `.DB $00` will have _no_ effect.
 
 ### Toggle Breakpoint (`C= + b`)
 During normal editing, breakpoints may be set and removed  with the `C= + b` key combination.

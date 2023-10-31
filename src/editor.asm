@@ -242,6 +242,32 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; DISASSEMBLE
+; Disssembles the given address range to a new buffer
+; IN:
+;  - .XY:      the start of the address range to disassemble
+;  - zp::tmp0: the stop address to disassemble
+.proc disassemble
+@addr=zp::editortmp
+@stop=zp::editortmp
+	stxy @addr
+	ldxy @zp::tmp0
+	stxy @stop
+	jsr new_buffer		; create/activate a new buffer
+
+@l0:	ldxy #$100
+	ldxy @addr
+	jsr asm::disassemble
+
+
+	rts
+.endproc
+
+;******************************************************************************
+; ASSEMBLE FILE
+; Assembles the given filename
+; IN:
+;  - .XY: the filename of the file to assemble
 .proc assemble_file
 @filename=mem::backbuff
 	lda #<@filename
