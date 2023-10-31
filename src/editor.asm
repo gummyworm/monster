@@ -229,8 +229,7 @@ main:	jsr key::getch
 	dec readonly
 	lda #EDITOR_HEIGHT
 	sta height
-	jsr refresh
-	rts
+	jmp refresh
 .endproc
 
 ;******************************************************************************
@@ -249,18 +248,64 @@ main:	jsr key::getch
 ;  - zp::tmp0: the stop address to disassemble
 .proc disassemble
 @addr=zp::editortmp
-@stop=zp::editortmp
+@stop=zp::editortmp+2
+@cnt=zp::editortmp+4
+@buff=$100			; buffer to store disassembled instruction
 	stxy @addr
 	ldxy @zp::tmp0
 	stxy @stop
 	jsr new_buffer		; create/activate a new buffer
 
-@l0:	ldxy #$100
+@l0:	ldxy #@buff
 	ldxy @addr
 	jsr asm::disassemble
+	bcc @ok
 
+; if we couldn't disassemble the instruction, just ad a .DB for it
+@byte:
+	ldx #@db_len-1
+:	lda @db,x
+	sta @buff,x
+	dex
+	bpl :-
 
-	rts
+	; load the byte value and add it to the buffer
+	ldxy @addr
+	jsr vmem::load
+	jsr util::hextostr
+	sty @buff+@db_len
+	stx @buff+@db_len+1
+	lda #$00
+	sta @buff+@db_len+2	; 0-terminate
+
+	lda #$01		; set size of "instruction" to 1
+	clc
+
+@ok:	adc @addr
+	sta @addr
+	bcc @copyi
+	inc @addr+1
+
+; copy the instruction to the source buffer
+@copyi:
+	ldx #$00
+	stx @cnt
+:	lda @buff,x
+	beq @next
+	jsr src::insert		; add the disassembled char
+	inc @cnt
+	bne :-
+
+@next:	lda #$0d
+	jsr src::insert		; add a newline
+	ldxy @addr
+	cmpw @stop
+	bcc @l0			; disassemble next instruction
+
+	jmp refresh		; refresh the buffer
+
+@db:   .byte ".db $"
+@db_len=*-@db
 .endproc
 
 ;******************************************************************************
