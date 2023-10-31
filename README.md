@@ -129,13 +129,74 @@ Most accept an argument (as described in each commands description below)
 
 |Key| Name          |   Args                          | Description                                                  |
 |---|---------------|---------------------------------|--------------------------------------------------------------|
-| a | Assemble File | Filename                        | assembles the given filename sembles it.                     | 
-| d | Start Debugger| Symbol to debug at (optional)   | prompts for a label and begins debugging at it               | 
+| a | Assemble File | Filename                        | assembles the given filename                                 | 
+| d | Start Debugger| Symbol to debug at (optional)   | begins debugging at the given label                          | 
+| D | Disassemble   | Start address, End address      | Disassembles the given address range                         |
 | e | Edit          | Filename                        | loads the buffer with the contents of the given file         |
 | g | Goto          | Symbol to run at (optional)     | executes the program at the address of the given symbol      |
 | r | Rename        | Name                            | renames the buffer to the given name                         |
 | s | Save          | Filename                        | saves the buffer to the given filename                       |
 | x | Scratch       | Filename                        | scratches (deletes) the given filename                       |
+
+#### Assemble File (a)
+Assembles the contents of the given file. This is functionally the same as opening
+the given file and assembling it with debug information (F4).
+
+Invoking the debugger will invoke it for the last assembled file (not the current
+source buffer) in this scenario.  The debugger cares about the active debug
+information _not_ the active file.
+
+Example:
+`:a HELLO.S`
+
+#### Start Debugger
+Begins debugging at the given symbol using the active debug information.
+
+If no symbol is given, the program will
+begin and the debugger invoked at the _lowest_ defined origin (.ORG) in the
+program. See [Debugger](https://github.com/gummyworm/monster#debugger) for more
+details on debugging.
+
+Example:
+`:d START`
+
+#### Disassemble (D)
+Disassembles the contents of the _virtual_ memory between the given range.
+e.g. `:D $1001, $1040`.
+Expressions may be used in addtion to literal addresses. 
+This could be useful if your program modifies itself at rutime. 
+
+Example:
+`:D PSTART, PEND`
+
+#### Edit (e)
+Loads the given filename to a new buffer and activates it.
+
+Example:
+`:e HELLO.S`
+
+#### Rename (r)
+Renames the active buffer to the given name.
+Example:
+`:r TEST2.S`
+
+#### Save (s)
+Saves the active buffer to a file with the given name.  If no name is given,
+the active buffer's name is used.
+
+Adding an `@` to this command (`S@`) will delete the file before saving. This
+allows you to overwrite the existing file if it exists.
+
+Examples:
+`:s NEW.S`
+`:s@ OLD.S`
+
+#### Scratch (x)
+Deletes the file of the given name.
+Example:
+`:x TEST.S`
+
+---
 
 ## Editor Modes
 The editor is a _modal_ editor, that is, it behaves differently depending on which _mode_ it is
