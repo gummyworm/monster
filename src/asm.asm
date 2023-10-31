@@ -1985,7 +1985,6 @@ __asm_include:
 	and #MODE_ZP
 	beq :+
 @zeropage:
-	ldy #$00
 	lda #'$'
 	sta (@dst),y
 	incw @dst
@@ -1994,10 +1993,9 @@ __asm_include:
 	tya
 	ldy #$00
 	sta (@dst),y
-	txa
-	iny
-	sta (@dst),y
 	incw @dst
+	txa
+	sta (@dst),y
 	incw @dst
 
 :	lda @modes
@@ -2005,31 +2003,29 @@ __asm_include:
 	beq @chkindexed
 
 @absolute:
-	ldy #$00
 	lda #'$'
 	sta (@dst),y
+
 	incw @dst
 	lda @operand+1
 	jsr util::hextostr
 	tya
 	ldy #$00
 	sta (@dst),y
+	incw @dst
 	txa
-	iny
 	sta (@dst),y
 	incw @dst
-	incw @dst
+
 	lda @operand
 	jsr util::hextostr
 	tya
 	ldy #$00
 	sta (@dst),y
+	incw @dst
 	txa
-	iny
 	sta (@dst),y
 	incw @dst
-	incw @dst
-	ldy #$00
 
 @chkindexed:
 	lda @modes
