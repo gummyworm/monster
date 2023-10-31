@@ -1736,9 +1736,10 @@ __asm_include:
 ;  - .XY: the address of the instruction to disassemble
 ;  - zp::tmp0: the address of the buffer to disassemble to
 ; OUT:
-;  - .A: the size of the instruction that was disassembled
-;  - .X: the address modes for the instruction
-;  - .C: clear if instruction was successfully disassembled
+;  - .A:         the size of the instruction that was disassembled
+;  - .X:         the address modes for the instruction
+;  - .C:         clear if instruction was successfully disassembled
+;  - (zp::tmp0): the (0-terminated) disassembled instruction string
 .export __asm_disassemble
 .proc __asm_disassemble
 @dst=zp::tmp0
@@ -1811,6 +1812,8 @@ __asm_include:
 	jmp @absolute
 
 @implied_:
+	lda #$00
+	sta (@dst),y		; 0-terminate
 	lda #$01
 	ldx @modes
 	RETURN_OK
@@ -1947,6 +1950,8 @@ __asm_include:
 	and #MODE_IMPLIED
 	beq @cont	; if not implied, go on
 @implied:
+	lda #$00
+	sta (@dst),y	; 0-terminate
 	lda #$01	; 1 byte in size
 	ldx @modes
 	RETURN_OK
@@ -2055,13 +2060,19 @@ __asm_include:
 	incw @dst
 	lda #'y'
 	sta (@dst),y
+	incw @dst
+
 @done:  ldx #$02
 	lda @modes
 	and #MODE_ZP
 	bne :+
 	inx
-:	txa
-	ldx @modes
+:	lda #$00
+	tay
+	sta (@dst),y
+
+	txa			; .A = size
+	ldx @modes		; .X = address modes
 	RETURN_OK
 .endproc
 

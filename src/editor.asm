@@ -6,6 +6,7 @@
 .include "cursor.inc"
 .include "debug.inc"
 .include "draw.inc"
+.include "expr.inc"
 .include "errors.inc"
 .include "file.inc"
 .include "format.inc"
@@ -14,6 +15,7 @@
 .include "layout.inc"
 .include "labels.inc"
 .include "linebuffer.inc"
+.include "macros.inc"
 .include "memory.inc"
 .include "source.inc"
 .include "state.inc"
@@ -22,9 +24,8 @@
 .include "text.inc"
 .include "util.inc"
 .include "view.inc"
+.include "vmem.inc"
 .include "zeropage.inc"
-
-.include "macros.inc"
 
 ;******************************************************************************
 ; CONSTANTS
@@ -211,7 +212,7 @@ main:	jsr key::getch
 ; If no label is given (a 0-length string is given) then begins debugging at
 ; the program's origin.
 ; IN:
-;  - .XY: the address of the label to start debugging at
+;  - .XY: the label name or address to start debugging at
 .proc command_debug
 @addr=zp::editortmp
 	jsr label_addr_or_org
@@ -241,6 +242,29 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; COMMAND_DISASM
+; Disassembles the given address range
+; IN:
+;  - .XY: address of a string containing the start and stop addresses (delimited
+;         by a comma) to disassemble to a new buffer.
+.proc command_disasm
+@start=zp::editortmp
+	stxy zp::line
+	jsr expr::eval		; get the start address
+	bcs @done		; if invalid, just exit
+	stxy @start
+
+	incw zp::line		; move past separator
+	jsr expr::eval		; evaluate end address
+	bcc @ok
+@done:	rts
+
+@ok:	stxy zp::tmp0
+	ldxy @start
+	jmp disassemble		; disassemble the address range
+.endproc
+
+;******************************************************************************
 ; DISASSEMBLE
 ; Disssembles the given address range to a new buffer
 ; IN:
@@ -252,11 +276,12 @@ main:	jsr key::getch
 @cnt=zp::editortmp+4
 @buff=$100			; buffer to store disassembled instruction
 	stxy @addr
-	ldxy @zp::tmp0
+	ldxy zp::tmp0
 	stxy @stop
 	jsr new_buffer		; create/activate a new buffer
 
 @l0:	ldxy #@buff
+	stxy zp::tmp0
 	ldxy @addr
 	jsr asm::disassemble
 	bcc @ok
@@ -290,7 +315,8 @@ main:	jsr key::getch
 @copyi:
 	ldx #$00
 	stx @cnt
-:	lda @buff,x
+:	ldx @cnt
+	lda @buff,x
 	beq @next
 	jsr src::insert		; add the disassembled char
 	inc @cnt
@@ -298,11 +324,14 @@ main:	jsr key::getch
 
 @next:	lda #$0d
 	jsr src::insert		; add a newline
+
 	ldxy @addr
 	cmpw @stop
 	bcc @l0			; disassemble next instruction
 
-	jmp refresh		; refresh the buffer
+	ldxy #1
+	jsr gotoline
+	jmp refresh
 
 @db:   .byte ".db $"
 @db_len=*-@db
@@ -2045,11 +2074,12 @@ goto_buffer:
 	.byte $73		; s - save file
 	.byte $78		; x - scratch file
 	.byte $61		; a - assemble file
+	.byte $44		; D - disassemble
 @num_ex_commands=*-@ex_commands
 
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
-	command_load, rename, save, scratch, assemble_file
+	command_load, rename, save, scratch, assemble_file, command_disasm
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
