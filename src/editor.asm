@@ -315,12 +315,12 @@ main:	jsr key::getch
 @copyi:
 	ldx #$00
 	stx @cnt
-:	ldx @cnt
+@l1:	ldx @cnt
 	lda @buff,x
 	beq @next
 	jsr src::insert		; add the disassembled char
 	inc @cnt
-	bne :-
+	bne @l1
 
 @next:	lda #$0d
 	jsr src::insert		; add a newline

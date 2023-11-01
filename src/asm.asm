@@ -1770,16 +1770,6 @@ __asm_include:
 	jsr vmem::load_off
 	sta @operand+1
 
-	; check if the opcode is "illegal"
-	ldxy #illegal_opcodes
-	stxy @illegals
-	ldy #num_illegals-1
-	lda @op
-:	cmp (@illegals),y
-	beq @ret		; if illegal, quit with .C set
-	dey
-	bpl :-
-
 ; check for single byte opcodes
 @chksingles:
 	lda @op
@@ -1788,7 +1778,7 @@ __asm_include:
 	beq @implied_or_jsr
 	dex
 	bpl :-
-	bmi @checkbranch
+	bmi @chkillegals
 
 @implied_or_jsr:
 	pha
@@ -1808,7 +1798,6 @@ __asm_include:
 	cmp #$20	; JSR
 	bne @implied_
 
-	iny
 	lda #' '
 	sta (@dst),y
 
@@ -1829,6 +1818,17 @@ __asm_include:
 	ldx @modes
 	clc			; ok
 @ret:	rts
+
+@chkillegals:
+	; check if the opcode is "illegal"
+	ldxy #illegal_opcodes
+	stxy @illegals
+	ldy #num_illegals-1
+	lda @op
+:	cmp (@illegals),y
+	beq @ret		; if illegal, quit with .C set
+	dey
+	bpl :-
 
 ; check for branches/exceptions
 @checkbranch:
@@ -1891,7 +1891,9 @@ __asm_include:
 	sta @operand+1
 	lda #MODE_ABS
 	sta @modes
-	jmp @cont ; @operand now contains absolute address, display it
+	jsr @cont 	; @operand now contains absolute address, render it
+	lda #$02	; size is 2
+	rts
 
 @not_branch:
 	lda @op
@@ -1918,7 +1920,11 @@ __asm_include:
 :	sta @cc8_plus_aaa
 	asl
 	adc @cc8_plus_aaa
-	adc #<opcodes
+	bne :+
+	sec
+	rts			; optab code 0 is invalid
+
+:	adc #<opcodes
 	sta @optab
 	lda #>opcodes
 	adc #$00
