@@ -15,7 +15,7 @@ MAX_SOURCES=8
 
 ;******************************************************************************
 ; CONSTANTS
-GAPSIZE = 20		; size of gap in gap buffer
+GAPSIZE = $100		; size of gap in gap buffer
 POS_STACK_SIZE = 32 	; size of source position stack
 MAX_BUFFER_NAME_LEN=16  ; max name for each buffer
 
@@ -236,8 +236,10 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 :	sta data_start-1,x
 	dex
 	bne :-
-	lda #GAPSIZE
+	lda #<GAPSIZE
 	sta len
+	lda #>GAPSIZE
+	sta len+1
 
 	; init line and lines to 1
 	inc line
@@ -810,19 +812,17 @@ __src_pos = __src_start	 ; start implements the same behavior
 	bne @ins	; no, insert as usual
 
 	; gap is closed, create a new one
-	; copy data[poststart] to data[poststart + len]
+	; copy data[poststart] to data[poststart + GAPSIZE]
 	jsr poststart
 	stxy @src
-	add16 len
+	add16 #GAPSIZE
 	stxy @dst
 
-	ldxy len
+	ldxy post
 	lda bank
 	jsr fe3::copy
 
-	; double size of buffer (new gap size is the size of the old buffer)
-	asl len
-	rol len+1
+	inc len+1	; increase size by $100
 
 @ins:	jsr cursor
 	stxy @dst
