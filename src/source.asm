@@ -1030,10 +1030,22 @@ __src_atcursor:
 
 :	ldxy #mem::linebuffer
 	stxy zp::bankaddr1
+
+	ldxy line
+	cmpw lines		; on last line already?
+	bne :+
+	ldy post		; bytes to copy
+	dey
+	lda bank
+	jsr fe3::fcopy
+	jmp @done
+
+:	ldxy #mem::linebuffer
+	stxy zp::bankaddr1
 	lda bank
 	jsr fe3::copyline
 
-	lda #$00
+@done:	lda #$00
 	sta mem::linebuffer,y
 	RETURN_OK
 .endproc
