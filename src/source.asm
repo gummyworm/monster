@@ -815,8 +815,9 @@ __src_pos = __src_start	 ; start implements the same behavior
 	; copy data[poststart] to data[poststart + GAPSIZE]
 	jsr poststart
 	stxy @src
-	add16 #GAPSIZE
-	stxy @dst
+	stx @dst
+	iny
+	sty @dst+1
 
 	ldxy post
 	lda bank
@@ -825,8 +826,10 @@ __src_pos = __src_start	 ; start implements the same behavior
 	inc len+1	; increase size by $100
 
 @ins:	jsr cursor
-	stxy @dst
 	pla
+	cpy #$80
+	bcs @done	; out of range
+	stxy @dst
 
 	bank_store_byte bank, @dst
 	lda zp::bankval
@@ -836,7 +839,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 	incw line
 	incw lines
 :	incw pre
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************

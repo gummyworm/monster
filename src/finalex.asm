@@ -286,6 +286,8 @@ bankcode_size = *-bankcode
 ; COPY
 ; Writes the memory from (tmp0) to (tmp2)
 ; The number of bytes is given in .YX and the block # to write to is given in .A
+; This routine assumes that IF the memory overlaps, that it will do so from
+; the TOP. (dst > src)
 ; IN:
 ;  - .A: the source/destination block
 ;  - .XY: the number of bytes to copy
@@ -303,6 +305,19 @@ bankcode_size = *-bankcode
 	stxy @size
 	sta @bank
 
+	decw @size
+
+	; we need to copy from top to bottom- add @size-1 to the dst and src
+	ldxy @src
+	add16 @size
+	stxy @src
+
+	ldxy @dst
+	add16 @size
+	stxy @dst
+
+	incw @size
+
 @l0:	; read a byte from the source bank/addr
 	ldxy @src
 	lda @bank
@@ -315,12 +330,14 @@ bankcode_size = *-bankcode
 	jsr __final_store_byte
 
 	; move to the next location
-	incw @src
-	incw @dst
+	decw @src
+	decw @dst
 
 	decw @size
-	ldxy @size
-	cmpw #0
+	lda @size
 	bne @l0
+	lda @size+1
+	bne @l0
+
 @done:	rts
 .endproc

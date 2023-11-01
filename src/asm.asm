@@ -1744,10 +1744,12 @@ __asm_include:
 .proc __asm_disassemble
 @dst=zp::tmp0
 @cc=zp::tmp2
+
 @op=zp::tmp3
 @operand=zp::tmp4
 
 @optab=zp::tmp7
+@illegals=zp::tmp7
 @cc8=zp::tmp7
 @xxy=zp::tmp7
 @cc8_plus_aaa=zp::tmp7
@@ -1756,21 +1758,30 @@ __asm_include:
 @bbb=zp::tmp8
 @aaa=zp::tmp9
 @opaddr=zp::tmpa
-	stxy @opaddr
+	stxy @opaddr		; opcode
 	jsr vmem::load
 	sta @op
-
-	ldxy @opaddr
+	ldxy @opaddr		; operand
 	lda #$01
 	jsr vmem::load_off
 	sta @operand
-
-	ldxy @opaddr
+	ldxy @opaddr		; operand byte 2
 	lda #$02
 	jsr vmem::load_off
 	sta @operand+1
 
+	; check if the opcode is "illegal"
+	ldxy #illegal_opcodes
+	stxy @illegals
+	ldy #num_illegals-1
+	lda @op
+:	cmp (@illegals),y
+	beq @ret		; if illegal, quit with .C set
+	dey
+	bpl :-
+
 ; check for single byte opcodes
+@chksingles:
 	lda @op
 	ldx #num_opcode_singles-1
 :	cmp opcode_singles,x
@@ -1816,7 +1827,8 @@ __asm_include:
 	sta (@dst),y		; 0-terminate
 	lda #$01
 	ldx @modes
-	RETURN_OK
+	clc			; ok
+@ret:	rts
 
 ; check for branches/exceptions
 @checkbranch:
@@ -1900,7 +1912,10 @@ __asm_include:
 	lsr
 	clc
 	adc @cc8
-	sta @cc8_plus_aaa
+	cmp #(opcode_branches-opcodes)/3
+	bcc :+
+	rts			; invalid opcode
+:	sta @cc8_plus_aaa
 	asl
 	adc @cc8_plus_aaa
 	adc #<opcodes
