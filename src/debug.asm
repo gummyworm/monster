@@ -121,7 +121,6 @@ reg_p:  .byte 0
 ;  1. save user value at mem_saveaddr (address of effected memory)
 ;  2. restore 3 bytes of debug memory at (prev_pc)
 
-mem_usersave:  .byte 0	; user byte when stepping @ mem_saveaddr
 startsave:
 stepsave:	.byte 0	; opcode to save under BRK
 
@@ -1348,19 +1347,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta lineset		; flag that line # is (yet) unknown
 	sta branch_taken 	; clear branch taken flag
 
-	; if the instruction we executed was destructive, show its new value
-	lda affected
-	and #OP_STORE		; did this instruction STORE to memory?
-	beq @uninstall_brks	; if not (or if we don't know) skip mem display
-
-@update_mem:
-	; copy old mem_save to prev_mem_save and get the new mem val
-	lda mem_usersave
-	sta prev_mem_save
-	ldxy mem_saveaddr
-	jsr vmem::load
-	sta mem_usersave
-
 @uninstall_brks:
 	; uninstall breakpoints (will reinstall the ones we want later)
 	jsr uninstall_breakpoints
@@ -1888,6 +1874,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pla			; get instruction size
 	pha			; save instruction size again
 	ldxy pc			; and address of instruction to-be-executed
+
 	jsr next_instruction	; get the address of the next instruction
 	stxy steppoint
 
@@ -2297,12 +2284,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda side_effects_tab,x
 	sta affected			; save the side-effects for aux uses
 
-	; get effective target address of this instruction and save it
+	and #OP_STORE | OP_LOAD		; is operation a load or store?
+	bne :+
+	ldxy #$6666
+	stxy mem_saveaddr		; don't save anything
+
+:	; get effective target address of this instruction and save it
 	; we will save/restore state before/after a BRK using this
 	jsr get_effective_addr
 	stxy mem_saveaddr
-	jsr vmem::load
-	sta mem_usersave
 	rts
 .endproc
 
@@ -2319,7 +2309,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @addr=zp::tmp1
 @tosave=zp::tmp3
 	lda swapmem
-	bne @swapall	; we don't know enough to do a limited swap
+	beq @fastswap
+
+@swapall:
+	; swap entire user RAM in (needed if we don't know what memory will
+	; be changed before next BRK)
+	jsr save_debug_state
+	jmp __debug_restore_progstate
 
 @fastswap:
 	; save [mem_saveaddr], [step_point], and [pc, pc+2] for the debugger
@@ -2376,22 +2372,23 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sty @addr+1
 	tax
 	jsr is_internal_address
-	bne :+			; skip if not internal address
+	bne @next		; skip if not internal address
 
-	jsr vmem::load		; load the user byte to store from vmem
-	ldy #$00
+	jsr vmem::load
+	ldx @addr+1
+	bne :+			; skip zeropage for now (we're still using it)
+
+	ldx @addr
+	sta mem::prog00,x	; update virtual ZP
+	jmp @next
+
+:	ldy #$00
 	sta (@addr),y		; store it to the physical address
-:	dec @cnt
+@next:	dec @cnt
 	dec @cnt
 	bpl @store
 
 	rts			; done
-
-@swapall:
-	; swap entire user RAM in (needed if we don't know what memory will
-	; be changed before next BRK)
-	jsr save_debug_state
-	jmp __debug_restore_progstate
 .endproc
 
 ;******************************************************************************
