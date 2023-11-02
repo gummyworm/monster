@@ -2466,13 +2466,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @addr
 	tax
 	jsr is_internal_address	; if not an internal address, leave it alone
-	bne :+
+	bne @next
 
 	ldy @ysave
 	lda debug_state_save,y	; get the byte to restore
-	ldy #$00
+
+	ldx @addr+1
+	bne :+
+	ldx @addr
+	sta mem::debugsave+$10,x
+	jmp @next
+
+:	ldy #$00
 	sta (@addr),y		; restore the byte
-:	dec @cnt
+@next:	dec @cnt
 	dec @cnt
 	bpl @store
 
