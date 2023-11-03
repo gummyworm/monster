@@ -168,14 +168,16 @@ __cur_toggle:
 	lda zp::curx
 	cmp #39
 	bcs @done
-	inc zp::curx
 
-	ldx zp::curx
+	jsr text::char_index
+	dex
 	lda mem::linebuffer,x
 	cmp #$18		; TAB
-	bne @done
+	bne :+
+	lda zp::curx
 	adc #TAB_WIDTH-2	; .C is set
 	sta zp::curx
+:	inc zp::curx
 @done:	rts
 .endproc
 
@@ -192,6 +194,7 @@ __cur_toggle:
 	lda mem::linebuffer,x
 	cmp #$18		; TAB
 	bne :+
+	lda zp::curx
 	sbc #TAB_WIDTH-1
 	sta zp::curx
 :	dec zp::curx

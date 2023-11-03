@@ -65,10 +65,6 @@
 	dey
 	bpl @blit
 
-@updatecur:
-	inc zp::curx
-	inc zp::curi
-
 @done:	clc	; "put" was successful
 	rts
 .endproc

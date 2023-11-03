@@ -526,6 +526,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	adc #TAB_WIDTH
 	sta zp::curx
 	lda zp::cury
+	inc zp::curi
 	jmp __text_drawline	; rerender whole line
 
 :	sta @char
@@ -533,6 +534,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bne @done		; if BUFFER is enabled, don't blit
 	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
 @done:	inc zp::curx
+	inc zp::curi
 	clc	; "put" was successful
 	rts
 .endproc
