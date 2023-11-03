@@ -73,9 +73,6 @@
 MAX_IFS      = 4 ; max nesting depth for .if/.endif
 MAX_CONTEXTS = 3 ; max nesting depth for contexts (activated by .MAC, .REP, etc)
 
-MAX_IMPORTS = 64
-MAX_EXPORTS = 32
-
 ;******************************************************************************
 ; $40-$4B available for assembly
 indirect   = zp::asm    ; 1=indirect, 0=absolute
@@ -104,17 +101,6 @@ contextstacksp: .byte 0
 .export __asm_origin
 __asm_origin:
 origin: .word 0	; the lowest address in the program
-
-;******************************************************************************
-; OBJ code data
-; the following variables are used for generating the object code during
-; assembly.  They are valid only for the compilation unit actively being
-; assembled (not the global assembly of every file)
-numexports: .byte 0
-exports:    .res MAX_EXPORTS*8
-
-numimports: .byte 0
-imports:    .res MAX_EXPORTS*8
 
 ;******************************************************************************
 ; ASMBUFFER
@@ -497,13 +483,15 @@ __asm_tokenize:
 @opcode:
 	jsr getopcode
 	bcs @macro
+
+	; we found an opcode, store it and continue to operand, etc.
 	lda #ASM_OPCODE
 	sta resulttype
 	stx opcode	; save the opcode
 	txa
 	ldy #$00
-	jsr writeb
-	bcc @getopws
+	jsr writeb	; store the opcode
+	bcc @getopws	; continue if no error
 	rts		; return err
 
 ; check if the line contains a macro
@@ -540,12 +528,15 @@ __asm_tokenize:
 :	jsr process_word	; read past the label name
 	ldxy zp::line
 	jsr @assemble		; assemble the rest of the line
-	bcs :+
+	bcs @ret		; return error
 	cmp #ASM_LABEL
-	beq :+			; if we found another label, return error
-	lda #ASM_LABEL		; return as LABEL (don't indent this line)
+	bne :+
+
+	; if we found another label, return error
+	RETURN_ERR ERR_UNEXPECTED_CHAR
+:	lda #ASM_LABEL		; return as LABEL (don't indent this line)
 	clc
-:	rts
+	rts
 
 ; from here on we are either reading a comment or an operand
 @getopws:
@@ -554,16 +545,19 @@ __asm_tokenize:
 	jmp @done
 
 @pound: cmp #';'		; are we at a comment?
-	bne :+
+	bne @parse_operand
 	jmp @done		; if comment, we're done
-:	ldy #$00
-	lda (zp::line),y
+
+@parse_operand:
 	cmp #'#'
-	bne @lparen
-	inc immediate
+	bne @lparen		; if not '#' check for a paren (indirect)
+	inc immediate		; flag operand as IMMEDIATE
 	incw zp::line
-	lda (zp::line),y
-	jmp @hi_or_low_byte	; if immediate, skip parentheses (treat as part of expression)
+	lda (zp::line),y	; get the next character
+
+	; if IMMEDIATE, skip parentheses (treat as part of expression)
+	jmp @hi_or_low_byte
+
 @lparen:
 	cmp #'('
 	bne @hi_or_low_byte
@@ -574,113 +568,127 @@ __asm_tokenize:
 @hi_or_low_byte:
 	cmp #'<'
 	bne :+
-	inc lsb
+	inc lsb			; flag LSB
 	incw zp::line
+	jmp @evalexpr		; continue (can't be both MSB and LSB)
+
 :	cmp #'>'
-	bne @abslabelorvalue
-	inc msb
+	bne @evalexpr
+	inc msb			; flag MSB
 	incw zp::line
 
-@abslabelorvalue:
+; all chars not part of expression have been processed, evaluate the expression
+@evalexpr:
 	jsr expr::eval
 	bcc @store_value
-	rts		; eval failed
+	rts			; return error, eval failed
 
-; store the value, note that we don't really care if
-; we write 2 bytes when we only need one (the next
-; instruction will overwrite it and it doesn't affect our program size count).
+; store the value, note that we don't really care if we write 2 bytes when we
+; only need one (the next instruction will overwrite it and it doesn't affect
+; our program size count).
 @store_value:
-	sta operandsz
-	lda lsb		; handle '<' character
-	beq :+
+	sta operandsz		; save size of the operand
+	lda lsb			; handle '<' character
+	beq :+			; skip if '<' flag not set
+	lda #$01
+	sta operandsz		; update operand size to 1 (only want LSB)
+	bne @store_lsb
+
+:	lda msb			; handle '>' character
+	beq @store_msb
+	tya			; move .Y (MSB) to .X (LSB)
+	tax
 	lda #$01
 	sta operandsz
 	bne @store_lsb
-:	lda msb		; handle '>' character
-	beq @store_msb
-	lda #$01
-	sta operandsz
-	tya
-	tax
-	jmp @store_lsb
-@store_msb:
-	tya
-	ldy #$02
-	jsr writeb
-	bcc @store_lsb
-@ret:	rts		; return err
-@store_lsb:
-	txa
-	ldy #$01
-	jsr writeb
-	bcs @ret	; if error, return
 
-; we've written the value of the operand, now look for
-; ',X' or ',Y' to see if this is indexed addressing
-@cont:	ldy #$00
-	lda indirect
-	beq @index
+@store_msb:
+	tya			; .A = MSB
+	ldy #$02
+	jsr writeb		; write the MSB (or garbage)
+	bcc @store_lsb		; if successful, write LSB
+@ret:	rts			; return err
+
+@store_lsb:
+	txa			; .X = LSB
+	ldy #$01
+	jsr writeb		; write the LSB
+	bcs @ret		; if error, return
+
+; we've evaluated the expression, now look for a right parentheses,
+; ',X' or ',Y' to conclude if this is indirect or indexed addressing
+@cont:	jsr process_ws
+	ldy #$00
+	lda indirect		; is indirect flagged? (we saw a '(' earlier)?
+	beq @index		; if not, skip to absolute
+
+; handle indirect. May be x pre-indexed, indirect or indirect: ',X)' or ')'
 @rparen:
 ; look for closing paren or ",X"
-	lda (zp::line),y
-	incw zp::line
-	cmp #','
-	bne @rparen_noprex
-	lda (zp::line),y
-	incw zp::line
-	cmp #'x'
-	beq :+
-	jmp @err
-:	lda (zp::line),y
-	incw zp::line
-	cmp #')'
-	beq :+
-	jmp @err
-:	inc indexed	; inc once to flag ,X indexed
-	jmp @getws2
+	lda (zp::line),y	; get first char
+	cmp #','		; is it a ','?
+	bne @rparen_noprex	; if not, only valid string is a plain ')'
 
+	jsr nextch		; eat any WS and get next char
+	cmp #'x'		; is it an .X?
+	beq :+			; if so, continue
+	RETURN_ERR ERR_UNEXPECTED_CHAR
+
+:	jsr nextch		; get next char after ",X"
+	inc indexed		; inc once to flag X-indexed
+	cmp #')'
+	beq @finishline		; if ')', continue
+	RETURN_ERR ERR_UNEXPECTED_CHAR
+
+; look for a plain ')' (indirect addressing) or '),y'  (indirect y-indexed)
 @rparen_noprex:
+	incw zp::line
 	cmp #')'
 	beq @index
-	jmp @err
+	RETURN_ERR ERR_UNEXPECTED_CHAR
 
 @index:
 	ldy #$00
 	lda (zp::line),y
 	cmp #','
 	bne @getws2
-	incw zp::line
+	jsr nextch		; get next char (past any whitespace)
+
 @getindexx:
-	lda (zp::line),y
 	cmp #'x'
-	bne @getindexy
-	jsr is_ldx_stx
-	bcs :+
-	RETURN_ERR ERR_ILLEGAL_ADDRMODE	 ; ,X is illegal for LDX/STX
-:	inc indexed	 ; inc once to flag ,X indexed
-	incw zp::line
+	bne @getindexy		; if not X check Y
+	jsr is_ldx_stx		; check the special case of LDX y-indexed
+	bcs :+			; if not LDX y-indexed continue
+	; ,X is illegal for LDX/STX
+	RETURN_ERR ERR_ILLEGAL_ADDRMODE
+
+:	inc indexed	 	; inc once to flag ,X indexed
+	bne @finishline		; validate nothing but a comment from here on
+
 @getindexy:
 	cmp #'y'
-	bne @getws2
-	inc indexed	 ; inc twice to flag ,Y indexed
-	jsr is_ldx_stx
-	bcc :+		 ; treat like ,X for encoding if LDX ,Y or STX ,Y
-	inc indexed
-:	incw zp::line
+	beq :+
+	RETURN_ERR ERR_UNEXPECTED_CHAR
 
-;------------------
+:	inc indexed	 ; inc once for X-indexed
+	jsr is_ldx_stx	 ; check LDX y-indexed
+	bcc @finishline	 ; treat like ,X for encoding if LDX ,Y or STX ,Y
+	inc indexed	 ; if NOT LDX y-indexed, inc twice for Y-indexed
+
+;------------------------------------------------------------------------------
 ; finish the line by checking for whitespace and/or a comment
 @finishline:
+	incw zp::line		; next char
 @getws2:
 	jsr process_ws
 
 ; check for comment or garbage
 @comment:
-	lda (zp::line),y
 	jsr islineterminator
 	beq @done
 	RETURN_ERR ERR_UNEXPECTED_CHAR
 
+;------------------------------------------------------------------------------
 ; done, create the assembled result based upon the opcode, operand, and addr mode
 @done:
 	lda resulttype
@@ -774,7 +782,8 @@ __asm_tokenize:
 	beq @noerr
 @err:	RETURN_ERR ERR_ILLEGAL_ADDRMODE
 
-@noerr: ;------------------
+@noerr:
+;------------------
 ; store debug info if enabled
 @dbg:	lda zp::gendebuginfo
 	beq @updatevpc
@@ -839,7 +848,6 @@ __asm_tokenize:
 	jsr writeb
 	bcc @noerr
 	rts		; return err
-
 .endproc
 
 ;******************************************************************************
@@ -1303,73 +1311,6 @@ __asm_tokenize:
 .endproc
 
 ;******************************************************************************
-; EXPORT
-; Exports the label that follows to the object file produced when the assembly
-; code is assembled.
-; e.g.
-; ```
-; .EXPORT LAB
-; LAB:
-;   ...
-; ```
-.proc export
-@lbl=zp::tmp0
-	jsr process_ws
-
-	lda numexports
-	asl
-	asl
-	asl
-	tax
-	adc #<exports
-	sta @lbl
-	lda #>exports
-	adc #$00
-	sta @lbl+1
-
-	; add the export to the list of exports
-	ldy #8-1
-:	lda (zp::line),y
-	sta (@lbl),y
-	dey
-	bpl :-
-	rts
-.endproc
-
-;******************************************************************************
-; IMPORT
-; Imports the label that follows to the object file produced when the assembly
-; code is assembled.
-; e.g.
-; ```
-; .IMPORT LAB
-; jsr LAB
-; ```
-.proc import
-@lbl=zp::tmp0
-	jsr process_ws
-
-	lda numimports
-	asl
-	asl
-	asl
-	tax
-	adc #<imports
-	sta @lbl
-	lda #>imports
-	adc #$00
-	sta @lbl+1
-
-	; add the export to the list of exports
-	ldy #8-1
-:	lda (zp::line),y
-	sta (@lbl),y
-	dey
-	bpl :-
-	rts
-.endproc
-
-;******************************************************************************
 ; INCBINFILE
 ; Includes the enquoted binary file
 ; The contents of the file are inserted directly as binary values at the
@@ -1718,20 +1659,29 @@ __asm_include:
 .endproc
 
 ;******************************************************************************
+; NEXTCH
+; advances the character and THEN processes whitespace
+; (equivalent to incw zp::line : jsr process_ws)
+.proc nextch
+	incw zp::line
+	; fall through
+.endproc
+
+;******************************************************************************
 ; PROCESS_WS
 ; Reads (line) and updates it to point past ' ' chars and non-printing chars
 ; out:
-;  .Z: set if we're at the endo of the line
+;  .Z: set if we're at the end of the line
 ;  .A: the last character processed
 ;  .Y: 0
 ;  zp::line: updated to first non ' ' character
 .proc process_ws
 	ldy #$00
 	lda (zp::line),y
-	bmi :+
-	beq @done		; set .Z if 0
+	bmi :+			; skip non-printing chars
+	beq @done		; if end of line, we're done
 	jsr util::is_whitespace
-	bne @done
+	bne @done		; if not space, we're done
 :	incw zp::line
 	bne process_ws
 @done:	rts
@@ -1786,17 +1736,20 @@ __asm_include:
 ;  - .XY: the address of the instruction to disassemble
 ;  - zp::tmp0: the address of the buffer to disassemble to
 ; OUT:
-;  - .A: the size of the instruction that was disassembled
-;  - .X: the address modes for the instruction
-;  - .C: clear if instruction was successfully disassembled
+;  - .A:         the size of the instruction that was disassembled
+;  - .X:         the address modes for the instruction
+;  - .C:         clear if instruction was successfully disassembled
+;  - (zp::tmp0): the (0-terminated) disassembled instruction string
 .export __asm_disassemble
 .proc __asm_disassemble
 @dst=zp::tmp0
 @cc=zp::tmp2
+
 @op=zp::tmp3
 @operand=zp::tmp4
 
 @optab=zp::tmp7
+@illegals=zp::tmp7
 @cc8=zp::tmp7
 @xxy=zp::tmp7
 @cc8_plus_aaa=zp::tmp7
@@ -1805,40 +1758,27 @@ __asm_include:
 @bbb=zp::tmp8
 @aaa=zp::tmp9
 @opaddr=zp::tmpa
-	stxy @opaddr
-.ifdef USE_FINAL
+	stxy @opaddr		; opcode
 	jsr vmem::load
 	sta @op
-
-	ldxy @opaddr
+	ldxy @opaddr		; operand
 	lda #$01
 	jsr vmem::load_off
 	sta @operand
-
-	ldxy @opaddr
+	ldxy @opaddr		; operand byte 2
 	lda #$02
 	jsr vmem::load_off
 	sta @operand+1
-.else
-	ldy #$00
-	lda (@opaddr),y
-	sta @op
-	iny
-	lda (@opaddr),y
-	sta @operand
-	iny
-	lda (@opaddr),y
-	sta @operand+1
-.endif
 
 ; check for single byte opcodes
+@chksingles:
 	lda @op
 	ldx #num_opcode_singles-1
 :	cmp opcode_singles,x
 	beq @implied_or_jsr
 	dex
 	bpl :-
-	bmi @checkbranch
+	bmi @chkillegals
 
 @implied_or_jsr:
 	pha
@@ -1858,7 +1798,6 @@ __asm_include:
 	cmp #$20	; JSR
 	bne @implied_
 
-	iny
 	lda #' '
 	sta (@dst),y
 
@@ -1873,9 +1812,23 @@ __asm_include:
 	jmp @absolute
 
 @implied_:
+	lda #$00
+	sta (@dst),y		; 0-terminate
 	lda #$01
 	ldx @modes
-	RETURN_OK
+	clc			; ok
+@ret:	rts
+
+@chkillegals:
+	; check if the opcode is "illegal"
+	ldxy #illegal_opcodes
+	stxy @illegals
+	ldy #num_illegals-1
+	lda @op
+:	cmp (@illegals),y
+	beq @ret		; if illegal, quit with .C set
+	dey
+	bpl :-
 
 ; check for branches/exceptions
 @checkbranch:
@@ -1938,7 +1891,9 @@ __asm_include:
 	sta @operand+1
 	lda #MODE_ABS
 	sta @modes
-	jmp @cont ; @operand now contains absolute address, display it
+	jsr @cont 	; @operand now contains absolute address, render it
+	lda #$02	; size is 2
+	rts
 
 @not_branch:
 	lda @op
@@ -1959,10 +1914,17 @@ __asm_include:
 	lsr
 	clc
 	adc @cc8
-	sta @cc8_plus_aaa
+	cmp #(opcode_branches-opcodes)/3
+	bcc :+
+	rts			; invalid opcode
+:	sta @cc8_plus_aaa
 	asl
 	adc @cc8_plus_aaa
-	adc #<opcodes
+	bne :+
+	sec
+	rts			; optab code 0 is invalid
+
+:	adc #<opcodes
 	sta @optab
 	lda #>opcodes
 	adc #$00
@@ -2009,6 +1971,8 @@ __asm_include:
 	and #MODE_IMPLIED
 	beq @cont	; if not implied, go on
 @implied:
+	lda #$00
+	sta (@dst),y	; 0-terminate
 	lda #$01	; 1 byte in size
 	ldx @modes
 	RETURN_OK
@@ -2042,7 +2006,6 @@ __asm_include:
 	and #MODE_ZP
 	beq :+
 @zeropage:
-	ldy #$00
 	lda #'$'
 	sta (@dst),y
 	incw @dst
@@ -2051,10 +2014,9 @@ __asm_include:
 	tya
 	ldy #$00
 	sta (@dst),y
-	txa
-	iny
-	sta (@dst),y
 	incw @dst
+	txa
+	sta (@dst),y
 	incw @dst
 
 :	lda @modes
@@ -2062,31 +2024,29 @@ __asm_include:
 	beq @chkindexed
 
 @absolute:
-	ldy #$00
 	lda #'$'
 	sta (@dst),y
+
 	incw @dst
 	lda @operand+1
 	jsr util::hextostr
 	tya
 	ldy #$00
 	sta (@dst),y
+	incw @dst
 	txa
-	iny
 	sta (@dst),y
 	incw @dst
-	incw @dst
+
 	lda @operand
 	jsr util::hextostr
 	tya
 	ldy #$00
 	sta (@dst),y
+	incw @dst
 	txa
-	iny
 	sta (@dst),y
 	incw @dst
-	incw @dst
-	ldy #$00
 
 @chkindexed:
 	lda @modes
@@ -2117,13 +2077,19 @@ __asm_include:
 	incw @dst
 	lda #'y'
 	sta (@dst),y
+	incw @dst
+
 @done:  ldx #$02
 	lda @modes
 	and #MODE_ZP
 	bne :+
 	inx
-:	txa
-	ldx @modes
+:	lda #$00
+	tay
+	sta (@dst),y
+
+	txa			; .A = size
+	ldx @modes		; .X = address modes
 	RETURN_OK
 .endproc
 
@@ -2409,62 +2375,45 @@ __asm_include:
 ; WRITEB
 ; Stores a byte to (zp::asmresult),y
 ; Also checks if the origin has been set
+; IN:
+;  - .A: the value to write to (zp::asmresult),y
+;  - .Y: the offset from (zp::asmresult) to write to
 ; OUT:
 ;  - .C: set on error, clear on success
 .proc writeb
-	pha
+@savex=zp::tmpe
+@savey=zp::tmpf
+	sta zp::bankval
 	lda pcset
 	bne :+
-	pla
 	RETURN_ERR ERR_NO_ORIGIN
 
-:	pla
-.ifdef USE_FINAL
-	sta zp::bankval
-	txa
-	pha
-	tya
-	pha
-	clc
-	adc zp::asmresult
-	tax
-	lda zp::asmresult+1
-	adc #$00
-	tay
-	lda zp::bankval
-	jsr vmem::store
-	pla
-	tay
-	pla
-	tax
-	lda zp::bankval
-.else
-	sta (zp::asmresult),y
-.endif
+:	stx @savex
+	sty @savey
+	tya			; .A = offset
+	ldxy zp::asmresult
+	jsr vmem::store_off
+	ldx @savex
+	ldy @savey
 	RETURN_OK
 .endproc
 
 ;******************************************************************************
 ; READB
 ; Reads a byte from (zp::asmresult),y
+; IN:
+;  - .Y: the offset from (zp::asmresult) to read from vmem
 ; OUT:
 ;  - .A: contains the byte from (zp::asmresult),y
 .proc readb
-.ifdef USE_FINAL
-	txa
-	pha
-	tya
-	pha
+@savex=zp::tmpe
+@savey=zp::tmpf
+	stx @savex
+	sty @savey
+	tya			; .A = offset to load
 	ldxy zp::asmresult
-	jsr vmem::load_off
-	sta zp::bankval
-	pla
-	tay
-	pla
-	tax
-	lda zp::bankval
-.else
-	lda (zp::asmresult),y
-.endif
+	jsr vmem::load_off	; load the byte from VMEM
+	ldy @savey
+	ldx @savex
 	rts
 .endproc

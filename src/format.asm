@@ -8,18 +8,25 @@
 .CODE
 
 ;******************************************************************************
+.proc end_of_line
+	jsr src::end
+	beq @done
+	jsr src::after_cursor
+	cmp #$0d
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; LABEL
 ; Formats linebuffer as a label.
 .export __fmt_label
 .proc __fmt_label
 @curr=zp::tmp6
 @cnt=zp::tmp6
-	jsr src::up
-
 	; read past the label
 	ldy #$00
 	sty @curr
-@l0:	jsr src::end
+@l0:	jsr end_of_line
 	beq @done	; if EOL, no more formatting needed
 	jsr src::next
 	inc @curr
@@ -30,7 +37,7 @@
 	bne @l0
 
 	; read until the opcode/macro/etc.
-@l1:	jsr src::end		; if we hit EOL before finding anything- done
+@l1:	jsr end_of_line		; if we hit EOL before finding anything- done
 	beq @done
 	jsr src::next
 	inc @curr
@@ -54,13 +61,12 @@
 @shl:	jsr src::backspace
 	dec @curr
 	lda @curr
-	cmp #INDENT_LEVEL
+	cmp #INDENT_LEVEL+1
 	bcs @shl
 
 @cont:	jsr src::up
 	jsr src::get
-	jsr src::down
-@done:	rts
+@done:	jmp src::down
 .endproc
 
 ;******************************************************************************
@@ -68,20 +74,27 @@
 ; Formats linebuffer as an opcode.
 .export __fmt_opcode
 .proc __fmt_opcode
-@cnt=zp::tmp6
-	ldx #39-1
+@cnt=zp::tmp8
+	ldx #39-INDENT_LEVEL-1
 @l0:	lda mem::linebuffer,x
-	sta mem::linebuffer+1,x
+	sta mem::linebuffer+INDENT_LEVEL-1,x
 	dex
 	bpl @l0
 
-	jsr src::up		; return to start of source
+	lda #' '
+:	sta mem::linebuffer,x
+	inx
+	cpx #INDENT_LEVEL-1
+	bne :-
 
-	lda #$18		; TAB
-	sta mem::linebuffer
-	jsr src::insert
-
-	jmp src::down		; move to the next line
+	; indent the linebuffer and source
+	lda #INDENT_LEVEL-2
+	sta @cnt
+	lda #' '
+@l1:	jsr src::insert
+	dec @cnt
+	bpl @l1
+	rts
 .endproc
 
 ;******************************************************************************
@@ -112,16 +125,15 @@
 	beq @removespaces
 
 @left_aligned:
-	jsr src::down
 	lda @linecontent 	; get the type of line we're formatting
 	beq @done		; if ASM_NONE, don't format
-	and #ASM_LABEL
+	and #ASM_LABEL		; if formatting includes labe, do __fmt_label
 	beq @notlabel
 	jmp __fmt_label
 @notlabel:
 	lda @linecontent
-	and #ASM_COMMENT ; if comment, don't format at all
+	and #ASM_COMMENT 	; if comment, don't format at all
 	bne @done
-@ident: jmp __fmt_opcode ; anything else- indent
+@ident: jsr __fmt_opcode 	; anything else- indent
 @done:  rts
 .endproc

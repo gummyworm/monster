@@ -22,6 +22,7 @@ ESCAPE_VALUE     = $fe
 ESCAPE_VALUE_DEC = $fd
 ESCAPE_SPACING   = $fc
 ESCAPE_BYTE      = $fb
+ESCAPE_CHAR      = $fa
 ESCAPE_RVS_ON    = $12
 ESCAPE_RVS_OFF   = $92
 STATUS_LINE      = 23
@@ -31,6 +32,9 @@ STATUS_COL       = 0
 ;******************************************************************************
 .export __text_len
 __text_len: .byte 0
+
+.export  __text_buffer
+__text_buffer: .byte 0	; if 0, putch immediately draws to the screen
 
 .export __text_rvs
 __text_rvs: .byte 0	; reverse text state ($ff = rvs on, $00 = rvs off)
@@ -235,6 +239,11 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	ldy @savey
 	jmp @cont
 
+:	cmp #ESCAPE_CHAR
+	bne :+
+	pla			; get the character
+	jmp @ch			; and continue to printing it
+
 :	cmp #ESCAPE_STRING
 	bne :+
 	jmp @string
@@ -289,10 +298,11 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	jsr util::todec
 	ldy #0
 	ldx @savex
-:	lda mem::spare,x
+:	lda mem::spare,y
 	beq @decdone
 	sta @buff,x
 	inx
+	iny
 	bne :-
 @decdone:
 	ldy @savey
@@ -367,7 +377,14 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	ldx #<@buff
 	ldy #>@buff
 	lda @row
-	jmp __text_puts
+	jsr __text_puts
+
+	; if __text_rvs is set, reverse the line after drawing it
+	lda __text_rvs
+	bne :+
+	rts
+:	lda @row
+	jmp bm::rvsline
 .endproc
 
 ;******************************************************************************
@@ -482,12 +499,14 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	dex
 	bpl @shr
 
-:	; shift the bitmap
+:	; shift the bitmap (if buffering is disabled)
+	lda __text_buffer
+	bne :+
 	ldy @len
 	lda zp::cury
 	jsr bm::shr
 
-	jsr __text_linelen
+:	jsr __text_linelen
 	jmp @cont
 
 @fastputi:
@@ -510,8 +529,11 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	jmp __text_drawline	; rerender whole line
 
 :	sta @char
+	ldx __text_buffer
+	bne @done		; if BUFFER is enabled, don't blit
 	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
-@done:	clc	; "put" was successful
+@done:	inc zp::curx
+	clc	; "put" was successful
 	rts
 .endproc
 

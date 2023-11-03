@@ -2,6 +2,7 @@
 
 .import __util_chtohex
 .import __util_hextostr
+.import __util_findb
 .import __util_is_whitespace
 .import __util_is_null_return_space_comma_closingparen_newline
 .import __util_memset
@@ -18,8 +19,9 @@
 
 .scope util
 	chtohex               = __util_chtohex
+	findb                 = __util_findb
 	hextostr              = __util_hextostr
-	isalphanum            =  __util_is_alphanum
+	isalphanum            = __util_is_alphanum
 	is_null_return_space_comma_closingparen_newline = __util_is_null_return_space_comma_closingparen_newline
 	isoperator            = __util_isoperator
 	isseparator           = __util_is_separator

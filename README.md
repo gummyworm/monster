@@ -106,26 +106,97 @@ Below are the basic commands along with their associated key combinations. These
 commands are available regardless of insertion mode (see the Editor Modes section
 below for more info on modes).
 
-|  Key   | Name    |   Description                                                               |
-|--------|---------|-----------------------------------------------------------------------------|
-| C= + a | Assemble File | prompts for a filename and assembles it.                              | 
+|  Key   | Name          |   Description                                                         |
+|--------|---------------|-----------------------------------------------------------------------|
 | C= + b | Set Breakpoint| sets a breakpoint at the current line                                 | 
 | C= + c | Refresh       | refrehshes the screen by redrawing the source buffer                  | 
-| C= + d | Start Debugger| prompts for a label and begins debugging at it                        | 
-| C= + g | Goto          | prompts for a label name and executes the program at its address      | 
 | C= + h | Help          | displays the help menu                                                | 
 | C= + l | List          | list directory, shows the files on the current disk                   |
-| C= + o | Open          | prompts for a filename and loads the buffer with its contents         |
 | C= + n | New buffer    | creates a new source buffer and sets it as the active buffer          |
 | C= + q | Close buffer  | closes the current buffer and opens the next one that is open         |
-| C= + r | Rename        | prompts for a filename. this name will be used for future saves       |
-| C= + s | Save          | save file, prompts for a filename and saves the buffer contents to it |
 | C= + v | MemView       | enters the memory viewer/editor (press <- to exit)                    |
-| C= + x | Scratch       | prompts for a filename and deletes the file                           |
 | C= + y | Show Symbols  | lists the symbol table for the assembled program                      | 
 |   F3   | Assemble      | assembles the code in the buffer to memory                            |
 |   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
 |   F5   | Show buffers  | displays a list of the currently open buffers                         |
+| C= + + | Next Drive    | Selects the next drive (limited to #15)                               |
+| C= + - | Prev Drive    | Selects the previous drive (limited to #8)                            |
+|    :   | Ex Command    | Accepts a command + argument(s) and executes the command              |
+
+### Ex Commands
+The following commands are entered at the "Ex Command" prompt (accessed with the `:` key).
+Most accept an argument (as described in each commands description below)
+
+|Key| Name          |   Args                          | Description                                                  |
+|---|---------------|---------------------------------|--------------------------------------------------------------|
+| a | Assemble File | Filename                        | assembles the given filename                                 | 
+| d | Start Debugger| Symbol to debug at (optional)   | begins debugging at the given label                          | 
+| D | Disassemble   | Start address, End address      | Disassembles the given address range                         |
+| e | Edit          | Filename                        | loads the buffer with the contents of the given file         |
+| g | Goto          | Symbol to run at (optional)     | executes the program at the address of the given symbol      |
+| r | Rename        | Name                            | renames the buffer to the given name                         |
+| s | Save          | Filename                        | saves the buffer to the given filename                       |
+| x | Scratch       | Filename                        | scratches (deletes) the given filename                       |
+
+#### Assemble File (a)
+Assembles the contents of the given file. This is functionally the same as opening
+the given file and assembling it with debug information (F4).
+
+Invoking the debugger will invoke it for the last assembled file (not the current
+source buffer) in this scenario.  The debugger cares about the active debug
+information _not_ the active file.
+
+Example:
+`:a HELLO.S`
+
+#### Start Debugger
+Begins debugging at the given symbol using the active debug information.
+
+If no symbol is given, the program will
+begin and the debugger invoked at the _lowest_ defined origin (.ORG) in the
+program. See [Debugger](https://github.com/gummyworm/monster#debugger) for more
+details on debugging.
+
+Example:
+`:d START`
+
+#### Disassemble (D)
+Disassembles the contents of the _virtual_ memory between the given range.
+e.g. `:D $1001, $1040`.
+Expressions may be used in addtion to literal addresses. 
+This could be useful if your program modifies itself at rutime. 
+
+Example:
+`:D PSTART, PEND`
+
+#### Edit (e)
+Loads the given filename to a new buffer and activates it.
+
+Example:
+`:e HELLO.S`
+
+#### Rename (r)
+Renames the active buffer to the given name.
+Example:
+`:r TEST2.S`
+
+#### Save (s)
+Saves the active buffer to a file with the given name.  If no name is given,
+the active buffer's name is used.
+
+Adding an `@` to this command (`S@`) will delete the file before saving. This
+allows you to overwrite the existing file if it exists.
+
+Examples:
+`:s NEW.S`
+`:s@ OLD.S`
+
+#### Scratch (x)
+Deletes the file of the given name.
+Example:
+`:x TEST.S`
+
+---
 
 ## Editor Modes
 The editor is a _modal_ editor, that is, it behaves differently depending on which _mode_ it is
@@ -543,11 +614,15 @@ read in.
 
 As with any work done with Commodore disk I/O, it is wise to regularly back up your files
 
+### Drive Selection (`C= + +` and `C= + -`)
+Selects the next or previous drive (within the valid range of 8-15).
+`C= + + (plus)` selects the _next_ available drive and `C= + - (minus)` selects
+the _previous_ available drive.
+
 ### Directory Viewer (`C= + L`)
 The directory viewer offers a paginated view of all files on the disk.
 Pressing `RETURN` while the row of the desired file is highlighted will load
 that file into a new buffer and activate that buffer.
-
 
 ---
 
@@ -560,6 +635,10 @@ key returns to the debugger.
 ---
 
 ## Debugger
+
+https://github.com/gummyworm/monster/assets/4626914/840f5d66-03cb-4daf-9ed2-41a4d37d4c2d
+
+
 The debugger allows you to step through code, set breakpoints, and watch
 data as you execute your program.  Due to the size of the data needed to 
 store the debug information, this feature requires a Final Expansion
@@ -597,6 +676,7 @@ respective Key in the table below.
 |  Key     | Name            |   Description                                                                        |
 |--------  |-----------------|--------------------------------------------------------------------------------------|
 |  F1      | Source View     | maximizes the screen area for viewing the source code                                |
+|  F2      | Register Editor | enters the register editor                                                           |
 |  F3      | Mem View        | activates the memory window, which takes control until `<-` is pressed               |
 |  F5      | Break View      | displays the breakpoints that have been set and allows them to be enabled/disabled   |
 |  C=+g    | Go              | begins execution at the cursor                                                       |
@@ -606,6 +686,13 @@ respective Key in the table below.
 |  C=+t    | Trace           | like GO but the debugger takes control between each instruction                      |
 |   <-     | Exit            | exits the debugger and returns to the editor                                         |
 | SPACE    | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  | 
+
+### Register Editor (`F2`)
+Pressing F2 moves the cursor to the register contents and allows the user to enter
+new values for them.  Pressing `RETURN` will confirm the new register values
+and update them to those values the next time the user program is invoked.
+Pressing `<-` will abort this process and leave the old register values
+intact.
 
 ### Stopwatch
 
@@ -704,11 +791,12 @@ change and overwriting it with a new hex value. The change occurs immediately.
 In addition to hexadecimal keys to edit memory values, the following commands
 are supported within the memory viewer:
 
-| Shortcut | Name      |  Description                                      |
-|----------|-----------|---------------------------------------------------|
-| C= + w   | Add watch | Add watch to the highlighted address              |
-|    /     | Find Value| Seeks from current memory address for given value |
-|   <-     |  Exit     | Returns to the debugger                           |
+| Shortcut     | Name      |  Description                                            |
+|--------------|-----------|---------------------------------------------------------|
+| C= + w       | Add watch | Add watch to the highlighted address                    |
+|    /         | Find Value| Seeks from current memory address for given value       |
+|   <-         |  Exit     | Returns to the debugger                                 |
+| ^ (up-arrow) | Set Addr  | Sets the viewer's address to the given value            |
 
 #### Set Watch (`C= + w`)
 Watches may be placed while navigating in the memory editor.  This is done
@@ -726,6 +814,11 @@ Note that when seeking for a 16 bit value, the value is searched in little-endia
 format.  If the input for the search is given as `$1234` the result will be
 the first occurrence of the byte value `$34` followed by `$12`.
 
+#### Set Address (`^`/`up-arrow`)
+Moves the cursor to the address of the viewer, then prompts the user for a new
+value to set the memory viewer to.  Pressing `RETURN` confirms the new address
+and `<-` cancels and returns the user to the editor without changing the address 
+
 ### Breakpoint Viewer (`F5` while debugging)
 The breakpoint viewer displays all the breakpoints that have been set by the
 user.  A circle is displayed next to those that are currently active.
@@ -741,10 +834,49 @@ The watch viewer displays all watches that have been set in the memory
 viewer.  The current value of a watch is shown along with its previous
 value (if it has changed since the debugger last took over).
 
+A watched address (or range) will also be prefixed with a '!' if it was modified
+during the trace or step.  This is especially important for knowing that a range
+was modified as ranges do not list the previous or current values for the watch.
+
+The following keys are supported within the watch viewer:
+
+| Shortcut     | Name       |  Description                                            |
+|--------------|------------|---------------------------------------------------------|
+| C= + w       | Add watch  | Prompt the user for expressions to watch                |
+|  RETURN      | Select/Edit| Enters the memory editor at the watch's address         |
+|   <-         |  Exit      | Returns to the debugger                                 |
+
+#### Add Watch (`C= + w`)
+While in the watch editor, the `C= + w` key combination prompts the user for an
+address or address range to watch.  These are given as expressions, so you may
+provide, for example `myval+3` to set a watch at the address of the label myval plus 3.
+To set a watch for an address range, simply provide two expressions, separated by a comma,
+at the prompt.  If the expression(s) are invalid, no watch is added.
+
+#### Edit Watch (`RETURN`)
+Pressing RETURN will invoke the _memory editor_ at the location of the watch
+that was selected.  Returning from the memory editor will return the user
+back to the watch editor.
+
 ---
 
 ## Breakpoints
-During normal editing, breakpoints may be set with the `C= + b` key combination.
+Breakpoints may be set/removed during both normal editing and while debugging.
+Setting a breakpoint inserts a special character into the source buffer, which 
+tells the assembler, during assembly, to generate a breakpoint for the line
+that this character resides on.
+
+Because the breakpoint is represented as a character within the source code itself,
+it will automatically move as lines are inserted and deleted.  The character itself
+is not editable (the cursor will not move to breakpoint characters).  You may remove
+it by toggling the breakpoint off _or_ by deleting the entire line.
+
+*NOTE:* Debug information is only generated for instructions _NOT data_.  This means
+that, for example, you can set a breakpoint on `LDA #$00` or a macro that expands
+to such an instruction, but setting one on `.DB $00` will have _no_ effect.
+
+### Toggle Breakpoint (`C= + b`)
+During normal editing, breakpoints may be set and removed  with the `C= + b` key combination.
 A breakpoint symbol (a filled circle) is placed at the beginning of a line to
 indicate that a breakpoint has been added.
 Pressing the same key combination (`C= + b`) will also remove a breakpoint
@@ -763,3 +895,4 @@ The viewer will display the old value and what it was changed to.
 When a value is changed the watch view is activated to alert the user to the
 alteration.  If a read or write is detected while stepping _into_ the code,
 we also activate the viewer.  
+

@@ -130,7 +130,38 @@ final_store_size=*-__final_store_byte
 	cli
 	rts
 .endproc
+
+;******************************************************************************
+; COPY LINE
+; Copies up to 256 bytes from zp::bankaddr0 to zp::bankaddr1 stopping at the
+; first $0d or $00
+; IN:
+;  - .A:            the bank to perform the copy within
+;  - .Y:            the number of bytes to copy
+;  - zp::bankaddr0: the source address to copy from
+;  - zp::bankaddr1: the destination address to copy to
+;  OUT:
+;   - .Y: the number of bytes copied
+;   - .A: the last byte copied
+.export __final_copy_line
+.proc __final_copy_line
+	sei
+	sta $9c02
+	ldy #$00
+:	lda (zp::bankaddr0),y
+	sta (zp::bankaddr1),y
+	beq @done
+	cmp #$0d
+	beq @done
+	iny
+	bne :-
+@done:	ldx #$80
+	stx $9c02	; restore bank
+	cli
+	rts
+.endproc
 final_copy_end=*-__final_copy
+
 
 ;******************************************************************************
 ; CALL
@@ -255,6 +286,8 @@ bankcode_size = *-bankcode
 ; COPY
 ; Writes the memory from (tmp0) to (tmp2)
 ; The number of bytes is given in .YX and the block # to write to is given in .A
+; This routine assumes that IF the memory overlaps, that it will do so from
+; the TOP. (dst > src)
 ; IN:
 ;  - .A: the source/destination block
 ;  - .XY: the number of bytes to copy
@@ -272,6 +305,19 @@ bankcode_size = *-bankcode
 	stxy @size
 	sta @bank
 
+	decw @size
+
+	; we need to copy from top to bottom- add @size-1 to the dst and src
+	ldxy @src
+	add16 @size
+	stxy @src
+
+	ldxy @dst
+	add16 @size
+	stxy @dst
+
+	incw @size
+
 @l0:	; read a byte from the source bank/addr
 	ldxy @src
 	lda @bank
@@ -284,12 +330,14 @@ bankcode_size = *-bankcode
 	jsr __final_store_byte
 
 	; move to the next location
-	incw @src
-	incw @dst
+	decw @src
+	decw @dst
 
 	decw @size
-	ldxy @size
-	cmpw #0
+	lda @size
 	bne @l0
+	lda @size+1
+	bne @l0
+
 @done:	rts
 .endproc

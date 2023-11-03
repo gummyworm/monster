@@ -14,6 +14,7 @@
 .include "strings.inc"
 .include "text.inc"
 .include "util.inc"
+.include "watches.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
 
@@ -29,6 +30,9 @@ TOTAL_BYTES = BYTES_TO_DISPLAY*(MEMVIEW_STOP-MEMVIEW_START)
 .BSS
 ;******************************************************************************
 dirtybuff: .res TOTAL_BYTES
+
+.export __view_addr
+__view_addr:
 memaddr:   .word 0
 
 .CODE
@@ -75,7 +79,7 @@ memaddr:   .word 0
 	jsr key::getch
 	beq @edit
 
-	cmp #'z'
+	cmp #K_UP_ARROW
 	bne :+
 	jsr getset_addr
 	jmp __view_edit	; reactivate editor at new address
@@ -128,7 +132,8 @@ memaddr:   .word 0
 
 @setwatch:
 	jsr get_addr	; get the address of the byte under the cursor
-	jsr dbg::addwatch
+	stxy zp::tmp0	; also set as STOP address
+	jsr watch::add
 	jsr beep::short	; beep to confirm add
 	jmp @edit
 
@@ -307,6 +312,10 @@ memaddr:   .word 0
 ; the memory view to render that area of memory.
 .proc getset_addr
 	pushcur
+	jsr cur::off
+
+	lda #$01
+	sta text::rvs		; enable RVS
 
 	; copy title to linebuffer
 	ldx #25-1
@@ -325,8 +334,12 @@ memaddr:   .word 0
 	lda #MEMVIEW_START
 	sta zp::cury
 
-	ldxy #gethex
+	ldxy #key::gethex
 	jsr edit::gets
+
+	lda #$00
+	sta text::rvs		; disable reverse
+
 	ldxy #mem::linebuffer+17
 	stxy zp::line
 	jsr expr::eval
@@ -334,19 +347,6 @@ memaddr:   .word 0
 	stxy memaddr
 :	popcur
 	rts
-.endproc
-
-;******************************************************************************
-.proc gethex
-	jsr key::getch
-	cmp #K_DEL	; allow delete
-	beq :+
-	cmp #K_RETURN
-	beq :+
-	jsr key::ishex
-	bcs :+
-	lda #$00	; don't accept non-hex characters
-:	rts
 .endproc
 
 ;******************************************************************************

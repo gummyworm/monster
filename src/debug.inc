@@ -2,7 +2,6 @@
 .importzp __debug_src_line
 
 .import __debug_addr2line
-.import __debug_addwatch
 .import __debug_breakpoints
 .import __debug_breakpoint_flags
 .import __debug_end_segment
@@ -24,13 +23,13 @@
 .import __debug_store_line
 .import __debug_startsegment_byaddr
 .import __debug_watches
+.import __debug_watches_stop
 .import __debug_watch_prevs
 .import __debug_watch_flags
 .import __debug_watch_vals
 
 .scope dbg
 	addr2line         = __debug_addr2line
-	addwatch          = __debug_addwatch
 	breakpoints       = __debug_breakpoints
 	breakpoint_flags  = __debug_breakpoint_flags
 	endseg            = __debug_end_segment
@@ -52,6 +51,7 @@
 	startseg_addr     = __debug_startsegment_byaddr
 	toggle_breakpoint = __debug_toggle_breakpoint
 	watches           = __debug_watches
+	watches_stop	  = __debug_watches_stop
 	watch_flags       = __debug_watch_flags
 	watch_prevs       = __debug_watch_prevs
 	watch_vals        = __debug_watch_vals

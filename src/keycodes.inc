@@ -45,6 +45,9 @@ K_JUMPFORWARD    = $a2	; <C=> + i
 K_OPEN           = $b1	; <C=> + e
 K_SCRATCH	 = $bd	; <C=> + x
 K_SAVE 	         = $ae	; <C=> + s
+K_NEXT_DRIVE     = $a6  ; <C=> + +
+K_PREV_DRIVE     = $dc  ; <C=> + -
+K_EDIT_STATE     = $89	; F2
 
 ; DEBUGGER KEYS
 K_SRCVIEW         = $85	; F1
@@ -59,4 +62,6 @@ K_STEP      = $ad	; <C=> + z
 K_STEPOVER  = $ae	; <C=> + s
 K_TRACE     = $a3	; <C=> + t
 
-K_SET_WATCH = $b3	; <C=>+W
+K_SET_WATCH = $b3	; <C=>+w (for use in MEMORY editor)
+K_ADD_WATCH = $b3	; <C=>+w (for use in WATCH editor)
+K_DEL_WATCH = $ac	; <C=>+d

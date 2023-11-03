@@ -6,6 +6,7 @@
 .include "cursor.inc"
 .include "debug.inc"
 .include "draw.inc"
+.include "expr.inc"
 .include "errors.inc"
 .include "file.inc"
 .include "format.inc"
@@ -14,6 +15,7 @@
 .include "layout.inc"
 .include "labels.inc"
 .include "linebuffer.inc"
+.include "macros.inc"
 .include "memory.inc"
 .include "source.inc"
 .include "state.inc"
@@ -22,9 +24,8 @@
 .include "text.inc"
 .include "util.inc"
 .include "view.inc"
+.include "vmem.inc"
 .include "zeropage.inc"
-
-.include "macros.inc"
 
 ;******************************************************************************
 ; CONSTANTS
@@ -68,6 +69,10 @@ buffptr:  .word 0 	; copy buffer pointer (also bytes in copy buffer)
 visual_start_line: .word 0	; the line # a selection began at
 visual_start_x:    .byte 0	; the x-position a selection began at
 selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
+format:            .byte 0	; if 0, formatting is not applied on line-end
+
+overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
+cmdreps: .byte 0	; number of times to REPEAT current command
 
 .CODE
 
@@ -81,9 +86,6 @@ selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
 	jsr edit
 	jsr cancel
 
-.IFDEF DRAW_TITLEBAR
-	jsr draw_titlebar
-.ENDIF
 	jsr reset
 	jsr text::clrline
 
@@ -157,9 +159,10 @@ main:	jsr key::getch
 	jsr src::after_cursor
 	cmp #$80
 	bcc @keydone
-	jsr ccright	; try to move past the non-source char
+	jsr ccright		; try to move past the non-source char
 	bcc @validate
 @keydone:
+	jmp text::update	; update status in case something was changed
 	rts
 .endproc
 
@@ -207,7 +210,7 @@ main:	jsr key::getch
 ; If no label is given (a 0-length string is given) then begins debugging at
 ; the program's origin.
 ; IN:
-;  - .XY: the address of the label to start debugging at
+;  - .XY: the label name or address to start debugging at
 .proc command_debug
 @addr=zp::editortmp
 	jsr label_addr_or_org
@@ -237,6 +240,106 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; COMMAND_DISASM
+; Disassembles the given address range
+; IN:
+;  - .XY: address of a string containing the start and stop addresses (delimited
+;         by a comma) to disassemble to a new buffer.
+.proc command_disasm
+@start=zp::editortmp
+	stxy zp::line
+	jsr expr::eval		; get the start address
+	bcs @done		; if invalid, just exit
+	stxy @start
+
+	incw zp::line		; move past separator
+	jsr expr::eval		; evaluate end address
+	bcc @ok
+@done:	rts
+
+@ok:	stxy zp::tmp0
+	ldxy @start
+	jmp disassemble		; disassemble the address range
+.endproc
+
+;******************************************************************************
+; DISASSEMBLE
+; Disssembles the given address range to a new buffer
+; IN:
+;  - .XY:      the start of the address range to disassemble
+;  - zp::tmp0: the stop address to disassemble
+.proc disassemble
+@addr=zp::editortmp
+@stop=zp::editortmp+2
+@cnt=zp::editortmp+4
+@buff=$100			; buffer to store disassembled instruction
+	stxy @addr
+	ldxy zp::tmp0
+	stxy @stop
+	jsr new_buffer		; create/activate a new buffer
+
+@l0:	ldxy #@buff
+	stxy zp::tmp0
+	ldxy @addr
+	jsr asm::disassemble
+	bcc @ok
+
+; if we couldn't disassemble the instruction, just ad a .DB for it
+@byte:
+	ldx #@db_len-1
+:	lda @db,x
+	sta @buff,x
+	dex
+	bpl :-
+
+	; load the byte value and add it to the buffer
+	ldxy @addr
+	jsr vmem::load
+	jsr util::hextostr
+	sty @buff+@db_len
+	stx @buff+@db_len+1
+	lda #$00
+	sta @buff+@db_len+2	; 0-terminate
+
+	lda #$01		; set size of "instruction" to 1
+	clc
+
+@ok:	adc @addr
+	sta @addr
+	bcc @copyi
+	inc @addr+1
+
+; copy the instruction to the source buffer
+@copyi:
+	ldx #$00
+	stx @cnt
+@l1:	ldx @cnt
+	lda @buff,x
+	beq @next
+	jsr src::insert		; add the disassembled char
+	inc @cnt
+	bne @l1
+
+@next:	lda #$0d
+	jsr src::insert		; add a newline
+
+	ldxy @addr
+	cmpw @stop
+	bcc @l0			; disassemble next instruction
+
+	ldxy #1
+	jsr gotoline
+	jmp refresh
+
+@db:   .byte ".db $"
+@db_len=*-@db
+.endproc
+
+;******************************************************************************
+; ASSEMBLE FILE
+; Assembles the given filename
+; IN:
+;  - .XY: the filename of the file to assemble
 .proc assemble_file
 @filename=mem::backbuff
 	lda #<@filename
@@ -289,7 +392,7 @@ main:	jsr key::getch
 
 ;******************************************************************************
 ; COMMAND_ASM
-; Assembles the entire source into mem::program
+; Assembles the entire source
 .export command_asm
 .proc command_asm
 	jsr dbg::init
@@ -460,21 +563,30 @@ main:	jsr key::getch
 	ldx zp::curx
 	stx @result_offset	; offset to the user-input in line buffer
 
+	jsr cur::on
 @getloop:
 	jsr text::update
 
 	jsr zp::jmpaddr		; call key-get func
 	cmp #$00
 	beq @getloop
+	pha
+	jsr cur::off
+	pla
 	cmp #$80		; > $80 -> not printable
 	bcs @getloop
 	cmp #K_RETURN
 	beq @done
-	cmp #K_QUIT	; <- (done)
+	cmp #K_QUIT		; <- (done)
 	beq @exit
-	jsr text::putch
+	cmp #K_DEL
+	beq :+			; let DELETE through
+	jsr key::isprinting
+	bcs @getloop		; don't print if not printable
+:	jsr text::putch
 	lda zp::cury
 	jsr text::drawline
+	jsr cur::on
 	jmp @getloop
 
 @done:	clc 		; clear carry for success
@@ -589,13 +701,12 @@ main:	jsr key::getch
 ; ONKEY_CMD
 ; Handles a keypress from the user in COMMAND mode
 .proc onkey_cmd
-@reps=zp::editortmp
 	jsr handle_universal_keys
 	bcc :+
 	rts
 
 :	ldx #$01
-	stx @reps		; init reps to 1
+	stx cmdreps		; init reps to 1
 @getreps:
 	cmp #$5f		; <-
 	bne :+
@@ -606,9 +717,9 @@ main:	jsr key::getch
 	cmp #'0'
 	beq @check_cmds
 	sbc #'0'		; .C already set
-	sta @reps
+	sta cmdreps
 
-:	jsr key::getch	; get another key for the command to do @reps times
+:	jsr key::getch	; get another key for the command to do cmdreps times
 	beq :-
 
 @check_cmds:
@@ -627,10 +738,9 @@ main:	jsr key::getch
 ; repeat the command for the number of reps the user requested
 @doreps:
 	jsr zp::jmpaddr
-	dec @reps
+	dec cmdreps
 	bne @doreps
 	rts
-
 .endproc
 
 ;******************************************************************************_
@@ -854,8 +964,26 @@ main:	jsr key::getch
 ;******************************************************************************_
 ; DELETE
 .proc delete
-:	jsr key::getch	; get a key to decide what to delete
-	beq :-
+	jsr is_visual
+	bne @cont
+
+; VISUAL mode; delete the selection
+@delvis:
+@cur=zp::editortmp+1
+@end=zp::editortmp+3
+	jsr yank			; yank the selection
+	bcs @notfound			; quit if error occurred
+	ldxy @end
+	jsr src::goto
+@delsel:
+	jsr src::backspace
+	jsr src::pos
+	cmpw @cur
+	bne @delsel
+	jmp enter_command		; done, refresh and return to COMMAND
+
+@cont:	jsr key::getch			; get a key to decide what to delete
+	beq @cont
 	ldx #@numcmds-1
 :	cmp @subcmds,x
 	beq @found
@@ -993,18 +1121,65 @@ main:	jsr key::getch
 ; Inserts the contents of the buffer at the current cursor position and returns
 ; to command mode
 .proc paste_buff
+	lda format
+	pha
+	lda #$00
+	sta format
+	lda #$01
+	sta text::buffer	; enable buffering
+
 	jsr enter_insert
-:	jsr buff_getch
+@l0:	jsr buff_getch
 	bcs @done
-	jsr insert
-	jmp :-
-@done:	jmp enter_command
+	cmp #$0d
+	bne :+
+	jsr linedone
+	jmp @l0
+:	jsr insert
+	jmp @l0
+
+@done:	lda zp::curx
+	beq :+
+	lda zp::cury
+	jsr text::drawline	; draw the last line (if it contains anything)
+
+:	lda #$00
+	sta text::buffer	; disable buffering
+	pla
+	sta format
+	jmp enter_command
+.endproc
+
+;******************************************************************************
+; COMMAND YANK
+; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
+; mode, does nothing
+.proc command_yank
+	jsr yank
+	bcs @done
+
+	txa
+	pha
+	tya
+	pha
+
+	; display message
+	jsr enter_command
+	ldxy #@yoinkmsg
+	lda #STATUS_ROW-1
+	jsr text::print
+	RETURN_OK
+@done:	rts
+@yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
 .endproc
 
 ;******************************************************************************
 ; YANK
 ; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
 ; mode, does nothing
+; OUT:
+;  - .XY: the number of bytes yanked
+;  - .C: set if selection was not able to be yanked
 .proc yank
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
@@ -1036,23 +1211,15 @@ main:	jsr key::getch
 	cmpw @cur	; are we back at the START of the selection yet?
 	bne @copy	; continue until we are
 
-:	; restore source position
+:	; restore source position and return size of copy
 	ldxy @start
 	jsr src::goto
+	ldxy @size	; return size
+	RETURN_OK
 
-	; display message
-	jsr enter_command
-	lda @size
-	pha
-	lda @size+1
-	pha
-	ldxy #@yoinkmsg
-	lda #STATUS_ROW-1
-	jsr text::print
+@done:	jsr enter_command
+	sec
 	rts
-
-@done:	jmp enter_command
-@yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
 .endproc
 
 ;******************************************************************************
@@ -1090,20 +1257,32 @@ main:	jsr key::getch
 	sta @end+1
 	stxy @cur
 
-@cont:	; Update pointer:
+@cont:	lda mode
+	cmp #MODE_VISUAL_LINE	; are we selecting in LINE mode?
+	bne @ok
+
+	ldxy @cur
+	jsr src::goto
+	jsr src::atcursor
+	cmp #$0d
+	beq :+
+	jsr src::up	; if cursor is not at start of line, move it there
+	jsr src::pos
+	stxy @cur
+
+:	ldxy @end
+	jsr src::goto
+	jsr src::down	; if we're selecting the whole line, go to end of it
+	jsr src::pos
+	stxy @end
+	RETURN_OK
+
+@ok:	; Update end pointer:
 	;  the source pos ends on the character BEFORE the one we want to copy
 	incw @end
 	ldxy @end	; starting from the END, copy to copy buffer
 	jsr src::goto	; go to the start position
-
-	lda mode
-	cmp #MODE_VISUAL_LINE	; are we selecting in LINE mode?
-	bne @ok
-	jsr src::down	; if we're selecting the whole line, go to end of it
-	jsr src::pos
-	stxy @end
-
-@ok:	clc
+	clc
 @done:	rts
 .endproc
 
@@ -1592,7 +1771,7 @@ goto_buffer:
 	jsr src::save
 	pla
 	jsr src::setbuff
-	bcs @done
+	bcs @done		; if we can't set the buffer, exit
 	jmp refresh
 @done:	rts
 
@@ -1608,17 +1787,12 @@ goto_buffer:
 
 @l0:	ldy #$00
 	lda @cnt
+
+	; push the filename
 	jsr src::filename
 	tya
 	pha
 	txa
-	pha
-
-@id:	lda @cnt
-	clc
-	adc #$01	; display buffer ID as 1-based
-	pha
-	lda #$00
 	pha
 
 	; display a '*' before filename if the buffer is dirty
@@ -1628,8 +1802,15 @@ goto_buffer:
 	and #FLAG_DIRTY
 	beq :+
 	ldx #'*'
-:	stx @dirty_marker
+:	txa
+	pha
 
+@id:	lda @cnt
+	clc
+	adc #$01	; display buffer ID as 1-based
+	pha
+
+	; print the buffer name at its corresponding row
 	lda @cnt
 	ldxy #@buffer_line
 	jsr text::print
@@ -1655,9 +1836,7 @@ goto_buffer:
 @done:	jmp bm::restore
 
 @noname:       .byte "[no name]",0
-@buffer_line:  .byte ESCAPE_VALUE_DEC," :"
-@dirty_marker: .byte " "
-	       .byte ESCAPE_STRING,0
+@buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
 .endproc
 
 ;******************************************************************************
@@ -1841,6 +2020,8 @@ goto_buffer:
 @cmdbuff=$100
 @arg=zp::tmp0
 	ldxy #$0000
+	stx overwrite		; clear OVERWRITE flag (for SAVEs)
+
 	jsr readinput
 	bcs @done
 
@@ -1862,31 +2043,41 @@ goto_buffer:
 	lda @exvecshi,x
 	sta zp::jmpvec+1
 
+	ldx #$01
+
+	lda @cmdbuff+2
+	cmp #'@'		; check overwrite flag (for SAVE commands)
+	bne @parsearg
+	stx overwrite		; set OVERWRITE flag
+	inx			; move past '@'
+
 ; get the argument for the command and send it along to the vector
 @parsearg:
-	ldx #$01
 :	lda @cmdbuff+1,x
 	inx
 	cmp #' '
 	beq :-
 	ldy #>@cmdbuff
-	jmp zp::jmpaddr
 
+	; run the command
+	jsr zp::jmpaddr
+	jmp text::update
 @done:  rts			; no input
 
 @ex_commands:
 	.byte $67		; g - go
 	.byte $64		; d - debug
 	.byte $65		; e - open file
+	.byte $72		; r - rename
 	.byte $73		; s - save file
 	.byte $78		; x - scratch file
 	.byte $61		; a - assemble file
-	.byte $72		; r - rename
+	.byte $44		; D - disassemble
 @num_ex_commands=*-@ex_commands
 
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
-	command_load, save, scratch, assemble_file, rename
+	command_load, rename, save, scratch, assemble_file, command_disasm
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
@@ -1921,22 +2112,31 @@ goto_buffer:
 ; Prompts the user for a filename adn writes the source buffer to a file of
 ; the given name.
 .proc save
-@file=zp::tmp9
+@len=zp::tmp7
+@file=zp::tmp8
 	stxy @file
+	jsr str::len
+	sta @len
 
 	ldxy #strings::saving
 	lda #STATUS_ROW
 	jsr text::print
 
+	lda overwrite
+	beq @cont	; if overwrite flag isn't set, continue
+@scratch:
 	ldxy @file
-	jsr str::len	; get the file length
-	pha
+	jsr scratch	; (try to) delete the existing file
+	bcs @ret
 
+@cont:	ldxy @file
+	jsr src::name		; rename the buffer to the given name
+
+	jsr src::rewind
+
+	lda @len
 	ldxy @file
-	jsr src::name
-	pla
-	ldxy @file
-	jsr file::savesrc
+	jsr file::savesrc	; save the buffer
 
 	cmp #$00
 	bne @err
@@ -1957,29 +2157,31 @@ goto_buffer:
 ; IN:
 ;  - .XY: the filename of the file to delete
 .proc scratch
-@file=zp::tmp9
+@len=zp::tmp7
+@file=zp::tmp8
 	stxy @file
 
 	; get the file length
 	jsr str::len
-	pha
+	sta @len
 
 	ldxy #strings::deleting
 	lda #STATUS_ROW
 	jsr text::print
 
-	ldx @file
-	ldy @file+1
-	pla
+	ldxy @file
+	lda @len
 	jsr file::scratch
 	cmp #$00
 	bne @err
-@ret:	rts	; no error
-@err:
-	pha
+@ret:	RETURN_OK	; no error
+
+@err:	pha
 	ldxy #strings::edit_file_delete_failed
 	lda #STATUS_ROW
-	jmp text::print
+	jsr text::print
+	sec
+	rts
 .endproc
 
 ;******************************************************************************
@@ -2096,10 +2298,11 @@ goto_buffer:
 ; LINEDONE
 ; Attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
-@i=zp::tmpa
+@indent=zp::tmpa	; indent boolean (!0 = indent)
+@i=zp::tmpa		; loop counter for indentation loop
 	jsr is_readonly
 	bne :+
-	jmp begin_next_line
+	jmp begin_next_line	; if READONLY, just go down a line
 
 :	; insert \n into source buffer and terminate text buffer
 	lda #$0d
@@ -2107,31 +2310,28 @@ goto_buffer:
 	lda #$00
 	jsr text::putch
 
-	lda zp::curx
+	ldx zp::curx
 	beq @nextline	; @ column 0, skip tokenization and go to the next line
 
 	lda #$00
 	sta zp::gendebuginfo
-	; check if the current line is valid
-	ldx #<mem::linebuffer
-	ldy #>mem::linebuffer
+
+	; tokenize (1st pass) to check if the current line is valid
+	ldxy #mem::linebuffer
 	jsr asm::tokenize
 	bcs @err
-	pha		; save token type
 
-	; clear the error row
-	lda #STATUS_ROW-1
-	jsr bm::clrline
-
-@format:
-	; format the line
-	pla			; get token type
-@fmt:	cmp #ASM_COMMENT	; if this is a comment, don't indent
+; format the line based on the line's contents (in .A from tokenize)
+@fmt:	ldx #$00		; init flag to NO indentation
+	cmp #ASM_COMMENT	; if this is a comment, don't indent
 	beq @nextline
 	jsr fmt::line
 
+	ldx #$01		; default to indent ON
+
 @nextline:
-	jsr drawline
+	stx @indent		; set indent flag
+	jsr drawline		; draw the formatted line
 
 	; redraw the cleared status line
 	jsr text::update
@@ -2139,9 +2339,6 @@ goto_buffer:
 	; redraw everything from <cursor> to EOL on next line
 	jsr text::clrline
 	jsr src::get
-	ldxy #mem::linebuffer
-	lda zp::cury
-	jsr text::print
 
 	lda #$18		; TAB
 	jsr src::insert
@@ -2230,6 +2427,7 @@ goto_buffer:
 :	iny
 	tya
 	ldx height
+	dex
 	jsr text::scrolldown
 
 	ldy zp::cury
@@ -2244,8 +2442,8 @@ goto_buffer:
 ; Clears any error message
 .proc clrerror
 	lda height
-	cmp #ERROR_ROW
-	bcs :+
+	cmp #ERROR_ROW		; is there an error being displayed?
+	bcs :+			; if not, continue
 	lda #ERROR_ROW
 	jsr bm::clrline		; clear the error line
 :	lda #STATUS_ROW-1
@@ -2268,8 +2466,13 @@ goto_buffer:
 	jmp ccdel
 :	cmp #$0d
 	bne :+
+	jsr clrerror		; clear error so we can report on THIS line
 	jmp linedone		; handle RETURN
-:	ldx text::insertmode
+
+:	jsr key::isprinting
+	bcs @done
+
+	ldx text::insertmode
 	bne @put
 @replace:
 	jsr src::replace
@@ -2784,6 +2987,9 @@ goto_buffer:
 	bcc @done
 
 @prevline:
+	ldx zp::cury
+	beq @noscroll	; if cursor is at row 0, nothing to scroll
+
 	; move the cursor
 	ldy #$ff
 	ldx #0
@@ -2795,17 +3001,22 @@ goto_buffer:
 	cpx height
 	beq @noscroll	; if cursor is at end of screen, nothing to scroll
 	lda height
-	dex
 	jsr text::scrollup
-.IFDEF DRAW_TITLEBAR
-	jsr draw_titlebar
-.ENDIF
 
 @noscroll:
-	; clear the last line on the screen
-	jsr text::clrline
+	; go to the bottom row and read the line that was moved up
+	jsr src::pushp	; save current source pos
 	lda height
-	jsr text::drawline
+	sec
+	sbc zp::cury
+	tax
+	ldy #$00
+	jsr src::downn		; move to the line that we're bringing up
+	jsr src::get
+	lda height
+	jsr text::drawline	; draw the new line that was scrolled up
+	jsr src::popp
+	jsr src::goto		; restore source position
 
 	; get the line we're moving up to in linebuffer
 	jsr src::get
@@ -2929,6 +3140,26 @@ goto_buffer:
 	jsr readinput
 	jmp __edit_find
 @done:	rts
+.endproc
+
+;******************************************************************************
+; NEXT DRIVE
+.proc next_drive
+	lda zp::device
+	cmp #$0f
+	bcs :+
+	inc zp::device
+:	rts
+.endproc
+
+;******************************************************************************
+; PREV DRIVE
+.proc prev_drive
+	lda zp::device
+	cmp #$09
+	bcc :+
+	dec zp::device
+:	rts
 .endproc
 
 ;******************************************************************************
@@ -3063,6 +3294,7 @@ __edit_gotoline:
 @seekforward=zp::tmp9	; 0=backwards 1=forwards
 @diff=zp::tmpa		; lines to move up or down
 @rowsave=zp::tmpc
+@cnt=zp::tmpd
 	cmpw src::lines	; is target < total # of lines?
 	bcc :+		; yes, move to target
 	ldxy src::lines ; no, move to the last line
@@ -3134,8 +3366,33 @@ __edit_gotoline:
 	ldy @diff
 	ldx #$00
 @shortdone:
+	jsr is_visual	; are we in VISUAL mode
+	bne @movecur
+	; highlight all rows between cursor and destination
+	lda @diff
+	sta @cnt
+	dec @cnt
+	beq @movecur
+
+	lda zp::cury
+	sta @row
+@hiloop:
+	lda @seekforward
+	beq :+
+	inc @row
+	skw
+:	dec @row
+
+	lda @row
+	jsr bm::rvsline
+	dec @cnt
+	bne @hiloop
+	ldy @diff
+	ldx #$00
+@movecur:
 	jsr cur::move
-	jmp src::get
+	jsr src::get
+	jmp cur::on
 
 @long:  ; get first line of source buffer to render
 	; (target +/- (EDITOR_HEIGHT - cury))
@@ -3296,16 +3553,18 @@ __edit_gotoline:
 ; SRC2SCREEN
 ; Takes the given source line number and returns its row position on the screen.
 ; IN:
-;  - .XY: the line number to get the screen row of
+;  - .XY:      the line number to get the screen row of
 ; OUT:
 ;  - .A: the row that the line number resides on
 ;  - .C: set if the line number is not on screen
 .export __edit_src2screen
 .proc __edit_src2screen
+@fname=zp::tmp0
 @line=zp::editortmp
 @startline=zp::editortmp+2
 @endline=zp::editortmp+4
 	stxy @line
+
 	lda src::line
 	sec
 	sbc zp::cury
@@ -3513,6 +3772,8 @@ commands:
 	.byte $56	; V (enter visual line mode)
 	.byte $79	; y (yank)
 	.byte K_FIND	; find
+	.byte K_NEXT_DRIVE ; next drive
+	.byte K_PREV_DRIVE ; prev drive
 	.byte K_GETCMD  ; get command
 numcommands=*-commands
 
@@ -3524,7 +3785,8 @@ numcommands=*-commands
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual_line, yank, command_find, get_command
+	enter_visual, enter_visual_line, command_yank, command_find, \
+	next_drive, prev_drive, get_command
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs

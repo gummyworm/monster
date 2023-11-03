@@ -61,6 +61,12 @@ OP_PC    = $80	; constant for an operation that modifies PC (branches)
 
 BREAKPOINT_ENABLED = 1
 
+REG_PC_OFFSET = 0
+REG_A_OFFSET = 5
+REG_X_OFFSET = 8
+REG_Y_OFFSET = 11
+REG_SP_OFFSET = 14
+
 ;******************************************************************************
 ; ACTION constants
 ; These tell us what command the user last executed when we return to the
@@ -92,12 +98,13 @@ __debug_file = file
 ;******************************************************************************
 ; Program state variables
 .BSS
+register_state:
+pc:     .word 0
 reg_a:  .byte 0
 reg_x:  .byte 0
 reg_y:  .byte 0
-reg_p:  .byte 0
 reg_sp: .byte 0
-pc:     .word 0
+reg_p:  .byte 0
 
 ;--------------------------------------
 ; Up to 4 bytes need to be saved in a given STEP.
@@ -114,7 +121,6 @@ pc:     .word 0
 ;  1. save user value at mem_saveaddr (address of effected memory)
 ;  2. restore 3 bytes of debug memory at (prev_pc)
 
-mem_usersave:  .byte 0	; user byte when stepping @ mem_saveaddr
 startsave:
 stepsave:	.byte 0	; opcode to save under BRK
 
@@ -147,6 +153,7 @@ prev_reg_sp: .byte 0
 prev_pc:     .word 0
 
 stopwatch:   .res 3	; number of cycles counted since stopwatch is reset
+sw_valid:    .byte 0    ; if !0, stopwatch is valid
 
 prev_mem_save:     .byte 0
 prev_mem_saveaddr: .word 0
@@ -158,6 +165,7 @@ swapmem:   .byte 0      ; not zero if we need to swap in user RAM
 
 aux_mode:         .byte 0	; the active auxiliary view
 highlight_line:	  .word 0 	; the line we are highlighting
+highlight_file:   .word 0	; filename of line we are highlighting
 
 action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
@@ -252,9 +260,6 @@ segaddresses: .res MAX_SEGMENTS * 2
 .export debuginfo
 debuginfo = __BANKCODE_LOAD__+__BANKCODE_SIZE__	; start after shared bank code
 
-; backup address (in bank FINAL_BANK_DEBUG)
-debug_backup = $a000
-
 ;******************************************************************************
 ; WATCHES
 ;******************************************************************************
@@ -264,11 +269,17 @@ __debug_watch_vals:  .res MAX_WATCHPOINTS   ; values of the set watchpoints
 __debug_watch_prevs: .res MAX_WATCHPOINTS   ; previous values of watches
 __debug_watch_flags: .res MAX_WATCHPOINTS   ; flags for watches (e.g. DIRTY)
 
+; the following are used for watches that represent a range of values
+; e.g. [$1000, $1100)
+__debug_watches_changed: .res MAX_WATCHPOINTS*2 ; the address that was changed
+__debug_watches_stop:    .res MAX_WATCHPOINTS*2 ; end address of watch range
+
 .export __debug_watches
 .export __debug_watch_vals
 .export __debug_watch_prevs
 .export __debug_numwatches
 .export __debug_watch_flags
+.export __debug_watches_stop
 
 ;******************************************************************************
 ; BREAKPOINTS
@@ -373,11 +384,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy #debuginfo
 	stxy seg
 
-	lda #$01
-	sta @cnt
-	cmp numsegments
-	beq @done	; if there's only 1 segment, we're done
-
 @l0:	ldy #SEG_LINE_COUNT	; get the line count for the segment
 	jsr read_from_seg
 	sta @lines
@@ -430,7 +436,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @next:	inc @cnt
 	lda @cnt
 	cmp numsegments
-	bne @l0
+	bcc @l0
 
 @done:	RETURN_OK
 .endproc
@@ -486,6 +492,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; initialize the line count to 0
 	ldy #SEG_LINE_COUNT
+	lda #$00
+	jsr write_to_seg
+	iny
 	lda #$00
 	jsr write_to_seg
 	inc numsegments
@@ -1335,19 +1344,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta lineset		; flag that line # is (yet) unknown
 	sta branch_taken 	; clear branch taken flag
 
-	; if the instruction we executed was destructive, show its new value
-	lda affected
-	and #OP_STORE		; did this instruction STORE to memory?
-	beq @uninstall_brks	; if not (or if we don't know) skip mem display
-
-@update_mem:
-	; copy old mem_save to prev_mem_save and get the new mem val
-	lda mem_usersave
-	sta prev_mem_save
-	ldxy mem_saveaddr
-	jsr vmem::load
-	sta mem_usersave
-
 @uninstall_brks:
 	; uninstall breakpoints (will reinstall the ones we want later)
 	jsr uninstall_breakpoints
@@ -1461,6 +1457,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta advance	; by default, don't return to program after command
 	jsr cur::off
 	pla
+
+ ; check if the key has a debugger command associated with it
 	ldx #num_commands-1
 @getcmd:
 	cmp commands,x
@@ -1468,6 +1466,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	dex
 	bpl @getcmd
 
+; check if the key should be ignored (not sent to be handled by the editor)
+	ldx #num_disabled_commands-1
+@chkdisabled:
+	cmp disabled_commands,x
+	beq @finishloopiter	; if key is marked as disabled, ignore it
+	dex
+	bpl @chkdisabled
+
+; propagate the key to the editor
 @nocmd:	jsr edit::handlekey
 	jmp @finishloopiter
 
@@ -1493,13 +1500,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @debug_done:
 	jsr cur::off
 	jsr swapin
-	; clear watch flags
-	lda #$00
-	ldx __debug_numwatches
-	beq @restore_regs
-:	sta __debug_watch_flags-1,x
-	dex
-	bne :-
+
 
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
@@ -1543,6 +1544,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc toggle_highlight
 	lda lineset
 	beq :+			; line # not known
+
+	jsr src::filename	; get filename (zp::tmp0 = name)
 	ldxy highlight_line
 	jsr edit::src2screen
 	bcs :+			; off screen
@@ -1676,6 +1679,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; for the first instruction, just STEP, this lets us keep the breakpoint
 	; we are on (if there is one) intact
 	jsr step
+	lda #$00
+	sta sw_valid		; invalidate stopwatch
 	lda #ACTION_GO_START
 	sta action
 	inc advance		; continue program execution
@@ -1699,7 +1704,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc quit
 	ldxy #strings::debug_stop_debugging
 	lda #DEBUG_MESSAGE_LINE
-	jsr text::putz
+	jsr text::print
 	lda #DEBUG_MESSAGE_LINE
 	jsr bm::rvsline
 
@@ -1710,10 +1715,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	cmp #$59		; Y
 	bne :-
 
-@quit:	jsr toggle_highlight
-	jsr text::clrline
-
-	lda #$00		; clear BRK flag
+@quit:	lda #$00		; clear BRK flag
 	pha
 	plp
 
@@ -1721,11 +1723,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pla
 	pla			; debug START return address
 	pla
-	pla
-	pla
-	pla
-	pla
-	jmp *
 @done:	rts
 .endproc
 
@@ -1746,7 +1743,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pushcur
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
-	lda #(DEBUG_INFO_START_ROW-1)*8
+	lda #(DEBUG_INFO_START_ROW)*8
 	jsr bm::clrpart
 	jsr showstate		; restore the state
 
@@ -1764,7 +1761,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc edit_breakpoints
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
-	lda #(DEBUG_INFO_START_ROW-1)*8
+	lda #(DEBUG_INFO_START_ROW)*8
 	jsr bm::clrpart
 	jsr showstate		; restore the state
 
@@ -1779,8 +1776,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc edit_watches
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
-	lda #(DEBUG_INFO_START_ROW-1)*8
-	jsr bm::clrpart
 	jsr showstate		; restore the state
 
 	lda #AUX_WATCH
@@ -1796,7 +1791,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy src::line
 	jsr __debug_line2addr
 	bcs @nobrk			; if no line # for this line, skip
-	jmp __debug_toggle_breakpoint	; add the breakpoint to the debugger
+	jsr __debug_toggle_breakpoint	; add the breakpoint to the debugger
+	lda aux_mode
+	cmp #AUX_BRK
+	bne @done			; done if breakpoint viewer isn't active
+	jmp show_aux			; refresh viewer
+@done:
 @nobrk:	rts
 .endproc
 
@@ -1841,18 +1841,29 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ; for updating watches and just general info for the user, save the current
 ; state of memory that will be altered
+
+	; clear watch flags
+	lda #$00
+	ldx __debug_numwatches
+	beq @check_effects
+:	sta __debug_watch_flags-1,x
+	dex
+	bne :-
+
+@check_effects:
 	lda affected
 	and #OP_LOAD|OP_STORE	; was there a write to memory?
 	beq @setbrk		; if not, skip ahead to setting the next BRK
 	ldxy mem_saveaddr	; if so, mark the watch if there is one
 	jsr watch::mark		; if there's a watch at this addr, mark it
-	bcs @setbrk		; if there's no watch, contiue
+	bcc @setbrk		; if there's no watch, contiue
 
 	; activate the watch window so user sees change
-	lda #(DEBUG_INFO_START_ROW-1)*8
+	lda #(DEBUG_INFO_START_ROW+1)*8
 	jsr bm::clrpart
 	lda #AUX_WATCH
 	sta aux_mode
+	jsr watch::view
 
 @setbrk:
 	lda #ACTION_STEP
@@ -1860,6 +1871,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pla			; get instruction size
 	pha			; save instruction size again
 	ldxy pc			; and address of instruction to-be-executed
+
 	jsr next_instruction	; get the address of the next instruction
 	stxy steppoint
 
@@ -1904,6 +1916,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Unlike STEP, if the next procedure is a JSR, execution will continue
 ; at the line after the subroutine (after the subroutine has run)
 .proc step_over
+	lda #$00
+	sta sw_valid		; invalidate stopwatch
 	jmp step
 .endproc
 
@@ -2073,6 +2087,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; re-increment swapmem to force full RAM swap
 	lda #ACTION_STEP_OVER
 	sta action
+	lda #$00
+	sta sw_valid	; invalidate stopwatch
 	inc swapmem
 	bcs @nocontrol	; set breakpoint to PC+3
 
@@ -2265,12 +2281,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda side_effects_tab,x
 	sta affected			; save the side-effects for aux uses
 
-	; get effective target address of this instruction and save it
+	and #OP_STORE | OP_LOAD		; is operation a load or store?
+	bne :+
+	ldxy #$6666
+	stxy mem_saveaddr		; don't save anything
+
+:	; get effective target address of this instruction and save it
 	; we will save/restore state before/after a BRK using this
 	jsr get_effective_addr
 	stxy mem_saveaddr
-	jsr vmem::load
-	sta mem_usersave
 	rts
 .endproc
 
@@ -2287,7 +2306,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @addr=zp::tmp1
 @tosave=zp::tmp3
 	lda swapmem
-	bne @swapall	; we don't know enough to do a limited swap
+	beq @fastswap
+
+@swapall:
+	; swap entire user RAM in (needed if we don't know what memory will
+	; be changed before next BRK)
+	jsr save_debug_state
+	jmp __debug_restore_progstate
 
 @fastswap:
 	; save [mem_saveaddr], [step_point], and [pc, pc+2] for the debugger
@@ -2344,22 +2369,23 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sty @addr+1
 	tax
 	jsr is_internal_address
-	bne :+			; skip if not internal address
+	bne @next		; skip if not internal address
 
-	jsr vmem::load		; load the user byte to store from vmem
-	ldy #$00
+	jsr vmem::load
+	ldx @addr+1
+	bne :+			; skip zeropage for now (we're still using it)
+
+	ldx @addr
+	sta mem::prog00,x	; update virtual ZP
+	jmp @next
+
+:	ldy #$00
 	sta (@addr),y		; store it to the physical address
-:	dec @cnt
+@next:	dec @cnt
 	dec @cnt
 	bpl @store
 
 	rts			; done
-
-@swapall:
-	; swap entire user RAM in (needed if we don't know what memory will
-	; be changed before next BRK)
-	jsr save_debug_state
-	jmp __debug_restore_progstate
 .endproc
 
 ;******************************************************************************
@@ -2437,13 +2463,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta @addr
 	tax
 	jsr is_internal_address	; if not an internal address, leave it alone
-	bne :+
+	bne @next
 
 	ldy @ysave
 	lda debug_state_save,y	; get the byte to restore
-	ldy #$00
+
+	ldx @addr+1
+	bne :+
+	ldx @addr
+	sta mem::debugsave+$10,x
+	jmp @next
+
+:	ldy #$00
 	sta (@addr),y		; restore the byte
-:	dec @cnt
+@next:	dec @cnt
 	dec @cnt
 	bpl @store
 
@@ -2562,65 +2595,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	RETURN_OK
 .endproc
 
-;******************************************************************************
-; ADDWATCH
-; Adds a watch for the given memory location.
-; IN:
-;  - .XY: the address to add a watch for
-.export __debug_addwatch
-.proc __debug_addwatch
-@addr=zp::tmp0
-	stxy @addr
-	lda __debug_numwatches
-	beq :+
-
-	; check if watch already exists
-	jsr getwatch
-	beq @done		; already a watch here, exit
-
-	lda __debug_numwatches
-	asl
-:	tax
-
-	lda @addr
-	sta __debug_watches,x
-	lda @addr+1
-	sta __debug_watches+1,x
-
-	ldxy @addr
-	jsr vmem::load
-	ldx __debug_numwatches
-	sta __debug_watch_vals,x
-
-	inc __debug_numwatches
-@done:	rts
-.endproc
-
-;******************************************************************************
-; GETWATCH
-; Returns the index of the watch at the given address
-; IN:
-;  - zp::tmp0: the address of the watch
-;
-; OUT:
-;  - .C: set if the watch exists
-;  - .X: the id of the watch * 2
-.proc getwatch
-@addr=zp::tmp0
-	lda __debug_numwatches
-	asl
-	tax
-@l0:	lda @addr
-	cmp __debug_watches,x
-	bne @next
-	lda @addr+1
-	cmp __debug_watches+1,x
-	beq @done
-@next:	dex
-	dex
-	bpl @l0
-@done:	rts
-.endproc
 
 ;******************************************************************************
 ; TOGGLE_BREAKPOINT
@@ -2724,11 +2698,127 @@ __debug_remove_breakpoint:
 .endproc
 
 ;******************************************************************************
+; EDIT STATE
+; Moves the cursor to the registers area and allows the user to modify
+; their values with hex input
+.proc edit_state
+	pushcur
+	lda #$00
+	sta zp::curx
+	lda #REGISTERS_LINE+1
+	sta zp::cury
+
+	jsr showstate		; fill linebuffer with register state
+	jsr cur::on
+
+@edit:	jsr key::getch
+	beq @edit
+	pha
+	jsr cur::off
+	pla
+
+	cmp #K_LEFT
+	beq @back
+	cmp #K_DEL
+	bne @ret
+@back:	lda zp::curx
+	beq @edit		; can't move LEFT
+	dec zp::curx
+	ldx #6
+@prevx:	cmp @offsets,x		; was cursor at start of offset?
+	bcc @prev		; if cursor is < offset, check prev offset
+	bne @ok			; if it was NOT at offset start, it is now
+	lda @offsets-1,x
+	adc #$00		; +1
+	sta zp::curx
+	jmp @refresh
+@prev:	dex
+	bpl @prevx
+	bmi @edit
+
+@ret:	cmp #K_RETURN
+	beq @updatevals
+@quit:	cmp #K_QUIT
+	bne @right
+	beq @exit
+@right:	cmp #K_RIGHT
+	beq @fwd
+
+@hex:	jsr key::ishex
+	bcc @refresh
+
+	ldx zp::curx
+	sta mem::linebuffer2,x
+
+@fwd:   lda zp::curx
+	cmp #REG_SP_OFFSET+1	; check offset
+	bcs @refresh		; if already at last column, don't advance
+	inc zp::curx		; bump up curx
+	ldx #$00
+; align x-position to either a value in @offsets or a value in @offests+1
+@nextx:	cmp @offsets,x		; was X at the start of the offset?
+	beq @refresh		; if so, incrementing it by 1 was sufficient
+	bcs @next		; if X
+@ok:	lda @offsets,x		; if @offsets,x <= curx, set curx to it
+	sta zp::curx
+	jmp @refresh
+@next:	inx
+	cpx #6
+	bne @nextx
+
+@refresh:
+	lda #REGISTERS_LINE+1
+	ldxy #mem::linebuffer2
+	jsr text::puts
+	jsr cur::on
+	jmp @edit
+
+;--------------------------------------
+; parse the linebuffer2 and update all registers
+@updatevals:
+@val=zp::tmp0
+	ldxy #mem::linebuffer2
+	stxy @val
+
+	ldx #6-1
+@l0:	ldy @offsets,x
+	lda (@val),y
+	jsr util::chtohex	; get MSB
+	asl
+	asl
+	asl
+	asl
+	sta register_state,x
+
+	iny
+	lda (@val),y		; get LSB
+	jsr util::chtohex
+	ora register_state,x
+	sta register_state,x
+
+	dex
+	bpl @l0
+
+	; swap PC LSB and MSB
+	ldx pc
+	lda pc+1
+	sta pc
+	stx pc+1
+
+@exit:	popcur
+	rts
+
+@offsets:
+.byte REG_PC_OFFSET, REG_PC_OFFSET+2, REG_A_OFFSET, REG_X_OFFSET, REG_Y_OFFSET
+.byte REG_SP_OFFSET
+.endproc
+
+;******************************************************************************
 ; SHOWSTATE
 ; Shows the current debug state (registers and BRK line)
 .proc showstate
-	jsr showregs
-	jmp showbrk
+	jsr showbrk
+	jmp showregs
 .endproc
 
 ;******************************************************************************
@@ -2739,6 +2829,7 @@ __debug_remove_breakpoint:
 .proc showregs
 @tmp=zp::asm+6
 @flag=zp::asm+7
+@buff=mem::linebuffer2
 	; display the register names
 	ldxy #strings::debug_registers
 	lda #REGISTERS_LINE
@@ -2746,27 +2837,27 @@ __debug_remove_breakpoint:
 
 	ldy #39
 	lda #' '
-:	sta mem::linebuffer,y
+:	sta @buff,y
 	dey
 	bpl :-
 
 	; draw .Y
 	lda reg_y
 	jsr util::hextostr
-	sty mem::linebuffer+11
-	stx mem::linebuffer+12
+	sty @buff+11
+	stx @buff+12
 
 	; draw .X
 	lda reg_x
 	jsr util::hextostr
-	sty mem::linebuffer+8
-	stx mem::linebuffer+9
+	sty @buff+8
+	stx @buff+9
 
 	; draw .A
 	lda reg_a
 	jsr util::hextostr
-	sty mem::linebuffer+5
-	stx mem::linebuffer+6
+	sty @buff+5
+	stx @buff+6
 
 	; draw .P (status)
 	lda reg_p
@@ -2781,7 +2872,7 @@ __debug_remove_breakpoint:
 	lda #'0'
 	skw
 :	lda #'1'
-	sta mem::linebuffer+17,x
+	sta @buff+17,x
 :	lsr @flag
 	inx
 	cpx #2
@@ -2792,19 +2883,19 @@ __debug_remove_breakpoint:
 @getsp:
 	lda reg_sp
 	jsr util::hextostr
-	sty mem::linebuffer+14
-	stx mem::linebuffer+15
+	sty @buff+14
+	stx @buff+15
 
 @getaddr:
 	lda pc+1
 	jsr util::hextostr
-	sty mem::linebuffer
-	stx mem::linebuffer+1
+	sty @buff
+	stx @buff+1
 
 	lda pc
 	jsr util::hextostr
-	sty mem::linebuffer+2
-	stx mem::linebuffer+3
+	sty @buff+2
+	stx @buff+3
 
 ; if registers were affected, highlight them
 
@@ -2844,29 +2935,38 @@ __debug_remove_breakpoint:
 	and #OP_LOAD|OP_STORE
 	bne :+
 	lda #'-'
-	sta mem::linebuffer+27
-	sta mem::linebuffer+28
-	sta mem::linebuffer+29
-	sta mem::linebuffer+30
+	sta @buff+27
+	sta @buff+28
+	sta @buff+29
+	sta @buff+30
 	bne @clk
 
 :	lda mem_saveaddr+1
 	jsr util::hextostr
-	sty mem::linebuffer+27
-	stx mem::linebuffer+28
+	sty @buff+27
+	stx @buff+28
 	lda mem_saveaddr
 	jsr util::hextostr
-	sty mem::linebuffer+29
-	stx mem::linebuffer+30
+	sty @buff+29
+	stx @buff+30
 
-@clk:	ldx stopwatch
+@clk:	lda sw_valid
+	bne :+
+	; if stopwatch is invalid, show ???
+	lda #'?'
+	sta @buff+37
+	sta @buff+38
+	sta @buff+39
+	bne @print
+
+:	ldx stopwatch
 	ldy stopwatch+1
 	lda stopwatch+2
 	jsr util::todec24
 
 	; set the last character of the stopwatch always
 	lda $100+7
-	sta mem::linebuffer+32+7
+	sta @buff+32+7
 
 	; ignore leading zeroes
 	ldx #$00
@@ -2879,12 +2979,12 @@ __debug_remove_breakpoint:
 
 @cpyclk:
 	lda $100,x
-	sta mem::linebuffer+32,x
+	sta @buff+32,x
 	cpx #$07
 	inx
 	bcc @cpyclk
 
-@print:	ldxy #mem::linebuffer
+@print:	ldxy #@buff
 	lda #REGISTERS_LINE+1
 	jmp text::puts
 .endproc
@@ -2931,6 +3031,10 @@ __debug_remove_breakpoint:
 	sta zp::jmpvec
 	lda @auxhis-1,x
 	sta zp::jmpvec+1
+
+	lda #(DEBUG_INFO_START_ROW+1)*8
+	jsr bm::clrpart
+
 	jmp zp::jmpaddr
 @done:	rts
 .define auxtab view::mem, brkpt::view, watch::view
@@ -3061,6 +3165,8 @@ __debug_remove_breakpoint:
 ; RESET STOPWATCH
 ; Resets the stopwatch
 .proc reset_stopwatch
+	lda #$01
+	sta sw_valid
 	lda #$00
 	sta stopwatch
 	sta stopwatch+1
@@ -3378,6 +3484,9 @@ branch_masks:
 .byte $02	; zero
 
 ;******************************************************************************
+; COMMANDS
+; This table contains the keys used to invoke the corresponding command
+; within the debugger
 commands:
 	.byte K_QUIT
 	.byte K_STEP
@@ -3391,12 +3500,23 @@ commands:
 	.byte K_SET_BREAKPOINT
 	.byte K_SWAP_USERMEM
 	.byte K_RESET_STOPWATCH
+	.byte K_EDIT_STATE
 num_commands=*-commands
 
 .linecont +
 .define command_vectors quit, step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, edit_watches, \
-	set_breakpoint, swap_user_mem, reset_stopwatch
+	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
+
+;******************************************************************************
+; DISABLED COMMANDS
+; the following commands are NOT propagated to the editor. they become a nop
+; when handled by the debugger
+disabled_commands:
+	.byte K_CLOSE_BUFF
+	.byte K_ASM
+	.byte K_ASM_DEBUG
+num_disabled_commands=*-disabled_commands

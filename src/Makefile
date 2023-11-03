@@ -4,6 +4,9 @@ TESTS=$(wildcard tests/*.s)
 TEST_INCS=$(wildcard tests/*.inc)
 TEST_TXTS=$(wildcard tests/*.txt)
 
+# XVIC=xvic
+# FE3BIN=fe3vice.bin
+
 monster.prg: boot.asm $(SRC) 
 	cl65 -t vic20 -o $@ -C link.config $^ -Ln labels.txt -v -m map.txt
 	rm *.o
@@ -14,10 +17,10 @@ test.d64: $(TESTS) $(TEST_INCS) $(TEST_TXTS)
 
 # run the assembler with the test disk image
 test: test.d64
-	xvic +warp -cartfe fe3vice.bin -memory all -ntsc -drive10type 1541 -truedrive -10 test.d64 -autostart monster.prg 
+	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1541 -truedrive -10 test.d64 -autostart monster.prg 
 
 start: monster.prg
-	xvic +warp -cartfe fe3vice.bin -memory all -ntsc -drive10type 1541 -10 test.d64 -autostart monster.prg 
+	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1541 -10 test.d64 -autostart monster.prg 
 	#xvic +warp -memory all -ntsc -drive9type 1541 -truedrive -9 test.d64 -autostart monster.prg 
 clean:
 	rm monster.prg

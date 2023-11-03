@@ -6,13 +6,17 @@
 .include "strings.inc"
 .include "zeropage.inc"
 
+;******************************************************************************
+; CONSTANTS
+MAX_MACROS = 128
+
 .BSS
 
 ;******************************************************************************
 .export macro_addresses
 .export macros
 nummacros:       .byte 0
-macro_addresses: .res 256
+macro_addresses: .res MAX_MACROS * 2
 macros:          .res 512
 
 ;******************************************************************************

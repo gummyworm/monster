@@ -9,17 +9,13 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-.ifdef USE_FINAL
-	.import __BANKCODE_LOAD__
-	.import __BANKCODE_SIZE__
-	MAX_SOURCES=8
-.else
-	MAX_SOURCES=1
-.endif
+.import __BANKCODE_LOAD__
+.import __BANKCODE_SIZE__
+MAX_SOURCES=8
 
 ;******************************************************************************
 ; CONSTANTS
-GAPSIZE = 20		; size of gap in gap buffer
+GAPSIZE = $100		; size of gap in gap buffer
 POS_STACK_SIZE = 32 	; size of source position stack
 MAX_BUFFER_NAME_LEN=16  ; max name for each buffer
 
@@ -64,23 +60,18 @@ numsrcs:    .byte 0		; number of buffers
 .export __src_activebuff
 __src_activebuff:
 activesrc:  .byte 0		; index of active buffer (also bank offset)
-.ifdef USE_FINAL
+
 bank:	    .byte 0
 buffs_curx: .res MAX_SOURCES	; cursor X positions for each inactive buffer
 buffs_cury: .res MAX_SOURCES	; cursor Y positions for each inactive buffer
-.endif
+
 flags:	.res MAX_SOURCES	; flags for each source buffer
 banks:  .res MAX_SOURCES	; the corresponding bank for each buffer
 ;******************************************************************************
 
 ;******************************************************************************
 ; DATA
-.ifndef USE_FINAL
-data:
-.res 1024*4
-.else
 data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
-.endif
 
 .CODE
 ;******************************************************************************
@@ -245,8 +236,10 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 :	sta data_start-1,x
 	dex
 	bne :-
-	lda #GAPSIZE
+	lda #<GAPSIZE
 	sta len
+	lda #>GAPSIZE
+	sta len+1
 
 	; init line and lines to 1
 	inc line
@@ -295,7 +288,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 @names=zp::tmp0
 @cnt=zp::tmp2
 @len=zp::tmp3
-	jsr str::len
+	jsr str::len	; sets @name (str0) to .XY
 	sta @len
 
 	ldxy #names
@@ -657,15 +650,9 @@ __src_pos = __src_start	 ; start implements the same behavior
 	stx @src
 	sty @src+1
 
-.IFDEF USE_FINAL
 	bank_read_byte bank, @src
 	bank_store_byte bank, @dst
 	lda zp::bankval
-.ELSE
-	ldy #$00
-	lda (@src),y
-	sta (@dst),y
-.ENDIF
 
 	cmp #$0d
 	bne :+
@@ -747,15 +734,11 @@ __src_pos = __src_start	 ; start implements the same behavior
 
 	decw @src
 	decw @dst
-.IFDEF USE_FINAL
+
 	bank_read_byte bank, @src
 	bank_store_byte bank, @dst
 	lda zp::bankval
-.ELSE
-	ldy #$00
-	lda (@src),y
-	sta (@dst),y
-.ENDIF
+
 	cmp #$0d
 	bne :+
 	decw line
@@ -830,40 +813,34 @@ __src_pos = __src_start	 ; start implements the same behavior
 	bne @ins	; no, insert as usual
 
 	; gap is closed, create a new one
-	; copy data[poststart] to data[poststart + len]
+	; copy data[poststart] to data[poststart + GAPSIZE]
 	jsr poststart
 	stxy @src
-	add16 len
-	stxy @dst
+	stx @dst
+	iny
+	sty @dst+1
 
-.IFDEF USE_FINAL
-	ldxy len
+	ldxy post
 	lda bank
 	jsr fe3::copy
-.ELSE
-	copy @dst, @src, len
-.ENDIF
 
-	; double size of buffer (new gap size is the size of the old buffer)
-	asl len
-	rol len+1
+	inc len+1	; increase size by $100
 
 @ins:	jsr cursor
-	stxy @dst
 	pla
-.IFDEF USE_FINAL
+	cpy #$80
+	bcs @done	; out of range
+	stxy @dst
+
 	bank_store_byte bank, @dst
 	lda zp::bankval
-.ELSE
-	ldy #$00
-	sta (@dst),y
-.ENDIF
+
 	cmp #$0d
 	bne :+
 	incw line
 	incw lines
 :	incw pre
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -914,15 +891,8 @@ __src_atcursor:
 .proc atcursor
 	jsr cursor
 	sub16 #1
-.IFDEF USE_FINAL
 	lda bank
-	jsr fe3::load
-.ELSE
-	stxy zp::tmp0
-	ldy #$00
-	lda (zp::tmp0),y
-.ENDIF
-	rts
+	jmp fe3::load
 .endproc
 
 ;******************************************************************************
@@ -968,16 +938,6 @@ __src_atcursor:
 .endproc
 
 ;******************************************************************************
-; READB
-; Reads one byte at the cursor positon and advances the cursor
-; OUT:
-;  - .A: the byte that was read
-.export __src_readb
-.proc __src_readb
-	jmp __src_next
-.endproc
-
-;******************************************************************************
 ; READLINE
 ; Reads one line at the cursor positon and advances the cursor
 ; OUT:
@@ -994,7 +954,7 @@ __src_atcursor:
 	jsr __src_end
 	beq @eofdone
 
-@l0:	jsr __src_readb
+@l0:	jsr __src_next
 	ldx @cnt
 	cmp #$0d
 	bne :+
@@ -1021,7 +981,7 @@ __src_atcursor:
 ; GOTO
 ; Goes to the source position given
 ; IN:
-;  - .XY: the line to go to
+;  - .XY: the source position to go to (see src::pos, src::pushp, src::popp)
 .export __src_goto
 .proc __src_goto
 @dest=zp::tmp4
@@ -1060,7 +1020,7 @@ __src_atcursor:
 	jsr gaplen
 	add16 pre
 	add16 #data
-	stxy @src
+	stxy zp::bankaddr0
 
 	jsr __src_end
 	bne :+
@@ -1069,40 +1029,26 @@ __src_atcursor:
 	sec
 	rts
 
-:	stxy @cnt
-	incw @cnt
+:	ldxy #mem::linebuffer
+	stxy zp::bankaddr1
 
-	ldy #$00
-@l0:
-.IFDEF USE_FINAL
-	sty zp::bankval
-	ldxy @src
-	lda bank
-	jsr fe3::load_off
-	ldy zp::bankval
-	cmp #$00
-.ELSE
-	lda (@src),y
-.ENDIF
-	beq @done
-	cmp #$0d
-	beq @done
-	sta mem::linebuffer,y
-	decw @cnt
-	lda @cnt+1
+	ldxy line
+	cmpw lines		; on last line already?
 	bne :+
-	lda @cnt
-	beq @done
-:	iny
-	cpy #79
-	bcc @l0
+	ldy post		; bytes to copy
+	dey
+	lda bank
+	jsr fe3::fcopy
+	jmp @done
 
-@eof:	sec
-	skb
-@done:	clc
-	lda #$00
+:	ldxy #mem::linebuffer
+	stxy zp::bankaddr1
+	lda bank
+	jsr fe3::copyline
+
+@done:	lda #$00
 	sta mem::linebuffer,y
-	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -1147,6 +1093,10 @@ __src_atcursor:
 .endproc
 
 ;******************************************************************************
+; MARK DIRTY
+; Marks the given buffer as "dirty" by setting its appropriate flag.
+; IN:
+;  - .A: the buffer ID to flag as DIRTY
 .proc mark_dirty
 	lda #FLAG_DIRTY
 	ldx activesrc

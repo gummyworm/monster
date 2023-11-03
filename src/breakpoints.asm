@@ -236,44 +236,9 @@ row:	.byte 0
 ; IN:
 ;  - .A: the breakpoint to toggle active/inactive
 .proc toggle_breakpoint
-@row=zp::tmp0
-@id=zp::tmp1
-	sta @id
-
 	tax
 	lda dbg::breakpoint_flags,x
 	eor #BREAKPOINT_ENABLED
 	sta dbg::breakpoint_flags,x
-
-	; get the line # of the breakpoint
-	txa
-	asl
-	tax
-	ldy dbg::breakpoints+1,x
-	lda dbg::breakpoints,x
-	tax
-	jsr dbg::addr2line
-	bcs @done		; no line #
-	cmp dbg::file		; same file?
-	bne @done		; no, can't be visible
-
-	jsr edit::src2screen
-	sta @row
-	bcs @done		; breakpoint not visible on screen
-
-	; replace the breakpoint character on screen with a "breakpoint off" char
-	ldx @id
-	lda #TEXT_REPLACE
-	sta text::insertmode
-
-	lda dbg::breakpoint_flags,x
-	and #BREAKPOINT_ENABLED
-	beq :+
-	lda #BREAKPOINT_CHAR
-	.byte $2c
-:	lda #BREAKPOINT_OFF_CHAR
-	ldx #$00
-	ldy @row
-	jsr text::plot
-@done:	rts
+	rts
 .endproc
