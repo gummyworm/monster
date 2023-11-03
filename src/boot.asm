@@ -133,6 +133,7 @@ start:
 
 	lda #$80
 	sta $028a	; repeat all characters
+	sta $0291	; don't swap charset on C= + SHIFT
 
 	jmp enter
 

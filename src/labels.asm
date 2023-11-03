@@ -159,7 +159,6 @@ label_addresses = $a000
 	jsr util::isseparator
 	beq @chkend
 
-.ifdef USE_FINAL
 	sty @offset
 	sta @ch
 	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @search, @offset
@@ -167,9 +166,6 @@ label_addresses = $a000
 	lda @ch		; TODO: could clean this up
 	ldy @offset
 	cmp @ch2
-.else
-	cmp (@search),y
-.endif
 
 	beq @chmatch
 	bcc @notfound	; labels are alphabetical, if our label is not alphabetically greater, we're done
@@ -181,14 +177,10 @@ label_addresses = $a000
 	bcs @found
 	bcc @l0
 @chkend:
-.ifdef USE_FINAL
 	sty @offset
 	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @search, @offset
 	ldy @offset
 	cmp #$00
-.else
-	lda (@search),y
-.endif
 	beq @found
 
 @next:	lda @search
@@ -746,14 +738,10 @@ label_addresses = $a000
 
 	ldy #$00
 @l0:
-.ifdef USE_FINAL
 	sty @offset
 	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @src, @offset
 	ldy @offset
 	cmp #$00
-.else
-	lda (@src),y
-.endif
 	sta (@dst),y
 	beq @done
 	iny

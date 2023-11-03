@@ -24,8 +24,6 @@
 .import __final_rti_bank
 .import __final_bank_store_rel
 
-USE_FINAL = 1	; enable final expansion
-
 ;******************************************************************************
 ; BANK LAYOUT
 ; These definitions describe which banks store the code/data for their
@@ -77,8 +75,7 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 	buffd   = 15
 .endscope
 
-;--------------------------------------
-; Routines
+;******************************************************************************
 .scope fe3
 	call     = __final_call
 	fcopy    = __final_copy
@@ -94,7 +91,7 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 	rti_bank = __final_rti_bank
 .endscope
 
-;--------------------------------------
+;******************************************************************************
 ; Macros
 .macro bank_store_byte bank, addr, val
 .ifnblank val

@@ -39,7 +39,6 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
 ; switches back to the main RAM bank and dispatches to this vector.
 .export __irq_brk
 .proc __irq_brk
-.ifdef USE_FINAL
 	stx $0334
 	sty $0335
 	lda #<fe3::break
@@ -48,10 +47,6 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
 	lda #>fe3::break
 	sta $0317
 	sta $0319
-.else
-	stx $0316
-	sty $0317
-.endif
 	rts
 .endproc
 
