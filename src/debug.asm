@@ -260,9 +260,6 @@ segaddresses: .res MAX_SEGMENTS * 2
 .export debuginfo
 debuginfo = __BANKCODE_LOAD__+__BANKCODE_SIZE__	; start after shared bank code
 
-; backup address (in bank FINAL_BANK_DEBUG)
-debug_backup = $a000
-
 ;******************************************************************************
 ; WATCHES
 ;******************************************************************************

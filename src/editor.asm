@@ -1773,7 +1773,7 @@ goto_buffer:
 	jsr src::save
 	pla
 	jsr src::setbuff
-	bcs @done
+	bcs @done		; if we can't set the buffer, exit
 	jmp refresh
 @done:	rts
 
@@ -1789,17 +1789,12 @@ goto_buffer:
 
 @l0:	ldy #$00
 	lda @cnt
+
+	; push the filename
 	jsr src::filename
 	tya
 	pha
 	txa
-	pha
-
-@id:	lda @cnt
-	clc
-	adc #$01	; display buffer ID as 1-based
-	pha
-	lda #$00
 	pha
 
 	; display a '*' before filename if the buffer is dirty
@@ -1809,8 +1804,15 @@ goto_buffer:
 	and #FLAG_DIRTY
 	beq :+
 	ldx #'*'
-:	stx @dirty_marker
+:	txa
+	pha
 
+@id:	lda @cnt
+	clc
+	adc #$01	; display buffer ID as 1-based
+	pha
+
+	; print the buffer name at its corresponding row
 	lda @cnt
 	ldxy #@buffer_line
 	jsr text::print
@@ -1836,9 +1838,7 @@ goto_buffer:
 @done:	jmp bm::restore
 
 @noname:       .byte "[no name]",0
-@buffer_line:  .byte ESCAPE_VALUE_DEC," :"
-@dirty_marker: .byte " "
-	       .byte ESCAPE_STRING,0
+@buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
 .endproc
 
 ;******************************************************************************

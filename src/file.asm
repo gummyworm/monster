@@ -19,8 +19,7 @@ files        = $259	; KERNAL open file table
 file_devices = $261	; KERNAL device ID table
 kernal_sas   = $26d	; KERNAL secondary address table
 
-isbin        = zp::tmp17	; flag for binary save/load
-				; to memory
+isbin        = zp::tmp17	; flag for binary save/load  to memory
 
 ; The address to load from during a binary LOAD
 .export __file_load_address
