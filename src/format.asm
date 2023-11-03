@@ -81,20 +81,12 @@
 	dex
 	bpl @l0
 
-	lda #' '
-:	sta mem::linebuffer,x
-	inx
-	cpx #INDENT_LEVEL-1
-	bne :-
+	lda #$18
+	sta mem::linebuffer
 
 	; indent the linebuffer and source
-	lda #INDENT_LEVEL-2
-	sta @cnt
-	lda #' '
-@l1:	jsr src::insert
-	dec @cnt
-	bpl @l1
-	rts
+	lda #$18
+	jmp src::insert
 .endproc
 
 ;******************************************************************************
@@ -135,5 +127,6 @@
 	and #ASM_COMMENT 	; if comment, don't format at all
 	bne @done
 @ident: jsr __fmt_opcode 	; anything else- indent
+	jsr src::down
 @done:  rts
 .endproc

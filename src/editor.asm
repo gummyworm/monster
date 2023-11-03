@@ -2487,7 +2487,7 @@ goto_buffer:
 	jsr src::atcursor
 	sta @ch
 
-	ldx zp::curx
+	jsr text::char_index
 	stx @xend
 
 	lda mode
@@ -2573,8 +2573,7 @@ goto_buffer:
 	beq @rvs
 	cpx @xend
 	beq @rvs
-	jsr cur::left
-	jsr src::prev
+	jsr ccleft
 	bcc @movex
 
 @rvs:	jsr ccup_highlight	; handle highlight for the new row
@@ -2677,6 +2676,7 @@ goto_buffer:
 ;  - .C: set if cursor could not be moved
 .proc ccleft
 @deselect=zp::tmp2
+@tabcnt=zp::tmp3
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne :+
@@ -2709,18 +2709,31 @@ goto_buffer:
 	jsr cur::toggle		; turn off (deselect) old cursor position
 
 @movecur:
-	jsr cur::left
+	jsr src::atcursor
+	pha
+	jsr src::prev
+	pla
+	cmp #$18		; TAB?
+	bne @curl
 
+	; handle TAB (repeat the MOVE LEFT logic TAB_WIDTH times)
+	lda #TAB_WIDTH
+	sta @tabcnt
+:	jsr @curl
+	dec @tabcnt
+	bne :-
+	rts
+
+@curl:  jsr cur::left
 	lda mode
 	cmp #MODE_VISUAL
 	bne :+
 	lda @deselect
 	bne :+
 	jsr cur::toggle
-
-:	jsr src::prev
-	clc
+:	clc
 	rts
+
 @nomove:
 	sec
 	rts
@@ -2836,7 +2849,7 @@ goto_buffer:
 	rol
 	sta @selecting
 
-:	lda zp::curx
+:	jsr text::char_index
 	sta @xend
 
 	; if we are in VISUAL mode, highlight to the end of the line
@@ -2893,11 +2906,10 @@ goto_buffer:
 
 @movex:	lda @xend
 	beq @rvs
-@xloop:	jsr src::right
-	bcs @rvs
-	inc zp::curx
-	lda zp::curx
+@xloop:	lda zp::curx
 	cmp @xend
+	bcs @rvs
+	jsr ccright
 	bcc @xloop
 
 @rvs:	jsr ccdown_highlight

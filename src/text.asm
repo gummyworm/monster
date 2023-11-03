@@ -447,6 +447,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 @clrmask=zp::text+6
 @char=zp::text+7
 @len=zp::text+7
+@dx=zp::text+8
+@curi=zp::text+9
 	cmp #$14
 	bne @printing
 
@@ -456,19 +458,34 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	cmp cur::minx
 	bcc @err	; cursor is limited
 	beq @err
+
+	; get the amount to move the cursor (1 if not tab)
+	jsr __text_char_index
+	sty @curi
+	ldx mem::linebuffer-1,y
+	lda #$ff
+	cpx #$18		; TAB?
+	bne :+
+	lda #(TAB_WIDTH^$ff)+1	; (2's complement)
+:	pha
+
 	lda __text_insertmode
 	beq @moveback	; if REPLACE, just move cursor
+
 @shift_left:
 	jsr __text_linelen
 	lda #$00
 	sta mem::linebuffer,x
 	txa
 	tay
-	ldx zp::curx
+	ldx @curi
 	dex
 	jsr linebuff::shl
 @moveback:
-	dec zp::curx
+	pla
+	clc
+	adc zp::curx
+	sta zp::curx
 	clc		; "put" was successful
 	rts
 @err:	sec		; couldn't perform action
@@ -781,6 +798,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ; Returns the character index of the current cursor position
 ; OUT:
 ;  X: the x column position of the cursor
+;  Y: the character index of the cursor
 .export __text_char_index
 .proc __text_char_index
 	ldx #$ff
