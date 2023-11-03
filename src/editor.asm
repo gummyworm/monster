@@ -2323,6 +2323,7 @@ goto_buffer:
 	cmp #ASM_COMMENT	; if this is a comment, don't indent
 	beq @nextline
 	jsr fmt::line
+	jmp *
 
 	ldx #$01		; default to indent ON
 

@@ -77,7 +77,7 @@
 @cnt=zp::tmp8
 	ldx #39-INDENT_LEVEL-1
 @l0:	lda mem::linebuffer,x
-	sta mem::linebuffer+INDENT_LEVEL-1,x
+	sta mem::linebuffer+1,x
 	dex
 	bpl @l0
 
@@ -119,7 +119,7 @@
 @left_aligned:
 	lda @linecontent 	; get the type of line we're formatting
 	beq @done		; if ASM_NONE, don't format
-	and #ASM_LABEL		; if formatting includes labe, do __fmt_label
+	and #ASM_LABEL		; if formatting includes label, do __fmt_label
 	beq @notlabel
 	jmp __fmt_label
 @notlabel:
