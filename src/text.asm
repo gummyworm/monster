@@ -502,18 +502,21 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 
 @slowput:
 @shift_right:
+	jsr __text_char_index
+	sty @curi
 	; insert a new char and redraw the line
 	jsr __text_linelen
 	stx @len
-	jsr __text_char_index
-	cpx @len
+	ldy @curi
+	cpy @len
 	beq @fastputi
-	sta mem::linebuffer+2,x
-@shr:	lda mem::linebuffer,x
-	sta mem::linebuffer+1,x
-	cpx zp::curx
+	lda #$00
+	sta mem::linebuffer+2,y
+@shr:	lda mem::linebuffer,y
+	sta mem::linebuffer+1,y
+	cpy @curi
 	beq :+
-	dex
+	dey
 	bpl @shr
 
 :	; shift the bitmap (if buffering is disabled)
@@ -544,7 +547,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sta zp::curx
 	lda zp::cury
 	inc zp::curi
-	jmp __text_drawline	; rerender whole line
+	jmp __text_drawline	; re-render whole line
 
 :	sta @char
 	ldx __text_buffer
