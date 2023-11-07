@@ -2337,17 +2337,17 @@ goto_buffer:
 	jsr text::clrline
 	jsr src::get
 
+	; indent the new line
+	lda @indent
+	beq @indentdone				; skip indent if curx == 0
+	lda format
+	beq @indentdone
 	lda #$18		; TAB
 	jsr src::insert
 	jmp text::putch
-
-@done:	lda zp::curx
-	beq @ret
-:	jsr src::prev
-	jsr cur::left
-	lda zp::curx
-	bne :-
-@ret:	rts
+@indentdone:
+	lda zp::cury
+	jmp text::drawline
 
 @err:	jsr report_typein_error
 	jmp @nextline
@@ -2724,7 +2724,7 @@ goto_buffer:
 	bne :-
 	rts
 
-@curl:  jsr cur::left
+@curl:  dec zp::curx
 	lda mode
 	cmp #MODE_VISUAL
 	bne :+
@@ -2733,7 +2733,6 @@ goto_buffer:
 	jsr cur::toggle
 :	clc
 	rts
-
 @nomove:
 	sec
 	rts
@@ -2803,7 +2802,7 @@ goto_buffer:
 	jsr cur::toggle
 
 @movecur:
-	jsr cur::right
+	inc zp::curx
 	lda mode
 	cmp #MODE_VISUAL
 	bne :+
@@ -3034,13 +3033,13 @@ goto_buffer:
 	cmp #$0d
 	beq @done
 
-	jsr text::rendered_line_len
+	jsr text::linelen
 	stx @line2len
 
 	; get the new cursor position ( new_line_len - (old_line2_len))
 	jsr src::up
 	jsr src::get
-	jsr text::rendered_line_len
+	jsr text::linelen
 	txa
 	sec
 	sbc @line2len
@@ -3049,7 +3048,7 @@ goto_buffer:
 	dec @cnt
 	bmi @done
 @endofline:
-	inc zp::curx
+	jsr cur::right
 	jsr src::next
 	dec @cnt
 	bpl @endofline

@@ -170,8 +170,7 @@ __cur_toggle:
 	bcs @done
 
 	jsr text::char_index
-	dex
-	lda mem::linebuffer,x
+	lda mem::linebuffer,y
 	cmp #$18		; TAB
 	bne :+
 	lda zp::curx
@@ -190,8 +189,7 @@ __cur_toggle:
 	lda zp::curx
 	beq @done
 	jsr text::char_index
-	dex
-	lda mem::linebuffer,x
+	lda mem::linebuffer,y
 	cmp #$18		; TAB
 	bne :+
 	lda zp::curx

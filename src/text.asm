@@ -514,19 +514,18 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sta mem::linebuffer+2,y
 @shr:	lda mem::linebuffer,y
 	sta mem::linebuffer+1,y
-	cpy @curi
-	beq :+
-	dey
-	bpl @shr
+	iny
+	cpy @len
+	bcc @shr
 
-:	; shift the bitmap (if buffering is disabled)
+	; shift the bitmap (if buffering is disabled)
 	lda __text_buffer
 	bne :+
-	ldy @len
+	ldy zp::curx
 	lda zp::cury
 	jsr bm::shr
 
-:	jsr __text_linelen
+:	ldx @curi
 	jmp @cont
 
 @fastputi:

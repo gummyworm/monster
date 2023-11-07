@@ -1039,6 +1039,7 @@ __src_atcursor:
 	dey
 	lda bank
 	jsr fe3::fcopy
+	ldy post
 	jmp @done
 
 :	ldxy #mem::linebuffer
