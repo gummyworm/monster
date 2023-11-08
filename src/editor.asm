@@ -308,7 +308,7 @@ main:	jsr key::getch
 
 ; copy the instruction to the source buffer
 @copyi:
-	lda #$18		; TAB
+	lda #$09		; TAB
 	jsr src::insert
 
 	ldx #$00
@@ -2345,7 +2345,7 @@ goto_buffer:
 	beq @indentdone				; skip indent if curx == 0
 	lda format
 	beq @indentdone
-	lda #$18		; TAB
+	lda #$09		; TAB
 	jsr src::insert
 	jmp text::putch
 @indentdone:
@@ -2717,7 +2717,7 @@ goto_buffer:
 	pha
 	jsr src::prev
 	pla
-	cmp #$18		; TAB?
+	cmp #$09		; TAB?
 	bne @curl
 
 	; handle TAB (repeat the MOVE LEFT logic TAB_WIDTH times)
@@ -2773,7 +2773,7 @@ goto_buffer:
 	rts
 
 @ok:	; turn off the old cursor if we're unhighlighting
-	cmp #$18		; did we move over a TAB?
+	cmp #$09		; did we move over a TAB?
 	bne @curr
 
 	; handle TAB (repeat the MOVE RIGHT logic TAB_WIDTH times)

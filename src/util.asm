@@ -467,7 +467,7 @@ result=mem::spare
 .proc __util_is_whitespace
 	cmp #$0d	; newline
 	beq :+
-	cmp #$18	; TAB
+	cmp #$09	; TAB
 	beq :+
 	cmp #' '
 :	rts

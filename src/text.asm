@@ -226,7 +226,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bne :+
 	jmp @disp
 
-:	cmp #$18		; TAB
+:	cmp #$09		; TAB
 	bne :+
 
 	sty @savey
@@ -464,7 +464,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sty @curi
 	ldx mem::linebuffer-1,y
 	lda #$ff
-	cpx #$18		; TAB?
+	cpx #$09		; TAB?
 	bne :+
 	lda #(TAB_WIDTH^$ff)+1	; (2's complement)
 :	pha
@@ -538,7 +538,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bne :+
 	rts			; terminating 0, we're done
 
-:	cmp #$18		; TAB
+:	cmp #$09		; TAB
 	bne :+
 @tab:	lda zp::curx
 	clc
@@ -785,7 +785,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	inx
 	lda mem::linebuffer,y
 	beq @done
-	cmp #$18
+	cmp #$09
 	bne :+
 	txa
 	adc #TAB_WIDTH-2	; -2 because .C is set and we've already INX'd
@@ -809,7 +809,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	inx
 	lda mem::linebuffer,y
 	beq @done
-	cmp #$18
+	cmp #$09
 	bne :+
 	txa
 	adc #TAB_WIDTH-2

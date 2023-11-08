@@ -171,7 +171,7 @@ __cur_toggle:
 
 	jsr text::char_index
 	lda mem::linebuffer,y
-	cmp #$18		; TAB
+	cmp #$09		; TAB
 	bne :+
 	lda zp::curx
 	adc #TAB_WIDTH-2	; .C is set
@@ -190,7 +190,7 @@ __cur_toggle:
 	beq @done
 	jsr text::char_index
 	lda mem::linebuffer,y
-	cmp #$18		; TAB
+	cmp #$09		; TAB
 	bne :+
 	lda zp::curx
 	sbc #TAB_WIDTH-1

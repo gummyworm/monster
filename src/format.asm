@@ -81,11 +81,11 @@
 	dex
 	bpl @l0
 
-	lda #$18
+	lda #$09
 	sta mem::linebuffer
 
 	; indent the linebuffer and source
-	lda #$18
+	lda #$09
 	jmp src::insert
 .endproc
 
@@ -108,7 +108,7 @@
 	lda mem::linebuffer
 	cmp #' '
 	beq @del
-	cmp #$18
+	cmp #$09
 	bne @left_aligned
 @del:	jsr src::delete
 	ldx #$00

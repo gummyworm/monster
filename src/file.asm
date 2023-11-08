@@ -168,11 +168,8 @@ __file_load_src:
 	ldy isbin     ; skip conversions for binary LOAD
 	bne @put
 	cmp #$0a      ; convert LF to CR
-	bne :+
-	lda #$0d
-:	cmp #$09	; convert TAB to space
 	bne @put
-	lda #' '
+	lda #$0d
 @put:	jsr putb	; write the byte to source/memory
 	jmp @l0		; and continue
 
