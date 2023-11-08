@@ -896,7 +896,7 @@ __src_atcursor:
 .endproc
 
 ;******************************************************************************
-; ATCURSOR
+; AFTER CURSOR
 ; Returns the character AFTER the cursor position.
 ; OUT:
 ;  - .A: the character after the current cursor position

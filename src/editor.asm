@@ -308,6 +308,9 @@ main:	jsr key::getch
 
 ; copy the instruction to the source buffer
 @copyi:
+	lda #$18		; TAB
+	jsr src::insert
+
 	ldx #$00
 	stx @cnt
 @l1:	ldx @cnt
@@ -2573,6 +2576,7 @@ goto_buffer:
 	beq @rvs
 	cpx @xend
 	beq @rvs
+	bcc @rvs
 	jsr ccleft
 	bcc @movex
 
@@ -2676,7 +2680,7 @@ goto_buffer:
 ;  - .C: set if cursor could not be moved
 .proc ccleft
 @deselect=zp::tmp2
-@tabcnt=zp::tmp3
+@tabcnt=zp::tmp4
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne :+
@@ -2745,7 +2749,7 @@ goto_buffer:
 ;  - .C: set if cursor could not be moved
 .proc ccright
 @deselect=zp::tmp0
-@tabcnt=zp::tmp1
+@tabcnt=zp::tmp4
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne :+
@@ -2755,7 +2759,10 @@ goto_buffer:
 	cmp #TEXT_INSERT
 	beq @ins
 
-@rep:	jsr src::right_rep
+@rep:	jsr src::after_cursor
+	pha
+	jsr src::right_rep
+	pla
 	bcc @ok
 	sec
 	rts
@@ -2777,8 +2784,7 @@ goto_buffer:
 	bne :-
 	rts
 
-@curr:
-	lda #$00
+@curr:	lda #$00
 	sta @deselect
 
 	lda mode
@@ -2849,7 +2855,7 @@ goto_buffer:
 	sta @selecting
 
 :	jsr text::char_index
-	sta @xend
+	sty @xend
 
 	; if we are in VISUAL mode, highlight to the end of the line
 	lda mode
@@ -2905,11 +2911,9 @@ goto_buffer:
 
 @movex:	lda @xend
 	beq @rvs
-@xloop:	lda zp::curx
-	cmp @xend
-	bcs @rvs
-	jsr ccright
-	bcc @xloop
+@xloop:	jsr ccright
+	dec @xend
+	bne @xloop
 
 @rvs:	jsr ccdown_highlight
 @done:	RETURN_OK
