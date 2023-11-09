@@ -460,6 +460,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	beq @err
 
 	; get the amount to move the cursor (1 if not tab)
+	jmp *
 	jsr __text_char_index
 	sty @curi
 	ldx mem::linebuffer-1,y
@@ -481,6 +482,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	ldx @curi
 	dex
 	jsr linebuff::shl
+	jmp *
 @moveback:
 	pla
 	clc
@@ -506,19 +508,18 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sty @curi
 	; insert a new char and redraw the line
 	jsr __text_linelen
-	stx @len
-	ldy @curi
-	cpy @len
+	cpx @curi
 	beq @fastputi
 	lda #$00
-	sta mem::linebuffer+2,y
-@shr:	lda mem::linebuffer,y
-	sta mem::linebuffer+1,y
-	iny
-	cpy @len
-	bcc @shr
+	sta mem::linebuffer+2,x
+@shr:	lda mem::linebuffer,x
+	sta mem::linebuffer+1,x
+	dex
+	cpx @curi
+	bmi :+
+	bcs @shr
 
-	; shift the bitmap (if buffering is disabled)
+:	; shift the bitmap (if buffering is disabled)
 	lda __text_buffer
 	bne :+
 	ldy zp::curx
