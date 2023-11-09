@@ -683,7 +683,6 @@ __asm_tokenize:
 	jsr process_ws
 
 ; check for comment or garbage
-@comment:
 	jsr islineterminator
 	beq @done
 	RETURN_ERR ERR_UNEXPECTED_CHAR
@@ -1066,8 +1065,7 @@ __asm_tokenize:
 	iny
 	bne @l1
 
-@next:
-	cpx #directives_len
+@next:	cpx #directives_len
 	bcc @ok
 	RETURN_ERR ERR_INVALID_DIRECTIVE
 @ok:	inc @cnt
@@ -1083,7 +1081,7 @@ __asm_tokenize:
 @found: ; make sure there are no trailing characters
 	lda (zp::line),y
 	beq :+
-	cmp #' '
+	jsr util::is_whitespace
 	bne @next
 
 :	tya
@@ -1265,7 +1263,7 @@ __asm_tokenize:
 	incw zp::line
 	cmp #','
 	beq definebyte
-	cmp #' '
+	jsr util::is_whitespace
 	beq @commaorws
 	; unexpected character
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
@@ -1302,7 +1300,7 @@ __asm_tokenize:
 	incw zp::line
 	cmp #','
 	beq defineword
-	cmp #' '
+	jsr util::is_whitespace
 	beq @commaorws
 	; unexpected character
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
@@ -1689,7 +1687,7 @@ __asm_include:
 
 ;******************************************************************************
 ; PROCESS_WORD
-; Reads (line) and updates it to point past non whitespace chars.
+; Reads (line) and updates it to point to the next whitespace character
 ; OUT:
 ;  - .A: contains the last character processed
 ;  - .Z: set if we're at the end of the line ($00)
@@ -1697,7 +1695,7 @@ __asm_include:
 	ldy #$00
 	lda (zp::line),y
 	beq @done
-	cmp #' '
+	jsr util::is_whitespace
 	beq @done
 	incw zp::line
 	jmp process_word
@@ -2112,7 +2110,7 @@ __asm_include:
 @l1:	lda (zp::line),y
 	beq @done
 	iny
-	cmp #' '
+	jsr util::is_whitespace
 	bne @l1
 
 	stx @cnt
@@ -2137,7 +2135,7 @@ __asm_include:
 	incw zp::line
 	cmp #','
 	beq @l0
-	cmp #' '
+	jsr util::is_whitespace
 	beq @nextparam
 	RETURN_ERR ERR_INVALID_MACRO_ARGS
 

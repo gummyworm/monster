@@ -42,7 +42,7 @@ MAX_OPERANDS  = $10/2
 
 @l0:	ldy #$00
 	lda (zp::line),y
-	cmp #' '		; eat whitespace
+	jsr util::is_whitespace	; eat whitespace
 	bne :+
 	incw zp::line
 	jmp @l0
