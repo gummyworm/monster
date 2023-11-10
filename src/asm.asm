@@ -449,7 +449,6 @@ __asm_tokenize:
 	sta resulttype
 	RETURN_OK
 
-
 ; assembly entrypoint for successive single-line assembly
 ; if a label is found, for example, we will reenter here after adding the label
 ; to assemble any opcode, directive, etc. that may still be in the line
@@ -507,7 +506,7 @@ __asm_tokenize:
 	lda #ASM_MACRO
 	sta resulttype
 	clc
-:	rts
+@ret0:	rts
 
 ; check if the line is a label definition
 @label: ldxy zp::line
@@ -519,13 +518,19 @@ __asm_tokenize:
 	sta zp::label_value
 	lda zp::virtualpc+1
 	sta zp::label_value+1
+	lda zp::pass
+	cmp #$01
+	bne @label_done		; if not pass 1, don't add the label
 	jsr lbl::add
+	bcs @ret0
 	ldxy zp::line
 	jsr lbl::islocal
-	bne :+
+	bne @label_done
 	ldxy zp::line
 	jsr lbl::setscope	; set the non-local label as the new scope
-:	jsr process_word	; read past the label name
+
+@label_done:
+	jsr process_word	; read past the label name
 	ldxy zp::line
 	jsr @assemble		; assemble the rest of the line
 	bcs @ret		; return error
@@ -631,21 +636,21 @@ __asm_tokenize:
 
 	jsr nextch		; eat any WS and get next char
 	cmp #'x'		; is it an .X?
-	beq :+			; if so, continue
-	RETURN_ERR ERR_UNEXPECTED_CHAR
+	bne @unexpected_char
 
-:	jsr nextch		; get next char after ",X"
+	jsr nextch		; get next char after ",X"
 	inc indexed		; inc once to flag X-indexed
 	cmp #')'
 	beq @finishline		; if ')', continue
+
+@unexpected_char:
 	RETURN_ERR ERR_UNEXPECTED_CHAR
 
 ; look for a plain ')' (indirect addressing) or '),y'  (indirect y-indexed)
 @rparen_noprex:
 	incw zp::line
 	cmp #')'
-	beq @index
-	RETURN_ERR ERR_UNEXPECTED_CHAR
+	bne @unexpected_char
 
 @index:
 	ldy #$00

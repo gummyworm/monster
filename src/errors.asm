@@ -130,17 +130,13 @@ err_drive_did_not_respond:
 err_unnamed_buffer:
 	;.byte "unnamed buffer",0
 	.byte $ab,$8e,$b,$45,$26,$c2,$a9,$86,$2c,$80
+
 err_no_open_scope:
 	; .byte "no open scope",0
 	.byte $73,$db,$7c,$5,$76,$d3,$1b,$d0,$28,$0
 
-err_no_sections:
-	; .byte "no sections",0
-	.byte $73,$db,$99,$43,$a2,$4f,$74,$c0
-
-err_section_too_small:
-	; .byte "section too small",0
-	.byte $99,$43,$a2,$4f,$76,$d4,$7b,$db,$9b,$41,$63,$0
+err_label_already_defined:
+	.byte $60,$42,$2b,$1b,$b,$12,$28,$44,$ce,$c4,$29,$89,$71,$44,$0
 
 ;******************************************************************************
 .linecont +
@@ -169,6 +165,7 @@ err_section_too_small:
 	err_overlapping_segments, \
 	err_max_files_exceeded, \
 	err_param_name_too_long, \
+	err_line_not_found, \
 	err_no_origin, \
 	err_branch_out_of_range, \
 	err_file_not_found, \
@@ -176,7 +173,9 @@ err_section_too_small:
 	err_too_many_open_files, \
 	err_logical_file_in_use, \
 	err_drive_did_not_respond, \
-	err_unnamed_buffer
+	err_unnamed_buffer, \
+	err_no_open_scope, \
+	err_label_already_defined
 .linecont -
 errorslo: .lobytes errors
 errorshi: .hibytes errors

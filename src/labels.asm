@@ -14,6 +14,10 @@ MAX_LOCALS    = 32
 MAX_LABEL_LEN = 16	; 8 bytes for namespace + 8 for label name
 SCOPE_LEN     = 8	; max len of namespace (scope)
 
+;******************************************************************************
+; ZEROPAGE
+allow_overwrite = zp::labels+4
+
 .BSS
 ;******************************************************************************
 .export __label_num
@@ -204,14 +208,45 @@ label_addresses = $a000
 .endproc
 
 ;******************************************************************************
-; ADD
-; Adds a label to the internal label state.
+; SET
+; Set adds the label, but doesn't produce an error if the label already exists
+; IN:
 ;  - .XY: the name of the label to add
 ;  - zp::label_value: the value to assign to the given label name
-; out:
+; OUT:
+;  - .C: set on error or clear if the label was successfully added
+.export __label_set
+.proc __label_set
+	lda #$01
+	sta allow_overwrite
+	bne addlabel
+.endproc
+
+;******************************************************************************
+; ADD
+; Adds a label to the internal label state.
+; IN:
+;  - .XY: the name of the label to add
+;  - zp::label_value: the value to assign to the given label name
+; OUT:
 ;  - .C: set on error or clear if the label was successfully added
 .export __label_add
 .proc __label_add
+	lda #$00
+	sta allow_overwrite
+	; fallthrough
+.endproc
+
+;******************************************************************************
+; ADDLABEL
+; Adds a label to the internal label state.
+; IN:
+;  - .XY:             the name of the label to add
+;  - zp::label_value: the value to assign to the given label name
+;  - allow_overwrite: if !0, will not error if label already exists
+; OUT:
+;  - .C: set on error or clear if the label was successfully added
+.proc addlabel
 @id=zp::tmp0
 @label=zp::tmp2
 @name=zp::tmp4
@@ -229,8 +264,12 @@ label_addresses = $a000
 	jsr __label_find
 	bcs @insert
 
-	; label exists, overwrite its old value
-	jsr __label_by_id ; get the address of the label
+	lda allow_overwrite
+	bne :+
+	RETURN_ERR ERR_LABEL_ALREADY_DEFINED
+
+:	; label exists, overwrite its old value
+	jsr __label_by_id 	; get the address of the label
 	lda zp::label_value
 
 	bank_store_byte #FINAL_BANK_SYMBOLS, @addr

@@ -433,7 +433,7 @@ main:	jsr key::getch
 
 	; end the last segment (if debug info generation enabled)
 	lda zp::gendebuginfo
-	beq :+
+	beq @pass2
 	ldxy zp::asmresult
 	jsr dbg::endseg
 
