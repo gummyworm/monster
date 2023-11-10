@@ -54,14 +54,14 @@
 	jsr src::insert
 	inc @curr
 	lda @curr
-	cmp #INDENT_LEVEL
+	cmp #INDENT_LEVEL+1
 	bcc @shr
 	bcs @cont
 
 @shl:	jsr src::backspace
 	dec @curr
 	lda @curr
-	cmp #INDENT_LEVEL+1
+	cmp #INDENT_LEVEL+2
 	bcs @shl
 
 @cont:	jsr src::up

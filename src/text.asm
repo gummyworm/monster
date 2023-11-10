@@ -460,7 +460,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	beq @err
 
 	; get the amount to move the cursor (1 if not tab)
-	jmp *
 	jsr __text_char_index
 	sty @curi
 	ldx mem::linebuffer-1,y
@@ -482,7 +481,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	ldx @curi
 	dex
 	jsr linebuff::shl
-	jmp *
 @moveback:
 	pla
 	clc
@@ -516,10 +514,11 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sta mem::linebuffer+1,x
 	dex
 	cpx @curi
-	bmi :+
-	bcs @shr
+	bmi @shr_bm		; if we've shifted all columns, continue
+	bcs @shr		; if more to shift, repeat
 
-:	; shift the bitmap (if buffering is disabled)
+@shr_bm:
+	; shift the bitmap (if buffering is disabled)
 	lda __text_buffer
 	bne :+
 	ldy zp::curx
