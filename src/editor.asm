@@ -2578,7 +2578,9 @@ goto_buffer:
 	beq ccup_highlight
 	jsr cur::left
 	jsr src::prev
-	bcc @movex
+	cmp #$0d
+	bne @movex
+	jsr src::next
 ; fall through to ccup_highlight
 .endproc
 
@@ -2680,10 +2682,10 @@ goto_buffer:
 @deselect=zp::tmp5
 	lda mode
 	cmp #MODE_VISUAL_LINE
-	bne :+
-	rts			; do nothing on LEFT if in VISUAL_LINE mode
+	beq @nomove		; do nothing on LEFT if in VISUAL_LINE mode
 
-:	lda zp::curx
+:	jsr text::char_index
+	cpy #$00
 	beq @nomove
 
 	lda mode
@@ -2735,7 +2737,6 @@ goto_buffer:
 	bne :+
 	jsr cur::toggle		; toggle cursor
 :	RETURN_OK
-	rts
 @nomove:
 	sec
 	rts
@@ -2751,10 +2752,9 @@ goto_buffer:
 @deselect=zp::tmp5
 	lda mode
 	cmp #MODE_VISUAL_LINE
-	bne :+
-	rts			; do nothing on RIGHT if in VISUAL_LINE mode
+	beq @done		; do nothing on RIGHT if in VISUAL_LINE mode
 
-:	lda text::insertmode
+	lda text::insertmode
 	cmp #TEXT_INSERT
 	beq @ins
 
@@ -2766,8 +2766,7 @@ goto_buffer:
 	rts
 
 @ins:	jsr src::right
-	bcc @ok
-	rts
+	bcs @done
 
 @ok:	; turn off the old cursor if we're unhighlighting
 	cmp #$09		; did we move over a TAB?
@@ -2813,7 +2812,7 @@ goto_buffer:
 	bne :+
 	jsr cur::toggle
 :	clc
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2878,7 +2877,12 @@ goto_buffer:
 
 @down:	jsr src::get	; get the data for this in linebuffer
 	inc zp::cury	; move row down
-	lda #$00
+	lda mem::linebuffer
+	cmp #$09
+	bne :+
+	lda #TAB_WIDTH-1
+	skw
+:	lda #$00
 	sta zp::curx
 
 	lda zp::cury

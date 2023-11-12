@@ -790,7 +790,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	txa
 	adc #TAB_WIDTH-2	; -2 because .C is set and we've already INX'd
 	tax
-:	cpx #40
+:	cpx #39
 	bcc @l0
 @done:	rts
 .endproc

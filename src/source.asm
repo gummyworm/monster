@@ -715,7 +715,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 ; Moves the cursor back one character in the gap buffer.
 ; OUT:
 ;  - .A: the character at the new position
-;  - .C: set if we're at the start of the file and couldn't move back
+;  - .C: set if we're at the start of the buffer and couldn't move back
 .export __src_prev
 .proc __src_prev
 @src=zp::tmp0

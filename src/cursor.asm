@@ -186,16 +186,17 @@ __cur_toggle:
 ; If moving left would move the cursor outside its defined limits, has no effect
 .export __cur_left
 .proc __cur_left
-	lda zp::curx
-	beq @done
 	jsr text::char_index
 	lda mem::linebuffer,y
 	cmp #$09		; TAB
 	bne :+
 	lda zp::curx
-	sbc #TAB_WIDTH-1
+	sbc #TAB_WIDTH
 	sta zp::curx
 :	dec zp::curx
+	bpl @done
+	lda #$00
+	sta zp::curx
 @done:	rts
 .endproc
 
