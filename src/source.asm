@@ -768,10 +768,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 	bcs @beginning
 	cmp #$0d
 	bne @l0
-@done:	clc
-	rts
+	clc
 @beginning:
-	sec
 	rts
 .endproc
 

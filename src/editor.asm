@@ -2490,8 +2490,8 @@ goto_buffer:
 	jsr src::atcursor
 	sta @ch
 
-	jsr text::char_index
-	stx @xend
+	lda zp::curx
+	sta @xend
 
 	lda mode
 	cmp #MODE_VISUAL_LINE
@@ -2572,16 +2572,14 @@ goto_buffer:
 	lda zp::cury
 	jmp bm::rvsline_part
 
-@movex: ldx zp::curx
-	beq @rvs
-	cpx @xend
-	beq @rvs
-	bcc @rvs
-	jsr ccleft
+@movex: lda zp::curx
+	beq ccup_highlight
+	cmp @xend
+	beq ccup_highlight
+	jsr cur::left
+	jsr src::prev
 	bcc @movex
-
-@rvs:	jsr ccup_highlight	; handle highlight for the new row
-@done:	RETURN_OK
+; fall through to ccup_highlight
 .endproc
 
 ;******************************************************************************
@@ -2608,6 +2606,7 @@ goto_buffer:
 
 	ldxy src::line
 	cmpw visual_start_line
+	ldy zp::curx
 	bcc @sel
 	beq @eq
 
@@ -2620,11 +2619,9 @@ goto_buffer:
 
 @sel:	; highlight from [cur-x, end-of-line]
 	jsr text::rendered_line_len
-	ldy zp::curx
 	jmp @rvs
 
 @eq:	; highlight between cur-x and visual-start-x
-	ldy zp::curx
 	cpy visual_start_x
 	beq @toggle
 	ldx visual_start_x
@@ -2679,8 +2676,8 @@ goto_buffer:
 ; OUT:
 ;  - .C: set if cursor could not be moved
 .proc ccleft
-@deselect=zp::tmp2
 @tabcnt=zp::tmp4
+@deselect=zp::tmp5
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne :+
@@ -2699,17 +2696,17 @@ goto_buffer:
 	ldxy src::line
 	cmpw visual_start_line
 	beq @eq
-	bcc @movecur
-@desel: lda #$01
-	bne :+
+	bcc @movecur		; not deselecting, continue
+@desel: lda #$01		; set deselect flag
+	bne :+			; continue to deselect
 
 @eq:	lda zp::curx
 	cmp visual_start_x
 	beq @movecur
 	lda #$00
-	adc #$00
-:	sta @deselect
-	beq @movecur
+	adc #$00		; .A = 1 : (curx > visual_start_x) ? 0
+:	sta @deselect		; set deselect flag (TRUE if curx > start_x)
+	beq @movecur		; if not deselecting, continue
 	jsr cur::toggle		; turn off (deselect) old cursor position
 
 @movecur:
@@ -2719,6 +2716,8 @@ goto_buffer:
 	pla
 	cmp #$09		; TAB?
 	bne @curl
+	lda #$00
+	sta @deselect		; always toggle
 
 	; handle TAB (repeat the MOVE LEFT logic TAB_WIDTH times)
 	lda #TAB_WIDTH
@@ -2734,8 +2733,8 @@ goto_buffer:
 	bne :+
 	lda @deselect
 	bne :+
-	jsr cur::toggle
-:	clc
+	jsr cur::toggle		; toggle cursor
+:	RETURN_OK
 	rts
 @nomove:
 	sec
@@ -2748,8 +2747,8 @@ goto_buffer:
 ; OUT:
 ;  - .C: set if cursor could not be moved
 .proc ccright
-@deselect=zp::tmp0
 @tabcnt=zp::tmp4
+@deselect=zp::tmp5
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne :+
@@ -2764,12 +2763,10 @@ goto_buffer:
 	jsr src::right_rep
 	pla
 	bcc @ok
-	sec
 	rts
 
 @ins:	jsr src::right
 	bcc @ok
-	sec
 	rts
 
 @ok:	; turn off the old cursor if we're unhighlighting
@@ -2910,13 +2907,14 @@ goto_buffer:
 	jmp bm::rvsline_part
 
 @movex:	lda @xend
-	beq @rvs
-@xloop:	jsr ccright
-	dec @xend
-	bne @xloop
-
-@rvs:	jsr ccdown_highlight
-@done:	RETURN_OK
+	beq ccdown_highlight
+@xloop:	jsr src::right
+	bcs ccdown_highlight
+	jsr cur::right
+	lda zp::curx
+	cmp @xend
+	bcc @xloop
+; fall through to ccdown_highlight
 .endproc
 
 ;******************************************************************************
@@ -2943,23 +2941,22 @@ goto_buffer:
 
 	ldxy src::line
 	cmpw visual_start_line
+	ldy zp::curx
 	beq @eq
 	bcs @sel
 
 @desel:	; highlight from [cur-x, end-of-line]
 	jsr text::rendered_line_len
-	ldy zp::curx
 	jmp @rvs
 
 @sel:	; highlight from [0, cur-x]
 	inc @togglecur
 	ldx zp::curx
 	beq @toggle	; col 0: just toggle the cursor
-	ldy #$00
-	beq @rvs
+	tay		; .Y = 0
+	beq @rvs	; BRAnch always
 
 @eq:	; highlight between cur-x and visual-start-x
-	ldy zp::curx
 	cpy visual_start_x
 	beq @toggle
 	ldx visual_start_x
