@@ -290,6 +290,7 @@ macros:          .res 512
 @addr=zp::tmp2
 @name=zp::tmp4
 @cnt=zp::tmp6
+.if 0
 	stxy @tofind
 	lda #<macro_addresses
 	sta @addr
@@ -333,4 +334,6 @@ macros:          .res 512
 	ldy #$00
 	lda @cnt
 	RETURN_OK
+.endif
 .endproc
+

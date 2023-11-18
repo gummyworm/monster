@@ -89,6 +89,7 @@ cmdreps: .byte 0	; number of times to REPEAT current command
 	; don't assemble code, just verify it
 	lda #$01
 	sta state::verify
+	sta format
 
 	lda #CUR_BLINK_SPEED
 	sta zp::curtmr
@@ -755,6 +756,15 @@ main:	jsr key::getch
 	sta text::insertmode
 	lda #'i'
 	sta text::statusmode
+
+	jsr text::char_index
+	lda mem::linebuffer,y
+	cmp #$09		; if on a TAB, move cursor
+	bne @done
+	lda zp::curx
+	sec
+	sbc #TAB_WIDTH-1
+	sta zp::curx
 @done:	rts
 .endproc
 
@@ -2326,7 +2336,6 @@ goto_buffer:
 	cmp #ASM_COMMENT	; if this is a comment, don't indent
 	beq @nextline
 	jsr fmt::line
-
 	ldx #$01		; default to indent ON
 
 @nextline:
@@ -2531,13 +2540,20 @@ goto_buffer:
 	cmp #$0d
 	beq @cont	; if we crossed a newline, continue
 	jsr src::get	; get the contents of the line we're on now
-	lda #$00	; start of source, just move to the leftmost column
+
+	ldx #$00
+	stx zp::cury	; row 0
+	lda mem::linebuffer
+	cmp #$09	; TAB
+	bne :+
+	ldx #TAB_WIDTH-1
+:	stx zp::curx
 	sta zp::curx
-	sta zp::cury
 	sec
 	rts		; done
 
-@cont:	ldx zp::curx
+@cont:	jsr text::char_index
+	cpy #$00
 	beq :+
 	jsr src::up	; move to start of line we're moving to
 :	jsr text::clrline
@@ -2573,10 +2589,11 @@ goto_buffer:
 	jmp bm::rvsline_part
 
 @movex: lda zp::curx
-	beq ccup_highlight
 	cmp @xend
 	beq ccup_highlight
+	bcc ccup_highlight
 	jsr cur::left
+	bcs ccup_highlight
 	jsr src::prev
 	cmp #$0d
 	bne @movex
@@ -2688,6 +2705,11 @@ goto_buffer:
 	cpy #$00
 	beq @nomove
 
+	lda mem::linebuffer,y
+	pha			; save the char to move left of
+
+	jsr src::prev
+
 	lda mode
 	cmp #MODE_VISUAL
 	bne @movecur
@@ -2712,9 +2734,6 @@ goto_buffer:
 	jsr cur::toggle		; turn off (deselect) old cursor position
 
 @movecur:
-	jsr src::atcursor
-	pha
-	jsr src::prev
 	pla
 	cmp #$09		; TAB?
 	bne @curl
@@ -2758,10 +2777,7 @@ goto_buffer:
 	cmp #TEXT_INSERT
 	beq @ins
 
-@rep:	jsr src::after_cursor
-	pha
-	jsr src::right_rep
-	pla
+@rep:	jsr src::right_rep
 	bcc @ok
 	rts
 
@@ -2821,8 +2837,8 @@ goto_buffer:
 ; OUT:
 ;  - .C: clear if the cursor was moved DOWN or screen scrolled
 .proc ccdown
-@xend=zp::tmpa
-@selecting=zp::tmpb
+@xend=zp::tmp9
+@selecting=zp::tmpa
 	jsr src::end
 	bne :+
 	sec		; cursor could not be moved
@@ -2850,8 +2866,8 @@ goto_buffer:
 	rol
 	sta @selecting
 
-:	jsr text::char_index
-	sty @xend
+:	lda zp::curx
+	sta @xend
 
 	; if we are in VISUAL mode, highlight to the end of the line
 	lda mode
@@ -2877,12 +2893,7 @@ goto_buffer:
 
 @down:	jsr src::get	; get the data for this in linebuffer
 	inc zp::cury	; move row down
-	lda mem::linebuffer
-	cmp #$09
-	bne :+
-	lda #TAB_WIDTH-1
-	skw
-:	lda #$00
+	lda #$00
 	sta zp::curx
 
 	lda zp::cury
@@ -2910,12 +2921,10 @@ goto_buffer:
 	lda zp::cury
 	jmp bm::rvsline_part
 
-@movex:	lda @xend
-	beq ccdown_highlight
 @xloop:	jsr src::right
 	bcs ccdown_highlight
 	jsr cur::right
-	lda zp::curx
+@movex: lda zp::curx
 	cmp @xend
 	bcc @xloop
 ; fall through to ccdown_highlight
@@ -3368,16 +3377,19 @@ __edit_gotoline:
 	lda #$00
 	sec
 	sbc @diff
-	tay
 	ldx #$00
-	jmp @shortdone
+	beq @shortdone
 
 :	; move down and move cursor
 	ldx @diff
 	jsr src::downn
-	ldy @diff
+	lda @diff
 	ldx #$00
 @shortdone:
+	clc
+	adc zp::cury
+	sta @row
+
 	jsr is_visual	; are we in VISUAL mode
 	bne @movecur
 	; highlight all rows between cursor and destination
@@ -3386,8 +3398,6 @@ __edit_gotoline:
 	dec @cnt
 	beq @movecur
 
-	lda zp::cury
-	sta @row
 @hiloop:
 	lda @seekforward
 	beq :+
@@ -3400,11 +3410,9 @@ __edit_gotoline:
 	dec @cnt
 	bne @hiloop
 	ldy @diff
-	ldx #$00
 @movecur:
-	jsr cur::move
 	jsr src::get
-	jmp cur::on
+	jmp @renderdone
 
 @long:  ; get first line of source buffer to render
 	; (target +/- (EDITOR_HEIGHT - cury))
@@ -3495,8 +3503,12 @@ __edit_gotoline:
 	; move the cursor to the top if we searched backwards or bottom
 	; if forward
 	ldy @row
+	lda mem::linebuffer
+	ldx #TAB_WIDTH-1
+	cmp #$09
+	beq :+
 	ldx #$00
-	jmp cur::set
+:	jmp cur::set
 .endproc
 
 ;******************************************************************************

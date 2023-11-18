@@ -652,7 +652,6 @@ __src_pos = __src_start	 ; start implements the same behavior
 
 	bank_read_byte bank, @src
 	bank_store_byte bank, @dst
-	lda zp::bankval
 
 	cmp #$0d
 	bne :+
@@ -737,7 +736,6 @@ __src_pos = __src_start	 ; start implements the same behavior
 
 	bank_read_byte bank, @src
 	bank_store_byte bank, @dst
-	lda zp::bankval
 
 	cmp #$0d
 	bne :+
@@ -746,8 +744,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 :	decw pre
 	incw post
  	jsr atcursor
- 	clc
-	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -831,7 +828,6 @@ __src_pos = __src_start	 ; start implements the same behavior
 	stxy @dst
 
 	bank_store_byte bank, @dst
-	lda zp::bankval
 
 	cmp #$0d
 	bne :+
