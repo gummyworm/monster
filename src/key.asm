@@ -112,11 +112,14 @@ CURSOR_LR_MASK      = 2
 ;  - .C: set if the character is not printable
 .export __key_is_printing
 .proc __key_is_printing
+	cmp #$09
+	beq @yes
 	cmp #' '
 	bcc @no
 	cmp #$7b
 	bcs @no
-@yes:	rts
+@yes:	clc
+	rts
 @no:	sec
 	rts
 .endproc

@@ -1041,17 +1041,22 @@ main:	jsr key::getch
 	jsr backspace
 	jmp @done
 
-:	jsr ccdown
-	bcs @l0
-	jsr home
+:	jsr src::down		; go to the end of the line
+	bcs @l0			; if EOF, skip scroll up
+	inc zp::cury
+	jsr bumpup		; scroll up
+
 @l0:	jsr backspace
-	jsr buff_putch
-	lda zp::curx
-	bne @l0
-	jsr src::end
-	bne @done
-	jsr @done
-	jmp ccup
+	jsr buff_putch		; save the deleted char
+	jsr src::atcursor
+	cmp #$0d		; are we at the start of the line yet?
+	bne @l0			; if not, continue
+	jsr src::get
+
+	;jsr src::end
+	;bne @done
+	;jsr @done
+	;jmp ccup
 
 @done:	lda #TEXT_REPLACE
 	sta text::insertmode
@@ -1407,21 +1412,34 @@ main:	jsr key::getch
 .proc open_line_above
 	jsr is_readonly
 	bne :+
-	rts
-:	jsr enter_insert
+@done:	rts
+
+:	lda mem::linebuffer
+	pha
+	jsr enter_insert
 	jsr home	; move to start of line
 	jsr newl
-	jmp ccup
+	jsr ccup
+	pla
+	cmp #$09	; TAB
+	bne @done
+	jmp insert
 .endproc
 
 ;******************************************************************************
 .proc open_line_below
 	jsr is_readonly
 	bne :+
-	rts
-:	jsr enter_insert
+@done:	rts
+:	lda mem::linebuffer
+	pha
+	jsr enter_insert
 	jsr end_of_line
-	jmp newl
+	jsr newl
+	pla
+	cmp #$09	; TAB
+	bne @done
+	jmp insert
 .endproc
 
 ;******************************************************************************
@@ -2290,7 +2308,6 @@ goto_buffer:
 @nextline:
 	jsr drawline
 	; redraw everything from <cursor> to EOL on next line
-	jsr src::get
 	ldxy #mem::linebuffer
 	lda zp::cury
 	jsr text::print
@@ -2340,14 +2357,13 @@ goto_buffer:
 
 @nextline:
 	stx @indent		; set indent flag
-	jsr drawline		; draw the formatted line
+	jsr drawline		; draw the formatted line and move to next row
 
 	; redraw the cleared status line
 	jsr text::update
 
 	; redraw everything from <cursor> to EOL on next line
 	jsr text::clrline
-	jsr src::get
 
 	; indent the new line
 	lda @indent
@@ -2410,6 +2426,7 @@ goto_buffer:
 ; DRAWLINE
 ; Draws the line in mem::linebuffer at the current cursor position.
 ; The cursor is then updated and the screen scrolled.
+; The linebuffer is also updated to contain the contents of the new line
 ; IN:
 ;  zp::cury: row to draw the line
 ;  indent: indent level (to place the cursor at after drawing)
@@ -2431,7 +2448,7 @@ goto_buffer:
 	jsr text::drawline
 
 	ldy height
-	jmp @setcur
+	bne @setcur		; branch always
 
 :	iny
 	tya
@@ -2439,10 +2456,11 @@ goto_buffer:
 	dex
 	jsr text::scrolldown
 
+@setcur:
+	jsr src::get
+	ldx #$00
 	ldy zp::cury
 	iny
-@setcur:
-	ldx #$00
 	jmp cur::set
 .endproc
 
@@ -2548,7 +2566,6 @@ goto_buffer:
 	bne :+
 	ldx #TAB_WIDTH-1
 :	stx zp::curx
-	sta zp::curx
 	sec
 	rts		; done
 
@@ -2559,11 +2576,8 @@ goto_buffer:
 :	jsr text::clrline
 	jsr src::get	; read the line we're moving to into linebuffer
 
-	jsr text::rendered_line_len
+	ldx #$00
 	stx zp::curx
-
-:	jsr src::right
-	bcc :-
 
 @checkscroll:
 	ldy zp::cury		; is cursor at row 0?
@@ -2590,15 +2604,21 @@ goto_buffer:
 
 @movex: lda zp::curx
 	cmp @xend
-	beq ccup_highlight
-	bcc ccup_highlight
-	jsr cur::left
-	bcs ccup_highlight
-	jsr src::prev
-	cmp #$0d
-	bne @movex
-	jsr src::next
-; fall through to ccup_highlight
+	bcs :+
+	jsr src::right
+	bcs :+
+	jsr cur::right
+	jmp @movex
+
+:	; if we ended on a TAB, advance TAB_WIDTH-1 characters else 0
+	jsr text::char_index
+	cmp #$09		; did we end on a TAB
+	bne ccup_highlight	; if not, continue
+	lda zp::curx
+	clc
+	adc #TAB_WIDTH-1
+	sta zp::curx
+; fallthrough
 .endproc
 
 ;******************************************************************************
@@ -2701,7 +2721,7 @@ goto_buffer:
 	cmp #MODE_VISUAL_LINE
 	beq @nomove		; do nothing on LEFT if in VISUAL_LINE mode
 
-:	jsr text::char_index
+	jsr text::char_index
 	cpy #$00
 	beq @nomove
 
@@ -2915,18 +2935,26 @@ goto_buffer:
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne @movex
-	jsr src::get
 	jsr text::rendered_line_len
 	ldy #$00
 	lda zp::cury
 	jmp bm::rvsline_part
 
 @xloop:	jsr src::right
-	bcs ccdown_highlight
+	bcs :+
 	jsr cur::right
 @movex: lda zp::curx
 	cmp @xend
 	bcc @xloop
+
+:	; if we ended on a TAB, advance TAB_WIDTH-1 characters else 0
+	jsr text::char_index
+	cmp #$09		; did we end on a TAB
+	bne ccdown_highlight	; if not, continue
+	lda zp::curx
+	clc
+	adc #TAB_WIDTH-1
+	sta zp::curx
 ; fall through to ccdown_highlight
 .endproc
 
@@ -3003,41 +3031,12 @@ goto_buffer:
 	jsr src::backspace
 	bcs @done
 	sta @char
-	lda #$14
+	lda #$14	; delete from the text buffer
 	jsr text::putch
 	bcc @done
 
 @prevline:
-	ldx zp::cury
-	beq @noscroll	; if cursor is at row 0, nothing to scroll
-
-	; move the cursor
-	ldy #$ff
-	ldx #0
-	jsr cur::move
-
-	; scroll everything up from below the line we deleted
-	ldx zp::cury
-	inx
-	cpx height
-	beq @noscroll	; if cursor is at end of screen, nothing to scroll
-	lda height
-	jsr text::scrollup
-
-@noscroll:
-	; go to the bottom row and read the line that was moved up
-	jsr src::pushp	; save current source pos
-	lda height
-	sec
-	sbc zp::cury
-	tax
-	ldy #$00
-	jsr src::downn		; move to the line that we're bringing up
-	jsr src::get
-	lda height
-	jsr text::drawline	; draw the new line that was scrolled up
-	jsr src::popp
-	jsr src::goto		; restore source position
+	jsr bumpup	; scroll the screen up
 
 	; get the line we're moving up to in linebuffer
 	jsr src::get
@@ -3068,6 +3067,43 @@ goto_buffer:
 	bpl @endofline
 @done:	lda @char
 	rts
+.endproc
+
+;******************************************************************************
+; BUMP UP
+; Bumps the screen up 1 row starting at zp::cury, erasing the contents of that
+; row in the process
+.proc bumpup
+	ldx zp::cury
+	beq @noscroll	; if cursor is at row 0, nothing to scroll
+
+	; move the cursor
+	ldy #$ff
+	ldx #0
+	jsr cur::move
+
+	; scroll everything up from below the line we deleted
+	ldx zp::cury
+	inx
+	cpx height
+	beq @noscroll	; if cursor is at end of screen, nothing to scroll
+	lda height
+	jsr text::scrollup
+
+@noscroll:
+	; go to the bottom row and read the line that was moved up
+	jsr src::pushp	; save current source pos
+	lda height
+	sec
+	sbc zp::cury
+	tax
+	ldy #$00
+	jsr src::downn		; move to the line that we're bringing up
+	jsr src::get
+	lda height
+	jsr text::drawline	; draw the new line that was scrolled up
+	jsr src::popp
+	jmp src::goto		; restore source position
 .endproc
 
 ;******************************************************************************
@@ -3682,6 +3718,7 @@ __edit_gotoline:
 ; IN:
 ;  - .A: the character to put into the buffer
 ; OUT:
+;  - .A: the same as was passed in
 ;  - .C: set if the buffer is full (couldn't add char)
 .proc buff_putch
 @buff=zp::tmp0

@@ -796,11 +796,12 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .endproc
 
 ;******************************************************************************
-; LINE INDEX
+; CHAR INDEX
 ; Returns the character index of the current cursor position
 ; OUT:
-;  X: the x column position of the cursor
-;  Y: the character index of the cursor
+;  .A: the character under the cursor
+;  .X: the x column position of the cursor
+;  .Y: the character index of the cursor
 .export __text_char_index
 .proc __text_char_index
 	ldx #$ff
@@ -809,14 +810,17 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	inx
 	lda mem::linebuffer,y
 	beq @done
+	pha
 	cmp #$09
 	bne :+
 	txa
 	adc #TAB_WIDTH-2
 	tax
 :	cpx zp::curx
+	pla
 	bcc @l0
-@done:	rts
+@done:	lda mem::linebuffer,y
+	rts
 .endproc
 
 ;******************************************************************************
