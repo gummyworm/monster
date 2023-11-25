@@ -554,7 +554,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
 @done:	inc zp::curx
 	inc zp::curi
-	clc	; "put" was successful
+	clc			; "put" was successful
 	rts
 .endproc
 

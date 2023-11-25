@@ -25,4 +25,3 @@
 	bne :-
 @done:	rts
 .endproc
-

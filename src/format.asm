@@ -100,6 +100,8 @@
 .export __fmt_line
 .proc __fmt_line
 @linecontent=zp::tmp6
+	cmp #$00
+	beq @done
 	sta @linecontent	; save the types to format
 
 	; remove spaces from start of line
@@ -114,11 +116,10 @@
 	ldx #$00
 	ldy #39
 	jsr linebuff::shl
-	beq @removespaces
+	beq @removespaces	; branch always
 
 @left_aligned:
 	lda @linecontent 	; get the type of line we're formatting
-	beq @done		; if ASM_NONE, don't format
 	and #ASM_LABEL		; if formatting includes label, do __fmt_label
 	beq @notlabel
 	jmp __fmt_label
@@ -127,6 +128,6 @@
 	and #ASM_COMMENT 	; if comment, don't format at all
 	bne @done
 @ident: jsr __fmt_opcode 	; anything else- indent
-	jsr src::down
+	jmp src::down
 @done:  rts
 .endproc

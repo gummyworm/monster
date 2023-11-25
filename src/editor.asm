@@ -1053,11 +1053,6 @@ main:	jsr key::getch
 	bne @l0			; if not, continue
 	jsr src::get
 
-	;jsr src::end
-	;bne @done
-	;jsr @done
-	;jmp ccup
-
 @done:	lda #TEXT_REPLACE
 	sta text::insertmode
 	lda zp::cury
@@ -2367,12 +2362,13 @@ goto_buffer:
 
 	; indent the new line
 	lda @indent
-	beq @indentdone				; skip indent if curx == 0
+	beq @indentdone		; skip indent if curx == 0
 	lda format
 	beq @indentdone
 	lda #$09		; TAB
 	jsr src::insert
-	jmp text::putch
+	jsr text::putch
+
 @indentdone:
 	lda zp::cury
 	jmp text::drawline
