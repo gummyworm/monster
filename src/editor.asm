@@ -2723,7 +2723,7 @@ goto_buffer:
 	cpy #$00
 	beq @nomove
 
-	lda mem::linebuffer,y
+	lda mem::linebuffer-1,y
 	pha			; save the char to move left of
 
 	jsr src::prev
