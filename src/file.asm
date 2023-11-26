@@ -35,8 +35,8 @@ __file_save_address_end = zp::tmpd
 ; LOADDIR
 ; Loads the directory listing into mem::spare
 ; OUT:
-;  - mem::spare: contains the directory listing
-;  - .C: set on error, clear on success
+;  - mem::spare+40: contains the directory listing
+;  - .C:            set on error, clear on success
 .export __file_loaddir
 .proc __file_loaddir
 	lda #$00

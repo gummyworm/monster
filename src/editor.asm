@@ -1909,8 +1909,7 @@ goto_buffer:
 	jsr util::parse_enquoted_string
 	jmp @l2
 
-@l0:    jsr text::clrline
-	incw @line	; skip line #
+@l0:    incw @line	; skip line #
 	incw @line
 
 	lda @cnt
@@ -1961,7 +1960,6 @@ goto_buffer:
 @cont:	; draw a line to separate file display
 	lda @row
 	jsr draw::hline
-	jsr text::clrline
 
 	; highlight the first item
 	lda @select
