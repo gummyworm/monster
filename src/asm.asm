@@ -106,7 +106,7 @@ origin: .word 0	; the lowest address in the program
 ; ASMBUFFER
 ; Source is copied here so that it can be messed with while assembling
 .export asmbuffer
-asmbuffer: .res 40
+asmbuffer = mem::asmbuffer
 
 .RODATA
 ;******************************************************************************
@@ -360,15 +360,6 @@ illegal_opcodes:
 num_illegals = *-illegal_opcodes
 
 .CODE
-;******************************************************************************
-; VALIDATE
-; Verifies that the string at (YX) is a valid instrcution
-; The size of the assembled operation is returned in .A (negative indicates an error occurred).
-; If the instruction contains a label, this proc will check that it is a valid label, but
-; it does not require that the label is defined.
-.export __asm_validate
-__asm_validate:
-	jmp tokenize
 
 ;******************************************************************************
 ; TOKENIZE
@@ -377,43 +368,42 @@ __asm_validate:
 ; saved at the address in (pc).
 ; in:
 ;  - .XY: the string to assemble
+;  - .A:  the bank of the string to assemble
 ;  - zp::asmresult: pointer to the location to assemble the instruction
 ; out:
 ;  - .A: the type of the result e.g. ASM_OPCODE or the error code
 ;  - .C: set if an error occurred
 .export __asm_tokenize
-__asm_tokenize:
-.proc tokenize
-	; check if there is a breakpoint on this line and set it if there is
-	stxy zp::line
-
-	ldy #$00
-	lda (zp::line),y
-	beq @noasm		; empty line
-	cmp #BREAKPOINT_CHAR
-	bne @copy
-
-@setbrk:
-	lda zp::pass
-	cmp #2
-	bne @copy			; only set breakpoints in pass 2
-	ldxy zp::virtualpc		; current PC (address)
-	jsr dbg::toggle_breakpoint	; set the breakpoint
-	incw zp::line			; advance line beyond the breakpoint
-
-@copy:	; copy the line to a new buffer and make it uppercase (assembly is
+.proc __asm_tokenize
+	; copy the line to a new buffer and make it uppercase (assembly is
 	; case-insensitive)
-	lda #<asmbuffer
-	sta zp::tmp0
-	lda #>asmbuffer
-	sta zp::tmp0+1
-	ldxy zp::line
-	jsr str::copy
+	stxy zp::bankaddr0
+	ldxy #asmbuffer
+	stxy zp::bankaddr1
+	jsr fe3::copyline
+
 	ldxy #asmbuffer
 	stxy zp::line
 	jsr str::toupper
 
-	jsr process_ws
+; check if there is a breakpoint on this line and set it if there is
+	ldy #$00
+	lda (zp::line),y
+	beq @noasm		; empty line
+	cmp #BREAKPOINT_CHAR
+	bne :+
+
+@setbrk:
+	lda zp::pass
+	cmp #2
+	bne :+
+	; only set breakpoints in pass 2
+	ldxy zp::virtualpc		; current PC (address)
+	jsr dbg::toggle_breakpoint	; set the breakpoint
+	incw zp::line			; advance line beyond the breakpoint
+
+
+:	jsr process_ws
 	beq @noasm 	; empty line
 
 ; check if we're in an .IF (FALSE) and if we are, return
@@ -496,11 +486,13 @@ __asm_tokenize:
 ; check if the line contains a macro
 @macro:
 	ldxy zp::line
-	jsr mac::get
+	CALL FINAL_BANK_MACROS, #mac::get
+
 	bcs @label
 	pha
 	jsr process_word	; read past macro name
 	pla
+
 	jsr assemble_macro
 	bcs :+			; error
 	lda #ASM_MACRO
@@ -1131,7 +1123,7 @@ __asm_tokenize:
 	ldxy zp::ctx+repctx::iter
 	stxy zp::label_value
 	ldxy zp::ctx+repctx::params
-	jsr lbl::add
+	jsr lbl::set
 
 @l1:	; assemble the lines until .endrep
 	jsr ctx::getline
@@ -1148,6 +1140,7 @@ __asm_tokenize:
 
 	; assemble the current line
 	ldxy #mem::ctxbuffer
+	lda #FINAL_BANK_MAIN	; bank doesn't matter for ctx
 	jsr __asm_tokenize
 	bcc :+
 	sta zp::tmp0		; save errcode
@@ -1425,6 +1418,7 @@ __asm_include:
 @asm:	ldxy #mem::spare
 	lda zp::file
 	pha
+	lda #FINAL_BANK_MAIN	; bank doesn't matter for mem::spare
 	jsr __asm_tokenize_pass
 	ldx #$00
 	bcc :+
@@ -1653,7 +1647,7 @@ __asm_include:
 	pla
 
 	; create the macro
-	jsr mac::add
+	CALL FINAL_BANK_MACROS, #mac::add
 
 @done:	; done with this context, disable it
 	lda #$00
@@ -1717,7 +1711,7 @@ __asm_include:
 	sta ifstacksp
 	sta contextstacksp
 	jsr ctx::init
-	jsr mac::init
+	CALL FINAL_BANK_MACROS, #mac::init
 	jsr lbl::clr
 	; fall through to RESETPC
 .endproc
@@ -2133,9 +2127,9 @@ __asm_include:
 
 	ldy #$00
 @nextparam:
-	lda (zp::line),y ; read until comma or endline
-	beq @done
-	cmp #';'
+	lda (zp::line),y 	; read until comma or endline
+	beq @done		; 0 (end of line) we're done, assemble
+	cmp #';'		; ';' (comment) - also done
 	beq @done
 	incw zp::line
 	cmp #','
@@ -2145,7 +2139,8 @@ __asm_include:
 	RETURN_ERR ERR_INVALID_MACRO_ARGS
 
 @done:	lda @id
-	jmp mac::asm
+	CALL FINAL_BANK_MACROS, #mac::asm
+	rts
 .endproc
 
 ;******************************************************************************
@@ -2231,10 +2226,12 @@ __asm_include:
 ; handle assembly for that pass
 .export __asm_tokenize_pass
 .proc __asm_tokenize_pass
+	pha
 	lda zp::pass
-	cmp #$01
-	beq __asm_tokenize_pass1
-	bne __asm_tokenize_pass2
+	cmp #$02
+	pla
+	bcs __asm_tokenize_pass2
+; fall through
 .endproc
 
 ;******************************************************************************
@@ -2247,11 +2244,14 @@ __asm_include:
 .proc __asm_tokenize_pass1
 @startpc=zp::str8
 	; save current PC to end segment if needed
+	pha
+
 	lda zp::asmresult
 	sta @startpc
 	lda zp::asmresult+1
 	sta @startpc+1
 
+	pla
 	jsr __asm_tokenize
 	bcc @ok
 	rts		   ; return err

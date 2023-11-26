@@ -59,6 +59,8 @@ FINAL_BANK_SOURCE5 = $a0|9	; source bank
 FINAL_BANK_SOURCE6 = $a0|$a	; source bank
 FINAL_BANK_SOURCE7 = $a0|$b	; source bank
 
+FINAL_BANK_MACROS = $a0|4	; macro code & macro data ($a000-$c000)
+
 ;******************************************************************************
 ; FAST bank
 ; Used for unrolled loops to make stuff fast
@@ -181,7 +183,21 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 ;  proc: the procedure to call
 ; 
 .macro CALL bank, proc
+	pha
+	.if .match( .left( 1, {proc} ), # )
+		lda #<(.right( .tcount( {proc} )-1, {proc} ))
+		sta zp::bankjmpvec
+		lda #>(.right( .tcount( {proc} )-1, {proc} ))
+		sta zp::bankjmpvec+1
+	.else
+		lda proc
+		sta zp::bankjmpvec
+		lda proc+1
+		sta zp::bankjmpvec+1
+	.endif
+
 	lda #bank
-	ldxy proc
+	sta zp::banktmp
+	pla
 	jsr __final_call
 .endmacro

@@ -14,6 +14,7 @@ MAX_LOCALS    = 32
 MAX_LABEL_LEN = 16	; 8 bytes for namespace + 8 for label name
 SCOPE_LEN     = 8	; max len of namespace (scope)
 
+
 ;******************************************************************************
 ; ZEROPAGE
 allow_overwrite = zp::labels+4
@@ -205,6 +206,27 @@ label_addresses = $a000
 @found:	tya
 	ldxy @cnt
 	RETURN_OK
+.endproc
+
+;******************************************************************************
+; SET24
+; Adds the label at the given 24 bit (banked) address to the label table.
+; If a label already exists, its value is replaced
+; IN:
+;  - .A:              the bank of the label
+;  - .XY:             the address of the label
+;  - zp::label_value: the value to assign to the label
+; OUT:
+;  - .C: set on error or clear if the label was successfully added
+.export __label_set24
+.proc __label_set24
+@tmplabel = $140	; temporary label storage for banked labels
+	stxy zp::bankaddr0
+	ldxy #@tmplabel
+	stxy zp::bankaddr1
+	jsr fe3::copyline
+	ldxy #@tmplabel
+; fall through
 .endproc
 
 ;******************************************************************************

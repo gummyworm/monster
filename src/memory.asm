@@ -56,3 +56,6 @@ __linebuffer = $0400
 .export __linebuffer2
 ;__linebuffer2: .res 80		; backup buffer for when the linebuffer must be saved
 __linebuffer2 = $0400+$80
+
+.export __mem_asmbuffer
+__mem_asmbuffer  = __linebuffer2

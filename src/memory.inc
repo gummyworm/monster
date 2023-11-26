@@ -8,6 +8,7 @@
 .import __mem_drive_err
 .import __linebuffer
 .import __linebuffer2
+.import __mem_asmbuffer
 .import __mem_progsave
 .import __statusline
 .import __mem_debugsave
@@ -17,6 +18,7 @@
 .import __mem_prog9400
 
 .scope mem
+	asmbuffer       = __mem_asmbuffer
 	ctxbuffer       = __mem_ctxbuffer
         spare           = __mem_spare
 	spareend	= __mem_spareend

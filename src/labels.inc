@@ -11,10 +11,13 @@
 .import __label_address
 .import __label_num
 .import __label_name_by_id
+.import __label_set
 .import __label_setscope
+.import __label_set24
 
 .scope lbl
 	add        = __label_add
+	set24      = __label_set24
 	addr       = __label_address
 	by_id      = __label_by_id
 	by_addr    = __label_by_addr
@@ -27,5 +30,6 @@
 	isvalid    = __label_isvalid
 	name_by_id = __label_name_by_id
 	num        = __label_num
+	set        = __label_set
 	setscope   = __label_setscope
 .endscope

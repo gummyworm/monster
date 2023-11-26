@@ -2,7 +2,6 @@
 .include "finalex.inc"
 .include "macros.inc"
 
-.CODE
 
 .ifdef PAL
 LINES           = 312
@@ -13,11 +12,18 @@ CYCLES_PER_LINE = 65
 .endif
 TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster int.
 
+.segment "IRQ"
 ;******************************************************************************
 ; SYS_UPDATE
 ; This is the main IRQ for this program. It handles updating the beeper.
+; It is relocated to a place where it may be called from any bank
 .export __irq_sys_update
 .proc __irq_sys_update
+	lda $9c02
+	pha
+	lda #FINAL_BANK_MAIN
+	sta $9c02
+
 	jsr beep::update
         lda $f5
         pha
@@ -28,9 +34,12 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
         sta $f6
         pla
         sta $f5
+	pla
+	sta $9c02
 	jmp $eb15
 .endproc
 
+.CODE
 ;******************************************************************************
 ; BRK
 ; Installs the given vector to the BRK and NMI vectors

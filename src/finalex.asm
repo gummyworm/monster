@@ -137,7 +137,6 @@ final_store_size=*-__final_store_byte
 ; first $0d or $00
 ; IN:
 ;  - .A:            the bank to perform the copy within
-;  - .Y:            the number of bytes to copy
 ;  - zp::bankaddr0: the source address to copy from
 ;  - zp::bankaddr1: the destination address to copy to
 ;  OUT:
@@ -168,26 +167,32 @@ final_copy_end=*-__final_copy
 ; Performs a JSR to the target address at the given bank. When the routine is
 ; done, returns to the caller's bank.
 ; IN:
+;  - zp::bankjmpaddr: the procedure address
+;  - zp::banktmp: the destination bank address
 ;  - .XY: the address of the procedure to call
 ;  - .A: the bank of the target procedure
 .export __final_call
 .proc __final_call
-@src=zp::banktmp
-@bank=zp::banktmp+2
-@oldbank=zp::banktmp+3
+@a=zp::banktmp+1
+@bank=zp::banktmp
 	sei
-	stxy zp::bankjmpvec
-	ldx #$4c
-	stx zp::bankjmpaddr	; write the JMP instruction
-	ldx $9c02
-	stx @oldbank		; save current bank
+	sta @a
 
+	lda #$4c
+	sta zp::bankjmpaddr	; write the JMP instruction
+	lda $9c02
+	pha			; save current bank
+
+	lda @bank
 	sta $9c02
-
+	lda @a
 	jsr zp::bankjmpaddr
+	sta @a			; save .A
 
-	lda @oldbank
-	sta $9c02	; restore bank
+	pla			; get the caller's bank
+	sta $9c02		; restore bank
+
+	lda @a			; restore .A
 	cli
 	rts
 .endproc

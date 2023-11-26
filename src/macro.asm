@@ -1,5 +1,6 @@
 .include "asm.inc"
 .include "errors.inc"
+.include "finalex.inc"
 .include "labels.inc"
 .include "macros.inc"
 .include "string.inc"
@@ -10,14 +11,14 @@
 ; CONSTANTS
 MAX_MACROS = 128
 
-.BSS
+.segment "MACROBSS"
 
 ;******************************************************************************
 .export macro_addresses
 .export macros
 nummacros:       .byte 0
 macro_addresses: .res MAX_MACROS * 2
-macros:          .res 512
+macros:          .res $1400
 
 ;******************************************************************************
 ; MACRO FORMAT
@@ -32,7 +33,7 @@ macros:          .res 512
 ;    |   1   | terminating 0             |
 ;    -------------------------------------
 
-.CODE
+.segment "MACROCODE"
 
 ;******************************************************************************
 ; MAC_INIT
@@ -117,7 +118,11 @@ macros:          .res 512
 	cmp #'.'
 	bne @next
 	ldxy @src
-	streq strings::endmac, 7	; are we at .endmac?
+	stxy zp::str0
+	ldxy #strings::endmac
+	stxy zp::str2
+	lda #7
+	CALL FINAL_BANK_MAIN, #str::compare
 	beq @done
 
 @next:	sta (@dst),y
@@ -209,11 +214,13 @@ macros:          .res 512
 	tya
 	pha
 	inc @cnt
-	jsr lbl::add	; set the parameter to its value
-	bcc :+
+
+	; set the parameter to its value
+	lda #FINAL_BANK_MACROS
+	CALL FINAL_BANK_MAIN, #lbl::set24
 	bcs @cleanup
 
-:	; read past the param name
+	; read past the param name
 	ldy #$00
 :	incw @macro
 	lda (@macro),y
@@ -233,7 +240,10 @@ macros:          .res 512
 	lda @cnt
 	pha
 
-	jsr asm::tokenize	; assemble this line of the macro
+	; assemble this line of the macro
+	lda #FINAL_BANK_MACROS
+	CALL FINAL_BANK_MAIN, #asm::tokenize
+
 	rol @err		; set error if .C was set
 	sta @errcode		; store the error code
 
@@ -267,7 +277,8 @@ macros:          .res 512
 	tay
 	pla
 	tax
-	jsr lbl::del
+	CALL FINAL_BANK_MAIN, #lbl::del
+
 	dec @cnt
 	bne @cleanuploop
 
@@ -290,7 +301,6 @@ macros:          .res 512
 @addr=zp::tmp2
 @name=zp::tmp4
 @cnt=zp::tmp6
-.if 0
 	stxy @tofind
 	lda #<macro_addresses
 	sta @addr
@@ -334,6 +344,7 @@ macros:          .res 512
 	ldy #$00
 	lda @cnt
 	RETURN_OK
-.endif
 .endproc
 
+
+.CODE

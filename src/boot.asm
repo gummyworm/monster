@@ -23,6 +23,27 @@
 .import __FASTTEXT_SIZE__
 .import __FASTTEXT_RUN__
 
+.import __MACROCODE_LOAD__
+.import __MACROCODE_RUN__
+.import __MACROCODE_SIZE__
+
+.import __IRQ_LOAD__
+.import __IRQ_RUN__
+.import __IRQ_SIZE__
+
+;******************************************************************************
+.macro relocate src, dst, dstbank, size
+	ldxy src
+	stxy r0
+	ldxy dst
+	stxy r2
+	lda dstbank
+	sta r4
+	ldxy size
+	stxy r6
+	jsr reloc
+.endmacro
+
 .segment "SETUP"
 ;******************************************************************************
 ; BASIC header: SYS 4621
@@ -101,6 +122,11 @@ start:
 	cmpw #__FASTTEXT_LOAD__+__FASTTEXT_SIZE__
 	bne @fasttxt
 
+; copy the macro code to its bank
+	relocate #__MACROCODE_LOAD__, #__MACROCODE_RUN__, #FINAL_BANK_MACROS, #__MACROCODE_SIZE__
+
+	relocate #__IRQ_LOAD__, #__IRQ_RUN__, #FINAL_BANK_MAIN, #__IRQ_SIZE__
+
 ; initialize the JMP vector
 	lda #$4c		; JMP
 	sta zp::jmpaddr
@@ -139,6 +165,26 @@ start:
 
 @loading: .byte "initializing..."
 @loadinglen=*-@loading
+
+;******************************************************************************
+; relocates code from 1 address to another
+; IN:
+; r0r1: source address
+; r2r3: dest address
+; r4:   dest bank
+; r6:   number of bytes to copy
+.proc reloc
+@copy:	ldy #$00
+	lda (r0),y
+	bank_store_byte r4,r2
+	incw r0
+	incw r2
+	decw r6
+	ldxy r6
+	cmpw #$00
+	bne @copy
+	rts
+.endproc
 
 .CODE
 ;******************************************************************************

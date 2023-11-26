@@ -9,6 +9,7 @@
 .include "expr.inc"
 .include "errors.inc"
 .include "file.inc"
+.include "finalex.inc"
 .include "format.inc"
 .include "key.inc"
 .include "keycodes.inc"
@@ -427,6 +428,7 @@ main:	jsr key::getch
 	stxy dbg::srcline
 	jsr src::readline
 	ldxy #mem::linebuffer
+	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize_pass1
 	bcs @err
 	jsr src::end
@@ -457,6 +459,7 @@ main:	jsr key::getch
 	jsr dbg::setline
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
+	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize_pass2
 	bcc @next
 
@@ -2340,6 +2343,7 @@ goto_buffer:
 
 	; tokenize (1st pass) to check if the current line is valid
 	ldxy #mem::linebuffer
+	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize
 	bcs @err
 
