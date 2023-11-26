@@ -43,10 +43,7 @@ MONster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
 The design philosophy is uncompromising maximalism.  This is the polar opposite of most
 existing Vic-20 assemblers, which, though impressive in their own right, are
 mostly designed with memory efficiency in mind.
-Virtually any feature that
-I deem valuable in an editor/assembler is included. That means there are no
-weird limitations on label names, robust expression evaluation, a powerful
-environment for text editing, and many, many other usability nice-to-haves.
+Virtually any feature that I deem valuable in an editor/assembler is included. 
 
 Some of its features are:
  - 40 column bitmap-based editor
@@ -58,7 +55,6 @@ Some of its features are:
  - directory viewer
  - symbol viewer
  - auto-formatter and realtime syntax checking
- - improved keyboard routine (3-key rollover)
  - macro support
  - user program/source/editor isolation
  - many more...
@@ -76,7 +72,7 @@ The banked memory allows the user program to execute in almost complete
 isolation.  This means that, although this environment consumes a vast amount of
 memory itself, everything except address $9c02 (the bank select register) is 
 preserved when control moves between the editor and the user program.  Moreso
-even then small monitor cartridges, the program itself is virtually unaware
+even than small monitor cartridges, the program itself is virtually unaware
 of the resident tooling.
 
 ## Building

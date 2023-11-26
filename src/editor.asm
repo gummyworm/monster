@@ -1369,14 +1369,13 @@ main:	jsr key::getch
 
 ;******************************************************************************
 .proc home_line
-	jsr home	; move to start of line
 	jsr src::start	; at start of file?
 	beq @done	; if so, we're done
 @l0:	lda zp::cury
 	beq @done
 	jsr ccup	; move UP until cursor is at top row
 	bcc @l0
-@done:	rts
+@done:	jmp home
 .endproc
 
 ;******************************************************************************
