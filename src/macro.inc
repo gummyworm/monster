@@ -4,8 +4,8 @@
 .import __mac_get
 
 .scope mac
-	add = __mac_add
-	get = __mac_get
-	asm = __mac_asm
+	add  = __mac_add
+	get  = __mac_get
+	asm  = __mac_asm
 	init = __mac_init
 .endscope

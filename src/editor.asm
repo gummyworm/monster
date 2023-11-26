@@ -658,6 +658,7 @@ main:	jsr key::getch
 	bne :-
 
 @terminate_prompt:
+	sta mem::linebuffer+1,y	; 0-terminate prompt
 	lda #':'
 	sta mem::linebuffer,y
 	iny
@@ -1554,10 +1555,7 @@ __edit_refresh:
 	jsr home_line
 
 	; redraw the visible lines
-@l0:	jsr text::clrline
-	jsr src::readline
-	jsr text::rendered_line_len
-	sta zp::curx
+@l0:	jsr src::readline
 	php
 	lda zp::cury
 	jsr text::drawline
@@ -1569,7 +1567,10 @@ __edit_refresh:
 	beq @l0
 	bcc @l0
 
-@done:	; restore cursor and source
+@done:	jsr text::rendered_line_len
+	stx zp::curx			; set curx so source and cursor align
+
+	; restore cursor and source
 	ldxy @saveline
 	jmp gotoline
 .endproc
@@ -2385,8 +2386,8 @@ goto_buffer:
 .proc redraw_to_end_of_line
 @x=zp::tmp7
 @cnt=zp::tmp8
-	lda zp::curx
-	sta @x
+	jsr text::char_index
+	sty @x
 	lda #$00
 	sta @cnt
 

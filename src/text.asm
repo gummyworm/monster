@@ -182,14 +182,12 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .endproc
 
 ;******************************************************************************
-; clrline clears the text linebuffer.
+; CLRLINE
+; Clears the linebuffer by setting its first byte to 0.
 .export __text_clrline
 .proc __text_clrline
 	lda #0
-	ldx #39
-:	sta mem::linebuffer,x
-	dex
-	bpl :-
+	sta mem::linebuffer
 	rts
 .endproc
 
