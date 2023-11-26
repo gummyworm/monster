@@ -388,50 +388,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .endproc
 
 ;******************************************************************************
-; PRINT_COMPRESSED
-; Print the 5-bit-per-character compressed text string. This is equivalent to
-; calling str::uncompress and text::print with the resulting string.
-; IN:
-;  - .A:  the row to print at
-;  - .XY: the address of the encoded string
-.export __text_print_compressed
-.proc __text_print_compressed
-	pha
-	jsr str::uncompress
-	pla
-	jmp __text_putz
-.endproc
-
-;******************************************************************************
-; PLOT
-; Puts given character onto the screen at the given (X,Y) corrdinates
-; IN:
-;  - .A: the character to plot
-;  - .X: the x corrdinate to plot at
-;  - .Y: the y coordinate to plot at
-.export __text_plot
-.proc __text_plot
-@ch=zp::text
-	sta @ch
-	lda zp::curx
-	pha
-	lda zp::cury
-	pha
-
-	stx zp::curx
-	sty zp::cury
-
-	lda @ch
-	jsr __text_putch
-
-	pla
-	sta zp::cury
-	pla
-	sta zp::curx
-	rts
-.endproc
-
-;******************************************************************************
 ; PUTCH
 ; Adds the character in .A to the current cursor position in the
 ; text linebuffer. The cursor is then updated to the next position.
@@ -545,7 +501,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	adc #TAB_WIDTH
 	sta zp::curx
 	lda zp::cury
-	inc zp::curi
 	jmp __text_drawline	; re-render whole line
 
 :	sta @char
@@ -553,7 +508,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bne @done		; if BUFFER is enabled, don't blit
 	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
 @done:	inc zp::curx
-	inc zp::curi
 	clc			; "put" was successful
 	rts
 .endproc

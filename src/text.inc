@@ -7,9 +7,7 @@
 .import __text_linelen
 .import __text_puts
 .import __text_putz
-.import __text_plot
 .import __text_print
-.import __text_print_compressed
 .import __text_putch
 .import __text_puterr
 .import __text_rendered_line_len
@@ -50,9 +48,7 @@ CH_R_ARROW	    = 135
 	insertmode       = __text_insertmode
         len              = __text_len
 	linelen          = __text_linelen
-	plot             =  __text_plot
 	print            = __text_print
-	print_compressed = __text_print_compressed
 	putch            = __text_putch
         puts             = __text_puts
 	putz   	         = __text_putz

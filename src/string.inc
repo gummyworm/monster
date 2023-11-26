@@ -2,9 +2,7 @@
 .import __str_compare
 .import __str_comparez
 .import __str_copy
-.import __str_find
 .import __str_len
-.import __str_replace
 .import __str_toupper
 .import __str_uncompress
 
@@ -13,9 +11,7 @@
 	compare    = __str_compare
 	comparez   = __str_comparez
 	copy       = __str_copy
-	find       = __str_find
 	len        = __str_len
-	replace    = __str_replace
 	toupper    = __str_toupper
 	uncompress = __str_uncompress
 .endscope
