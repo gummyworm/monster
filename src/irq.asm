@@ -29,8 +29,19 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
         pha
         lda $f6
         pha
+
         jsr $eb1e               ; scan keyboard
-        pla
+
+	; inject TAB ($09) into keyboard buffer if the CTRL key is pressed
+	lda $028d		; get CTRL flag reg
+	cmp $028e		; debounce
+	beq :+
+	and #$02		; is CTRL (TAB) pressed?
+	beq :+			; if 0, no
+	ldx #$09		; TAB
+	jsr $ebba		; store to keyboard table
+
+:	pla
         sta $f6
         pla
         sta $f5
