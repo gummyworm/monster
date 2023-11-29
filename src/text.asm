@@ -228,7 +228,9 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bne :+
 
 	sty @savey
-	ldy #TAB_WIDTH
+	txa
+	jsr __text_tabr_dist_a
+	tay
 	lda #' '
 @tab:	sta @buff,x
 	inx
@@ -396,10 +398,10 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .export __text_putch
 .proc __text_putch
 @src=zp::text
-@mask=zp::text+2
 @dst=zp::text+4
 @clrmask=zp::text+6
 @char=zp::text+7
+@tabsz=zp::text+7
 @len=zp::text+7
 @dx=zp::text+8
 @curi=zp::text+9
@@ -413,15 +415,20 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bcc @err	; cursor is limited
 	beq @err
 
-	; get the amount to move the cursor (1 if not tab)
 	jsr __text_char_index
 	sty @curi
-	ldx mem::linebuffer-1,y
-	lda #$ff
-	cpx #$09		; TAB?
-	bne :+
-	lda #(TAB_WIDTH^$ff)+1	; (2's complement)
-:	pha
+
+	; get the new x position
+	lda mem::linebuffer-1,y
+	pha
+	lda #$00
+	sta mem::linebuffer-1,y	; temporarily 0-terminate line
+	jsr __text_rendered_line_len
+	stx zp::curx
+
+	pla
+	ldy @curi
+	sta mem::linebuffer-1,y	; restore
 
 	lda __text_insertmode
 	beq @moveback	; if REPLACE, just move cursor
@@ -436,10 +443,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	dex
 	jsr linebuff::shl
 @moveback:
-	pla
-	clc
-	adc zp::curx
-	sta zp::curx
 	clc		; "put" was successful
 	rts
 @err:	sec		; couldn't perform action
@@ -494,9 +497,9 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 
 :	cmp #$09		; TAB
 	bne :+
-@tab:	lda zp::curx
+@tab:	jsr __text_tabr_dist
 	clc
-	adc #TAB_WIDTH
+	adc zp::curx
 	sta zp::curx
 	lda zp::cury
 	jmp __text_drawline	; re-render whole line
@@ -731,6 +734,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .X: the length of mem::linebuffer as it appears on screen
 .proc __text_rendered_line_len
 .export __text_rendered_line_len
+@tabsz=zp::tmp0
+@savey=zp::tmp1
 	ldx #$ff
 	ldy #$ff
 @l0:	iny
@@ -740,8 +745,15 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	cmp #$09
 	bne :+
 	txa
-	adc #TAB_WIDTH-2	; -2 because .C is set and we've already INX'd
+	sty @savey
+	jsr __text_tabr_dist_a
+	ldy @savey
+	sta @tabsz
+	txa
+	clc
+	adc @tabsz
 	tax
+	dex			; undo the INX
 :	cpx #39
 	bcc @l0
 @done:	rts
@@ -756,6 +768,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  .Y: the character index of the cursor
 .export __text_char_index
 .proc __text_char_index
+@tabsz=zp::tmp0
+@savey=zp::tmp1
 	ldx #$ff
 	ldy #$ff
 @l0:	iny
@@ -766,14 +780,71 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	cmp #$09
 	bne :+
 	txa
-	adc #TAB_WIDTH-2
+	sty @savey
+	jsr __text_tabr_dist_a
+	ldy @savey
+	sta @tabsz
+	txa
+	clc
+	adc @tabsz
 	tax
+	dex			; undo the INX
 :	cpx zp::curx
 	pla
 	bcc @l0
 @done:	lda mem::linebuffer,y
 	rts
 .endproc
+
+;******************************************************************************
+; TABR_DIST
+; Returns the # of columns to the next tab
+; OUT:
+;  - .A: the number of characters to the next tab
+.export __text_tabr_dist
+__text_tabr_dist_a=*+2
+.proc __text_tabr_dist
+	lda zp::curx
+	sta zp::util
+	ldy #$00
+:	iny
+	cmp tabs,y
+	bcs :-
+	lda tabs,y
+	sec
+	sbc zp::util
+	rts
+.endproc
+
+;******************************************************************************
+; TABL_DIST
+; Returns the number of columns left to the previous tab column
+; OUT:
+;  - .A: the number of characters to the previous tab
+.export __text_tabl_dist
+.proc __text_tabl_dist
+	lda zp::curx
+	ldy #tabs_end
+:	dey
+	cmp tabs,y
+	bcc :-
+	beq :-
+	lda tabs,y
+	sta zp::util
+	lda zp::curx
+	sec
+	sbc zp::util
+	rts
+.endproc
+
+;******************************************************************************
+; TABS
+; This table stores the offsets to each TAB column
+tabs:
+.repeat TAB_WIDTH, i
+	.byte i*TAB_WIDTH
+.endrepeat
+tabs_end=*-tabs
 
 ;******************************************************************************
 ; SAVEBUFF

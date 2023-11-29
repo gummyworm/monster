@@ -766,8 +766,7 @@ main:	jsr key::getch
 	cmp #$09		; if on a TAB, move cursor
 	bne @done
 	lda zp::curx
-	sec
-	sbc #TAB_WIDTH-1
+	sbc #TAB_WIDTH
 	sta zp::curx
 @done:	rts
 .endproc
@@ -2562,7 +2561,8 @@ goto_buffer:
 	lda mem::linebuffer
 	cmp #$09	; TAB
 	bne :+
-	ldx #TAB_WIDTH-1
+	jsr src::next
+	ldx #TAB_WIDTH
 :	stx zp::curx
 	sec
 	rts		; done
@@ -2608,13 +2608,13 @@ goto_buffer:
 	jsr cur::right
 	jmp @movex
 
-:	; if we ended on a TAB, advance TAB_WIDTH-1 characters else 0
+:	; if we ended on a TAB, advance to the next TAB col else curx
 	jsr text::char_index
-	cmp #$09		; did we end on a TAB
+	cmp #$09		; did we end on a TAB?
 	bne ccup_highlight	; if not, continue
-	lda zp::curx
+	jsr text::tabr_dist
 	clc
-	adc #TAB_WIDTH-1
+	adc zp::curx
 	sta zp::curx
 ; fallthrough
 .endproc
@@ -2722,9 +2722,13 @@ goto_buffer:
 	jsr text::char_index
 	cpy #$00
 	beq @nomove
-
 	lda mem::linebuffer-1,y
-	pha			; save the char to move left of
+	cpy #$01
+	bne :+
+	cmp #$09
+	beq @nomove		; if TAB on first char, don't move
+
+:	pha			; save the char to move left of
 
 	jsr src::prev
 
@@ -2758,8 +2762,8 @@ goto_buffer:
 	lda #$00
 	sta @deselect		; always toggle
 
-	; handle TAB (repeat the MOVE LEFT logic TAB_WIDTH times)
-	lda #TAB_WIDTH
+	; handle TAB (repeat the MOVE LEFT logic til we're at the prev TAB col)
+	jsr text::tabl_dist
 	sta @tabcnt
 :	jsr @curl
 	dec @tabcnt
@@ -2806,8 +2810,8 @@ goto_buffer:
 	cmp #$09		; did we move over a TAB?
 	bne @curr
 
-	; handle TAB (repeat the MOVE RIGHT logic TAB_WIDTH times)
-	lda #TAB_WIDTH
+	; handle TAB (repeat the MOVE RIGHT logic til we're at the TAB next col)
+	jsr text::tabr_dist
 	sta @tabcnt
 :	jsr @curr
 	dec @tabcnt
@@ -2945,13 +2949,13 @@ goto_buffer:
 	cmp @xend
 	bcc @xloop
 
-:	; if we ended on a TAB, advance TAB_WIDTH-1 characters else 0
+:	; if we ended on a TAB, advance to next tab col
 	jsr text::char_index
-	cmp #$09		; did we end on a TAB
+	cmp #$09		; did we end on a TAB?
 	bne ccdown_highlight	; if not, continue
-	lda zp::curx
+	jsr text::tabr_dist
 	clc
-	adc #TAB_WIDTH-1
+	adc zp::curx
 	sta zp::curx
 ; fall through to ccdown_highlight
 .endproc
@@ -3538,7 +3542,7 @@ __edit_gotoline:
 	; if forward
 	ldy @row
 	lda mem::linebuffer
-	ldx #TAB_WIDTH-1
+	ldx #TAB_WIDTH
 	cmp #$09
 	beq :+
 	ldx #$00

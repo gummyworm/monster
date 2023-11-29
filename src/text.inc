@@ -18,6 +18,8 @@
 .import __text_scrollup
 .import __text_status 
 .import __text_status_mode
+.import __text_tabl_dist
+.import __text_tabr_dist
 .import __text_update
 
 ; ESCAPE CODES
@@ -60,5 +62,7 @@ CH_R_ARROW	    = 135
 	statusmode       = __text_status_mode
 	status           = __text_status
 	restorebuff      = __text_restorebuff
+	tabl_dist        = __text_tabl_dist
+	tabr_dist        = __text_tabr_dist
 	update           = __text_update
 .endscope
