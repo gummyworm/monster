@@ -1049,13 +1049,20 @@ main:	jsr key::getch
 	inc zp::cury
 	jsr bumpup		; scroll up
 
-@l0:	jsr backspace
-	jsr buff_putch		; save the deleted char
+@l0:	jsr src::backspace
 	jsr src::atcursor
-	cmp #$0d		; are we at the start of the line yet?
-	bne @l0			; if not, continue
+	cmp #$0d
+	bne @l0
+
 	jsr src::get
 
+	ldx #$00
+	lda mem::linebuffer
+	cmp #$09
+	bne :+
+	jsr src::next
+	ldx #TAB_WIDTH
+:	stx zp::curx
 @done:	lda #TEXT_REPLACE
 	sta text::insertmode
 	lda zp::cury
@@ -1415,7 +1422,13 @@ main:	jsr key::getch
 	pha
 	jsr enter_insert
 	jsr home	; move to start of line
-	jsr newl
+	jsr src::atcursor
+	cmp #$09
+	bne :+
+	jsr src::prev
+	lda #$00
+	sta zp::curx
+:	jsr newl
 	jsr ccup
 	pla
 	cmp #$09	; TAB
