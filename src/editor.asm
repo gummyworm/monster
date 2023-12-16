@@ -2371,9 +2371,6 @@ goto_buffer:
 	; redraw the cleared status line
 	jsr text::update
 
-	; redraw everything from <cursor> to EOL on next line
-	jsr text::clrline
-
 	; indent the new line
 	lda @indent
 	beq @indentdone		; skip indent if curx == 0
@@ -2468,7 +2465,12 @@ goto_buffer:
 
 @setcur:
 	jsr src::get
-	ldx #$00
+	lda mem::linebuffer
+	cmp #$09		; TAB
+	bne :+
+	ldx #TAB_WIDTH
+	.byte $2c
+:	ldx #$00
 	ldy zp::cury
 	iny
 	jmp cur::set
