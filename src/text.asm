@@ -473,24 +473,16 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	cpx @curi
 	bmi @shr_bm		; if we've shifted all columns, continue
 	bcs @shr		; if more to shift, repeat
-
-@shr_bm:
-	; shift the bitmap (if buffering is disabled)
-	lda __text_buffer
-	bne :+
-	ldy zp::curx
-	lda zp::cury
-	jsr bm::shr
-
-:	ldx @curi
-	jmp @cont
+	bcc @cont
 
 @fastputi:
 	lda #$00
 	sta mem::linebuffer+1,x	; keep the line 0-terminated
+
 @fastput:
 	; replace the underlying character
-@cont:	pla
+@cont:	ldx @curi
+	pla
 	sta mem::linebuffer,x
 	bne :+
 	rts			; terminating 0, we're done
@@ -502,6 +494,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	adc zp::curx
 	sta zp::curx
 	lda zp::cury
+@redraw:
 	jmp __text_drawline	; re-render whole line
 
 :	sta @char
@@ -762,6 +755,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;******************************************************************************
 ; CHAR INDEX
 ; Returns the character index of the current cursor position
+; If the cursor is within a TAB character's rendered range, returns the
+; index of the start of the TAB
 ; OUT:
 ;  .A: the character under the cursor
 ;  .X: the x column position of the cursor

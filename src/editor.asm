@@ -2778,13 +2778,20 @@ goto_buffer:
 	lda #$00
 	sta @deselect		; always toggle
 
-	; handle TAB (repeat the MOVE LEFT logic til we're at the prev TAB col)
+; handle TAB (repeat the MOVE LEFT logic til we're at the prev TAB col
+; OR the previous character
 	jsr text::tabl_dist
 	sta @tabcnt
-:	jsr @curl
+@tabl:	jsr @curl
+	jsr text::char_index
+	dec zp::curx
+	jsr text::char_index
+	inc zp::curx
+	cmp #$09
+	bne :+
 	dec @tabcnt
-	bne :-
-	rts
+	bne @tabl
+:	rts
 
 @curl:  dec zp::curx
 	lda mode
