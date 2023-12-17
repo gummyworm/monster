@@ -2627,6 +2627,7 @@ goto_buffer:
 	jsr text::char_index
 	cmp #$09		; did we end on a TAB?
 	bne ccup_highlight	; if not, continue
+	jsr src::next
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
