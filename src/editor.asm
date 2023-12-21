@@ -3382,9 +3382,13 @@ __edit_gotoline:
 	ldxy src::lines ; no, move to the last line
 :	stxy @target
 
-	jsr home	; if we're not already, move to the start of the line
+	; if we're not already, move to 1st char of line
+	jsr src::atcursor
+	cmp #$0d
+	beq :+
+	jsr src::up
 
-	ldx #$00
+:	ldx #$00
 	stx @seekforward
 
 	ldxy @target
