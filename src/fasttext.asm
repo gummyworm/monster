@@ -4,7 +4,6 @@
 
 .segment "FASTTEXT"
 
-
 ;******************************************************************************
 ; FAST PUTCH
 ; Puts the character given at the current cursor position

@@ -471,9 +471,9 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sta mem::linebuffer+1,x
 	dex
 	cpx @curi
-	bmi @shr_bm		; if we've shifted all columns, continue
-	bcs @shr		; if more to shift, repeat
+	bmi @cont		; if we've shifted all columns, continue
 	bcc @cont
+	bcs @shr		; if more to shift, repeat
 
 @fastputi:
 	lda #$00
@@ -488,13 +488,16 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	rts			; terminating 0, we're done
 
 :	cmp #$09		; TAB
-	bne :+
+	bne @redraw
 @tab:	jsr __text_tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
 	lda zp::cury
+	jmp __text_drawline	; re-render whole line
 @redraw:
+	lda zp::cury
+	inc zp::curx
 	jmp __text_drawline	; re-render whole line
 
 :	sta @char

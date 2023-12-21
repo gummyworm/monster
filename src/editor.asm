@@ -461,17 +461,17 @@ main:	jsr key::getch
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize_pass2
-	bcc @next
+	bcc @next		; no error, continue
 
 @err:	jsr display_result	; display the error
-	jsr src::popp		; clear the src position stack
-	jsr src::goto
+	jsr src::popp		; clear the source position stack
+	jsr src::goto		; restore source position
 	jsr dbg::getline	; get the line that failed assembly
 	jmp gotoline		; goto that line
 
 @next:	jsr src::end		; check if we're at the end of the source
 	bne @pass2loop		; repeat if not
-	clc			; success
+	clc			; successfully assembled full source
 	jsr display_result	; dispaly success msg
 	jsr src::popp
 	jsr src::goto
@@ -2454,7 +2454,7 @@ goto_buffer:
 	lda height
 	jsr text::drawline
 
-	ldy height
+	dec zp::cury
 	bne @setcur		; branch always
 
 :	iny
