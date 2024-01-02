@@ -110,13 +110,13 @@
 	rol @remainder+1
 	lda @remainder
 	sec
-	sbc @divisor	;substract divisor to see if it fits in
+	sbc @divisor	;subtract divisor to see if it fits in
 	tay	        ;lb result -> Y, for we may need it later
 	lda @remainder+1
 	sbc @divisor+1
 	bcc @skip	;if carry=0 then divisor didn't fit in yet
 
-	sta @remainder+1	;else save substraction result as new remainder,
+	sta @remainder+1	;else save subtraction result as new remainder,
 	sty @remainder
 	inc @result	;and INCrement result cause divisor fit in 1 times
 

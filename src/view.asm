@@ -167,8 +167,8 @@ memaddr:   .word 0
 	adc #$00
 	sta @dst+1
 
-	; get the offset from the row's base address using the curor's x pos
-	; the offset is calcuated by: (zp::curx - COL_START) / 3
+	; get the offset from the row's base address using the cursor's x pos
+	; the offset is calculated by: (zp::curx - COL_START) / 3
 	ldy #$ff
 	lda zp::curx
 	sec

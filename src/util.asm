@@ -462,7 +462,7 @@ result=mem::spare
 ; IN:
 ;  - .A: the character to test
 ; OUT:
-;  - .Z: set if if the character in .A is whitespace
+;  - .Z: set if the character in .A is whitespace
 .export __util_is_whitespace
 .proc __util_is_whitespace
 	cmp #$0d	; newline

@@ -1902,7 +1902,7 @@ __asm_include:
 	asl
 	sta @cc8
 
-	; get aaa - opcode offset (each mneumonic is 3 bytes)
+	; get aaa - opcode offset (each mnemonic is 3 bytes)
 	lda @op
 	lsr
 	lsr

@@ -1042,7 +1042,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 ;******************************************************************************
 ; SETFILE
-; Sets the active file-id to the the ID for given filename.
+; Sets the active file-id to the ID for given filename.
 ; If no file-id exists for the provided filename, one is first created.
 ; IN:
 ;  - .XY: the 0-terminated file to set as the current file
@@ -1856,7 +1856,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq @setbrk		; if not, skip ahead to setting the next BRK
 	ldxy mem_saveaddr	; if so, mark the watch if there is one
 	jsr watch::mark		; if there's a watch at this addr, mark it
-	bcc @setbrk		; if there's no watch, contiue
+	bcc @setbrk		; if there's no watch, continue
 
 	; activate the watch window so user sees change
 	lda #(DEBUG_INFO_START_ROW+1)*8
@@ -2047,7 +2047,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - RTI
 ;  - RTS
 ; IN:
-;  - .XY: the addres of the current instruction
+;  - .XY: the address of the current instruction
 ;  - .A: the size of the current instruction
 ; OUT:
 ;  - .XY: the address of the next instruction that will be executed
@@ -2232,13 +2232,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Checks if the given instruction requires any RAM state and handles the
 ; creation of any state needed to handle them.
 ; This essentially involves checking if the instruction accesses any RAM and,
-; if it does, settting mem_saveaddr to the address that will be affected.
+; if it does, settling mem_saveaddr to the address that will be affected.
 ; IN:
 ;  - .XY: address of the binary instruction
 ;  - .A: the size of the instruction
 ;  - zp::tmp0: the address modes for the instruction (see asm::disassemble)
 ; OUT:
-;  - .C:           clear if the instruction is desctructive
+;  - .C:           clear if the instruction is destructive
 ;  - mem_saveaddr: holds the address of the byte that will be loaded/stored
 ;  - affected:     stores the flags with the CPU/mem state the operation affects
 .proc get_side_effects

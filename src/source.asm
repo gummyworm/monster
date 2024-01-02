@@ -531,7 +531,7 @@ data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
 
 ;******************************************************************************
 ; POPP
-; Returns the the most recent source position pushed in .YX
+; Returns the most recent source position pushed in .YX
 ; OUT:
 ;  - .XY: the most recently pushed source position
 .export __src_popp
@@ -933,7 +933,7 @@ __src_atcursor:
 
 ;******************************************************************************
 ; READLINE
-; Reads one line at the cursor positon and advances the cursor
+; Reads one line at the cursor position and advances the cursor
 ; OUT:
 ;  - .A: the length of the line
 ;  - mem::linebuffer: the line that was read will be 0-terminated

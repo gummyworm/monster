@@ -105,7 +105,7 @@ below for more info on modes).
 |  Key   | Name          |   Description                                                         |
 |--------|---------------|-----------------------------------------------------------------------|
 | C= + b | Set Breakpoint| sets a breakpoint at the current line                                 | 
-| C= + c | Refresh       | refrehshes the screen by redrawing the source buffer                  | 
+| C= + c | Refresh       | refreshes the screen by redrawing the source buffer                  | 
 | C= + h | Help          | displays the help menu                                                | 
 | C= + l | List          | list directory, shows the files on the current disk                   |
 | C= + n | New buffer    | creates a new source buffer and sets it as the active buffer          |
@@ -159,8 +159,8 @@ Example:
 #### Disassemble (D)
 Disassembles the contents of the _virtual_ memory between the given range.
 e.g. `:D $1001, $1040`.
-Expressions may be used in addtion to literal addresses. 
-This could be useful if your program modifies itself at rutime. 
+Expressions may be used in addition to literal addresses. 
+This could be useful if your program modifies itself at runtime. 
 
 Example:
 `:D PSTART, PEND`

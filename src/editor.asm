@@ -263,7 +263,7 @@ main:	jsr key::getch
 
 ;******************************************************************************
 ; DISASSEMBLE
-; Disssembles the given address range to a new buffer
+; Disassembles the given address range to a new buffer
 ; IN:
 ;  - .XY:      the start of the address range to disassemble
 ;  - zp::tmp0: the stop address to disassemble
@@ -472,7 +472,7 @@ main:	jsr key::getch
 @next:	jsr src::end		; check if we're at the end of the source
 	bne @pass2loop		; repeat if not
 	clc			; successfully assembled full source
-	jsr display_result	; dispaly success msg
+	jsr display_result	; display success msg
 	jsr src::popp
 	jsr src::goto
 	lda zp::curx
@@ -2145,7 +2145,7 @@ goto_buffer:
 
 ;******************************************************************************
 ; SAVE
-; Prompts the user for a filename adn writes the source buffer to a file of
+; Prompts the user for a filename and writes the source buffer to a file of
 ; the given name.
 .proc save
 @len=zp::tmp7
@@ -2641,7 +2641,7 @@ goto_buffer:
 ; This is called after the ccup logic
 ; the logic defining what to highlight is as follows:
 ;  if we are SELECTING (current line < visual-start-line):
-;    hightlight from [cur-x, end-of-line]
+;    highlight from [cur-x, end-of-line]
 ;  if DESELECTING (visual-start-line < current line):
 ;    highlight from [0, cur-x]
 ;  if cur line == start line:
@@ -2989,7 +2989,7 @@ goto_buffer:
 ; This is called after the ccdown logic
 ; the logic defining what to highlight is as follows:
 ;  if we are SELECTING (current line > visual-start-line):
-;    hightlight from [0, cur-x}
+;    highlight from [0, cur-x}
 ;  if DESELECTING (visual-start-line > current line):
 ;    highlight from [cur-x, end-of-line]
 ;  if cur line == start line:
@@ -3786,7 +3786,7 @@ __edit_gotoline:
 ;******************************************************************************
 ; IS READONLY
 ; Returns .Z set if the buffer should not allow edits (true if readonly has
-; been explictly enabled or if we are in a VISUAL editing mode)
+; been explicitly enabled or if we are in a VISUAL editing mode)
 .proc is_readonly
 	ldx readonly
 	bne @ro
