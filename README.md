@@ -246,7 +246,7 @@ commands accessed via them.
 ### Visual Mode (v)
 In _VISUAL_ mode (accessed via `v` in _COMMAND_ mode), the user can select
 a block of text which may then be deleted or copied.  Below is the table of supported commands 
-while in visual mode. The `<-` key will return the user to to _COMMAND_ mode.
+while in visual mode. The `<-` key will return the user to _COMMAND_ mode.
 
 |  Key       | Name       | Description                                                            |
 |------------|------------|------------------------------------------------------------------------|
@@ -389,7 +389,7 @@ Examples:
  | .DB "HI",0	     | $48 $49 $00          |
 
 #### .DW _expression_, ..., _expression_
-deines a sequence of words from the comma-separated list that      |
+defines a sequence of words from the comma-separated list that      |
 
 Examples:
  |       code        |    generated binary     |
@@ -426,7 +426,7 @@ Conditionally assembles the lines between this directive and its matching
 #### .IFDEF _label_
 Evaluates to TRUE if _label_ is defined.  This is different from .IF because
 _label_ may be defined to be 0 and this will still evaluate to TRUE.
-This can be useful inside macros to determine if a paramter was provided or not.
+This can be useful inside macros to determine if a parameter was provided or not.
 
 #### .INC _filename_
 Includes a file at the line of the directive. The file is loaded line-by-line
@@ -534,7 +534,7 @@ Becomes
 
 ---
 ### Macros
-Macros offer a conveinient way to abstract patterns that you find yourself
+Macros offer a convenient way to abstract patterns that you find yourself
 frequently writing.
 
 They may be recursive as in this example:
@@ -696,7 +696,7 @@ Next to the registers, under the CLK label, is a 24-bit counter that displays th
 number of cycles executed by the instructions that have been STEP'd into.
 The stopwatch can be reset to 0 with the `C= + r` key combination.
 
-Note that the number of cylces is displayed in decimal unlike the rest of the
+Note that the number of cycles is displayed in decimal unlike the rest of the
 information in the debug view, which is displayed in hexadecimal.
 
 ---

@@ -207,7 +207,7 @@ final_copy_end=*-__final_copy
 	lda #$80
 	sta $9c02
 	pla
-	jmp ($0334)		; execute the MAIN BRK hanlder
+	jmp ($0334)		; execute the MAIN BRK handler
 .endproc
 
 ;******************************************************************************

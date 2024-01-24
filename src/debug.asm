@@ -2755,7 +2755,7 @@ __debug_remove_breakpoint:
 	bcs @refresh		; if already at last column, don't advance
 	inc zp::curx		; bump up curx
 	ldx #$00
-; align x-position to either a value in @offsets or a value in @offests+1
+; align x-position to either a value in @offsets or a value in @offsets+1
 @nextx:	cmp @offsets,x		; was X at the start of the offset?
 	beq @refresh		; if so, incrementing it by 1 was sufficient
 	bcs @next		; if X

@@ -45,7 +45,7 @@
 ;      LDA TARGET
 ;      LOOP:
 ;     ```
-;     To generate the correct addresse for LOOP, the assembler needs to know if
+;     To generate the correct address for LOOP, the assembler needs to know if
 ;     TARGET is a zeropage or absolute address.
 ;     With insufficient data (e.g. forward references), labels are assumed to be
 ;     absolute (2 byte) addresses, which is usually a safe assumption unless
@@ -1448,7 +1448,7 @@ __asm_include:
 
 ;******************************************************************************
 ; DEFINEORG
-; Hanldes the .ORG directive.
+; Handles the .ORG directive.
 ; Parses an expression for a value and sets the asmresult and virtualpc
 ; addresses to it
 ; e.g.: `.ORG $1000` or `ORG $1000+LABEL`
@@ -1481,7 +1481,7 @@ __asm_include:
 
 ;******************************************************************************
 ; DEFINE_PSUEDO_ORG
-; Hanldes the .RORG directive.
+; Handles the .RORG directive.
 ; Parses an expression for a value and sets the virtualpc  address to it.
 ; Note that the physical assembly target (asmresult) is unaffected.
 ; e.g.: `.RORG $1000` or `RORG $1000+LABEL`

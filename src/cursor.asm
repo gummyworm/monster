@@ -280,7 +280,7 @@ __cur_toggle:
 
 ;******************************************************************************
 ; FORCESET
-; Sets the cursor X and Y without respecting limts
+; Sets the cursor X and Y without respecting limits
 ; IN:
 ;  - .X: the column to set the cursor to
 ;  - .Y: the row to set the cursor to

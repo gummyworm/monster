@@ -3501,7 +3501,7 @@ __edit_gotoline:
 	beq :+
 	jsr src::upn		; move up before we render downward
 	jmp @longf_cont
-:	jsr src::downn		; move down before we we render upward
+:	jsr src::downn		; move down before we render upward
 	jmp @longb_cont
 
 ; move up or down through the source to get to the start line that we'll
