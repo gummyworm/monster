@@ -335,7 +335,7 @@ MAX_OPERANDS  = $10/2
 ;  - .A: the size of the label's address
 ;  - .XY: the value of the label
 .proc get_label
-	jsr lbl::isvalid ; if we're verifying, let this pass if its a valid label
+	jsr lbl::isvalid ; if we're verifying, let this pass if it's a valid label
 	bcs @done
 
 	; try to get the label address

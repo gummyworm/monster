@@ -207,7 +207,7 @@ final_copy_end=*-__final_copy
 	lda #$80
 	sta $9c02
 	pla
-	jmp ($0334)		; execute the MAIN BRK hanlder
+	jmp ($0334)		; execute the MAIN BRK handler
 .endproc
 
 ;******************************************************************************
@@ -234,7 +234,7 @@ bankcode_size = *-bankcode
 .CODE
 ;******************************************************************************
 ; INIT
-; Inializes the Final Expansion memory by writing the code needed to
+; Initializes the Final Expansion memory by writing the code needed to
 ; switch banks regardless of which bank we are in
 .export __final_init
 .proc __final_init
