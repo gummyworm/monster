@@ -1512,6 +1512,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #FINAL_BANK_MAIN	; if internal address, use main bank
 	sta fe3::rti_bank
 :	lda pc+1
+
 	sta prev_pc+1
 	pha
 	lda pc		; restore PC
@@ -1716,13 +1717,14 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne :-
 
 @quit:	lda #$00		; clear BRK flag
-	pha
-	plp
+	pha			; push 0 status
+	plp			; clear flags (.P)
 
 	pla			; command return address
 	pla
 	pla			; debug START return address
 	pla
+	jmp *
 @done:	rts
 .endproc
 
@@ -2709,10 +2711,10 @@ __debug_remove_breakpoint:
 	sta zp::cury
 
 	jsr showstate		; fill linebuffer with register state
-	jsr cur::on
 
-@edit:	jsr key::getch
-	beq @edit
+@edit:	jsr cur::on
+:	jsr key::getch
+	beq :-
 	pha
 	jsr cur::off
 	pla
@@ -2739,7 +2741,6 @@ __debug_remove_breakpoint:
 @ret:	cmp #K_RETURN
 	beq @updatevals
 @quit:	cmp #K_QUIT
-	bne @right
 	beq @exit
 @right:	cmp #K_RIGHT
 	beq @fwd
@@ -2770,7 +2771,6 @@ __debug_remove_breakpoint:
 	lda #REGISTERS_LINE+1
 	ldxy #mem::linebuffer2
 	jsr text::puts
-	jsr cur::on
 	jmp @edit
 
 ;--------------------------------------
@@ -2898,7 +2898,6 @@ __debug_remove_breakpoint:
 	stx @buff+3
 
 ; if registers were affected, highlight them
-
 	ldx #TEXT_COLOR
 	lda affected
 	and #OP_REG_A
