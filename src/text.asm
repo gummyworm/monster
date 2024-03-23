@@ -500,7 +500,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	inc zp::curx
 	jmp __text_drawline	; re-render whole line
 
-:	sta @char
+	; TODO: make fast?
+	sta @char
 	ldx __text_buffer
 	bne @done		; if BUFFER is enabled, don't blit
 	CALL FINAL_BANK_FASTTEXT, #ftxt::putch

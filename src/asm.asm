@@ -1497,8 +1497,15 @@ __asm_include:
 
 ;******************************************************************************
 ; DEFINECONST
+; Hanldes the .EQ directive
+; Effective on 1st pass only
 .proc defineconst
-	ldxy zp::line
+	lda zp::pass
+	cmp #$01
+	beq :+
+	RETURN_OK
+
+:	ldxy zp::line
 	jsr lbl::isvalid
 	bcs @err
 	lda zp::line		; save label name's address
