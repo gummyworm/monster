@@ -581,7 +581,7 @@ main:	jsr key::getch
 	bcs @getloop
 	cmp #K_RETURN
 	beq @done
-	cmp #K_QUIT		; <- (done)
+	cmp #K_QUIT		; (done)
 	beq @exit
 	cmp #K_DEL
 	beq :+			; let DELETE through

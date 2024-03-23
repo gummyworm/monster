@@ -1,3 +1,4 @@
+.include "errors.inc"
 .include "keycodes.inc"
 .include "macros.inc"
 .include "zeropage.inc"
@@ -17,6 +18,7 @@ CURSOR_LR_MASK      = 2
 ; Gets a key from the keyboard and returns it
 ; OUT:
 ;  - .A: the key code of the pressed key or 0 if no key is pressed
+;  - .Z: set if no key is pressed
 .export __key_getch
 .proc __key_getch
 	jsr $f1f9
@@ -25,14 +27,14 @@ CURSOR_LR_MASK      = 2
 	bcc @done
 	cmp #$5a+1
 	bcs :+
-	eor #$20
-	rts
+	eor #$20	; if alpha, EOR $20
+	rts		; rts with .C clear
 
 :	cmp #$c1
 	bcc @done
 	cmp #$db
 	bcs @done
-	eor #$80
+	eor #$80	; if control code, EOR $80
 @done:	cmp #$00
 	rts
 .endproc
@@ -118,8 +120,7 @@ CURSOR_LR_MASK      = 2
 	bcc @no
 	cmp #$7f
 	bcs @no
-@yes:	clc
-	rts
+@yes:	RETURN_OK
 @no:	sec
 	rts
 .endproc
