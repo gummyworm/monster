@@ -116,7 +116,7 @@ CURSOR_LR_MASK      = 2
 	beq @yes
 	cmp #' '
 	bcc @no
-	cmp #$7b
+	cmp #$7f
 	bcs @no
 @yes:	clc
 	rts

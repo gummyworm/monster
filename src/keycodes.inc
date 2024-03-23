@@ -14,7 +14,7 @@ K_CLOSE_BUFF = $ab	; <C=> + q
 
 ; GLOBAL INTERFACE KEYS
 K_RETURN    = $0d	; RETURN
-K_QUIT      = $5f	; <-
+K_QUIT      = $03	; STOP
 K_DEL       = $14	; DELETE
 
 ; EDITOR KEYS
@@ -65,3 +65,13 @@ K_TRACE     = $a3	; <C=> + t
 K_SET_WATCH = $b3	; <C=>+w (for use in MEMORY editor)
 K_ADD_WATCH = $b3	; <C=>+w (for use in WATCH editor)
 K_DEL_WATCH = $ac	; <C=>+d
+
+
+K_BACKSLASH   = $5c	; Euro symbol
+K_CARET       = $5e	; up-arrow
+K_UNDERSCORE  = $5f	; SHIFT + minus
+K_GRAVE       = $60	; left-arrow
+K_CURLY_OPEN  = $7b	; SHIFT + @
+K_PIPE        = $7c	; SHIFT + #
+K_CURLY_CLOSE = $7d	; SHIFT + *
+K_TILDE       = $7e	; SHIFT + left-arrow

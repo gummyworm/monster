@@ -798,6 +798,8 @@ main:	jsr key::getch
 ; ENTER VISUAL
 ; Enters VISUAL mode
 .proc enter_visual
+	; TODO: fix visual selection
+	rts
 	jsr cur::on
 
 	lda #MODE_VISUAL
@@ -824,6 +826,8 @@ main:	jsr key::getch
 ; ENTER VISUAL LINE
 ; Enters VISUAL_LINE mode
 .proc enter_visual_line
+	; TODO: fix visual selection
+	rts
 	jsr enter_visual
 	jsr cur::off
 	lda #MODE_VISUAL_LINE

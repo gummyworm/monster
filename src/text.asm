@@ -4,6 +4,7 @@
 .include "cursor.inc"
 .include "draw.inc"
 .include "edit.inc"
+.include "errors.inc"
 .include "fasttext.inc"
 .include "file.inc"
 .include "finalex.inc"
@@ -506,8 +507,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bne @done		; if BUFFER is enabled, don't blit
 	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
 @done:	inc zp::curx
-	clc			; "put" was successful
-	rts
+	RETURN_OK		; "put" was successful
 .endproc
 
 ;******************************************************************************
