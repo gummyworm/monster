@@ -1497,7 +1497,7 @@ __asm_include:
 
 ;******************************************************************************
 ; DEFINECONST
-; Hanldes the .EQ directive
+; Handles the .EQ directive
 ; Effective on 1st pass only
 .proc defineconst
 	lda zp::pass
