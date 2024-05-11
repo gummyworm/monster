@@ -2631,11 +2631,12 @@ goto_buffer:
 	jsr text::char_index
 	cmp #$09		; did we end on a TAB?
 	bne ccup_highlight	; if not, continue
-	jsr src::next
+	jsr src::right
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
+	lda @xend
 ; fallthrough
 .endproc
 
@@ -2977,6 +2978,7 @@ goto_buffer:
 	bcc @xloop
 
 :	; if we ended on a TAB, advance to next tab col
+	jsr src::right
 	jsr text::char_index
 	cmp #$09		; did we end on a TAB?
 	bne ccdown_highlight	; if not, continue
