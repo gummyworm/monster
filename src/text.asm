@@ -469,13 +469,13 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bcs @err	; cursor is limited
 
 	pha
+	jsr __text_char_index
+	sty @curi
 	lda __text_insertmode
 	beq @fastput	; if REPLACE, no need to shift, do fast put
 
 @slowput:
 @shift_right:
-	jsr __text_char_index
-	sty @curi
 	; insert a new char and redraw the line
 	jsr __text_linelen
 	cpx @curi
