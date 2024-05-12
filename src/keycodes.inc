@@ -25,13 +25,11 @@ K_ASM_FILE       = $b0	; C= + a
 K_SHOW_BUFFERS   = $87	; F5
 K_REFRESH        = $bc  ; <C=> + c
 K_RENAME         = $b2  ; <C=> + r
-K_DEBUG		 = $ac	; <C=> + d
 K_DIR            = $b6  ; <C=> + l
 K_LIST_SYMBOLS   = $b7  ; <C=> + y
 K_FIND           = $2f	; /
 K_GETCMD         = ':'  ; :
 K_GO             = $a5	; <C=> + g
-K_GOTO_LINE	 = $a7	; <C=> + m
 K_GOTO_BUFF1     = $81  ; <C=> + 1
 K_GOTO_BUFF2     = $95  ; <C=> + 2
 K_GOTO_BUFF3     = $96  ; <C=> + 3
@@ -57,7 +55,6 @@ K_WATCHVIEW       = $88	; F7
 K_SWAP_USERMEM    = $20	; SPACE
 K_RESET_STOPWATCH = $b2	; <C=> + r
 
-;K_GO        = $a5	; <C=> + g
 K_STEP      = $ad	; <C=> + z
 K_STEPOVER  = $ae	; <C=> + s
 K_TRACE     = $a3	; <C=> + t
@@ -65,7 +62,6 @@ K_TRACE     = $a3	; <C=> + t
 K_SET_WATCH = $b3	; <C=>+w (for use in MEMORY editor)
 K_ADD_WATCH = $b3	; <C=>+w (for use in WATCH editor)
 K_DEL_WATCH = $ac	; <C=>+d
-
 
 K_BACKSLASH   = $5c	; Euro symbol
 K_CARET       = $5e	; up-arrow

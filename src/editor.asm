@@ -1332,7 +1332,7 @@ main:	jsr key::getch
 	jmp ccup
 
 @check_ban_up:
-	cmp #$5d	; SHIFT-; (generate banner above)
+	cmp #':'	; SHIFT-; (generate banner above)
 	bne @done
 	jsr open_line_above
 	jsr comment_banner
@@ -1344,6 +1344,7 @@ main:	jsr key::getch
 ;******************************************************************************
 .proc comment_banner
 @cnt=zp::editortmp+2
+	jsr text::bufferon
 	lda #40
 	sta @cnt
 :	lda #';'
@@ -1352,7 +1353,7 @@ main:	jsr key::getch
 	bne :-
 	lda zp::cury
 	jsr text::drawline
-	rts
+	jmp text::bufferoff
 .endproc
 
 ;******************************************************************************
@@ -2631,11 +2632,12 @@ goto_buffer:
 	jsr text::char_index
 	cmp #$09		; did we end on a TAB?
 	bne ccup_highlight	; if not, continue
-	jsr src::next
+	jsr src::right
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
+	lda @xend
 ; fallthrough
 .endproc
 
@@ -2980,6 +2982,7 @@ goto_buffer:
 	jsr text::char_index
 	cmp #$09		; did we end on a TAB?
 	bne ccdown_highlight	; if not, continue
+	jsr src::right
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
@@ -3572,13 +3575,14 @@ __edit_gotoline:
 	; move the cursor to the top if we searched backwards or bottom
 	; if forward
 	; and move to appropriate column if we ended on a TAB
-	ldy @row
 	lda mem::linebuffer
-	ldx #TAB_WIDTH
-	cmp #$09		; TAB
-	beq :+
 	ldx #$00
-:	jmp cur::set
+	cmp #$09		; TAB
+	bne :+
+	jsr src::right
+	ldx #TAB_WIDTH
+:	ldy @row
+	jmp cur::set
 .endproc
 
 ;******************************************************************************

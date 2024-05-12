@@ -48,6 +48,27 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 
 .CODE
 ;******************************************************************************
+; BUFFERON
+; enables buffering for text (text will only be drawn when lines are
+; drawn, inserts will not redraw screen)
+.export __text_bufferon
+.proc __text_bufferon
+	lda #$01
+	sta __text_buffer
+	rts
+.endproc
+
+;******************************************************************************
+; BUFFEROFF
+; Disables buffering. All characters will be drawn to screen
+.export __text_bufferoff
+.proc __text_bufferoff
+	lda #$00
+	sta __text_buffer
+	rts
+.endproc
+
+;******************************************************************************
 .export __text_status
 .proc __text_status
 	ldx #<mem::statusline
@@ -497,6 +518,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	lda zp::cury
 	jmp __text_drawline	; re-render whole line
 @redraw:
+	lda __text_buffer
+	bne @done
 	lda zp::cury
 	inc zp::curx
 	jmp __text_drawline	; re-render whole line
