@@ -1,5 +1,7 @@
 .import __text_char_index
 .import __text_buffer
+.import __text_bufferon
+.import __text_bufferoff
 .import __text_clrline
 .import __text_drawline
 .import __text_insertmode
@@ -44,7 +46,9 @@ CH_R_ARROW	    = 135
 
 .scope text
 	buffer           = __text_buffer
-	char_index	  = __text_char_index
+	bufferon         = __text_bufferon
+	bufferoff        = __text_bufferoff
+	char_index	 = __text_char_index
 	clrline          = __text_clrline
 	drawline         = __text_drawline
 	insertmode       = __text_insertmode

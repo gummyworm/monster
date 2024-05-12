@@ -1332,7 +1332,7 @@ main:	jsr key::getch
 	jmp ccup
 
 @check_ban_up:
-	cmp #$5d	; SHIFT-; (generate banner above)
+	cmp #':'	; SHIFT-; (generate banner above)
 	bne @done
 	jsr open_line_above
 	jsr comment_banner
@@ -1344,6 +1344,7 @@ main:	jsr key::getch
 ;******************************************************************************
 .proc comment_banner
 @cnt=zp::editortmp+2
+	jsr text::bufferon
 	lda #40
 	sta @cnt
 :	lda #';'
@@ -1352,7 +1353,7 @@ main:	jsr key::getch
 	bne :-
 	lda zp::cury
 	jsr text::drawline
-	rts
+	jmp text::bufferoff
 .endproc
 
 ;******************************************************************************
