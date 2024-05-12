@@ -3574,13 +3574,14 @@ __edit_gotoline:
 	; move the cursor to the top if we searched backwards or bottom
 	; if forward
 	; and move to appropriate column if we ended on a TAB
-	ldy @row
 	lda mem::linebuffer
-	ldx #TAB_WIDTH
-	cmp #$09		; TAB
-	beq :+
 	ldx #$00
-:	jmp cur::set
+	cmp #$09		; TAB
+	bne :+
+	jsr src::right
+	ldx #TAB_WIDTH
+:	ldy @row
+	jmp cur::set
 .endproc
 
 ;******************************************************************************
