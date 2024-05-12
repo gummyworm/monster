@@ -1501,7 +1501,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr cur::off
 	jsr swapin
 
-
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
 	lda #FINAL_BANK_USER
@@ -1711,8 +1710,12 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 :	jsr key::getch
 	beq :-
-	cmp #K_QUIT
+
+	; 'N' or QUIT: return back to debugger, 'Y': exit debugger
+	cmp #$4e		; N
 	beq @done
+	cmp #K_QUIT
+	beq @done		; don't quit
 	cmp #$59		; Y
 	bne :-
 
@@ -1724,7 +1727,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	pla
 	pla			; debug START return address
 	pla
-	jmp *
+	pla
 @done:	rts
 .endproc
 
