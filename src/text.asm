@@ -419,14 +419,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .C: set if character was unsuccessfully put
 .export __text_putch
 .proc __text_putch
-@src=zp::text
-@dst=zp::text+4
-@clrmask=zp::text+6
-@char=zp::text+7
-@tabsz=zp::text+7
-@len=zp::text+7
-@dx=zp::text+8
-@curi=zp::text+9
+@curi=zp::text
 	cmp #$14
 	bne @printing
 
@@ -476,13 +469,13 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	bcs @err	; cursor is limited
 
 	pha
+	jsr __text_char_index
+	sty @curi
 	lda __text_insertmode
 	beq @fastput	; if REPLACE, no need to shift, do fast put
 
 @slowput:
 @shift_right:
-	jsr __text_char_index
-	sty @curi
 	; insert a new char and redraw the line
 	jsr __text_linelen
 	cpx @curi
@@ -525,7 +518,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	jmp __text_drawline	; re-render whole line
 
 	; TODO: make fast?
-	sta @char
 	ldx __text_buffer
 	bne @done		; if BUFFER is enabled, don't blit
 	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
