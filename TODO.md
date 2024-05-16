@@ -3,5 +3,7 @@
   - [ ] Copy ROM to spare 16k of FE3 bank RAM
   - [ ] Update vmem to handle the 16k ROM range
 
-- [ ] Optimize source up/down/goto
-  - [ ] Do one copy instead of repeated moves (next/prev)
+- [ ] Add settings / module configuration file
+
+- [x] Optimize source up/down/goto
+  - [x] Do one copy instead of repeated moves (next/prev)

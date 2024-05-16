@@ -1,13 +1,9 @@
-.include "bitmap.inc"
-.include "cursor.inc"
-.include "key.inc"
-.include "keycodes.inc"
-.include "macros.inc"
-.include "source.inc"
-.include "util.inc"
-.include "zeropage.inc"
+.include "../keycodes.inc"
+.include "../macros.inc"
+.include "../zeropage.inc"
 
 ;******************************************************************************
+BITMAP_ADDR = $1100
 PIXEL_SIZE = 4		; size of each pixel in the editor
 
 CANVAS_Y      = 40		; start row (in pixels)
@@ -21,74 +17,32 @@ color = zp::editortmp
 udg = zp::editortmp+1
 
 .CODE
+.word @header
+@header:
+
 ;******************************************************************************
 ; ENTER
 ; Activates the UDG editor
 ; OUT:
-;  - .XY: the address of the newly created graphic
-;  - .Z: clear if the user quit the editor without creating a character
+;  - r0-r7: the character that the user created
+;  - .Z:    clear if the user quit the editor without creating a character
 ;        set if the user did create a new UDG
 .export __udgedit_enter
 .proc __udgedit_enter
-	jsr bm::save
-	pushcur
-
+	inc $900f
+	jmp  *-3
 	jsr clrcanvas
 
-@main:	jsr key::getch
+@main:	jsr $ffe4		; get key
 	jsr handlekey
 	jmp @main
 
-@done:	pha			; save the quit key (QUIT or RETURN)
-	jsr bm::restore
-	popcur
-	pla
-	cmp #K_RETURN		; did we confirm UDG creation?
+@done:	cmp #K_RETURN		; did we confirm UDG creation?
 	bne @ret		; if not, we're done
 
 @ret:	sec			; no graphic created
 	rts
-
 .endproc
-
-;******************************************************************************
-; WRITEOUT
-; writes the UDG as .DB bytes to the source code
-@writeresult:
-@cnt=zp::tmp4
-	lda #4
-	sta @cnt
-
-	; write the .DB directive
-:	ldx @cnt
-	lda @db,x
-	jsr src::insert
-	dec @cnt
-	bpl :-
-
-	; now write the data $xx,$xx,$xx
-	inc @cnt
-:	lda #'$'
-	jsr src::insert
-	ldx @cnt
-	lda udg,x
-	jsr util::hextostr
-	txa
-	pha
-	tya
-	jsr src::insert
-	pla
-	jsr src::insert
-	inc @cnt
-	lda @cnt
-	cmp #$08
-	beq @done
-	lda #','
-	jsr src::insert
-	jmp :-
-
-@done:	rts
-@db: .byte " bd."
 
 ;******************************************************************************
 ; HANDLEKEY
@@ -99,6 +53,7 @@ udg = zp::editortmp+1
 	dex
 	bpl :-
 	rts
+
 @handle:
 	lda @handlerslo,x
 	sta zp::jmpvec
@@ -169,6 +124,7 @@ udg = zp::editortmp+1
 	lda zp::curx
 	and #$01
 	bne @oddcol
+
 @evencol:
 	lda #$f0
 	eor (@dst),y
@@ -180,6 +136,7 @@ udg = zp::editortmp+1
 	lda #$f0
 	eor (@dst),y
 	rts
+
 @oddcol:
 	lda #$0f
 	eor (@dst),y
@@ -201,10 +158,10 @@ udg = zp::editortmp+1
 	lda zp::curx
 	asl
 	asl
-	lda bm::columns+(CANVAS_X/8),x
+	lda bm_columns+(CANVAS_X/8),x
 	adc #CANVAS_Y
 	sta @dst
-	lda bm::columns+1,x
+	lda bm_columns+1,x
 	sta @dst+1
 
 	lda zp::curx
@@ -282,3 +239,26 @@ udg = zp::editortmp+1
 	inc zp::cury
 :	rts
 .endproc
+
+;******************************************************************************
+bm_columns:
+.word $1100
+.word $11c0
+.word $1280
+.word $1340
+.word $1400
+.word $14c0
+.word $1580
+.word $1640
+.word $1700
+.word $17c0
+.word $1880
+.word $1940
+.word $1a00
+.word $1ac0
+.word $1b80
+.word $1c40
+.word $1d00
+.word $1dc0
+.word $1e80
+.word $1f40

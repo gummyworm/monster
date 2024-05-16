@@ -12,6 +12,8 @@ K_NEXT_BUFF  = $3e	; >
 K_NEW_BUFF   = $aa	; <C=> + n
 K_CLOSE_BUFF = $ab	; <C=> + q
 
+K_UDG_EDIT   = $b8	; <C=> + u
+
 ; GLOBAL INTERFACE KEYS
 K_RETURN    = $0d	; RETURN
 K_QUIT      = $03	; STOP
