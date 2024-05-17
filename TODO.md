@@ -3,6 +3,8 @@
   - [ ] Copy ROM to spare 16k of FE3 bank RAM
   - [ ] Update vmem to handle the 16k ROM range
 
+- [ ] Support variable width characters (8x8 UDG's)
+
 - [ ] Fix disassembly
 
 - [ ] Support 256 length lines

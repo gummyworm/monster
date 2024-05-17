@@ -97,16 +97,17 @@ __cur_toggle:
 	ldy zp::cury
 
 	txa
-	and #$fe
+	lsr
 	tax
+
 	tya
 	asl
 	asl
 	asl
-	adc bm::columns,x
+	adc bm::columnslo,x
 	sta @dst
 	lda #$00
-	adc bm::columns+1,x
+	adc bm::columnshi,x
 	sta @dst+1
 
 	jsr mask

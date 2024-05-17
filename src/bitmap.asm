@@ -200,12 +200,11 @@ COLMEM_ADDR = $9400
 	ror @odd
 
 	; get the first column to reverse
-	asl
 	tay
 	pla
-	adc __bm_columns,y
+	adc __bm_columnslo,y
 	sta @dst
-	lda __bm_columns+1,y
+	lda __bm_columnshi,y
 	adc #$00
 	sta @dst+1
 
@@ -308,7 +307,6 @@ COLMEM_ADDR = $9400
 	tya
 	lsr
 	sta @dst
-	asl
 	sta @ystart
 	adc @dst		; *3 (sizeof ror abs,x)
 	adc #<@target
@@ -343,9 +341,9 @@ COLMEM_ADDR = $9400
 
 	; if odd, shift the first column back
 	ldy @ystart
-	lda __bm_columns,y
+	lda __bm_columnslo,y
 	sta @first
-	lda __bm_columns+1,y
+	lda __bm_columnshi,y
 	sta @first+1
 
 @l2:	ldy #$03
@@ -425,5 +423,15 @@ __bm_columns:
 .word $1dc0
 .word $1e80
 .word $1f40
+
+.linecont +
+.define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
+  $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
+.linecont -
+
+.export __bm_columnslo
+.export __bm_columnshi
+__bm_columnslo: .lobytes cols
+__bm_columnshi: .hibytes cols
 
 inittab: .byte $02,$fe,$fe,$eb,$00,$0c
