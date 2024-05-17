@@ -13,7 +13,6 @@ BITMAP_HEIGHT = 192
 .import __bm_rvsline
 .import __bm_rvsline_part
 .import __bm_save
-.import __bm_shr
 .import __bm_restore
 
 .scope bm
@@ -28,7 +27,6 @@ BITMAP_HEIGHT = 192
 	rvsline      = __bm_rvsline
 	rvsline_part = __bm_rvsline_part
 	save         = __bm_save
-	shr          = __bm_shr
 	restore      = __bm_restore
 .endscope
 

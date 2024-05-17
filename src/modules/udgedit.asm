@@ -1,3 +1,17 @@
+;******************************************************************************
+; UDGEDIT.ASM
+;
+; This file contains the source for the UDG Editor module, which allows a user
+; to define "user defined graphics", or UDG's, for insertion into their code.
+; The UDG Editor displays an 8x8 grid that can be navigated using the normal
+; vi-like navigation keys. Plotting pixels is done with the '1' key.
+; Pressing ENTER confirms the creation of a graphic, while the QUIT key
+; exits the editor without creating the graphic.
+;
+; It is up to the caller (the editor) to update the source with the data for
+; the created graphic
+;******************************************************************************
+
 .include "../keycodes.inc"
 .include "../macros.inc"
 .include "../zeropage.inc"

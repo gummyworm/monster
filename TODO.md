@@ -13,5 +13,7 @@
 
 - [ ] Add settings / module configuration file
 
+- [ ] Fix visual mode
+
 - [x] Optimize source up/down/goto
   - [x] Do one copy instead of repeated moves (next/prev)
