@@ -1,3 +1,22 @@
+;******************************************************************************
+; SCREEN.ASM
+;
+; This file contains routines to manipulate the "screen".
+; The screen is the character layout that defines where in memory the bitmap
+; characters reside.
+; By default, the screen is configured so that the bitmap begins at $1100
+; at the origin (top-left), with each successive address being referring to
+; the next y-coordinate. e.g. $1101 is (0,1), $1102 is (0,2), etc.
+;
+; When the screen is shifted, each column is offset by the shift amount.
+; If the default screen is shifted left, the pixel in $11c0 is now at the top
+; left of the screen.
+; The bitmap still resides entirely in the $1100-$2000 range, so the addresses
+; "roll over" upon crossing $2000.
+; When the default layout is shifted left, this means that the address $1100
+; will now refer to 8 pixels at the top right of the bitmap display.
+;******************************************************************************
+
 .include "source.inc"
 .include "macros.inc"
 .include "zeropage.inc"
