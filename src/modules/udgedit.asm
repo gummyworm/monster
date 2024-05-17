@@ -9,14 +9,14 @@ PIXEL_SIZE = 4		; size of each pixel in the editor
 CANVAS_Y      = 40		; start row (in pixels)
 CANVAS_X      = 24		; start column (in pixels)
 CANVAS_HEIGHT = 8*PIXEL_SIZE
-CANVAS_WIDTH  = 8*8*4*PIXEL_SIZE
+CANVAS_WIDTH  = 8*PIXEL_SIZE
 
 BORDER_SIZE = 4		; border around editor (in pixels)
 
 color   = zp::editortmp
 cur_on  = zp::editortmp+1	; cursor on flag
 cur_tmr = zp::editortmp+2	; cursor blink timer
-udg     = zp::editortmp+3
+udg     = zp::tmp8
 
 .CODE
 .word @header
@@ -51,12 +51,9 @@ udg     = zp::editortmp+3
 	jsr handlekey
 	jmp @main
 
-@ok:	jsr curoff
-	clc
+@ok:	clc
 	rts
-
-@ret:	jsr curoff
-	sec			; no graphic created
+@ret:	sec			; no graphic created
 	rts
 .endproc
 
@@ -117,8 +114,8 @@ udg     = zp::editortmp+3
 	clc
 	adc #$c0	; next col
 	sta @dst
-
 	bcc @l0
+
 	inc @dst+1
 	bne @l0
 
@@ -131,7 +128,7 @@ udg     = zp::editortmp+3
 .proc curoff
 	lda cur_on
 	beq @done	; already off
-	jsr curtoggle
+	jmp curtoggle
 @done:	rts
 .endproc
 
@@ -141,7 +138,7 @@ udg     = zp::editortmp+3
 .proc curon
 	lda cur_on
 	bne @done	; already on
-	jsr curtoggle
+	jmp curtoggle
 @done:	rts
 .endproc
 

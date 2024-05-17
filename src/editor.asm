@@ -1798,8 +1798,10 @@ __edit_set_breakpoint:
 ; UDG_EDIT
 ; Activates the UDG character editor module
 .proc udgedit
+	jsr bm::save
 	lda #MOD_UDGEDIT
-	jmp mod::enter
+	jsr mod::enter
+	jmp bm::restore
 .endproc
 
 ;******************************************************************************

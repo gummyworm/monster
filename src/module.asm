@@ -16,8 +16,8 @@ UDGEDITOR_ADDR = $a5a000
 ; .A the ID of the module to execute
 .export __mod_enter
 .proc __mod_enter
-	pushcur
 	tax
+	pushcur
 	lda banks,x
 	sta zp::banktmp
 	lda addrslo,x
