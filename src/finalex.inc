@@ -67,7 +67,12 @@ FINAL_BANK_TOOL_UDGEDIT = $a0|5 ; UDG editor ($a000-$c000)
 
 ;******************************************************************************
 ; FAST bank
-; Used for unrolled loops to make stuff fast
+; Used for the unrolled bitmap clear routine and backups for bitmap columns
+;  $2100-$2e02: bitmap clear routine
+;  $2e02-$8000: bitmap column backups (0-109)
+;  $a000-$ae40: bitmap column backups (110-127)
+;  $ae40-$b000: bitmap save/restore column routines
+;  $b000-$c000: data
 FINAL_BANK_FAST = $a0|$0c
 			
 ;******************************************************************************
