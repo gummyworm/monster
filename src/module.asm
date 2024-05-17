@@ -1,3 +1,4 @@
+.include "cursor.inc"
 .include "finalex.inc"
 .include "macros.inc"
 .include "zeropage.inc"
@@ -15,6 +16,7 @@ UDGEDITOR_ADDR = $a5a000
 ; .A the ID of the module to execute
 .export __mod_enter
 .proc __mod_enter
+	pushcur
 	tax
 	lda banks,x
 	sta zp::banktmp
@@ -22,8 +24,9 @@ UDGEDITOR_ADDR = $a5a000
 	sta zp::bankjmpvec
 	lda addrshi,x
 	sta zp::bankjmpvec+1
-	jmp *
-	jmp fe3::call
+	jsr fe3::call
+	popcur
+	rts
 .endproc
 
 .segment "SETUP"

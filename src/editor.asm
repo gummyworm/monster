@@ -3846,7 +3846,7 @@ ccvectorshi: .hibytes ccvectors
 
 ;******************************************************************************
 commands:
-	.byte $68	; j (left)
+	.byte $68	; h (left)
 	.byte $6c	; l (right)
 	.byte $6b	; k (up)
 	.byte $6a	; j (down)

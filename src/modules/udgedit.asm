@@ -8,13 +8,15 @@ PIXEL_SIZE = 4		; size of each pixel in the editor
 
 CANVAS_Y      = 40		; start row (in pixels)
 CANVAS_X      = 24		; start column (in pixels)
-CANVAS_HEIGHT = 8*8*PIXEL_SIZE
+CANVAS_HEIGHT = 8*PIXEL_SIZE
 CANVAS_WIDTH  = 8*8*4*PIXEL_SIZE
 
 BORDER_SIZE = 4		; border around editor (in pixels)
 
-color = zp::editortmp
-udg = zp::editortmp+1
+color   = zp::editortmp
+cur_on  = zp::editortmp+1	; cursor on flag
+cur_tmr = zp::editortmp+2	; cursor blink timer
+udg     = zp::editortmp+3
 
 .CODE
 .word @header
@@ -29,18 +31,32 @@ udg = zp::editortmp+1
 ;        set if the user did create a new UDG
 .export __udgedit_enter
 .proc __udgedit_enter
-	inc $900f
-	jmp  *-3
+	cli
 	jsr clrcanvas
+	lda #$00
+	sta zp::curx
+	sta zp::cury
 
-@main:	jsr $ffe4		; get key
+@main:	dec cur_tmr
+	bne :+
+	jsr curtoggle
+
+:	jsr $f1f9		; get key
+	cmp #$00
+	beq @main
+	cmp #K_RETURN
+	beq @ok
+	cmp #K_QUIT
+	beq @ret
 	jsr handlekey
 	jmp @main
 
-@done:	cmp #K_RETURN		; did we confirm UDG creation?
-	bne @ret		; if not, we're done
+@ok:	jsr curoff
+	clc
+	rts
 
-@ret:	sec			; no graphic created
+@ret:	jsr curoff
+	sec			; no graphic created
 	rts
 .endproc
 
@@ -52,21 +68,22 @@ udg = zp::editortmp+1
 	beq @handle
 	dex
 	bpl :-
-	rts
+	rts	; nothing to do for key
 
 @handle:
 	lda @handlerslo,x
 	sta zp::jmpvec
 	lda @handlershi,x
 	sta zp::jmpvec+1
-	jmp zp::jmpvec
+	jmp zp::jmpaddr
+
 @keys:
-.byte K_UP, K_DOWN, K_LEFT, K_RIGHT, '1'
+	.byte $4b, $4a, $48, $4c, '1'	; k, j, h, l
 @numkeys=*-@keys
-@handlerslo:
-.lobytes up, down, left, right, plot
-@handlershi:
-.hibytes up, down, left, right, plot
+
+.define handlers up, down, left, right, plot
+@handlerslo: .lobytes handlers
+@handlershi: .hibytes handlers
 .endproc
 
 ;******************************************************************************
@@ -76,26 +93,31 @@ udg = zp::editortmp+1
 @dst=r0
 	; clear the character buffer
 	lda #$00
+	sta cur_on	; clear cursor status
+
 	ldx #$07
 :	sta udg,x
 	dex
 	bpl :-
 
 	; clear the bitmap area of the canvas
-	ldxy #(BITMAP_ADDR+(192*(CANVAS_X/8))-1)
+	ldxy #BITMAP_ADDR+($c0*(CANVAS_X/8))+CANVAS_Y-1
 	stxy @dst
 	ldx #CANVAS_WIDTH/8
+
 @l0:	lda #$00
-	ldy #CANVAS_HEIGHT-CANVAS_Y
+	ldy #CANVAS_HEIGHT
 :	sta (@dst),y
 	dey
 	bne :-
+
 	dex
 	beq @done
 	lda @dst
 	clc
-	adc #192
+	adc #$c0	; next col
 	sta @dst
+
 	bcc @l0
 	inc @dst+1
 	bne @l0
@@ -107,20 +129,46 @@ udg = zp::editortmp+1
 ; CUROFF
 ; Turns off the cursor
 .proc curoff
+	lda cur_on
+	beq @done	; already off
+	jsr curtoggle
+@done:	rts
 .endproc
 
 ;******************************************************************************
 ; CURON
 ; Turns on the cursor
 .proc curon
+	lda cur_on
+	bne @done	; already on
+	jsr curtoggle
+@done:	rts
 .endproc
-
 
 ;******************************************************************************
 ; CURTOGGLE
 ; Toggles the cursor
 .proc curtoggle
 @dst=r0
+	lda cur_on
+	eor #$01
+	sta cur_on
+
+	lda zp::curx
+	lsr
+	tax
+
+	lda colslo+(CANVAS_X/8),x
+	clc
+	adc #CANVAS_Y
+	sta @dst
+	lda colshi+(CANVAS_X/8),x
+	sta @dst+1
+
+	lda zp::cury
+	asl
+	asl
+	tay
 	lda zp::curx
 	and #$01
 	bne @oddcol
@@ -128,25 +176,37 @@ udg = zp::editortmp+1
 @evencol:
 	lda #$f0
 	eor (@dst),y
+	sta (@dst),y
+	iny
 	lda #$90
 	eor (@dst),y
+	sta (@dst),y
 	iny
+	lda #$90
 	eor (@dst),y
+	sta (@dst),y
 	iny
 	lda #$f0
 	eor (@dst),y
+	sta (@dst),y
 	rts
 
 @oddcol:
 	lda #$0f
 	eor (@dst),y
+	sta (@dst),y
+	iny
 	lda #$09
 	eor (@dst),y
+	sta (@dst),y
 	iny
+	lda #$09
 	eor (@dst),y
+	sta (@dst),y
 	iny
 	lda #$0f
 	eor (@dst),y
+	sta (@dst),y
 	rts
 .endproc
 
@@ -155,14 +215,23 @@ udg = zp::editortmp+1
 ; Plots the given (x,y) coordinate on the canvas
 .proc plot
 @dst=r0
+@mask=r2
+	jsr curoff
 	lda zp::curx
-	asl
-	asl
-	lda bm_columns+(CANVAS_X/8),x
+	lsr
+	tax
+
+	lda colslo+(CANVAS_X/8),x
+	clc
 	adc #CANVAS_Y
 	sta @dst
-	lda bm_columns+1,x
+	lda colshi+(CANVAS_X/8),x
 	sta @dst+1
+
+	lda zp::cury
+	asl
+	asl
+	tay
 
 	lda zp::curx
 	and #$01
@@ -170,25 +239,17 @@ udg = zp::editortmp+1
 	lda #$f0	; even mask
 	skw
 :	lda #$0f	; odd mask
+	sta @mask
 
 ; draw the pixel
-	ldy #3
-:	ora (@dst),y
-	dey
-	bpl :-
+	ldx #4
+:	lda @mask
+	ora (@dst),y
+	sta (@dst),y
+	iny
+	dex
+	bne :-
 	rts
-.endproc
-
-;******************************************************************************
-; RIGHT
-; Handle the "move right" behavior
-.proc right
-	jsr curoff
-	lda zp::curx
-	cmp #7
-	bcs :+
-	inc zp::curx
-:	rts
 .endproc
 
 ;******************************************************************************
@@ -204,6 +265,18 @@ udg = zp::editortmp+1
 	ora $8314,x	; charrom '/' (mask associated with pixel)
 	sta udg,y
 	rts
+.endproc
+
+;******************************************************************************
+; RIGHT
+; Handle the "move right" behavior
+.proc right
+	jsr curoff
+	lda zp::curx
+	cmp #7
+	bcs :+
+	inc zp::curx
+:	rts
 .endproc
 
 ;******************************************************************************
@@ -241,24 +314,9 @@ udg = zp::editortmp+1
 .endproc
 
 ;******************************************************************************
-bm_columns:
-.word $1100
-.word $11c0
-.word $1280
-.word $1340
-.word $1400
-.word $14c0
-.word $1580
-.word $1640
-.word $1700
-.word $17c0
-.word $1880
-.word $1940
-.word $1a00
-.word $1ac0
-.word $1b80
-.word $1c40
-.word $1d00
-.word $1dc0
-.word $1e80
-.word $1f40
+.linecont +
+.define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
+  $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
+.linecont -
+colslo: .lobytes cols
+colshi: .hibytes cols
