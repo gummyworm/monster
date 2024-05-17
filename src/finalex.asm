@@ -159,8 +159,6 @@ final_store_size=*-__final_store_byte
 	cli
 	rts
 .endproc
-final_copy_end=*-__final_copy
-
 
 ;******************************************************************************
 ; CALL
@@ -169,8 +167,6 @@ final_copy_end=*-__final_copy
 ; IN:
 ;  - zp::bankjmpaddr: the procedure address
 ;  - zp::banktmp: the destination bank address
-;  - .XY: the address of the procedure to call
-;  - .A: the bank of the target procedure
 .export __final_call
 .proc __final_call
 @a=zp::banktmp+1

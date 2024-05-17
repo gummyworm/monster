@@ -18,6 +18,7 @@
 .include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "module.inc"
 .include "source.inc"
 .include "state.inc"
 .include "string.inc"
@@ -1532,6 +1533,7 @@ main:	jsr key::getch
 
 	.byte K_NEXT_BUFF	; C= + > next buffer
 	.byte K_PREV_BUFF	; C= + < previous buffer
+	.byte K_UDG_EDIT	; C= + U activate udg editor
 	.byte K_QUIT		; <- (return to COMMAND mode)
 @num_special_keys=*-@specialkeys
 .linecont +
@@ -1539,7 +1541,7 @@ main:	jsr key::getch
 	dir, list_symbols, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
-	next_buffer, prev_buffer, cancel
+	next_buffer, prev_buffer, udgedit, cancel
 .linecont -
 @specialvecslo: .lobytes specialvecs
 @specialvecshi: .hibytes specialvecs
@@ -1790,6 +1792,16 @@ __edit_set_breakpoint:
 	bcs @done
 	jmp refresh
 @done:	rts
+.endproc
+
+;******************************************************************************
+; UDG_EDIT
+; Activates the UDG character editor module
+.proc udgedit
+	jsr bm::save
+	lda #MOD_UDGEDIT
+	jsr mod::enter
+	jmp bm::restore
 .endproc
 
 ;******************************************************************************
@@ -3836,7 +3848,7 @@ ccvectorshi: .hibytes ccvectors
 
 ;******************************************************************************
 commands:
-	.byte $68	; j (left)
+	.byte $68	; h (left)
 	.byte $6c	; l (right)
 	.byte $6b	; k (up)
 	.byte $6a	; j (down)

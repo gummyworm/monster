@@ -8,6 +8,7 @@
 .include "labels.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "module.inc"
 .include "source.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
@@ -85,6 +86,7 @@ start:
 	stxy zp::tmp0
 @zerobss:
 	ldy #$00
+	sty mem::drive_err	; clear the drive error
 	tya
 	sta (zp::tmp0),y
 	incw zp::tmp0
@@ -93,6 +95,7 @@ start:
 	bne @zerobss
 
 ; relocate segments that need to be moved
+; DATA
 	ldxy #__DATA_LOAD__
 	stxy zp::tmp0
 	ldxy #__DATA_RUN__
@@ -107,6 +110,7 @@ start:
 	cmpw #(__DATA_LOAD__+__DATA_SIZE__)
 	bne @reloc
 
+; FASTTEXT
 ; copy the fast text code to its bank
 	ldxy #__FASTTEXT_LOAD__
 	stxy zp::tmp0
@@ -122,10 +126,14 @@ start:
 	cmpw #__FASTTEXT_LOAD__+__FASTTEXT_SIZE__
 	bne @fasttxt
 
+; MACRO
 ; copy the macro code to its bank
 	relocate #__MACROCODE_LOAD__, #__MACROCODE_RUN__, #FINAL_BANK_MACROS, #__MACROCODE_SIZE__
 
 	relocate #__IRQ_LOAD__, #__IRQ_RUN__, #FINAL_BANK_MAIN, #__IRQ_SIZE__
+
+; load modules from disk to their designated bank
+	jsr loadmods
 
 ; initialize the JMP vector
 	lda #$4c		; JMP
@@ -141,9 +149,8 @@ start:
 	lda #>start
 	sta $0317		; BRK
 	sta $0319		; NMI
+
 	jsr $ffe7		; CLALL (close all files)
-	lda #$a
-	sta zp::device
 
 	; save current screen for debugger
 	jsr dbg::save_progstate
@@ -153,26 +160,22 @@ start:
 	lda #$80
 	sta $9c02	; enable 35K of RAM for final expansion
 
-	; clear the drive error
-	lda #$00
-	sta mem::drive_err
-
 	lda #$80
 	sta $028a	; repeat all characters
 	sta $0291	; don't swap charset on C= + SHIFT
 
 	jmp enter
-
-@loading: .byte "initializing..."
+@loading: .byte "initializing.."
 @loadinglen=*-@loading
 
 ;******************************************************************************
+; RELOC
 ; relocates code from 1 address to another
 ; IN:
-; r0r1: source address
-; r2r3: dest address
-; r4:   dest bank
-; r6:   number of bytes to copy
+;  - r0r1: source address
+;  - r2r3: dest address
+;  - r4:   dest bank
+;  - r6:   number of bytes to copy
 .proc reloc
 @copy:	ldy #$00
 	lda (r0),y
@@ -185,6 +188,20 @@ start:
 	bne @copy
 	rts
 .endproc
+
+;******************************************************************************
+; LOADMODS
+; Loads all modules into their designated locations in RAM
+.proc loadmods
+	inc $900f
+	ldxy #@module_udgedit
+	lda #MOD_UDGEDIT
+	jsr mod::load
+	dec $900f
+	rts
+@module_udgedit: .byte "udgedit.prg",0
+.endproc
+
 
 .CODE
 ;******************************************************************************
