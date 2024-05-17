@@ -3,6 +3,12 @@
   - [ ] Copy ROM to spare 16k of FE3 bank RAM
   - [ ] Update vmem to handle the 16k ROM range
 
+- [ ] Fix disassembly
+
+- [ ] Support 256 length lines
+
+- [ ] Implement linker (WIP on linkage branch)
+
 - [ ] Add settings / module configuration file
 
 - [x] Optimize source up/down/goto
