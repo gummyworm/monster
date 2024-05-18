@@ -2,6 +2,7 @@
 .import __src_after_cursor
 .import __src_atcursor
 .import __src_backspace
+.import __src_before_newl
 .import __src_buffer_by_name
 .import __src_close
 .import __src_delete
@@ -50,6 +51,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	after_cursor   = __src_after_cursor
 	atcursor       = __src_atcursor
 	backspace      = __src_backspace
+	before_newl    = __src_before_newl
 	buffer_by_name = __src_buffer_by_name
 	close          = __src_close
 	delete         = __src_delete

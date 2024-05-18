@@ -86,7 +86,7 @@ NUM_ROWS    = 11	; number of 16-pixel rows
 
 ;******************************************************************************
 ; PUSH_COL
-; Shifts the screen by one character and
+; Shifts the screen right by one character, clears the new rightmost column,
 ; pushes the leftmost bitmap column
 .export __scr_pushcol
 .proc __scr_pushcol
@@ -95,11 +95,14 @@ NUM_ROWS    = 11	; number of 16-pixel rows
 :	lda BITMAP_ADDR-1,y	; save the leftmost column's bm data
 	sta (@stack),y
 	lda #$00
+	sta BITMAP_ADDR-1,y	; clear the bitmap data
+	lda #$00
 	dex
 	bne :-
 
-	; jsr shiftleft		; shift the bitmap left a character
+	jsr __scr_shl		; shift the screen left a character
 
+	; update the stack pointer
 	lda @stack
 	clc
 	adc #$c0
@@ -124,7 +127,7 @@ NUM_ROWS    = 11	; number of 16-pixel rows
 	dex
 	bne :-
 
-	; jsr shiftleft			; shift the bitmap left a character
+	jsr __scr_shr			; shift the screen right a character
 
 	lda @stack
 	clc

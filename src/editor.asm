@@ -906,6 +906,8 @@ main:	jsr key::getch
 	jsr enter_insert
 	jsr src::end
 	beq @done
+	jsr src::before_newl
+	beq @done
 	jsr src::next
 	jsr cur::right
 @done:	rts
@@ -942,8 +944,7 @@ main:	jsr key::getch
 :	jsr src::start
 	beq @done
 	jsr ccup
-	jsr src::after_cursor
-	cmp #$0d
+	jsr src::before_newl
 	bne :-
 @done:	rts
 .endproc
@@ -1083,8 +1084,7 @@ main:	jsr key::getch
 ;******************************************************************************_
 .proc delete_to_end
 @l0:	jsr delch
-	jsr src::after_cursor
-	cmp #$0d
+	jsr src::before_newl
 	bne @l0
 	jmp redraw_to_end_of_line
 .endproc
@@ -2720,8 +2720,7 @@ goto_buffer:
 
 	jsr src::end
 	beq @no_del
-	jsr src::after_cursor
-	cmp #$0d
+	jsr src::before_newl
 	beq @done		; last character
 	jsr src::delete
 	clc
