@@ -28,6 +28,10 @@
 .import __MACROCODE_RUN__
 .import __MACROCODE_SIZE__
 
+.import __SAVESCR_LOAD__
+.import __SAVESCR_RUN__
+.import __SAVESCR_SIZE__
+
 .import __IRQ_LOAD__
 .import __IRQ_RUN__
 .import __IRQ_SIZE__
@@ -131,6 +135,8 @@ start:
 	relocate #__MACROCODE_LOAD__, #__MACROCODE_RUN__, #FINAL_BANK_MACROS, #__MACROCODE_SIZE__
 
 	relocate #__IRQ_LOAD__, #__IRQ_RUN__, #FINAL_BANK_MAIN, #__IRQ_SIZE__
+
+	relocate #__SAVESCR_LOAD__, #__SAVESCR_RUN__, #FINAL_BANK_SAVESCR, #__SAVESCR_SIZE__
 
 ; load modules from disk to their designated bank
 	jsr loadmods

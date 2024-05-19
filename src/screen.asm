@@ -26,6 +26,8 @@ BITMAP_ADDR = $1100
 NUM_COLUMNS = 20	; number of 8-pixel columns
 NUM_ROWS    = 11	; number of 16-pixel rows
 
+VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
+
 ;******************************************************************************
 ; SHR
 ; Shifts the CHARACTER data of the screen to the right.  This means that the
@@ -84,6 +86,7 @@ NUM_ROWS    = 11	; number of 16-pixel rows
 	rts
 .endproc
 
+.segment "SAVESCR"
 ;******************************************************************************
 ; PUSH_COL
 ; Shifts the screen right by one character, clears the new rightmost column,
@@ -120,6 +123,8 @@ NUM_ROWS    = 11	; number of 16-pixel rows
 .export __scr_popcol
 .proc __scr_popcol
 @stack=r0
+	ldxy #stack
+	stxy @stack
 	ldy #192
 :	lda (@stack),y
 	sta BITMAP_ADDR+(19*$c0)-1,y	; restore the rightmost column's bm data
@@ -137,3 +142,6 @@ NUM_ROWS    = 11	; number of 16-pixel rows
 	inc @stack+1
 :	rts
 .endproc
+
+.segment "SAVESCR_BSS"
+stack: .res (NUM_ROWS*16)*(VSCREEN_WIDTH)-(40/2)	; $4a40

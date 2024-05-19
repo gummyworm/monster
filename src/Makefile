@@ -19,7 +19,7 @@ monster.prg: boot.asm $(SRC)
 ################################################################################
 # modules
 udgedit.prg: modules/udgedit.asm
-	cl65 -t vic20 -o $@ -C modules/link.config $^ -Ln labelsudgedit.txt -v -m map.txt
+	cl65 -t vic20 -o $@ -C modules/link.config $^ -Ln labelsudgedit.txt -v -m udgeditmap.txt
 	rm *.o
 
 ################################################################################

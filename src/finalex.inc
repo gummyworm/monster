@@ -25,13 +25,17 @@
 .import __final_bank_store_rel
 
 ;******************************************************************************
-; BANK LAYOUT
+; BANK LAYOUT 
 ; These definitions describe which banks store the code/data for their
 ; corresponding item.
+
+;******************************************************************************
+; This is the default bank while the editor has control of the CPU
+; MAIN bank ($01) 
 FINAL_BANK_MAIN    = $a0|1	; where the editor/assembler/etc code is stored
 
 ;******************************************************************************
-; DEBUG bank
+; DEBUG bank ($02)
 ; This bank stores debug information (file ID's, line numbers and addresses
 ; for the user program (which is stored in the USER bank). This is stored in
 ; the address range $2000-$8000. 
@@ -40,13 +44,13 @@ FINAL_BANK_MAIN    = $a0|1	; where the editor/assembler/etc code is stored
 FINAL_BANK_DEBUG   = $a0|2	; where debug symbols are stored
 
 ;******************************************************************************
-; USER bank
+; USER bank ($03)
 ; The assembled user program is stored in this bank. When debugging the program
 ; this bank is activated.
 FINAL_BANK_USER    = $a0|3	; where the user's program is stored
 
 ;******************************************************************************
-; SOURCE banks
+; SOURCE banks ($04-$05)
 ; There are 8 source banks. Each stores the text for one buffer of source.
 ; The text is stored in $2000-$8000.
 ; $a000-$c000 is free
@@ -73,16 +77,17 @@ FINAL_BANK_TOOL_UDGEDIT = $a0|5 ; UDG editor ($a000-$c000)
 ;  $a000-$ae40: bitmap column backups (110-127)
 ;  $ae40-$b000: bitmap save/restore column routines
 ;  $b000-$c000: data
-FINAL_BANK_FAST = $a0|$0c
+FINAL_BANK_SAVESCR = $a0|$0c
+FINAL_BANK_FAST    = $a0|$0c
 			
 ;******************************************************************************
-; SYMBOLS bank
+; SYMBOLS bank ($0D)
 ; The SYMBOLS bank stores the label names for the progam's labels in $2000-$8000
 ; $a000-$b000 is used to store the addresses that these names correspond to.
 FINAL_BANK_SYMBOLS = $a0|$d	; symbols bank (label names and their addresses)
 
 ;******************************************************************************
-; FASTCOPY blocks
+; FASTCOPY blocks ($0E-$0F)
 ; In these blocks, $2000-$8000 is used to store undrolled loops that copy data
 ; to the upper RAM ($a000-$c000).  The hi RAM ($a000-$b000) stores the data 
 ; for the debugger (FASTCOPY2) and user program (in FASTCOPY).

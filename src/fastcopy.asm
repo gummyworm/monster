@@ -25,7 +25,8 @@ __fastcopy_save = $2100
 __fastcopy_restore = $2100 + $2f00
 
 .export __fast_clr
-__fast_clr = $2100
+__fast_clr = $a000	; fast clear entrypoint
+fast_clr2 = $727f	; clear last 6 columns
 
 .segment "SETUP"
 ;******************************************************************************
@@ -250,54 +251,55 @@ __fast_clr = $2100
 .endproc
 
 ;******************************************************************************
+; GEN_BM_CLR
+; Generates the code to clear the bitmap
+; The entrypoint is at __fast_clr.
+; The routine jumps to another block of RAM when the current one is full
 .proc gen_bm_clr
-@addr=zp::tmp0
-@target=zp::tmp2
-	lda #$a9	; LDA #
-	sta zp::bankval
-	ldxy #__fast_clr
-	lda #FINAL_BANK_FAST
-	jsr fe3::store
+@addr=r0
+@target=r2
+@row=r4
+	bank_store_byte #FINAL_BANK_FAST, #__fast_clr, #$a9	; LDA #
 
 	lda #$00
-	sta zp::bankval
-	ldxy #__fast_clr+1
-	lda #FINAL_BANK_FAST
-	jsr fe3::store
+	sta @target
+	bank_store_byte #FINAL_BANK_FAST, #__fast_clr+1 	; 0
 
 	ldxy #__fast_clr+2
 	stxy @addr
-	ldxy #$1100
-	stxy @target
+
+	lda #$11
+	sta @target+1
 @gen_sta:
-	lda #$8d	; STA ABS
-	sta zp::bankval
-	ldxy @addr
-	lda #FINAL_BANK_FAST
-	jsr fe3::store
-
+	bank_store_byte #FINAL_BANK_FAST, @addr, #$8d		; STA Abs
 	incw @addr
-	lda @target
-	sta zp::bankval
-	ldxy @addr
-	lda #FINAL_BANK_FAST
-	jsr fe3::store
 
+	bank_store_byte #FINAL_BANK_FAST, @addr, @target	; LSB
 	incw @addr
-	lda @target+1
-	sta zp::bankval
-	ldxy @addr
-	lda #FINAL_BANK_FAST
-	jsr fe3::store
+
+	bank_store_byte #FINAL_BANK_FAST, @addr, @target+1	; MSB
+	incw @addr
 
 	incw @target
 
-	incw @addr
 	ldxy @addr
-	cmpw #__fast_clr+($f00*3)+2	; sizeof(lda #$00)+$ef0*sizeof(sta abs)
+	cmpw #fast_clr2+(192*6*3)	; sizeof(sta abs)*192*6
+	beq @done
+	cmpw #__fast_clr+(192*14*3)+2	; sizeof(lda #$00)+192*14*sizeof(sta abs)
 	bne @gen_sta
 
-	lda #$60			; RTS
+	bank_store_byte #FINAL_BANK_FAST, @addr, #$4c		; JMP
+	incw @addr
+	bank_store_byte #FINAL_BANK_FAST, @addr, #<fast_clr2	; LSB
+	incw @addr
+	bank_store_byte #FINAL_BANK_FAST, @addr, #>fast_clr2	; MSB
+	incw @addr
+
+	ldxy #fast_clr2
+	stxy @addr
+	jmp @gen_sta
+
+@done:	lda #$60			; RTS
 	sta zp::bankval
 	ldxy @addr
 	lda #FINAL_BANK_FAST
