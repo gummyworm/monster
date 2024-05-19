@@ -1212,9 +1212,8 @@ main:	jsr key::getch
 	cmp #$6c	; 'l'
 	bne @done
 @left:  CALL FINAL_BANK_SAVESCR, #scr::pushcol
-	jmp scr::shl
+	rts
 @right: CALL FINAL_BANK_SAVESCR, #scr::popcol
-	jmp scr::shr
 @done:	rts
 .endproc
 

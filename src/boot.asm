@@ -49,6 +49,17 @@
 	jsr reloc
 .endmacro
 
+;******************************************************************************
+; LOADMODS
+; Loads all modules into their designated locations in RAM
+.macro loadmods
+	ldxy #@module_udgedit
+	lda #MOD_UDGEDIT
+	jsr mod::load
+@module_udgedit: .byte "udgedit.prg",0
+.endmacro
+
+
 .segment "SETUP"
 ;******************************************************************************
 ; BASIC header: SYS 4621
@@ -70,6 +81,7 @@ start:
 
 	; print loading message
 	ldx #$00
+	sty mem::drive_err	; clear the drive error
 :	lda @loading,x
 	jsr $ffd2
 	inx
@@ -87,59 +99,34 @@ start:
 	jsr fcpy::init
 
 	ldxy #__BSS_LOAD__
-	stxy zp::tmp0
+	stxy r0
 @zerobss:
 	ldy #$00
-	sty mem::drive_err	; clear the drive error
 	tya
-	sta (zp::tmp0),y
-	incw zp::tmp0
-	ldxy zp::tmp0
+	sta (r0),y
+	incw r0
+	ldxy r0
 	cmpw #(__BSS_LOAD__+__BSS_SIZE__)
 	bne @zerobss
 
-; relocate segments that need to be moved
-; DATA
-	ldxy #__DATA_LOAD__
-	stxy zp::tmp0
-	ldxy #__DATA_RUN__
-	stxy zp::tmp2
-@reloc:
-	ldy #$00
-	lda (zp::tmp0),y
-	sta (zp::tmp2),y
-	incw zp::tmp0
-	incw zp::tmp2
-	ldxy zp::tmp0
-	cmpw #(__DATA_LOAD__+__DATA_SIZE__)
-	bne @reloc
+	; relocate segments that need to be moved
+	; DATA
+	relocate #__DATA_LOAD__, #__DATA_RUN__, #FINAL_BANK_MAIN, #__DATA_SIZE__
 
-; FASTTEXT
-; copy the fast text code to its bank
-	ldxy #__FASTTEXT_LOAD__
-	stxy zp::tmp0
-	ldxy #__FASTTEXT_RUN__
-	stxy zp::tmp2
-@fasttxt:
-	ldy #$00
-	lda (zp::tmp0),y
-	bank_store_byte #FINAL_BANK_FASTTEXT, zp::tmp2
-	incw zp::tmp0
-	incw zp::tmp2
-	ldxy zp::tmp0
-	cmpw #__FASTTEXT_LOAD__+__FASTTEXT_SIZE__
-	bne @fasttxt
+	; FASTTEXT
+	relocate #__FASTTEXT_LOAD__, #__FASTTEXT_RUN__, #FINAL_BANK_FASTTEXT, #__FASTTEXT_SIZE__
 
-; MACRO
-; copy the macro code to its bank
+	; MACRO
 	relocate #__MACROCODE_LOAD__, #__MACROCODE_RUN__, #FINAL_BANK_MACROS, #__MACROCODE_SIZE__
 
+	; IRQ
 	relocate #__IRQ_LOAD__, #__IRQ_RUN__, #FINAL_BANK_MAIN, #__IRQ_SIZE__
 
+	; SCREEN
 	relocate #__SAVESCR_LOAD__, #__SAVESCR_RUN__, #FINAL_BANK_SAVESCR, #__SAVESCR_SIZE__
 
 ; load modules from disk to their designated bank
-	jsr loadmods
+	loadmods
 
 ; initialize the JMP vector
 	lda #$4c		; JMP
@@ -166,7 +153,6 @@ start:
 	lda #$80
 	sta $9c02	; enable 35K of RAM for final expansion
 
-	lda #$80
 	sta $028a	; repeat all characters
 	sta $0291	; don't swap charset on C= + SHIFT
 
@@ -193,16 +179,6 @@ start:
 	cmpw #$00
 	bne @copy
 	rts
-.endproc
-
-;******************************************************************************
-; LOADMODS
-; Loads all modules into their designated locations in RAM
-.proc loadmods
-	ldxy #@module_udgedit
-	lda #MOD_UDGEDIT
-	jmp mod::load
-@module_udgedit: .byte "udgedit.prg",0
 .endproc
 
 

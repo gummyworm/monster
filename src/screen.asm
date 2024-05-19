@@ -75,9 +75,9 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	stxy @src
 
 	ldx #NUM_ROWS
-@l0:
-	ldy #$00
-	lda (@src),y
+
+@l0:	ldy #$00
+	lda (@dst),y
 	pha
 
 @l1:	lda (@src),y
@@ -94,7 +94,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	adc #NUM_COLS-1	; .C always set
 	sta @dst
 	sta @src
-	inc @src
+	inc @src	; src = dst+1
 
 	dex
 	bne @l0
@@ -109,6 +109,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .export __scr_popcol
 .proc __scr_popcol
 @stack=r0
+	jmp __scr_shr
 	ldxy stackptr
 	stxy @stack
 
@@ -135,23 +136,33 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .proc __scr_shr
 @src=r0
 @dst=r2
-	ldxy #SCREEN_ADDR+(SCREEN_ROWS*NUM_COLS)
-	stxy @dst
-	dex
+	ldxy #SCREEN_ADDR
 	stxy @src
+	inx
+	stxy @dst
 
 	ldx #NUM_ROWS
+
 @l0:	ldy #NUM_COLS-2
+	lda (@dst),y
+	pha
+
 @l1:	lda (@src),y
 	sta (@dst),y
 	dey
 	bpl @l1
 
 	; last character: wrap around
-	ldy #NUM_COLS-1
-	lda (@src),y
-	ldy #$00
-	sta (@dst),y
+	iny
+	pla
+	sta (@src),y
+
+	lda @src
+	clc
+	adc #NUM_COLS
+	sta @src
+	sta @dst
+	inc @dst
 
 	dex
 	bne @l0
