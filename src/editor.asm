@@ -1424,22 +1424,10 @@ main:	jsr key::getch
 	bne :+
 @done:	rts
 
-:	lda mem::linebuffer
-	pha
-	jsr enter_insert
-	jsr home	; move to start of line
-	jsr src::atcursor
-	cmp #$09
-	bne :+
-	jsr src::prev
-	lda #$00
-	sta zp::curx
-:	jsr newl
-	jsr ccup
-	pla
-	cmp #$09	; TAB
-	bne @done
-	jmp insert
+:	jsr insert_start
+	lda #$0d
+	jsr insert
+	jmp ccup		; go up
 .endproc
 
 ;******************************************************************************
@@ -2547,6 +2535,7 @@ goto_buffer:
 	sta @ch
 
 	lda zp::curx
+
 	sta @xend
 
 	lda mode

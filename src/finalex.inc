@@ -70,13 +70,11 @@ FINAL_BANK_MACROS = $a0|4	; macro code & macro data ($a000-$c000)
 FINAL_BANK_TOOL_UDGEDIT = $a0|5 ; UDG editor ($a000-$c000)
 
 ;******************************************************************************
-; FAST bank
+; FAST bank ($0C)
 ; Used for the unrolled bitmap clear routine and backups for bitmap columns
-;  $2100-$2e02: bitmap clear routine
-;  $2e02-$8000: bitmap column backups (0-109)
-;  $a000-$ae40: bitmap column backups (110-127)
-;  $ae40-$b000: bitmap save/restore column routines
-;  $b000-$c000: data
+;  $2100-$727f: bitmap save/restore column routines and backup buffers
+;  $727f-$8000: 2nd part of bitmap clear routine
+;  $a000-$c000: 1st part of bitmap clear routine 
 FINAL_BANK_SAVESCR = $a0|$0c
 FINAL_BANK_FAST    = $a0|$0c
 			
