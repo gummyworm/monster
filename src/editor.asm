@@ -1210,11 +1210,10 @@ main:	jsr key::getch
 	cmp #$68	; 'h'
 	beq @right
 	cmp #$6c	; 'l'
-	bne @done
-@left:  CALL FINAL_BANK_SAVESCR, #scr::pushcol
+	beq @left
 	rts
-@right: CALL FINAL_BANK_SAVESCR, #scr::popcol
-@done:	rts
+@left:  JUMP FINAL_BANK_SAVESCR, #scr::pushcol
+@right: JUMP FINAL_BANK_SAVESCR, #scr::popcol
 .endproc
 
 ;******************************************************************************

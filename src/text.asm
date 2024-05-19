@@ -719,8 +719,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
         asl
         asl
         sta @txtdst
-	CALL FINAL_BANK_FASTTEXT, #ftxt::puts
-	rts
+	JUMP FINAL_BANK_FASTTEXT, #ftxt::puts
 .endproc
 
 ;******************************************************************************

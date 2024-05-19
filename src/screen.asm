@@ -42,7 +42,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .proc __scr_pushcol
 @stack=r0
 	ldxy stackptr
-	stxy r0
+	stxy @stack
 
 	ldy #PIXELS_PER_COL
 :	lda BITMAP_ADDR-1,y	; save the leftmost column's bm data
@@ -50,13 +50,20 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	dey
 	bne :-
 
-	; update stack pointer
+	; update stack pointer and bitmap pointer
 	lda stackptr
 	clc
 	adc #PIXELS_PER_COL
 	sta stackptr
-	bcc @done
+	bcc :+
 	inc stackptr+1
+	clc
+
+:	lda bmptr
+	adc #SCREEN_ROWS*16
+	sta bmptr
+	bcc @done
+	inc bmptr+1
 @done:	; fall through to SHL
 .endproc
 
@@ -109,13 +116,20 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .export __scr_popcol
 .proc __scr_popcol
 @stack=r0
-	jmp __scr_shr
+@dst=r2
 	ldxy stackptr
-	stxy @stack
+	cmpw #stack-1
+	bne :+
+	rts
+
+:	stxy @stack
+
+	ldxy bmptr
+	stxy @dst
 
 	ldy #PIXELS_PER_COL
 :	lda (@stack),y
-	sta BITMAP_ADDR-1,y	; restore the leftmost column's bm data
+	sta (@dst),y	; restore the leftmost column's bm data
 	dey
 	bne :-
 
@@ -176,16 +190,25 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .export __scr_dropcol
 .proc __scr_dropcol
 @stack=r0
-	lda stackptr
+	lda bmptr
+	sec
+	sbc #SCREEN_ROWS*16
+	sta bmptr
+	bcs :+
+	dec bmptr+1
+
+:	lda stackptr
 	sec
 	sbc #PIXELS_PER_COL
 	sta stackptr
 	bcs @done
-	dec stackptr
+	dec stackptr+1
 @done:	rts
 .endproc
 
-stackptr: 	.word stack
+; these pointers are one less than the real addresses they reference
+stackptr: 	.word stack-1
+bmptr:		.word BITMAP_ADDR-1
 
 .segment "SAVESCR_BSS"
 stack: 		.res (NUM_ROWS*16)*(VSCREEN_WIDTH)-(40/2)	; $4a40

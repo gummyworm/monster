@@ -193,7 +193,6 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 ; params:
 ;  bank: the bank of the procedure to call
 ;  proc: the procedure to call
-; 
 .macro CALL bank, proc
 	pha
 	.if .match( .left( 1, {proc} ), # )
@@ -212,4 +211,28 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 	sta zp::banktmp
 	pla
 	jsr __final_call
+.endmacro
+
+; jumps to the banked routine
+; params:
+;  bank: the bank of the procedure to jump to
+;  proc: the procedure to jump to
+.macro JUMP bank, proc
+	pha
+	.if .match( .left( 1, {proc} ), # )
+		lda #<(.right( .tcount( {proc} )-1, {proc} ))
+		sta zp::bankjmpvec
+		lda #>(.right( .tcount( {proc} )-1, {proc} ))
+		sta zp::bankjmpvec+1
+	.else
+		lda proc
+		sta zp::bankjmpvec
+		lda proc+1
+		sta zp::bankjmpvec+1
+	.endif
+
+	lda #bank
+	sta zp::banktmp
+	pla
+	jmp __final_call
 .endmacro

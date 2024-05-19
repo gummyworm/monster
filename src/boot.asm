@@ -37,6 +37,8 @@
 .import __IRQ_SIZE__
 
 ;******************************************************************************
+; RELOCATE
+; Moves the source block of code/data to the destination bank/address
 .macro relocate src, dst, dstbank, size
 	ldxy src
 	stxy r0
@@ -56,9 +58,8 @@
 	ldxy #@module_udgedit
 	lda #MOD_UDGEDIT
 	jsr mod::load
-@module_udgedit: .byte "udgedit.prg",0
+@module_udgedit: .byte "udg.prg",0
 .endmacro
-
 
 .segment "SETUP"
 ;******************************************************************************
@@ -157,7 +158,7 @@ start:
 	sta $0291	; don't swap charset on C= + SHIFT
 
 	jmp enter
-@loading: .byte "initializing.."
+@loading: .byte "init.."
 @loadinglen=*-@loading
 
 ;******************************************************************************
@@ -180,7 +181,6 @@ start:
 	bne @copy
 	rts
 .endproc
-
 
 .CODE
 ;******************************************************************************

@@ -2146,8 +2146,7 @@ __asm_include:
 	RETURN_ERR ERR_INVALID_MACRO_ARGS
 
 @done:	lda @id
-	CALL FINAL_BANK_MACROS, #mac::asm
-	rts
+	JUMP FINAL_BANK_MACROS, #mac::asm
 .endproc
 
 ;******************************************************************************
