@@ -37,21 +37,6 @@
 .import __IRQ_SIZE__
 
 ;******************************************************************************
-; RELOCATE
-; Moves the source block of code/data to the destination bank/address
-.macro relocate src, dst, dstbank, size
-	ldxy src
-	stxy r0
-	ldxy dst
-	stxy r2
-	lda dstbank
-	sta r4
-	ldxy size
-	stxy r6
-	jsr reloc
-.endmacro
-
-;******************************************************************************
 ; LOADMODS
 ; Loads all modules into their designated locations in RAM
 .macro loadmods
@@ -59,6 +44,31 @@
 	lda #MOD_UDGEDIT
 	jsr mod::load
 @module_udgedit: .byte "udg.prg",0
+.endmacro
+
+;******************************************************************************
+; RELOC
+; relocates code from 1 address to another
+; IN:
+;  - .A: destination bank
+;  - r0r1: source address
+;  - r2r3: dest address
+;  - r4:   number of bytes to copy
+.macro reloc
+@src=r0
+@dst=r2
+@size=r4
+@bank=r6
+	sta @bank
+@copy:	ldy #$00
+	lda (@src),y
+	bank_store_byte @bank,@dst
+	incw @src
+	incw @dst
+	decw @size
+	ldxy @size
+	cmpw #$00
+	bne @copy
 .endmacro
 
 .segment "SETUP"
@@ -93,12 +103,16 @@ start:
 	ldxy #$eb15
 	stxy $0314
 
+;--------------------------------------
+; generate code
 	jsr fe3::init
 	lda #FINAL_BANK_FASTCOPY
 	jsr fcpy::init
 	lda #FINAL_BANK_FASTCOPY2
 	jsr fcpy::init
 
+;--------------------------------------
+; zero the BSS segment
 	ldxy #__BSS_LOAD__
 	stxy r0
 @zerobss:
@@ -110,29 +124,61 @@ start:
 	cmpw #(__BSS_LOAD__+__BSS_SIZE__)
 	bne @zerobss
 
-	; relocate segments that need to be moved
-	; DATA
-	relocate #__DATA_LOAD__, #__DATA_RUN__, #FINAL_BANK_MAIN, #__DATA_SIZE__
+;--------------------------------------
+; relocate segments that need to be moved
+@cnt=r7
+@relocs=r8
+	lda #num_relocs
+	sta @cnt
+	ldxy #relocs
+	stxy @relocs
+@reloc:	ldy #$00
+	lda (@relocs),y
+	sta r0
+	iny
+	lda (@relocs),y
+	sta r0+1
 
-	; FASTTEXT
-	relocate #__FASTTEXT_LOAD__, #__FASTTEXT_RUN__, #FINAL_BANK_FASTTEXT, #__FASTTEXT_SIZE__
+	; destination
+	iny
+	lda (@relocs),y
+	sta r2
+	iny
+	lda (@relocs),y
+	sta r2+1
 
-	; MACRO
-	relocate #__MACROCODE_LOAD__, #__MACROCODE_RUN__, #FINAL_BANK_MACROS, #__MACROCODE_SIZE__
+	; size
+	iny
+	lda (@relocs),y
+	sta r4
+	iny
+	lda (@relocs),y
+	sta r4+1
 
-	; IRQ
-	relocate #__IRQ_LOAD__, #__IRQ_RUN__, #FINAL_BANK_MAIN, #__IRQ_SIZE__
+	; bank
+	iny
+	lda (@relocs),y
+	reloc
+	lda @relocs
+	clc
+	adc #$07
+	sta @relocs
+	bcc :+
+	inc @relocs+1
+:	dec @cnt
+	bne @reloc
 
-	; SCREEN
-	relocate #__SAVESCR_LOAD__, #__SAVESCR_RUN__, #FINAL_BANK_SAVESCR, #__SAVESCR_SIZE__
-
+;--------------------------------------
 ; load modules from disk to their designated bank
 	loadmods
 
+;--------------------------------------
 ; initialize the JMP vector
 	lda #$4c		; JMP
 	sta zp::jmpaddr
 
+;--------------------------------------
+; setup interrupt vectors
 	ldx #<irq::sys_update
         ldy #>irq::sys_update
         lda #$20
@@ -144,8 +190,12 @@ start:
 	sta $0317		; BRK
 	sta $0319		; NMI
 
+;--------------------------------------
+; clean up files
 	jsr $ffe7		; CLALL (close all files)
 
+;--------------------------------------
+; misc. setup
 	; save current screen for debugger
 	jsr dbg::save_progstate
 
@@ -158,29 +208,34 @@ start:
 	sta $0291	; don't swap charset on C= + SHIFT
 
 	jmp enter
+
 @loading: .byte "init.."
 @loadinglen=*-@loading
 
 ;******************************************************************************
-; RELOC
-; relocates code from 1 address to another
-; IN:
-;  - r0r1: source address
-;  - r2r3: dest address
-;  - r4:   dest bank
-;  - r6:   number of bytes to copy
-.proc reloc
-@copy:	ldy #$00
-	lda (r0),y
-	bank_store_byte r4,r2
-	incw r0
-	incw r2
-	decw r6
-	ldxy r6
-	cmpw #$00
-	bne @copy
-	rts
-.endproc
+; RELOCS
+; Table of start and target addresses for segments that need to be relocated
+relocs:
+; DATA
+.word __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__
+.byte FINAL_BANK_MAIN
+
+; FASTTEXT
+.word __FASTTEXT_LOAD__, __FASTTEXT_RUN__, __FASTTEXT_SIZE__
+.byte FINAL_BANK_FASTTEXT
+
+; MACRO
+.word __MACROCODE_LOAD__, __MACROCODE_RUN__, __MACROCODE_SIZE__
+.byte FINAL_BANK_MACROS
+
+; IRQ
+.word __IRQ_LOAD__, __IRQ_RUN__, __IRQ_SIZE__
+.byte FINAL_BANK_MAIN
+
+; SCREEN
+.word __SAVESCR_LOAD__, __SAVESCR_RUN__, __SAVESCR_SIZE__
+.byte FINAL_BANK_SAVESCR
+num_relocs=(*-relocs)/7
 
 .CODE
 ;******************************************************************************

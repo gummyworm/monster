@@ -41,12 +41,17 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .export __scr_pushcol
 .proc __scr_pushcol
 @stack=r0
+@bm=r2
 	ldxy stackptr
 	stxy @stack
+	ldxy bmptr
+	stxy @bm
 
 	ldy #PIXELS_PER_COL
 :	lda BITMAP_ADDR-1,y	; save the leftmost column's bm data
 	sta (@stack),y
+	lda #$00
+	sta (@bm),y		; clear the bitmap
 	dey
 	bne :-
 
@@ -59,7 +64,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	inc stackptr+1
 	clc
 
-:	lda bmptr
+:	lda @bm
 	adc #SCREEN_ROWS*16
 	sta bmptr
 	bcc @done
