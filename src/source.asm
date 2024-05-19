@@ -890,6 +890,18 @@ __src_atcursor:
 .endproc
 
 ;******************************************************************************
+; BEFORE_NEWL
+; Checks if src::aftercursor is a newline ($0d)
+; OUT:
+;  - .Z: set if src::aftercursor == $0d
+.export __src_before_newl
+.proc __src_before_newl
+	jsr __src_after_cursor
+	cmp #$0d
+	rts
+.endproc
+
+;******************************************************************************
 ; AFTER CURSOR
 ; Returns the character AFTER the cursor position.
 ; OUT:

@@ -1,3 +1,22 @@
+;******************************************************************************
+; SCREEN.ASM
+;
+; This file contains routines to manipulate the "screen".
+; The screen is the character layout that defines where in memory the bitmap
+; characters reside.
+; By default, the screen is configured so that the bitmap begins at $1100
+; at the origin (top-left), with each successive address being referring to
+; the next y-coordinate. e.g. $1101 is (0,1), $1102 is (0,2), etc.
+;
+; When the screen is shifted, each column is offset by the shift amount.
+; If the default screen is shifted left, the pixel in $11c0 is now at the top
+; left of the screen.
+; The bitmap still resides entirely in the $1100-$2000 range, so the addresses
+; "roll over" upon crossing $2000.
+; When the default layout is shifted left, this means that the address $1100
+; will now refer to 8 pixels at the top right of the bitmap display.
+;******************************************************************************
+
 .include "source.inc"
 .include "macros.inc"
 .include "zeropage.inc"
@@ -67,7 +86,7 @@ NUM_ROWS    = 11	; number of 16-pixel rows
 
 ;******************************************************************************
 ; PUSH_COL
-; Shifts the screen by one character and
+; Shifts the screen right by one character, clears the new rightmost column,
 ; pushes the leftmost bitmap column
 .export __scr_pushcol
 .proc __scr_pushcol
@@ -76,11 +95,14 @@ NUM_ROWS    = 11	; number of 16-pixel rows
 :	lda BITMAP_ADDR-1,y	; save the leftmost column's bm data
 	sta (@stack),y
 	lda #$00
+	sta BITMAP_ADDR-1,y	; clear the bitmap data
+	lda #$00
 	dex
 	bne :-
 
-	; jsr shiftleft		; shift the bitmap left a character
+	jsr __scr_shl		; shift the screen left a character
 
+	; update the stack pointer
 	lda @stack
 	clc
 	adc #$c0
@@ -105,7 +127,7 @@ NUM_ROWS    = 11	; number of 16-pixel rows
 	dex
 	bne :-
 
-	; jsr shiftleft			; shift the bitmap left a character
+	jsr __scr_shr			; shift the screen right a character
 
 	lda @stack
 	clc
