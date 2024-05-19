@@ -199,12 +199,9 @@ start:
 ; LOADMODS
 ; Loads all modules into their designated locations in RAM
 .proc loadmods
-	inc $900f
 	ldxy #@module_udgedit
 	lda #MOD_UDGEDIT
-	jsr mod::load
-	dec $900f
-	rts
+	jmp mod::load
 @module_udgedit: .byte "udgedit.prg",0
 .endproc
 

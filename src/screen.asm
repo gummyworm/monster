@@ -23,7 +23,7 @@
 
 SCREEN_ADDR = $1000
 BITMAP_ADDR = $1100
-NUM_COLUMNS = 20	; number of 8-pixel columns
+NUM_COLS    = 20	; number of 8-pixel columns
 NUM_ROWS    = 11	; number of 16-pixel rows
 
 SCREEN_ROWS = 12	; number of physical rows per column
@@ -32,42 +32,32 @@ PIXELS_PER_COL = 11*16	; number of pixels per column
 
 VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 
+.segment "SAVESCR"
+
 ;******************************************************************************
-; SHR
-; Shifts the CHARACTER data of the screen to the right.  This means that the
-; bitmap addresses for each column will shift by $c0
-; So the default bitmap address arrangement:
-; | $1100 | $11c0 |  ...  |
-; will now be:
-; | $1f40 | $1100 | $11c0 |  ...  |
-; after the shift
-; The bottom 2 character rows are NOT shifted
-.export __scr_shr
-.proc __scr_shr
-@src=r0
-@dst=r2
-	ldxy #SCREEN_ADDR+(SCREEN_ROWS*NUM_COLUMNS)
-	stxy @dst
-	dex
-	stxy @src
+; PUSH_COL
+; Shifts the screen right by one character, clears the new rightmost column,
+; pushes the leftmost bitmap column
+.export __scr_pushcol
+.proc __scr_pushcol
+@stack=r0
+	ldxy stackptr
+	stxy r0
 
-	ldx #NUM_ROWS-1
-@l0:	ldy #NUM_COLUMNS-2
-@l1:	lda (@src),y
-	sta (@dst),y
+	ldy #PIXELS_PER_COL
+:	lda BITMAP_ADDR-1,y	; save the leftmost column's bm data
+	sta (@stack),y
 	dey
-	bpl @l1
+	bne :-
 
-	; last character: wrap around
-	ldy #NUM_COLUMNS-1
-	lda (@src),y
-	ldy #$00
-	sta (@dst),y
-
-	dex
-	bne @l0
-
-	rts
+	; update stack pointer
+	lda stackptr
+	clc
+	adc #PIXELS_PER_COL
+	sta stackptr
+	bcc @done
+	inc stackptr+1
+@done:	; fall through to SHL
 .endproc
 
 ;******************************************************************************
@@ -85,45 +75,30 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	stxy @src
 
 	ldx #NUM_ROWS
-@l0:	ldy #$00
+@l0:
+	ldy #$00
+	lda (@src),y
+	pha
+
 @l1:	lda (@src),y
 	sta (@dst),y
 	iny
-	cpy #NUM_COLUMNS
+	cpy #NUM_COLS-1
 	bne @l1
+
+	; wrap character at column 0 to last column
+	pla
+	sta (@dst),y
+
+	lda @dst
+	adc #NUM_COLS-1	; .C always set
+	sta @dst
+	sta @src
+	inc @src
+
 	dex
 	bne @l0
-
 	rts
-.endproc
-
-.segment "SAVESCR"
-;******************************************************************************
-; PUSH_COL
-; Shifts the screen right by one character, clears the new rightmost column,
-; pushes the leftmost bitmap column
-.export __scr_pushcol
-.proc __scr_pushcol
-@stack=r0
-	ldxy stackptr
-	stxy r0
-
-	ldy #PIXELS_PER_COL
-:	lda BITMAP_ADDR-1,y	; save the leftmost column's bm data
-	sta (@stack),y
-	dey
-	bne :-
-
-	jsr __scr_shl		; shift the screen left a character
-
-	; update stack pointer
-	lda stackptr
-	clc
-	adc #PIXELS_PER_COL
-	sta stackptr
-	bcc @done
-	inc @stack+1
-@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -134,8 +109,6 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .export __scr_popcol
 .proc __scr_popcol
 @stack=r0
-	jsr __scr_shr		; shift the screen right a character
-
 	ldxy stackptr
 	stxy @stack
 
@@ -145,7 +118,45 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	dey
 	bne :-
 
-	; fallthrough to update stack pointer
+	; fallthrough to shift screen
+.endproc
+
+;******************************************************************************
+; SHR
+; Shifts the CHARACTER data of the screen to the right.  This means that the
+; bitmap addresses for each column will shift by $c0
+; So the default bitmap address arrangement:
+; | $1100 | $11c0 |  ...  |
+; will now be:
+; | $1f40 | $1100 | $11c0 |  ...  |
+; after the shift
+; The bottom 2 character rows are NOT shifted
+.export __scr_shr
+.proc __scr_shr
+@src=r0
+@dst=r2
+	ldxy #SCREEN_ADDR+(SCREEN_ROWS*NUM_COLS)
+	stxy @dst
+	dex
+	stxy @src
+
+	ldx #NUM_ROWS
+@l0:	ldy #NUM_COLS-2
+@l1:	lda (@src),y
+	sta (@dst),y
+	dey
+	bpl @l1
+
+	; last character: wrap around
+	ldy #NUM_COLS-1
+	lda (@src),y
+	ldy #$00
+	sta (@dst),y
+
+	dex
+	bne @l0
+
+	; fall through to update stack pointer
 .endproc
 
 ;******************************************************************************
@@ -163,6 +174,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 @done:	rts
 .endproc
 
+stackptr: 	.word stack
+
 .segment "SAVESCR_BSS"
 stack: 		.res (NUM_ROWS*16)*(VSCREEN_WIDTH)-(40/2)	; $4a40
-stackptr: 	.word stack

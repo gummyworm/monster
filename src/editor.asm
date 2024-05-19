@@ -19,6 +19,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "module.inc"
+.include "screen.inc"
 .include "source.inc"
 .include "state.inc"
 .include "string.inc"
@@ -1199,6 +1200,25 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; COMMAND_MOVE_SCR
+; Accepts another key and moves the screen around depending on what that key is:
+;  - l: move screen 2 characters to the left
+;  - h: move screen 2 characters to the right
+.proc command_move_scr
+:	jsr key::getch
+	beq :-
+	cmp #$68	; 'h'
+	beq @right
+	cmp #$6c	; 'l'
+	bne @done
+@left:  CALL FINAL_BANK_SAVESCR, #scr::pushcol
+	jmp scr::shl
+@right: CALL FINAL_BANK_SAVESCR, #scr::popcol
+	jmp scr::shr
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; YANK
 ; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
 ; mode, does nothing
@@ -1399,6 +1419,8 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; GOTO_START
+; Accepts another key and, if it is 'g', moves to the start of the buffer.
 .proc goto_start
 :	jsr key::getch
 	beq :-
@@ -1409,6 +1431,7 @@ main:	jsr key::getch
 	lda mode
 	cmp #MODE_VISUAL
 	bne @gotoline
+
 	; if we're in visual mode, go up line by line to highlight
 :	jsr ccup
 	bcc :-
@@ -3870,6 +3893,7 @@ commands:
 	.byte $76	; v (enter visual mode)
 	.byte $56	; V (enter visual line mode)
 	.byte $79	; y (yank)
+	.byte $7a	; z (move screen prefix)
 	.byte K_FIND	; find
 	.byte K_NEXT_DRIVE ; next drive
 	.byte K_PREV_DRIVE ; prev drive
@@ -3884,7 +3908,8 @@ numcommands=*-commands
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual_line, command_yank, command_find, \
+	enter_visual, enter_visual_line, command_yank, command_move_scr, \
+	command_find, \
 	next_drive, prev_drive, get_command
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
