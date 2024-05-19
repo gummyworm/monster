@@ -7,7 +7,7 @@
 
 - [ ] Fix disassembly
 
-- [ ] Support 256 length lines
+- [ ] Support long length lines (160?)
 
 - [ ] Implement linker (WIP on linkage branch)
 

@@ -26,6 +26,10 @@ BITMAP_ADDR = $1100
 NUM_COLUMNS = 20	; number of 8-pixel columns
 NUM_ROWS    = 11	; number of 16-pixel rows
 
+SCREEN_ROWS = 12	; number of physical rows per column
+
+PIXELS_PER_COL = 11*16	; number of pixels per column
+
 VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 
 ;******************************************************************************
@@ -42,17 +46,24 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .proc __scr_shr
 @src=r0
 @dst=r2
-	ldxy #SCREEN_ADDR+($c0*NUM_COLUMNS)
+	ldxy #SCREEN_ADDR+(SCREEN_ROWS*NUM_COLUMNS)
 	stxy @dst
 	dex
 	stxy @src
 
 	ldx #NUM_ROWS-1
-@l0:	ldy #NUM_COLUMNS-1
+@l0:	ldy #NUM_COLUMNS-2
 @l1:	lda (@src),y
 	sta (@dst),y
 	dey
 	bpl @l1
+
+	; last character: wrap around
+	ldy #NUM_COLUMNS-1
+	lda (@src),y
+	ldy #$00
+	sta (@dst),y
+
 	dex
 	bne @l0
 
@@ -94,25 +105,25 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .export __scr_pushcol
 .proc __scr_pushcol
 @stack=r0
-	ldy #192
+	ldxy stackptr
+	stxy r0
+
+	ldy #PIXELS_PER_COL
 :	lda BITMAP_ADDR-1,y	; save the leftmost column's bm data
 	sta (@stack),y
-	lda #$00
-	sta BITMAP_ADDR-1,y	; clear the bitmap data
-	lda #$00
-	dex
+	dey
 	bne :-
 
 	jsr __scr_shl		; shift the screen left a character
 
-	; update the stack pointer
-	lda @stack
+	; update stack pointer
+	lda stackptr
 	clc
-	adc #$c0
-	sta @stack
-	bcc :+
+	adc #PIXELS_PER_COL
+	sta stackptr
+	bcc @done
 	inc @stack+1
-:	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -123,25 +134,35 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .export __scr_popcol
 .proc __scr_popcol
 @stack=r0
-	ldxy #stack
+	jsr __scr_shr		; shift the screen right a character
+
+	ldxy stackptr
 	stxy @stack
-	ldy #192
+
+	ldy #PIXELS_PER_COL
 :	lda (@stack),y
-	sta BITMAP_ADDR+(19*$c0)-1,y	; restore the rightmost column's bm data
-	lda #$00
-	dex
+	sta BITMAP_ADDR-1,y	; restore the leftmost column's bm data
+	dey
 	bne :-
 
-	jsr __scr_shr			; shift the screen right a character
+	; fallthrough to update stack pointer
+.endproc
 
-	lda @stack
-	clc
-	adc #$c0
-	sta @stack
-	bcc :+
-	inc @stack+1
-:	rts
+;******************************************************************************
+; DROP_COL
+; Drops the top column from the screen stack
+.export __scr_dropcol
+.proc __scr_dropcol
+@stack=r0
+	lda stackptr
+	sec
+	sbc #PIXELS_PER_COL
+	sta stackptr
+	bcs @done
+	dec stackptr
+@done:	rts
 .endproc
 
 .segment "SAVESCR_BSS"
-stack: .res (NUM_ROWS*16)*(VSCREEN_WIDTH)-(40/2)	; $4a40
+stack: 		.res (NUM_ROWS*16)*(VSCREEN_WIDTH)-(40/2)	; $4a40
+stackptr: 	.word stack
