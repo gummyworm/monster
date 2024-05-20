@@ -24,6 +24,7 @@ ESCAPE_VALUE_DEC = $fd
 ESCAPE_SPACING   = $fc
 ESCAPE_BYTE      = $fb
 ESCAPE_CHAR      = $fa
+ESCAPE_8x8UDG    = $f9
 ESCAPE_RVS_ON    = $12
 ESCAPE_RVS_OFF   = $92
 STATUS_LINE      = 23

@@ -3,6 +3,7 @@
 .include "debug.inc"
 .include "edit.inc"
 .include "fastcopy.inc"
+.include "fasttext.inc"
 .include "finalex.inc"
 .include "irq.inc"
 .include "labels.inc"
@@ -110,6 +111,12 @@ start:
 	jsr fcpy::init
 	lda #FINAL_BANK_FASTCOPY2
 	jsr fcpy::init
+
+	lda #FINAL_BANK_FASTTEXT
+	sta $9c02
+	jsr ftxt::init
+	lda #FINAL_BANK_MAIN
+	sta $9c02
 
 ;--------------------------------------
 ; zero the BSS segment

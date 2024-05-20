@@ -2,6 +2,8 @@
 .include "macros.inc"
 .include "zeropage.inc"
 
+ESCAPE_8x8UDG    = $f9
+
 .segment "FASTTEXT"
 
 ;******************************************************************************
@@ -29,13 +31,11 @@
 
 	lda zp::curx
 	lsr
-	asl
-	tax
-	lda bmcolumns,x
+	lda bmcolumnslo,x
 	clc
 	adc @dst
 	sta @dst
-	lda bmcolumns+1,x
+	lda bmcolumnshi,x
 	adc #$00
 	sta @dst+1
 
@@ -68,69 +68,166 @@
 	rts
 .endproc
 
+txtbyte = zp::text
+txtsrc  = zp::text+7
+txtdst  = zp::text+5
+
 ;******************************************************************************
 ; PUTS
 ; Displays the given string at the given row.  Regardless of the contents of
 ; the string, text::len characters are displayed (including 0's etc.)
 ; IN:
-;  - .XY: the string to display
-;  - .A: the text to display
+;  - zp::text+5: dest - the offset from the bitmap base to display the string at
+;  - zp::text+7: source - the address of the text string to display
 .export __ftxt_puts
 .proc __ftxt_puts
-@txtbyte  = zp::text
-@txtdst   = zp::text+5
-@txtsrc   = zp::text+7
-@ysave	  = zp::text+9
         lda #<BITMAP_ADDR
 	clc
-        adc @txtdst
-        sta @txtdst
+        adc txtdst
+        sta txtdst
 	lda #>BITMAP_ADDR
-        sta @txtdst+1
+        sta txtdst+1
 
-	ldy #$00
-@l0:    lda (@txtsrc),y
-	iny
-	tax
+	ldy #$ff
+@l0:	iny
+	lda (txtsrc),y
+	bpl :+
+	; if negative, this is a special character, handle it
+	jsr drawspecial
+
+:	tax
+	; get the left (even) character's bitmap data for this bitmap column
 	lda charaddrlo-32,x
-	sta @txtleft
+	sta txtleft
 	lda charaddrhi-32,x
-	sta @txtleft+1
+	sta txtleft+1
 
-@right:	lda (@txtsrc),y
-        iny
-	tax
+	; get the right (odd) character's bitmap data
+@right:	iny
+	lda (txtsrc),y
+	bpl :+
+	jsr drawspecial
+
+:	tax
 	lda charaddrlo-32,x
-	sta @txtright
+	sta txtright
 	lda charaddrhi-32,x
-	sta @txtright+1
+	sta txtright+1
 
-	sty @ysave
+	; draw the character
+	jsr drawtxt
 
-        ldy #8-1
-@txtleft=*+1
-@l1:    lda $f00d,y
-        and #$f0
-        sta @txtbyte
-@txtright=*+1
-	lda $f00d,y
-        and #$0f
-        ora @txtbyte
-        sta (@txtdst),y
-	dey
-	bpl @l1
-
-	ldy @ysave
-        lda @txtdst
+	; move to next bitmap column
+        lda txtdst
         clc
         adc #192
-        sta @txtdst
+        sta txtdst
 	bcc @nextch
-	inc @txtdst+1
+	inc txtdst+1
 @nextch:
-	cpy #40
-	bcc @l0
+	cpy #40		; have we drawn the full line?
+	bcc @l0		; continue until we have
         rts
+.endproc
+
+;--------------------------------------
+; entry point to draw (txtleft) | (textright) at (txtdst)
+drawtxt:
+ysave = zp::text+9
+	sty ysave
+	; OR the even character's data with the odd's and draw the full cell
+        ldy #8-1
+txtleft=*+1
+l0:     lda $f00d,y
+        and #$f0
+        sta txtbyte
+txtright=*+1
+	lda $f00d,y
+        and #$0f
+        ora txtbyte
+        sta (txtdst),y
+	dey
+	bpl l0
+
+	ldy ysave	; restore .Y
+	rts
+
+;******************************************************************************
+; DRAWSPECIAL
+; Handles special drawing character codes and draws them.
+; If the code is not recognized, does nothing
+.proc drawspecial
+	cmp #ESCAPE_8x8UDG
+	bne @done
+	jmp draw_8x8
+
+@done:	rts
+.endproc
+
+;******************************************************************************
+; DRAW a literal 8x8 graphic
+; The format of this is:
+;  $fe $xx, $xx, $xx, $xx, $xx, $xx, $xx, $xx
+; OUT:
+;  - txtleft: the 4
+.proc draw_8x8
+@odd=zp::text+9
+@left=r0	; 8 bytes
+@right=r8	; 8 bytes
+	; if .Y is odd, we're halfway through an 8x8 cell
+	tya
+	and #$01
+	sta @odd
+
+@l0:	lda (txtsrc),y
+	ldx @odd
+	bne @do_odd
+
+	; if even, draw the entire cell and return as if we drew 2 4x8 chars
+	incw txtsrc
+	lda txtsrc
+	sta txtleft
+	lda txtsrc+1
+	sta txtleft+1
+	lda #<charmap		; all 0's
+	sta txtright
+	lda #>charmap		; all 0's
+	sta txtright+1
+	jsr drawtxt
+	jmp @done
+
+@do_odd:
+	; if odd, populate @txtright and setup @txtleft for the next iteration
+	; of the draw loop
+	ldy #$07
+	ldx #$07
+:	lda (txtsrc),y
+	lsr
+	ror @left,x
+	lsr
+	ror @left,x
+	lsr
+	ror @left,x
+	lsr
+	ror @left,x
+	sta @right,x
+	dey
+	dex
+	bpl :-
+	ldxy #@right
+	stxy txtright
+	ldxy #@left
+	stxy txtleft
+	jsr drawtxt		; draw (txtleft) | (txtright)
+
+	; move source pointer beyond the 8 bytes of graphic data
+@done:	lda txtsrc
+	clc
+	adc #$08
+	sta txtsrc
+	bcc :+
+	inc txtsrc+1
+:	rts
 .endproc
 
 ;******************************************************************************
@@ -263,36 +360,53 @@ charmap:
 .byte   $00,$44,$66,$77,$77,$66,$44,$00	  ; 135 arrow pointing right
 num_chars = (*-charmap)/8
 
-;******************************************************************************
-charaddrlo:
-.repeat  num_chars, i
-	.byte <((charmap)+(i*8))
-.endrepeat
 
-charaddrhi:
-.repeat num_chars, i
-	.byte >((charmap)+(i*8))
-.endrepeat
+.segment "SETUP"
+;******************************************************************************
+; GEN_CHAR_ADDRS
+; Generates the charaddrlo and charaddrhi tables
+.export __ftxt_init
+.proc __ftxt_init
+@addr=r0
+	ldxy #charmap
+	stxy @addr
+
+	ldx #$00
+@l0:	lda @addr
+	sta charaddrlo,x
+	lda @addr+1
+	sta charaddrhi,x
+
+	lda @addr
+	clc
+	adc #$08
+	sta @addr
+	bcc :+
+	inc @addr+1
+
+:	inx
+	cpx #num_chars
+	bne @l0
+
+	rts
+.endproc
 
 ;******************************************************************************
-bmcolumns:
-.word $1100
-.word $11c0
-.word $1280
-.word $1340
-.word $1400
-.word $14c0
-.word $1580
-.word $1640
-.word $1700
-.word $17c0
-.word $1880
-.word $1940
-.word $1a00
-.word $1ac0
-.word $1b80
-.word $1c40
-.word $1d00
-.word $1dc0
-.word $1e80
-.word $1f40
+.linecont +
+.define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
+  $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
+.linecont -
+bmcolumnslo: .lobytes cols
+bmcolumnshi: .hibytes cols
+
+;******************************************************************************
+.segment "FASTTEXT_BSS"
+charaddrlo: .res num_chars
+;.repeat  num_chars, i
+;	.byte <((charmap)+(i*8))
+;.endrepeat
+
+charaddrhi: .res num_chars
+;.repeat num_chars, i
+;	.byte >((charmap)+(i*8))
+;.endrepeat

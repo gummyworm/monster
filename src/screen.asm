@@ -51,7 +51,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 :	lda BITMAP_ADDR-1,y	; save the leftmost column's bm data
 	sta (@stack),y
 	lda #$00
-	sta (@bm),y		; clear the bitmap
+	sta (@bm),y		; clear the bitmap data
 	dey
 	bne :-
 
