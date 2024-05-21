@@ -1821,7 +1821,6 @@ __edit_set_breakpoint:
 	bne @update
 
 @new:	jsr enter_insert
-	inc $900f
 	jmp @write
 
 @update:

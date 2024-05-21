@@ -5,6 +5,8 @@
 	sta $9005
 	lda #$00
 	sta $1000
+	lda #$00
+	sta $9400
 	jmp *
 ; non-contiguous memory
 .org $1c00

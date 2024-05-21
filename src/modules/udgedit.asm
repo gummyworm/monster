@@ -20,8 +20,8 @@
 BITMAP_ADDR = $1100
 PIXEL_SIZE = 4		; size of each pixel in the editor
 
-CANVAS_Y      = 40		; start row (in pixels)
-CANVAS_X      = 24		; start column (in pixels)
+CANVAS_Y      = 64		; start row (in pixels)
+CANVAS_X      = 8*8		; start column (in pixels)
 CANVAS_HEIGHT = 8*PIXEL_SIZE
 CANVAS_WIDTH  = 8*PIXEL_SIZE
 
@@ -229,6 +229,7 @@ linebuffer = $0400
 	adc #CANVAS_Y
 	sta @dst
 	lda colshi+(CANVAS_X/8),x
+	adc #$00
 	sta @dst+1
 
 	lda zp::cury
@@ -295,6 +296,7 @@ linebuffer = $0400
 	adc #CANVAS_Y
 	sta @dst
 	lda colshi+(CANVAS_X/8),x
+	adc #$00
 	sta @dst+1
 
 	lda zp::cury
