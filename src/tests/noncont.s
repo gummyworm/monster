@@ -1,4 +1,6 @@
 .org $1200
+	jsr $e5b5	; INIT VIC
+	jsr $e55f	; CLRSCR
 	lda #$cf
 	sta $9005
 	lda #$00

@@ -25,8 +25,6 @@ CANVAS_X      = 24		; start column (in pixels)
 CANVAS_HEIGHT = 8*PIXEL_SIZE
 CANVAS_WIDTH  = 8*PIXEL_SIZE
 
-BORDER_SIZE = 4		; border around editor (in pixels)
-
 color   = zp::editortmp
 cur_on  = zp::editortmp+1	; cursor on flag
 cur_tmr = zp::editortmp+2	; cursor blink timer
@@ -118,10 +116,10 @@ linebuffer = $0400
 	jmp zp::jmpaddr
 
 @keys:
-	.byte $4b, $4a, $48, $4c, '1'	; k, j, h, l
+	.byte $4b, $4a, $48, $4c, '1', '2'	; k, j, h, l, 1, 2
 @numkeys=*-@keys
 
-.define handlers up, down, left, right, plot
+.define handlers up, down, left, right, plot, plotoff
 @handlerslo: .lobytes handlers
 @handlershi: .hibytes handlers
 .endproc
@@ -273,9 +271,12 @@ linebuffer = $0400
 .endproc
 
 ;******************************************************************************
-; PLOT
-; Plots the given (x,y) coordinate on the canvas
-.proc plot
+; GETDSTMASK
+; Gets the bitmap address of the cursor and its mask within the cell
+; OUT:
+;  - r0: the bitmap address of the cursor
+;  - r2: the bitmask of the cursor
+.proc getdstmask
 @dst=r0
 @mask=r2
 	jsr curoff
@@ -302,7 +303,52 @@ linebuffer = $0400
 	skw
 :	lda #$0f	; odd mask
 	sta @mask
+	rts
+.endproc
 
+;******************************************************************************
+; PLOTOFF
+; Clears the given (x,y) coordinate on the canvas
+.proc plotoff
+@dst=r0
+@mask=r2
+	jsr getdstmask
+; draw the pixel
+	ldx #4
+:	lda @mask
+	eor (@dst),y
+	sta (@dst),y
+	iny
+	dex
+	bne :-
+
+	; fall through to clrpixel in memory
+.endproc
+
+;******************************************************************************
+; CLRPIXEL
+; Clears the pixel at the cursor
+.proc clrpixel
+	; update the UDG pixel data
+	lda #$07
+	sec
+	sbc zp::curx
+	tax
+	ldy zp::cury
+	lda $8270,x	; charrom '/' (mask associated with pixel)
+	eor udg,y
+	sta udg,y
+	rts
+.endproc
+
+
+;******************************************************************************
+; PLOT
+; Plots the given (x,y) coordinate on the canvas
+.proc plot
+@dst=r0
+@mask=r2
+	jsr getdstmask
 ; draw the pixel
 	ldx #4
 :	lda @mask
@@ -317,7 +363,7 @@ linebuffer = $0400
 
 ;******************************************************************************
 ; SETPIXEL
-; Sets the pixel at the cursor to the active color
+; Sets the pixel at the cursor
 .proc setpixel
 	; update the UDG pixel data
 	lda #$07
@@ -330,6 +376,7 @@ linebuffer = $0400
 	sta udg,y
 	rts
 .endproc
+
 
 ;******************************************************************************
 ; RIGHT
@@ -378,6 +425,8 @@ linebuffer = $0400
 .endproc
 
 ;******************************************************************************
+; PARSEHEX
+; Parses the given characters and returns the binary data they represent
 ; IN:
 ;  - .X: the LSB of the 2 character string hex value
 ;  - .Y: the MSB of the 2 character string hex value
@@ -434,8 +483,11 @@ linebuffer = $0400
 ; in the line, the first 8 are used for the character.
 ; If less than 8 are defined, the remaining characters are padded with zeroes.
 ; NOTE: only hex values are supported
+; IN:
+;  - linebuffer: contains the line to parse for UDG data (.DB $xx,...)
 ; OUT:
-;  - .C: set if line could not be parsed
+;  - .C:  set if line could not be parsed
+;  - UDG: contains the parsed data of the existing UDG (on success)
 .proc parse_bytes
 @buff=r0
 @udg=r2
@@ -538,7 +590,6 @@ linebuffer = $0400
 @ok:	clc
 	rts
 .endproc
-
 
 ;******************************************************************************
 .linecont +
