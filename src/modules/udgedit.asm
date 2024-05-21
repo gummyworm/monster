@@ -39,121 +39,6 @@ linebuffer = $0400
 @header:
 
 ;******************************************************************************
-; IN:
-;  - .X: the LSB of the 2 character string hex value
-;  - .Y: the MSB of the 2 character string hex value
-; OUT:
-;  - .A: the binary value
-.proc parsehex
-@byte=r4
-	tya
-	jsr @tohex
-	asl
-	asl
-	asl
-	asl
-	sta @byte
-	tya
-	jsr @tohex
-	ora @byte
-@done:	rts
-@tohex:
-	cmp #'f'+1
-	bcs @done
-	cmp #'a'
-	bcc @numeric
-	sbc #'a'-$a
-	rts
-@numeric:
-	cmp #'9'+1
-	bcs @done
-	cmp #'0'
-	bcc @done
-	sbc #'0'
-.endproc
-
-;******************************************************************************
-; PARSE_BYTES
-; Parses the line for graphic data
-; Graphic data lines are .DB directives. If more than 8 bytes are defined
-; in the line, the first 8 are used for the character.
-; If less than 8 are defined, the remaining characters are padded with zeroes.
-; NOTE: only hex values are supported
-.proc parse_bytes
-@buff=r0
-@udg=r2
-	ldxy #linebuffer
-	stxy @buff
-	ldxy #@udg
-	stxy @udg
-	ldy #$00
-@finddb:
-	lda (@buff),y
-	cmp #$0d
-	beq @done
-	cmp #';'
-	beq @done
-	cmp #$09		; TAB
-	beq @nextch
-	cmp #' '
-	beq @nextch
-	cmp '.'
-	bne @done		; not a .DB
-	iny
-	lda (@buff),y
-	cmp #'d'
-	bne @done
-	iny
-	lda (@buff),y
-	cmp #'b'
-	bne @done
-	beq @getbytes
-
-@nextch:
-	iny
-	bne @finddb
-@done:	rts
-
-; .DB was found, parse the data
-@getbytes:
-	tya
-	clc
-	adc @buff
-	sta @buff
-
-	ldy #$00
-	lda (@buff),y
-	beq @done
-	cmp #$0d
-	beq @done
-	cmp #';'
-	beq @done
-
-	cmp #' '
-	beq @next
-	cmp #$09
-	beq @next
-
-	cmp #'$'
-	bne @done
-
-@hex:	incw @buff
-	ldy #$01
-	lda (@buff),y
-	tax
-	dey
-	lda (@buff),y
-	tay
-	jsr parsehex
-	ldy #$00
-	sta (@udg),y
-	incw @udg
-
-@next:	incw @buff
-	jmp @getbytes
-.endproc
-
-;******************************************************************************
 ; ENTER
 ; Activates the UDG editor
 ; OUT:
@@ -164,12 +49,28 @@ linebuffer = $0400
 .proc __udgedit_enter
 	cli
 	jsr clrcanvas
-	lda #$00
-	sta zp::curx
-	sta zp::cury
 
 	; parse linebuffer, populate udg (r8) if line contains a .db directive
 	jsr parse_bytes
+
+	; draw any pixels that are set
+	lda #7
+	sta zp::cury
+@l0:	lda #7
+	sta zp::curx
+@l1:	ldx zp::curx
+	lda udg,x
+	and $8270,x
+	beq :+
+	jsr plot
+:	dec zp::curx
+	bpl @l1
+	dec zp::cury
+	bpl @l0
+
+	; move cursor back to (0,0)
+	inc zp::curx
+	inc zp::cury
 
 @main:	dec cur_tmr
 	bne :+
@@ -468,6 +369,153 @@ linebuffer = $0400
 	inc zp::cury
 :	rts
 .endproc
+
+;******************************************************************************
+; IN:
+;  - .X: the LSB of the 2 character string hex value
+;  - .Y: the MSB of the 2 character string hex value
+; OUT:
+;  - .A: the binary value
+.proc parsehex
+@byte=r4
+	tya
+	jsr @tohex
+	asl
+	asl
+	asl
+	asl
+	sta @byte
+	txa
+	jsr @tohex
+	ora @byte
+@done:	rts
+@tohex:
+	cmp #'f'+1
+	bcs @done
+	cmp #'a'
+	bcc :+
+	sbc #'a'-$a
+	rts
+
+:	cmp #'F'+1
+	bcs @done
+	cmp #'A'
+	bcc @numeric
+	sbc #'A'-$a
+	rts
+
+@numeric:
+	cmp #'9'+1
+	bcs @done
+	cmp #'0'
+	bcc @done
+	sbc #'0'
+	rts
+.endproc
+
+;******************************************************************************
+; PARSE_BYTES
+; Parses the line for graphic data
+; Graphic data lines are .DB directives. If more than 8 bytes are defined
+; in the line, the first 8 are used for the character.
+; If less than 8 are defined, the remaining characters are padded with zeroes.
+; NOTE: only hex values are supported
+.proc parse_bytes
+@buff=r0
+@udg=r2
+	ldxy #linebuffer
+	stxy @buff
+	ldxy #udg
+	stxy @udg
+
+	ldy #$00
+@finddb:
+	lda (@buff),y
+	beq @done
+	cmp #$0d
+	beq @done
+	cmp #';'
+	beq @done
+	cmp #$09		; TAB
+	beq @nextch
+	cmp #' '
+	beq @nextch
+	cmp #'.'
+	bne @done		; not a .DB
+	iny
+	lda (@buff),y
+	cmp #'D'
+	beq :+
+	cmp #'d'
+	bne @done		; not .DB
+:	iny
+	lda (@buff),y
+	cmp #'B'
+	beq @getbytes
+	cmp #'b'
+	beq @getbytes
+@done:	rts			; no .DB
+@nextch:
+	iny
+	bne @finddb
+
+; .DB was found, parse the data
+@getbytes:
+	tya
+	adc @buff	; +1 (.C is set)
+	sta @buff
+
+@parsebyte:
+	ldy #$00
+	lda (@buff),y
+	beq @done
+	cmp #$0d
+	beq @done
+	cmp #';'
+	beq @done
+
+	cmp #' '
+	beq @next
+	cmp #$09
+	beq @next
+
+	cmp #'$'
+	bne @done	; unexpected char
+@hex:	incw @buff
+	ldy #$01
+	lda (@buff),y	; least significant hex digit
+	tax
+	dey
+	lda (@buff),y	; most significant hex digit
+	tay
+	jsr parsehex
+	ldy #$00
+	sta (@udg),y	; save the result
+	incw @udg
+
+	incw @buff
+	incw @buff
+
+	ldy #$00
+@findcomma:
+	lda (@buff),y
+	beq @done
+	cmp #$0d
+	beq @done
+	cmp #' '
+	beq :+
+	cmp #$09	; TAB
+	beq :+
+	cmp #','
+	beq @next
+	bne @done	; unexpected char
+:	incw @buff
+	jmp @findcomma
+
+@next:	incw @buff
+	jmp @parsebyte
+.endproc
+
 
 ;******************************************************************************
 .linecont +
