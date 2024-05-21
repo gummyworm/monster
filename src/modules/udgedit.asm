@@ -113,26 +113,48 @@ udg     = r8
 	bpl :-
 
 	; clear the bitmap area of the canvas
-	ldxy #BITMAP_ADDR+($c0*(CANVAS_X/8))+CANVAS_Y-1
+	ldxy #BITMAP_ADDR+($c0*(CANVAS_X/8))+CANVAS_Y-1-$c0
 	stxy @dst
-	ldx #CANVAS_WIDTH/8
+	ldx #CANVAS_WIDTH/8+1	; +1 for border
+
+; draw left border
+	lda #$01
+	ldy #CANVAS_HEIGHT+1
+:	sta (@dst),y
+	dey
+	bpl :-
+	bmi @nextcol
 
 @l0:	lda #$00
-	ldy #CANVAS_HEIGHT
-:	sta (@dst),y
+	ldy #CANVAS_HEIGHT+1
+	lda #$ff
+	sta (@dst),y	; bottom border
+	dey
+:	lda #$00
+	sta (@dst),y
 	dey
 	bne :-
 
-	dex
-	beq @done
+	lda #$ff
+	sta (@dst),y	; top border
+
+@nextcol:
 	lda @dst
 	clc
 	adc #$c0	; next col
 	sta @dst
-	bcc @l0
-
+	bcc :+
 	inc @dst+1
+:	dex
 	bne @l0
+
+@rborder:
+	; draw rightborder
+	lda #$80
+	ldy #CANVAS_HEIGHT+1
+:	sta (@dst),y
+	dey
+	bpl :-
 
 @done:	rts
 .endproc
