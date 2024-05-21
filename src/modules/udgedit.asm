@@ -52,15 +52,20 @@ linebuffer = $0400
 
 	; parse linebuffer, populate udg (r8) if line contains a .db directive
 	jsr parse_bytes
+	bcs @cont		; line doesn't contain a UDG definition
 
 	; draw any pixels that are set
 	lda #7
 	sta zp::cury
 @l0:	lda #7
 	sta zp::curx
-@l1:	ldx zp::curx
-	lda udg,x
-	and $8270,x
+@l1:	lda #$07
+	sec
+	sbc zp::curx
+	tax
+	lda $8270,x
+	ldy zp::cury
+	and udg,y
 	beq :+
 	jsr plot
 :	dec zp::curx
@@ -68,9 +73,11 @@ linebuffer = $0400
 	dec zp::cury
 	bpl @l0
 
+@cont:
 	; move cursor back to (0,0)
-	inc zp::curx
-	inc zp::cury
+	lda #$00
+	sta zp::curx
+	sta zp::cury
 
 @main:	dec cur_tmr
 	bne :+
@@ -376,6 +383,7 @@ linebuffer = $0400
 ;  - .Y: the MSB of the 2 character string hex value
 ; OUT:
 ;  - .A: the binary value
+;  - .C: set if no value could be parsed (.X/.Y contains invalid hex digit)
 .proc parsehex
 @byte=r4
 	tya
@@ -388,17 +396,23 @@ linebuffer = $0400
 	txa
 	jsr @tohex
 	ora @byte
-@done:	rts
+
+@ok:	clc
+	rts
+
+@err:	sec
+	rts
+
 @tohex:
 	cmp #'f'+1
-	bcs @done
+	bcs @err
 	cmp #'a'
 	bcc :+
 	sbc #'a'-$a
 	rts
 
 :	cmp #'F'+1
-	bcs @done
+	bcs @err
 	cmp #'A'
 	bcc @numeric
 	sbc #'A'-$a
@@ -406,9 +420,9 @@ linebuffer = $0400
 
 @numeric:
 	cmp #'9'+1
-	bcs @done
+	bcs @err
 	cmp #'0'
-	bcc @done
+	bcc @err
 	sbc #'0'
 	rts
 .endproc
@@ -420,6 +434,8 @@ linebuffer = $0400
 ; in the line, the first 8 are used for the character.
 ; If less than 8 are defined, the remaining characters are padded with zeroes.
 ; NOTE: only hex values are supported
+; OUT:
+;  - .C: set if line could not be parsed
 .proc parse_bytes
 @buff=r0
 @udg=r2
@@ -431,30 +447,33 @@ linebuffer = $0400
 	ldy #$00
 @finddb:
 	lda (@buff),y
-	beq @done
+	beq @err		; no .DB on this line
 	cmp #$0d
-	beq @done
+	beq @err		; no .DB
 	cmp #';'
-	beq @done
+	beq @err		; no .DB
 	cmp #$09		; TAB
 	beq @nextch
 	cmp #' '
 	beq @nextch
 	cmp #'.'
-	bne @done		; not a .DB
+	bne @err		; not a .DB
 	iny
 	lda (@buff),y
 	cmp #'D'
 	beq :+
 	cmp #'d'
-	bne @done		; not .DB
+	bne @err		; not .DB
 :	iny
 	lda (@buff),y
 	cmp #'B'
 	beq @getbytes
 	cmp #'b'
 	beq @getbytes
-@done:	rts			; no .DB
+
+@err:	sec
+	rts
+
 @nextch:
 	iny
 	bne @finddb
@@ -468,11 +487,11 @@ linebuffer = $0400
 @parsebyte:
 	ldy #$00
 	lda (@buff),y
-	beq @done
+	beq @ok
 	cmp #$0d
-	beq @done
+	beq @ok
 	cmp #';'
-	beq @done
+	beq @ok
 
 	cmp #' '
 	beq @next
@@ -480,7 +499,7 @@ linebuffer = $0400
 	beq @next
 
 	cmp #'$'
-	bne @done	; unexpected char
+	bne @err	; unexpected char
 @hex:	incw @buff
 	ldy #$01
 	lda (@buff),y	; least significant hex digit
@@ -489,6 +508,7 @@ linebuffer = $0400
 	lda (@buff),y	; most significant hex digit
 	tay
 	jsr parsehex
+	bcs @err	; unparseable
 	ldy #$00
 	sta (@udg),y	; save the result
 	incw @udg
@@ -499,21 +519,24 @@ linebuffer = $0400
 	ldy #$00
 @findcomma:
 	lda (@buff),y
-	beq @done
+	beq @ok
 	cmp #$0d
-	beq @done
+	beq @ok
 	cmp #' '
 	beq :+
 	cmp #$09	; TAB
 	beq :+
 	cmp #','
 	beq @next
-	bne @done	; unexpected char
+	bne @err	; unexpected char
 :	incw @buff
 	jmp @findcomma
 
 @next:	incw @buff
 	jmp @parsebyte
+
+@ok:	clc
+	rts
 .endproc
 
 
