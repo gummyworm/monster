@@ -41,16 +41,22 @@ linebuffer = $0400
 ; Activates the UDG editor
 ; OUT:
 ;  - r8-rf: the character that the user created
-;  - .C:    set if the user quit the editor without creating a character
-;           clear if the user did create a new UDG
+;  - .A:    0: no graphic created or updated
+;           1: new graphic created
+;           2: graphic updated
 .export __udgedit_enter
 .proc __udgedit_enter
+@result=r4
 	cli
 	jsr clrcanvas
 
 	; parse linebuffer, populate udg (r8) if line contains a .db directive
 	jsr parse_bytes
+	lda #$01
+	sta @result		; flag that we are creating new graphic
 	bcs @cont		; line doesn't contain a UDG definition
+
+	inc @result		; flag that we are updating graphic
 
 	; draw any pixels that are set
 	lda #7
@@ -91,10 +97,10 @@ linebuffer = $0400
 	jsr handlekey
 	jmp @main
 
-@ok:	clc
+@ok:	lda @result
 	rts
 
-@ret:	sec			; no graphic created
+@ret:	lda #$00	; no graphic created
 	rts
 .endproc
 

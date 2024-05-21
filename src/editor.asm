@@ -1811,13 +1811,24 @@ __edit_set_breakpoint:
 	jsr bm::save
 	lda #MOD_UDGEDIT
 	jsr mod::enter
-	php
+	pha
 	jsr bm::restore
-	plp
-	bcs @ret		; no UDG created
+	pla
+	cmp #$00
+	beq @ret		; no UDG created
 
+	cmp #$01
+	bne @update
+
+@new:	jsr enter_insert
+	inc $900f
+	jmp @write
+
+@update:
+	jsr delete_line
 	jsr enter_insert
 
+@write:
 	; write .udg to the source buffer
 	jsr text::bufferon
 	lda #'.'
