@@ -261,20 +261,22 @@ udg     = r8
 	iny
 	dex
 	bne :-
-	rts
+
+	; fall through to setpixel in memory
 .endproc
 
 ;******************************************************************************
 ; SETPIXEL
 ; Sets the pixel at the cursor to the active color
 .proc setpixel
-	; render the pixel on the canvas
-
 	; update the UDG pixel data
-	ldx zp::curx
+	lda #$07
+	sec
+	sbc zp::curx
+	tax
 	ldy zp::cury
 	lda udg,y
-	ora $8314,x	; charrom '/' (mask associated with pixel)
+	ora $8270,x	; charrom '/' (mask associated with pixel)
 	sta udg,y
 	rts
 .endproc
