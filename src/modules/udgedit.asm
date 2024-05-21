@@ -51,6 +51,8 @@ udg     = r8
 	sta zp::curx
 	sta zp::cury
 
+	; parse linebuffer, populate udg (r8) if line contains a .db directive
+
 @main:	dec cur_tmr
 	bne :+
 	jsr curtoggle
