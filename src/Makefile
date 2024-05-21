@@ -7,7 +7,7 @@ TEST_TXTS=$(wildcard tests/*.txt)
 # XVIC=xvic
 # FE3BIN=fe3vice.bin
 
-all: monster.prg udgedit.prg
+all: monster.prg udg.prg
 
 ################################################################################
 # main binary
@@ -18,13 +18,13 @@ monster.prg: boot.asm $(SRC)
 
 ################################################################################
 # modules
-udgedit.prg: modules/udgedit.asm
-	cl65 -t vic20 -o $@ -C modules/link.config $^ -Ln labelsudgedit.txt -v -m map.txt
+udg.prg: modules/udgedit.asm
+	cl65 -t vic20 -o $@ -C modules/link.config $^ -Ln labelsudgedit.txt -v -m udgeditmap.txt
 	rm *.o
 
 ################################################################################
 # create the test disk image
-test.d64: monster.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS) udgedit.prg
+test.d64: monster.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS) udg.prg
 	c1541 -format test,1 d64 test.d64 -attach test.d64 $(addprefix -write ,$^)
 
 ################################################################################
@@ -42,5 +42,5 @@ start: monster.prg
 clean:
 	rm test.d64
 	rm monster.prg
-	rm udgedit.prg
+	rm udg.prg
 	rm *.o

@@ -81,7 +81,7 @@ macros:          .res $1400
 	sta @dst+1
 
 ; copy the name of the macro (parameter 0)
-	ldy #$00
+	dey
 @copyname:
 	lda (@params),y
 	sta (@dst),y

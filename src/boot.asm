@@ -3,6 +3,7 @@
 .include "debug.inc"
 .include "edit.inc"
 .include "fastcopy.inc"
+.include "fasttext.inc"
 .include "finalex.inc"
 .include "irq.inc"
 .include "labels.inc"
@@ -28,21 +29,47 @@
 .import __MACROCODE_RUN__
 .import __MACROCODE_SIZE__
 
+.import __SAVESCR_LOAD__
+.import __SAVESCR_RUN__
+.import __SAVESCR_SIZE__
+
 .import __IRQ_LOAD__
 .import __IRQ_RUN__
 .import __IRQ_SIZE__
 
 ;******************************************************************************
-.macro relocate src, dst, dstbank, size
-	ldxy src
-	stxy r0
-	ldxy dst
-	stxy r2
-	lda dstbank
-	sta r4
-	ldxy size
-	stxy r6
-	jsr reloc
+; LOADMODS
+; Loads all modules into their designated locations in RAM
+.macro loadmods
+	ldxy #@module_udgedit
+	lda #MOD_UDGEDIT
+	jsr mod::load
+@module_udgedit: .byte "udg.prg",0
+.endmacro
+
+;******************************************************************************
+; RELOC
+; relocates code from 1 address to another
+; IN:
+;  - .A: destination bank
+;  - r0r1: source address
+;  - r2r3: dest address
+;  - r4:   number of bytes to copy
+.macro reloc
+@src=r0
+@dst=r2
+@size=r4
+@bank=r6
+	sta @bank
+@copy:	ldy #$00
+	lda (@src),y
+	bank_store_byte @bank,@dst
+	incw @src
+	incw @dst
+	decw @size
+	ldxy @size
+	cmpw #$00
+	bne @copy
 .endmacro
 
 .segment "SETUP"
@@ -66,6 +93,7 @@ start:
 
 	; print loading message
 	ldx #$00
+	sty mem::drive_err	; clear the drive error
 :	lda @loading,x
 	jsr $ffd2
 	inx
@@ -76,69 +104,88 @@ start:
 	ldxy #$eb15
 	stxy $0314
 
+;--------------------------------------
+; generate code
 	jsr fe3::init
 	lda #FINAL_BANK_FASTCOPY
 	jsr fcpy::init
 	lda #FINAL_BANK_FASTCOPY2
 	jsr fcpy::init
 
+	lda #FINAL_BANK_FASTTEXT
+	sta $9c02
+	jsr ftxt::init
+	lda #FINAL_BANK_MAIN
+	sta $9c02
+
+;--------------------------------------
+; zero the BSS segment
 	ldxy #__BSS_LOAD__
-	stxy zp::tmp0
+	stxy r0
 @zerobss:
 	ldy #$00
-	sty mem::drive_err	; clear the drive error
 	tya
-	sta (zp::tmp0),y
-	incw zp::tmp0
-	ldxy zp::tmp0
+	sta (r0),y
+	incw r0
+	ldxy r0
 	cmpw #(__BSS_LOAD__+__BSS_SIZE__)
 	bne @zerobss
 
+;--------------------------------------
 ; relocate segments that need to be moved
-; DATA
-	ldxy #__DATA_LOAD__
-	stxy zp::tmp0
-	ldxy #__DATA_RUN__
-	stxy zp::tmp2
-@reloc:
-	ldy #$00
-	lda (zp::tmp0),y
-	sta (zp::tmp2),y
-	incw zp::tmp0
-	incw zp::tmp2
-	ldxy zp::tmp0
-	cmpw #(__DATA_LOAD__+__DATA_SIZE__)
+@cnt=r7
+@relocs=r8
+	lda #num_relocs
+	sta @cnt
+	ldxy #relocs
+	stxy @relocs
+@reloc:	ldy #$00
+	lda (@relocs),y
+	sta r0
+	iny
+	lda (@relocs),y
+	sta r0+1
+
+	; destination
+	iny
+	lda (@relocs),y
+	sta r2
+	iny
+	lda (@relocs),y
+	sta r2+1
+
+	; size
+	iny
+	lda (@relocs),y
+	sta r4
+	iny
+	lda (@relocs),y
+	sta r4+1
+
+	; bank
+	iny
+	lda (@relocs),y
+	reloc
+	lda @relocs
+	clc
+	adc #$07
+	sta @relocs
+	bcc :+
+	inc @relocs+1
+:	dec @cnt
 	bne @reloc
 
-; FASTTEXT
-; copy the fast text code to its bank
-	ldxy #__FASTTEXT_LOAD__
-	stxy zp::tmp0
-	ldxy #__FASTTEXT_RUN__
-	stxy zp::tmp2
-@fasttxt:
-	ldy #$00
-	lda (zp::tmp0),y
-	bank_store_byte #FINAL_BANK_FASTTEXT, zp::tmp2
-	incw zp::tmp0
-	incw zp::tmp2
-	ldxy zp::tmp0
-	cmpw #__FASTTEXT_LOAD__+__FASTTEXT_SIZE__
-	bne @fasttxt
-
-; MACRO
-; copy the macro code to its bank
-	relocate #__MACROCODE_LOAD__, #__MACROCODE_RUN__, #FINAL_BANK_MACROS, #__MACROCODE_SIZE__
-
-	relocate #__IRQ_LOAD__, #__IRQ_RUN__, #FINAL_BANK_MAIN, #__IRQ_SIZE__
-
+;--------------------------------------
 ; load modules from disk to their designated bank
-	jsr loadmods
+	loadmods
 
+;--------------------------------------
 ; initialize the JMP vector
 	lda #$4c		; JMP
 	sta zp::jmpaddr
 
+;--------------------------------------
+; setup interrupt vectors
 	ldx #<irq::sys_update
         ldy #>irq::sys_update
         lda #$20
@@ -150,8 +197,12 @@ start:
 	sta $0317		; BRK
 	sta $0319		; NMI
 
+;--------------------------------------
+; clean up files
 	jsr $ffe7		; CLALL (close all files)
 
+;--------------------------------------
+; misc. setup
 	; save current screen for debugger
 	jsr dbg::save_progstate
 
@@ -160,48 +211,38 @@ start:
 	lda #$80
 	sta $9c02	; enable 35K of RAM for final expansion
 
-	lda #$80
 	sta $028a	; repeat all characters
 	sta $0291	; don't swap charset on C= + SHIFT
 
 	jmp enter
-@loading: .byte "initializing.."
+
+@loading: .byte "init.."
 @loadinglen=*-@loading
 
 ;******************************************************************************
-; RELOC
-; relocates code from 1 address to another
-; IN:
-;  - r0r1: source address
-;  - r2r3: dest address
-;  - r4:   dest bank
-;  - r6:   number of bytes to copy
-.proc reloc
-@copy:	ldy #$00
-	lda (r0),y
-	bank_store_byte r4,r2
-	incw r0
-	incw r2
-	decw r6
-	ldxy r6
-	cmpw #$00
-	bne @copy
-	rts
-.endproc
+; RELOCS
+; Table of start and target addresses for segments that need to be relocated
+relocs:
+; DATA
+.word __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__
+.byte FINAL_BANK_MAIN
 
-;******************************************************************************
-; LOADMODS
-; Loads all modules into their designated locations in RAM
-.proc loadmods
-	inc $900f
-	ldxy #@module_udgedit
-	lda #MOD_UDGEDIT
-	jsr mod::load
-	dec $900f
-	rts
-@module_udgedit: .byte "udgedit.prg",0
-.endproc
+; FASTTEXT
+.word __FASTTEXT_LOAD__, __FASTTEXT_RUN__, __FASTTEXT_SIZE__
+.byte FINAL_BANK_FASTTEXT
 
+; MACRO
+.word __MACROCODE_LOAD__, __MACROCODE_RUN__, __MACROCODE_SIZE__
+.byte FINAL_BANK_MACROS
+
+; IRQ
+.word __IRQ_LOAD__, __IRQ_RUN__, __IRQ_SIZE__
+.byte FINAL_BANK_MAIN
+
+; SCREEN
+.word __SAVESCR_LOAD__, __SAVESCR_RUN__, __SAVESCR_SIZE__
+.byte FINAL_BANK_SAVESCR
+num_relocs=(*-relocs)/7
 
 .CODE
 ;******************************************************************************

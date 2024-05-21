@@ -241,6 +241,8 @@ directive_vectors:
 .word create_macro
 .word handle_repeat
 .word incbinfile
+.word 0			; TODO: import
+.word 0			; TODO: export
 
 ;******************************************************************************
 ; see MODE_ constants in asmflags.inc
@@ -2146,8 +2148,7 @@ __asm_include:
 	RETURN_ERR ERR_INVALID_MACRO_ARGS
 
 @done:	lda @id
-	CALL FINAL_BANK_MACROS, #mac::asm
-	rts
+	JUMP FINAL_BANK_MACROS, #mac::asm
 .endproc
 
 ;******************************************************************************

@@ -19,6 +19,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "module.inc"
+.include "screen.inc"
 .include "source.inc"
 .include "state.inc"
 .include "string.inc"
@@ -1199,6 +1200,23 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; COMMAND_MOVE_SCR
+; Accepts another key and moves the screen around depending on what that key is:
+;  - l: move screen 2 characters to the left
+;  - h: move screen 2 characters to the right
+.proc command_move_scr
+:	jsr key::getch
+	beq :-
+	cmp #$68	; 'h'
+	beq @right
+	cmp #$6c	; 'l'
+	beq @left
+	rts
+@left:  JUMP FINAL_BANK_SAVESCR, #scr::pushcol
+@right: JUMP FINAL_BANK_SAVESCR, #scr::popcol
+.endproc
+
+;******************************************************************************
 ; YANK
 ; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
 ; mode, does nothing
@@ -1399,6 +1417,8 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; GOTO_START
+; Accepts another key and, if it is 'g', moves to the start of the buffer.
 .proc goto_start
 :	jsr key::getch
 	beq :-
@@ -1409,6 +1429,7 @@ main:	jsr key::getch
 	lda mode
 	cmp #MODE_VISUAL
 	bne @gotoline
+
 	; if we're in visual mode, go up line by line to highlight
 :	jsr ccup
 	bcc :-
@@ -1424,22 +1445,10 @@ main:	jsr key::getch
 	bne :+
 @done:	rts
 
-:	lda mem::linebuffer
-	pha
-	jsr enter_insert
-	jsr home	; move to start of line
-	jsr src::atcursor
-	cmp #$09
-	bne :+
-	jsr src::prev
-	lda #$00
-	sta zp::curx
-:	jsr newl
-	jsr ccup
-	pla
-	cmp #$09	; TAB
-	bne @done
-	jmp insert
+:	jsr insert_start
+	lda #$0d
+	jsr insert
+	jmp ccup		; go up
 .endproc
 
 ;******************************************************************************
@@ -1798,10 +1807,56 @@ __edit_set_breakpoint:
 ; UDG_EDIT
 ; Activates the UDG character editor module
 .proc udgedit
+@cnt=zp::editortmp
+@save=zp::editortmp+1
+@udg=r8
+	; TODO: parse linebuffer, populate udg if (r8) if line contains
+	; a .db directive with 8 bytes
 	jsr bm::save
 	lda #MOD_UDGEDIT
 	jsr mod::enter
-	jmp bm::restore
+	php
+	jsr bm::restore
+	plp
+	bcs @done		; no UDG created
+
+	jsr enter_insert
+
+	; write .udg to the source buffer
+	lda #'.'
+	jsr insert
+	lda #'d'
+	jsr insert
+	lda #'b'
+	jsr insert
+	lda #' '
+	jsr insert
+
+	; convert the binary to hex and write the UDG
+	lda #0
+	sta @cnt
+
+@l0:	lda #'$'
+	jsr insert
+
+	ldx @cnt
+	lda @udg,x
+	jsr util::hextostr
+	stx @save
+	tya
+	jsr insert
+	lda @save
+	jsr insert
+
+	lda @cnt
+	cmp #$07
+	beq @done
+	lda #','
+	jsr insert
+:	inc @cnt
+	bpl @l0
+
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2526,7 +2581,7 @@ goto_buffer:
 	jmp linedone		; handle RETURN
 
 :	jsr key::isprinting
-	bcs @done
+	bcs @done		; non-printing
 
 	ldx text::insertmode
 	bne @put
@@ -2547,6 +2602,7 @@ goto_buffer:
 	sta @ch
 
 	lda zp::curx
+
 	sta @xend
 
 	lda mode
@@ -3881,6 +3937,7 @@ commands:
 	.byte $76	; v (enter visual mode)
 	.byte $56	; V (enter visual line mode)
 	.byte $79	; y (yank)
+	.byte $7a	; z (move screen prefix)
 	.byte K_FIND	; find
 	.byte K_NEXT_DRIVE ; next drive
 	.byte K_PREV_DRIVE ; prev drive
@@ -3895,7 +3952,8 @@ numcommands=*-commands
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual_line, command_yank, command_find, \
+	enter_visual, enter_visual_line, command_yank, command_move_scr, \
+	command_find, \
 	next_drive, prev_drive, get_command
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs

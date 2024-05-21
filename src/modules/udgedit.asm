@@ -30,7 +30,7 @@ BORDER_SIZE = 4		; border around editor (in pixels)
 color   = zp::editortmp
 cur_on  = zp::editortmp+1	; cursor on flag
 cur_tmr = zp::editortmp+2	; cursor blink timer
-udg     = zp::tmp8
+udg     = r8
 
 .CODE
 .word @header
@@ -40,9 +40,9 @@ udg     = zp::tmp8
 ; ENTER
 ; Activates the UDG editor
 ; OUT:
-;  - r0-r7: the character that the user created
-;  - .Z:    clear if the user quit the editor without creating a character
-;        set if the user did create a new UDG
+;  - r8-rf: the character that the user created
+;  - .C:    set if the user quit the editor without creating a character
+;           clear if the user did create a new UDG
 .export __udgedit_enter
 .proc __udgedit_enter
 	cli
@@ -67,6 +67,7 @@ udg     = zp::tmp8
 
 @ok:	clc
 	rts
+
 @ret:	sec			; no graphic created
 	rts
 .endproc
@@ -112,26 +113,48 @@ udg     = zp::tmp8
 	bpl :-
 
 	; clear the bitmap area of the canvas
-	ldxy #BITMAP_ADDR+($c0*(CANVAS_X/8))+CANVAS_Y-1
+	ldxy #BITMAP_ADDR+($c0*(CANVAS_X/8))+CANVAS_Y-1-$c0
 	stxy @dst
-	ldx #CANVAS_WIDTH/8
+	ldx #CANVAS_WIDTH/8+1	; +1 for border
+
+; draw left border
+	lda #$01
+	ldy #CANVAS_HEIGHT+1
+:	sta (@dst),y
+	dey
+	bpl :-
+	bmi @nextcol
 
 @l0:	lda #$00
-	ldy #CANVAS_HEIGHT
-:	sta (@dst),y
+	ldy #CANVAS_HEIGHT+1
+	lda #$ff
+	sta (@dst),y	; bottom border
+	dey
+:	lda #$00
+	sta (@dst),y
 	dey
 	bne :-
 
-	dex
-	beq @done
+	lda #$ff
+	sta (@dst),y	; top border
+
+@nextcol:
 	lda @dst
 	clc
 	adc #$c0	; next col
 	sta @dst
-	bcc @l0
-
+	bcc :+
 	inc @dst+1
+:	dex
 	bne @l0
+
+@rborder:
+	; draw rightborder
+	lda #$80
+	ldy #CANVAS_HEIGHT+1
+:	sta (@dst),y
+	dey
+	bpl :-
 
 @done:	rts
 .endproc
@@ -260,20 +283,22 @@ udg     = zp::tmp8
 	iny
 	dex
 	bne :-
-	rts
+
+	; fall through to setpixel in memory
 .endproc
 
 ;******************************************************************************
 ; SETPIXEL
 ; Sets the pixel at the cursor to the active color
 .proc setpixel
-	; render the pixel on the canvas
-
 	; update the UDG pixel data
-	ldx zp::curx
+	lda #$07
+	sec
+	sbc zp::curx
+	tax
 	ldy zp::cury
 	lda udg,y
-	ora $8314,x	; charrom '/' (mask associated with pixel)
+	ora $8270,x	; charrom '/' (mask associated with pixel)
 	sta udg,y
 	rts
 .endproc

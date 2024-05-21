@@ -1136,8 +1136,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr save_debug_zp
 	jsr restore_user_zp
 
-@runpc:	CALL FINAL_BANK_USER, pc	; execute the user program until BRK
-	rts
+@runpc:	JUMP FINAL_BANK_USER, pc	; execute the user program until BRK
 .endproc
 
 ;******************************************************************************
@@ -1245,8 +1244,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @savecolor
 
 	; backup the screen
-	CALL FINAL_BANK_FASTCOPY2, #fcpy::save
-	rts
+	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
 .endproc
 
 ;******************************************************************************
@@ -1281,8 +1279,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @savecolor
 
 	; backup the user $1000 data
-	CALL FINAL_BANK_FASTCOPY, #fcpy::save
-	rts
+	JUMP FINAL_BANK_FASTCOPY, #fcpy::save
 .endproc
 
 ;******************************************************************************
@@ -1577,8 +1574,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; reinit the bitmap
 	jsr bm::init
 	; restore the screen
-	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
-	rts
+	JUMP FINAL_BANK_FASTCOPY2, #fcpy::restore
 .endproc
 
 ;******************************************************************************
@@ -1668,8 +1664,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$4c
 	sta zp::jmpaddr
 	; restore the user $1000 data
-	CALL FINAL_BANK_FASTCOPY, #fcpy::restore
-	rts
+	JUMP FINAL_BANK_FASTCOPY, #fcpy::restore
 .endproc
 
 ;******************************************************************************

@@ -24,6 +24,7 @@ ESCAPE_VALUE_DEC = $fd
 ESCAPE_SPACING   = $fc
 ESCAPE_BYTE      = $fb
 ESCAPE_CHAR      = $fa
+ESCAPE_8x8UDG    = $f9
 ESCAPE_RVS_ON    = $12
 ESCAPE_RVS_OFF   = $92
 STATUS_LINE      = 23
@@ -719,8 +720,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
         asl
         asl
         sta @txtdst
-	CALL FINAL_BANK_FASTTEXT, #ftxt::puts
-	rts
+	JUMP FINAL_BANK_FASTTEXT, #ftxt::puts
 .endproc
 
 ;******************************************************************************
