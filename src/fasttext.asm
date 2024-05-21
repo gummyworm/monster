@@ -7,6 +7,11 @@ ESCAPE_8x8UDG    = $f9
 .segment "FASTTEXT"
 
 ;******************************************************************************
+txtbyte = zp::text
+txtsrc  = zp::text+7
+txtdst  = zp::text+5	; bitmap address to render graphics at
+
+;******************************************************************************
 ; FAST PUTCH
 ; Puts the character given at the current cursor position
 ; IN:
@@ -68,9 +73,6 @@ ESCAPE_8x8UDG    = $f9
 	rts
 .endproc
 
-txtbyte = zp::text
-txtsrc  = zp::text+7
-txtdst  = zp::text+5
 
 ;******************************************************************************
 ; PUTS
@@ -115,7 +117,7 @@ txtdst  = zp::text+5
 	sta txtright+1
 
 	; draw the character
-	jsr drawtxt
+	jsr drawcell
 
 	; move to next bitmap column
         lda txtdst
@@ -130,15 +132,20 @@ txtdst  = zp::text+5
         rts
 .endproc
 
-;--------------------------------------
-; entry point to draw (txtleft) | (textright) at (txtdst)
-drawtxt:
+;******************************************************************************
+; DRAWCELL
+; Draws the graphics in (txtleft) | (textright) at (txtdst)
+; IN:
+;  - txtleft:  the address of the graphics to draw on the left half of the cell
+;  - txtright: the address of the graphics to draw to the right half of the cell
+;  - txtdst:   the bitmap address to render the cell at
+drawcell:
 ysave = zp::text+9
 	sty ysave
 	; OR the even character's data with the odd's and draw the full cell
         ldy #8-1
 txtleft=*+1
-l0:     lda $f00d,y
+	lda $f00d,y
         and #$f0
         sta txtbyte
 txtright=*+1
@@ -147,8 +154,7 @@ txtright=*+1
         ora txtbyte
         sta (txtdst),y
 	dey
-	bpl l0
-
+	bpl txtleft-1
 	ldy ysave	; restore .Y
 	rts
 
@@ -159,7 +165,7 @@ txtright=*+1
 .proc drawspecial
 	cmp #ESCAPE_8x8UDG
 	bne @done
-	jmp draw_8x8
+	;jmp draw_8x8
 
 @done:	rts
 .endproc
@@ -176,6 +182,7 @@ txtright=*+1
 @right=r8	; 8 bytes
 	; if .Y is odd, we're halfway through an 8x8 cell
 	tya
+	pha
 	and #$01
 	sta @odd
 
@@ -183,8 +190,7 @@ txtright=*+1
 	ldx @odd
 	bne @do_odd
 
-	; if even, draw the entire cell and return as if we drew 2 4x8 chars
-	incw txtsrc
+	; if even, draw the entire cell
 	lda txtsrc
 	sta txtleft
 	lda txtsrc+1
@@ -193,11 +199,10 @@ txtright=*+1
 	sta txtright
 	lda #>charmap		; all 0's
 	sta txtright+1
-	jsr drawtxt
-	jmp @done
+	bne @render		; branch always
 
 @do_odd:
-	; if odd, populate @txtright and setup @txtleft for the next iteration
+	; if odd, populate txtright and setup txtleft for the next iteration
 	; of the draw loop
 	ldy #$07
 	ldx #$07
@@ -214,11 +219,18 @@ txtright=*+1
 	dey
 	dex
 	bpl :-
-	ldxy #@right
-	stxy txtright
-	ldxy #@left
-	stxy txtleft
-	jsr drawtxt		; draw (txtleft) | (txtright)
+
+	lda #$00
+	sta txtright+1
+	sta txtleft+1
+	lda #@right
+	sta txtright
+	lda #@left
+	sta txtleft
+	jsr @render
+
+@render:
+	jsr drawcell		; draw (txtleft) | (txtright)
 
 	; move source pointer beyond the 8 bytes of graphic data
 @done:	lda txtsrc
@@ -227,7 +239,10 @@ txtright=*+1
 	sta txtsrc
 	bcc :+
 	inc txtsrc+1
-:	rts
+
+:	pla			; restore current char offset to .Y
+	tay
+	rts
 .endproc
 
 ;******************************************************************************
@@ -359,7 +374,6 @@ charmap:
 .byte   $00,$00,$22,$55,$55,$22,$00,$00	  ; 134 unfilled bullet/breakpoint unset
 .byte   $00,$44,$66,$77,$77,$66,$44,$00	  ; 135 arrow pointing right
 num_chars = (*-charmap)/8
-
 
 .segment "SETUP"
 ;******************************************************************************

@@ -30,7 +30,7 @@ BORDER_SIZE = 4		; border around editor (in pixels)
 color   = zp::editortmp
 cur_on  = zp::editortmp+1	; cursor on flag
 cur_tmr = zp::editortmp+2	; cursor blink timer
-udg     = zp::tmp8
+udg     = r8
 
 .CODE
 .word @header
@@ -40,9 +40,9 @@ udg     = zp::tmp8
 ; ENTER
 ; Activates the UDG editor
 ; OUT:
-;  - r0-r7: the character that the user created
-;  - .Z:    clear if the user quit the editor without creating a character
-;        set if the user did create a new UDG
+;  - r8-rf: the character that the user created
+;  - .C:    set if the user quit the editor without creating a character
+;           clear if the user did create a new UDG
 .export __udgedit_enter
 .proc __udgedit_enter
 	cli
@@ -67,6 +67,7 @@ udg     = zp::tmp8
 
 @ok:	clc
 	rts
+
 @ret:	sec			; no graphic created
 	rts
 .endproc

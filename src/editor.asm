@@ -1807,10 +1807,56 @@ __edit_set_breakpoint:
 ; UDG_EDIT
 ; Activates the UDG character editor module
 .proc udgedit
+@cnt=zp::editortmp
+@save=zp::editortmp+1
+@udg=r8
+	; TODO: parse linebuffer, populate udg if (r8) if line contains
+	; a .db directive with 8 bytes
 	jsr bm::save
 	lda #MOD_UDGEDIT
 	jsr mod::enter
-	jmp bm::restore
+	php
+	jsr bm::restore
+	plp
+	bcs @done		; no UDG created
+
+	jsr enter_insert
+
+	; write .udg to the source buffer
+	lda #'.'
+	jsr insert
+	lda #'d'
+	jsr insert
+	lda #'b'
+	jsr insert
+	lda #' '
+	jsr insert
+
+	; convert the binary to hex and write the UDG
+	lda #0
+	sta @cnt
+
+@l0:	lda #'$'
+	jsr insert
+
+	ldx @cnt
+	lda @udg,x
+	jsr util::hextostr
+	stx @save
+	tya
+	jsr insert
+	lda @save
+	jsr insert
+
+	lda @cnt
+	cmp #$07
+	beq @done
+	lda #','
+	jsr insert
+:	inc @cnt
+	bpl @l0
+
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2535,7 +2581,7 @@ goto_buffer:
 	jmp linedone		; handle RETURN
 
 :	jsr key::isprinting
-	bcs @done
+	bcs @done		; non-printing
 
 	ldx text::insertmode
 	bne @put

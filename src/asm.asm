@@ -241,6 +241,8 @@ directive_vectors:
 .word create_macro
 .word handle_repeat
 .word incbinfile
+.word 0			; TODO: import
+.word 0			; TODO: export
 
 ;******************************************************************************
 ; see MODE_ constants in asmflags.inc
