@@ -32,9 +32,126 @@ cur_on  = zp::editortmp+1	; cursor on flag
 cur_tmr = zp::editortmp+2	; cursor blink timer
 udg     = r8
 
+linebuffer = $0400
+
 .CODE
 .word @header
 @header:
+
+;******************************************************************************
+; IN:
+;  - .X: the LSB of the 2 character string hex value
+;  - .Y: the MSB of the 2 character string hex value
+; OUT:
+;  - .A: the binary value
+.proc parsehex
+@byte=r4
+	tya
+	jsr @tohex
+	asl
+	asl
+	asl
+	asl
+	sta @byte
+	tya
+	jsr @tohex
+	ora @byte
+@done:	rts
+@tohex:
+	cmp #'f'+1
+	bcs @done
+	cmp #'a'
+	bcc @numeric
+	sbc #'a'-$a
+	rts
+@numeric:
+	cmp #'9'+1
+	bcs @done
+	cmp #'0'
+	bcc @done
+	sbc #'0'
+.endproc
+
+;******************************************************************************
+; PARSE_BYTES
+; Parses the line for graphic data
+; Graphic data lines are .DB directives. If more than 8 bytes are defined
+; in the line, the first 8 are used for the character.
+; If less than 8 are defined, the remaining characters are padded with zeroes.
+; NOTE: only hex values are supported
+.proc parse_bytes
+@buff=r0
+@udg=r2
+	ldxy #linebuffer
+	stxy @buff
+	ldxy #@udg
+	stxy @udg
+	ldy #$00
+@finddb:
+	lda (@buff),y
+	cmp #$0d
+	beq @done
+	cmp #';'
+	beq @done
+	cmp #$09		; TAB
+	beq @nextch
+	cmp #' '
+	beq @nextch
+	cmp '.'
+	bne @done		; not a .DB
+	iny
+	lda (@buff),y
+	cmp #'d'
+	bne @done
+	iny
+	lda (@buff),y
+	cmp #'b'
+	bne @done
+	beq @getbytes
+
+@nextch:
+	iny
+	bne @finddb
+@done:	rts
+
+; .DB was found, parse the data
+@getbytes:
+	tya
+	clc
+	adc @buff
+	sta @buff
+
+	ldy #$00
+	lda (@buff),y
+	beq @done
+	cmp #$0d
+	beq @done
+	cmp #';'
+	beq @done
+
+	cmp #' '
+	beq @next
+	cmp #$09
+	beq @next
+
+	cmp #'$'
+	bne @done
+
+@hex:	incw @buff
+	ldy #$01
+	lda (@buff),y
+	tax
+	dey
+	lda (@buff),y
+	tay
+	jsr parsehex
+	ldy #$00
+	sta (@udg),y
+	incw @udg
+
+@next:	incw @buff
+	jmp @getbytes
+.endproc
 
 ;******************************************************************************
 ; ENTER
@@ -52,6 +169,7 @@ udg     = r8
 	sta zp::cury
 
 	; parse linebuffer, populate udg (r8) if line contains a .db directive
+	jsr parse_bytes
 
 @main:	dec cur_tmr
 	bne :+
