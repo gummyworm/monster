@@ -1020,16 +1020,29 @@ main:	jsr key::getch
 .byte $77	; w delete word
 .byte $64	; d delete line
 .byte $24	; $ (end of line)
+.byte $30	; 0 (beginning of line)
 @numcmds=*-@subcmds
 
-.define subcmds delete_word, delete_line, delete_to_end
+.define subcmds delete_word, delete_line, delete_to_end, delete_to_begin
 @subcmdshi: .hibytes subcmds
 @subcmdslo: .lobytes subcmds
 .endproc
 
 ;******************************************************************************_
 .proc delete_to_begin
-	rts
+	jsr text::bufferon
+	jsr enter_insert
+:	jsr src::start
+	beq @done
+	jsr src::atcursor
+	cmp #$0d
+	beq @done
+	jsr backspace
+	jmp :-
+@done:	jsr text::bufferoff
+	lda zp::cury
+	jsr text::drawline
+	jmp enter_command
 .endproc
 
 ;******************************************************************************_
@@ -1820,7 +1833,9 @@ __edit_set_breakpoint:
 	cmp #$01
 	bne @update
 
-@new:	jsr enter_insert
+@new:	jsr open_line_above
+	jsr delete_to_begin
+	jsr enter_insert
 	jmp @write
 
 @update:
