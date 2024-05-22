@@ -1151,8 +1151,7 @@ main:	jsr key::getch
 	pha
 	lda #$00
 	sta format
-	lda #$01
-	sta text::buffer	; enable buffering
+	jsr text::bufferon
 
 	jsr enter_insert
 @l0:	jsr buff_getch
@@ -1169,8 +1168,7 @@ main:	jsr key::getch
 	lda zp::cury
 	jsr text::drawline	; draw the last line (if it contains anything)
 
-:	lda #$00
-	sta text::buffer	; disable buffering
+:	jsr text::bufferoff
 	pla
 	sta format
 	jmp enter_command
@@ -1810,19 +1808,28 @@ __edit_set_breakpoint:
 @cnt=zp::editortmp
 @save=zp::editortmp+1
 @udg=r8
-	; TODO: parse linebuffer, populate udg if (r8) if line contains
-	; a .db directive with 8 bytes
 	jsr bm::save
 	lda #MOD_UDGEDIT
 	jsr mod::enter
-	php
+	pha
 	jsr bm::restore
-	plp
-	bcs @done		; no UDG created
+	pla
+	cmp #$00
+	beq @ret		; no UDG created
 
+	cmp #$01
+	bne @update
+
+@new:	jsr enter_insert
+	jmp @write
+
+@update:
+	jsr delete_line
 	jsr enter_insert
 
+@write:
 	; write .udg to the source buffer
+	jsr text::bufferon
 	lda #'.'
 	jsr insert
 	lda #'d'
@@ -1853,10 +1860,13 @@ __edit_set_breakpoint:
 	beq @done
 	lda #','
 	jsr insert
-:	inc @cnt
+	inc @cnt
 	bpl @l0
 
-@done:	rts
+@done:	jsr text::bufferon
+	lda zp::cury
+	jmp text::drawline
+@ret:	rts
 .endproc
 
 ;******************************************************************************

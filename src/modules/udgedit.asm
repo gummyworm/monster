@@ -20,17 +20,17 @@
 BITMAP_ADDR = $1100
 PIXEL_SIZE = 4		; size of each pixel in the editor
 
-CANVAS_Y      = 40		; start row (in pixels)
-CANVAS_X      = 24		; start column (in pixels)
+CANVAS_Y      = 64		; start row (in pixels)
+CANVAS_X      = 8*8		; start column (in pixels)
 CANVAS_HEIGHT = 8*PIXEL_SIZE
 CANVAS_WIDTH  = 8*PIXEL_SIZE
-
-BORDER_SIZE = 4		; border around editor (in pixels)
 
 color   = zp::editortmp
 cur_on  = zp::editortmp+1	; cursor on flag
 cur_tmr = zp::editortmp+2	; cursor blink timer
 udg     = r8
+
+linebuffer = $0400
 
 .CODE
 .word @header
@@ -41,12 +41,44 @@ udg     = r8
 ; Activates the UDG editor
 ; OUT:
 ;  - r8-rf: the character that the user created
-;  - .C:    set if the user quit the editor without creating a character
-;           clear if the user did create a new UDG
+;  - .A:    0: no graphic created or updated
+;           1: new graphic created
+;           2: graphic updated
 .export __udgedit_enter
 .proc __udgedit_enter
+@result=r4
 	cli
 	jsr clrcanvas
+
+	; parse linebuffer, populate udg (r8) if line contains a .db directive
+	jsr parse_bytes
+	lda #$01
+	sta @result		; flag that we are creating new graphic
+	bcs @cont		; line doesn't contain a UDG definition
+
+	inc @result		; flag that we are updating graphic
+
+	; draw any pixels that are set
+	lda #7
+	sta zp::cury
+@l0:	lda #7
+	sta zp::curx
+@l1:	lda #$07
+	sec
+	sbc zp::curx
+	tax
+	lda $8270,x
+	ldy zp::cury
+	and udg,y
+	beq :+
+	jsr plot
+:	dec zp::curx
+	bpl @l1
+	dec zp::cury
+	bpl @l0
+
+@cont:
+	; move cursor back to (0,0)
 	lda #$00
 	sta zp::curx
 	sta zp::cury
@@ -65,10 +97,10 @@ udg     = r8
 	jsr handlekey
 	jmp @main
 
-@ok:	clc
+@ok:	lda @result
 	rts
 
-@ret:	sec			; no graphic created
+@ret:	lda #$00	; no graphic created
 	rts
 .endproc
 
@@ -90,10 +122,10 @@ udg     = r8
 	jmp zp::jmpaddr
 
 @keys:
-	.byte $4b, $4a, $48, $4c, '1'	; k, j, h, l
+	.byte $4b, $4a, $48, $4c, '1', '2'	; k, j, h, l, 1, 2
 @numkeys=*-@keys
 
-.define handlers up, down, left, right, plot
+.define handlers up, down, left, right, plot, plotoff
 @handlerslo: .lobytes handlers
 @handlershi: .hibytes handlers
 .endproc
@@ -197,6 +229,7 @@ udg     = r8
 	adc #CANVAS_Y
 	sta @dst
 	lda colshi+(CANVAS_X/8),x
+	adc #$00
 	sta @dst+1
 
 	lda zp::cury
@@ -245,9 +278,12 @@ udg     = r8
 .endproc
 
 ;******************************************************************************
-; PLOT
-; Plots the given (x,y) coordinate on the canvas
-.proc plot
+; GETDSTMASK
+; Gets the bitmap address of the cursor and its mask within the cell
+; OUT:
+;  - r0: the bitmap address of the cursor
+;  - r2: the bitmask of the cursor
+.proc getdstmask
 @dst=r0
 @mask=r2
 	jsr curoff
@@ -260,6 +296,7 @@ udg     = r8
 	adc #CANVAS_Y
 	sta @dst
 	lda colshi+(CANVAS_X/8),x
+	adc #$00
 	sta @dst+1
 
 	lda zp::cury
@@ -274,7 +311,52 @@ udg     = r8
 	skw
 :	lda #$0f	; odd mask
 	sta @mask
+	rts
+.endproc
 
+;******************************************************************************
+; PLOTOFF
+; Clears the given (x,y) coordinate on the canvas
+.proc plotoff
+@dst=r0
+@mask=r2
+	jsr getdstmask
+; draw the pixel
+	ldx #4
+:	lda @mask
+	eor (@dst),y
+	sta (@dst),y
+	iny
+	dex
+	bne :-
+
+	; fall through to clrpixel in memory
+.endproc
+
+;******************************************************************************
+; CLRPIXEL
+; Clears the pixel at the cursor
+.proc clrpixel
+	; update the UDG pixel data
+	lda #$07
+	sec
+	sbc zp::curx
+	tax
+	ldy zp::cury
+	lda $8270,x	; charrom '/' (mask associated with pixel)
+	eor udg,y
+	sta udg,y
+	rts
+.endproc
+
+
+;******************************************************************************
+; PLOT
+; Plots the given (x,y) coordinate on the canvas
+.proc plot
+@dst=r0
+@mask=r2
+	jsr getdstmask
 ; draw the pixel
 	ldx #4
 :	lda @mask
@@ -289,7 +371,7 @@ udg     = r8
 
 ;******************************************************************************
 ; SETPIXEL
-; Sets the pixel at the cursor to the active color
+; Sets the pixel at the cursor
 .proc setpixel
 	; update the UDG pixel data
 	lda #$07
@@ -302,6 +384,7 @@ udg     = r8
 	sta udg,y
 	rts
 .endproc
+
 
 ;******************************************************************************
 ; RIGHT
@@ -347,6 +430,173 @@ udg     = r8
 	bpl :+
 	inc zp::cury
 :	rts
+.endproc
+
+;******************************************************************************
+; PARSEHEX
+; Parses the given characters and returns the binary data they represent
+; IN:
+;  - .X: the LSB of the 2 character string hex value
+;  - .Y: the MSB of the 2 character string hex value
+; OUT:
+;  - .A: the binary value
+;  - .C: set if no value could be parsed (.X/.Y contains invalid hex digit)
+.proc parsehex
+@byte=r4
+	tya
+	jsr @tohex
+	asl
+	asl
+	asl
+	asl
+	sta @byte
+	txa
+	jsr @tohex
+	ora @byte
+
+@ok:	clc
+	rts
+
+@err:	sec
+	rts
+
+@tohex:
+	cmp #'f'+1
+	bcs @err
+	cmp #'a'
+	bcc :+
+	sbc #'a'-$a
+	rts
+
+:	cmp #'F'+1
+	bcs @err
+	cmp #'A'
+	bcc @numeric
+	sbc #'A'-$a
+	rts
+
+@numeric:
+	cmp #'9'+1
+	bcs @err
+	cmp #'0'
+	bcc @err
+	sbc #'0'
+	rts
+.endproc
+
+;******************************************************************************
+; PARSE_BYTES
+; Parses the line for graphic data
+; Graphic data lines are .DB directives. If more than 8 bytes are defined
+; in the line, the first 8 are used for the character.
+; If less than 8 are defined, the remaining characters are padded with zeroes.
+; NOTE: only hex values are supported
+; IN:
+;  - linebuffer: contains the line to parse for UDG data (.DB $xx,...)
+; OUT:
+;  - .C:  set if line could not be parsed
+;  - UDG: contains the parsed data of the existing UDG (on success)
+.proc parse_bytes
+@buff=r0
+@udg=r2
+	ldxy #linebuffer
+	stxy @buff
+	ldxy #udg
+	stxy @udg
+
+	ldy #$00
+@finddb:
+	lda (@buff),y
+	beq @err		; no .DB on this line
+	cmp #$0d
+	beq @err		; no .DB
+	cmp #';'
+	beq @err		; no .DB
+	cmp #$09		; TAB
+	beq @nextch
+	cmp #' '
+	beq @nextch
+	cmp #'.'
+	bne @err		; not a .DB
+	iny
+	lda (@buff),y
+	cmp #'D'
+	beq :+
+	cmp #'d'
+	bne @err		; not .DB
+:	iny
+	lda (@buff),y
+	cmp #'B'
+	beq @getbytes
+	cmp #'b'
+	beq @getbytes
+
+@err:	sec
+	rts
+
+@nextch:
+	iny
+	bne @finddb
+
+; .DB was found, parse the data
+@getbytes:
+	tya
+	adc @buff	; +1 (.C is set)
+	sta @buff
+
+@parsebyte:
+	ldy #$00
+	lda (@buff),y
+	beq @ok
+	cmp #$0d
+	beq @ok
+	cmp #';'
+	beq @ok
+
+	cmp #' '
+	beq @next
+	cmp #$09
+	beq @next
+
+	cmp #'$'
+	bne @err	; unexpected char
+@hex:	incw @buff
+	ldy #$01
+	lda (@buff),y	; least significant hex digit
+	tax
+	dey
+	lda (@buff),y	; most significant hex digit
+	tay
+	jsr parsehex
+	bcs @err	; unparseable
+	ldy #$00
+	sta (@udg),y	; save the result
+	incw @udg
+
+	incw @buff
+	incw @buff
+
+	ldy #$00
+@findcomma:
+	lda (@buff),y
+	beq @ok
+	cmp #$0d
+	beq @ok
+	cmp #' '
+	beq :+
+	cmp #$09	; TAB
+	beq :+
+	cmp #','
+	beq @next
+	bne @err	; unexpected char
+:	incw @buff
+	jmp @findcomma
+
+@next:	incw @buff
+	jmp @parsebyte
+
+@ok:	clc
+	rts
 .endproc
 
 ;******************************************************************************
