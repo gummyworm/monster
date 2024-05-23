@@ -7,6 +7,7 @@
 .import __debug_end_segment
 .import __debug_getline
 .import __debug_get_filename
+.import __debug_gotoaddr
 .import __debug_load_file
 .import __debug_init
 .import __debug_init_segment
@@ -38,6 +39,7 @@
 	file              = __debug_file
 	getline           = __debug_getline
 	get_filename      = __debug_get_filename
+	gotoaddr          = __debug_gotoaddr
 	loadfile          = __debug_load_file
 	init              = __debug_init
 	initseg           = __debug_init_segment

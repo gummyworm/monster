@@ -926,7 +926,7 @@ main:	jsr key::getch
 	bcs @done
 	jsr src::after_cursor
 	jsr util::isalphanum
-	beq @l0
+	bcc @l0
 	jsr ccleft	; move back to the last char
 @done:	rts
 .endproc
@@ -970,7 +970,7 @@ main:	jsr key::getch
 
 	jsr src::atcursor
 	jsr util::isalphanum
-	beq @l0
+	bcc @l0
 @done:	rts
 .endproc
 
@@ -1111,7 +1111,7 @@ main:	jsr key::getch
 	jsr src::after_cursor
 	ldx #$00
 	jsr util::isalphanum
-	beq :+
+	bcc :+
 	inx
 :	stx @endonalpha	; flag if we are to end on an alphanum char or not
 
@@ -1121,13 +1121,10 @@ main:	jsr key::getch
 	; check if this is a character we're looking to end on
 	jsr src::after_cursor
 	jsr util::isalphanum
-	php
 	ldx @endonalpha
 	bne :+
-	plp
-	bne @l0
-:	plp
-	beq @l0
+	bcs @l0
+:	bcc @l0
 
 @done:  jmp redraw_to_end_of_line
 .endproc
@@ -1456,35 +1453,38 @@ main:	jsr key::getch
 @word=r6
 @len=r8
 @addr=ra
+	jsr src::pushp
 	ldxy #mem::spare
 	stxy @word
-	; get the name of the label to goto
-	jsr src::pushp
 
+; get the name of the label to goto
 @l0:	jsr src::prev
-	bcs @readword
-	jsr src::atcursor
-	jsr util::isalphanum
-	beq @l0
-
-@readword:
-	; at start of word, now read the word
-	jsr src::next
 	bcs :+
 	jsr util::isalphanum
-	bne :+
-	ldy #$00
+	bcc @l0
+
+:	lda #$00
+	sta @len
+@readword:
+	; at start of word, now read the word
+	jsr src::right
+	bcs :+
+	jsr util::isalphanum
+	bcs :+
 	ldy @len
 	sta (@word),y
 	inc @len
 	bne @readword
 
-:
-	jsr src::popp
+:	jsr src::popp
 	ldy @len
-	beq @ret		; no symbol under cursor
-	;jsr dbg::sym2addr	; get the line # of the symbol
-	;jsr dbg::gotoaddr
+	beq @ret		; no symbol under cursor, exit
+	lda #$00
+	sta (@word),y
+	ldxy #mem::spare
+	jsr lbl::addr		; get the address of the line
+	bcs @ret		; no address found
+	jmp dbg::gotoaddr	; goto it
 .endproc
 
 ;******************************************************************************
@@ -1728,7 +1728,7 @@ __edit_refresh:
 	beq @pgdown
 	cmp #$91		; up
 	beq @pgup
-	cmp #$5f		; <-
+	cmp #K_QUIT		; <-
 	bne @done
 	jmp bm::restore
 

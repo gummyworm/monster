@@ -1547,6 +1547,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_gotoaddr
 @line=r8
 	jsr __debug_addr2line	; get the line #
+	bcs @done		; error
 	sta file
 	stxy highlight_line
 	jsr __debug_load_file	; load file (if not already)
