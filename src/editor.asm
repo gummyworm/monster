@@ -1435,7 +1435,9 @@ main:	jsr key::getch
 	beq :-
 	cmp #$67		; get second 'g' to confirm movement
 	beq :+
-	rts
+	cmp #$64		; 'd' (goto definition)
+	beq @gotodef
+@ret:	rts
 :	ldxy #1
 	lda mode
 	cmp #MODE_VISUAL
@@ -1448,6 +1450,41 @@ main:	jsr key::getch
 @gotoline:
 	jsr gotoline
 @done:	jmp add_jump_point
+
+;--------------------------------------
+@gotodef:
+@word=r6
+@len=r8
+@addr=ra
+	ldxy #mem::spare
+	stxy @word
+	; get the name of the label to goto
+	jsr src::pushp
+
+@l0:	jsr src::prev
+	bcs @readword
+	jsr src::atcursor
+	jsr util::isalphanum
+	beq @l0
+
+@readword:
+	; at start of word, now read the word
+	jsr src::next
+	bcs :+
+	jsr util::isalphanum
+	bne :+
+	ldy #$00
+	ldy @len
+	sta (@word),y
+	inc @len
+	bne @readword
+
+:
+	jsr src::popp
+	ldy @len
+	beq @ret		; no symbol under cursor
+	;jsr dbg::sym2addr	; get the line # of the symbol
+	;jsr dbg::gotoaddr
 .endproc
 
 ;******************************************************************************
@@ -1833,9 +1870,7 @@ __edit_set_breakpoint:
 	cmp #$01
 	bne @update
 
-@new:	jsr open_line_above
-	jsr delete_to_begin
-	jsr enter_insert
+@new:	jsr enter_insert
 	jmp @write
 
 @update:

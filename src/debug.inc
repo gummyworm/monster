@@ -7,6 +7,7 @@
 .import __debug_end_segment
 .import __debug_getline
 .import __debug_get_filename
+.import __debug_load_file
 .import __debug_init
 .import __debug_init_segment
 .import __debug_numbreakpoints
@@ -22,6 +23,7 @@
 .import __debug_start
 .import __debug_store_line
 .import __debug_startsegment_byaddr
+.import __debug_sym2line
 .import __debug_watches
 .import __debug_watches_stop
 .import __debug_watch_prevs
@@ -36,6 +38,7 @@
 	file              = __debug_file
 	getline           = __debug_getline
 	get_filename      = __debug_get_filename
+	loadfile          = __debug_load_file
 	init              = __debug_init
 	initseg           = __debug_init_segment
 	numbreakpoints    = __debug_numbreakpoints
@@ -49,6 +52,7 @@
 	storeline         = __debug_store_line
 	start             = __debug_start
 	startseg_addr     = __debug_startsegment_byaddr
+	sym2line          = __debug_sym2line
 	toggle_breakpoint = __debug_toggle_breakpoint
 	watches           = __debug_watches
 	watches_stop	  = __debug_watches_stop
