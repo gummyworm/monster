@@ -531,7 +531,7 @@ result=mem::spare
 ; IN:
 ;  .A: the character to test for alphanumeric
 ; OUT:
-;  - .Z: set if the given character is alpha ('A'-'z', or '0'-'9')
+;  - .C: clear if the given character is alpha ('A'-'z', or '0'-'9')
 .export __util_is_alphanum
 .proc __util_is_alphanum
 	cmp #'0'
@@ -542,9 +542,8 @@ result=mem::spare
 	bcc @no
 	cmp #$7a+1
 	bcs @no
-@yes:	lda #$00
-	rts
-@no:	lda #$ff
+@yes:	rts
+@no:	sec
 	rts
 .endproc
 

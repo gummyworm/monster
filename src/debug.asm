@@ -1410,30 +1410,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @showbrk:
 	; get the address before the BRK and go to it
 	ldxy pc
-	jsr __debug_addr2line	; get the line #
-	sta file
+	jsr __debug_gotoaddr
 	bcs @print		; if we failed to get line #, continue
-
 	inc lineset
-	stxy highlight_line
-	jsr edit::gotoline
 
-; open the file of the line we BRK'd in
-; if the buffer is already loaded switch to it. if not, load it into the
-; DEBUG bank
-@openfile:
-	lda file
-	asl
-	asl
-	asl
-	asl
-	adc #<filenames
-	tax
-	lda #>filenames
-	adc #$00
-	tay
-	jsr edit::load
-	bcs @print	; couldn't load file, just show BRK
 	jsr toggle_highlight	; highlight line
 
 @print:	jsr showstate		; show regs/BRK message
@@ -1533,6 +1513,76 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; return from the BRK
 	jmp fe3::bank_rti
+.endproc
+
+;******************************************************************************
+; LOAD_FILE
+; Loads the file (in the editor) for the given filename
+; IN:
+;  - .A: the file (as returned from addr2line)
+; OUT:
+;  - .C: set if the file couldn't be opened
+.export __debug_load_file
+.proc __debug_load_file
+	asl
+	asl
+	asl
+	asl
+	adc #<filenames
+	tax
+	lda #>filenames
+	adc #$00
+	tay
+	jmp edit::load
+.endproc
+
+;******************************************************************************
+; GOTOADDR
+; Navigates the editor to the file/line associated with the give address
+; IN:
+;  - .XY: the address to "goto"
+; OUT:
+;  - .C:  set on failure
+.export __debug_gotoaddr
+.proc __debug_gotoaddr
+@line=r8
+	jsr __debug_addr2line	; get the line #
+	bcs @done		; error
+	sta file
+	stxy highlight_line
+	jsr __debug_load_file	; load file (if not already)
+	bcs @done		; error
+
+	ldxy highlight_line
+	jsr edit::gotoline
+	clc
+@done:	rts
+.endproc
+
+;******************************************************************************
+; SYM2LINE
+; Returns the line # and file ID associated with the given symbol
+; IN:
+;  - .XY: the symbol (0-terminated string)
+; OUT:
+;  - .A:  the file ID of the symbol
+;  - .XY: the line # of the symbol
+;  - .C:  set on failure
+.export __debug_sym2line
+.proc __debug_sym2line
+.endproc
+
+;******************************************************************************
+; SYM2ADDR
+; Returns the address associated with the given symbol
+; IN:
+;  - .XY: the symbol (0-terminated string)
+; OUT:
+;  - .XY: the address of the symbol
+;  - .C:  set on failure
+.export __debug_sym2addr
+.proc __debug_sym2addr
+	rts
 .endproc
 
 ;******************************************************************************
