@@ -1458,6 +1458,9 @@ main:	jsr key::getch
 	stxy @word
 
 ; get the name of the label to goto
+	jsr src::atcursor
+	jsr util::isalphanum
+	bcs :+
 @l0:	jsr src::prev
 	bcs :+
 	jsr util::isalphanum
