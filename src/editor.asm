@@ -1482,6 +1482,8 @@ main:	jsr key::getch
 	lda #$00
 	sta (@word),y
 	ldxy #mem::spare
+	jsr str::toupper
+	ldxy #mem::spare
 	jsr lbl::addr		; get the address of the line
 	bcs @ret		; no address found
 	jmp dbg::gotoaddr	; goto it
