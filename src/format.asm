@@ -8,11 +8,14 @@
 .CODE
 
 ;******************************************************************************
+; END_OF_LINE
+; Checks if the source is at the end or end of the line
+; OUT:
+;  - .Z: set if the source pointer is at a newline or at the end of the buffer
 .proc end_of_line
 	jsr src::end
 	beq @done
-	jsr src::after_cursor
-	cmp #$0d
+	jsr src::before_newl
 @done:	rts
 .endproc
 

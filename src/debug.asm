@@ -1136,8 +1136,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr save_debug_zp
 	jsr restore_user_zp
 
-@runpc:	CALL FINAL_BANK_USER, pc	; execute the user program until BRK
-	rts
+@runpc:	JUMP FINAL_BANK_USER, pc	; execute the user program until BRK
 .endproc
 
 ;******************************************************************************
@@ -1245,8 +1244,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @savecolor
 
 	; backup the screen
-	CALL FINAL_BANK_FASTCOPY2, #fcpy::save
-	rts
+	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
 .endproc
 
 ;******************************************************************************
@@ -1281,8 +1279,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	bne @savecolor
 
 	; backup the user $1000 data
-	CALL FINAL_BANK_FASTCOPY, #fcpy::save
-	rts
+	JUMP FINAL_BANK_FASTCOPY, #fcpy::save
 .endproc
 
 ;******************************************************************************
@@ -1413,30 +1410,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @showbrk:
 	; get the address before the BRK and go to it
 	ldxy pc
-	jsr __debug_addr2line	; get the line #
-	sta file
+	jsr __debug_gotoaddr
 	bcs @print		; if we failed to get line #, continue
-
 	inc lineset
-	stxy highlight_line
-	jsr edit::gotoline
 
-; open the file of the line we BRK'd in
-; if the buffer is already loaded switch to it. if not, load it into the
-; DEBUG bank
-@openfile:
-	lda file
-	asl
-	asl
-	asl
-	asl
-	adc #<filenames
-	tax
-	lda #>filenames
-	adc #$00
-	tay
-	jsr edit::load
-	bcs @print	; couldn't load file, just show BRK
 	jsr toggle_highlight	; highlight line
 
 @print:	jsr showstate		; show regs/BRK message
@@ -1539,6 +1516,76 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .endproc
 
 ;******************************************************************************
+; LOAD_FILE
+; Loads the file (in the editor) for the given filename
+; IN:
+;  - .A: the file (as returned from addr2line)
+; OUT:
+;  - .C: set if the file couldn't be opened
+.export __debug_load_file
+.proc __debug_load_file
+	asl
+	asl
+	asl
+	asl
+	adc #<filenames
+	tax
+	lda #>filenames
+	adc #$00
+	tay
+	jmp edit::load
+.endproc
+
+;******************************************************************************
+; GOTOADDR
+; Navigates the editor to the file/line associated with the give address
+; IN:
+;  - .XY: the address to "goto"
+; OUT:
+;  - .C:  set on failure
+.export __debug_gotoaddr
+.proc __debug_gotoaddr
+@line=r8
+	jsr __debug_addr2line	; get the line #
+	bcs @done		; error
+	sta file
+	stxy highlight_line
+	jsr __debug_load_file	; load file (if not already)
+	bcs @done		; error
+
+	ldxy highlight_line
+	jsr edit::gotoline
+	clc
+@done:	rts
+.endproc
+
+;******************************************************************************
+; SYM2LINE
+; Returns the line # and file ID associated with the given symbol
+; IN:
+;  - .XY: the symbol (0-terminated string)
+; OUT:
+;  - .A:  the file ID of the symbol
+;  - .XY: the line # of the symbol
+;  - .C:  set on failure
+.export __debug_sym2line
+.proc __debug_sym2line
+.endproc
+
+;******************************************************************************
+; SYM2ADDR
+; Returns the address associated with the given symbol
+; IN:
+;  - .XY: the symbol (0-terminated string)
+; OUT:
+;  - .XY: the address of the symbol
+;  - .C:  set on failure
+.export __debug_sym2addr
+.proc __debug_sym2addr
+	rts
+.endproc
+
+;******************************************************************************
 ; TOGGLE_HIGHLIGHT
 ; Toggles the actively highlighted line's highlight
 .proc toggle_highlight
@@ -1577,8 +1624,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; reinit the bitmap
 	jsr bm::init
 	; restore the screen
-	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
-	rts
+	JUMP FINAL_BANK_FASTCOPY2, #fcpy::restore
 .endproc
 
 ;******************************************************************************
@@ -1668,8 +1714,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$4c
 	sta zp::jmpaddr
 	; restore the user $1000 data
-	CALL FINAL_BANK_FASTCOPY, #fcpy::restore
-	rts
+	JUMP FINAL_BANK_FASTCOPY, #fcpy::restore
 .endproc
 
 ;******************************************************************************

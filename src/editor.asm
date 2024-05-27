@@ -19,6 +19,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "module.inc"
+.include "screen.inc"
 .include "source.inc"
 .include "state.inc"
 .include "string.inc"
@@ -906,6 +907,8 @@ main:	jsr key::getch
 	jsr enter_insert
 	jsr src::end
 	beq @done
+	jsr src::before_newl
+	beq @done
 	jsr src::next
 	jsr cur::right
 @done:	rts
@@ -923,7 +926,7 @@ main:	jsr key::getch
 	bcs @done
 	jsr src::after_cursor
 	jsr util::isalphanum
-	beq @l0
+	bcc @l0
 	jsr ccleft	; move back to the last char
 @done:	rts
 .endproc
@@ -942,8 +945,7 @@ main:	jsr key::getch
 :	jsr src::start
 	beq @done
 	jsr ccup
-	jsr src::after_cursor
-	cmp #$0d
+	jsr src::before_newl
 	bne :-
 @done:	rts
 .endproc
@@ -968,7 +970,7 @@ main:	jsr key::getch
 
 	jsr src::atcursor
 	jsr util::isalphanum
-	beq @l0
+	bcc @l0
 @done:	rts
 .endproc
 
@@ -1018,16 +1020,29 @@ main:	jsr key::getch
 .byte $77	; w delete word
 .byte $64	; d delete line
 .byte $24	; $ (end of line)
+.byte $30	; 0 (beginning of line)
 @numcmds=*-@subcmds
 
-.define subcmds delete_word, delete_line, delete_to_end
+.define subcmds delete_word, delete_line, delete_to_end, delete_to_begin
 @subcmdshi: .hibytes subcmds
 @subcmdslo: .lobytes subcmds
 .endproc
 
 ;******************************************************************************_
 .proc delete_to_begin
-	rts
+	jsr text::bufferon
+	jsr enter_insert
+:	jsr src::start
+	beq @done
+	jsr src::atcursor
+	cmp #$0d
+	beq @done
+	jsr backspace
+	jmp :-
+@done:	jsr text::bufferoff
+	lda zp::cury
+	jsr text::drawline
+	jmp enter_command
 .endproc
 
 ;******************************************************************************_
@@ -1083,8 +1098,7 @@ main:	jsr key::getch
 ;******************************************************************************_
 .proc delete_to_end
 @l0:	jsr delch
-	jsr src::after_cursor
-	cmp #$0d
+	jsr src::before_newl
 	bne @l0
 	jmp redraw_to_end_of_line
 .endproc
@@ -1097,7 +1111,7 @@ main:	jsr key::getch
 	jsr src::after_cursor
 	ldx #$00
 	jsr util::isalphanum
-	beq :+
+	bcc :+
 	inx
 :	stx @endonalpha	; flag if we are to end on an alphanum char or not
 
@@ -1107,13 +1121,10 @@ main:	jsr key::getch
 	; check if this is a character we're looking to end on
 	jsr src::after_cursor
 	jsr util::isalphanum
-	php
 	ldx @endonalpha
 	bne :+
-	plp
-	bne @l0
-:	plp
-	beq @l0
+	bcs @l0
+:	bcc @l0
 
 @done:  jmp redraw_to_end_of_line
 .endproc
@@ -1150,8 +1161,7 @@ main:	jsr key::getch
 	pha
 	lda #$00
 	sta format
-	lda #$01
-	sta text::buffer	; enable buffering
+	jsr text::bufferon
 
 	jsr enter_insert
 @l0:	jsr buff_getch
@@ -1168,8 +1178,7 @@ main:	jsr key::getch
 	lda zp::cury
 	jsr text::drawline	; draw the last line (if it contains anything)
 
-:	lda #$00
-	sta text::buffer	; disable buffering
+:	jsr text::bufferoff
 	pla
 	sta format
 	jmp enter_command
@@ -1196,6 +1205,23 @@ main:	jsr key::getch
 	RETURN_OK
 @done:	rts
 @yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
+.endproc
+
+;******************************************************************************
+; COMMAND_MOVE_SCR
+; Accepts another key and moves the screen around depending on what that key is:
+;  - l: move screen 2 characters to the left
+;  - h: move screen 2 characters to the right
+.proc command_move_scr
+:	jsr key::getch
+	beq :-
+	cmp #$68	; 'h'
+	beq @right
+	cmp #$6c	; 'l'
+	beq @left
+	rts
+@left:  JUMP FINAL_BANK_SAVESCR, #scr::pushcol
+@right: JUMP FINAL_BANK_SAVESCR, #scr::popcol
 .endproc
 
 ;******************************************************************************
@@ -1399,16 +1425,21 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; GOTO_START
+; Accepts another key and, if it is 'g', moves to the start of the buffer.
 .proc goto_start
 :	jsr key::getch
 	beq :-
 	cmp #$67		; get second 'g' to confirm movement
 	beq :+
-	rts
+	cmp #$64		; 'd' (goto definition)
+	beq @gotodef
+@ret:	rts
 :	ldxy #1
 	lda mode
 	cmp #MODE_VISUAL
 	bne @gotoline
+
 	; if we're in visual mode, go up line by line to highlight
 :	jsr ccup
 	bcc :-
@@ -1416,6 +1447,49 @@ main:	jsr key::getch
 @gotoline:
 	jsr gotoline
 @done:	jmp add_jump_point
+
+;--------------------------------------
+@gotodef:
+@word=r6
+@len=r8
+@addr=ra
+	jsr src::pushp
+	ldxy #mem::spare
+	stxy @word
+
+; get the name of the label to goto
+	jsr src::atcursor
+	jsr util::isalphanum
+	bcs :+
+@l0:	jsr src::prev
+	bcs :+
+	jsr util::isalphanum
+	bcc @l0
+
+:	lda #$00
+	sta @len
+@readword:
+	; at start of word, now read the word
+	jsr src::right
+	bcs :+
+	jsr util::isalphanum
+	bcs :+
+	ldy @len
+	sta (@word),y
+	inc @len
+	bne @readword
+
+:	jsr src::popp
+	ldy @len
+	beq @ret		; no symbol under cursor, exit
+	lda #$00
+	sta (@word),y
+	ldxy #mem::spare
+	jsr str::toupper
+	ldxy #mem::spare
+	jsr lbl::addr		; get the address of the line
+	bcs @ret		; no address found
+	jmp dbg::gotoaddr	; goto it
 .endproc
 
 ;******************************************************************************
@@ -1424,22 +1498,10 @@ main:	jsr key::getch
 	bne :+
 @done:	rts
 
-:	lda mem::linebuffer
-	pha
-	jsr enter_insert
-	jsr home	; move to start of line
-	jsr src::atcursor
-	cmp #$09
-	bne :+
-	jsr src::prev
-	lda #$00
-	sta zp::curx
-:	jsr newl
-	jsr ccup
-	pla
-	cmp #$09	; TAB
-	bne @done
-	jmp insert
+:	jsr insert_start
+	lda #$0d
+	jsr insert
+	jmp ccup		; go up
 .endproc
 
 ;******************************************************************************
@@ -1671,7 +1733,7 @@ __edit_refresh:
 	beq @pgdown
 	cmp #$91		; up
 	beq @pgup
-	cmp #$5f		; <-
+	cmp #K_QUIT		; <-
 	bne @done
 	jmp bm::restore
 
@@ -1798,8 +1860,68 @@ __edit_set_breakpoint:
 ; UDG_EDIT
 ; Activates the UDG character editor module
 .proc udgedit
+@cnt=zp::editortmp
+@save=zp::editortmp+1
+@udg=r8
+	jsr bm::save
 	lda #MOD_UDGEDIT
-	jmp mod::enter
+	jsr mod::enter
+	pha
+	jsr bm::restore
+	pla
+	cmp #$00
+	beq @ret		; no UDG created
+
+	cmp #$01
+	bne @update
+
+@new:	jsr enter_insert
+	jmp @write
+
+@update:
+	jsr delete_line
+	jsr enter_insert
+
+@write:
+	; write .udg to the source buffer
+	jsr text::bufferon
+	lda #'.'
+	jsr insert
+	lda #'d'
+	jsr insert
+	lda #'b'
+	jsr insert
+	lda #' '
+	jsr insert
+
+	; convert the binary to hex and write the UDG
+	lda #0
+	sta @cnt
+
+@l0:	lda #'$'
+	jsr insert
+
+	ldx @cnt
+	lda @udg,x
+	jsr util::hextostr
+	stx @save
+	tya
+	jsr insert
+	lda @save
+	jsr insert
+
+	lda @cnt
+	cmp #$07
+	beq @done
+	lda #','
+	jsr insert
+	inc @cnt
+	bpl @l0
+
+@done:	jsr text::bufferon
+	lda zp::cury
+	jmp text::drawline
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -2524,7 +2646,7 @@ goto_buffer:
 	jmp linedone		; handle RETURN
 
 :	jsr key::isprinting
-	bcs @done
+	bcs @done		; non-printing
 
 	ldx text::insertmode
 	bne @put
@@ -2545,6 +2667,7 @@ goto_buffer:
 	sta @ch
 
 	lda zp::curx
+
 	sta @xend
 
 	lda mode
@@ -2718,8 +2841,7 @@ goto_buffer:
 
 	jsr src::end
 	beq @no_del
-	jsr src::after_cursor
-	cmp #$0d
+	jsr src::before_newl
 	beq @done		; last character
 	jsr src::delete
 	clc
@@ -3846,7 +3968,7 @@ ccvectorshi: .hibytes ccvectors
 
 ;******************************************************************************
 commands:
-	.byte $68	; j (left)
+	.byte $68	; h (left)
 	.byte $6c	; l (right)
 	.byte $6b	; k (up)
 	.byte $6a	; j (down)
@@ -3880,6 +4002,7 @@ commands:
 	.byte $76	; v (enter visual mode)
 	.byte $56	; V (enter visual line mode)
 	.byte $79	; y (yank)
+	.byte $7a	; z (move screen prefix)
 	.byte K_FIND	; find
 	.byte K_NEXT_DRIVE ; next drive
 	.byte K_PREV_DRIVE ; prev drive
@@ -3894,7 +4017,8 @@ numcommands=*-commands
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual_line, command_yank, command_find, \
+	enter_visual, enter_visual_line, command_yank, command_move_scr, \
+	command_find, \
 	next_drive, prev_drive, get_command
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs

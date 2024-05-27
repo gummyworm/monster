@@ -29,13 +29,12 @@
 
 	lda zp::curx
 	lsr
-	asl
 	tax
-	lda bmcolumns,x
+	lda bmcolumnslo,x
 	clc
 	adc @dst
 	sta @dst
-	lda bmcolumns+1,x
+	lda bmcolumnshi,x
 	adc #$00
 	sta @dst+1
 
@@ -263,36 +262,52 @@ charmap:
 .byte   $00,$44,$66,$77,$77,$66,$44,$00	  ; 135 arrow pointing right
 num_chars = (*-charmap)/8
 
+.segment "SETUP"
 ;******************************************************************************
-charaddrlo:
-.repeat  num_chars, i
-	.byte <((charmap)+(i*8))
-.endrepeat
+; GEN_CHAR_ADDRS
+; Generates the charaddrlo and charaddrhi tables
+.export __ftxt_init
+.proc __ftxt_init
+@addr=r0
+	ldxy #charmap
+	stxy @addr
 
-charaddrhi:
-.repeat num_chars, i
-	.byte >((charmap)+(i*8))
-.endrepeat
+	ldx #$00
+@l0:	lda @addr
+	sta charaddrlo,x
+	lda @addr+1
+	sta charaddrhi,x
+
+	lda @addr
+	clc
+	adc #$08
+	sta @addr
+	bcc :+
+	inc @addr+1
+
+:	inx
+	cpx #num_chars
+	bne @l0
+
+	rts
+.endproc
 
 ;******************************************************************************
-bmcolumns:
-.word $1100
-.word $11c0
-.word $1280
-.word $1340
-.word $1400
-.word $14c0
-.word $1580
-.word $1640
-.word $1700
-.word $17c0
-.word $1880
-.word $1940
-.word $1a00
-.word $1ac0
-.word $1b80
-.word $1c40
-.word $1d00
-.word $1dc0
-.word $1e80
-.word $1f40
+.linecont +
+.define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
+  $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
+.linecont -
+bmcolumnslo: .lobytes cols
+bmcolumnshi: .hibytes cols
+
+;******************************************************************************
+.segment "FASTTEXT_BSS"
+charaddrlo: .res num_chars
+;.repeat  num_chars, i
+;	.byte <((charmap)+(i*8))
+;.endrepeat
+
+charaddrhi: .res num_chars
+;.repeat num_chars, i
+;	.byte >((charmap)+(i*8))
+;.endrepeat

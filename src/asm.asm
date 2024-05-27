@@ -241,6 +241,8 @@ directive_vectors:
 .word create_macro
 .word handle_repeat
 .word incbinfile
+.word 0			; TODO: import
+.word 0			; TODO: export
 
 ;******************************************************************************
 ; see MODE_ constants in asmflags.inc
@@ -514,7 +516,7 @@ num_illegals = *-illegal_opcodes
 	cmp #$01
 	bne @label_done		; if not pass 1, don't add the label
 	jsr lbl::add
-	bcs @ret0
+	bcs @ret0		; error
 	ldxy zp::line
 	jsr lbl::islocal
 	bne @label_done
@@ -522,6 +524,7 @@ num_illegals = *-illegal_opcodes
 	jsr lbl::setscope	; set the non-local label as the new scope
 
 @label_done:
+	jsr storedebuginfo	; store debug info for label
 	jsr process_word	; read past the label name
 	ldxy zp::line
 	jsr @assemble		; assemble the rest of the line
@@ -781,12 +784,7 @@ num_illegals = *-illegal_opcodes
 @noerr:
 ;------------------
 ; store debug info if enabled
-@dbg:	lda zp::gendebuginfo
-	beq @updatevpc
-	ldxy zp::virtualpc	; current PC (address)
-	stxy zp::tmp0
-	ldxy dbg::srcline
-	jsr dbg::storeline	; map them
+@dbg:	jsr storedebuginfo
 
 ;------------------
 ; update virtualpc by (1 + operand size)
@@ -844,6 +842,20 @@ num_illegals = *-illegal_opcodes
 	jsr writeb
 	bcc @noerr
 	rts		; return err
+.endproc
+
+;******************************************************************************
+; STOREDEBUGINFO
+; Stores the current VPC to the current source line
+; If debug info generation is disabled, does nothing
+.proc storedebuginfo
+	lda zp::gendebuginfo
+	bne :+
+	rts
+:	ldxy zp::virtualpc	; current PC (address)
+	stxy zp::tmp0
+	ldxy dbg::srcline
+	jmp dbg::storeline	; map them
 .endproc
 
 ;******************************************************************************
@@ -2146,8 +2158,7 @@ __asm_include:
 	RETURN_ERR ERR_INVALID_MACRO_ARGS
 
 @done:	lda @id
-	CALL FINAL_BANK_MACROS, #mac::asm
-	rts
+	JUMP FINAL_BANK_MACROS, #mac::asm
 .endproc
 
 ;******************************************************************************

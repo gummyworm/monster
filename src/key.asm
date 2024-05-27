@@ -71,14 +71,14 @@ CURSOR_LR_MASK      = 2
 .export __key_ishex
 .proc __key_ishex
 	cmp #'0'
-	bcc @nothex
+	bcc @done
 	cmp #'f'+1
 	bcs @nothex
 	cmp #'a'
 	bcs @done
 	cmp #'9'+1
 	bcs @nothex
-	sec
+@ishex:	sec
 	rts
 @nothex:
 	clc
@@ -95,7 +95,7 @@ CURSOR_LR_MASK      = 2
 .export __key_isdec
 .proc __key_isdec
 	cmp #'0'
-	bcc @notdec
+	bcc @done
 	cmp #'9'+1
 	bcs @notdec
 	sec
@@ -119,8 +119,8 @@ CURSOR_LR_MASK      = 2
 	cmp #' '
 	bcc @no
 	cmp #$7f
-	bcs @no
+	bcs @done
 @yes:	RETURN_OK
 @no:	sec
-	rts
+@done:	rts
 .endproc

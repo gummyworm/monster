@@ -200,12 +200,11 @@ COLMEM_ADDR = $9400
 	ror @odd
 
 	; get the first column to reverse
-	asl
 	tay
 	pla
-	adc __bm_columns,y
+	adc __bm_columnslo,y
 	sta @dst
-	lda __bm_columns+1,y
+	lda __bm_columnshi,y
 	adc #$00
 	sta @dst+1
 
@@ -277,91 +276,6 @@ COLMEM_ADDR = $9400
 .endproc
 
 ;******************************************************************************
-; SHR
-; Shifts the bitmap right 8 pixels (one "char") at the given row
-; IN:
-;  - .A: the row to shift
-;  - .Y: the column to start shifting at
-.export __bm_shr
-.proc __bm_shr
-@dst=zp::tmp0
-@jumpaddr=@dst
-@end=zp::tmp2
-@odd=zp::tmp3
-@ystart=zp::tmp4
-	; get the start row
-	asl
-	asl
-	asl
-	pha
-	tax
-
-	adc #$08
-	sta @end
-
-	; get the offset to jump into (how many columns to skip)
-	tya
-	and #$01
-	sta @odd
-
-	; calculate jump address based on # of columns we need to skip
-	tya
-	lsr
-	sta @dst
-	asl
-	sta @ystart
-	adc @dst		; *3 (sizeof ror abs,x)
-	adc #<@target
-	sta @jumpaddr
-	lda #>@target
-	adc #$00
-	sta @jumpaddr+1
-
-; jump into the unrolled loop below at the calculated offset
-; ROR BITMAP_ADDR+$c0
-; ROR BITMAP_ADDR+$c0*2
-; ROR BITMAP_ADDR+$c0*3
-; ...
-@l0:	ldy #$03		; 1 char width
-@l1:	clc
-	jmp (@jumpaddr)
-@target=*
-.repeat 20,i
-	ror BITMAP_ADDR+($c0*(i)),x
-.endrepeat
-	dey
-	bpl @l1
-	inx
-	cpx @end
-	bne @l0
-
-	pla			; restore character row
-	tax			; transfer to .X (pixel row index)
-
-	lda @odd		; is this an odd character?
-	beq @done		; if not, we're done
-
-	; if odd, shift the first column back
-	ldy @ystart
-	lda __bm_columns,y
-	sta @first
-	lda __bm_columns+1,y
-	sta @first+1
-
-@l2:	ldy #$03
-@l3:
-@first=*+1
-	asl $f00d,x
-	dey
-	bpl @l3
-	inx
-	cpx @end
-	bne @l2
-
-@done:	rts
-.endproc
-
-;******************************************************************************
 ; SAVE
 ; Saves the bitmap to the backup buffer. It may then be restored with a call
 ; to bm::restore
@@ -425,5 +339,15 @@ __bm_columns:
 .word $1dc0
 .word $1e80
 .word $1f40
+
+.linecont +
+.define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
+  $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
+.linecont -
+
+.export __bm_columnslo
+.export __bm_columnshi
+__bm_columnslo: .lobytes cols
+__bm_columnshi: .hibytes cols
 
 inittab: .byte $02,$fe,$fe,$eb,$00,$0c

@@ -159,8 +159,6 @@ final_store_size=*-__final_store_byte
 	cli
 	rts
 .endproc
-final_copy_end=*-__final_copy
-
 
 ;******************************************************************************
 ; CALL
