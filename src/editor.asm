@@ -1458,6 +1458,9 @@ main:	jsr key::getch
 	stxy @word
 
 ; get the name of the label to goto
+	jsr src::atcursor
+	jsr util::isalphanum
+	bcs :+
 @l0:	jsr src::prev
 	bcs :+
 	jsr util::isalphanum
@@ -1481,6 +1484,8 @@ main:	jsr key::getch
 	beq @ret		; no symbol under cursor, exit
 	lda #$00
 	sta (@word),y
+	ldxy #mem::spare
+	jsr str::toupper
 	ldxy #mem::spare
 	jsr lbl::addr		; get the address of the line
 	bcs @ret		; no address found
