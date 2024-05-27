@@ -519,10 +519,6 @@ __file_load_src:
 :	sec
 	rts
 
-	;cmp #$80
-	;bcs @done	; skip non-printable chars (e.g. breakpoints)
-	;jsr $ffd2	; CHROUT (write byte to file)
-
 @use_bin:
 	ldxy __file_save_address
 	jsr vmem::load
