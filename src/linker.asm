@@ -38,6 +38,8 @@ SEGMENT_DEFINE = $02
 objptr=zp::asm
 segptr=zp::asm+2
 
+.segment "LINKER"
+
 ;******************************************************************************
 .BSS
 

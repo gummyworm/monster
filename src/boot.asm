@@ -242,6 +242,11 @@ relocs:
 ; SCREEN
 .word __SAVESCR_LOAD__, __SAVESCR_RUN__, __SAVESCR_SIZE__
 .byte FINAL_BANK_SAVESCR
+
+; LINKER
+.word __LINKER_LOAD__, __LINKER_RUN__, __LINKER_SIZE__
+.byte FINAL_BANK_SAVESCR
+
 num_relocs=(*-relocs)/7
 
 .CODE
