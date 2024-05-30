@@ -1,5 +1,6 @@
 SRC_FILES=$(wildcard *.asm)
-SRC=$(filter-out boot.asm test.asm, $(SRC_FILES))
+BOOTSRC=boot.asm 
+SRC=$(filter-out exodecrunch.asm $BOOTSRC, $(SRC_FILES))
 TESTS=$(wildcard tests/*.s)
 TEST_INCS=$(wildcard tests/*.inc)
 TEST_TXTS=$(wildcard tests/*.txt)
@@ -11,10 +12,9 @@ all: monster.prg udg.prg
 
 ################################################################################
 # main binary
-monster.prg: boot.asm $(SRC) 
+monster.prg: $(BOOTSRC) $(SRC) 
 	cl65 -t vic20 -o $@ -C link.config $^ -Ln labels.txt -v -m map.txt
 	rm *.o
-
 
 ################################################################################
 # modules
@@ -24,8 +24,11 @@ udg.prg: modules/udgedit.asm
 
 ################################################################################
 # create the test disk image
-test.d64: monster.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS) udg.prg
-	c1541 -format test,1 d64 test.d64 -attach test.d64 $(addprefix -write ,$^)
+test.d64: monster.prg udg.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
+	# split the main binary into bootloader and app
+	python3 makeboot.py labels.txt monster.prg boot.prg monster.prg
+	# write the bootloader, followed by new app binary, modules, and all tests
+	c1541 -format test,1 d64 test.d64 -attach test.d64 -write boot.prg $(addprefix -write ,$^)
 
 ################################################################################
 # test commands
@@ -40,7 +43,6 @@ start: monster.prg
 ################################################################################
 # clean
 clean:
-	rm test.d64
-	rm monster.prg
-	rm udg.prg
 	rm *.o
+	rm *.prg
+	rm test.d64

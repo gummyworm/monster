@@ -2,6 +2,7 @@
 .include "macros.inc"
 
 .import __BANKCODE_SIZE__
+.import __BANKCODE_RUN__
 .import __BANKCODE_LOAD__
 
 .BSS
@@ -227,7 +228,7 @@ bankcode_size = *-bankcode
 ; END OF BANK CODE
 ;******************************************************************************
 
-.CODE
+.segment "SETUP"
 ;******************************************************************************
 ; INIT
 ; Inializes the Final Expansion memory by writing the code needed to
@@ -241,48 +242,31 @@ bankcode_size = *-bankcode
 @copyaddr=$33c
 	sei
 
-	; copy the bank code that we wish to copy to ZP
-	ldx #bankcode_size
-@l0:	lda bankcode-1,x
-	sta @copyaddr-1,x
-	dex
-	bne @l0
-
-	; disable the CLI at the end of store_byte for init
-	lda #$ea	; NOP
-	sta @copyaddr + final_store_size - 2
-
-	lda #$a2	; skip bank 1 (main bank)
-	sta @bank
-@copybank:
-; copy the code from ZP to all banks
-	lda #bankcode_size
- 	sta @cnt
-
-	ldxy #__BANKCODE_LOAD__
-	stxy @dst
-	ldxy #@copyaddr
+	ldxy #__BANKCODE_LOAD__-1
 	stxy @src
 
-@l1:	ldy #$00
-	lda (@src),y	; get a byte to write to the bank
-	sta zp::bankval	; byte to write
-	ldxy @dst	; destination address
-	lda @bank	; bank to copy to
-	jsr @copyaddr	; call the zeropage code (STORE byte)
+	lda #$a2	; skip bank 1 (main bank)
 
-	incw @src
-	incw @dst
-	dec @cnt
-	bne @l1
-	inc @bank
-	lda @bank
+@l0:
+	sta @bank
+; copy the code from ZP to all banks
+	ldy #bankcode_size
+@l1:	lda __BANKCODE_LOAD__-1,y	; get a byte to write to the bank
+	sta __BANKCODE_RUN__-1,y
+	dey
+	bpl @l1
+	inc $9c02
+	lda $9c02
 	cmp #$b0
-	bne @copybank
+	bne @l0
 	cli
+	lda #$a1
+	sta $9c02
+
 	rts
 .endproc
 
+.CODE
 ;******************************************************************************
 ; COPY
 ; Writes the memory from (tmp0) to (tmp2)
