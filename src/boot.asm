@@ -113,12 +113,15 @@
 start:
 	sei
 
+	; enable all memory
+	lda #$a1
+	sta $9c02
+
 	; restore default KERNAL vectors
 	jsr $fd52
 
 	; print loading message
 	ldx #$00
-	sty mem::drive_err	; clear the drive error
 :	lda @loading,x
 	jsr $ffd2
 	inx

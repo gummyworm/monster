@@ -236,7 +236,6 @@ bankcode_size = *-bankcode
 .export __final_init
 .proc __final_init
 @bank=zp::tmp1
-@copyaddr=$33c
 	sei
 
 	lda #$a1

@@ -9,7 +9,7 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-.import __BANKCODE_LOAD__
+.import __BANKCODE_RUN__
 .import __BANKCODE_SIZE__
 MAX_SOURCES=8
 
@@ -71,7 +71,7 @@ banks:  .res MAX_SOURCES	; the corresponding bank for each buffer
 
 ;******************************************************************************
 ; DATA
-data = __BANKCODE_LOAD__ + __BANKCODE_SIZE__
+data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 
 .CODE
 ;******************************************************************************

@@ -4,7 +4,7 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-.import __BANKCODE_LOAD__
+.import __BANKCODE_RUN__
 .import __BANKCODE_SIZE__
 
 ;******************************************************************************
@@ -32,7 +32,7 @@ scope: .res 8		; buffer containing the current scope
 ; Table of label names. Each entry corresponds to an entry in label_addresses,
 ; which contains the value for the label name.
 .export labels
-labels = __BANKCODE_LOAD__+__BANKCODE_SIZE__	; ~$20xx-$8000
+labels = __BANKCODE_RUN__+__BANKCODE_SIZE__	; ~$20xx-$8000
 
 ;******************************************************************************
 ; LABEL_ADDRESSES
