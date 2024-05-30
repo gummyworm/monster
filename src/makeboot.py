@@ -42,7 +42,7 @@ for s in segments.values():
     if s['load'] >= stop_addr:
         stop_addr = s['load'] + s['size']
 
-size = stop_addr - start_addr
+size = stop_addr - start_addr + 2 # +2 for load address
 
 print(f'writing bootloader from ${start_addr:02x} to ${stop_addr:02x} (${size:02x}) bytes')
 
@@ -53,10 +53,6 @@ with open(infile, 'rb') as file:
 
     with open(bootfile, 'wb') as prg:
         prg.write(bootloader)
-
-    # if boot segments didn't fill their minimum space, set size equal to min
-    if size < (0x2000 - 0x11ff):
-        size = 0x2000 - 0x11ff
 
     appstart = 0x2000 + segments['BANKCODE']['size']
     print(f'writing application file to ${appstart:02x} (${(len(buf)-size):02x} bytes)')

@@ -235,18 +235,11 @@ bankcode_size = *-bankcode
 ; switch banks regardless of which bank we are in
 .export __final_init
 .proc __final_init
-@src=zp::tmp1
-@dst=zp::tmp3
-@cnt=zp::tmp5
-@bank=zp::tmp6
+@bank=zp::tmp1
 @copyaddr=$33c
 	sei
 
-	ldxy #__BANKCODE_LOAD__-1
-	stxy @src
-
-	lda #$a2	; skip bank 1 (main bank)
-
+	lda #$a1
 @l0:
 	sta @bank
 ; copy the code from ZP to all banks
@@ -254,7 +247,7 @@ bankcode_size = *-bankcode
 @l1:	lda __BANKCODE_LOAD__-1,y	; get a byte to write to the bank
 	sta __BANKCODE_RUN__-1,y
 	dey
-	bpl @l1
+	bne @l1
 	inc $9c02
 	lda $9c02
 	cmp #$b0

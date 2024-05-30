@@ -81,6 +81,9 @@
 ; This lives in the SETUP first because loading main.prg can clobber data above
 ; $2000
 .proc loadmods
+
+;--------------------------------------
+; setup interrupt vectors
 	ldxy #@module_udgedit
 	lda #MOD_UDGEDIT
 	jsr mod::load
@@ -93,15 +96,13 @@
 	lda #FINAL_BANK_FASTCOPY2
 	jsr fcpy::init
 
-	lda #FINAL_BANK_FASTTEXT
-	sta $9c02
-	jsr ftxt::init
 	lda #FINAL_BANK_MAIN
 	sta $9c02
 
 	ldxy #@module_main
 	lda #MOD_MAIN
-	jmp mod::load
+	jsr mod::load
+	jmp enter
 @module_udgedit: .byte "udg.prg",0
 @module_main:    .byte "monster.prg",0
 .endproc
@@ -185,23 +186,15 @@ start:
 :	dec @cnt
 	bne @reloc
 
+	lda #FINAL_BANK_FASTTEXT
+	sta $9c02
+	jsr ftxt::init
+
 ;--------------------------------------
 ; initialize the JMP vector
 	lda #$4c		; JMP
 	sta zp::jmpaddr
 
-;--------------------------------------
-; setup interrupt vectors
-	ldx #<irq::sys_update
-        ldy #>irq::sys_update
-        lda #$20
-        ;jsr irq::raster
-	;lda #<start
-	;sta $0316		; BRK
-	;sta $0318		; NMI
-	;lda #>start
-	;sta $0317		; BRK
-	;sta $0319		; NMI
 
 ;--------------------------------------
 ; clean up files
@@ -220,10 +213,7 @@ start:
 	sta $028a	; repeat all characters
 	sta $0291	; don't swap charset on C= + SHIFT
 
-	jsr loadmods
-	jmp *
-
-	jmp enter
+	jmp loadmods
 
 @loading: .byte "init.."
 @loadinglen=*-@loading
@@ -262,7 +252,19 @@ num_relocs=(*-relocs)/7
 ; ENTER
 ; Entrypoint after initialization, from here on we're safe to use the bitmap
 ; address space ($1000-$2000) as a bitmap
+.export enter
 enter:
+	ldx #<irq::sys_update
+        ldy #>irq::sys_update
+        lda #$20
+        jsr irq::raster
+	lda #<start
+	sta $0316		; BRK
+	sta $0318		; NMI
+	lda #>start
+	sta $0317		; BRK
+	sta $0319		; NMI
+
 	ldx #$ff
 	txs
 	jsr asm::reset
