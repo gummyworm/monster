@@ -38,16 +38,6 @@
 .import __IRQ_SIZE__
 
 ;******************************************************************************
-; LOADMODS
-; Loads all modules into their designated locations in RAM
-.macro loadmods
-	ldxy #@module_udgedit
-	lda #MOD_UDGEDIT
-	jsr mod::load
-@module_udgedit: .byte "udg.prg",0
-.endmacro
-
-;******************************************************************************
 ; RELOC
 ; relocates code from 1 address to another
 ; IN:
@@ -60,16 +50,18 @@
 @dst=r2
 @size=r4
 @bank=r6
-	sta @bank
+	sta $9c02
 @copy:	ldy #$00
 	lda (@src),y
-	bank_store_byte @bank,@dst
+	sta (@dst),y
 	incw @src
 	incw @dst
 	decw @size
 	ldxy @size
 	cmpw #$00
 	bne @copy
+	lda #$a1
+	sta $9c02
 .endmacro
 
 .segment "SETUP"
@@ -81,6 +73,39 @@
 .byte $9e
 .asciiz "4621"
 @next: .word 0
+	jmp start
+
+;******************************************************************************
+; LOADMODS
+; load modules from disk to their designated bank
+; This lives in the SETUP first because loading main.prg can clobber data above
+; $2000
+.proc loadmods
+
+;--------------------------------------
+; setup interrupt vectors
+	ldxy #@module_udgedit
+	lda #MOD_UDGEDIT
+	jsr mod::load
+
+;--------------------------------------
+; generate low code (must occur after we're done init'ing
+	jsr fe3::init
+	lda #FINAL_BANK_FASTCOPY
+	jsr fcpy::init
+	lda #FINAL_BANK_FASTCOPY2
+	jsr fcpy::init
+
+	lda #FINAL_BANK_MAIN
+	sta $9c02
+
+	ldxy #@module_main
+	lda #MOD_MAIN
+	jsr mod::load
+	jmp enter
+@module_udgedit: .byte "udg.prg",0
+@module_main:    .byte "monster.prg",0
+.endproc
 
 ;******************************************************************************
 ; START
@@ -88,12 +113,15 @@
 start:
 	sei
 
+	; enable all memory
+	lda #$a1
+	sta $9c02
+
 	; restore default KERNAL vectors
 	jsr $fd52
 
 	; print loading message
 	ldx #$00
-	sty mem::drive_err	; clear the drive error
 :	lda @loading,x
 	jsr $ffd2
 	inx
@@ -103,20 +131,6 @@ start:
 	; install dummy IRQ
 	ldxy #$eb15
 	stxy $0314
-
-;--------------------------------------
-; generate code
-	jsr fe3::init
-	lda #FINAL_BANK_FASTCOPY
-	jsr fcpy::init
-	lda #FINAL_BANK_FASTCOPY2
-	jsr fcpy::init
-
-	lda #FINAL_BANK_FASTTEXT
-	sta $9c02
-	jsr ftxt::init
-	lda #FINAL_BANK_MAIN
-	sta $9c02
 
 ;--------------------------------------
 ; zero the BSS segment
@@ -175,27 +189,15 @@ start:
 :	dec @cnt
 	bne @reloc
 
-;--------------------------------------
-; load modules from disk to their designated bank
-	loadmods
+	lda #FINAL_BANK_FASTTEXT
+	sta $9c02
+	jsr ftxt::init
 
 ;--------------------------------------
 ; initialize the JMP vector
 	lda #$4c		; JMP
 	sta zp::jmpaddr
 
-;--------------------------------------
-; setup interrupt vectors
-	ldx #<irq::sys_update
-        ldy #>irq::sys_update
-        lda #$20
-        jsr irq::raster
-	lda #<start
-	sta $0316		; BRK
-	sta $0318		; NMI
-	lda #>start
-	sta $0317		; BRK
-	sta $0319		; NMI
 
 ;--------------------------------------
 ; clean up files
@@ -204,7 +206,7 @@ start:
 ;--------------------------------------
 ; misc. setup
 	; save current screen for debugger
-	jsr dbg::save_progstate
+	;jsr dbg::save_progstate
 
 	; TODO: enable write-protection for the $2000-$8000 blocks when
 	; all SMC is removed from the segments in that range
@@ -214,7 +216,7 @@ start:
 	sta $028a	; repeat all characters
 	sta $0291	; don't swap charset on C= + SHIFT
 
-	jmp enter
+	jmp loadmods
 
 @loading: .byte "init.."
 @loadinglen=*-@loading
@@ -244,12 +246,28 @@ relocs:
 .byte FINAL_BANK_SAVESCR
 num_relocs=(*-relocs)/7
 
+.export get_crunched_byte
+.proc get_crunched_byte
+.endproc
+
 .CODE
 ;******************************************************************************
 ; ENTER
 ; Entrypoint after initialization, from here on we're safe to use the bitmap
 ; address space ($1000-$2000) as a bitmap
+.export enter
 enter:
+	ldx #<irq::sys_update
+        ldy #>irq::sys_update
+        lda #$20
+        jsr irq::raster
+	lda #<start
+	sta $0316		; BRK
+	sta $0318		; NMI
+	lda #>start
+	sta $0317		; BRK
+	sta $0319		; NMI
+
 	ldx #$ff
 	txs
 	jsr asm::reset

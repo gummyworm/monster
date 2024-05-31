@@ -86,7 +86,7 @@ cmdreps: .byte 0	; number of times to REPEAT current command
 	jsr edit
 	jsr cancel
 
-	jsr reset
+	jsr asm::reset
 	jsr text::clrline
 
 	; don't assemble code, just verify it
@@ -233,14 +233,6 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
-; RESET
-; clears all state relating to the assembly of the active file.
-.proc reset
-	jsr asm::reset
-	jmp lbl::clr
-.endproc
-
-;******************************************************************************
 ; COMMAND_DISASM
 ; Disassembles the given address range
 ; IN:
@@ -353,7 +345,7 @@ main:	jsr key::getch
 	jsr str::copy		; copy .XY to (zp::tmp0)
 
 	jsr dbg::init
-	jsr reset
+	jsr asm::reset
 
 	lda #$01
 	sta state::verify	; verify for 1st pass
@@ -404,7 +396,7 @@ main:	jsr key::getch
 	; save the current source position and rewind it for assembly
 	jsr src::pushp
 	jsr src::rewind
-	jsr reset
+	jsr asm::reset
 
 	lda zp::gendebuginfo
 	beq @pass1
@@ -2434,7 +2426,7 @@ goto_buffer:
 	jsr __edit_load
 	bcs @err
 
-	jmp reset	; reinitialize
+	jmp asm::reset	; reinitialize
 @err:	rts
 .endproc
 

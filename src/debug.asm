@@ -28,7 +28,7 @@
 
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
-.import __BANKCODE_LOAD__
+.import __BANKCODE_RUN__
 .import __BANKCODE_SIZE__
 
 ;******************************************************************************
@@ -258,7 +258,7 @@ segaddresses: .res MAX_SEGMENTS * 2
 ; NOTE: this data is stored in its own bank (FINAL_BANK_DEBUG)
 ; the per-file debug info as described in the above table
 .export debuginfo
-debuginfo = __BANKCODE_LOAD__+__BANKCODE_SIZE__	; start after shared bank code
+debuginfo = __BANKCODE_RUN__+__BANKCODE_SIZE__	; start after shared bank code
 
 ;******************************************************************************
 ; WATCHES
