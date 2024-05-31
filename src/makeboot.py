@@ -1,5 +1,11 @@
 import sys
 
+HIGHLIGHT = "\033[32m"+"\033[1m"
+RESET = "\033[0m"
+
+print(f'{HIGHLIGHT}creating bootloader and app files...')
+
+
 if len(sys.argv) != 5:
     print('extracts the boot segments and writes them to a bootloader .PRG file')
     print(f'usage: {sys.argv[0]} <label-file> <infile> <bootfile> <appfile>')
@@ -55,8 +61,10 @@ with open(infile, 'rb') as file:
         prg.write(bootloader)
 
     appstart = 0x2000 + segments['BANKCODE']['size']
-    print(f'writing application file to ${appstart:02x} (${(len(buf)-size):02x} bytes)')
+    print(f'writing application file to ${appstart:02x}-${appstart+(len(buf)-size):02x} (${(len(buf)-size):02x} bytes)')
     with open(appfile, 'wb') as prg:
         # write load address
         prg.write(appstart.to_bytes(2, 'little'))
         prg.write(buf[size:])
+
+print(f'DONE{RESET}\n')

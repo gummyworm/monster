@@ -3559,7 +3559,6 @@ num_commands=*-commands
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
 
-.segment "LINKER"
 ;******************************************************************************
 ; LOAD
 ; Loads a debug file (.d) into source
