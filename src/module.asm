@@ -3,11 +3,14 @@
 .include "macros.inc"
 .include "zeropage.inc"
 
+.import __DEBUGGER_RUN__
+
 ;******************************************************************************
 ; MODULE addresses
 ; Modules use 24 bit addresses, the high byte directly corresponds to the
 ; bank selection register in the final expansion, so $a5 means bank 5
 UDGEDITOR_ADDR = $a5a000
+MAIN_ADDR      = $a10000 | __DEBUGGER_RUN__
 
 .CODE
 ;******************************************************************************
@@ -82,7 +85,7 @@ UDGEDITOR_ADDR = $a5a000
 .DATA
 ;******************************************************************************
 ; MODULE ADDRESSES
-.define addrs UDGEDITOR_ADDR
+.define addrs UDGEDITOR_ADDR, MAIN_ADDR
 addrslo: .lobytes addrs
 addrshi: .hibytes addrs
 banks:   .bankbytes addrs

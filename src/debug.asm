@@ -29,7 +29,7 @@
 
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
-.import __BANKCODE_LOAD__
+.import __BANKCODE_RUN__
 .import __BANKCODE_SIZE__
 
 ;******************************************************************************
@@ -259,7 +259,7 @@ segaddresses: .res MAX_SEGMENTS * 2
 ; NOTE: this data is stored in its own bank (FINAL_BANK_DEBUG)
 ; the per-file debug info as described in the above table
 .export debuginfo
-debuginfo = __BANKCODE_LOAD__+__BANKCODE_SIZE__	; start after shared bank code
+debuginfo = __BANKCODE_RUN__+__BANKCODE_SIZE__	; start after shared bank code
 
 ;******************************************************************************
 ; WATCHES
@@ -2911,7 +2911,7 @@ __debug_remove_breakpoint:
 	; draw .P (status)
 	lda reg_p
 	sta @tmp
-	lda #$80
+	lda #$a1
 	sta @flag
 	ldx #$00
 
@@ -3559,6 +3559,7 @@ num_commands=*-commands
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
 
+.segment "LINKER"
 ;******************************************************************************
 ; LOAD
 ; Loads a debug file (.d) into source
@@ -3659,7 +3660,6 @@ command_vectorshi: .hibytes command_vectors
 	pla
 	tax
 	jsr __debug_store_line
-
 	rts
 .endproc
 

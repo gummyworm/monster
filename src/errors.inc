@@ -52,6 +52,12 @@ ERR_UNNAMED_BUFFER = 31
 ERR_NO_OPEN_SCOPE  = 32
 ERR_LABEL_ALREADY_DEFINED = 33
 
+;******************************************************************************
+; linker errors
+ERR_SECTION_TOO_SMALL = 34
+ERR_NO_SECTIONS = 35
+
+
 .import __err_get
 
 .scope err

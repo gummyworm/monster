@@ -38,8 +38,6 @@ SEGMENT_DEFINE = $02
 objptr=zp::asm
 segptr=zp::asm+2
 
-.segment "LINKER"
-
 ;******************************************************************************
 .BSS
 
@@ -172,7 +170,7 @@ OBJ_BYTES   = $01 	; defines literal byte values e.g. "B 4 0 1 2 3"
 OBJ_RELWORD = $02	; defines a value of an imported symbol "W LAB"
 OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 
-.CODE
+.segment "LINKER"
 ;******************************************************************************
 ; LINK DEBUG
 ; Links the given object files into a .D (debug) file of the given name
@@ -282,7 +280,7 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 	sta file::loadaddr+1
 	pla
 
-	jsr file::load		; load link file into filebuff
+	;jsr file::load		; load link file into filebuff
 	bcs @done		; return err if .C set
 
 	; TODO: parse the file buff for sections and segments
