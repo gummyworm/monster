@@ -69,7 +69,7 @@ sections_flags:   .res MAX_SECTIONS
 ;******************************************************************************
 ; IMPORT TABLES
 ; Each object file has its own table of imports. This allows the object code to
-; store refrences to external labels in a more efficient manner: by storing the
+; store references to external labels in a more efficient manner: by storing the
 ; index to the label in the IMPORT table instead of the label itself.
 import_tabslo: .res MAX_OBJS
 import_tabshi: .res MAX_OBJS
