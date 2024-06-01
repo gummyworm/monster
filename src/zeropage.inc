@@ -11,6 +11,7 @@ jmpvec  = $01 ; $00 stores a JMP instruction, this is its address
 ;******************************************************************************
 ; $04-$07 is used for final expansion temp
 final   = $04
+banksp  = $05	; bank stack pointer
 bankval = $07	; the value written by store_byte
 bankjmpaddr = $08
 bankjmpvec = $09
@@ -22,7 +23,6 @@ math =  $0b
 ;******************************************************************************
 ; $10-$30 is reserved for debug info generation
 debug    = $10
-src_line = $1e	; line # that is being assembled
 
 ;******************************************************************************
 ; $30-$40 reserved for string manipulation routines

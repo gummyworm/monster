@@ -37,6 +37,14 @@
 .import __IRQ_RUN__
 .import __IRQ_SIZE__
 
+.import __LINKER_LOAD__
+.import __LINKER_RUN__
+.import __LINKER_SIZE__
+
+.import __LABELS_LOAD__
+.import __LABELS_RUN__
+.import __LABELS_SIZE__
+
 ;******************************************************************************
 ; RELOC
 ; relocates code from 1 address to another
@@ -50,9 +58,13 @@
 @dst=r2
 @size=r4
 @bank=r6
-	sta $9c02
+	sta @bank
 @copy:	ldy #$00
+	lda #$a1
+	sta $9c02
 	lda (@src),y
+	ldx @bank
+	stx $9c02
 	sta (@dst),y
 	incw @src
 	incw @dst
@@ -102,6 +114,7 @@
 	ldxy #@module_main
 	lda #MOD_MAIN
 	jsr mod::load
+
 	jmp enter
 @module_udgedit: .byte "udg.prg",0
 @module_main:    .byte "monster.prg",0
@@ -149,6 +162,7 @@ start:
 ; relocate segments that need to be moved
 @cnt=r7
 @relocs=r8
+	sei
 	lda #num_relocs
 	sta @cnt
 	ldxy #relocs
@@ -179,14 +193,17 @@ start:
 	; bank
 	iny
 	lda (@relocs),y
+
 	reloc
+
 	lda @relocs
 	clc
 	adc #$07
 	sta @relocs
 	bcc :+
 	inc @relocs+1
-:	dec @cnt
+:
+	dec @cnt
 	bne @reloc
 
 	lda #FINAL_BANK_FASTTEXT
@@ -210,7 +227,7 @@ start:
 
 	; TODO: enable write-protection for the $2000-$8000 blocks when
 	; all SMC is removed from the segments in that range
-	lda #$80
+	lda #$a1
 	sta $9c02	; enable 35K of RAM for final expansion
 
 	sta $028a	; repeat all characters
@@ -244,6 +261,15 @@ relocs:
 ; SCREEN
 .word __SAVESCR_LOAD__, __SAVESCR_RUN__, __SAVESCR_SIZE__
 .byte FINAL_BANK_SAVESCR
+
+; LINKER
+.word __LINKER_LOAD__, __LINKER_RUN__, __LINKER_SIZE__
+.byte FINAL_BANK_LINKER
+
+; LABELS
+.word __LABELS_LOAD__, __LABELS_RUN__, __LABELS_SIZE__
+.byte FINAL_BANK_SYMBOLS
+
 num_relocs=(*-relocs)/7
 
 .export get_crunched_byte

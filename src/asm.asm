@@ -391,7 +391,7 @@ num_illegals = *-illegal_opcodes
 ; check if there is a breakpoint on this line and set it if there is
 	ldy #$00
 	lda (zp::line),y
-	beq @noasm		; empty line
+	beq @noasm		; empty line, early out
 	cmp #BREAKPOINT_CHAR
 	bne :+
 
@@ -445,6 +445,10 @@ num_illegals = *-illegal_opcodes
 ; if a label is found, for example, we will reenter here after adding the label
 ; to assemble any opcode, directive, etc. that may still be in the line
 @assemble:
+	ldy #$00
+	lda (zp::line),y
+	beq @noasm
+
 	jsr process_ws
 ; 1. check if the line contains a directive
 @directive:
@@ -535,8 +539,7 @@ num_illegals = *-illegal_opcodes
 	; if we found another label, return error
 	RETURN_ERR ERR_UNEXPECTED_CHAR
 :	lda #ASM_LABEL		; return as LABEL (don't indent this line)
-	clc
-	rts
+	RETURN_OK
 
 ; from here on we are either reading a comment or an operand
 @getopws:
@@ -1181,7 +1184,7 @@ num_illegals = *-illegal_opcodes
 .endproc
 
 ;******************************************************************************
-; HANDLE_CTX
+; rANDLE_CTX
 ; If this is the first pass, copies the contents of the asmbuffer to the current
 ; context.
 ; OUT:

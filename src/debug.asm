@@ -7,6 +7,7 @@
 .include "edit.inc"
 .include "errors.inc"
 .include "fastcopy.inc"
+.include "file.inc"
 .include "finalex.inc"
 .include "flags.inc"
 .include "labels.inc"
@@ -2910,7 +2911,7 @@ __debug_remove_breakpoint:
 	; draw .P (status)
 	lda reg_p
 	sta @tmp
-	lda #$80
+	lda #$a1
 	sta @flag
 	ldx #$00
 
@@ -3557,6 +3558,109 @@ num_commands=*-commands
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
+
+;******************************************************************************
+; LOAD
+; Loads a debug file (.d) into source
+; EXAMPLE:
+;  FILE NAMES:
+;   | filename   |
+;   |------------|
+;   | "hello.s",0|
+;   | "main.s",0 |
+;
+;  SYMBOLS:
+;   | symbol      | addr  | file-id | line # |
+;   |-------------|-------|---------|--------|
+;   |"lab1",0     | $2600 |       0 | 120    |
+;   |"lab2",0     | $1402 |       0 | 40     |
+;   |"my_proc",0  | $2000 |       1 | 200    |
+;   |"my_proc2",0 | $1020 |       1 | 10     |
+;
+;  LINE #'s:
+;   | addr  | file ID | line # |
+;   |-------|---------|--------|
+;   | $1234 |    0    |  4     |
+;   | $1236 |    0    |  5     |
+;
+;  LOAD ADDRESS:
+;   | addr  |
+;   |-------|
+;   | $1001 |
+;
+; PROGRAM BINARY:
+;   | BIN |
+;   | ... |
+;
+; File ID's in the SYMBOLS table correspond with the order that the files
+; are defined in the FILE NAMES table.
+;
+; The .PRG can be extracted by simply cutting off the first two tables
+; (filenames and symbols)
+.export __debug_load
+.proc __debug_load
+@ptr=r0
+@tmp=r2
+	jsr __debug_init
+
+	; load the files ("filenames")
+@getfiles:
+	ldxy #filenames
+	stxy @ptr
+@l0:	lda #$00
+	sta @tmp
+@l1:	jsr file::readb
+	ldy @tmp
+	inc @tmp
+	sta (@ptr),y
+	bcs @getsyms
+	bne @l1
+	inc numfiles
+	lda @ptr
+	adc #$10	; sizeof(filename) - .C always clear
+	sta @ptr
+	bcc @l0
+	inc @ptr+1
+	bne @l0
+
+@getsyms:
+	ldxy #mem::spare
+	stxy @ptr
+@l2:	lda #$00
+	sta @tmp
+@l3:	jsr file::readb
+	ldy @tmp
+	inc @tmp
+	sta (@ptr),y
+	bcs @getsyms
+	bne @l1
+	cpy #$00		; did we just read a 0-length label?
+	beq @getlines		; if so, we're done
+	iny
+	lda (@ptr),y		; LSB of label address
+	sta zp::label_value
+	iny
+	lda (@ptr),y		; MSB of label address
+	sta zp::label_value+1
+	jsr lbl::add
+
+@getlines:
+	; read the debug line-number information
+	jsr file::readb		; LSB of address
+	sta r0
+	jsr file::readb		; MSB of address
+	sta r0+1
+	jsr file::readb		; file ID
+	sta file
+	jsr file::readb		; LSB of line #
+	pha
+	jsr file::readb		; MSB of line #
+	tay
+	pla
+	tax
+	jsr __debug_store_line
+	rts
+.endproc
 
 ;******************************************************************************
 ; DISABLED COMMANDS

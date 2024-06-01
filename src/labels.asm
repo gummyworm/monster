@@ -1,8 +1,19 @@
 .include "errors.inc"
 .include "finalex.inc"
 .include "macros.inc"
-.include "util.inc"
 .include "zeropage.inc"
+
+.macro LBLJUMP proc
+	pha
+	lda #<proc
+	sta zp::bankjmpvec
+	lda #>proc
+	sta zp::bankjmpvec+1
+	lda #FINAL_BANK_SYMBOLS
+	sta zp::banktmp
+	pla
+	jmp __final_call
+.endmacro
 
 .import __BANKCODE_RUN__
 .import __BANKCODE_SIZE__
@@ -14,17 +25,66 @@ MAX_LOCALS    = 32
 MAX_LABEL_LEN = 16	; 8 bytes for namespace + 8 for label name
 SCOPE_LEN     = 8	; max len of namespace (scope)
 
-
 ;******************************************************************************
 ; ZEROPAGE
 allow_overwrite = zp::labels+4
 
-.BSS
+.export __label_clr
+__label_clr:
+	LBLJUMP clr
+
+.CODE
+.export __label_add
+__label_add:
+	LBLJUMP add
+
+.export __label_find
+__label_find: LBLJUMP find
+
+.export __label_by_addr
+__label_by_addr: LBLJUMP by_addr
+
+.export __label_by_id
+__label_by_id: LBLJUMP by_id
+
+.export __label_name_by_id
+__label_name_by_id: LBLJUMP name_by_id
+
+.export __label_isvalid
+__label_isvalid:
+	LBLJUMP is_valid
+
+.export __label_get_name
+__label_get_name: LBLJUMP get_name
+
+.export __label_get_addr
+__label_get_addr: LBLJUMP getaddr
+
+.export __label_is_local
+__label_is_local: LBLJUMP is_local
+
+.export __label_set
+__label_set: LBLJUMP set
+
+.export __label_set24
+__label_set24: LBLJUMP set24
+
+.export __label_del
+__label_del: LBLJUMP del
+
+.export __label_address
+__label_address: LBLJUMP address
+
+.export __label_setscope
+__label_setscope: LBLJUMP set_scope
+
+.segment "SHAREBSS"
 ;******************************************************************************
 .export __label_num
 __label_num:
 numlabels: .word 0   	; total number of labels
 
+.segment "LABEL_BSS"
 scope: .res 8		; buffer containing the current scope
 
 ;******************************************************************************
@@ -41,21 +101,19 @@ labels = __BANKCODE_RUN__+__BANKCODE_SIZE__	; ~$20xx-$8000
 .export label_addresses
 label_addresses = $a000
 
-.CODE
-
+.segment "LABELS"
 ;******************************************************************************
 ; SET SCOPE
 ; Sets the current scope to the given scope.
 ; This affects local labels, which will be namespaced by prepending the scope.
 ; IN:
 ;  - .XY: the address of the scope string to set as the current scope
-.export __label_setscope
-.proc __label_setscope
+.proc set_scope
 @scope=zp::tmp0
 	stxy @scope
 	ldy #$00
 :	lda (@scope),y
-	jsr util::isseparator
+	jsr isseparator
 	beq @done
 	sta scope,y
 	iny
@@ -91,7 +149,7 @@ label_addresses = $a000
 
 :	ldy #$00
 @l1:	lda (@lbl),y
-	jsr util::isseparator
+	jsr isseparator
 	beq @done
 	sta @buff,x
 	iny
@@ -107,8 +165,7 @@ label_addresses = $a000
 ;******************************************************************************
 ; CLR
 ; Removes all labels effectively resetting the label state
-.export __label_clr
-.proc __label_clr
+.proc clr
 	lda #$00
 	sta scope
 	sta numlabels
@@ -125,19 +182,15 @@ label_addresses = $a000
 ;  - .C: set if label is not found
 ;  - .A: contains the length of the label because why not
 ;  - .XY: the id of the label or the id where the label WOULD be if not found
-.export __label_find
-.proc __label_find
+.proc find
 @cnt=zp::tmp6
 @search=zp::tmp8
 @label=zp::tmpa
-@ch=zp::tmpe
-@offset=zp::tmpf
-@ch2=zp::tmp10
 	stxy @label
 
 	; check (and flag) if the label is local. if it is, we will start
 	; searching at the end of the label table, where locals are stored
-	jsr __label_is_local
+	jsr is_local
 	beq @cont
 
 	; if local, prepend the scope as the namespace
@@ -161,17 +214,10 @@ label_addresses = $a000
 
 @seek:	ldy #$00
 @l0:	lda (@label),y
-	jsr util::isseparator
+	jsr isseparator
 	beq @chkend
 
-	sty @offset
-	sta @ch
-	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @search, @offset
-	sta @ch2
-	lda @ch		; TODO: could clean this up
-	ldy @offset
-	cmp @ch2
-
+	cmp (@search),y
 	beq @chmatch
 	bcc @notfound	; labels are alphabetical, if our label is not alphabetically greater, we're done
 	bne @next  ; if our label IS greater alphabetically, try the next label
@@ -182,9 +228,7 @@ label_addresses = $a000
 	bcs @found
 	bcc @l0
 @chkend:
-	sty @offset
-	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @search, @offset
-	ldy @offset
+	lda (@search),y
 	cmp #$00
 	beq @found
 
@@ -218,13 +262,12 @@ label_addresses = $a000
 ;  - zp::label_value: the value to assign to the label
 ; OUT:
 ;  - .C: set on error or clear if the label was successfully added
-.export __label_set24
-.proc __label_set24
+.proc set24
 @tmplabel = $140	; temporary label storage for banked labels
 	stxy zp::bankaddr0
 	ldxy #@tmplabel
 	stxy zp::bankaddr1
-	jsr fe3::copyline
+	CALL FINAL_BANK_MAIN, #fe3::copyline
 	ldxy #@tmplabel
 ; fall through
 .endproc
@@ -237,8 +280,7 @@ label_addresses = $a000
 ;  - zp::label_value: the value to assign to the given label name
 ; OUT:
 ;  - .C: set on error or clear if the label was successfully added
-.export __label_set
-.proc __label_set
+.proc set
 	lda #$01
 	sta allow_overwrite
 	bne addlabel
@@ -252,8 +294,7 @@ label_addresses = $a000
 ;  - zp::label_value: the value to assign to the given label name
 ; OUT:
 ;  - .C: set on error or clear if the label was successfully added
-.export __label_add
-.proc __label_add
+.proc add
 	lda #$00
 	sta allow_overwrite
 	; fallthrough
@@ -276,14 +317,13 @@ label_addresses = $a000
 @dst=zp::tmp8
 @cnt=zp::tmpa
 @addr=zp::tmpc
-@offset=zp::tmp10
 	stxy @name
-	jsr __label_isvalid
+	jsr is_valid
 	bcc @seek
 	RETURN_ERR ERR_ILLEGAL_LABEL
 
 @seek:	ldxy @name
-	jsr __label_find
+	jsr find
 	bcs @insert
 
 	lda allow_overwrite
@@ -291,13 +331,15 @@ label_addresses = $a000
 	RETURN_ERR ERR_LABEL_ALREADY_DEFINED
 
 :	; label exists, overwrite its old value
-	jsr __label_by_id 	; get the address of the label
+	jsr by_id 		; get the address of the label
 	lda zp::label_value
 
-	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
-	incw @addr
+	ldy #$00
+	sta (@addr),y
+
+	iny
 	lda zp::label_value+1
-	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
+	sta (@addr),y
 
 	RETURN_OK
 
@@ -307,7 +349,7 @@ label_addresses = $a000
 
 	; flag if label is local or not
 	ldxy @name
-	jsr __label_is_local
+	jsr is_local
 	beq @shift
 
 	; if local, prepend the scope
@@ -388,22 +430,20 @@ label_addresses = $a000
 @sh0:
 	; copy the label (16 bytes) to the SYMBOL bank
 	ldy #MAX_LABEL_LEN-1
-	lda @src
-	sta zp::bankaddr0
-	lda @src+1
-	sta zp::bankaddr0+1
-	lda @dst
-	sta zp::bankaddr1
-	lda @dst+1
-	sta zp::bankaddr1+1
-	lda #FINAL_BANK_SYMBOLS
-	jsr fe3::fcopy
+:	lda (@src),y
+	sta (@dst),y
+	dey
+	bpl :-
 
 ; shift the address too
-	bank_read_byte #FINAL_BANK_SYMBOLS, @addr
-	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @addr, #$02
-	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @addr, #$01
-	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @addr, #$03
+	ldy #$00
+	lda (@addr),y
+	ldy #$02
+	sta (@addr),y
+	dey
+	lda (@addr),y
+	ldy #$03
+	sta (@addr),y
 
 	decw @cnt
 	iszero @cnt
@@ -434,9 +474,7 @@ label_addresses = $a000
 	beq @storeaddr
 
 	; copy a byte to the label name
-	sty @offset
-	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @src, @offset
-	ldy @offset
+	sta (@src),y
 
 	iny
 	cpy #MAX_LABEL_LEN
@@ -445,14 +483,15 @@ label_addresses = $a000
 @storeaddr:
 	; 0-terminate the label name and write the label value
 	lda #$00
-	sty @offset
 
-	bank_store_byte_rel #FINAL_BANK_SYMBOLS, @src, @offset
+	sta (@src),y
+
 	lda zp::label_value
-	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
+	ldy #$00
+	sta (@addr),y
 	lda zp::label_value+1
-	incw @addr
-	bank_store_byte #FINAL_BANK_SYMBOLS, @addr
+	iny
+	sta (@addr),y
 
 	incw numlabels
 	ldxy @id
@@ -470,10 +509,9 @@ label_addresses = $a000
 ;  - .XY: the address of the label
 ;  - .C: is set if no label was found, clear if it was
 ;  - .A: the size of the label
-.export __label_address
-.proc __label_address
+.proc address
 @table=zp::tmp0
-	jsr __label_find	; get the id in YX
+	jsr find	; get the id in YX
 	bcc :+
 	RETURN_ERR ERR_LABEL_UNDEFINED
 
@@ -490,14 +528,12 @@ label_addresses = $a000
 	adc #>label_addresses
 	sta @table+1
 
-	bank_read_byte #FINAL_BANK_SYMBOLS, @table
-	pha
-	incw @table
-	bank_read_byte #FINAL_BANK_SYMBOLS, @table
-	tay
-	pla
+	ldy #$00
+	lda (@table),y
 	tax
-	cpy #$00
+	iny
+	lda (@table),y
+	tay
 
 	bne :+		; get the size of the label's address in .A
 	lda #$01
@@ -511,8 +547,7 @@ label_addresses = $a000
 ; Deletes the given label name.
 ; IN:
 ;  - .XY: the address of the label name to delete
-.export __label_del
-.proc __label_del
+.proc del
 @id=zp::tmp6
 @cnt=zp::tmp8
 @cnt2=zp::tmpa
@@ -520,12 +555,12 @@ label_addresses = $a000
 @dst=zp::tmp10
 @name=zp::tmp12
 	stxy @name
-	jsr __label_find
+	jsr find
 	bcc @del
 	rts		; not found
 
 @del:	stxy @id
-	jsr __label_by_id
+	jsr by_id
 	stxy @dst
 
 	; get the destination (dst - 2)
@@ -550,17 +585,19 @@ label_addresses = $a000
 
 	; move the addresses down
 :
-	bank_read_byte #FINAL_BANK_SYMBOLS, @src
-	bank_store_byte #FINAL_BANK_SYMBOLS, @dst
+	ldy #$00
+	lda (@src),y
+	sta (@dst),y
 
 	incw @src
 	incw @dst
 
-	bank_read_byte #FINAL_BANK_SYMBOLS, @src
-	bank_store_byte #FINAL_BANK_SYMBOLS, @dst
+	lda (@src),y
+	sta (@dst),y
 
 	incw @src
 	incw @dst
+
 	decw @cnt
 	ldxy @cnt
 	cmpw #0
@@ -568,7 +605,7 @@ label_addresses = $a000
 
 	; get the source (destination + 16)
 	ldxy @id
-	jsr __label_name_by_id
+	jsr name_by_id
 	stxy @dst
 	lda @dst
 	clc
@@ -580,17 +617,11 @@ label_addresses = $a000
 
 	; move the names down
 @nameloop:
-	lda @src
-	sta zp::bankaddr0
-	lda @src+1
-	sta zp::bankaddr0+1
-	lda @dst
-	sta zp::bankaddr1
-	lda @dst+1
-	sta zp::bankaddr1+1
 	ldy #MAX_LABEL_LEN-1
-	lda #FINAL_BANK_SYMBOLS
-	jsr fe3::fcopy
+:	lda (@src),y
+	sta (@dst),y
+	dey
+	bpl :-
 
 	lda @src
 	clc
@@ -623,8 +654,7 @@ label_addresses = $a000
 ; OUT:
 ;  - .A: nonzero if the label is local
 ;  - .Z: clear if label is local, set if not
-.export __label_is_local
-.proc __label_is_local
+.proc is_local
 @l=zp::labels
 	stxy @l
 	ldy #$00
@@ -642,11 +672,10 @@ label_addresses = $a000
 ; Returns the address of the label ID in .YX in .YX
 ; IN:
 ;  - .XY: the id of the label to get the address of
-; OUT:///
+; OUT:
 ;  - .XY: the address of the given label id
 ;  - zp::tmpc: the address of the label (same as .XY)
-.export __label_by_id
-.proc __label_by_id
+.proc by_id
 @addr=zp::tmpc
 	txa
 	asl
@@ -673,8 +702,7 @@ label_addresses = $a000
 ; OUT:
 ;  - .XY: the ID of the label
 ;  - .C: set if no label is found
-.export __label_by_addr
-.proc __label_by_addr
+.proc by_addr
 @other=zp::tmpc
 @addr=zp::tmpe
 @cnt=zp::tmp10
@@ -685,13 +713,16 @@ label_addresses = $a000
 	ldxy @cnt
 	cmpw numlabels
 	beq @notfound
-	jsr __label_by_id
+	jsr by_id
 	stxy @other
-	bank_read_byte #FINAL_BANK_SYMBOLS, @other
+
+	ldy #$00
+	lda (@other),y
 	cmp @addr
 	bne @l0
-	incw @other
-	bank_read_byte #FINAL_BANK_SYMBOLS, @other
+
+	iny
+	lda (@other),y
 	cmp @addr+1
 	bne @l0
 
@@ -710,8 +741,7 @@ label_addresses = $a000
 ;  - .XY: the id of the label to get the address of
 ; OUT:
 ;  - .XY: the address of the name for the given label id
-.export __label_name_by_id
-.proc __label_name_by_id
+.proc name_by_id
 @addr=zp::labels
 	sty @addr+1
 	txa
@@ -738,15 +768,14 @@ label_addresses = $a000
 ;  - .XY: the address of the label
 ; OUT:
 ;  - .C: set if the label is NOT valid
-.export __label_isvalid
-.proc __label_isvalid
+.proc is_valid
 @name=zp::tmp4
 	stxy @name
 	ldy #$00
 ; first character must be a letter or '@'
 :	lda (@name),y
 	iny
-	jsr util::is_whitespace
+	jsr iswhitespace
 	beq :-
 	cmp #'@'
 	beq @l0
@@ -764,7 +793,7 @@ label_addresses = $a000
 @l0:
 	lda (@name),y
 	beq @done
-	jsr util::isseparator
+	jsr isseparator
 	beq @done
 	cmp #'0'
 	bcc @err
@@ -789,25 +818,20 @@ label_addresses = $a000
 ;  - zp::tmp0: the address to copy to
 ; OUT:
 ;  - (zp::tmp0): the label name
-.export __label_get_name
-.proc __label_get_name
+.proc get_name
 @dst=zp::tmp0
 @src=zp::labels
-@offset=zp::labels+2
-	jsr __label_name_by_id
+	jsr name_by_id
 	stxy @src
 
 	ldy #$00
-@l0:
-	sty @offset
-	bank_read_byte_rel #FINAL_BANK_SYMBOLS, @src, @offset
-	ldy @offset
-	cmp #$00
+@l0:	lda (@src),y
 	sta (@dst),y
 	beq @done
 	iny
 	cpy #MAX_LABEL_LEN
 	bcc @l0
+
 @done:	rts
 .endproc
 
@@ -818,19 +842,82 @@ label_addresses = $a000
 ;  - .XY: the ID of the label to get the name of
 ; OUT:
 ;  - .XY: the address of the label
-.export __label_get_addr
-.proc __label_get_addr
+.proc getaddr
 @src=zp::labels
-	jsr __label_by_id
+	jsr by_id
 	stxy @src
 
-	bank_read_byte #FINAL_BANK_SYMBOLS, @src
-	pha
-	incw @src
-	bank_read_byte #FINAL_BANK_SYMBOLS, @src
-	tay
-	pla
+	ldy #$00
+	lda (@src),y
 	tax
-
+	iny
+	lda (@src),y
+	tay
 	rts
+.endproc
+
+
+;******************************************************************************
+; ISWHITESPACE
+; Checks if the given character is a whitespace character
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if if the character in .A is whitespace
+.proc iswhitespace
+	cmp #$0d	; newline
+	beq :+
+	cmp #$09	; TAB
+	beq :+
+	cmp #' '
+:	rts
+.endproc
+
+;******************************************************************************
+; is_null_space_comma_closingparen
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is: 0,$0d,' ', ',', or ')'
+.proc is_null_return_space_comma_closingparen_newline
+	cmp #$00
+	beq @done
+	jsr iswhitespace
+	beq @done
+	cmp #','
+	beq @done
+	cmp #')'
+@done:	rts
+.endproc
+
+;******************************************************************************
+; IS_OPERATOR
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is an operator ('+', '-', etc.)
+.proc isoperator
+@xsave=zp::util+2
+	stx @xsave
+	ldx #@numops-1
+:	cmp @ops,x
+	beq @end
+	dex
+	bpl :-
+@end:	php
+	ldx @xsave
+	plp
+	rts
+@ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.'
+@numops = *-@ops
+.endproc
+
+;******************************************************************************
+.proc isseparator
+	cmp #':'
+	beq @yes
+	jsr is_null_return_space_comma_closingparen_newline
+	bne :+
+@yes:	rts
+:	jmp isoperator
 .endproc
