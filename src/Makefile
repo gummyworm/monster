@@ -1,28 +1,31 @@
+XVIC=xvic
+FE3BIN=fe3vice.bin
+PYTHON=python3
+CL65=cl65
+C1541=c1541
+EXOMIZER=exomizer
+
 BOOTSRC=boot.asm 
 SRC=$(filter-out $BOOTSRC, $(wildcard *.asm))
 TESTS=$(wildcard tests/*.s)
 TEST_INCS=$(wildcard tests/*.inc)
 TEST_TXTS=$(wildcard tests/*.txt)
-
-XVIC=xvic
-FE3BIN=fe3vice.bin
+TEST_FILES=$(TESTS) $(TEST_INCS) $(TEST_TXTS)
 
 all: test.d64 
 
 # main app binary
 monster.prg: $(BOOTSRC) $(SRC) 
-	cl65 -t vic20 -o $@ -C link.config $^ -Ln labels.txt -v -m map.txt
-
-# udg editor module
-udg.prg: modules/udgedit.asm
-	cl65 -t vic20 -o $@ -C modules/link.config $^ -Ln labelsudgedit.txt -v -m udgeditmap.txt
+	$(CL65) -t vic20 -o $@ -C link.config $^ -Ln labels.txt -v -m map.txt
 
 # create the test disk image
-test.d64: monster.prg udg.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
-	python3 makeboot.py labels.txt monster.prg boot.prg monster.prg
-	c1541 -format test,1 d64 test.d64 -attach test.d64 -write boot.prg $(addprefix -write ,$^)
+test.d64: monster.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
+	$(PYTHON) makeboot.py labels.txt monster.prg bootloader.prg masm.prg
+	$(EXOMIZER) sfx basic -t55 -n -o boot.prg bootloader.prg   
+	#$(EXOMIZER) sfx 0x3028 -t55 -o masm.prg monster.prg -f -n -Di_load_addr=0x1400
+	$(C1541) -format test,1 d64 test.d64 -attach test.d64 -write boot.prg -write masm.prg $(addprefix -write , $(TEST_FILES))
 
-start: monster.prg
+start: test.d64
 	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1541 -10 test.d64 
 
 clean:

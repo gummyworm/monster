@@ -5,7 +5,6 @@ RESET = "\033[0m"
 
 print(f'{HIGHLIGHT}creating bootloader and app files...')
 
-
 if len(sys.argv) != 5:
     print('extracts the boot segments and writes them to a bootloader .PRG file')
     print(f'usage: {sys.argv[0]} <label-file> <infile> <bootfile> <appfile>')
@@ -17,7 +16,7 @@ bootfile = sys.argv[3]
 appfile = sys.argv[4]
 
 # segments to crunch in the bootloader
-bootsegments = ["BANKCODE", "SETUP", "FASTTEXT", "MACROCODE", "SAVESCR", "IRQ", "DATA", "LABELS"]
+bootsegments = ["BANKCODE", "SETUP", "FASTTEXT", "MACROCODE", "SAVESCR", "IRQ", "DATA", "LABELS", "UDGEDIT"]
 
 # open map file and extract the segment to crunch in the bootloader
 segments = {}

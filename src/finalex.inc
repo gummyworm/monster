@@ -67,8 +67,8 @@ FINAL_BANK_SOURCE7 = $a0|$b	; source bank
 ; source banks ($a000-$c000)
 ; $a000-$c000 
 FINAL_BANK_MACROS       = $a0|4	; macro code & macro data ($a000-$c000)
-FINAL_BANK_TOOL_UDGEDIT = $a0|5 ; UDG editor ($a000-$c000)
-FINAL_BANK_LINKER       = $a0|6	; linker ($a000-$c000)
+FINAL_BANK_UDGEDIT = $a0|5 ; UDG editor ($a000-$c000)
+FINAL_BANK_LINKER  = $a0|6	; linker ($a000-$c000)
 
 ;******************************************************************************
 ; FAST bank ($0C)
@@ -83,6 +83,8 @@ FINAL_BANK_FAST    = $a0|$0c
 ; SYMBOLS bank ($0D)
 ; The SYMBOLS bank stores the label names for the program's labels in $2000-$8000
 ; $a000-$b000 is used to store the addresses that these names correspond to.
+; $b000-$b800 is FREE
+; $b800-$c000 stores the linker code (code to create, remove, find, etc. labels)
 FINAL_BANK_SYMBOLS = $a0|$d	; symbols bank (label names and their addresses)
 
 ;******************************************************************************
@@ -95,27 +97,6 @@ FINAL_BANK_FASTCOPY  = $a0|$f
 
 ; FASTTEXT lives at the top 4k ($b000-$c000) of the FASTCOPY2 bank
 FINAL_BANK_FASTTEXT  = $a0|$e
-
-;******************************************************************************
-; MEMORY BANKS
-.scope bank
-	monster = 0
-	program = 1
-	buff0   = 2
-	buff1   = 3
-	buff2   = 4
-	buff3   = 5
-	buff4   = 6
-	buff5   = 7
-	buff6   = 8
-	buff7   = 9
-	buff8   = 10
-	buff9   = 11
-	buffa   = 12
-	buffb   = 13
-	buffc   = 14
-	buffd   = 15
-.endscope
 
 ;******************************************************************************
 .scope fe3

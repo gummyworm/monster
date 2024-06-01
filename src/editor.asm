@@ -18,13 +18,13 @@
 .include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "module.inc"
 .include "screen.inc"
 .include "source.inc"
 .include "state.inc"
 .include "string.inc"
 .include "strings.inc"
 .include "text.inc"
+.include "udgedit.inc"
 .include "util.inc"
 .include "view.inc"
 .include "vmem.inc"
@@ -1855,9 +1855,7 @@ __edit_set_breakpoint:
 @cnt=zp::editortmp
 @save=zp::editortmp+1
 @udg=r8
-	jsr bm::save
-	lda #MOD_UDGEDIT
-	jsr mod::enter
+	CALL FINAL_BANK_UDGEDIT, #udg::edit
 	pha
 	jsr bm::restore
 	pla
