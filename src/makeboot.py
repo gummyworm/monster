@@ -5,7 +5,6 @@ RESET = "\033[0m"
 
 print(f'{HIGHLIGHT}creating bootloader and app files...')
 
-
 if len(sys.argv) != 5:
     print('extracts the boot segments and writes them to a bootloader .PRG file')
     print(f'usage: {sys.argv[0]} <label-file> <infile> <bootfile> <appfile>')

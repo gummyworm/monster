@@ -117,7 +117,7 @@
 
 	jmp enter
 @module_udgedit: .byte "udg.prg",0
-@module_main:    .byte "monster.prg",0
+@module_main:    .byte "masm.prg",0
 .endproc
 
 ;******************************************************************************
