@@ -237,7 +237,7 @@ start:
 	sta $028a	; repeat all characters
 	sta $0291	; don't swap charset on C= + SHIFT
 
-	jmp loadmods
+	jmp lowinit
 
 @loading: .byte "init.."
 @loadinglen=*-@loading
