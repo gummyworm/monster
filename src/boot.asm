@@ -9,7 +9,6 @@
 .include "labels.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "module.inc"
 .include "source.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
@@ -44,6 +43,10 @@
 .import __LABELS_LOAD__
 .import __LABELS_RUN__
 .import __LABELS_SIZE__
+
+.import __UDGEDIT_LOAD__
+.import __UDGEDIT_RUN__
+.import __UDGEDIT_SIZE__
 
 ;******************************************************************************
 ; RELOC
@@ -88,19 +91,11 @@
 	jmp start
 
 ;******************************************************************************
-; LOADMODS
-; load modules from disk to their designated bank
-; This lives in the SETUP first because loading main.prg can clobber data above
-; $2000
-.proc loadmods
+; LOWINIT
+; Code that is sensitive to initialization order
+; This code loads the app and sets up various banked code
+.proc lowinit
 
-;--------------------------------------
-; setup interrupt vectors
-	ldxy #@module_udgedit
-	lda #MOD_UDGEDIT
-	jsr mod::load
-
-;--------------------------------------
 ; generate low code (must occur after we're done init'ing
 	jsr fe3::init
 	lda #FINAL_BANK_FASTCOPY
@@ -111,13 +106,22 @@
 	lda #FINAL_BANK_MAIN
 	sta $9c02
 
-	ldxy #@module_main
-	lda #MOD_MAIN
-	jsr mod::load
+; load the app and enter it
+	ldxy #@mainprg
+	lda #@mainprg_len
+	jsr $ffbd	; SETNAM
+	lda #$01
+	ldx $ba		; last used device
+	bne :+
+	ldx #$0a	; default to #10
+:	ldy #$01	; load to address stored in file
+	jsr $ffba	; SETFLS
 
+	lda #$00	; load (not verify)
+	jsr $ffd5	; LOAD
 	jmp enter
-@module_udgedit: .byte "udg.prg",0
-@module_main:    .byte "masm.prg",0
+@mainprg:    .byte "masm.prg"
+@mainprg_len=*-@mainprg
 .endproc
 
 ;******************************************************************************
@@ -269,6 +273,10 @@ relocs:
 ; LABELS
 .word __LABELS_LOAD__, __LABELS_RUN__, __LABELS_SIZE__
 .byte FINAL_BANK_SYMBOLS
+
+; UDG EDITOR
+.word __UDGEDIT_LOAD__, __UDGEDIT_RUN__, __UDGEDIT_SIZE__
+.byte FINAL_BANK_UDGEDIT
 
 num_relocs=(*-relocs)/7
 

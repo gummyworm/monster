@@ -67,8 +67,8 @@ FINAL_BANK_SOURCE7 = $a0|$b	; source bank
 ; source banks ($a000-$c000)
 ; $a000-$c000 
 FINAL_BANK_MACROS       = $a0|4	; macro code & macro data ($a000-$c000)
-FINAL_BANK_TOOL_UDGEDIT = $a0|5 ; UDG editor ($a000-$c000)
-FINAL_BANK_LINKER       = $a0|6	; linker ($a000-$c000)
+FINAL_BANK_UDGEDIT = $a0|5 ; UDG editor ($a000-$c000)
+FINAL_BANK_LINKER  = $a0|6	; linker ($a000-$c000)
 
 ;******************************************************************************
 ; FAST bank ($0C)

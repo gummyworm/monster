@@ -16,7 +16,7 @@ bootfile = sys.argv[3]
 appfile = sys.argv[4]
 
 # segments to crunch in the bootloader
-bootsegments = ["BANKCODE", "SETUP", "FASTTEXT", "MACROCODE", "SAVESCR", "IRQ", "DATA", "LABELS"]
+bootsegments = ["BANKCODE", "SETUP", "FASTTEXT", "MACROCODE", "SAVESCR", "IRQ", "DATA", "LABELS", "UDGEDIT"]
 
 # open map file and extract the segment to crunch in the bootloader
 segments = {}

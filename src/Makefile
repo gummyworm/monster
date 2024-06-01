@@ -18,16 +18,12 @@ all: test.d64
 monster.prg: $(BOOTSRC) $(SRC) 
 	$(CL65) -t vic20 -o $@ -C link.config $^ -Ln labels.txt -v -m map.txt
 
-# udg editor module
-udg.prg: modules/udgedit.asm
-	$(CL65) -t vic20 -o $@ -C modules/link.config $^ -Ln labelsudgedit.txt -v -m udgeditmap.txt
-
 # create the test disk image
-test.d64: monster.prg udg.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
+test.d64: monster.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
 	$(PYTHON) makeboot.py labels.txt monster.prg bootloader.prg masm.prg
 	$(EXOMIZER) sfx basic -t55 -n -o boot.prg bootloader.prg   
 	#$(EXOMIZER) sfx 0x3028 -t55 -o masm.prg monster.prg -f -n -Di_load_addr=0x1400
-	$(C1541) -format test,1 d64 test.d64 -attach test.d64 -write boot.prg -write masm.prg -write udg.prg $(addprefix -write , $(TEST_FILES))
+	$(C1541) -format test,1 d64 test.d64 -attach test.d64 -write boot.prg -write masm.prg $(addprefix -write , $(TEST_FILES))
 
 start: test.d64
 	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1541 -10 test.d64 
