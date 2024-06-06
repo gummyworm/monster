@@ -388,7 +388,7 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 
 ;******************************************************************************
 ; LINK OBJECT
-; Handles the main block of the object code defintion using the data extracted
+; Handles the main block of the object code definition using the data extracted
 ; from the OBJ headers.
 .proc link_object
 	ldx activeobj
