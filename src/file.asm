@@ -276,6 +276,7 @@ __file_load_src:
 ; one.
 ; IN:
 ;  - .XY:                     the filename to save the memory range to
+;  - .A:                      the length of the filename to save
 ;  - __file_save_address:     the start of the address range to save
 ;  - __file_save_address_end: the end address to save
 ; OUT:

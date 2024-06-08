@@ -17,8 +17,11 @@
 @skip:	dec w
 .endmacro
 
-; cmpw compares (YX) to the 16-bit value. The Z flag is set if the two
-; are equal
+; cmpw compares .XY to the 16-bit argument. The flags are set as they would be
+; from a normal cmp instruction
+; OUT:
+;  - .Z: set if the two are equal
+;  - .C: set if .XY is >= to the argument
 .macro cmpw arg
 .local @skip
 	.if .match( .left( 1, {arg} ), # )

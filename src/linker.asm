@@ -299,12 +299,15 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ; OUT:
 ;  - .C: set on error
 .proc __link_link
-@segptrs=zp::tmp0			; 2*MAX_SEGMENTS bytes
-@secptrs=zp::tmp10			; 2*MAX_SECTIONS bytes
+@segptrs=r0		; 2*MAX_SEGMENTS bytes
+@secptrs=zp::tmp10 	; 2*MAX_SECTIONS bytes
+@filename=zp::link
+	stxy @filename
 	; init the segment/section pointers using the linker state defined by
 	; the link file
 	ldx numsegments
 	bne @initsegments
+
 	; TODO:create a default CODE segment
 	sec
 	rts
