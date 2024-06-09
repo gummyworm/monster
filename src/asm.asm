@@ -24,6 +24,32 @@
 .CODE
 
 ;******************************************************************************
+; START PASS
+; Resets assembly context in preparation for the given pass
+; IN:
+;  - .A: the pass # (1 or 2)
+.export __asm_startpass
+.proc __asm_startpass
+	sta zp::pass		; set pass #
+	cmp #$01
+	bne @pass2
+	sta state::verify	; verify for 1st pass
+
+	lda #$00
+	sta top			; set top of program to 0
+	sta top+1
+
+	jsr __asm_reset		; reset assembly state
+	rts
+@pass2:
+	jsr __asm_resetpc	; reset PC
+	jsr ctx::init		; re-init the context
+	lda #$00
+	sta state::verify	; don't verify (assemble)
+	rts
+.endproc
+
+;******************************************************************************
 ; ASSEMBLER OVERVIEW
 ; The assembler operates in 2 passes.
 ; Pass 1:
@@ -101,6 +127,10 @@ contextstacksp: .byte 0
 .export __asm_origin
 __asm_origin:
 origin: .word 0	; the lowest address in the program
+
+.export __asm_top
+__asm_top:
+top: .word 0	; the highest address in the program
 
 ;******************************************************************************
 ; ASMBUFFER
@@ -2392,7 +2422,13 @@ __asm_include:
 .proc incpc
 	incw zp::asmresult
 	incw zp::virtualpc
-	rts
+
+	; update the top pointer if we are at the top of the program
+	ldxy zp::asmresult
+	cmpw top
+	bcc :+
+	stxy top
+:	rts
 .endproc
 
 ;******************************************************************************

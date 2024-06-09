@@ -339,16 +339,16 @@ main:	jsr key::getch
 .proc assemble_file
 @filename=mem::backbuff
 	lda #<@filename
-	sta zp::tmp0
+	sta r0
 	lda #>@filename
-	sta zp::tmp0+1
+	sta r0+1
 	jsr str::copy		; copy .XY to (zp::tmp0)
 
 	jsr dbg::init
-	jsr asm::reset
 
 	lda #$01
-	sta state::verify	; verify for 1st pass
+	jsr asm::startpass
+
 	sta dbg::srcline
 	sta zp::gendebuginfo
 	sta zp::pass
@@ -368,11 +368,8 @@ main:	jsr key::getch
 	ldxy zp::asmresult
 	jsr dbg::endseg
 
-; reset state after 1st pass
-	dec state::verify	; disable verify (assemble the program)
-	inc zp::pass
-	jsr asm::resetpc	; reset PC
-	jsr ctx::init		; reinitialize the context
+	lda #$02
+	jsr asm::startpass	; get ready for pass 2
 
 ; store the debug segment info (if debug info is enabled)
 	ldx zp::gendebuginfo
@@ -414,8 +411,7 @@ main:	jsr key::getch
 ; do a pass on the source to simply get labels and basic debug info
 ; (# of lines and # of segments/file)
 @pass1:	lda #$01
-	sta state::verify	; verify 1st pass
-	sta zp::pass		; set pass number to 1
+	jsr asm::startpass
 
 @pass1loop:
 	ldxy src::line
@@ -442,11 +438,9 @@ main:	jsr key::getch
 	ldx zp::gendebuginfo
 	beq :+
 	jsr dbg::setup  ; we have enough info to init debug now
-
 :	jsr src::rewind
-	jsr asm::resetpc
-	jsr ctx::init
-	dec state::verify
+	lda #$02
+	jsr asm::startpass
 
 @pass2loop:
 	ldxy src::line
@@ -504,11 +498,12 @@ main:	jsr key::getch
 	pha
 	beq @success
 
-:	lda zp::asmresult
+	; get the size of the assembled program (top - origin)
+:	lda asm::top
 	sec
 	sbc asm::origin
 	pha
-	lda zp::asmresult+1
+	lda asm::top+1
 	sbc asm::origin+1
 	pha
 
@@ -1854,11 +1849,15 @@ __edit_set_breakpoint:
 .proc udgedit
 @cnt=zp::editortmp
 @save=zp::editortmp+1
+@result=r7
 @udg=r8
+	pushcur
+	jsr bm::save
 	CALL FINAL_BANK_UDGEDIT, #udg::edit
-	pha
+	sta @result
 	jsr bm::restore
-	pla
+	popcur
+	lda @result
 	cmp #$00
 	beq @ret		; no UDG created
 
@@ -2236,11 +2235,13 @@ goto_buffer:
 	.byte $78		; x - scratch file
 	.byte $61		; a - assemble file
 	.byte $44		; D - disassemble
+	.byte $50		; P - create .PRG
 @num_ex_commands=*-@ex_commands
 
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
-	command_load, rename, save, scratch, assemble_file, command_disasm
+	command_load, rename, save, scratch, assemble_file, command_disasm, \
+	command_savebin
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
@@ -2267,7 +2268,10 @@ goto_buffer:
 ; program (as of the most recent assembly) to that filename.
 ; Does nothing if no program has not been successfully assembled.
 .proc command_savebin
-
+	ldxy asm::top
+	stxy file::save_address_end
+	ldxy asm::origin	; get the base address of the program
+	jsr file::savebin	; write the binary to file
 .endproc
 
 ;******************************************************************************

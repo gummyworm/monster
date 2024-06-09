@@ -42,12 +42,13 @@ str9 = $39
 stra = $3a
 
 ;******************************************************************************
-; $40-$50 are used during assembly and disassembly
-asm          = $40	 ; base address of assembly tmp vars
-disasm       = $40	 ; base address of disassembly tmp vars
-pass         = $4c	 ; the pass of assembly being done (1 or 2)
-line         = $4d	 ; ptr to text being processed
+; $40-$50 are used during assembly, disassembly, and linking
+asm          = $40	; base address of assembly tmp vars
+disasm       = $40	; base address of disassembly tmp vars
+pass         = $4c	; the pass of assembly being done (1 or 2)
+line         = $4d	; ptr to text being processed
 gendebuginfo = $4f 	; flag to generate debug info
+link         = $40	; base address of linker temp storage
 
 ;******************************************************************************
 ; $50-$60 are used for labels
