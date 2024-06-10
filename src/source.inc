@@ -13,8 +13,10 @@
 .import __src_getflags
 .import __src_goto
 .import __src_get_filename
+.import __src_home
 .import __src_insert
 .import __src_isdirty
+.import __src_left
 .import __src_line
 .import __src_lines
 .import __src_next
@@ -64,8 +66,10 @@ GAPSIZE = 20	; size of gap in gap buffer
 	get            = __src_get
 	getflags       = __src_getflags
 	goto           = __src_goto
+	home           = __src_home
 	insert         = __src_insert
 	isdirty        = __src_isdirty
+	left           = __src_left
 	line           = __src_line
 	lines          = __src_lines
 	name           = __src_name

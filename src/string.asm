@@ -95,15 +95,16 @@ SLASH = SPECIAL_CHARS_START+2
 ; concatentates the two provided strings.
 ; IN:
 ;  - .XY: the string to concatentate to
-;  - zp::tmp0: the string to add to the end of the first
+;  - r0:  the string to add to the end of the first
 ; OUT:
-;  - .XY: the address to a buffer containing the combined string
-;  - .C: set if the string is too large (>40 chars)
+;  - .XY:         the address to a buffer containing the combined string
+;  - .C:          set if the string is too large (>40 chars)
+;  - linebuffer2: contains the result of the concatenation
 .export __str_cat
 .proc __str_cat
-@buff=$100
-@str1=zp::tmp2
-@str2=zp::tmp0
+@buff=mem::linebuffer
+@str1=r2
+@str2=r0
 	; copy the first string to the buffer
 	stxy @str1
 	ldy #$00

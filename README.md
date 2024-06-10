@@ -126,10 +126,12 @@ Most accept an argument (as described in each commands description below)
 |Key| Name          |   Args                          | Description                                                  |
 |---|---------------|---------------------------------|--------------------------------------------------------------|
 | a | Assemble File | Filename                        | assembles the given filename                                 | 
+| B | export Binary | Filename                        | exports the active assembly to a binary file (no .PRG header)|
 | d | Start Debugger| Symbol to debug at (optional)   | begins debugging at the given label                          | 
 | D | Disassemble   | Start address, End address      | Disassembles the given address range                         |
 | e | Edit          | Filename                        | loads the buffer with the contents of the given file         |
 | g | Goto          | Symbol to run at (optional)     | executes the program at the address of the given symbol      |
+| P | export .PRG   | Filename                        | exports the active assembly to a .PRG file                   |
 | r | Rename        | Name                            | renames the buffer to the given name                         |
 | s | Save          | Filename                        | saves the buffer to the given filename                       |
 | x | Scratch       | Filename                        | scratches (deletes) the given filename                       |
@@ -144,6 +146,12 @@ information _not_ the active file.
 
 Example:
 `:a HELLO.S`
+
+#### Export Binart (B)
+Exports the active assembly (F3/F4) to the given file as binary.  This means
+no load address is prepended to the file.  This can be useful if you are using
+Monster to create level data or other code loaded by your main program.  It
+can also be used to export things like data tables for use with .INCBIN
 
 #### Start Debugger
 Begins debugging at the given symbol using the active debug information.
@@ -170,6 +178,11 @@ Loads the given filename to a new buffer and activates it.
 
 Example:
 `:e HELLO.S`
+
+#### Export .PRG (P)
+Exports the active assembly (F3/F4) to the given file as a .PRG file.  This means
+a load address is prepended to the file prior to export.  This produces a
+standalone executable you can use when you are done working on your program.
 
 #### Rename (r)
 Renames the active buffer to the given name.

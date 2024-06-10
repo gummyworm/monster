@@ -30,8 +30,8 @@ data_start:
 sp: 	   .byte 0
 stack:     .res POS_STACK_SIZE
 
-.export src_debug
-src_debug:
+.export buffstate
+buffstate:
 pre:      .word 0		; # of bytes before the gap
 post:     .word 0		; # of bytes after the gap
 .export __src_line
@@ -41,13 +41,9 @@ line:     .word 0       	; the current line # for the cursor
 __src_lines:
 lines:    .word 0		; number of lines in the source
 len:  	  .word 0		; size of the buffer (pre+post+gap)
-data_end:
+SAVESTATE_SIZE = *-buffstate
 
-pres:     .res MAX_SOURCES*2    ; buffers for each source
-posts:    .res MAX_SOURCES*2    ; buffers for each source
-linenums: .res MAX_SOURCES*2 	; line #'s for each source
-linecnts: .res MAX_SOURCES*2	; number of lines in each source
-lens:	  .res MAX_SOURCES*2	; buffers for each source
+savestate:  .res MAX_SOURCES*10	; 10 bytes: pre, post, line, lines, len
 
 .export __src_names
 __src_names:
@@ -64,9 +60,9 @@ activesrc:  .byte 0		; index of active buffer (also bank offset)
 bank:	    .byte 0
 buffs_curx: .res MAX_SOURCES	; cursor X positions for each inactive buffer
 buffs_cury: .res MAX_SOURCES	; cursor Y positions for each inactive buffer
+banks:      .res MAX_SOURCES	; the corresponding bank for each buffer
 
 flags:	.res MAX_SOURCES	; flags for each source buffer
-banks:  .res MAX_SOURCES	; the corresponding bank for each buffer
 ;******************************************************************************
 
 ;******************************************************************************
@@ -80,8 +76,10 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 ; another source
 .export __src_save
 .proc __src_save
+@save=r0
 	; save the cursor position in the current buffer
 	ldx activesrc
+
 	lda zp::curx
 	sta buffs_curx,x
 	lda zp::cury
@@ -93,33 +91,20 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 
 	; save the data for the source we're switching from
 	txa
-	asl
-	tax
+	asl		; *2
+	asl		; *4
+	adc activesrc	; *5
+	asl		; *10
+	tay
 
-	lda pre
-	sta pres,x
-	lda pre+1
-	sta pres+1,x
-
-	lda post
-	sta posts,x
-	lda post+1
-	sta posts+1,x
-
-	lda len
-	sta lens,x
-	lda len+1
-	sta lens+1,x
-
-	lda lines
-	sta linecnts,x
-	lda lines+1
-	sta linecnts+1,x
-
-	lda line
-	sta linenums,x
-	lda line+1
-	sta linenums+1,x
+	; save the buffer state
+	ldx #$00
+@l0:	lda buffstate,x
+	sta savestate,y
+	iny
+	inx
+	cpx #SAVESTATE_SIZE
+	bne @l0
 
 	rts
 .endproc
@@ -128,56 +113,44 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 ; SET
 ; Sets the active source to the source in the given ID.
 ; IN:
-;  - .A: the source we're switching to
+;  - .A: the source buffer we're switching to
 ; OUT:
 ;  - .C: set if the buffer could not be switched to
 .export __src_set
 .proc __src_set
+@save=r0
 	; set the pointers to those of the source we're switching to
 	cmp numsrcs
 	bcc @ok
 	rts		; buffer doesn't exist; return with .C set
 
-@ok:	sta activesrc
-	asl
-	tax
+@ok:	tax
 
-	lda pres,x
-	sta pre
-	lda pres+1,x
-	sta pre+1
+	sta activesrc
+	asl		; *2
+	asl		; *4
+	adc activesrc	; *5
+	asl		; *10
+	tay
 
-	lda posts,x
-	sta post
-	lda posts+1,x
-	sta post+1
-
-	lda lens,x
-	sta len
-	lda lens+1,x
-	sta len+1
-
-	lda linecnts,x
-	sta lines
-	lda linecnts+1,x
-	sta lines+1
-
-	lda linenums,x
-	sta line
-	lda linenums+1,x
-	sta line+1
-
-	ldx activesrc
-
-	; restore bank
+	; set the active bank ID
 	lda banks,x
 	sta bank
 
-	; restore cursor position in the new source
-	ldy buffs_cury,x
+	; set the cursor position in the new source
+	lda buffs_cury,x
+	sta zp::cury
 	lda buffs_curx,x
-	tax
-	jsr cur::set
+	sta zp::curx
+
+	; restore the state for this buffer
+	ldx #$00
+@l0:	lda savestate,y
+	sta buffstate,x
+	iny
+	inx
+	cpx #SAVESTATE_SIZE
+	bne @l0
 
 	RETURN_OK
 .endproc
@@ -231,9 +204,9 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 	jsr __src_save	; save current source data
 @init:
 	; clear the state for the new buffer
-	ldx #data_end-data_start-1
+	ldx #SAVESTATE_SIZE-1
 	lda #$00
-:	sta data_start-1,x
+:	sta buffstate-1,x
 	dex
 	bne :-
 	lda #<GAPSIZE
@@ -331,22 +304,24 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 ;  - zp:tmp0-zp::tmp1
 .export __src_get_filename
 .proc __src_get_filename
-@name=zp::tmp0
 	asl			; * 16
 	asl
 	asl
 	asl
-	adc #<__src_names
-	sta @name
-	lda #$00
-	adc #>__src_names
-	sta @name+1
-	ldy #$00
-	lda (@name),y
-	bne :+
+	tax
+	lda __src_names,x
+	bne @named
+
+@noname:
 	ldxy #strings::noname
 	RETURN_ERR ERR_UNNAMED_BUFFER
-:	ldxy @name
+
+@named:	txa
+	adc #<__src_names
+	tax
+	lda #>__src_names
+	adc #$00
+	tay
 	RETURN_OK
 .endproc
 
@@ -395,54 +370,49 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 ; Closes the active buffer
 .export __src_close
 .proc __src_close
-@end=zp::tmp0
+@cnt=r0
+@end=r0
 ; get number of last byte to move (num_buffers)*2
 	lda numsrcs
 	bne :+
 	rts		; no buffer to close
 :	cmp #$01
-	bne :+
-; only one buffer open; re-initialize it
+	bne @close
+
+	; only one buffer open; re-initialize it to "close" it
 	dec numsrcs	; set num sources back to 0
-	jsr __src_new	; and initialize the buffer
+	jmp __src_new	; and initialize the buffer
 
-:	asl
-	sta @end
+@close:
+	; get the number of buffers to shift (numsrcs - activesrc - 1)
+	lda numsrcs
+	sbc #$01	; .C is set
+	sbc activesrc
+	sta @cnt
+	pha		; save this count for moving names
 
-; get first byte to shift down (active_buffer+1)*2
-	ldx activesrc
-	inx
-	cpx numsrcs
-	bcs @cont	; if this is last buffer, no need to shift
-
-	txa
-	asl
+	; get offset to start shifting at
+	lda activesrc
+	asl		; *2
+	asl		; *4
+	adc activesrc	; *5
+	asl		; *10
 	tax
-	pha
 
 @l0:	; copy all the buffers' data down
-	lda pres,x
-	sta pres-2,x
-
-	lda posts,x
-	sta posts-2,x
-
-	lda linenums,x
-	sta linenums-2,x
-
-	lda linecnts,x
-	lda linecnts-2,x
-
-	lda lens,x
-	sta lens-2,x
+	ldy #SAVESTATE_SIZE
+:	lda savestate+SAVESTATE_SIZE,x
+	sta savestate,x
 	inx
-	cpx @end
+	dey
+	bne :-
+	dec @cnt
 	bne @l0
 
 	; copy cursor data and banks down
 	ldx activesrc
 	inx
-:	lda banks,x
+@l1:	lda banks,x
 	sta banks-1,x
 	lda buffs_curx,x
 	sta buffs_curx-1,x
@@ -450,27 +420,27 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 	sta buffs_cury-1,x
 	inx
 	cpx numsrcs
-	bne :-
+	bne @l1
 
 	; copy the names down
-	pla
-	asl
-	asl
-	asl
+	lda activesrc
+	asl		; *2
+	asl		; *4
+	asl		; *8
+	asl		; *16
 	tax
 
-	lda numsrcs
-	asl
-	asl
-	asl
-	asl
-	sta @end
+	pla
+	sta @cnt
 
-:	lda names,x
-	sta names-16,x
+@l2:	ldy #MAX_BUFFER_NAME_LEN
+:	lda names+MAX_BUFFER_NAME_LEN,x
+	sta names,x
 	inx
-	cpx @end
+	dey
 	bne :-
+	dec @cnt
+	bne @l2
 
 @cont:	; if there is no next buffer, open the previous
 	dec numsrcs
@@ -479,8 +449,7 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 	bcc :+
 	dec activesrc
 :	lda activesrc
-	jsr __src_set
-@done:	rts
+	jmp __src_set
 .endproc
 
 ;******************************************************************************
@@ -490,22 +459,22 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 ;  - .XY: the 0-terminated name to set for the active buffer
 .export __src_name
 .proc __src_name
-@name=zp::tmp0
+@name=r0
 	stxy @name
 	lda activesrc
 	asl
 	asl
 	asl
-	asl
+	asl			; *16
 	tax
 	ldy #$00
-:	lda (@name),y
+@l0:	lda (@name),y
 	sta names,x
 	beq @done
 	inx
 	iny
 	cpy #MAX_BUFFER_NAME_LEN
-	bne :-
+	bne @l0
 @done:	rts
 .endproc
 
@@ -660,6 +629,35 @@ __src_pos = __src_start	 ; start implements the same behavior
 :	incw pre
 	decw post
  @skip:	jmp atcursor
+.endproc
+
+;******************************************************************************
+; HOME
+; Moves left until at the start of the source buffer or the start of the line
+.export __src_home
+.proc __src_home
+:	jsr __src_left
+	bcc :-
+	rts
+.endproc
+
+;******************************************************************************
+; LEFT
+; Moves left to the previous character unless it is a newline
+; OUT:
+;  - .C: set if the source cursor was unmoved
+;  - .A: the character at the new source cursor position
+.export __src_left
+.proc __src_left
+	jsr __src_prev
+	bcs @nomove
+	cmp #$0d
+	bne @done
+	jsr __src_next
+@nomove:
+	sec
+	rts
+@done:	RETURN_OK
 .endproc
 
 ;******************************************************************************

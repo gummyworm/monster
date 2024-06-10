@@ -2,9 +2,11 @@
 .import __file_getline
 .import __file_load_bin
 .importzp __file_load_address
-.import __file_loaddir
 .import __file_load_src
 .import __file_open
+.import __file_open_r
+.import __file_open_r_prg
+.import __file_open_w
 .import __file_readb
 .import __file_save_bin
 .importzp __file_save_address
@@ -19,8 +21,10 @@
 	getline          = __file_getline
 	loadbin          = __file_load_bin
 	loadaddr         = __file_load_address
-	loaddir          = __file_loaddir
 	loadsrc          = __file_load_src
+	open_r           = __file_open_r
+	open_r_prg       = __file_open_r_prg
+	open_w           = __file_open_w
 	open             = __file_open
 	readb            = __file_readb
 	save_address     = __file_save_address
