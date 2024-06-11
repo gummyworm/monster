@@ -510,6 +510,16 @@ main:	jsr key::getch
 	sbc asm::origin+1
 	pha
 
+	lda asm::top
+	pha
+	lda asm::top+1
+	pha
+
+	lda asm::origin
+	pha
+	lda asm::origin+1
+	pha
+
 @success:
 	jsr clrerror		; clear the error if there is one
 	ldxy #@success_msg
@@ -521,7 +531,7 @@ main:	jsr key::getch
 @asmdone:
 	RETURN_OK
 
-@success_msg: .byte "done $", $fe, " bytes", 0
+@success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0
 .endproc
 
 ;******************************************************************************
@@ -2301,27 +2311,22 @@ goto_buffer:
 ; IN:
 ;  - .XY: the argument to the command (filename)
 .proc command_saveprg
-@file=r0
-	jsr file::open		; open the output filename
-	bcs @done		; failed to open file
-	sta @file
+@file=r4
+	jsr file::open_w	; open the output filename
+	bcc :+
+	rts			; failed to open file
+:	sta @file
 
 	; write the .PRG header
+	tax
+	jsr $ffc9		; CHKOUT, file in .X is output
 	lda asm::origin
 	jsr $ffd2
 	lda asm::origin+1
 	jsr $ffd2
 
 	; write the assembled program
-	ldxy asm::top
-	stxy file::save_address_end
-	ldxy asm::origin	; get the base address of the program (in vmem)
-	lda @file
-	jsr file::savebin	; write the binary to file
-	bcs @done		; error
-	lda @file
-	jmp file::close		; close the file
-@done:	rts
+	jmp write_asm
 .endproc
 
 ;******************************************************************************
@@ -2332,20 +2337,33 @@ goto_buffer:
 ; IN:
 ;  - .XY: the argument to the command (filename)
 .proc command_savebin
-@file=r0
-	jsr file::open		; open the output filename
-	bcs @done		; failed to open file
-	sta @file
+@file=r4
+	jsr file::open_w	; open the output filename
+	bcc :+
+	inc $900f
+	rts			; failed to open file
+:	sta @file
+	; fall through
+.endproc
 
+;******************************************************************************
+; WRITE_ASM
+; Writes the assembled program to the file in r0
+; IN:
+;  - r0: the file handle to write out
+.proc write_asm
+@file=r4
 	; write the assembled program
 	ldxy asm::top
 	stxy file::save_address_end
 	ldxy asm::origin	; get the base address of the program (in vmem)
+	lda @file
 	jsr file::savebin	; write the binary to file
 	bcs @done		; error
 	lda @file
 	jmp file::close
-@done:	rts
+@done:	inc $900f
+	rts
 .endproc
 
 ;******************************************************************************

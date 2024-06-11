@@ -162,7 +162,7 @@ __file_load_src:
 	plp		; get EOF flag
 	bcc @save	; loop if !EOF
 	lda #$00	; no error
-	rts		; done
+	RETURN_OK	; done
 
 @error:	jmp io::readerr
 .endproc
@@ -174,12 +174,13 @@ __file_load_src:
 ; one.
 ; IN:
 ;  - .A:                      the file to save to
-;  - __file_save_address:     the start of the address range to save
-;  - __file_save_address_end: the end address to save
+;  - .XY:                     the start address to write from
+;  - __file_save_address_end: the end of the address range to save
 ; OUT:
 ;  .C: set on error, clear on success
 .export __file_save_bin
 .proc __file_save_bin
+	stxy __file_save_address
 	tax
 	jsr $ffc9	; CHKOUT (file in .X now uesd as output)
 	lda #$01
@@ -358,8 +359,8 @@ __file_load_src:
 ;  - .C: set on error
 .export __file_open
 .proc __file_open
-@file=zp::tmp2
-@filename=zp::tmp3
+@file=r2
+@filename=r3
 	sta secondaryaddr
 	lda zp::numfiles
 	cmp #MAX_OPEN_FILES
