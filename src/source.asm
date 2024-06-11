@@ -388,6 +388,7 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 	lda numsrcs
 	sbc #$01	; .C is set
 	sbc activesrc
+	beq @cont	; if this was the last buffer, skip shifting
 	sta @cnt
 	pha		; save this count for moving names
 

@@ -2354,6 +2354,7 @@ goto_buffer:
 ; Saves the active source buffer to the given filename.  If the overwrite
 ; flag ('@') is given, e.g. "s@ file.txt", then the existing file is
 ; overwritten if it exists
+; If no filename is given, then the buffer name is used as the filename
 .proc command_save
 @file=zp::tmp8
 	stxy @file
@@ -2362,19 +2363,28 @@ goto_buffer:
 	lda #STATUS_ROW
 	jsr text::print
 
+	ldxy @file
+	jsr str::len
+	bne @havename		; filename was given
+	lda src::activebuff
+	jsr src::filename	; get the buffer name and use it as the file
+	bcc :+
+
+	; err no filename
+	lda #ERR_NO_FILENAME
+	jmp report_typein_error
+
+:	stxy @file
+@havename:
 	lda overwrite
-	beq @cont		; if overwrite flag isn't set, continue
+	beq @open		; if overwrite flag isn't set, continue
 @scratch:
 	ldxy @file
 	jsr file::scratch	; (try to) delete the existing file
 	bcs @ret
 
-@cont:	ldxy @file
-	jsr src::name		; rename the buffer to the given name
-
 	; open the file, write the source to it, and close the file
-
-	ldxy @file
+@open:	ldxy @file
 	jsr file::open_w	; open file for writing
 	bcs @err
 	sta @file

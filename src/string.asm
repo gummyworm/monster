@@ -22,6 +22,7 @@ SLASH = SPECIAL_CHARS_START+2
 ;  - .YX: the string to get the length of
 ; OUT:
 ;  - .A: the length of the string
+;  - .Z: set if the string is empty (length 0)
 .export __str_len
 .proc __str_len
 @str=zp::str0
@@ -102,7 +103,7 @@ SLASH = SPECIAL_CHARS_START+2
 ;  - linebuffer2: contains the result of the concatenation
 .export __str_cat
 .proc __str_cat
-@buff=mem::linebuffer
+@buff=mem::spare
 @str1=r2
 @str2=r0
 	; copy the first string to the buffer
@@ -208,7 +209,7 @@ SLASH = SPECIAL_CHARS_START+2
 @tmp=zp::tmp0
 @tmp2=zp::tmp1
 @chars=zp::tmp2		; 3 bytes
-@dst=mem::linebuffer2
+@dst=mem::spare
 	stxy @rptr
 	ldxy #@dst
 	stxy @wptr
