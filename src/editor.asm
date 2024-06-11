@@ -1065,16 +1065,24 @@ main:	jsr key::getch
 	jmp @done
 
 :	jsr src::down		; go to the end of the line
+	php			; save EOF flag
 	bcs @l0			; if EOF, skip scroll up
-	inc zp::cury
+	inc zp::cury		; move cursor to row to scroll up
 	jsr bumpup		; scroll up
 
-@l0:	jsr src::backspace
-	jsr src::atcursor
+@l0:	jsr src::backspace	; delete a character
+	bcs :+			; at start of source buffer
+	jsr src::atcursor	; are we on a newline?
 	cmp #$0d
 	bne @l0
 
-	jsr src::get
+:	plp
+	bcc :+			; not EOF
+	dec zp::cury
+	jsr src::backspace
+	jsr src::up
+
+:	jsr src::get
 
 	ldx #$00
 	lda mem::linebuffer
@@ -1083,6 +1091,7 @@ main:	jsr key::getch
 	jsr src::next
 	ldx #TAB_WIDTH
 :	stx zp::curx
+
 @done:	lda #TEXT_REPLACE
 	sta text::insertmode
 	lda zp::cury
