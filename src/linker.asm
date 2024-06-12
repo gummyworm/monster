@@ -452,7 +452,7 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ;******************************************************************************
 ; OBJ_REL_WORD
 ; Handles the OBJ_REL_WORD command
-; Inserts a WORD with the value of the symobl that follows + an offset to
+; Inserts a WORD with the value of the symbol that follows + an offset to
 ; the current address of the segment pointer
 ; A textual representation of this command looks like this:
 ;  `RW LABEL 12`
