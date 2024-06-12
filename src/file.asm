@@ -182,7 +182,7 @@ __file_load_src:
 .proc __file_save_bin
 	stxy __file_save_address
 	tax
-	jsr $ffc9	; CHKOUT (file in .X now uesd as output)
+	jsr $ffc9	; CHKOUT (file in .X now used as output)
 	lda #$01
 	sta isbin	; flag that we're saving binary
 	jmp dosave
@@ -199,7 +199,7 @@ __file_load_src:
 .export __file_save_src
 .proc __file_save_src
 	tax
-	jsr $ffc9	; CHKOUT (file in .X now uesd as output)
+	jsr $ffc9	; CHKOUT (file in .X now used as output)
 	ldx #$00
 	stx isbin	; not binary
 	jmp dosave
