@@ -1,3 +1,33 @@
+;******************************************************************************
+; FILE.ASM
+; This file contains procedures to read/write to files to/from source or binary.
+; The pattern for file I/O is similar to the C standard or CBM DOS:
+;
+; ldx #<filename
+; ldy #>filename
+; jsr file::open
+; lda #'3'
+; jsr $ffd2
+; ...
+; jsr file::close
+;
+; We open a file, perform whatever reads/writes we wish, and then close it.
+;
+; File I/O behaves in two modes: binary and source. The mode is determined by
+; the isbin flag, internal to this file, but which is set by the procedure
+; that corresponds to the mode.  e.g. file::savebin writes using memory
+; and file::savesrc writes the active source file.
+;  - When reading binary files, the data goes directly to file::loadaddress
+;  - When readings source files, the data is read into whatever the active
+;    source file is (see source.asm)
+;  - When writing binary files, data is written to the file at file::saveaddress
+;  - When writing source files, data is written from the active source file.
+;
+; Note that the binary that gets written (file::writeb) comes from the virtual
+; memory (vmem.asm) and not the main program memory, which is where the editor
+; lives.
+;******************************************************************************
+
 .include "errors.inc"
 .include "finalex.inc"
 .include "io.inc"
@@ -21,174 +51,89 @@ kernal_sas   = $26d	; KERNAL secondary address table
 
 isbin        = zp::tmp17	; flag for binary save/load  to memory
 
+;******************************************************************************
 ; The address to load from during a binary LOAD
+; VOLATILE should be set immediately before calling
 .export __file_load_address
 __file_load_address = zp::tmpb
 
 ; The address to save to during a binary SAVE
+; VOLATILE should be set immediately before calling
 .export __file_save_address
 __file_save_address     = zp::tmpb
 .export __file_save_address_end
 __file_save_address_end = zp::tmpd
 
 ;******************************************************************************
-; LOADDIR
-; Loads the directory listing into mem::spare
-; OUT:
-;  - mem::spare+40: contains the directory listing
-;  - .C:            set on error, clear on success
-.export __file_loaddir
-.proc __file_loaddir
-	lda #$00
-	sta secondaryaddr
-	ldxy #(mem::spare+40)
-	stxy __file_load_address
-	ldxy #strings::dir
-	lda #$01
-	sta isbin
-	jmp load
-.endproc
-
-;******************************************************************************
 ; LOADBIN
 ; loads the given file into the given memory address
 ; IN:
-;  .XY:                the filename to load
-;  .A: 		       the length of the file
+;  .A:                      the file handle to load from
 ;  file::file_load_address: the address to load the file to
+; OUT:
+;  - .C: set on error
 .export __file_load_bin
 .proc __file_load_bin
-	pha
-	lda #$01
-	sta isbin
-	pla
-	jmp doload
+	ldx #$01
+	stx isbin
+	bne load
 .endproc
 
 ;******************************************************************************
 ; LOAD SOURCE
 ; loads the given file into a new source buffer
 ; IN:
-;  .XY: the filename to load
-;  .A: the length of the file
+;  - .A: the file handle to load from
+; OUT:
+;  - .C: set on error
 .export __file_load_src
 __file_load_src:
-@filename=zp::tmp10
-	stxy @filename
-	pha
-
-	jsr src::new
-	ldxy @filename
-	jsr src::name
-	lda #$00
-	sta isbin
-
-	pla
-	ldxy @filename
+	ldx #$00
+	stx isbin		; not binary (load to source buff)
+	sta secondaryaddr	; use handle as secondary address
 
 	; fall through
 
 ;******************************************************************************
-; DOLOAD
+; LOAD
 ; loads the given file into memory or a source buffer
 ; IN:
-;  .XY: the filename to load
-;  .A: the length of the file
+;  - .A the file handle
 ;  zp::tmpb: the address to load the file to
 ; OUT:
 ;  .C: set on error, clear on success
-.proc doload
-@filename=zp::tmp10
-@file=zp::tmp12
-	pha
-	stxy @filename
-
-; try to read from the file to make sure it exists before we do anything else
-	jsr __file_open
-	sta @file
-	bcc @ok
-@err:	jsr __file_close
-	tax
-	pla
-	txa
-	pha
-	jsr $ffe7	; CLALL
-	pla
-	sec
-	rts
-
-@ok:	ldxy #$120
-	jsr __file_getline
-	lda @file
-	bcs @err
-	jsr __file_close
-
-	lda #$03
-	sta secondaryaddr
-	ldxy @filename
-	pla
-	; fallthrough
-.endproc
-
-;--------------------------------------
-; LOAD
-; This entrypoint loads the open file (in file 3)
 .proc load
-@errcode=zp::tmpb
-	jsr $ffbd		; SETNAM
+	tax
+	jsr $ffc6     ; CHKIN (file in .X now used as input)
 
-	lda #$03		; file #3
-	ldx zp::device		; last used device number
-	ldy secondaryaddr 	; SA
-	jsr $ffba 		; SETLFS
-
-	jsr $ffc0 		; call OPEN
-	bcc @ok
-	pha
-	bcs @closepla
-
-@ok:    ldx #$03      ; filenumber 3
-	jsr $ffc6     ; CHKIN (file 2 now used as input)
-
-	; if dir, read load address
+	; if .PRG, read load address
 	lda secondaryaddr
 	bne @l0
-	jsr $ffb7
-	bne @error
-	jsr $ffcf
-	jsr $ffb7
-	and #$40
-	bne @error
-	jsr $ffcf
+	jsr $ffb7	; READST
+	bne @eof	; error/eof
+	jsr $ffcf	; CHRIN, read 1st byte
+	jsr $ffb7	; READST
+	bne @eof	; error/eof
+	jsr $ffcf	; CHRIN, read 2nd byte of load address
 
-@l0: 	jsr $ffb7     ; call READST (read status byte)
+@l0: 	jsr $ffb7	; call READST (read status byte)
 	cmp #$00
-	bne @eof      ; either EOF or read error
-	jsr $ffcf     ; call CHRIN (get a byte from file)
-	ldy isbin     ; skip conversions for binary LOAD
+	bne @eof	; either EOF or read error
+	jsr $ffcf	; call CHRIN (get a byte from file)
+	ldy isbin	; skip conversions for binary LOAD
 	bne @put
-	cmp #$0a      ; convert LF to CR
+	cmp #$0a	; convert LF to CR
 	bne @put
 	lda #$0d
 @put:	jsr putb	; write the byte to source/memory
 	jmp @l0		; and continue
 
 @eof:	eor #$40
-	beq @close	; if EOF, close with errcode 0
-
-@error:	jsr io::readerr
+	beq @noerr	; if EOF, return
+@error:
+	jsr io::readerr
 	txa
-@close: pha
-@closepla:
-	lda #$03      ; filenumber 3
-	jsr $ffc3     ; call CLOSE
-	jsr $ffcc     ; call CLRCHN
-	pla
-	cmp #$00
 	beq @noerr
-	pha
-	jsr src::close
-	pla
 	sec
 	rts
 @noerr: clc
@@ -201,72 +146,25 @@ __file_load_src:
 ; This is called by __file_save and __file_savebin after those routines
 ; initialize the flags necessary to save source or memory respectively.
 ; IN:
-;  .XY: the 0-terminated filename to save the buffer to
+;  - the file to wrtie out should be open (file::open_w)
 ; OUT:
-;  .C: set on error, clear on success
+;  - .C: set on error, clear on success
 .proc dosave
-@name=zp::tmp8
-@namelen=zp::tmpa
-@end=zp::tmpc
-@src=zp::tmpe
-@namebuff=mem::spare
-	sta @namelen
-	stxy @name
-
-	ldy #$00
-@setname:
-	lda (@name),y
-	beq @add_p_w
-	sta @namebuff,y
-	iny
-	bne @setname
-
-@add_p_w:
-	ldx #$00
-:	lda @p_w,x
-	sta @namebuff,y
-	iny
-	inx
-	cpx #@p_w_len
-	bcc :-
-	tya		; .A = name length
-
-@resave:
-	ldxy #@namebuff
-	jsr $ffbd 	; SETNAM
-	lda #$03
-	tay
-	ldx zp::device
-	jsr $ffba	; SETLFS
-
-	jsr $ffc0 	; call OPEN
-	bcs @error 	; if carry set, the file could not be opened
-
-	jsr io::readerr
-	cpx #$00
-	bne @error
-
-@drive_ok:
-	ldx #$03	; filenumber 3
-	jsr $ffc9	; CHKOUT (file 3 now used as output)
-
-	jsr src::rewind
+	ldx isbin
+	bne @save
+	jsr src::rewind	; if saving source, go back to the start of it
 
 @save:  jsr $ffb7       ; READST (read status byte)
-	bne @error	; error or EOF
+	bne @error	; error
 @chout: jsr getb
 	php		; save EOF flag
-	jsr $ffd2
+	jsr $ffd2	; write to file
 	plp		; get EOF flag
 	bcc @save	; loop if !EOF
+	lda #$00	; no error
+	RETURN_OK	; done
 
-@error:	jsr io::readerr
-	lda #$03      ; filenumber 3
-	jsr $ffc3     ; CLOSE
-	jsr $ffcc     ; call CLRCHN
-	RETURN_ERR ERR_IO_ERROR
-@p_w:	.byte ",p,w"
-@p_w_len=*-@p_w
+@error:	jmp io::readerr
 .endproc
 
 ;******************************************************************************
@@ -275,18 +173,18 @@ __file_load_src:
 ; NOTE: the address refers to the virtual memory address not the physical
 ; one.
 ; IN:
-;  - .XY:                     the filename to save the memory range to
-;  - .A:                      the length of the filename to save
-;  - __file_save_address:     the start of the address range to save
-;  - __file_save_address_end: the end address to save
+;  - .A:                      the file to save to
+;  - .XY:                     the start address to write from
+;  - __file_save_address_end: the end of the address range to save
 ; OUT:
 ;  .C: set on error, clear on success
 .export __file_save_bin
 .proc __file_save_bin
-	pha
+	stxy __file_save_address
+	tax
+	jsr $ffc9	; CHKOUT (file in .X now uesd as output)
 	lda #$01
-	sta isbin
-	pla
+	sta isbin	; flag that we're saving binary
 	jmp dosave
 .endproc
 
@@ -300,62 +198,11 @@ __file_load_src:
 ;  .C: set on error, clear on success
 .export __file_save_src
 .proc __file_save_src
-	pha
-	lda #$00
-	sta isbin
-	pla
-	jmp dosave
-.endproc
-
-;******************************************************************************
-; SCRATCH
-; Deletes the given filename
-; IN:
-;  .YX: the filename of the file to delete
-;  .A: the length of the file to delete
-.export __file_scratch
-.proc __file_scratch
-@sname=mem::linebuffer2
-@name=zp::tmp0
-	pha
-	stxy @name
-	lda #'s'
-	sta @sname
-	lda #':'
-	sta @sname+1
-
-	pla
-	tay
 	tax
-	dey
-:	lda (@name),y
-	sta @sname+2,y
-	dey
-	bpl :-
-
-	txa
-	clc
-	adc #$02
-	ldxy #@sname
-	jsr $ffbd 	; SETNAM
-	lda #$0f
-	ldy #$0f
-	ldx zp::device
-	jsr $ffba	; SETLFS
-	jsr $ffc0 	; OPEN 15,<device>,15 "S:FILE"
-	bcc @close
-	cmp #$00
-	bne @err
-
-@close: lda #15		; filenumber 3
-	jsr $ffc3	; CLOSE 15
-	jsr $ffcc	; CLRCHN
-	lda #$00	; no error
-	rts
-
-@err:   jsr io::readerr
-	jsr @close
-	RETURN_ERR ERR_IO_ERROR
+	jsr $ffc9	; CHKOUT (file in .X now uesd as output)
+	ldx #$00
+	stx isbin	; not binary
+	jmp dosave
 .endproc
 
 ;******************************************************************************
@@ -397,13 +244,15 @@ __file_load_src:
 .proc __file_getline
 	stxy __file_load_address
 	tax
-	jsr $ffc6     ; CHKIN (file in .A now used as input)
+	jsr $ffc6     ; CHKIN (file in .X now used as input)
 
 	ldy #$00
 @l0:	jsr __file_readb
 	bcs @ret	; return err
 	cmp #$0d
 	beq @done
+
+	; convert tab characters
 	cmp #$0a
 	beq @done
 	cmp #$09	; TAB
@@ -422,19 +271,97 @@ __file_load_src:
 .endproc
 
 ;******************************************************************************
+; SCRATCH
+; Deletes the given file
+; IN:
+;  - .XY: the 0-terminated filename of the file to open for deletion
+; OUT:
+;   - .C: set on error
+.export __file_scratch
+.proc __file_scratch
+	stx r0
+	sty r0+1
+
+	jsr init_drive
+
+	ldx #<@s_colon
+	ldy #>@s_colon
+	jsr str::cat	; s@:<filename>
+	lda #15		; SA (command channel)
+	jsr __file_open
+	bcs @err
+
+@close: lda #15		; filenumber 15 (command channel)
+	jsr $ffc3	; CLOSE 15
+	jsr $ffcc	; CLRCHN
+	lda #$00	; no error
+	RETURN_OK
+
+@err:   jsr io::readerr
+	jsr @close
+	RETURN_ERR ERR_IO_ERROR
+@s_colon:
+	.byte "s:",0
+.endproc
+
+;******************************************************************************
+; OPEN_W
+; Opens a file for writing
+; IN:
+;  - .XY: the 0-terminated filename to open for writing
+; OUT:
+;  - .A: the file handle
+;  - .C: set on error
+.export __file_open_w
+.proc __file_open_w
+	lda #<@p_w
+	sta r0
+	lda #>@p_w
+	sta r0+1
+	jsr str::cat	; filename + ",p,w"
+	lda #$03	; SA
+	jmp __file_open
+@p_w:	.byte ",p,w",0
+.endproc
+
+;******************************************************************************
+; OPEN_R
+; Opens a file for reading
+; IN:
+;  - .XY: the 0-terminated filename to open for writing
+; OUT:
+;  - .A: the file handle
+;  - .C: set on error
+.export __file_open_r
+.proc __file_open_r
+	lda #$03	; SA
+	bne __file_open
+.endproc
+
+;******************************************************************************
+; OPEN_R_PRG
+; Opens a file for reading as a .PRG
+.export __file_open_r_prg
+.proc __file_open_r_prg
+	lda #$00
+	; fall through
+.endproc
+
+;******************************************************************************
 ; OPEN
 ; Opens a file from disk, opens a channel and returns the handle to it.
-; you may call the read and write operations withe returned handle to interact
-; with it.
+; you may call the read and write operations with this handle
 ; IN:
 ;  - .XY: the 0-terminated filename of the file to open
+;  - .A:  the secondary address
 ; OUT:
-;  - .A: Containing the file handle
-;  - .C: Set on error
+;  - .A: the file handle
+;  - .C: set on error
 .export __file_open
 .proc __file_open
-@file=zp::tmp2
-@filename=zp::tmp3
+@file=r2
+@filename=r3
+	sta secondaryaddr
 	lda zp::numfiles
 	cmp #MAX_OPEN_FILES
 	bcc :+
@@ -445,30 +372,30 @@ __file_load_src:
 	jsr str::len
 	pha
 
-	; find a free file ID
+	; find a free file ID in KERNAL's file table
 	lda #FIRST_FILE_ID-1
 	sta @file
 @l0:	inc @file
-	lda @file
+	lda @file	; get an ID to try
 	ldx zp::numfiles
 @l1:	dex
-	bmi @found
-	cmp files,x
-	bne @l1
-	beq @l0
+	bmi @found	; file ID not found in table, it's free
+	cmp files,x	; is file ID already in table?
+	bne @l1		; check all entries
+	beq @l0		; if file ID matches another entry, try a new ID
 
-@found: ; store entry in files table
+@found:
 	pla		; get length of filename
 	ldxy @filename
 	jsr $ffbd	; SETNAM
 
-	lda @file	; file handle
-	ldx zp::device	; last used device number
-	ldy @file	; file #
-	jsr $ffba 	; SETLFS
-	jsr $ffc0 	; call OPEN
+	lda @file		; file handle
+	ldx zp::device		; last used device number
+	ldy secondaryaddr	; SA
+	jsr $ffba 		; SETLFS
+	jsr $ffc0 		; call OPEN
 	bcs @getopenerr
-	lda @file	; get file ID
+	lda @file	; get file ID that we opened
 	rts		; return it
 
 @getopenerr:
@@ -493,12 +420,31 @@ __file_load_src:
 ; Closes the file with the given handle.
 ; IN:
 ;  - .A: the file handle to close
+;  - .Z: clear on error
 .export __file_close
 .proc __file_close
-@file=zp::tmp0
 	sei
+	pha
 	jsr $ffc3
-	jmp $ffb7
+	pla
+	jmp $ffb7		; READST
+.endproc
+
+;******************************************************************************
+; INIT DRIVE
+; Initializes the drive
+.proc init_drive
+	ldxy #@i
+	lda #1
+	jsr $ffbd	; SETNAM
+	lda #15
+	ldx zp::device
+	ldy #15
+	jsr $ffba	; SETLFS
+	jsr $ffc0	; OPEN
+	lda #15
+	jmp $ffc3	; CLOSE
+@i:	.byte "I"
 .endproc
 
 ;******************************************************************************
@@ -540,6 +486,7 @@ __file_load_src:
 	beq @src
 
 	; if not loading to SOURCE, write to memory
+	ldy #$00
 	sta (__file_load_address),y
 	incw __file_load_address
 	rts

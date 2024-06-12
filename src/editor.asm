@@ -82,7 +82,7 @@ cmdreps: .byte 0	; number of times to REPEAT current command
 .export __edit_init
 .proc __edit_init
 	jsr bm::init
-	jsr bm::clr
+	jsr clear
 	jsr edit
 	jsr cancel
 
@@ -192,7 +192,8 @@ main:	jsr key::getch
 
 ;******************************************************************************
 ; COMMAND_GO
-; Begins execution at the address of the label given in .XY
+; :g <symbol>
+; Begins execution at the address of the given symbol.
 ; If no label is given (a 0-length string is given) then begins execution at
 ; the program's origin.
 ; IN:
@@ -234,6 +235,7 @@ main:	jsr key::getch
 
 ;******************************************************************************
 ; COMMAND_DISASM
+; :d <start addr>, <stop addr>
 ; Disassembles the given address range
 ; IN:
 ;  - .XY: address of a string containing the start and stop addresses (delimited
@@ -332,11 +334,12 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
-; ASSEMBLE FILE
+; COMMAND ASSEMBLE FILE
+; :a <filename>
 ; Assembles the given filename
 ; IN:
 ;  - .XY: the filename of the file to assemble
-.proc assemble_file
+.proc command_assemble_file
 @filename=mem::backbuff
 	lda #<@filename
 	sta r0
@@ -507,6 +510,16 @@ main:	jsr key::getch
 	sbc asm::origin+1
 	pha
 
+	lda asm::top
+	pha
+	lda asm::top+1
+	pha
+
+	lda asm::origin
+	pha
+	lda asm::origin+1
+	pha
+
 @success:
 	jsr clrerror		; clear the error if there is one
 	ldxy #@success_msg
@@ -518,7 +531,7 @@ main:	jsr key::getch
 @asmdone:
 	RETURN_OK
 
-@success_msg: .byte "done $", $fe, " bytes", 0
+@success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0
 .endproc
 
 ;******************************************************************************
@@ -929,7 +942,8 @@ main:	jsr key::getch
 ;******************************************************************************_
 .proc prev_empty_line
 	jsr home	; move back to column zero
-:	jsr src::start
+:	ldxy src::line
+	cmpw #1
 	beq @done
 	jsr ccup
 	jsr src::before_newl
@@ -1052,16 +1066,24 @@ main:	jsr key::getch
 	jmp @done
 
 :	jsr src::down		; go to the end of the line
+	php			; save EOF flag
 	bcs @l0			; if EOF, skip scroll up
-	inc zp::cury
+	inc zp::cury		; move cursor to row to scroll up
 	jsr bumpup		; scroll up
 
-@l0:	jsr src::backspace
-	jsr src::atcursor
+@l0:	jsr src::backspace	; delete a character
+	bcs :+			; at start of source buffer
+	jsr src::atcursor	; are we on a newline?
 	cmp #$0d
 	bne @l0
 
-	jsr src::get
+:	plp
+	bcc :+			; not EOF
+	dec zp::cury		; if we were at EOF, no newline was deleted
+	jsr src::backspace	; delete the newline
+	jsr src::up		; and go to the start of the, now, last line
+
+:	jsr src::get
 
 	ldx #$00
 	lda mem::linebuffer
@@ -1070,6 +1092,7 @@ main:	jsr key::getch
 	jsr src::next
 	ldx #TAB_WIDTH
 :	stx zp::curx
+
 @done:	lda #TEXT_REPLACE
 	sta text::insertmode
 	lda zp::cury
@@ -1397,7 +1420,7 @@ main:	jsr key::getch
 .proc home_line
 	jsr src::start	; at start of file?
 	beq @done	; if so, we're done
-@l0:	lda zp::cury
+@l0:	lda zp::cury	; top row?
 	beq @done
 	jsr ccup	; move UP until cursor is at top row
 	bcc @l0
@@ -1418,11 +1441,13 @@ main:	jsr key::getch
 :	jsr key::getch
 	beq :-
 	cmp #$67		; get second 'g' to confirm movement
-	beq :+
+	beq @top
 	cmp #$64		; 'd' (goto definition)
 	beq @gotodef
 @ret:	rts
-:	ldxy #1
+
+@top:	jsr home
+	ldxy #1
 	lda mode
 	cmp #MODE_VISUAL
 	bne @gotoline
@@ -1606,21 +1631,32 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; CLEAR
+; Clears the screen as well as any relevant state
+.proc clear
+	lda #CUR_OFF
+	sta cur::status
+	jmp bm::clr
+.endproc
+
+;******************************************************************************
 ; Refresh
 ; Redraws the screen
 .export __edit_refresh
 __edit_refresh:
 .proc refresh
 @saveline=zp::editortmp
-	jsr bm::clr
-	lda #CUR_OFF
-	sta cur::status
+	jsr clear
 
 	ldxy src::line
 	stxy @saveline
 
 	; move source/cursor to top-left of screen
-	jsr home_line
+	ldx zp::cury
+	ldy #$00
+	sty zp::cury
+	jsr src::upn
+	jsr src::home
 
 	; redraw the visible lines
 @l0:	jsr src::readline
@@ -1683,7 +1719,7 @@ __edit_refresh:
 	stxy @cnt
 
 @l0:	stx @row
-	jsr bm::clr
+	jsr clear
 @l1:	ldxy #$100
 	stxy zp::tmp0		; destination buffer for getname
 	ldxy @cnt
@@ -1999,7 +2035,6 @@ goto_buffer:
 
 @done:	jmp bm::restore
 
-@noname:       .byte "[no name]",0
 @buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
 .endproc
 
@@ -2011,7 +2046,8 @@ goto_buffer:
 ; modified to support as many.
 ; It could also easily be modified to support more (e.g. for the 1581)
 .proc dir
-@line=zp::tmp8
+@file=r8
+@line=r8
 @row=zp::tmpa
 @select=zp::tmpb
 @cnt=zp::tmpc
@@ -2019,10 +2055,21 @@ goto_buffer:
 @dirbuff=mem::spare+40		; 0-40 will be corrupted by text routines
 @namebuff=mem::spareend-40	; buffer for the file name
 @fptrs=mem::spareend-(128*2)	; room for 128 files
-
 	jsr bm::save
 
-	jsr file::loaddir
+	ldxy #strings::dir
+	jsr file::open_r_prg
+	sta @file
+	bcc :+
+@err:	rts			; error
+
+:	ldxy #@dirbuff
+	stxy __file_load_address
+	jsr file::loadbin
+	bcs @err
+	lda @file
+	jsr file::close
+
 	ldxy #@dirbuff+5
 	stxy @line
 
@@ -2169,10 +2216,12 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
-; Rename
-; Gets user input to rename the buffer and applies the new name.
-.proc rename
-	jmp src::name		; renmae to the buffer in .XY
+; COMMAND RENAME
+; :r <filename>
+; Renames the current source buffer to the given name. Does NOT save the
+; file, only the buffer.
+.proc command_rename
+	jmp src::name		; rename to the name in .XY
 .endproc
 
 ;******************************************************************************=
@@ -2235,13 +2284,14 @@ goto_buffer:
 	.byte $78		; x - scratch file
 	.byte $61		; a - assemble file
 	.byte $44		; D - disassemble
+	.byte $42		; B - create .BIN
 	.byte $50		; P - create .PRG
 @num_ex_commands=*-@ex_commands
 
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
-	command_load, rename, save, scratch, assemble_file, command_disasm, \
-	command_savebin
+	command_load, command_rename, command_save, command_scratch, \
+	command_assemble_file, command_disasm, command_savebin, command_saveprg
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
@@ -2263,48 +2313,115 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
-; SAVE BIN
-; Prompts the user for a filename then saves the contents of the assembled
-; program (as of the most recent assembly) to that filename.
+; SAVE PRG
+; :P <filename>
+; Stores the assembled program as a .PRG file to <filename>. This is the
+; 2 byte load address (asm::origin) followed by the raw program binary
 ; Does nothing if no program has not been successfully assembled.
-.proc command_savebin
-	ldxy asm::top
-	stxy file::save_address_end
-	ldxy asm::origin	; get the base address of the program
-	jsr file::savebin	; write the binary to file
+; IN:
+;  - .XY: the argument to the command (filename)
+.proc command_saveprg
+@file=r4
+	jsr file::open_w	; open the output filename
+	bcc :+
+	rts			; failed to open file
+:	sta @file
+
+	; write the .PRG header
+	tax
+	jsr $ffc9		; CHKOUT, file in .X is output
+	lda asm::origin
+	jsr $ffd2
+	lda asm::origin+1
+	jsr $ffd2
+
+	; write the assembled program
+	jmp write_asm
 .endproc
 
 ;******************************************************************************
-; SAVE
-; Prompts the user for a filename and writes the source buffer to a file of
-; the given name.
-.proc save
-@len=zp::tmp7
+; SAVE BIN
+; :B <filename>
+; Stores the assembled program as raw binary to <filename>
+; Does nothing if no program has not been successfully assembled.
+; IN:
+;  - .XY: the argument to the command (filename)
+.proc command_savebin
+@file=r4
+	jsr file::open_w	; open the output filename
+	bcc :+
+	inc $900f
+	rts			; failed to open file
+:	sta @file
+	; fall through
+.endproc
+
+;******************************************************************************
+; WRITE_ASM
+; Writes the assembled program to the file in r0
+; IN:
+;  - r0: the file handle to write out
+.proc write_asm
+@file=r4
+	; write the assembled program
+	ldxy asm::top
+	stxy file::save_address_end
+	ldxy asm::origin	; get the base address of the program (in vmem)
+	lda @file
+	jsr file::savebin	; write the binary to file
+	bcs @done		; error
+	lda @file
+	jmp file::close
+@done:	inc $900f
+	rts
+.endproc
+
+;******************************************************************************
+; COMMAND SAVE
+; :s[@] <filename>
+; Saves the active source buffer to the given filename.  If the overwrite
+; flag ('@') is given, e.g. "s@ file.txt", then the existing file is
+; overwritten if it exists
+; If no filename is given, then the buffer name is used as the filename
+.proc command_save
 @file=zp::tmp8
 	stxy @file
-	jsr str::len
-	sta @len
 
 	ldxy #strings::saving
 	lda #STATUS_ROW
 	jsr text::print
 
+	ldxy @file
+	jsr str::len
+	bne @havename		; filename was given
+	lda src::activebuff
+	jsr src::filename	; get the buffer name and use it as the file
+	bcc :+
+
+	; err no filename
+	lda #ERR_NO_FILENAME
+	jmp report_typein_error
+
+:	stxy @file
+@havename:
 	lda overwrite
-	beq @cont	; if overwrite flag isn't set, continue
+	beq @open		; if overwrite flag isn't set, continue
 @scratch:
 	ldxy @file
-	jsr scratch	; (try to) delete the existing file
+	jsr file::scratch	; (try to) delete the existing file
 	bcs @ret
 
-@cont:	ldxy @file
-	jsr src::name		; rename the buffer to the given name
-
-	jsr src::rewind
-
-	lda @len
-	ldxy @file
+	; open the file, write the source to it, and close the file
+@open:	ldxy @file
+	jsr file::open_w	; open file for writing
+	bcs @err
+	sta @file
+	jsr src::pushp		; save current source pos
+	lda @file
 	jsr file::savesrc	; save the buffer
-
+	jsr src::popp		; restore source pos
+	lda @file
+	jsr file::close		; close the file
 	cmp #$00
 	bne @err
 
@@ -2319,29 +2436,23 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
-; SCRATCH
+; COMMAND SCRATCH
+; :x <filename>
 ; Deletes the given file
 ; IN:
 ;  - .XY: the filename of the file to delete
-.proc scratch
-@len=zp::tmp7
+.proc command_scratch
 @file=zp::tmp8
 	stxy @file
-
-	; get the file length
-	jsr str::len
-	sta @len
 
 	ldxy #strings::deleting
 	lda #STATUS_ROW
 	jsr text::print
 
 	ldxy @file
-	lda @len
 	jsr file::scratch
-	cmp #$00
-	bne @err
-@ret:	RETURN_OK	; no error
+	bcs @err
+@ret:	rts		; no error
 
 @err:	pha
 	ldxy #strings::edit_file_delete_failed
@@ -2391,7 +2502,6 @@ goto_buffer:
 	; get the file length
 	ldxy @file
 	jsr str::len
-	pha
 
 	; display loading...
 	ldxy #strings::loading
@@ -2400,9 +2510,15 @@ goto_buffer:
 
 	; load the file
 	ldxy @file
-	pla
+	jsr file::open
+	bcs @err		; failed to load file
+	pha			; save file handle
+	jsr src::new
+	pla			; get the file handle
 	jsr file::loadsrc	; load to SOURCE buff
 	bcs @err
+	ldxy @file
+	jsr src::name
 
 	jsr src::setflags	; clear flags on the source buffer
 	jsr src::rewind		; rewind the source
@@ -2413,7 +2529,7 @@ goto_buffer:
 	jsr enter_command
 	RETURN_OK
 
-@err:	pha
+@err:	pha			; push error code
 	ldxy #strings::edit_file_load_failed
 	lda #STATUS_ROW-1
 	jsr text::print

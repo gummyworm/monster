@@ -434,7 +434,6 @@ num_illegals = *-illegal_opcodes
 	jsr dbg::toggle_breakpoint	; set the breakpoint
 	incw zp::line			; advance line beyond the breakpoint
 
-
 :	jsr process_ws
 	beq @noasm 	; empty line
 
@@ -820,24 +819,12 @@ num_illegals = *-illegal_opcodes
 @dbg:	jsr storedebuginfo
 
 ;------------------
-; update virtualpc by (1 + operand size)
-@updatevpc:
-	lda operandsz
-	sec			; +1
-	adc zp::virtualpc
-	sta zp::virtualpc
-	bcc @updatepc
-	inc zp::virtualpc+1
-
-;------------------
-; update asmresult pointer by (1 + operand size)
+; update virtualpc and asmresult by (1 + operand size)
 @updatepc:
-	lda operandsz
-	sec			; +1
-	adc zp::asmresult
-	sta zp::asmresult
-	bcc @retop
-	inc zp::asmresult+1
+	ldx operandsz
+	inx
+	txa
+	jsr addpc		; add operand size + 1 to assembly pointers
 
 @retop:	lda #ASM_OPCODE
 	RETURN_OK
@@ -1284,20 +1271,10 @@ num_illegals = *-illegal_opcodes
 	dey
 	bpl :-
 
+	; update program pointers
+	inx
 	txa
-	sec
-	adc zp::virtualpc
-	sta zp::virtualpc
-	bcc :+
-	inc zp::virtualpc+1
-
-; update program pointer
-:	txa
-	sec			; +1
-	adc zp::asmresult
-	sta zp::asmresult
-	bcc @commaorws
-	inc zp::asmresult+1
+	jsr addpc
 
 @commaorws:
 	ldy #$00
@@ -1334,8 +1311,8 @@ num_illegals = *-illegal_opcodes
 	jsr writeb
 	bcs @ret		; return error
 
-	jsr incpc
-	jsr incpc
+	lda #$02
+	jsr addpc
 @commaorws:
 	ldy #$00
 	lda (zp::line),y
@@ -2414,6 +2391,36 @@ __asm_include:
 	sta contextstack,x
 	sta ctx::type
 	rts
+.endproc
+
+;******************************************************************************
+; ADD_PC
+; Adds the given value to the virtual PC and asmresult pointers
+; IN:
+;  - .A: the value to add to the assembly pointers (virtualpc and asmresult)
+.proc addpc
+@a=r0
+	sta @a
+	clc
+	adc zp::asmresult
+	sta zp::asmresult
+	lda zp::asmresult+1
+	bcc :+
+	inc zp::asmresult+1
+:	lda zp::virtualpc
+	clc
+	adc @a
+	sta zp::virtualpc
+	bcc :+
+	inc zp::virtualpc+1
+
+:	; update the top pointer if we are at the top of the program
+	ldxy zp::asmresult
+	cmpw top
+	bcc :+
+	stxy top
+
+:	rts
 .endproc
 
 ;******************************************************************************

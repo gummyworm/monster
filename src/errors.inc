@@ -49,14 +49,15 @@ ERR_DRIVE_DID_NOT_RESPOND = 30
 
 ;******************************************************************************
 ERR_UNNAMED_BUFFER = 31
-ERR_NO_OPEN_SCOPE  = 32
-ERR_LABEL_ALREADY_DEFINED = 33
+ERR_NO_FILENAME   = 32
+ERR_NO_OPEN_SCOPE  = 33
+
+ERR_LABEL_ALREADY_DEFINED = 34
 
 ;******************************************************************************
 ; linker errors
-ERR_SECTION_TOO_SMALL = 34
-ERR_NO_SECTIONS = 35
-
+ERR_SECTION_TOO_SMALL = 35
+ERR_NO_SECTIONS = 36
 
 .import __err_get
 

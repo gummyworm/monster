@@ -75,9 +75,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	ldx #<mem::statusline
 	ldy #>mem::statusline
 	lda #STATUS_LINE
-	jsr __text_puts
-	lda #STATUS_LINE
-	jmp bm::rvsline
+	jmp __text_puts
 .endproc
 
 ;******************************************************************************

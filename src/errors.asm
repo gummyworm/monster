@@ -131,6 +131,10 @@ err_unnamed_buffer:
 	;.byte "unnamed buffer",0
 	.byte $ab,$8e,$b,$45,$26,$c2,$a9,$86,$2c,$80
 
+err_no_filename:
+	;.byte "no file name",0
+	.byte $73,$db,$32,$4c,$2e,$ce,$b,$45,$0
+
 err_no_open_scope:
 	; .byte "no open scope",0
 	.byte $73,$db,$7c,$5,$76,$d3,$1b,$d0,$28,$0
@@ -174,6 +178,7 @@ err_label_already_defined:
 	err_logical_file_in_use, \
 	err_drive_did_not_respond, \
 	err_unnamed_buffer, \
+	err_no_filename, \
 	err_no_open_scope, \
 	err_label_already_defined
 .linecont -

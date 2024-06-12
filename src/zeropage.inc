@@ -84,11 +84,14 @@ bankaddr0    = $a6
 bankaddr1    = $a8
 
 ;******************************************************************************
-; $ac-$ba is reserved for text displaying/bitmap stuff
+; $ac-$b8 is reserved for text displaying/bitmap stuff
 text = $ac
 
 ;******************************************************************************
-; $ba-$c0 reserved for file stuff
+; $b8-$c0 reserved for file stuff
+lfs    = $b8	; active logical file (SETLFS)
+sa     = $b9	; active secondary address (SETLFS)
+		; NOTE: secondary addresses must be unique for each open file
 device = $ba	; the last used drive #
 file   = $bb	; the most recently accessed file
 
