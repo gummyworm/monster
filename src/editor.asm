@@ -942,8 +942,7 @@ main:	jsr key::getch
 ;******************************************************************************_
 .proc prev_empty_line
 	jsr home	; move back to column zero
-:	ldxy src::line
-	cmpw #1
+:	jsr on_line1
 	beq @done
 	jsr ccup
 	jsr src::before_newl
@@ -952,12 +951,22 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************_
+; ON_LINE_1
+; OUT:
+;  - .Z: set if we're on the 1st line of the source
+.proc on_line1
+	ldxy src::line
+	cmpw #1
+	rts
+.endproc
+
+;******************************************************************************_
 .proc next_empty_line
 	jsr home	; move back to column zero
 :	jsr src::end
 	beq @done
 	jsr ccdown
-	jsr src::atcursor
+	jsr src::after_cursor
 	cmp #$0d
 	bne :-
 @done:	rts
@@ -1059,8 +1068,7 @@ main:	jsr key::getch
 	jsr text::linelen
 	cpx #$00
 	bne :+
-	ldxy src::line
-	cmpw #1
+	jsr on_line1
 	beq :+			; if we are on first line, do normal behavior
 	jsr backspace
 	jmp @done
