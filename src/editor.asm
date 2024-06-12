@@ -942,7 +942,8 @@ main:	jsr key::getch
 ;******************************************************************************_
 .proc prev_empty_line
 	jsr home	; move back to column zero
-:	jsr src::start
+:	ldxy src::line
+	cmpw #1
 	beq @done
 	jsr ccup
 	jsr src::before_newl
@@ -1078,9 +1079,9 @@ main:	jsr key::getch
 
 :	plp
 	bcc :+			; not EOF
-	dec zp::cury
-	jsr src::backspace
-	jsr src::up
+	dec zp::cury		; if we were at EOF, no newline was deleted
+	jsr src::backspace	; delete the newline
+	jsr src::up		; and go to the start of the, now, last line
 
 :	jsr src::get
 
