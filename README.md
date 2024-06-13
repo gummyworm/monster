@@ -136,7 +136,7 @@ Most accept an argument (as described in each commands description below)
 | s | Save          | Filename                        | saves the buffer to the given filename                       |
 | x | Scratch       | Filename                        | scratches (deletes) the given filename                       |
 
-#### Assemble File (a)
+#### Assemble File :a <filename>
 Assembles the contents of the given file. This is functionally the same as opening
 the given file and assembling it with debug information (F4).
 
@@ -147,13 +147,13 @@ information _not_ the active file.
 Example:
 `:a HELLO.S`
 
-#### Export Binart (B)
+#### Export Binary :B <filename>
 Exports the active assembly (F3/F4) to the given file as binary.  This means
 no load address is prepended to the file.  This can be useful if you are using
 Monster to create level data or other code loaded by your main program.  It
 can also be used to export things like data tables for use with .INCBIN
 
-#### Start Debugger
+#### Start Debugger :d [symbol]
 Begins debugging at the given symbol using the active debug information.
 
 If no symbol is given, the program will
@@ -164,32 +164,32 @@ details on debugging.
 Example:
 `:d START`
 
-#### Disassemble (D)
+#### Disassemble :D <start address>, <end address>
 Disassembles the contents of the _virtual_ memory between the given range.
 e.g. `:D $1001, $1040`.
 Expressions may be used in addition to literal addresses. 
 This could be useful if your program modifies itself at runtime. 
 
 Example:
-`:D PSTART, PEND`
+`:D PROC, PEND`
 
-#### Edit (e)
+#### Edit :e <filename>
 Loads the given filename to a new buffer and activates it.
 
 Example:
 `:e HELLO.S`
 
-#### Export .PRG (P)
+#### Export .PRG :P <filename>
 Exports the active assembly (F3/F4) to the given file as a .PRG file.  This means
 a load address is prepended to the file prior to export.  This produces a
 standalone executable you can use when you are done working on your program.
 
-#### Rename (r)
+#### Rename :r <buffername>
 Renames the active buffer to the given name.
 Example:
 `:r TEST2.S`
 
-#### Save (s)
+#### Save :s <filename>
 Saves the active buffer to a file with the given name.  If no name is given,
 the active buffer's name is used.
 
@@ -200,7 +200,7 @@ Examples:
 `:s NEW.S`
 `:s@ OLD.S`
 
-#### Scratch (x)
+#### Scratch :x <filename>
 Deletes the file of the given name.
 Example:
 `:x TEST.S`
@@ -292,16 +292,15 @@ The assembler syntax is very similar to any other major assembler.  For basic
 instructions, the canonical 6502 assembly syntax is supported.  That means '$'
 denotes a hex value, '#' and immediate operand, parentheses an indirect address,
 etc.
-:vs
+
 ### Expressions
 Operands, in addition to basic values and labels, may contain an expression,
-which is evaluated to a value to generate the operand for the generated
-binary.
+which is evaluated at assemble-time to a value.
 
-('+', '-', '\*', '/' respectively), which are evaluated with proper operator 
-precedence.
+The supproted operators are: '+', '-', '*', and '/'. Multiplication and division
+have higher precedence than addition and subtraction.
 
-Expressions may contain parentheses, which are evaluated as you would expect,
+Expressions may also contain parentheses, which are evaluated as you would expect,
 but note that if the entire expression is enclosed in parentheses, the 
 assembler will interpret this as indirect addressing. For example: 
 ```
@@ -309,26 +308,35 @@ JMP (1+3)	; jump-indirect to the address in memory address (4)
 JMP 1+3 	; jump-absolute to address 4
 ```
 
-Immediate-addressing makes no sense with indirect addressing mode, so the assembler
-will allow you to enclose the whole expression in parentheses for expressions
-that are defined with a '#' prefix (e.g. `LDA #(2+4)`)
+Immediate addressing and indirect addressing are mutually exclusive, so the assembler
+will allow you to enclose the whole expression in parentheses for immediate expressions
+prefixed with a '#' (e.g. `LDA #(2+4)`)
 
-In addition to hexadecimal values, decimal values, and labels, character literals
-may be used in expressions. These are represented as a character enquoted within
+Labels are supported in expressions and will evaluate to their address when assembled.
+```
+LDA #<LABEL1
+```
+
+Hexadecimal and decimal numbers are supported.  Hexadecimal numbers must be prefixed
+with a '$'.
+```
+LDA #(10+$20)
+```
+
+Character literals are also supported. These are represented as a character enquoted within
 single quotes.
 ```LDA #'x'```
 Character literals must contain exactly one character and always resolve to
 a 1 byte value.
 
 ## Formatting
-Spacing is not important, but instructions are auto-formatted to be indented
-by two spaces.  Labels and directives are, by convention, not indented.  The
-formatter will also take care of this.
+Spacing is not important, but instructions are auto-formatted so that they are TAB indented.  
+Labels and directives are, by convention, not indented. The formatter will also take care of this.
 
 ## Labels
 Labels begin with either an alpha-character or, in the case of _local_
 labels, a '@' character.  They are limited to 8 characters, which is primarily
-a formatting consideration (this limitation allows _all_ labels to coexist with
+a formatting consideration (this limitation allows all labels to coexist with
 an instruction on a single line without bumping the instruction beyond its
 normal home in column 10.
 
@@ -364,7 +372,6 @@ PLAYER
 GAME:
 	LDA PLAYER@X
 ```
-
 
 ## Directives
 Directives begin with a `.` character and instead of being directly assembled,
