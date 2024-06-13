@@ -340,6 +340,7 @@ a formatting consideration (this limitation allows all labels to coexist with
 an instruction on a single line without bumping the instruction beyond its
 normal home in column 10.
 
+#### Local Labels
 Local labels are defined by prefixing the label with a '@' symbol.  This _does_
 count toward the 8-character label limit.
 Local labels are valid until the next non-local label is defined as shown in
@@ -372,6 +373,33 @@ PLAYER
 GAME:
 	LDA PLAYER@X
 ```
+
+#### Anonymous Labels
+Anonymous labels can be declared with ':'.
+Anonymous labels are useful when you need to do a short branch where
+a descriptive label name isn't necessary.
+
+A colon followed by a + or - character is used to reference these
+labels.  Pluses (+) refers to the next _forward_ anonymous label and
+minuses (-) refer to the previous _backward_ anonymous label.
+
+for example
+```
+    .ORG $1000
+:   JMP :+      ; JMP $1003
+:   JMP :-      ; JMP $1000
+```
+
+Using multiple +'s or -'s will count the same number of references before landing
+on the corresponding anonymous label.
+for example:
+```
+    JMP :+++
+:   nop
+:   nop
+:   nop         ; will jump here
+```
+
 
 ## Directives
 Directives begin with a `.` character and instead of being directly assembled,
@@ -654,34 +682,22 @@ key returns to the debugger.
 
 https://github.com/gummyworm/monster/assets/4626914/840f5d66-03cb-4daf-9ed2-41a4d37d4c2d
 
-
 The debugger allows you to step through code, set breakpoints, and watch
-data as you execute your program.  Due to the size of the data needed to 
-store the debug information, this feature requires a Final Expansion
-(512k RAM expansion).
+data as you execute your program.  
 
-The debugger is enabled by pressing the `C= + D` key combination.
-This will prompt the user for a label name, which will be used as the start
-address for debugging.  If no label name is provided, execution will begin
-at the base origin of the program (the _lowest_ value set by any `.ORG`
-directive)
-
-When you enter the debugger, you will be presented with a view of the state
-of the processor at the current step or breakpoint.
+Upon entering the debugger, a view of the system state is displayed at the
+current step or breakpoint.
 This include the state of the registers (A, X, Y, P, SP, and PC) as well as
 any effective address that was calculated for reading/writing by the last
 instruction.
 
 While debugging, most navigation commands work as normal. Breakpoints may
 be set as they would in the editor prior to assembly, and they will be installed
-in realtime.
+in realtime.  Other edits are not allowed, however, while the debugger is active.
 
 Both the debugger and the user program's RAM is saved/restored when control
 transfers between the two. That is the screen data ($1000-$2000), the zeropage,
 and color RAM.
-
-Editor navigation behaves as normal while debugging (albeit with slightly less
-real estate due to the debug information displayed at the bottom of the screen.)
 
 ---
 
@@ -790,12 +806,12 @@ screen will briefly flash with the state of the user program.
 
 ## Auxiliary Views
 Within the debugger, there are 3 auxiliary views that may be activated with the
-function keys.  Each shows information about the machine or debug state that
-may be useful to the user. Each viewer also contains an editor, which is
-activated with the keys enumerated below next to their corresponding editor.
+function keys.  Each shows information about the machine or debug state.
+Each viewer also contains an editor, which is activated with the keys enumerated 
+below next to their corresponding editor.
 
 Pressing the `<-` key will return the user from the auxiliary editor to the
-source code editor.  And `F1` will hide the active viewer to maximize the
+source code editor.  And `F1` will hide the active view to maximize the
 source editor's screen size.
 
 ### Memory Viewer (`F3` while debugging)
@@ -879,8 +895,8 @@ back to the watch editor.
 ## Breakpoints
 Breakpoints may be set/removed during both normal editing and while debugging.
 Setting a breakpoint inserts a special character into the source buffer, which 
-tells the assembler, during assembly, to generate a breakpoint for the line
-that this character resides on.
+tells the assembler to generate a breakpoint for the line that this character 
+resides on.
 
 Because the breakpoint is represented as a character within the source code itself,
 it will automatically move as lines are inserted and deleted.  The character itself
@@ -889,7 +905,7 @@ it by toggling the breakpoint off _or_ by deleting the entire line.
 
 *NOTE:* Debug information is only generated for instructions _NOT data_.  This means
 that, for example, you can set a breakpoint on `LDA #$00` or a macro that expands
-to such an instruction, but setting one on `.DB $00` will have _no_ effect.
+to such an instruction, but setting one on `.DB $00` has no effect.
 
 ### Toggle Breakpoint (`C= + b`)
 During normal editing, breakpoints may be set and removed  with the `C= + b` key combination.
@@ -902,13 +918,13 @@ if it is pressed while on a line that already has one.
 
 ## Watches
 Watches are set within the memory editor (`F3`). When the cursor is over the
-desired byte to watch, the user may press `C= + w` to add a watch to the
-address of the byte under the cursor.  A beep will confirm that the watch
-was added, and the watch may be seen by activating the watch editor (`F7`).
+desired byte to watch, the press `C= + w` to add a watch to the address of the 
+byte under the cursor.  A beep will confirm that the watch
+was added.
 
-The viewer will display the old value and what it was changed to.
+The watch editor (`F7`) shows all active watches. This window displays the old 
+value of a watch and what it was changed to when it is updated.
 
 When a value is changed the watch view is activated to alert the user to the
 alteration.  If a read or write is detected while stepping _into_ the code,
-we also activate the viewer.  
-
+the viewer is also activated.

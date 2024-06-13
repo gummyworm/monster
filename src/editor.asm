@@ -394,6 +394,7 @@ main:	jsr key::getch
 	jsr dbg::init
 
 	; save the current source position and rewind it for assembly
+	jsr text::savebuff
 	jsr src::pushp
 	jsr src::rewind
 	jsr asm::reset
@@ -466,12 +467,7 @@ main:	jsr key::getch
 	jsr display_result	; dispaly success msg
 	jsr src::popp
 	jsr src::goto
-	lda zp::curx
-	beq :+
-	jsr src::up
-:	jsr src::get
-	ldx #$00
-	stx zp::curx
+	jsr text::restorebuff	; restore the linebuffer
 
 	RETURN_OK
 .endproc

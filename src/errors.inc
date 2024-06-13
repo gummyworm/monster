@@ -49,10 +49,11 @@ ERR_DRIVE_DID_NOT_RESPOND = 30
 
 ;******************************************************************************
 ERR_UNNAMED_BUFFER = 31
-ERR_NO_FILENAME   = 32
+ERR_NO_FILENAME    = 32
 ERR_NO_OPEN_SCOPE  = 33
 
 ERR_LABEL_ALREADY_DEFINED = 34
+ERR_TOO_MANY_LABELS       = 35
 
 ;******************************************************************************
 ; linker errors

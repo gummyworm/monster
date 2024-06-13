@@ -21,6 +21,7 @@
 ;******************************************************************************
 ; CONSTANTS
 MAX_LABELS    = 256
+MAX_ANON      = 1024
 MAX_LOCALS    = 32
 MAX_LABEL_LEN = 16	; 8 bytes for namespace + 8 for label name
 SCOPE_LEN     = 8	; max len of namespace (scope)
@@ -78,11 +79,24 @@ __label_address: LBLJUMP address
 .export __label_setscope
 __label_setscope: LBLJUMP set_scope
 
+.export __label_addanon
+__label_addanon: LBLJUMP add_anon
+
+.export __label_get_fanon
+__label_get_fanon: LBLJUMP get_fanon
+
+.export __label_get_banon
+__label_get_banon: LBLJUMP get_fanon
+
 .segment "SHAREBSS"
 ;******************************************************************************
 .export __label_num
 __label_num:
 numlabels: .word 0   	; total number of labels
+
+.export __label_numanon
+__label_numanon:
+numanon: .word 0	; total number of anonymous labels
 
 .segment "LABEL_BSS"
 scope: .res 8		; buffer containing the current scope
@@ -100,6 +114,8 @@ labels = __BANKCODE_RUN__+__BANKCODE_SIZE__	; ~$20xx-$8000
 ; The address of a given label id is label_addresses + (id * 2)
 .export label_addresses
 label_addresses = $a000
+
+anon_addrs = $b000
 
 .segment "LABELS"
 ;******************************************************************************
@@ -170,6 +186,8 @@ label_addresses = $a000
 	sta scope
 	sta numlabels
 	sta numlabels+1
+	sta numanon
+	sta numanon+1
 	rts
 .endproc
 
@@ -499,6 +517,335 @@ label_addresses = $a000
 .endproc
 
 ;******************************************************************************
+; ADD_ANON
+; Adds an anonymous label at the given address
+; IN:
+;  - .XY: the address to add an anonymous label at
+; OUT:
+;  - .C: set if there are too many anonymous labels to add another
+.proc add_anon
+@src=r0
+@dst=r2
+@loc=r4
+@end=r6
+@addr=r8
+	stxy @addr
+	lda numanon+1
+	cmp #>MAX_ANON
+	bcc :+
+	lda numanon
+	cmp #<MAX_ANON
+	bcc :+
+	lda #ERR_TOO_MANY_LABELS
+	rts			; return with error (.C) set
+
+:	lda #$00
+	sta @end+1
+
+	lda numanon
+	asl
+	rol @end+1
+	adc #<anon_addrs
+	sta @end
+	lda #>anon_addrs
+	adc @end+1
+	sta @end+1
+
+	jsr seek_anon
+	stxy @loc
+	stxy @dst
+	cmpw @end
+	beq @finish		; skip shift if this is the highest address
+
+	; dst = src + 2
+	lda @dst
+	sec
+	sbc #$02
+	sta @src
+	lda @dst+1
+	sbc #$00
+	sta @src+1
+
+	; shift all the existing labels
+@shift:	ldy #$00
+	lda (@src),y
+	sta (@dst),y
+	iny
+	lda (@src),y
+	sta (@dst),y
+
+	lda @src
+	ldy @src+1
+	tax
+	clc
+	adc #2
+	sta @src
+	bcc :+
+	inc @src+1
+:	cmpw @end	; have we shifted everything yet?
+	bne @shift	; loop til we have
+
+@finish:
+	; insert the address of the anonymous label we're adding
+	lda @addr
+	ldy #$00
+	sta (@loc),y
+	lda @addr+1
+	iny
+	sta (@loc),y
+
+	incw numanon
+	jmp *
+	RETURN_OK
+.endproc
+
+;******************************************************************************
+; SEEK ANON
+; Finds the address of the first anonymous label that has a greater address than
+; the given address.
+; If there is no anonymous label with a higher address, returns the address of
+; the end of the anonymous labels (anon_addrs+(2*numanons))
+; IN:
+;  - .XY: the address to search for
+; OUT:
+;  - .XY: the address of 1st anon label with a bigger address than the one given
+.proc seek_anon
+@addr=r0
+@seek=r2
+@cnt=r4
+	stxy @addr
+
+	lda numanon+1
+	bne :+
+	lda numanon
+	bne :+
+	; if no anonymous labels defined, return the base address
+	ldxy #anon_addrs
+	rts
+
+:	lda numanon+1
+	sta @cnt+1
+	sta @seek+1
+	lda numanon
+	sta @cnt
+	asl
+	rol @seek+1
+	adc #<anon_addrs
+	sta @seek
+	lda @seek+1
+	adc #>anon_addrs
+	sta @seek+1
+
+	ldy #$00
+@l0:	lda (@seek),y	; get LSB
+	tax		; .X = LSB
+	iny
+	lda (@seek),y	; get MSB
+	iny
+	bne :+
+	inc @seek+1
+
+:	cmp @addr+1
+	bcc @next	; if MSB is < our address, check next
+	bne @found	; if > we're done
+	cpx @addr	; MSB is =, check LSB
+	bcs @found	; if LSB is >, we're done
+@next:
+	lda @cnt
+	bne :+
+	dec @cnt+1
+:	dec @cnt
+	bne @l0
+	lda @cnt+1
+	bne @l0
+
+	; none found, fall through to get last address
+@found:
+	; add .Y - 2
+	tya
+	clc
+	adc @seek
+	sta @seek
+	lda @seek+1
+	adc #$00
+	sta @seek+1
+	lda @seek
+	sec
+	sbc #$02
+	tax
+	lda @seek+1
+	sbc #$00
+	tay
+	rts
+.endproc
+
+;******************************************************************************
+; GET_FANON
+; Returns the address of the nth forward anonymous label relative to the given
+; address. That is the nth anonymous label whose address is greater than
+; the given address.
+; IN:
+;  - .XY: the address relative to the anonymous label to get
+;  - .A:  how many anonymous labels forward to look
+; OUT:
+;  - .A:  the size of the address
+;  - .XY: the nth anonymous label whose address is > than the given address
+;  - .C:  set if there is not an nth forward anonymous label
+.proc get_fanon
+@cnt=r0
+@fcnt=r2
+@addr=r4
+@seek=r6
+	stxy @addr
+	sta @fcnt
+
+	ldxy #anon_addrs
+	stxy @seek
+
+	ldxy numanon
+	cmpw #0
+	beq @err		; no anonymous labels defined
+	stxy @cnt
+
+@l0:	ldy #$01		; MSB
+	lda @addr+1
+	cmp (@seek),y
+	beq @chklsb		; if =, check the LSB
+	bcs @next		; MSB is < what we're looking for, try next
+
+	; MSB is >= base and LSB is >= base address
+@f:	dec @fcnt		; is this the nth label yet?
+	beq @found		; if our count is 0, yes, end
+	bne @next		; if count is not 0, continue
+
+@chklsb:
+	dey
+	lda @addr
+	cmp (@seek),y		; check if our address is less than the seek one
+	bcc @f			; if our address is less, this is a fwd anon
+
+@next:	incw @seek
+	incw @seek
+
+	; loop until we run out of anonymous labels to search
+	lda @cnt
+	bne :+
+	dec @cnt+1
+	bmi @err
+	bpl @l0
+:	dec @cnt
+	jmp @l0
+
+@err:	RETURN_ERR ERR_LABEL_UNDEFINED
+
+@found:	ldy #$01
+	lda (@seek),y		; get the MSB of our anonymous label
+	pha
+	dey
+	lda (@seek),y		; get the LSB
+	tax
+	pla
+	tay
+	bne :+
+	lda #$01		; if MSB is 0, size is 1
+	skw
+:	lda #$02		; if MSB !0, size is 2
+	RETURN_OK
+.endproc
+
+;******************************************************************************
+; GET_BANON
+; Returns the address of the nth backward anonymous address relative to the
+; given  address. That is the nth anonymous label whose address is less than
+; the given address.
+; IN:
+;  - .XY: the address relative to the anonymous label to get
+;  - .A:  how many anonymous labels backwards to look
+; OUT:
+;  - .XY: the nth anonymous label whose address is < than the given address
+.proc get_banon
+@cnt=r0
+@bcnt=r2
+@addr=r4
+@seek=r6
+	stxy @addr
+	sta @bcnt
+
+	; seek from the the last address
+	lda #$00
+	sta @seek+1
+	lda #<anon_addrs
+	asl
+	rol @seek+1
+	adc numanon
+	sta @seek
+	lda @seek+1
+	adc #>anon_addrs+1
+	adc numanon+1
+	sta @seek+1
+	lda @seek
+	sec
+	sbc #2
+	sta @seek
+	bcs :+
+	dec @seek+1
+
+:	ldxy numanon
+	cmpw #0
+	beq @err		; no anonymous labels defined
+	stxy @cnt
+
+@l0:	ldy #$01		; MSB
+	lda @addr+1
+	cmp (@seek),y
+	beq @chklsb		; if =, check the LSB
+	bcc @next		; MSB is > what we're looking for, try next
+
+	; MSB is >= base and LSB is >= base address
+@b:	dec @bcnt		; is this the nth label yet?
+	beq @found		; if our count is 0, yes, end
+	bne @next		; if count is not 0, continue
+
+@chklsb:
+	dey
+	lda @addr
+	cmp (@seek),y		; check if our address is less than the seek one
+	bcs @b			; if our address is <= this is a backward anon
+
+@next:	lda @seek
+	sec
+	sbc #2
+	sta @seek
+	bcs :+
+	dec @seek+1
+
+:	; loop until we run out of anonymous labels to search
+	lda @cnt
+	bne :+
+	dec @cnt+1
+	bmi @err
+	bpl @l0
+:	dec @cnt
+	jmp @l0
+
+@err:	RETURN_ERR ERR_LABEL_UNDEFINED
+
+@found:	ldy #$01
+	lda (@seek),y		; get the MSB of our anonymous label
+	pha
+	dey
+	lda (@seek),y		; get the LSB
+	tax
+	pla
+	tay
+	bne :+
+	lda #$01		; if MSB is 0, size is 1
+	skw
+:	lda #$02		; if MSB !0, size is 2
+	RETURN_OK
+.endproc
+
+;******************************************************************************
 ; LABEL_ADDRESS
 ; Returns the address of the label in (.YX)
 ; The size of the label is returned in .A (1 if zeropage, 2 if not)
@@ -789,9 +1136,8 @@ label_addresses = $a000
 	;sec
 	;rts
 
-; following characters must be between '0' and 'Z'
-@l0:
-	lda (@name),y
+	; following characters must be between '0' and 'Z'
+@l0:	lda (@name),y
 	beq @done
 	jsr isseparator
 	beq @done
@@ -801,12 +1147,6 @@ label_addresses = $a000
 	iny
 	bcc @l0
 @err:	RETURN_ERR ERR_ILLEGAL_LABEL
-
-	cmp #' '
-	beq @done
-	cmp #':'
-	bne :-
-
 @done:	RETURN_OK
 .endproc
 
