@@ -595,16 +595,16 @@ anon_addrs = $b000
 	sta (@loc),y
 
 	incw numanon
-	jmp *
 	RETURN_OK
 .endproc
 
 ;******************************************************************************
 ; SEEK ANON
 ; Finds the address of the first anonymous label that has a greater address than
-; the given address.
-; If there is no anonymous label with a higher address, returns the address of
-; the end of the anonymous labels (anon_addrs+(2*numanons))
+; or equal to the given address.
+; If there is no anonymous label greater or equal to the address given,
+; returns the address of the end of the anonymous labels
+; (anon_addrs+(2*numanons))
 ; IN:
 ;  - .XY: the address to search for
 ; OUT:
