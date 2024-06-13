@@ -83,7 +83,7 @@ FINAL_BANK_FAST    = $a0|$0c
 ; SYMBOLS bank ($0D)
 ; The SYMBOLS bank stores the label names for the program's labels in $2000-$8000
 ; $a000-$b000 is used to store the addresses that these names correspond to.
-; $b000-$b800 is FREE
+; $b000-$b800 is used for anonymous labels (up to 1024)
 ; $b800-$c000 stores the linker code (code to create, remove, find, etc. labels)
 FINAL_BANK_SYMBOLS = $a0|$d	; symbols bank (label names and their addresses)
 

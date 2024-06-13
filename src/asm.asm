@@ -515,8 +515,8 @@ num_illegals = *-illegal_opcodes
 	txa
 	ldy #$00
 	jsr writeb	; store the opcode
-	bcc @getopws	; continue if no error
-	rts		; return err
+	bcs @ret0	; return err
+	jmp @getopws	; continue if no error
 
 ; check if the line contains a macro
 @macro:
@@ -536,7 +536,24 @@ num_illegals = *-illegal_opcodes
 @ret0:	rts
 
 ; check if the line is a label definition
-@label: ldxy zp::line
+@label:
+	ldy #$00
+	lda (zp::line),y
+	cmp #':'		; anonymous label (:)?
+	bne :+
+	incw zp::line
+	lda (zp::line),y
+	jsr util::is_whitespace	; anon label must be followed by whitespace
+	bne :+			; if not whitespace, go on
+	lda zp::pass
+	cmp #$01
+	bne @label_done		; if not pass 1, don't add the label
+	ldxy zp::virtualpc
+	jsr lbl::addanon	; add the anonymous label
+	bcc @label_done
+	rts			; return error (too many anonymous labels?)
+
+:	ldxy zp::line
 	jsr lbl::isvalid
 	bcs @getopws
 	sta resulttype
@@ -561,7 +578,7 @@ num_illegals = *-illegal_opcodes
 	jsr process_word	; read past the label name
 	ldxy zp::line
 	jsr @assemble		; assemble the rest of the line
-	bcs @ret		; return error
+	bcs @ret0		; return error
 	cmp #ASM_LABEL
 	bne :+
 
@@ -611,6 +628,10 @@ num_illegals = *-illegal_opcodes
 
 ; all chars not part of expression have been processed, evaluate the expression
 @evalexpr:
+	; first check if this is an anonymous label reference
+	jsr anonref
+	bcc @store_value
+
 	jsr expr::eval
 	bcc @store_value
 	rts			; return error, eval failed
@@ -862,6 +883,82 @@ num_illegals = *-illegal_opcodes
 	jsr writeb
 	bcc @noerr
 	rts		; return err
+.endproc
+
+;******************************************************************************
+; ANONREF
+; evaluates the anonymous reference in (line) and returns
+; the address it corresponds to
+; IN:
+;  - zp::line points to the anonymous reference e.g. ":++"
+; OUT:
+;  - .XY:      the address that is referenced
+;  - .C:       set if invalid reference or on error
+;  - zp::line: if there was an anonymous reference, updated to point past it
+.proc anonref
+	lda zp::pass
+	cmp #$02
+	beq :+
+
+	; if pass 1, return success with dummy value
+	jsr process_word
+	ldxy zp::virtualpc	; TODO: dummy address
+	rts			;
+
+:	ldy #$00
+	lda (zp::line),y
+	cmp #':'
+	bne @err		; not an anonymous reference
+
+	iny
+	lda (zp::line),y	; forward or backward?
+	cmp #'+'
+	beq @f			; if +, forward
+	cmp #'-'
+	bne @err		; if not -, invalid
+
+@b:	; count the '-'s
+	iny
+	lda (zp::line),y
+	beq @bdone
+	jsr util::is_whitespace
+	beq @bdone
+	cmp #'-'
+	beq @b
+@err:	sec			; error
+	rts
+
+@bdone: tya
+	clc
+	adc zp::line
+	sta zp::line
+	bcc :+
+	inc zp::line+1
+:	dey
+	tya
+	jmp lbl::get_banon
+
+@f:	; count the '+'s
+	iny
+	lda (zp::line),y
+	beq @fdone
+	jsr util::is_whitespace
+	beq @fdone
+	cmp #'+'
+	beq @f
+	sec			; error
+	rts
+
+@fdone:	tya
+	clc
+	adc zp::line
+	sta zp::line
+	bcc :+
+	inc zp::line+1
+:	dey
+	tya
+	ldxy zp::virtualpc
+	jmp lbl::get_fanon
 .endproc
 
 ;******************************************************************************
