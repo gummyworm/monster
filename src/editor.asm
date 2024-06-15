@@ -3640,21 +3640,22 @@ __edit_gotoline:
 	bcc :+		; yes, move to target
 	ldxy src::lines ; no, move to the last line
 :	stxy @target
+	cmpw src::line	; is the target forward or backward?
+	bne :+
+	jmp home	; already on target line, just go to home col
+
+:	php		; save comparison result
 
 	; if we're not already, move to 1st char of line
 	jsr src::atcursor
 	cmp #$0d
 	beq :+
 	jsr src::up
-
 :	ldx #$00
 	stx @seekforward
 
-	ldxy @target
-	cmpw src::line	; is the target forward or backward?
-	bne :+
-	rts		; already on the target line
-:	bcc @beginbackward		; backwards
+	plp			; get target-src::line comparison
+:	bcc @beginbackward	; backwards
 	inc @seekforward
 
 ; get the number of lines to move forwards
