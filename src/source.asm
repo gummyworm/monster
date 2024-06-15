@@ -746,6 +746,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 	RETURN_OK
 .endproc
 
+
 ;******************************************************************************
 ; UP
 ; Moves the cursor back one line or to the start of the buffer if it is

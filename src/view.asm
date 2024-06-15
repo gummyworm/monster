@@ -90,20 +90,12 @@ memaddr:   .word 0
 
 	cmp #K_UP
 	bne :+
-	jsr cur::off
-	ldy #$ff
-	ldx #0
-	jsr cur::move
-	jsr cur::on
+	jsr up
 	jmp @edit
 
 :	cmp #K_DOWN
 	bne :+
-	jsr cur::off
-	ldy #1
-	ldx #0
-	jsr cur::move
-	jsr cur::on
+	jsr down
 	jmp @edit
 
 :	cmp #K_DEL
@@ -304,6 +296,58 @@ memaddr:   .word 0
 @cont:	bcs @reset
 	stxy memaddr		; set address of word to memaddr
 @reset: jmp __view_edit		; restart the viewer at the word's address
+.endproc
+
+;******************************************************************************
+; UP
+; Handles the Up key, moving the cursor or scrolling if needed
+.proc up
+	jsr cur::off
+
+	; are we at the top of the editor?
+	lda zp::cury
+	cmp #MEMVIEW_START+1
+	bne :+
+
+	; we're at the top, scroll
+	lda memaddr
+	sbc #$08	; # of bytes per row (.C is always set)
+	sta memaddr
+	bcs @done
+	dec memaddr+1
+@done:	sta memaddr
+	jmp __view_mem	; refresh the display
+
+:	ldy #$ff
+	ldx #0
+	jsr cur::move
+	jmp cur::on
+.endproc
+
+;******************************************************************************
+; DOWN
+; Handles the Down key, moving the cursor or scrolling if needed
+.proc down
+	jsr cur::off
+
+	; are we at the bottom of the editor?
+	lda zp::cury
+	cmp #MEMVIEW_STOP-1
+	bcc :+
+
+	; we're at the bottom, scroll
+	lda memaddr
+	adc #$07	; # of bytes per row - 1 (.C is always set)
+	sta memaddr
+	bcc @done
+	inc memaddr+1
+@done:	sta memaddr
+	jmp __view_mem	; refresh the display
+
+:	ldy #1
+	ldx #0
+	jsr cur::move
+	jmp cur::on
 .endproc
 
 ;******************************************************************************

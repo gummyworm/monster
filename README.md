@@ -387,7 +387,8 @@ for example
 ```
     .ORG $1000
 :   JMP :+      ; JMP $1003
-:   JMP :-      ; JMP $1000
+:   JMP :-      ; JMP $1003
+:   JMP :--     ; JMP $1003
 ```
 
 Using multiple +'s or -'s will count the same number of references before landing
@@ -399,7 +400,6 @@ for example:
 :   nop
 :   nop         ; will jump here
 ```
-
 
 ## Directives
 Directives begin with a `.` character and instead of being directly assembled,

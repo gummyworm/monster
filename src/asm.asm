@@ -629,10 +629,13 @@ num_illegals = *-illegal_opcodes
 ; all chars not part of expression have been processed, evaluate the expression
 @evalexpr:
 	; first check if this is an anonymous label reference
+	jsr is_anonref
+	bne :+
 	jsr anonref
 	bcc @store_value
+	rts			; return error
 
-	jsr expr::eval
+:	jsr expr::eval
 	bcc @store_value
 	rts			; return error, eval failed
 
@@ -735,7 +738,7 @@ num_illegals = *-illegal_opcodes
 @getws2:
 	jsr process_ws
 
-; check for comment or garbage
+	; check for comment or garbage
 	jsr islineterminator
 	beq @done
 	RETURN_ERR ERR_UNEXPECTED_CHAR
@@ -755,14 +758,13 @@ num_illegals = *-illegal_opcodes
 @checkjmp:
 	tax
 	; JMP (xxxx) has a different opcode than JMP
-	ldy #$00
-	jsr readb
+	lda opcode
 	cmp #$40
-	bne @getbbb
-	lda cc
-	bne @getbbb
-	lda indirect
-	beq @jmpabs
+	bne @getbbb	; if not, not a JMP
+	lda cc		; if cc is not 00,
+	bne @getbbb	; not a JMP
+	lda indirect	; get indirect flag
+	beq @jmpabs	; if not set, this is an ABS JMP
 
 @jmpind:
 	cpx #ABS_IND	; only abs-indirect is supported for JMP (XXXX)
@@ -771,6 +773,7 @@ num_illegals = *-illegal_opcodes
 	jsr writeb
 	bcc @noerr
 	rts		; return err
+
 @jmpabs:
 	cpx #ABS
 	bne @err 	; only ABS supported for JMP XXXX
@@ -787,7 +790,7 @@ num_illegals = *-illegal_opcodes
 	jmp @validate_cc
 
 :	; check if opcode was a JSR
-	jsr readb
+	lda opcode
 	cmp #$20
 	bne :+
 	cpx #ABS
@@ -886,6 +889,18 @@ num_illegals = *-illegal_opcodes
 .endproc
 
 ;******************************************************************************
+; IS_ANONREF
+; Returns .Z set if zp::line points to an anonymous label reference
+; OUT:
+;  - .Z: Set if zp::line is on an anonymous label reference
+.proc is_anonref
+	ldy #$00		; past the ':'
+	lda (zp::line),y
+	cmp #':'
+	rts
+.endproc
+
+;******************************************************************************
 ; ANONREF
 ; evaluates the anonymous reference in (line) and returns
 ; the address it corresponds to
@@ -903,14 +918,10 @@ num_illegals = *-illegal_opcodes
 	; if pass 1, return success with dummy value
 	jsr process_word
 	ldxy zp::virtualpc	; TODO: dummy address
-	rts			;
+	lda #2
+	RETURN_OK
 
-:	ldy #$00
-	lda (zp::line),y
-	cmp #':'
-	bne @err		; not an anonymous reference
-
-	iny
+:	ldy #$01		; past the ':'
 	lda (zp::line),y	; forward or backward?
 	cmp #'+'
 	beq @f			; if +, forward
@@ -925,8 +936,7 @@ num_illegals = *-illegal_opcodes
 	beq @bdone
 	cmp #'-'
 	beq @b
-@err:	sec			; error
-	rts
+@err:	RETURN_ERR ERR_UNEXPECTED_CHAR
 
 @bdone: tya
 	clc
@@ -936,6 +946,7 @@ num_illegals = *-illegal_opcodes
 	inc zp::line+1
 :	dey
 	tya
+	ldxy zp::virtualpc
 	jmp lbl::get_banon
 
 @f:	; count the '+'s
@@ -946,8 +957,7 @@ num_illegals = *-illegal_opcodes
 	beq @fdone
 	cmp #'+'
 	beq @f
-	sec			; error
-	rts
+	RETURN_ERR ERR_UNEXPECTED_CHAR
 
 @fdone:	tya
 	clc

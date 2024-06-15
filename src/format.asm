@@ -49,7 +49,7 @@
 	jsr src::prev
 
 	lda @curr
-	cmp #INDENT_LEVEL	; is opcode already in column 10?
+	cmp #INDENT_LEVEL+1	; is opcode already in column 10?
 	beq @cont		; continue if so
 	bcs @shl		; if >10, delete extra padding
 

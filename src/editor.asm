@@ -224,10 +224,12 @@ main:	jsr key::getch
 	lda #DEBUG_MESSAGE_LINE-1
 	sta height
 	inc readonly	; enable read-only mode
+
 	jsr home_line	; avoid problems with cursor-y being below new height
 	ldxy @addr
 	jsr dbg::start	; start debugging at address in .XY
-	dec readonly
+
+	dec readonly		; re-enable editing
 	lda #EDITOR_HEIGHT
 	sta height
 	jmp refresh
@@ -1060,12 +1062,13 @@ main:	jsr key::getch
 :	lda #TEXT_INSERT
 	sta text::insertmode
 
+	; for all but the 1st line,
 	; if line length is 0, just do one backspace and we're done
 	jsr text::linelen
-	cpx #$00
-	bne :+
-	jsr on_line1
-	beq :+			; if we are on first line, do normal behavior
+	cpx #$00		; is line length 0?
+	bne :+			; if not, need to do more than a backspace
+	jsr on_line1		; are we on the 1st line?
+	beq :+			; if we are, need to do more than backspace
 	jsr backspace
 	jmp @done
 
@@ -1076,19 +1079,24 @@ main:	jsr key::getch
 	jsr bumpup		; scroll up
 
 @l0:	jsr src::backspace	; delete a character
-	bcs :+			; at start of source buffer
+	bcs :+			; break if at start of source buffer
 	jsr src::atcursor	; are we on a newline?
 	cmp #$0d
-	bne @l0
+	bne @l0			; loop until we are on newline
 
-:	plp
-	bcc :+			; not EOF
-	dec zp::cury		; if we were at EOF, no newline was deleted
-	jsr src::backspace	; delete the newline
+:	plp			; get EOF flag (.C)
+	bcc :+			; skip if not EOF
+	jsr on_line1		; are we on the 1st line?
+	beq :+			; if so, we won't be changing lines, skip
+	lda zp::cury		; if EOF, clear the line we're on
+	jsr bm::clrline
+	dec zp::cury		; no newline was deleted yet,
+	jsr src::backspace	; so delete the newline
 	jsr src::up		; and go to the start of the, now, last line
 
 :	jsr src::get
 
+	; fix x-position if we're on a TAB
 	ldx #$00
 	lda mem::linebuffer
 	cmp #$09
@@ -2711,7 +2719,6 @@ goto_buffer:
 :	iny
 	tya
 	ldx height
-	dex
 	jsr text::scrolldown
 
 @setcur:
@@ -3634,21 +3641,22 @@ __edit_gotoline:
 	bcc :+		; yes, move to target
 	ldxy src::lines ; no, move to the last line
 :	stxy @target
+	cmpw src::line	; is the target forward or backward?
+	bne :+
+	jmp home	; already on target line, just go to home col
+
+:	php		; save comparison result
 
 	; if we're not already, move to 1st char of line
 	jsr src::atcursor
 	cmp #$0d
 	beq :+
 	jsr src::up
-
 :	ldx #$00
 	stx @seekforward
 
-	ldxy @target
-	cmpw src::line	; is the target forward or backward?
-	bne :+
-	rts		; already on the target line
-:	bcc @beginbackward		; backwards
+	plp			; get target-src::line comparison
+:	bcc @beginbackward	; backwards
 	inc @seekforward
 
 ; get the number of lines to move forwards
@@ -3857,7 +3865,7 @@ __edit_gotoline:
 	; display the line containing the error
 	ldxy #mem::linebuffer
 	lda #ERROR_ROW+1
-	jsr text::putz
+	jsr text::print
 
 	lda @err
 	jsr err::get	; get the address of the error

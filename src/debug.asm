@@ -1418,7 +1418,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr toggle_highlight	; highlight line
 
 @print:	jsr showstate		; show regs/BRK message
-	jsr src::get		; update linebuffer with whatever we're at
 
 ; main debug loop
 @debugloop:
@@ -1470,7 +1469,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr toggle_highlight	; turn on highlight
 	jsr cur::on
 	lda advance		; are we ready to execute program? (GO, STEP)
-	beq @debugloop		; we're not ready to return to user program
+	beq @debugloop		; not yet, loop and get another command
 
 @done:	; unhighlight the BRK line if it's still visible
 	jsr toggle_highlight
@@ -1770,9 +1769,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	plp			; clear flags (.P)
 
 	pla			; command return address
-	pla
-	pla			; debug START return address
-	pla
 	pla
 @done:	rts
 .endproc
@@ -2882,7 +2878,7 @@ __debug_remove_breakpoint:
 	; display the register names
 	ldxy #strings::debug_registers
 	lda #REGISTERS_LINE
-	jsr text::putz
+	jsr text::print
 
 	ldy #39
 	lda #' '
