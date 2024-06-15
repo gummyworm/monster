@@ -2717,7 +2717,6 @@ goto_buffer:
 :	iny
 	tya
 	ldx height
-	dex
 	jsr text::scrolldown
 
 @setcur:
