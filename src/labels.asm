@@ -86,7 +86,7 @@ __label_addanon: LBLJUMP add_anon
 __label_get_fanon: LBLJUMP get_fanon
 
 .export __label_get_banon
-__label_get_banon: LBLJUMP get_fanon
+__label_get_banon: LBLJUMP get_banon
 
 .segment "SHAREBSS"
 ;******************************************************************************
@@ -605,76 +605,65 @@ anon_addrs = $b000
 ; If there is no anonymous label greater or equal to the address given,
 ; returns the address of the end of the anonymous labels
 ; (anon_addrs+(2*numanons))
+; This procedure doesn't return the address represented by the anonymous label
+; but rather where that label is actually stored.
 ; IN:
 ;  - .XY: the address to search for
 ; OUT:
-;  - .XY: the address of 1st anon label with a bigger address than the one given
+;  - .XY: the address where the 1st anon label with a bigger address than the
+;         one given is stored in the anon_addrs table
 .proc seek_anon
-@addr=r0
+@cnt=r0
 @seek=r2
-@cnt=r4
+@addr=r4
 	stxy @addr
+	ldxy #anon_addrs
 
 	lda numanon+1
 	bne :+
 	lda numanon
 	bne :+
 	; if no anonymous labels defined, return the base address
-	ldxy #anon_addrs
 	rts
 
-:	lda numanon+1
-	sta @cnt+1
-	sta @seek+1
-	lda numanon
+:	stxy @seek
+	lda #$00
 	sta @cnt
-	asl
-	rol @seek+1
-	adc #<anon_addrs
-	sta @seek
-	lda @seek+1
-	adc #>anon_addrs
-	sta @seek+1
+	sta @cnt+1
 
 	ldy #$00
 @l0:	lda (@seek),y	; get LSB
 	tax		; .X = LSB
-	iny
+	incw @seek
 	lda (@seek),y	; get MSB
-	iny
-	bne :+
-	inc @seek+1
+	incw @seek
 
-:	cmp @addr+1
+	cmp @addr+1
 	bcc @next	; if MSB is < our address, check next
 	bne @found	; if > we're done
 	cpx @addr	; MSB is =, check LSB
 	bcs @found	; if LSB is >, we're done
 @next:
-	lda @cnt
-	bne :+
-	dec @cnt+1
-:	dec @cnt
-	bne @l0
+	incw @cnt
 	lda @cnt+1
+	cmp numanon+1
 	bne @l0
+	lda @cnt
+	cmp numanon
+	bne @l0		; loop til we've checked all anonymous labels
 
 	; none found, fall through to get last address
 @found:
-	; add .Y - 2
-	tya
-	clc
-	adc @seek
-	sta @seek
-	lda @seek+1
-	adc #$00
+	lda #$00
 	sta @seek+1
-	lda @seek
-	sec
-	sbc #$02
+	lda @cnt
+	asl
+	rol @seek+1
+	adc #<anon_addrs
 	tax
 	lda @seek+1
-	sbc #$00
+	adc #>anon_addrs
+	sta @seek+1
 	tay
 	rts
 .endproc
@@ -765,32 +754,17 @@ anon_addrs = $b000
 ;  - .XY: the nth anonymous label whose address is < than the given address
 .proc get_banon
 @cnt=r0
-@bcnt=r2
+@bcnt=r8
 @addr=r4
 @seek=r6
 	stxy @addr
 	sta @bcnt
 
-	; seek from the the last address
-	lda #$00
-	sta @seek+1
-	lda #<anon_addrs
-	asl
-	rol @seek+1
-	adc numanon
-	sta @seek
-	lda @seek+1
-	adc #>anon_addrs+1
-	adc numanon+1
-	sta @seek+1
-	lda @seek
-	sec
-	sbc #2
-	sta @seek
-	bcs :+
-	dec @seek+1
+	; get address to start looking backwards from
+	jsr seek_anon
+	stxy @seek
 
-:	ldxy numanon
+	ldxy numanon
 	cmpw #0
 	beq @err		; no anonymous labels defined
 	stxy @cnt
@@ -816,27 +790,22 @@ anon_addrs = $b000
 	sec
 	sbc #2
 	sta @seek
+	tax
 	bcs :+
 	dec @seek+1
 
 :	; loop until we run out of anonymous labels to search
-	lda @cnt
-	bne :+
-	dec @cnt+1
-	bmi @err
-	bpl @l0
-:	dec @cnt
-	jmp @l0
+	ldy @seek+1
+	cmpw #anon_addrs-2
+	bne @l0
 
 @err:	RETURN_ERR ERR_LABEL_UNDEFINED
 
-@found:	ldy #$01
+@found:	ldy #$00
 	lda (@seek),y		; get the MSB of our anonymous label
-	pha
-	dey
-	lda (@seek),y		; get the LSB
 	tax
-	pla
+	iny
+	lda (@seek),y		; get the LSB
 	tay
 	bne :+
 	lda #$01		; if MSB is 0, size is 1
