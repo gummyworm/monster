@@ -387,7 +387,8 @@ for example
 ```
     .ORG $1000
 :   JMP :+      ; JMP $1003
-:   JMP :-      ; JMP $1000
+:   JMP :-      ; JMP $1003
+:   JMP :--     ; JMP $1003
 ```
 
 Using multiple +'s or -'s will count the same number of references before landing
