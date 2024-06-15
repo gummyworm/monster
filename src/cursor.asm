@@ -3,8 +3,8 @@
 .include "edit.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "zeropage.inc"
 .include "text.inc"
+.include "zeropage.inc"
 
 ;******************************************************************************
 ; CONSTANTS
@@ -174,9 +174,11 @@ __cur_toggle:
 	lda mem::linebuffer,y
 	cmp #$09		; TAB
 	bne :+
-	lda zp::curx
-	adc #TAB_WIDTH-2	; .C is set
+	jsr text::tabr_dist
+	clc
+	adc zp::curx
 	sta zp::curx
+	rts
 :	inc zp::curx
 @done:	rts
 .endproc
