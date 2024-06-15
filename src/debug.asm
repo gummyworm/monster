@@ -1770,9 +1770,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	pla			; command return address
 	pla
-	pla			; debug START return address
-	pla
-	pla
 @done:	rts
 .endproc
 

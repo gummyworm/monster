@@ -224,10 +224,12 @@ main:	jsr key::getch
 	lda #DEBUG_MESSAGE_LINE-1
 	sta height
 	inc readonly	; enable read-only mode
+
 	jsr home_line	; avoid problems with cursor-y being below new height
 	ldxy @addr
 	jsr dbg::start	; start debugging at address in .XY
-	dec readonly
+
+	dec readonly		; re-enable editing
 	lda #EDITOR_HEIGHT
 	sta height
 	jmp refresh
