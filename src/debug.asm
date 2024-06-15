@@ -2881,7 +2881,7 @@ __debug_remove_breakpoint:
 	; display the register names
 	ldxy #strings::debug_registers
 	lda #REGISTERS_LINE
-	jsr text::putz
+	jsr text::print
 
 	ldy #39
 	lda #' '

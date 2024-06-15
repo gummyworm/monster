@@ -672,37 +672,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .endproc
 
 ;******************************************************************************
-; PUTZ
-; Prints a full width (40 column) string, terminated by a 0 at the given row
-; IN:
-;  - .XY: the string to display
-;  - .A: the row to display the string at
-.export __text_putz
-.proc __text_putz
-;
-@src = zp::text
-	pha
-	stxy @src
-
-	ldy #39
-	lda #' '
-:	sta mem::spare,y
-	dey
-	bpl :-
-
-	iny
-@l0:	lda (@src),y
-	beq @done
-	sta mem::spare,y
-	iny
-	cpy #40
-	bcc @l0
-@done:	ldxy #mem::spare
-	pla
-	jmp __text_puts
-.endproc
-
-;******************************************************************************
 ; PUTS
 ; Displays the given string at the given row.  Regardless of the contents of
 ; the string, text::len characters are displayed (including 0's etc.)

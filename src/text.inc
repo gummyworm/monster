@@ -8,7 +8,6 @@
 .import __text_len
 .import __text_linelen
 .import __text_puts
-.import __text_putz
 .import __text_print
 .import __text_putch
 .import __text_puterr
@@ -57,7 +56,6 @@ CH_R_ARROW	    = 135
 	print            = __text_print
 	putch            = __text_putch
         puts             = __text_puts
-	putz   	         = __text_putz
 	rendered_line_len= __text_rendered_line_len
 	rvs              = __text_rvs
 	savebuff         = __text_savebuff

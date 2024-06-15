@@ -3863,7 +3863,7 @@ __edit_gotoline:
 	; display the line containing the error
 	ldxy #mem::linebuffer
 	lda #ERROR_ROW+1
-	jsr text::putz
+	jsr text::print
 
 	lda @err
 	jsr err::get	; get the address of the error
