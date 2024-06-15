@@ -401,7 +401,6 @@ for example:
 :   nop         ; will jump here
 ```
 
-
 ## Directives
 Directives begin with a `.` character and instead of being directly assembled,
 as with an instruction, tell the assembler to generate some special code or data

@@ -1060,12 +1060,13 @@ main:	jsr key::getch
 :	lda #TEXT_INSERT
 	sta text::insertmode
 
+	; for all but the 1st line,
 	; if line length is 0, just do one backspace and we're done
 	jsr text::linelen
-	cpx #$00
-	bne :+
-	jsr on_line1
-	beq :+			; if we are on first line, do normal behavior
+	cpx #$00		; is line length 0?
+	bne :+			; if not, need to do more than a backspace
+	jsr on_line1		; are we on the 1st line?
+	beq :+			; if we are, need to do more than backspace
 	jsr backspace
 	jmp @done
 
@@ -1076,19 +1077,24 @@ main:	jsr key::getch
 	jsr bumpup		; scroll up
 
 @l0:	jsr src::backspace	; delete a character
-	bcs :+			; at start of source buffer
+	bcs :+			; break if at start of source buffer
 	jsr src::atcursor	; are we on a newline?
 	cmp #$0d
-	bne @l0
+	bne @l0			; loop until we are on newline
 
-:	plp
-	bcc :+			; not EOF
-	dec zp::cury		; if we were at EOF, no newline was deleted
-	jsr src::backspace	; delete the newline
+:	plp			; get EOF flag (.C)
+	bcc :+			; skip if not EOF
+	jsr on_line1		; are we on the 1st line?
+	beq :+			; if so, we won't be changing lines, skip
+	lda zp::cury		; if EOF, clear the line we're on
+	jsr bm::clrline
+	dec zp::cury		; no newline was deleted yet,
+	jsr src::backspace	; so delete the newline
 	jsr src::up		; and go to the start of the, now, last line
 
 :	jsr src::get
 
+	; fix x-position if we're on a TAB
 	ldx #$00
 	lda mem::linebuffer
 	cmp #$09
