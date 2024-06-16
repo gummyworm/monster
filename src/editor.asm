@@ -752,22 +752,37 @@ main:	jsr key::getch
 ; ENTER_INSERT
 ; Enters INSERT mode
 .proc enter_insert
+@tabcnt=r2
 	jsr is_readonly
 	beq @done		; can't INSERT in r/o mode
 	lda #MODE_INSERT
+	cmp mode
+	beq @done
+
 	sta mode
 	lda #TEXT_INSERT
 	sta text::insertmode
 	lda #'i'
 	sta text::statusmode
 
+	lda zp::curx
+	beq @done
+
 	jsr text::char_index
 	lda mem::linebuffer,y
-	cmp #$09		; if on a TAB, move cursor
+	cmp #$09		; if on a TAB, move cursor to start of it
 	bne @done
-	lda zp::curx
-	sbc #TAB_WIDTH
-	sta zp::curx
+
+	jsr text::tabl_dist
+	sta @tabcnt
+@tabl:	dec zp::curx
+	jsr text::char_index
+	inc zp::curx
+	cmp #$09
+	bne @done
+	dec zp::curx
+	dec @tabcnt
+	bne @tabl
 @done:	rts
 .endproc
 
@@ -2725,10 +2740,14 @@ goto_buffer:
 	jsr src::get
 	lda mem::linebuffer
 	cmp #$09		; TAB
-	bne :+
+	bne @setx
 	ldx #TAB_WIDTH
-	.byte $2c
-:	ldx #$00
+	lda mode
+	cmp #MODE_INSERT
+	beq @setx
+	dex
+	skw
+@setx:	ldx #$00
 	ldy zp::cury
 	iny
 	jmp cur::set
@@ -2784,7 +2803,11 @@ goto_buffer:
 .proc ccup
 @xend=zp::tmp9
 @ch=zp::tmpa
-	jsr src::atcursor
+	jsr on_line1
+	bne :+
+	rts
+
+:	jsr src::atcursor
 	sta @ch
 
 	lda zp::curx
@@ -2837,6 +2860,10 @@ goto_buffer:
 	bne :+
 	jsr src::next
 	ldx #TAB_WIDTH
+:	ldy mode
+	cmp #MODE_INSERT
+	beq :+
+	dex
 :	stx zp::curx
 	sec
 	rts		; done
@@ -2992,57 +3019,42 @@ goto_buffer:
 @deselect=zp::tmp5
 	lda mode
 	cmp #MODE_VISUAL_LINE
-	beq @nomove		; do nothing on LEFT if in VISUAL_LINE mode
+	bne @move		; do nothing on LEFT if in VISUAL_LINE mode
+@nomove:
+	sec
+	rts
 
-	jsr text::char_index
-	cpy #$00
-	beq @nomove
-	lda mem::linebuffer-1,y
-	cpy #$01
-	bne :+
-	cmp #$09
-	beq @nomove		; if TAB on first char, don't move
-
-:	pha			; save the char to move left of
-
-	jsr src::prev
-
-	lda mode
-	cmp #MODE_VISUAL
-	bne @movecur
-	lda #$00
-	sta @deselect
-
-	; if (cur-line > visual_start_line) we are DESELECTING: unhighlight
-	ldxy src::line
-	cmpw visual_start_line
-	beq @eq
-	bcc @movecur		; not deselecting, continue
-@desel: lda #$01		; set deselect flag
-	bne :+			; continue to deselect
-
-@eq:	lda zp::curx
-	cmp visual_start_x
-	beq @movecur
-	lda #$00
-	adc #$00		; .A = 1 : (curx > visual_start_x) ? 0
-:	sta @deselect		; set deselect flag (TRUE if curx > start_x)
-	beq @movecur		; if not deselecting, continue
-	jsr cur::toggle		; turn off (deselect) old cursor position
-
-@movecur:
+@move:	jsr src::atcursor
+	ldy mode
+	cpy #MODE_INSERT
+	beq :+
+	jsr src::after_cursor
+:	pha
+	jsr src::left
 	pla
-	cmp #$09		; TAB?
+	bcs @nomove
+
+	cmp #$09
 	bne @curl
-	lda #$00
-	sta @deselect		; always toggle
+
+	ldy mode
+	cpy #MODE_INSERT
+	beq :+
+	dec zp::curx
+	jsr text::char_index
+	inc zp::curx
+	cpy #$00
+	bne :+
+	lda #TAB_WIDTH-1
+	sta zp::curx
+	sec
+	rts
 
 ; handle TAB (repeat the MOVE LEFT logic til we're at the prev TAB col
 ; OR the previous character
-	jsr text::tabl_dist
+:	jsr text::tabl_dist
 	sta @tabcnt
 @tabl:	jsr @curl
-	jsr text::char_index
 	dec zp::curx
 	jsr text::char_index
 	inc zp::curx
@@ -3050,7 +3062,11 @@ goto_buffer:
 	bne :+
 	dec @tabcnt
 	bne @tabl
-:	rts
+:	lda mode
+	cmp #MODE_INSERT
+	beq :+
+	dec zp::curx
+:	RETURN_OK
 
 @curl:  dec zp::curx
 	lda mode
@@ -3060,9 +3076,6 @@ goto_buffer:
 	bne :+
 	jsr cur::toggle		; toggle cursor
 :	RETURN_OK
-@nomove:
-	sec
-	rts
 .endproc
 
 ;******************************************************************************
@@ -3075,7 +3088,7 @@ goto_buffer:
 @deselect=zp::tmp5
 	lda mode
 	cmp #MODE_VISUAL_LINE
-	beq @done		; do nothing on RIGHT if in VISUAL_LINE mode
+	beq @ret	; do nothing on RIGHT if in VISUAL_LINE mode
 
 	lda text::insertmode
 	cmp #TEXT_INSERT
@@ -3089,7 +3102,16 @@ goto_buffer:
 	bcs @done
 
 @ok:	; turn off the old cursor if we're unhighlighting
-	cmp #$09		; did we move over a TAB?
+	jsr src::atcursor
+	ldy mode
+	cpy #MODE_INSERT
+	beq :+
+	jsr src::after_cursor
+	cmp #$09
+	bne @curr
+	inc zp::curx		; if we're moving to a TAB, fool tabr_dist
+
+:	cmp #$09		; did we move over a TAB?
 	bne @curr
 
 	; handle TAB (repeat the MOVE RIGHT logic til we're at the TAB next col)
@@ -3098,7 +3120,12 @@ goto_buffer:
 :	jsr @curr
 	dec @tabcnt
 	bne :-
-	rts
+	ldy zp::editor_mode
+	cpy #MODE_INSERT
+	beq :+
+	dec zp::curx
+:	clc
+@ret:	rts
 
 @curr:	lda #$00
 	sta @deselect
@@ -3656,7 +3683,7 @@ __edit_gotoline:
 	stx @seekforward
 
 	plp			; get target-src::line comparison
-:	bcc @beginbackward	; backwards
+	bcc @beginbackward	; backwards
 	inc @seekforward
 
 ; get the number of lines to move forwards

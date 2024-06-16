@@ -652,6 +652,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 .proc __src_left
 	jsr __src_prev
 	bcs @nomove
+	jsr __src_after_cursor
 	cmp #$0d
 	bne @done
 	jsr __src_next
@@ -688,6 +689,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 ; Moves to the next character unless a newline exists AFTER the destination
 ; OUT:
 ;  - .C: set if the cursor wasn't moved, clear if it was
+;  - .A: the character at the position that was moved to
 .export __src_right_rep
 .proc __src_right_rep
 	jsr __src_end
