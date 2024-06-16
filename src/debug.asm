@@ -284,12 +284,17 @@ __debug_watches_stop:    .res MAX_WATCHPOINTS*2 ; end address of watch range
 
 ;******************************************************************************
 ; BREAKPOINTS
+.export __debug_breakpointslo
+.export __debug_breakpointshi
 .export __debug_numbreakpoints
-.export __debug_breakpoints
 __debug_numbreakpoints:
 numbreakpoints: .byte 0 		; number of active break points
-__debug_breakpoints:
-breakpoints:    .res MAX_BREAKPOINTS*2  ; addresses of the break points
+__debug_breakpointslo:
+breakpointslo:      .res MAX_BREAKPOINTS	; LSB's of the break points
+__debug_breakpointshi:
+breakpointshi:      .res MAX_BREAKPOINTS	; MSB's of the break points
+breakpoint_lineslo: .res MAX_BREAKPOINTS	; breakpoint line # (LSB)
+breakpoint_lineshi: .res MAX_BREAKPOINTS	; breakpoint line # (MSB)
 
 .export __debug_breakpoint_flags
 __debug_breakpoint_flags:
@@ -1160,12 +1165,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	and #BREAKPOINT_ENABLED
 	beq @next
 
-	lda @cnt
-	asl
-	tay
-	lda breakpoints,y
+	lda breakpointslo,x
 	sta @brkaddr
-	lda breakpoints+1,y
+	lda breakpointshi,x
 	sta @brkaddr+1
 
 	; if this breakpoint is at the current PC, don't install it
@@ -1204,15 +1206,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	and #BREAKPOINT_ENABLED
 	beq @next
 
-	txa
-	asl
-	tay
-	lda breakpoints,y
+	lda breakpointslo,x
 	sta @addr
-	lda breakpoints+1,y
+	lda breakpointshi,x
 	sta @addr+1
 
-	ldx @cnt
 	lda breaksave,x
 	beq @next				; already a BRK
 	ldxy @addr
@@ -1834,8 +1832,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; SET_BREAKPOINT
 ; Sets a breakpoint at the current line selection
 .proc set_breakpoint
+@line=r0
 	jsr edit::setbreakpoint		; set a breakpoint in the source
 	ldxy src::line
+	stxy @line
 	jsr __debug_line2addr
 	bcs @nobrk			; if no line # for this line, skip
 	jsr __debug_toggle_breakpoint	; add the breakpoint to the debugger
@@ -2648,23 +2648,27 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Sets a breakpoint at the address in .XY or removes it if one already exists
 ; IN:
 ;  - .XY: the address of the breakpoint to set
+;  - r0:  the line # of the breakpoint
 .export __debug_toggle_breakpoint
 .proc __debug_toggle_breakpoint
+@line=r0
 	; if this is a duplicate, remove the existing breakpoint
 	jsr remove_breakpoint
 	bcc @done		; breakpoint existed, but we removed it
 
 	txa
-	pha
+	ldx numbreakpoints
 
-	lda numbreakpoints
-	asl
-	tax
-
-	pla
-	sta breakpoints,x
+	; store address
+	sta breakpointslo,x
 	tya
-	sta breakpoints+1,x
+	sta breakpointshi,x
+
+	; store line #
+	lda r0
+	sta breakpoint_lineslo,x
+	lda r1
+	sta breakpoint_lineshi,y
 
 	ldx numbreakpoints
 	lda #BREAKPOINT_ENABLED
@@ -2687,21 +2691,18 @@ __debug_remove_breakpoint:
 @end=debugtmp+2
 	jsr get_breakpoint
 	bcs @ret
-	asl
 	tax
 
 @remove:
 	; shift breakpoints down
 	lda numbreakpoints
-	asl
 	sta @end
 	cpx @end
 	beq @removed
-@l1:	lda breakpoints+2,x
-	sta breakpoints,x
-	lda breakpoints+3,x
-	sta breakpoints+1,x
-	inx
+@l1:	lda breakpointshi+1,x
+	sta breakpointshi,x
+	lda breakpointslo+1,x
+	sta breakpointslo,x
 	inx
 	cpx @end
 	bcc @l1
@@ -2713,34 +2714,31 @@ __debug_remove_breakpoint:
 
 ;******************************************************************************
 ; GET BREAKPOINT
+; Returns the ID (index) of the breakpoint corresponding to the given address
 ; IN:
-;  - .XY: the address to return the breakpoint for
+;  - .XY: the address of the breakpoint to get the ID of
 ; OUT:
-;  - .C:  set if no breakpoint is found
+;  - .C: set if no breakpoint is found
 ;  - .A: the id of the breakpoint
 .proc get_breakpoint
 @addr=debugtmp
 	stxy @addr
-	lda numbreakpoints
+	ldx numbreakpoints
 	beq @notfound
-	asl
-	tax
 @l0:	lda @addr
-	cmp breakpoints,x
+	cmp breakpointslo,x
 	bne @next
 	lda @addr+1
-	cmp breakpoints+1,x
+	cmp breakpointshi,x
 	beq @found
 @next:	dex
-	dex
 	bpl @l0
 @notfound:
 	ldxy @addr
 	sec
-	rts		; not found - nothing to remove
+	rts		; not found
 
 @found: txa
-	lsr
 	RETURN_OK
 .endproc
 

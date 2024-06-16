@@ -2,7 +2,8 @@
 .importzp __debug_src_line
 
 .import __debug_addr2line
-.import __debug_breakpoints
+.import __debug_breakpointslo
+.import __debug_breakpointshi
 .import __debug_breakpoint_flags
 .import __debug_end_segment
 .import __debug_getline
@@ -33,7 +34,8 @@
 
 .scope dbg
 	addr2line         = __debug_addr2line
-	breakpoints       = __debug_breakpoints
+	breakpointslo     = __debug_breakpointslo
+	breakpointshi     = __debug_breakpointshi
 	breakpoint_flags  = __debug_breakpoint_flags
 	endseg            = __debug_end_segment
 	file              = __debug_file
