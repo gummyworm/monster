@@ -11,4 +11,3 @@
 ; non-contiguous memory
 .org $1c00
 .DB $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-

@@ -488,16 +488,16 @@ main:	jsr key::getch
 	jmp reporterr
 
 @printresult:
+	jsr clrerror		; clear the error if there is one
+
 	lda #$01
 	sta state::verify	; re-enable verify
 
 	; get the size of the assembled program and print it
 	lda asm::pcset		; did this program actually assemble > 0 bytes?
 	bne :+
-	lda #$00		; if not, just push a zero value for bytes
-	pha
-	pha
-	beq @success
+	ldxy #@success0
+	jmp @print
 
 	; get the size of the assembled program (top - origin)
 :	lda asm::top
@@ -519,9 +519,8 @@ main:	jsr key::getch
 	pha
 
 @success:
-	jsr clrerror		; clear the error if there is one
 	ldxy #@success_msg
-	lda #STATUS_ROW-1
+@print: lda #STATUS_ROW-1
 	jsr text::print
 	lda #STATUS_ROW-2
 	sta height
@@ -530,6 +529,7 @@ main:	jsr key::getch
 	RETURN_OK
 
 @success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0
+@success0:    .byte "done.",0
 .endproc
 
 ;******************************************************************************
