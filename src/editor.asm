@@ -1826,8 +1826,9 @@ __edit_refresh:
 __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
-	lda zp::curx
-	sta @savex
+	; save the index of the character we're on
+	jsr text::char_index
+	sty @savex
 
 	jsr enter_insert
 	jsr home	; go to col 0 (or 1 if there's already a breakpoint)
@@ -1842,7 +1843,12 @@ __edit_set_breakpoint:
 	jsr text::putch
 	lda zp::cury
 	jsr text::drawline
-	jmp @cont
+	dec @savex
+	bmi :+
+	dec @savex
+	bpl @cont
+:	jsr enter_command
+	jmp @done
 
 @add:	lda #BREAKPOINT_CHAR
 	jsr src::insert
@@ -1853,10 +1859,11 @@ __edit_set_breakpoint:
 @restore:
 	jsr ccright
 	bcs @done
-	lda zp::curx
-	cmp @savex
+	jsr text::char_index
+	cpy @savex
 	bcc @restore
-	beq @restore
+	beq @restore	; because the breakpoint character was added, we want
+			; want to go to the index AFTER the one we started on
 
 @done:	rts
 .endproc
@@ -2191,6 +2198,8 @@ goto_buffer:
 ; at the end of the screen, get user input for page up/down
 @key:	jsr key::getch
 	beq @key
+	cmp #K_QUIT
+	beq @exit
 
 ; check the arrow keys (used to select a file)
 @checkdown:
@@ -3263,14 +3272,20 @@ goto_buffer:
 	lda zp::cury
 	jmp bm::rvsline_part
 
-@xloop:	jsr src::right
-	bcs :+
-	jsr cur::right
+@xloop:	lda mode
+	cmp #MODE_INSERT
+	beq :+
+	jsr src::right_rep
+	bcs @end
+	bcc @cur
+:	jsr src::right
+	bcs @end
+@cur:	jsr cur::right
 @movex: lda zp::curx
 	cmp @xend
 	bcc @xloop
 
-:	; if we ended on a TAB, advance to next tab col
+@end:	; if we ended on a TAB, advance to next tab col
 	jsr text::char_index
 	cmp #$09		; did we end on a TAB?
 	bne ccdown_highlight	; if not, continue
