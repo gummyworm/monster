@@ -769,7 +769,6 @@ main:	jsr key::getch
 	beq @done
 
 	jsr text::char_index
-	lda mem::linebuffer,y
 	cmp #$09		; if on a TAB, move cursor to start of it
 	bne @done
 
@@ -791,6 +790,9 @@ main:	jsr key::getch
 ; Enters COMMAND mode
 .proc enter_command
 	lda mode
+	cmp #MODE_COMMAND
+	beq @done
+
 	pha
 	lda #CUR_NORMAL
 	sta cur::mode
@@ -803,7 +805,18 @@ main:	jsr key::getch
 	bne @left
 @refresh:
 	jsr refresh	; unhighlight selection (if we were in VISUAL mode)
-@left:	jsr ccleft	; insert places cursor after char
+
+@left:	; if we're on a TAB, move cursor to the end of it
+	jsr src::after_cursor
+	cmp #$09
+	bne :+
+	jsr text::tabr_dist
+	clc
+	adc zp::curx
+	sta zp::curx
+	dec zp::curx
+:	jsr ccleft	; insert places cursor after char
+
 @done:  lda #'c'
 	sta text::statusmode
 	rts
@@ -1815,14 +1828,11 @@ __edit_set_breakpoint:
 @savex=zp::editortmp
 	lda zp::curx
 	sta @savex
-	jsr home	; go to col 0 (or 1 if there's already a breakpoint)
-@insert:
-	lda text::insertmode
-	pha			; save insert mode
-	lda #TEXT_INSERT
-	sta text::insertmode
 
-	jsr src::after_cursor
+	jsr enter_insert
+	jsr home	; go to col 0 (or 1 if there's already a breakpoint)
+
+	lda mem::linebuffer
 	cmp #BREAKPOINT_CHAR	; is there already a breakpoint here?
 	bne @add
 @remove:
@@ -1838,8 +1848,7 @@ __edit_set_breakpoint:
 	jsr src::insert
 	jsr text::putch
 
-@cont:	pla
-	sta text::insertmode	; restore insert mode
+@cont:	jsr enter_command
 
 @restore:
 	jsr ccright
@@ -1847,6 +1856,7 @@ __edit_set_breakpoint:
 	lda zp::curx
 	cmp @savex
 	bcc @restore
+	beq @restore
 
 @done:	rts
 .endproc
