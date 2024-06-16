@@ -1679,11 +1679,11 @@ __edit_refresh:
 	stxy @saveline
 
 	; move source/cursor to top-left of screen
+	jsr home
 	ldx zp::cury
 	ldy #$00
 	sty zp::cury
 	jsr src::upn
-	jsr src::home
 
 	; redraw the visible lines
 @l0:	jsr src::readline
@@ -2992,8 +2992,7 @@ goto_buffer:
 	jsr src::before_newl
 	beq @done		; last character
 	jsr src::delete
-	clc
-	rts
+	RETURN_OK
 
 @done:	ldx zp::curx
 	beq @no_del
@@ -3002,8 +3001,8 @@ goto_buffer:
 	sta mem::linebuffer,x
 	dec zp::curx
 	jsr src::backspace
-	clc
-	rts
+	RETURN_OK
+
 @no_del:
 	sec
 	rts
@@ -3039,20 +3038,23 @@ goto_buffer:
 
 	ldy mode
 	cpy #MODE_INSERT
-	beq :+
+	beq @cont
 	dec zp::curx
 	jsr text::char_index
 	inc zp::curx
 	cpy #$00
+	bne @cont
+	ldx #$00
+	cmp #$09
 	bne :+
-	lda #TAB_WIDTH-1
-	sta zp::curx
+	ldx #TAB_WIDTH-1
+:	stx zp::curx
 	sec
 	rts
 
 ; handle TAB (repeat the MOVE LEFT logic til we're at the prev TAB col
 ; OR the previous character
-:	jsr text::tabl_dist
+@cont:	jsr text::tabl_dist
 	sta @tabcnt
 @tabl:	jsr @curl
 	dec zp::curx
