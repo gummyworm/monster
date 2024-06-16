@@ -749,8 +749,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  .Y: the character index of the cursor
 .export __text_char_index
 .proc __text_char_index
-@tabsz=zp::tmp0
-@savey=zp::tmp1
+@tabsz=r0
+@savey=r1
 	ldx #$ff
 	ldy #$ff
 @l0:	iny
