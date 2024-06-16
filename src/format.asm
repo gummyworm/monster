@@ -3,6 +3,7 @@
 .include "linebuffer.inc"
 .include "memory.inc"
 .include "source.inc"
+.include "util.inc"
 .include "zeropage.inc"
 
 .CODE
@@ -33,43 +34,27 @@
 	beq @done	; if EOL, no more formatting needed
 	jsr src::next
 	inc @curr
-	cmp #' '
+	jsr util::is_whitespace
 	beq @l1
 	ldy @curr
 	cpy #8		; max label length
 	bne @l0
 
-	; read until the opcode/macro/etc.
-@l1:	jsr end_of_line		; if we hit EOL before finding anything- done
-	beq @done
-	jsr src::next
-	inc @curr
-	cmp #' '
-	beq @l1
-	jsr src::prev
-
-	lda @curr
-	cmp #INDENT_LEVEL+1	; is opcode already in column 10?
-	beq @cont		; continue if so
-	bcs @shl		; if >10, delete extra padding
-
-@shr:	lda #' '
-	jsr src::insert
-	inc @curr
-	lda @curr
-	cmp #INDENT_LEVEL+1
-	bcc @shr
+	; delete all spaces until the opcode/macro/etc.
+@l1:	jsr src::after_cursor
+	jsr util::is_whitespace
+	bne @tab
+	jsr src::delete
+	bcc @l1
 	bcs @cont
 
-@shl:	jsr src::backspace
-	dec @curr
-	lda @curr
-	cmp #INDENT_LEVEL+2
-	bcs @shl
+@tab:	; now insert a TAB to separate label and opcode
+	lda #$09
+	jsr src::insert
 
-@cont:	jsr src::up
-	jsr src::get
-@done:	jmp src::down
+@cont:	jsr src::up	; back to start of line
+	jsr src::get	; refresh linebuffer
+@done:	jmp src::down	; and go to end of line
 .endproc
 
 ;******************************************************************************
