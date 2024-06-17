@@ -3,6 +3,7 @@
 .include "linebuffer.inc"
 .include "memory.inc"
 .include "source.inc"
+.include "text.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
@@ -46,15 +47,12 @@
 	bne @tab
 	jsr src::delete
 	bcc @l1
-	bcs @cont
+	bcs @done
 
 @tab:	; now insert a TAB to separate label and opcode
 	lda #$09
 	jsr src::insert
-
-@cont:	jsr src::up	; back to start of line
-	jsr src::get	; refresh linebuffer
-@done:	jmp src::down	; and go to end of line
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -63,15 +61,6 @@
 .export __fmt_opcode
 .proc __fmt_opcode
 @cnt=zp::tmp8
-	ldx #39-INDENT_LEVEL-1
-@l0:	lda mem::linebuffer,x
-	sta mem::linebuffer+1,x
-	dex
-	bpl @l0
-
-	lda #$09
-	sta mem::linebuffer
-
 	; indent the linebuffer and source
 	lda #$09
 	jmp src::insert
@@ -88,20 +77,29 @@
 .export __fmt_line
 .proc __fmt_line
 @linecontent=zp::tmp6
+@tmp=r4
 	cmp #$00
 	beq @done
 	sta @linecontent	; save the types to format
 
+
 	; remove spaces from start of line
 	jsr src::up
-@removespaces:
+
+	; if breakpoint, skip
+	ldx #$00
+	stx @tmp
 	lda mem::linebuffer
-	cmp #' '
-	beq @del
-	cmp #$09
+	cmp #BREAKPOINT_CHAR
+	bne @removespaces
+	jsr src::next
+	inc @tmp
+@removespaces:
+	jsr src::after_cursor
+	jsr util::is_whitespace
 	bne @left_aligned
 @del:	jsr src::delete
-	ldx #$00
+	ldx @tmp
 	ldy #39
 	jsr linebuff::shl
 	beq @removespaces	; branch always
@@ -110,12 +108,17 @@
 	lda @linecontent 	; get the type of line we're formatting
 	and #ASM_LABEL		; if formatting includes label, do __fmt_label
 	beq @notlabel
-	jmp __fmt_label
+	jsr __fmt_label
+	jmp @refresh
 @notlabel:
 	lda @linecontent
 	and #ASM_COMMENT 	; if comment, don't format at all
 	bne @done
 @ident: jsr __fmt_opcode 	; anything else- indent
-	jmp src::down
+@refresh:
+	jsr src::up	; back to start of line
+	jsr src::get	; refresh linebuffer
+	jmp src::down	; and go to end of line
+
 @done:  rts
 .endproc

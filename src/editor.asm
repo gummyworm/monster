@@ -488,16 +488,16 @@ main:	jsr key::getch
 	jmp reporterr
 
 @printresult:
+	jsr clrerror		; clear the error if there is one
+
 	lda #$01
 	sta state::verify	; re-enable verify
 
 	; get the size of the assembled program and print it
 	lda asm::pcset		; did this program actually assemble > 0 bytes?
 	bne :+
-	lda #$00		; if not, just push a zero value for bytes
-	pha
-	pha
-	beq @success
+	ldxy #@success0
+	jmp @print
 
 	; get the size of the assembled program (top - origin)
 :	lda asm::top
@@ -519,9 +519,8 @@ main:	jsr key::getch
 	pha
 
 @success:
-	jsr clrerror		; clear the error if there is one
 	ldxy #@success_msg
-	lda #STATUS_ROW-1
+@print: lda #STATUS_ROW-1
 	jsr text::print
 	lda #STATUS_ROW-2
 	sta height
@@ -530,6 +529,7 @@ main:	jsr key::getch
 	RETURN_OK
 
 @success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0
+@success0:    .byte "done.",0
 .endproc
 
 ;******************************************************************************
@@ -751,6 +751,7 @@ main:	jsr key::getch
 ;******************************************************************************_
 ; ENTER_INSERT
 ; Enters INSERT mode
+force_enter_insert=*+5
 .proc enter_insert
 @tabcnt=r2
 	jsr is_readonly
@@ -769,7 +770,6 @@ main:	jsr key::getch
 	beq @done
 
 	jsr text::char_index
-	lda mem::linebuffer,y
 	cmp #$09		; if on a TAB, move cursor to start of it
 	bne @done
 
@@ -791,6 +791,9 @@ main:	jsr key::getch
 ; Enters COMMAND mode
 .proc enter_command
 	lda mode
+	cmp #MODE_COMMAND
+	beq @done
+
 	pha
 	lda #CUR_NORMAL
 	sta cur::mode
@@ -803,7 +806,18 @@ main:	jsr key::getch
 	bne @left
 @refresh:
 	jsr refresh	; unhighlight selection (if we were in VISUAL mode)
-@left:	jsr ccleft	; insert places cursor after char
+
+@left:	; if we're on a TAB, move cursor to the end of it
+	jsr src::after_cursor
+	cmp #$09
+	bne :+
+	jsr text::tabr_dist
+	clc
+	adc zp::curx
+	sta zp::curx
+	dec zp::curx
+:	jsr ccleft	; insert places cursor after char
+
 @done:  lda #'c'
 	sta text::statusmode
 	rts
@@ -1679,11 +1693,11 @@ __edit_refresh:
 	stxy @saveline
 
 	; move source/cursor to top-left of screen
+	jsr home
 	ldx zp::cury
 	ldy #$00
 	sty zp::cury
 	jsr src::upn
-	jsr src::home
 
 	; redraw the visible lines
 @l0:	jsr src::readline
@@ -1813,16 +1827,14 @@ __edit_refresh:
 __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
-	lda zp::curx
-	sta @savex
-	jsr home	; go to col 0 (or 1 if there's already a breakpoint)
-@insert:
-	lda text::insertmode
-	pha			; save insert mode
-	lda #TEXT_INSERT
-	sta text::insertmode
+	; save the index of the character we're on
+	jsr text::char_index
+	sty @savex
 
-	jsr src::after_cursor
+	jsr force_enter_insert
+	jsr home	; go to col 0 (or 1 if there's already a breakpoint)
+
+	lda mem::linebuffer
 	cmp #BREAKPOINT_CHAR	; is there already a breakpoint here?
 	bne @add
 @remove:
@@ -1832,21 +1844,27 @@ __edit_set_breakpoint:
 	jsr text::putch
 	lda zp::cury
 	jsr text::drawline
-	jmp @cont
+	dec @savex
+	bmi :+
+	dec @savex
+	bpl @cont
+:	jsr enter_command
+	jmp @done
 
 @add:	lda #BREAKPOINT_CHAR
 	jsr src::insert
 	jsr text::putch
 
-@cont:	pla
-	sta text::insertmode	; restore insert mode
+@cont:	jsr enter_command
 
 @restore:
 	jsr ccright
 	bcs @done
-	lda zp::curx
-	cmp @savex
+	jsr text::char_index
+	cpy @savex
 	bcc @restore
+	beq @restore	; because the breakpoint character was added, we want
+			; want to go to the index AFTER the one we started on
 
 @done:	rts
 .endproc
@@ -2181,6 +2199,8 @@ goto_buffer:
 ; at the end of the screen, get user input for page up/down
 @key:	jsr key::getch
 	beq @key
+	cmp #K_QUIT
+	beq @exit
 
 ; check the arrow keys (used to select a file)
 @checkdown:
@@ -2992,8 +3012,7 @@ goto_buffer:
 	jsr src::before_newl
 	beq @done		; last character
 	jsr src::delete
-	clc
-	rts
+	RETURN_OK
 
 @done:	ldx zp::curx
 	beq @no_del
@@ -3002,8 +3021,8 @@ goto_buffer:
 	sta mem::linebuffer,x
 	dec zp::curx
 	jsr src::backspace
-	clc
-	rts
+	RETURN_OK
+
 @no_del:
 	sec
 	rts
@@ -3039,20 +3058,23 @@ goto_buffer:
 
 	ldy mode
 	cpy #MODE_INSERT
-	beq :+
+	beq @cont
 	dec zp::curx
 	jsr text::char_index
 	inc zp::curx
 	cpy #$00
+	bne @cont
+	ldx #$00
+	cmp #$09
 	bne :+
-	lda #TAB_WIDTH-1
-	sta zp::curx
+	ldx #TAB_WIDTH-1
+:	stx zp::curx
 	sec
 	rts
 
 ; handle TAB (repeat the MOVE LEFT logic til we're at the prev TAB col
 ; OR the previous character
-:	jsr text::tabl_dist
+@cont:	jsr text::tabl_dist
 	sta @tabcnt
 @tabl:	jsr @curl
 	dec zp::curx
@@ -3251,14 +3273,20 @@ goto_buffer:
 	lda zp::cury
 	jmp bm::rvsline_part
 
-@xloop:	jsr src::right
-	bcs :+
-	jsr cur::right
+@xloop:	lda mode
+	cmp #MODE_INSERT
+	beq :+
+	jsr src::right_rep
+	bcs @end
+	bcc @cur
+:	jsr src::right
+	bcs @end
+@cur:	jsr cur::right
 @movex: lda zp::curx
 	cmp @xend
 	bcc @xloop
 
-:	; if we ended on a TAB, advance to next tab col
+@end:	; if we ended on a TAB, advance to next tab col
 	jsr text::char_index
 	cmp #$09		; did we end on a TAB?
 	bne ccdown_highlight	; if not, continue

@@ -583,6 +583,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 ; DELETE
 ; Deletes the character at the current cursor position.
 ; OUT:
+;  - .A: the character that was deleted
 ;  - .C: set if there is nothing to delete (cursor is at END)
 .export __src_delete
 .proc __src_delete

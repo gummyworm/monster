@@ -109,8 +109,8 @@ row:	.byte 0
 	clc
 	adc scroll
 	tax
-	ldy dbg::breakpoints+1,x
-	lda dbg::breakpoints,x
+	ldy dbg::breakpointshi,x
+	lda dbg::breakpointslo,x
 	tax
 	jsr dbg::removebreakpoint
 
@@ -136,18 +136,16 @@ row:	.byte 0
 	lda scroll
 	sta @cnt
 
-@l0:	lda @cnt
-	cmp dbg::numbreakpoints
+@l0:	ldy @cnt
+	cpy dbg::numbreakpoints
 	bcc :+
 	rts
-:	asl
 
-	; push the address of the breakpoint
-	tay
-	lda dbg::breakpoints,y
+:	; push the address of the breakpoint
+	lda dbg::breakpointslo,y
 	pha
 	tax
-	lda dbg::breakpoints+1,y
+	lda dbg::breakpointshi,y
 	pha
 	tay
 

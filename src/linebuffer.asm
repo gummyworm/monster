@@ -14,7 +14,7 @@
 ;  - .Z: clear
 .export __linebuffer_shl
 .proc __linebuffer_shl
-@stop=zp::tmp0
+@stop=r0
 	sty @stop
 	cpx @stop
 	beq @done
