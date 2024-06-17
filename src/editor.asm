@@ -751,6 +751,7 @@ main:	jsr key::getch
 ;******************************************************************************_
 ; ENTER_INSERT
 ; Enters INSERT mode
+force_enter_insert=*+5
 .proc enter_insert
 @tabcnt=r2
 	jsr is_readonly
@@ -1830,7 +1831,7 @@ __edit_set_breakpoint:
 	jsr text::char_index
 	sty @savex
 
-	jsr enter_insert
+	jsr force_enter_insert
 	jsr home	; go to col 0 (or 1 if there's already a breakpoint)
 
 	lda mem::linebuffer
