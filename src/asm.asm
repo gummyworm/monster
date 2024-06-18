@@ -21,6 +21,24 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
+.macro pushdebugline
+	lda dbg::file
+	pha
+	lda dbg::srcline
+	pha
+	lda dbg::srcline+1
+	pha
+.endmacro
+
+.macro popdebugline
+	pla
+	sta dbg::srcline+1
+	pla
+	sta dbg::srcline
+	pla
+	sta dbg::file
+.endmacro
+
 .CODE
 
 ;******************************************************************************
@@ -1254,7 +1272,11 @@ num_illegals = *-illegal_opcodes
 	lda #$00
 	jsr set_ctx_type
 
-	jsr ctx::rewind
+	; save the debug line
+	pushdebugline
+
+	; before rewinding, move debug line back to line we're repeating
+	jsr rewind_ctx_dbg
 
 	; don't define iterator label until pass 2
 	lda zp::pass
@@ -1262,7 +1284,7 @@ num_illegals = *-illegal_opcodes
 	beq @l1
 
 @l0:	; define a label with the value of the iteration
-	jsr ctx::rewind
+	jsr rewind_ctx_dbg
 	lda zp::ctx+repctx::iter
 	sta zp::label_value
 	lda zp::ctx+repctx::iter+1
@@ -1277,9 +1299,9 @@ num_illegals = *-illegal_opcodes
 :	bcs @err
 
 @l1:	; assemble the lines until .endrep
+	incw dbg::srcline
 	jsr ctx::getline
 	bcc :+
-	jmp *
 @err:	rts				; propagate error, exit
 :	streq strings::endrep, 7	; are we at .endrep?
 	beq @next			; yep, do next iteration
@@ -1317,7 +1339,31 @@ num_illegals = *-illegal_opcodes
 	; cleanup iterator label and context
 	ldxy zp::ctx+repctx::params
 	jsr lbl::del	; delete the iterator label
-@done:	jmp ctx::pop	; pop the context
+
+@done:	; restore the debug line
+	popdebugline
+	jmp ctx::pop	; pop the context
+.endproc
+
+;******************************************************************************
+; REWIND CTX DBG
+; Rewinds the context and debug source line by the number of lines that are
+; rewound.
+.proc rewind_ctx_dbg
+@tmp=r0
+	; before rewinding, move debug line back to line we're repeating
+	jsr ctx::numlines
+	sta @tmp
+	lda dbg::srcline
+	sec
+	sbc @tmp
+	sta dbg::srcline
+	lda dbg::srcline+1
+	sec
+	sbc #$00
+	sta dbg::srcline+1
+
+	jmp ctx::rewind
 .endproc
 
 ;******************************************************************************
@@ -1529,12 +1575,7 @@ __asm_include:
 	sta zp::file
 
 	; save the current debug-info file
-	lda dbg::file
-	pha
-	lda dbg::srcline
-	pha
-	lda dbg::srcline+1
-	pha
+	pushdebugline
 
 	; add the filename to debug info (if it isn't yet) and reset line no.
 	ldxy @fname
@@ -1574,12 +1615,7 @@ __asm_include:
 	jmp @doline		; repeat
 
 @close:	; restore debug line and file info
-	pla
-	sta dbg::srcline+1
-	pla
-	sta dbg::srcline
-	pla
-	sta dbg::file
+	popdebugline
 
 	pla		; get the file ID for the include file
 	jsr file::close	; close the file
