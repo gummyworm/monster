@@ -58,6 +58,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	lda #$00
 	sta numparams
 	sta type
+	sta mem::ctxbuffer
 	rts
 .endproc
 
@@ -231,6 +232,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	cpy #40
 	bne @write
 @err:	RETURN_ERR ERR_LINE_TOO_LONG
+
 @done:	iny
 	tya
 	clc

@@ -30,6 +30,9 @@
 ;  - .A: the pass # (1 or 2)
 .export __asm_startpass
 .proc __asm_startpass
+	pha
+	jsr ctx::init		; init the context
+	pla
 	sta zp::pass		; set pass #
 	cmp #$01
 	bne @pass2
@@ -38,9 +41,8 @@
 	lda #$00
 	sta top			; set top of program to 0
 	sta top+1
+	jmp __asm_reset		; reset assembly state
 
-	jsr __asm_reset		; reset assembly state
-	rts
 @pass2:
 	jsr __asm_resetpc	; reset PC
 	jsr ctx::init		; re-init the context
@@ -100,7 +102,6 @@ MAX_IFS      = 4 ; max nesting depth for .if/.endif
 MAX_CONTEXTS = 3 ; max nesting depth for contexts (activated by .MAC, .REP, etc)
 
 ;******************************************************************************
-; $40-$4B available for assembly
 indirect   = zp::asm    ; 1=indirect, 0=absolute
 indexed    = zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
 immediate  = zp::asm+2 ; 1=immediate, 0=not immediate
@@ -980,7 +981,7 @@ num_illegals = *-illegal_opcodes
 	bne :+
 	rts
 :	ldxy zp::virtualpc	; current PC (address)
-	stxy zp::tmp0
+	stxy r0
 	ldxy dbg::srcline
 	jmp dbg::storeline	; map them
 .endproc
@@ -1244,6 +1245,7 @@ num_illegals = *-illegal_opcodes
 ; Generates the repeated assembly block defined between here and the previous
 ; .endrep
 .proc handle_repeat
+@errcode=r0
 	; copy .endrep to the buffer
 	ldxy #asmbuffer
 	jsr ctx::write
@@ -1252,22 +1254,33 @@ num_illegals = *-illegal_opcodes
 	lda #$00
 	jsr set_ctx_type
 
-	; if this is pass 1, exit out; REP is handled in pass 2
+	jsr ctx::rewind
+
+	; don't define iterator label until pass 2
 	lda zp::pass
-	cmp #$02
-	bcc @done
+	cmp #$01
+	beq @l1
 
 @l0:	; define a label with the value of the iteration
 	jsr ctx::rewind
-	ldxy zp::ctx+repctx::iter
-	stxy zp::label_value
+	lda zp::ctx+repctx::iter
+	sta zp::label_value
+	lda zp::ctx+repctx::iter+1
+	sta zp::label_value+1
 	ldxy zp::ctx+repctx::params
-	jsr lbl::set
+
+	ora zp::label_value		; set .Z if label_value is 0
+	bne @set
+	jsr lbl::add			; first iteration- add instead of set
+	jmp :+
+@set:	jsr lbl::set
+:	bcs @err
 
 @l1:	; assemble the lines until .endrep
 	jsr ctx::getline
 	bcc :+
-	rts				; propagate error, exit
+	jmp *
+@err:	rts				; propagate error, exit
 :	streq strings::endrep, 7	; are we at .endrep?
 	beq @next			; yep, do next iteration
 
@@ -1282,10 +1295,10 @@ num_illegals = *-illegal_opcodes
 	lda #FINAL_BANK_MAIN	; bank doesn't matter for ctx
 	jsr __asm_tokenize
 	bcc :+
-	sta zp::tmp0		; save errcode
+	sta @errcode		; save errcode
 	pla			; clean stack
 	pla
-	lda zp::tmp0		; get errcode
+	lda @errcode		; get errcode
 	rts			; return err
 
 :	; restore the context
@@ -1308,13 +1321,13 @@ num_illegals = *-illegal_opcodes
 .endproc
 
 ;******************************************************************************
-; rANDLE_CTX
+; HANDLE_CTX
 ; If this is the first pass, copies the contents of the asmbuffer to the current
 ; context.
 ; OUT:
 ;  - .C: set if the line was handled by this handler
 .proc handle_ctx
-	; if verifying, don't handle context at all
+	; if verifying (ctx type == 0), don't handle context at all
 	jsr get_ctx_type
 	beq @done
 	ldxy #asmbuffer
@@ -1667,10 +1680,6 @@ __asm_include:
 ; will produce 10 'asl's
 .proc repeat
 	jsr ctx::push	; push a new context
-
-	lda zp::pass
-	cmp #$01
-	beq @done	; REP is handled in pass 2
 
 	jsr expr::eval  ; get the number of times to repeat the code
 	bcc @ok
@@ -2411,7 +2420,7 @@ __asm_include:
 .proc __asm_tokenize_pass2
 	jsr __asm_tokenize
 	bcc @ok
-	rts		; return err
+@err:	rts		; return err
 
 @ok:	; store debug info (if enabled)
 	ldx zp::gendebuginfo
@@ -2420,6 +2429,7 @@ __asm_include:
 	bne @done
 	ldxy zp::virtualpc	; address of segment
 	jmp dbg::startseg_addr	; set segment
+	bcs @err
 @done:	lda #$00
 	RETURN_OK
 .endproc

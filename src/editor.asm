@@ -3005,26 +3005,11 @@ goto_buffer:
 ;  - .C: set if no character could be deleted.
 .proc delch
 	jsr is_readonly
-	beq @no_del
-
+	beq @nodel
 	jsr src::end
-	beq @no_del
-	jsr src::before_newl
-	beq @done		; last character
-	jsr src::delete
-	RETURN_OK
-
-@done:	ldx zp::curx
-	beq @no_del
-	lda #$00
-	dex
-	sta mem::linebuffer,x
-	dec zp::curx
-	jsr src::backspace
-	RETURN_OK
-
-@no_del:
-	sec
+	beq @nodel
+	jmp src::delete
+@nodel:	sec
 	rts
 .endproc
 
