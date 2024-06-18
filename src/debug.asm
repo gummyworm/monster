@@ -390,6 +390,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy #debuginfo
 	stxy seg
 
+	lda #$00
+	sta @cnt
 @l0:	ldy #SEG_LINE_COUNT	; get the line count for the segment
 	jsr read_from_seg
 	sta @lines
@@ -428,8 +430,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldy #SEG_LINE_COUNT
 	lda #$00
 	jsr write_to_seg
-	ldy #SEG_LINE_COUNT+1
-	lda #$00
+	iny
 	jsr write_to_seg
 
 	; update seg pointer
@@ -455,9 +456,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  zp::tmp0: the name of the segment
 .export __debug_init_segment
 .proc __debug_init_segment
-@name=zp::tmp0
-@tmp=zp::tmp2
-@addr=zp::tmp3
+@name=r0
+@tmp=r2
+@addr=r3
 	stxy @addr
 
 	; copy the segment name
@@ -501,7 +502,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$00
 	jsr write_to_seg
 	iny
-	lda #$00
 	jsr write_to_seg
 	inc numsegments
 	RETURN_OK
@@ -709,9 +709,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .C: set on error
 .export __debug_startsegment_byaddr
 .proc __debug_startsegment_byaddr
-@addr=zp::tmp0
-@cnt=zp::tmp2
-@tmp=zp::tmp2
+@addr=r0
+@cnt=r2
 	stxy @addr
 	lda numsegments
 	beq @done	; no segments
@@ -889,7 +888,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @next:	inc @cnt
 	lda @cnt
 	cmp numsegments
-	bcc @l0	 ; repeat until we've checked all segments
+	bcc @l0	 	; repeat until we've checked all segments
 	RETURN_ERR ERR_LINE_NOT_FOUND
 
 ; find the line that the address we were given is on
@@ -930,8 +929,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; OUT:
 ;  - .XY: the address of the given line
 .proc __debug_line2addr
-@line=zp::tmp2
-@cnt=zp::tmp4
+@line=r2
+@cnt=r4
 	stxy @line
 	lda #$00
 	sta @cnt
@@ -941,7 +940,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 @l0:	lda @cnt
 	jsr get_segment_by_id
 	bcc @checklines
-	rts
+@done:	rts
 
 ; check every line in the segment for a match
 @checklines:
@@ -964,7 +963,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 @next:	jsr nextline
 	bcc @l1
-	RETURN_ERR ERR_LINE_NOT_FOUND
+	inc @cnt
+	bcs @l0
 .endproc
 
 ;******************************************************************************
@@ -3100,7 +3100,7 @@ __debug_remove_breakpoint:
 ;  numlines: the number of lines in the segment
 ;  .C: set if the segment doesn't exist, clear on success
 .proc get_segment_by_id
-@info=zp::tmp0
+@info=r0
 	cmp numsegments
 	bcs @done	; return error
 

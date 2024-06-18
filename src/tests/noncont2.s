@@ -5,7 +5,7 @@
 	asl
 	asl
 	asl
-	jmp *
+	jmp next
 .org $1c00
 next
 	asl
