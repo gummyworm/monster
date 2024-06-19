@@ -4,6 +4,7 @@
 .import __ctx_pop
 .import __ctx_getdata
 .import __ctx_getline
+.import __ctx_numlines
 .import __ctx_rewind
 .import __ctx_write
 .import __ctx_init
@@ -39,6 +40,7 @@ CONTEXT_REPEAT_SIZE = 16*40+4
 	addparam  = __ctx_addparam
 	getparams = __ctx_getparams
 	init      = __ctx_init
+	numlines  = __ctx_numlines
 	push      = __ctx_push
 	pop       = __ctx_pop
 	getline   = __ctx_getline

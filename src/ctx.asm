@@ -297,13 +297,43 @@ numparams = zp::ctx+10	; the number of parameters for the context
 ; Rewinds the context so that the cursor points to the beginning of its lines
 .export  __ctx_rewind
 .proc __ctx_rewind
-; contexts are aligned to $200 byte boundaries, so just clear the bottom nine bits
 	lda ctx
 	adc #CTX_LINES_START
 	sta cur
 	lda ctx+1
 	adc #$00
 	sta cur+1
+	rts
+.endproc
+
+;******************************************************************************
+; NUMLINES
+; Returns the length (in lines) of the context
+.export __ctx_numlines
+.proc __ctx_numlines
+@base=r0
+@len=r2
+	lda ctx
+	adc #CTX_LINES_START
+	sta @base
+	lda ctx+1
+	adc #$00
+	sta @base+1
+
+	ldy #$00
+	sty @len
+	beq @next
+
+@l0:	ldy #$00
+	lda (@base),y
+	bne :+
+	inc @len
+:	incw @base
+@next:	ldxy @base
+	cmpw cur
+	bne @l0
+
+	lda @len
 	rts
 .endproc
 

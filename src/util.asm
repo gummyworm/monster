@@ -556,12 +556,12 @@ result=mem::spare
 ;  - .XY: the address of the string to parse
 ;  - zp::tmp0: the address to store the parsed string
 ; OUT:
-;  - zp::tmp0: the text within the quotes (")
+;  - r0: the text within the quotes (")
 ;  - .C: set if the given string was not valid
 .export __util_parse_enquoted_string
 .proc __util_parse_enquoted_string
-@src=zp::tmp2
-@dst=zp::tmp0
+@src=r2
+@dst=r0
 	stxy @src
 	ldy #$00
 @eatws:	lda (@src),y
