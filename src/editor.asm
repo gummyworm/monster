@@ -5,6 +5,7 @@
 .include "ctx.inc"
 .include "cursor.inc"
 .include "debug.inc"
+.include "directory.inc"
 .include "draw.inc"
 .include "expr.inc"
 .include "errors.inc"
@@ -1653,7 +1654,7 @@ force_enter_insert=*+5
 @num_special_keys=*-@specialkeys
 .linecont +
 .define specialvecs home, command_asm, command_asmdbg, show_buffers, refresh, \
-	dir, list_symbols, \
+	dir::view, list_symbols, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
 	next_buffer, prev_buffer, udgedit, cancel
@@ -2081,185 +2082,6 @@ goto_buffer:
 @done:	jmp bm::restore
 
 @buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
-.endproc
-
-;******************************************************************************
-; DIR
-; Lists the directory
-; NOTE: this routine is limited to 128 files
-; The max supported by the 1541 is 144 and this routine could easily be
-; modified to support as many.
-; It could also easily be modified to support more (e.g. for the 1581)
-.proc dir
-@file=r8
-@line=r8
-@row=zp::tmpa
-@select=zp::tmpb
-@cnt=zp::tmpc
-@scroll=zp::tmpd
-@dirbuff=mem::spare+40		; 0-40 will be corrupted by text routines
-@namebuff=mem::spareend-40	; buffer for the file name
-@fptrs=mem::spareend-(128*2)	; room for 128 files
-	jsr bm::save
-
-	ldxy #strings::dir
-	jsr file::open_r_prg
-	sta @file
-	bcc :+
-@err:	rts			; error
-
-:	ldxy #@dirbuff
-	stxy __file_load_address
-	jsr file::loadbin
-	bcs @err
-	lda @file
-	jsr file::close
-
-	ldxy #@dirbuff+5
-	stxy @line
-
-	lda #$00
-	sta @scroll
-	sta @cnt
-	sta @row
-	lda #$01
-	sta @select
-
-@getdiskname:
-	ldx #@dirmsglen
-:	lda @dirmsg-1,x
-	sta @namebuff-1,x
-	dex
-	bne :-
-	; parse the name of the file
-	lda #>(@namebuff+@dirmsglen-1)
-	sta zp::tmp0+1
-	lda #<(@namebuff+@dirmsglen-1)
-	sta zp::tmp0
-	ldxy #@dirbuff+5
-	jsr util::parse_enquoted_string
-	jmp @l2
-
-@l0:    incw @line	; skip line #
-	incw @line
-
-	lda @cnt
-	asl
-	tax
-	lda @line+1
-	sta @fptrs+1,x	; save pointer to this filename
-	tay
-	lda @line
-	sta @fptrs,x
-	tax
-
-	; parse the name of the file
-	lda #<@namebuff
-	sta zp::tmp0
-	lda #>@namebuff
-	sta zp::tmp0+1
-	jsr util::parse_enquoted_string
-
-@l2:	ldy #$00
-	lda (@line),y
-	incw @line
-	tay		; set .Z if 0
-	bne @l2
-
-@next:  ; read line link
-	ldy #$00
-	lda (@line),y
-	bne :+
-	iny
-	lda (@line),y
-	beq @cont
-:	incw @line
-	incw @line
-
-	; print the line
-	ldxy #@namebuff
-	lda @row
-	jsr text::print
-
-	; next line
-	inc @cnt
-	inc @row
-	lda @row
-	cmp #SCREEN_H
-	bne @l0
-
-@cont:	; draw a line to separate file display
-	lda @row
-	jsr draw::hline
-
-	; highlight the first item
-	lda @select
-	jsr bm::rvsline
-
-; at the end of the screen, get user input for page up/down
-@key:	jsr key::getch
-	beq @key
-	cmp #K_QUIT
-	beq @exit
-
-; check the arrow keys (used to select a file)
-@checkdown:
-	cmp #$11
-	bne @checkup
-	lda @select
-	jsr bm::rvsline
-@rowdown:
-	inc @select
-	lda @select
-	cmp @row
-	bcc @hiline
-	dec @select
-	lda @select
-	bcs :+
-@checkup:
-	cmp #$91
-	bne @checkret
-	lda @select
-	jsr bm::rvsline
-@rowup:
-	dec @select
-	bne :+
-	inc @select		; lowest selectable row is 1
-:	lda @select
-@hiline:
-	jsr bm::rvsline
-	jmp @key
-
-; check the RETURN key (to open a file)
-@checkret:
-	cmp #$0d		; select file and load
-	beq @loadselection
-	cmp #$5f		; <-
-	beq @exit
-	bne @key
-
-; user selected a file (RETURN), load it and exit the directory view
-@loadselection:
-	lda @select
-	clc
-	adc @scroll
-	asl
-	tax
-	lda @fptrs,x
-	ldy @fptrs+1,x
-	tax
-	lda #<@namebuff
-	sta zp::tmp0
-	lda #>@namebuff
-	sta zp::tmp0+1
-	jsr util::parse_enquoted_string
-	jsr bm::restore
-	ldxy #@namebuff
-	jmp __edit_load 	; load the file
-
-@exit:  jmp bm::restore
-@dirmsg: .byte "dir:",0
-@dirmsglen=*-@dirmsg
 .endproc
 
 ;******************************************************************************
