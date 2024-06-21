@@ -6,6 +6,7 @@
 .include "errors.inc"
 .include "expr.inc"
 .include "finalex.inc"
+.include "flags.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "layout.inc"
@@ -49,10 +50,10 @@ memaddr:   .word 0
 ; Starts the memory editor
 .export __view_edit
 .proc __view_edit
-@dst=zp::tmp0
-@odd=zp::tmp4
-@dstoffset=zp::tmp6
-@src=zp::tmp8
+@dst=r0
+@odd=r4
+@dstoffset=r6
+@src=r8
 	ldxy memaddr
 	stxy @src
 
@@ -124,8 +125,15 @@ memaddr:   .word 0
 
 @setwatch:
 	jsr get_addr	; get the address of the byte under the cursor
-	stxy zp::tmp0	; also set as STOP address
+	stxy r0		; also set as STOP address to this address
+	txa
+	pha
+	tya
+	pha
+	lda #WATCH_STORE
 	jsr watch::add
+	ldxy #strings::watch_added
+	jsr text::info
 	jsr beep::short	; beep to confirm add
 	jmp @edit
 
@@ -400,7 +408,7 @@ memaddr:   .word 0
 ; The address is that which was set with the most recent call to mem::edit
 .export __view_mem
 .proc __view_mem
-@src=zp::tmpa
+@src=ra
 @col=zp::tmpc
 @row=zp::tmpd
 	lda memaddr
@@ -533,21 +541,20 @@ memaddr:   .word 0
 ; GET_ADDR
 ; Gets the address of the byte under the cursor when editing memory
 ; IN:
-;  - zp::tmp8 contains the base address of the current view
+;  - memaddr: the base address of the current view
 ; OUT:
-;  - zp::tmp0 contains the address under the cursor
+;  - r0: the address under the cursor
 .proc get_addr
-@src=zp::tmp8
-@dst=zp::tmp0
+@dst=r0
 	lda zp::cury
 	sec
 	sbc #MEMVIEW_START+1
 	asl		; *8 (each row is 8 bytes)
 	asl
 	asl
-	adc @src
+	adc memaddr
 	sta @dst
-	lda @src+1
+	lda memaddr+1
 	adc #$00
 	sta @dst+1
 
@@ -562,11 +569,10 @@ memaddr:   .word 0
 	tya
 	clc
 	adc @dst
-	sta @dst
+	tax
 	bcc :+
 	inc @dst+1
-
-:	ldxy @dst
+:	ldy @dst+1
 	rts
 .endproc
 

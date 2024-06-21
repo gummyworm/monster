@@ -521,8 +521,7 @@ main:	jsr key::getch
 
 @success:
 	ldxy #@success_msg
-@print: lda #STATUS_ROW-1
-	jsr text::print
+@print: jsr text::info
 	lda #STATUS_ROW-2
 	sta height
 
@@ -1252,8 +1251,7 @@ force_enter_insert=*+5
 	; display message
 	jsr enter_command
 	ldxy #@yoinkmsg
-	lda #STATUS_ROW-1
-	jsr text::print
+	jsr text::info
 	RETURN_OK
 @done:	rts
 @yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
@@ -2374,8 +2372,7 @@ goto_buffer:
 
 	; display loading...
 	ldxy #strings::loading
-	lda #STATUS_ROW-1
-	jsr text::print
+	jsr text::info
 
 	; load the file
 	ldxy @file
@@ -2400,8 +2397,7 @@ goto_buffer:
 
 @err:	pha			; push error code
 	ldxy #strings::edit_file_load_failed
-	lda #STATUS_ROW-1
-	jsr text::print
+	jsr text::info
 	sec			; error
 	rts
 .endproc
@@ -3765,8 +3761,7 @@ __edit_gotoline:
 	beq @done	; no error
 	jsr err::get
 	jsr str::uncompress
-	lda #STATUS_ROW-1
-	jsr text::print
+	jsr text::info
 @done:	rts
 .endproc
 

@@ -10,6 +10,7 @@
 .include "finalex.inc"
 .include "irq.inc"
 .include "key.inc"
+.include "layout.inc"
 .include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -856,3 +857,11 @@ tabs_end=*-tabs
 	rts
 .endproc
 
+;******************************************************************************
+; INFO
+; Prints the given string (text::print) at the status row (STATUS_ROW-1)
+.export __text_info
+.proc __text_info
+	lda #STATUS_ROW-1
+	jmp __text_print
+.endproc

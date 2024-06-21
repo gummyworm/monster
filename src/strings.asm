@@ -90,6 +90,9 @@ __str_watches_line:
 __str_watches_line_end=*-1
 .byte ESCAPE_BYTE,0
 
+.export __str_watch_added
+__str_watch_added:
+.byte "watch added @ ", $fe, 0
 
 .export __str_memview_title
 __str_memview_title: .byte "          memory[$1000]",0

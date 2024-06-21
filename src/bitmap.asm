@@ -69,8 +69,8 @@ COLMEM_ADDR = $9400
 ;  - .A: the pixel offset to start clearing at
 .export __bm_clr_part
 .proc __bm_clr_part
-@screen=zp::tmp0
-@offset=zp::tmp2
+@screen=r0
+@offset=r2
 	sta @offset
 	clc
 	adc #<BITMAP_ADDR
@@ -113,7 +113,7 @@ COLMEM_ADDR = $9400
 ;  - .A: the row to clear
 .export __bm_clrline
 .proc __bm_clrline
-@dst=zp::tmp0
+@dst=r0
 	jsr __bm_char_addr
 	stx @dst
 	sty @dst+1
@@ -142,7 +142,7 @@ COLMEM_ADDR = $9400
 ;  - .A: the text row to reverse (pixel number / 8)
 .export __bm_rvsline
 .proc __bm_rvsline
-@dst=zp::tmp0
+@dst=r0
 	jsr __bm_char_addr
 	stxy @dst
 
@@ -173,9 +173,9 @@ COLMEM_ADDR = $9400
 ;  - .X: the last column to reverse
 .export __bm_rvsline_part
 .proc __bm_rvsline_part
-@dst=zp::tmp0
-@odd=zp::tmp2	; !0 if the character to end at is odd
-@start=zp::tmp3
+@dst=r0
+@odd=r2		; !0 if the character to end at is odd
+@start=r3
 	asl
 	asl
 	asl

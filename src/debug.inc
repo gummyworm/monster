@@ -26,8 +26,10 @@
 .import __debug_store_line
 .import __debug_startsegment_byaddr
 .import __debug_sym2line
-.import __debug_watches
-.import __debug_watches_stop
+.import __debug_watcheslo
+.import __debug_watcheshi
+.import __debug_watches_stoplo
+.import __debug_watches_stophi
 .import __debug_watch_prevs
 .import __debug_watch_flags
 .import __debug_watch_vals
@@ -58,8 +60,10 @@
 	startseg_addr     = __debug_startsegment_byaddr
 	sym2line          = __debug_sym2line
 	toggle_breakpoint = __debug_toggle_breakpoint
-	watches           = __debug_watches
-	watches_stop	  = __debug_watches_stop
+	watcheslo         = __debug_watcheslo
+	watcheshi         = __debug_watcheshi
+	watches_stoplo	  = __debug_watches_stoplo
+	watches_stophi	  = __debug_watches_stophi
 	watch_flags       = __debug_watch_flags
 	watch_prevs       = __debug_watch_prevs
 	watch_vals        = __debug_watch_vals
