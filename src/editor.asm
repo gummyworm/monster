@@ -3167,7 +3167,7 @@ goto_buffer:
 ; OUT:
 ;  - mem::linebuffer: the new rendering of the line
 ;  - zp::curx: updated
-;  - zp::cury: update
+;  - zp::cury: updated
 ;  - .A: the character that was deleted (0 if none)
 .proc backspace
 @cnt=zp::tmp6
@@ -3180,23 +3180,23 @@ goto_buffer:
 	sta @char
 	lda #$14	; delete from the text buffer
 	jsr text::putch
-	bcc @done
+	bcs @prevline
+	lda zp::cury
+	jmp text::drawline
 
 @prevline:
-	jsr bumpup	; scroll the screen up
-
 	; get the line we're moving up to in linebuffer
 	jsr src::get
 
 	; if the current char is a newline, we're done
 	jsr src::atcursor
 	cmp #$0d
-	beq @done
+	beq @scrollup
 
 	jsr text::linelen
 	stx @line2len
 
-	; get the new cursor position ( new_line_len - (old_line2_len))
+	; get the new cursor position (new_line_len - (old_line2_len))
 	jsr src::up
 	jsr src::get
 	jsr text::linelen
@@ -3204,14 +3204,23 @@ goto_buffer:
 	sec
 	sbc @line2len
 	sta @cnt
-	beq @done
+	beq @scrollup
 	dec @cnt
-	bmi @done
+	bmi @scrollup
 @endofline:
 	jsr cur::right
-	jsr src::next
+	jsr src::right
 	dec @cnt
 	bpl @endofline
+@scrollup:
+	ldy zp::cury
+	dey
+	tya
+	jsr text::drawline	; draw the line we'll move to
+	jsr text::savebuff
+	jsr bumpup		; scroll the screen up (also move cursor up)
+	jmp text::restorebuff
+
 @done:	lda @char
 	rts
 .endproc
@@ -3278,9 +3287,7 @@ goto_buffer:
 	jmp src::prev
 
 @del_ins:
-	jsr backspace
-	lda zp::cury
-	jmp text::drawline
+	jmp backspace
 .endproc
 
 ;*****************************************************************************

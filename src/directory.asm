@@ -255,7 +255,7 @@ SCREEN_H = 23
 	jmp edit::load		; load the file
 
 @exit:  jmp bm::restore
-@dirmsg: .byte "dir:",0
+@dirmsg: .byte "disk:",0
 @dirmsglen=*-@dirmsg
 .endproc
 
