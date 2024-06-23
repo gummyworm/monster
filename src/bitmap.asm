@@ -18,26 +18,26 @@ COLMEM_ADDR = $9400
 ; code by Mike
 .export __bm_init
 .proc __bm_init
-        clc
-        lda #$10
-        tay
-@0:     sta $0ff0,y
-        adc #$0c
-        bcc @1
-        sbc #$ef
-@1:     iny
-        bne @0
-        ldy #$05
+	clc
+	lda #$10
+	tay
+@0:	sta $0ff0,y
+	adc #$0c
+	bcc @1
+	sbc #$ef
+@1:	iny
+	bne @0
+	ldy #$05
 @2:     clc
-        lda $ede4,y
-        adc inittab,y
-        sta $9000,y
-        dey
-        bpl @2
+	lda $ede4,y
+	adc inittab,y
+	sta $9000,y
+	dey
+	bpl @2
 
 	lda #(BG_COLOR<<4 | BORDER_COLOR)
 	sta $900f
-        rts
+	rts
 .endproc
 
 ;******************************************************************************

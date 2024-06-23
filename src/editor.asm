@@ -1790,7 +1790,7 @@ __edit_refresh:
 @cnt=zp::tmp7
 @addr=zp::tmp9
 @row=zp::tmpb
-	jsr bm::save
+	jsr scr::reset
 
 	ldxy lbl::num
 	cmpw #0
@@ -1839,7 +1839,7 @@ __edit_refresh:
 	beq @pgup
 	cmp #K_QUIT		; <-
 	bne @done
-	jmp bm::restore
+	jmp scr::restore
 
 @pgdown:
 	ldxy @cnt		; @cnt is already +SCREEN_H
@@ -1973,10 +1973,10 @@ __edit_set_breakpoint:
 @result=r7
 @udg=r8
 	pushcur
-	jsr bm::save
+	jsr scr::reset
 	CALL FINAL_BANK_UDGEDIT, #udg::edit
 	sta @result
-	jsr bm::restore
+	jsr scr::restore
 	popcur
 	lda @result
 	cmp #$00
@@ -2065,7 +2065,7 @@ goto_buffer:
 ; Displays the filenames and their respective ID's for every open buffer
 .proc show_buffers
 @cnt=zp::tmp9
-	jsr bm::save
+	jsr scr::reset
 
 	lda #$00
 	sta @cnt
@@ -2118,7 +2118,7 @@ goto_buffer:
 	sbc #'1'
 	jmp goto_buffer
 
-@done:	jmp bm::restore
+@done:	jmp scr::restore
 
 @buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
 .endproc
