@@ -397,7 +397,7 @@ main:	jsr key::getch
 	jsr dbg::init
 
 	ldxy #strings::assembling
-	jsr text::printstatus
+	jsr text::info
 
 	; save the current source position and rewind it for assembly
 	jsr text::savebuff
@@ -2296,7 +2296,7 @@ goto_buffer:
 	stxy @file
 
 	ldxy #strings::saving
-	jsr text::printstatus
+	jsr text::info
 
 	ldxy @file
 	jsr str::len
@@ -2337,7 +2337,7 @@ goto_buffer:
 
 @err:	pha		; push error code
 	ldxy #strings::edit_file_save_failed
-	jsr text::printstatus
+	jsr text::info
 @ret:	rts
 .endproc
 
@@ -2352,7 +2352,7 @@ goto_buffer:
 	stxy @file
 
 	ldxy #strings::deleting
-	jsr text::printstatus
+	jsr text::info
 
 	ldxy @file
 	jsr file::scratch
@@ -2361,7 +2361,7 @@ goto_buffer:
 
 @err:	pha
 	ldxy #strings::edit_file_delete_failed
-	jsr text::printstatus
+	jsr text::info
 	sec
 	rts
 .endproc
