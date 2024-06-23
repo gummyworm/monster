@@ -317,29 +317,6 @@ COLMEM_ADDR = $9400
 
 .RODATA
 ;******************************************************************************
-.export __bm_columns
-__bm_columns:
-.word $1100
-.word $11c0
-.word $1280
-.word $1340
-.word $1400
-.word $14c0
-.word $1580
-.word $1640
-.word $1700
-.word $17c0
-.word $1880
-.word $1940
-.word $1a00
-.word $1ac0
-.word $1b80
-.word $1c40
-.word $1d00
-.word $1dc0
-.word $1e80
-.word $1f40
-
 .linecont +
 .define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
   $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
