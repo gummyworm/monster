@@ -54,25 +54,10 @@ __scr_restore:
 
 ;******************************************************************************
 ; RESTORE
-; Restores the screen arrangement if it was re-initialized to display some
-; non-source content
-.proc restore
-	lda shiftamount
-	asl		; *2
-	adc shiftamount	; *3
-	asl		; *6
-	asl		; *12
-
-	; fall through
-.endproc
-
-;******************************************************************************
-; SETUP
-; Initializes the screen with the given shift amount
+; Initializes the screen using shiftamount to determine the layout
 ; IN:
 ;  - .A: the number of columns to shift the screen
-.export __scr_setup
-.proc __scr_setup
+.proc restore
 @scr=r0
 @row=r2
 	lda #$00
