@@ -23,7 +23,7 @@
 
 ;******************************************************************************
 ; CONSTANTS
-HEIGHT             = WATCHVIEW_STOP-WATCHVIEW_START-1
+HEIGHT = WATCHVIEW_STOP-WATCHVIEW_START-1
 
 .BSS
 ;******************************************************************************
@@ -52,9 +52,6 @@ row:	.byte 0
 @start=zp::tmp4			; start address
 @stop=zp::tmp6			; stop address (same as start if NOT range)
 @val=zp::tmp8			; value of watch (if NOT range)
-	lda #(DEBUG_INFO_START_ROW)*8
-	jsr bm::clrpart
-
 	; display the title
 	ldxy #strings::watches_title
 	lda #MEMVIEW_START
@@ -209,6 +206,8 @@ row:	.byte 0
 ; redraw after handling the command
 @redraw:
 	jsr __watches_view
+	lda dbg::numwatches
+	beq @loop		; no watches, don't highlight
 	lda row			; highlight the row selected
 	clc
 	adc #WATCHVIEW_START+1
