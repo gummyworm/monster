@@ -1,3 +1,4 @@
+.import __str_assembling
 .import __str_noname
 .import __str_endrep
 .import __str_breakpoints_title
@@ -29,6 +30,7 @@
 .import __str_watches_range_line
 
 .scope strings
+	assembling            = __str_assembling
 	noname                = __str_noname
 	endrep                = __str_endrep
 	breakpoints_title     = __str_breakpoints_title

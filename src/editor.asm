@@ -396,6 +396,9 @@ main:	jsr key::getch
 .proc command_asm
 	jsr dbg::init
 
+	ldxy #strings::assembling
+	jsr text::printstatus
+
 	; save the current source position and rewind it for assembly
 	jsr text::savebuff
 	jsr src::pushp
@@ -536,15 +539,53 @@ main:	jsr key::getch
 ; COMMAND_ASMDBG
 ; assembles the source and generates debug information for it
 .proc command_asmdbg
+	; TODO: save all dirty buffers
+	; jsr saveall
+
 	inc $900f
 	lda #$01
 	sta zp::gendebuginfo	; enable debug info
 	jsr command_asm
-	bcc :+
-	rts			; error
-:	dec zp::gendebuginfo	; turn off debug-info
 	dec $900f
-	RETURN_OK
+	bcs @done		; error
+
+@ok:	dec zp::gendebuginfo	; turn off debug-info
+	clc			; ok
+@done:	rts
+.endproc
+
+;******************************************************************************
+; SAVEALL
+; Saves all "dirty" named buffers that are open
+.proc saveall
+@cnt=r0
+	jsr src::pushp		; save current source pos
+	lda src::activebuff
+	pha			; save active buffer
+
+	lda #$00
+	sta @cnt
+
+@l0:	lda @cnt
+	cmp src::numbuffers
+	beq @done
+
+	jsr src::getflags
+	inc @cnt
+	and #FLAG_DIRTY
+	beq @l0
+
+	; save the "dirty" buffer to a file of its name
+	lda @cnt
+	jsr src::filename
+	bcs @l0			; buffer has no name
+	lda @cnt
+	jsr src::setbuff
+	jsr file::savesrc
+
+@done:	pla
+	jsr src::setbuff	; restore buffer
+	jmp src::popp		; restore source pos
 .endproc
 
 ;******************************************************************************
@@ -2032,7 +2073,7 @@ goto_buffer:
 @l0:	ldy #$00
 	lda @cnt
 
-	; push the filename
+	; push the buffer's name (for printing)
 	jsr src::filename
 	tya
 	pha
@@ -2255,8 +2296,7 @@ goto_buffer:
 	stxy @file
 
 	ldxy #strings::saving
-	lda #STATUS_ROW
-	jsr text::print
+	jsr text::printstatus
 
 	ldxy @file
 	jsr str::len
@@ -2297,8 +2337,7 @@ goto_buffer:
 
 @err:	pha		; push error code
 	ldxy #strings::edit_file_save_failed
-	lda #STATUS_ROW
-	jsr text::print
+	jsr text::printstatus
 @ret:	rts
 .endproc
 
@@ -2313,8 +2352,7 @@ goto_buffer:
 	stxy @file
 
 	ldxy #strings::deleting
-	lda #STATUS_ROW
-	jsr text::print
+	jsr text::printstatus
 
 	ldxy @file
 	jsr file::scratch
@@ -2323,8 +2361,7 @@ goto_buffer:
 
 @err:	pha
 	ldxy #strings::edit_file_delete_failed
-	lda #STATUS_ROW
-	jsr text::print
+	jsr text::printstatus
 	sec
 	rts
 .endproc

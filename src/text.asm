@@ -859,9 +859,20 @@ tabs_end=*-tabs
 
 ;******************************************************************************
 ; INFO
-; Prints the given string (text::print) at the status row (STATUS_ROW-1)
+; Prints the given string (text::print) at the info row (STATUS_ROW-1)
 .export __text_info
 .proc __text_info
 	lda #STATUS_ROW-1
 	jmp __text_print
 .endproc
+
+;******************************************************************************
+; PRINTSTATUS
+; Prints the given status (text::print) at the status row (STATUS_ROW)
+.export __text_printstatus
+.proc __text_printstatus
+	lda #STATUS_ROW
+	jmp __text_print
+.endproc
+
+

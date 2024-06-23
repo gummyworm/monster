@@ -113,7 +113,7 @@ data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
 ; SET
 ; Sets the active source to the source in the given ID.
 ; IN:
-;  - .A: the source buffer we're switching to
+;  - .A: ID of the source buffer we're switching to
 ; OUT:
 ;  - .C: set if the buffer could not be switched to
 .export __src_set
