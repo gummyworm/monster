@@ -17,12 +17,13 @@
 ; will now refer to 8 pixels at the top right of the bitmap display.
 ;******************************************************************************
 
-.include "source.inc"
+.include "bitmap.inc"
+.include "finalex.inc"
 .include "macros.inc"
+.include "source.inc"
 .include "zeropage.inc"
 
 SCREEN_ADDR = $1000
-BITMAP_ADDR = $1100
 NUM_COLS    = 20	; number of 8-pixel columns
 NUM_ROWS    = 11	; number of 16-pixel rows
 
@@ -32,7 +33,73 @@ PIXELS_PER_COL = 11*16	; number of pixels per column
 
 VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 
+.CODE
+
+;******************************************************************************
+; RESET
+; Saves the source bitmap (we will want that later) and reinitializes the
+; bitmap
+.export __scr_reset
+.proc __scr_reset
+	jsr bm::save
+	jmp bm::init
+.endproc
+
+.export __scr_restore
+__scr_restore:
+	jsr bm::restore
+	JUMP FINAL_BANK_SAVESCR, #restore
+
 .segment "SAVESCR"
+
+;******************************************************************************
+; RESTORE
+; Restores the screen arrangement if it was re-initialized to display some
+; non-source content
+.proc restore
+	lda shiftamount
+	asl		; *2
+	adc shiftamount	; *3
+	asl		; *6
+	asl		; *12
+
+	; fall through
+.endproc
+
+;******************************************************************************
+; SETUP
+; Initializes the screen with the given shift amount
+; IN:
+;  - .A: the number of columns to shift the screen
+.export __scr_setup
+.proc __scr_setup
+@scr=r0
+	clc
+	adc #$10		; $10 is the default unshifted origin value
+
+	ldy #$10
+	ldx #NUM_ROWS*NUM_COLS-1
+@l0:	sta SCREEN_ADDR-$10,y
+	clc
+	adc #SCREEN_ROWS	; next column
+	bcc :+
+	sbc #$ef
+:	iny
+	dex
+	bne @l0
+	rts
+.endproc
+
+;******************************************************************************
+; SAVE
+; Saves the current screen shift amount. To restore the screen to this
+; layout, call scr::restore
+.export __scr_save
+.proc __scr_save
+	; get the stack depth
+	ldxy stackptr
+	sub16 #stack-1
+.endproc
 
 ;******************************************************************************
 ; PUSH_COL
@@ -42,18 +109,19 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .proc __scr_pushcol
 @stack=r0
 @bm=r2
-	ldxy stackptr
+	ldxy stackptr		; get stack address - 1
 	stxy @stack
-	ldxy bmptr
+	ldxy bmptr		; get bmp address - 1
 	stxy @bm
 
+	; copy (@bm) to (@stack) and clear the bitmap area that is copied
 	ldy #PIXELS_PER_COL
-:	lda BITMAP_ADDR-1,y	; save the leftmost column's bm data
+@l0:	lda (@bm),y		; save the leftmost column's bm data
 	sta (@stack),y
 	lda #$00
 	sta (@bm),y		; clear the bitmap data
 	dey
-	bne :-
+	bne @l0
 
 	; update stack pointer and bitmap pointer
 	lda stackptr
@@ -64,12 +132,16 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	inc stackptr+1
 	clc
 
-:	lda @bm
+:	; move bmptr forward a column
+	lda @bm
 	adc #SCREEN_ROWS*16
 	sta bmptr
 	bcc @done
 	inc bmptr+1
-@done:	; fall through to SHL
+
+@done:	inc shiftamount
+
+	; fall through to SHL
 .endproc
 
 ;******************************************************************************
@@ -122,16 +194,17 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .proc __scr_popcol
 @stack=r0
 @dst=r2
-	ldxy stackptr
-	cmpw #stack-1
-	bne :+
+	jsr __scr_dropcol
+	bcc :+
 	rts
 
-:	stxy @stack
+:	ldxy stackptr
+	stxy @stack
 
 	ldxy bmptr
 	stxy @dst
 
+	; restore the bitmap data from the stack
 	ldy #PIXELS_PER_COL
 :	lda (@stack),y
 	sta (@dst),y	; restore the leftmost column's bm data
@@ -187,14 +260,24 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	bne @l0
 
 	; fall through to update stack pointer
+	rts
 .endproc
 
 ;******************************************************************************
 ; DROP_COL
 ; Drops the top column from the screen stack
+; OUT:
+;  - .C: set if the stack is already empty
 .export __scr_dropcol
 .proc __scr_dropcol
 @stack=r0
+	ldxy stackptr
+	cmpw #stack-1
+	bne :+
+	sec
+	rts		; stack is empty
+
+:	; move bmptr back a column
 	lda bmptr
 	sec
 	sbc #SCREEN_ROWS*16
@@ -202,14 +285,20 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	bcs :+
 	dec bmptr+1
 
-:	lda stackptr
+:	; move stackptr back a column
+	lda stackptr
 	sec
 	sbc #PIXELS_PER_COL
 	sta stackptr
 	bcs @done
 	dec stackptr+1
-@done:	rts
+
+@done:	dec shiftamount
+	clc
+	rts
 .endproc
+
+shiftamount: .byte 0	; number of columns the screen is shifted
 
 ; these pointers are one less than the real addresses they reference
 stackptr: 	.word stack-1

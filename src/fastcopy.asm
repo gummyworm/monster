@@ -6,11 +6,6 @@
 ;******************************************************************************
 ; CONSTANTS
 
-; $2000	- gencode start address
-; 6     - sizeof(lda abs) + sizeof(sta abs)
-; $ef0  - number of pixels to copy
-GENCODE_END = ($2000 + 6*$ef0)
-
 .SEGMENT "FASTCOPY"
 
 ;******************************************************************************

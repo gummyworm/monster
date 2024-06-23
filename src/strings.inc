@@ -1,3 +1,4 @@
+.import __str_assembling
 .import __str_noname
 .import __str_endrep
 .import __str_breakpoints_title
@@ -22,12 +23,14 @@
 .import __str_saving
 .import __str_segments
 .import __str_null
+.import __str_watch_added
 .import __str_watches_line
 .import __str_watches_line_end
 .import __str_watches_title
 .import __str_watches_range_line
 
 .scope strings
+	assembling            = __str_assembling
 	noname                = __str_noname
 	endrep                = __str_endrep
 	breakpoints_title     = __str_breakpoints_title
@@ -45,6 +48,7 @@
 	edit_file_delete_failed = __str_edit_file_delete_failed
 	edit_file_save_failed   = __str_edit_file_save_failed
 
+	watch_added             = __str_watch_added
 	watches_line            = __str_watches_line
 	watches_line_end        = __str_watches_line_end
 	watches_range_line      = __str_watches_range_line

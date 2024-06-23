@@ -239,7 +239,7 @@ start:
 
 	jmp lowinit
 
-@loading: .byte "init.."
+@loading: .byte "initializing.."
 @loadinglen=*-@loading
 
 ;******************************************************************************

@@ -396,6 +396,9 @@ main:	jsr key::getch
 .proc command_asm
 	jsr dbg::init
 
+	ldxy #strings::assembling
+	jsr text::info
+
 	; save the current source position and rewind it for assembly
 	jsr text::savebuff
 	jsr src::pushp
@@ -521,8 +524,7 @@ main:	jsr key::getch
 
 @success:
 	ldxy #@success_msg
-@print: lda #STATUS_ROW-1
-	jsr text::print
+@print: jsr text::info
 	lda #STATUS_ROW-2
 	sta height
 
@@ -537,15 +539,53 @@ main:	jsr key::getch
 ; COMMAND_ASMDBG
 ; assembles the source and generates debug information for it
 .proc command_asmdbg
+	; TODO: save all dirty buffers
+	; jsr saveall
+
 	inc $900f
 	lda #$01
 	sta zp::gendebuginfo	; enable debug info
 	jsr command_asm
-	bcc :+
-	rts			; error
-:	dec zp::gendebuginfo	; turn off debug-info
 	dec $900f
-	RETURN_OK
+	bcs @done		; error
+
+@ok:	dec zp::gendebuginfo	; turn off debug-info
+	clc			; ok
+@done:	rts
+.endproc
+
+;******************************************************************************
+; SAVEALL
+; Saves all "dirty" named buffers that are open
+.proc saveall
+@cnt=r0
+	jsr src::pushp		; save current source pos
+	lda src::activebuff
+	pha			; save active buffer
+
+	lda #$00
+	sta @cnt
+
+@l0:	lda @cnt
+	cmp src::numbuffers
+	beq @done
+
+	jsr src::getflags
+	inc @cnt
+	and #FLAG_DIRTY
+	beq @l0
+
+	; save the "dirty" buffer to a file of its name
+	lda @cnt
+	jsr src::filename
+	bcs @l0			; buffer has no name
+	lda @cnt
+	jsr src::setbuff
+	jsr file::savesrc
+
+@done:	pla
+	jsr src::setbuff	; restore buffer
+	jmp src::popp		; restore source pos
 .endproc
 
 ;******************************************************************************
@@ -1252,8 +1292,7 @@ force_enter_insert=*+5
 	; display message
 	jsr enter_command
 	ldxy #@yoinkmsg
-	lda #STATUS_ROW-1
-	jsr text::print
+	jsr text::info
 	RETURN_OK
 @done:	rts
 @yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
@@ -1751,7 +1790,7 @@ __edit_refresh:
 @cnt=zp::tmp7
 @addr=zp::tmp9
 @row=zp::tmpb
-	jsr bm::save
+	jsr scr::reset
 
 	ldxy lbl::num
 	cmpw #0
@@ -1800,7 +1839,7 @@ __edit_refresh:
 	beq @pgup
 	cmp #K_QUIT		; <-
 	bne @done
-	jmp bm::restore
+	jmp scr::restore
 
 @pgdown:
 	ldxy @cnt		; @cnt is already +SCREEN_H
@@ -1934,10 +1973,10 @@ __edit_set_breakpoint:
 @result=r7
 @udg=r8
 	pushcur
-	jsr bm::save
+	jsr scr::reset
 	CALL FINAL_BANK_UDGEDIT, #udg::edit
 	sta @result
-	jsr bm::restore
+	jsr scr::restore
 	popcur
 	lda @result
 	cmp #$00
@@ -2026,7 +2065,7 @@ goto_buffer:
 ; Displays the filenames and their respective ID's for every open buffer
 .proc show_buffers
 @cnt=zp::tmp9
-	jsr bm::save
+	jsr scr::reset
 
 	lda #$00
 	sta @cnt
@@ -2034,7 +2073,7 @@ goto_buffer:
 @l0:	ldy #$00
 	lda @cnt
 
-	; push the filename
+	; push the buffer's name (for printing)
 	jsr src::filename
 	tya
 	pha
@@ -2079,7 +2118,7 @@ goto_buffer:
 	sbc #'1'
 	jmp goto_buffer
 
-@done:	jmp bm::restore
+@done:	jmp scr::restore
 
 @buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
 .endproc
@@ -2257,8 +2296,7 @@ goto_buffer:
 	stxy @file
 
 	ldxy #strings::saving
-	lda #STATUS_ROW
-	jsr text::print
+	jsr text::info
 
 	ldxy @file
 	jsr str::len
@@ -2299,8 +2337,7 @@ goto_buffer:
 
 @err:	pha		; push error code
 	ldxy #strings::edit_file_save_failed
-	lda #STATUS_ROW
-	jsr text::print
+	jsr text::info
 @ret:	rts
 .endproc
 
@@ -2315,8 +2352,7 @@ goto_buffer:
 	stxy @file
 
 	ldxy #strings::deleting
-	lda #STATUS_ROW
-	jsr text::print
+	jsr text::info
 
 	ldxy @file
 	jsr file::scratch
@@ -2325,8 +2361,7 @@ goto_buffer:
 
 @err:	pha
 	ldxy #strings::edit_file_delete_failed
-	lda #STATUS_ROW
-	jsr text::print
+	jsr text::info
 	sec
 	rts
 .endproc
@@ -2374,8 +2409,7 @@ goto_buffer:
 
 	; display loading...
 	ldxy #strings::loading
-	lda #STATUS_ROW-1
-	jsr text::print
+	jsr text::info
 
 	; load the file
 	ldxy @file
@@ -2400,8 +2434,7 @@ goto_buffer:
 
 @err:	pha			; push error code
 	ldxy #strings::edit_file_load_failed
-	lda #STATUS_ROW-1
-	jsr text::print
+	jsr text::info
 	sec			; error
 	rts
 .endproc
@@ -3167,7 +3200,7 @@ goto_buffer:
 ; OUT:
 ;  - mem::linebuffer: the new rendering of the line
 ;  - zp::curx: updated
-;  - zp::cury: update
+;  - zp::cury: updated
 ;  - .A: the character that was deleted (0 if none)
 .proc backspace
 @cnt=zp::tmp6
@@ -3180,23 +3213,23 @@ goto_buffer:
 	sta @char
 	lda #$14	; delete from the text buffer
 	jsr text::putch
-	bcc @done
+	bcs @prevline
+	lda zp::cury
+	jmp text::drawline
 
 @prevline:
-	jsr bumpup	; scroll the screen up
-
 	; get the line we're moving up to in linebuffer
 	jsr src::get
 
 	; if the current char is a newline, we're done
 	jsr src::atcursor
 	cmp #$0d
-	beq @done
+	beq @scrollup
 
 	jsr text::linelen
 	stx @line2len
 
-	; get the new cursor position ( new_line_len - (old_line2_len))
+	; get the new cursor position (new_line_len - (old_line2_len))
 	jsr src::up
 	jsr src::get
 	jsr text::linelen
@@ -3204,14 +3237,23 @@ goto_buffer:
 	sec
 	sbc @line2len
 	sta @cnt
-	beq @done
+	beq @scrollup
 	dec @cnt
-	bmi @done
+	bmi @scrollup
 @endofline:
 	jsr cur::right
-	jsr src::next
+	jsr src::right
 	dec @cnt
 	bpl @endofline
+@scrollup:
+	ldy zp::cury
+	dey
+	tya
+	jsr text::drawline	; draw the line we'll move to
+	jsr text::savebuff
+	jsr bumpup		; scroll the screen up (also move cursor up)
+	jmp text::restorebuff
+
 @done:	lda @char
 	rts
 .endproc
@@ -3278,9 +3320,7 @@ goto_buffer:
 	jmp src::prev
 
 @del_ins:
-	jsr backspace
-	lda zp::cury
-	jmp text::drawline
+	jmp backspace
 .endproc
 
 ;*****************************************************************************
@@ -3758,8 +3798,7 @@ __edit_gotoline:
 	beq @done	; no error
 	jsr err::get
 	jsr str::uncompress
-	lda #STATUS_ROW-1
-	jsr text::print
+	jsr text::info
 @done:	rts
 .endproc
 
@@ -4002,8 +4041,7 @@ numcommands=*-commands
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
-	command_find, \
-	next_drive, prev_drive, get_command
+	command_find, next_drive, prev_drive, get_command
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs

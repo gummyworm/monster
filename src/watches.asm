@@ -76,23 +76,21 @@ row:	.byte 0
 	sta strings::watches_line_end	; restore string if it was changed
 
 	; get the START and STOP addresses of the watch
-	lda @cnt
-	asl
-	tay
-	lda dbg::watches,y
-	cmp dbg::watches_stop,y
+	ldy @cnt
+	lda dbg::watcheslo,y
+	cmp dbg::watches_stoplo,y
 	beq :+
 	inc @range			; flag that start != stop
 :	sta @start
 
-	lda dbg::watches_stop,y
+	lda dbg::watches_stoplo,y
 	sta @stop
-	lda dbg::watches+1,y
-	cmp dbg::watches_stop+1,y
+	lda dbg::watcheshi,y
+	cmp dbg::watches_stophi,y
 	beq :+
 	inc @range
 :	sta @start+1
-	lda dbg::watches_stop+1,y
+	lda dbg::watches_stophi,y
 	sta @stop+1
 
 	; print the watch info
@@ -277,11 +275,10 @@ command_vectorshi: .hibytes command_vectors
 	lda row
 	clc
 	adc scroll
-	asl
 	tax
-	lda dbg::watches,x
+	lda dbg::watcheslo,x
 	sta view::addr
-	lda dbg::watches+1,x
+	lda dbg::watcheshi,x
 	sta view::addr+1
 	jmp view::edit		; invoke the memory editor
 .endproc
@@ -302,11 +299,9 @@ command_vectorshi: .hibytes command_vectors
 	lda dbg::watch_vals,x
 	sta dbg::watch_prevs,x	; store curr value as prev
 
-	lda @cnt
-	asl
-	tax
-	lda dbg::watches,x
-	ldy dbg::watches+1,x
+	ldx @cnt
+	lda dbg::watcheslo,x
+	ldy dbg::watcheshi,x
 	tax
 
 	jsr vmem::load
@@ -337,28 +332,26 @@ command_vectorshi: .hibytes command_vectors
 @watchstart=zp::tmp2
 @watchstop=zp::tmp4
 	stxy @addr
-
-	asl
 	tax
 @chklo:
 	lda @addr+1
-	cmp dbg::watches+1,x
+	cmp dbg::watcheshi,x
 	bcc @no 		; if MSB < addr's, not in range of this watch
 	beq :+
 	bcs @chkstop		; if MSB > addr's, addr is above low bound
 
 :	lda @addr
-	cmp dbg::watches,x
+	cmp dbg::watcheslo,x
 	bcc @no			; if MSB == addr's and LSB > addr's, try next
 
 @chkstop:
 	lda @addr+1
-	cmp dbg::watches_stop+1,x
+	cmp dbg::watches_stophi,x
 	bcc @yes
 	beq :+
 	bcs @no			; if MSB > addr, not in range of this watch
 :	lda @addr
-	cmp dbg::watches_stop,x ; if LSB <= addr, addr is in range
+	cmp dbg::watches_stoplo,x ; if LSB <= addr, addr is in range
 	beq @yes
 	bcc @yes
 @no:	sec
@@ -467,9 +460,9 @@ command_vectorshi: .hibytes command_vectors
 ; ADD
 ; Adds a watch for the given memory location.
 ; IN:
-;  - .XY:      the address to add a watch for
-;  - zp::tmp0: the STOP address to add the watch for
-;  - .A:       the type of watch (WATCH_LOAD, WATCH_STORE, or WATCH_LOAD_STORE)
+;  - .XY: the address to add a watch for
+;  - r0:  the STOP address to add the watch for
+;  - .A:  the type of watch (WATCH_LOAD, WATCH_STORE, or WATCH_LOAD_STORE)
 .export __watches_add
 .proc __watches_add
 @stop=zp::tmp0
@@ -477,26 +470,23 @@ command_vectorshi: .hibytes command_vectors
 @flags=zp::tmp4
 	sta @flags
 	stxy @addr
-	lda dbg::numwatches
+	ldx dbg::numwatches
 	beq :+
 
 	; check if watch already exists
 	jsr getwatch
 	beq @done		; already a watch here, exit
 
-	lda dbg::numwatches
-	asl
-:	tax
-
-	lda @addr
-	sta dbg::watches,x
+	ldx dbg::numwatches
+:	lda @addr
+	sta dbg::watcheslo,x
 	lda @addr+1
-	sta dbg::watches+1,x
+	sta dbg::watcheshi,x
 
 	lda @stop
-	sta dbg::watches_stop,x
+	sta dbg::watches_stoplo,x
 	lda @stop+1
-	sta dbg::watches_stop+1,x
+	sta dbg::watches_stophi,x
 
 	ldxy @addr
 	jsr vmem::load
@@ -521,14 +511,12 @@ command_vectorshi: .hibytes command_vectors
 ;  - .X: the id of the watch * 2
 .proc getwatch
 @addr=zp::tmp2
-	lda dbg::numwatches
-	asl
-	tax
+	ldx dbg::numwatches
 @l0:	lda @addr
-	cmp dbg::watches,x
+	cmp dbg::watcheslo,x
 	bne @next
 	lda @addr+1
-	cmp dbg::watches+1,x
+	cmp dbg::watcheshi,x
 	beq @done
 @next:	dex
 	dex

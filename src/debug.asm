@@ -265,22 +265,27 @@ debuginfo = __BANKCODE_RUN__+__BANKCODE_SIZE__	; start after shared bank code
 ; WATCHES
 ;******************************************************************************
 __debug_numwatches:  .byte 0		    ; number of active watches
-__debug_watches:     .res MAX_WATCHPOINTS*2 ; addresses of the set watchpoints
+__debug_watcheslo:   .res MAX_WATCHPOINTS   ; addresses of the set watchpoints
+__debug_watcheshi:   .res MAX_WATCHPOINTS   ; addresses of the set watchpoints
 __debug_watch_vals:  .res MAX_WATCHPOINTS   ; values of the set watchpoints
 __debug_watch_prevs: .res MAX_WATCHPOINTS   ; previous values of watches
 __debug_watch_flags: .res MAX_WATCHPOINTS   ; flags for watches (e.g. DIRTY)
 
 ; the following are used for watches that represent a range of values
 ; e.g. [$1000, $1100)
-__debug_watches_changed: .res MAX_WATCHPOINTS*2 ; the address that was changed
-__debug_watches_stop:    .res MAX_WATCHPOINTS*2 ; end address of watch range
+__debug_watches_changedlo: .res MAX_WATCHPOINTS ; the address that was changed
+__debug_watches_changedhi: .res MAX_WATCHPOINTS ; the address that was changed
+__debug_watches_stoplo:    .res MAX_WATCHPOINTS ; end address of watch range
+__debug_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 
-.export __debug_watches
+.export __debug_watcheslo
+.export __debug_watcheshi
 .export __debug_watch_vals
 .export __debug_watch_prevs
 .export __debug_numwatches
 .export __debug_watch_flags
-.export __debug_watches_stop
+.export __debug_watches_stoplo
+.export __debug_watches_stophi
 
 ;******************************************************************************
 ; BREAKPOINTS

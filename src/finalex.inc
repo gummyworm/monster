@@ -50,7 +50,7 @@ FINAL_BANK_DEBUG   = $a0|2	; where debug symbols are stored
 FINAL_BANK_USER    = $a0|3	; where the user's program is stored
 
 ;******************************************************************************
-; SOURCE banks ($04-$05)
+; SOURCE banks ($04-$0B)
 ; There are 8 source banks. Each stores the text for one buffer of source.
 ; The text is stored in $2000-$8000.
 ; $a000-$c000 is free
@@ -73,7 +73,8 @@ FINAL_BANK_LINKER  = $a0|6	; linker ($a000-$c000)
 ;******************************************************************************
 ; FAST bank ($0C)
 ; Used for the unrolled bitmap clear routine and backups for bitmap columns
-;  $2100-$727f: bitmap save/restore column routines and backup buffers
+;  $2100-$727f: screen shift routines and backup buffers (screen.asm)
+;
 ;  $727f-$8000: 2nd part of bitmap clear routine
 ;  $a000-$c000: 1st part of bitmap clear routine 
 FINAL_BANK_SAVESCR = $a0|$0c

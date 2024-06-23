@@ -9,6 +9,7 @@
 .import __text_linelen
 .import __text_puts
 .import __text_print
+.import __text_info
 .import __text_putch
 .import __text_puterr
 .import __text_rendered_line_len
@@ -50,12 +51,13 @@ CH_R_ARROW	    = 135
 	char_index	 = __text_char_index
 	clrline          = __text_clrline
 	drawline         = __text_drawline
+	info             = __text_info
 	insertmode       = __text_insertmode
-        len              = __text_len
+	len              = __text_len
 	linelen          = __text_linelen
 	print            = __text_print
 	putch            = __text_putch
-        puts             = __text_puts
+	puts             = __text_puts
 	rendered_line_len= __text_rendered_line_len
 	rvs              = __text_rvs
 	savebuff         = __text_savebuff

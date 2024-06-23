@@ -18,26 +18,26 @@ COLMEM_ADDR = $9400
 ; code by Mike
 .export __bm_init
 .proc __bm_init
-        clc
-        lda #$10
-        tay
-@0:     sta $0ff0,y
-        adc #$0c
-        bcc @1
-        sbc #$ef
-@1:     iny
-        bne @0
-        ldy #$05
+	clc
+	lda #$10
+	tay
+@0:	sta $0ff0,y
+	adc #$0c
+	bcc @1
+	sbc #$ef
+@1:	iny
+	bne @0
+	ldy #$05
 @2:     clc
-        lda $ede4,y
-        adc inittab,y
-        sta $9000,y
-        dey
-        bpl @2
+	lda $ede4,y
+	adc inittab,y
+	sta $9000,y
+	dey
+	bpl @2
 
 	lda #(BG_COLOR<<4 | BORDER_COLOR)
 	sta $900f
-        rts
+	rts
 .endproc
 
 ;******************************************************************************
@@ -69,8 +69,8 @@ COLMEM_ADDR = $9400
 ;  - .A: the pixel offset to start clearing at
 .export __bm_clr_part
 .proc __bm_clr_part
-@screen=zp::tmp0
-@offset=zp::tmp2
+@screen=r0
+@offset=r2
 	sta @offset
 	clc
 	adc #<BITMAP_ADDR
@@ -113,7 +113,7 @@ COLMEM_ADDR = $9400
 ;  - .A: the row to clear
 .export __bm_clrline
 .proc __bm_clrline
-@dst=zp::tmp0
+@dst=r0
 	jsr __bm_char_addr
 	stx @dst
 	sty @dst+1
@@ -142,7 +142,7 @@ COLMEM_ADDR = $9400
 ;  - .A: the text row to reverse (pixel number / 8)
 .export __bm_rvsline
 .proc __bm_rvsline
-@dst=zp::tmp0
+@dst=r0
 	jsr __bm_char_addr
 	stxy @dst
 
@@ -173,9 +173,9 @@ COLMEM_ADDR = $9400
 ;  - .X: the last column to reverse
 .export __bm_rvsline_part
 .proc __bm_rvsline_part
-@dst=zp::tmp0
-@odd=zp::tmp2	; !0 if the character to end at is odd
-@start=zp::tmp3
+@dst=r0
+@odd=r2		; !0 if the character to end at is odd
+@start=r3
 	asl
 	asl
 	asl
@@ -317,29 +317,6 @@ COLMEM_ADDR = $9400
 
 .RODATA
 ;******************************************************************************
-.export __bm_columns
-__bm_columns:
-.word $1100
-.word $11c0
-.word $1280
-.word $1340
-.word $1400
-.word $14c0
-.word $1580
-.word $1640
-.word $1700
-.word $17c0
-.word $1880
-.word $1940
-.word $1a00
-.word $1ac0
-.word $1b80
-.word $1c40
-.word $1d00
-.word $1dc0
-.word $1e80
-.word $1f40
-
 .linecont +
 .define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
   $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40

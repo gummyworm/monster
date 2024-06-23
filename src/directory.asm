@@ -6,6 +6,7 @@
 .include "keycodes.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "screen.inc"
 .include "strings.inc"
 .include "text.inc"
 .include "util.inc"
@@ -32,8 +33,6 @@ SCREEN_H = 23
 @dirbuff=mem::spare+40		; 0-40 will be corrupted by text routines
 @namebuff=mem::spareend-40	; buffer for the file name
 @fptrs=mem::spareend-(128*2)	; room for 128 files
-	jsr bm::save
-
 	ldxy #strings::dir
 	jsr file::open_r_prg
 	sta @file
@@ -47,6 +46,9 @@ SCREEN_H = 23
 	bcs @err
 	lda @file
 	jsr file::close
+
+	; reset the screen so that we can print the file names normally
+	jsr scr::reset
 
 	ldxy #@dirbuff+5
 	stxy @line
@@ -250,12 +252,13 @@ SCREEN_H = 23
 	lda #>@namebuff
 	sta r0+1
 	jsr util::parse_enquoted_string
-	jsr bm::restore
+
+	jsr scr::restore
 	ldxy #@namebuff
 	jmp edit::load		; load the file
 
-@exit:  jmp bm::restore
-@dirmsg: .byte "dir:",0
+@exit:  jmp scr::restore
+@dirmsg: .byte "disk:",0
 @dirmsglen=*-@dirmsg
 .endproc
 
