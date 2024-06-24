@@ -1,3 +1,9 @@
+;******************************************************************************
+; EXPR.ASM
+; This file contains code to evaluate expressions. This is used, among other
+; things, to resolve operand values during assembly
+;******************************************************************************
+
 .include "errors.inc"
 .include "labels.inc"
 .include "macros.inc"

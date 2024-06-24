@@ -1,20 +1,17 @@
+;******************************************************************************
+; FINALEX.ASM
+; This file contains routines for reading, writing, and executing code in
+; different banks.
+; The bank code itself resides in low RAM, where it is visible regardless of
+; the active bank.
+;******************************************************************************
+
 .include "zeropage.inc"
 .include "macros.inc"
-
-.import __BANKCODE_SIZE__
-.import __BANKCODE_RUN__
-.import __BANKCODE_LOAD__
 
 .BSS
 .export __final_rti_bank
 __final_rti_bank:	.byte 0	; NOTE: only available in the main bank
-
-;******************************************************************************
-; BANK CODE
-; The following procedures have stable positions in every bank.
-; This means that any bank may call them without worrying about the instruction
-; after a bank switch changing mid-procedure.
-;******************************************************************************
 
 .segment "BANKCODE"
 
@@ -229,34 +226,6 @@ bankcode_size = *-bankcode
 ;******************************************************************************
 
 .segment "SETUP"
-;******************************************************************************
-; INIT
-; Initializes the Final Expansion memory by writing the code needed to
-; switch banks regardless of which bank we are in
-.export __final_init
-.proc __final_init
-@bank=zp::tmp1
-	sei
-
-	lda #$a1
-@l0:
-	sta @bank
-; copy the code from ZP to all banks
-	ldy #bankcode_size
-@l1:	lda __BANKCODE_LOAD__-1,y	; get a byte to write to the bank
-	sta __BANKCODE_RUN__-1,y
-	dey
-	bne @l1
-	inc $9c02
-	lda $9c02
-	cmp #$b0
-	bne @l0
-	cli
-	lda #$a1
-	sta $9c02
-
-	rts
-.endproc
 
 .CODE
 ;******************************************************************************

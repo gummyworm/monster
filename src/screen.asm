@@ -54,40 +54,50 @@ __scr_restore:
 
 ;******************************************************************************
 ; RESTORE
-; Restores the screen arrangement if it was re-initialized to display some
-; non-source content
-.proc restore
-	lda shiftamount
-	asl		; *2
-	adc shiftamount	; *3
-	asl		; *6
-	asl		; *12
-
-	; fall through
-.endproc
-
-;******************************************************************************
-; SETUP
-; Initializes the screen with the given shift amount
+; Initializes the screen using shiftamount to determine the layout
 ; IN:
 ;  - .A: the number of columns to shift the screen
-.export __scr_setup
-.proc __scr_setup
+.proc restore
 @scr=r0
-	clc
-	adc #$10		; $10 is the default unshifted origin value
+@row=r2
+	lda #$00
+	sta @row
+	ldxy #SCREEN_ADDR
+	stxy @scr
 
-	ldy #$10
-	ldx #NUM_ROWS*NUM_COLS-1
-@l0:	sta SCREEN_ADDR-$10,y
+@l0:	lda shiftamount
+	beq @done
+	lda #NUM_COLS
+	sec
+	sbc shiftamount
+	tay
+
+	lda #$10
 	clc
-	adc #SCREEN_ROWS	; next column
+	adc @row
+
+	ldx #NUM_COLS
+@l1:	sta (@scr),y
+	iny
+	cpy #NUM_COLS
 	bcc :+
-	sbc #$ef
-:	iny
+	ldy #$00
+:	clc
+	adc #SCREEN_ROWS
 	dex
+	bne @l1
+
+	; move to next screen row
+	lda @scr
+	clc
+	adc #NUM_COLS
+	sta @scr
+
+	inc @row
+	lda @row
+	cmp #NUM_ROWS
 	bne @l0
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************

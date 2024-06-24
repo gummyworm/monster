@@ -19,12 +19,7 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
 ; It is relocated to a place where it may be called from any bank
 .export __irq_sys_update
 .proc __irq_sys_update
-	lda $9c02
-	pha
-	lda #FINAL_BANK_MAIN
-	sta $9c02
-
-	jsr beep::update
+	;jsr beep::update
         lda $f5
         pha
         lda $f6
@@ -45,8 +40,6 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
         sta $f6
         pla
         sta $f5
-	pla
-	sta $9c02
 	jmp $eb15
 .endproc
 

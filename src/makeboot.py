@@ -59,7 +59,7 @@ with open(infile, 'rb') as file:
     with open(bootfile, 'wb') as prg:
         prg.write(bootloader)
 
-    appstart = 0x2000 + segments['BANKCODE']['size']
+    appstart = 0x2000 
     print(f'writing application file to ${appstart:02x}-${appstart+(len(buf)-size):02x} (${(len(buf)-size):02x} bytes)')
     with open(appfile, 'wb') as prg:
         # write load address

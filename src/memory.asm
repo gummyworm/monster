@@ -22,7 +22,7 @@ __mem_backbuff = $c000-$f00 	; backup for the screen bitmap
 .export __mem_progsave
 .export __mem_debugsave
 
-__mem_progsave =__mem_backbuff 	; backup for the user's program during debug
+__mem_progsave = __mem_backbuff 	; backup for the user's program during debug
 __mem_prog9000 = __mem_progsave
 __mem_prog00   = __mem_progsave+$10
 __mem_prog1000 = __mem_progsave+$110

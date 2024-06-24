@@ -14,10 +14,10 @@
 ; this is the address that the generated unrolled loop
 ; will reside in
 .export __fastcopy_save
-__fastcopy_save = $2100
+__fastcopy_save = $2000
 
 .export __fastcopy_restore
-__fastcopy_restore = $2100 + $2f00
+__fastcopy_restore = $2000 + $2f00
 
 .export __fast_clr
 __fast_clr = $a000	; fast clear entrypoint
@@ -234,14 +234,14 @@ fast_clr2 = $727f	; clear last 6 columns
 	inx
 	cpx #2
 	beq :+
-	jmp $2102
+	jmp __fastcopy_save+2
 :	rts
 
 @restore_suffix:
 	inx
 	cpx #2
 	beq :+
-	jmp $5002
+	jmp __fastcopy_restore+2
 :	rts
 .endproc
 

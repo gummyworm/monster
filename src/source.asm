@@ -9,8 +9,6 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-.import __BANKCODE_RUN__
-.import __BANKCODE_SIZE__
 MAX_SOURCES=8
 
 ;******************************************************************************
@@ -67,7 +65,8 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 
 ;******************************************************************************
 ; DATA
-data = __BANKCODE_RUN__ + __BANKCODE_SIZE__
+.segment "SOURCE"
+data: .res $6000
 
 .CODE
 ;******************************************************************************
