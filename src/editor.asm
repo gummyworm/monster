@@ -1,3 +1,11 @@
+;******************************************************************************
+; EDITOR.ASM
+; This file contains the code for the editor, which, in normal operation, is
+; the main loop of this program.  From the editor, the user can assemble code,
+; debug it, load/save files, view symbols, etc.
+; Most of the README is dedicated to the instructions on operating the editor.
+;******************************************************************************
+
 .include "asm.inc"
 .include "bitmap.inc"
 .include "codes.inc"

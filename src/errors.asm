@@ -1,3 +1,11 @@
+;******************************************************************************
+; ERRORS.ASM
+; This file contains the error definitions for errors that may occur during
+; assembly or some other situations (such as loading a file).  The errors
+; are stored in a compressed, 5-bits per character, format.  You can generate
+; compressed errors with the utils/compress-text.py tool.
+;******************************************************************************
+
 .include "layout.inc"
 .include "text.inc"
 

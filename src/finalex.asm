@@ -1,16 +1,17 @@
+;******************************************************************************
+; FINALEX.ASM
+; This file contains routines for reading, writing, and executing code in
+; different banks.
+; The bank code itself resides in low RAM, where it is visible regardless of
+; the active bank.
+;******************************************************************************
+
 .include "zeropage.inc"
 .include "macros.inc"
 
 .BSS
 .export __final_rti_bank
 __final_rti_bank:	.byte 0	; NOTE: only available in the main bank
-
-;******************************************************************************
-; BANK CODE
-; The following procedures have stable positions in every bank.
-; This means that any bank may call them without worrying about the instruction
-; after a bank switch changing mid-procedure.
-;******************************************************************************
 
 .segment "BANKCODE"
 
