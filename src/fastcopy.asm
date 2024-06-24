@@ -234,14 +234,14 @@ fast_clr2 = $727f	; clear last 6 columns
 	inx
 	cpx #2
 	beq :+
-	jmp $2102
+	jmp __fastcopy_save+2
 :	rts
 
 @restore_suffix:
 	inx
 	cpx #2
 	beq :+
-	jmp $5002
+	jmp __fastcopy_restore+2
 :	rts
 .endproc
 
