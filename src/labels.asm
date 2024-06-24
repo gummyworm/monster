@@ -339,7 +339,18 @@ anon_addrs = $b000
 	bcc @seek
 	RETURN_ERR ERR_ILLEGAL_LABEL
 
-@seek:	ldxy @name
+@seek:	; check label length
+	ldy #$00
+:	lda (@name),y
+	beq :+
+	iny
+	bne :-
+
+:	cpy #8+1
+	bcc :+
+	RETURN_ERR ERR_LABEL_TOO_LONG
+
+:	ldxy @name
 	jsr find
 	bcs @insert
 

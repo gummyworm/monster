@@ -36,9 +36,6 @@
 	jsr src::next
 	inc @curr
 	jsr util::is_whitespace
-	beq @l1
-	ldy @curr
-	cpy #8		; max label length
 	bne @l0
 
 	; delete all spaces until the opcode/macro/etc.

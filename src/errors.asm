@@ -71,6 +71,10 @@ err_illegal_label:
 	;.byte "invalid label",0
 	.byte $4b,$96,$b,$9,$26,$cc,$8,$85,$60,$0
 
+err_label_too_long:
+	; .byte "label too long",0
+	.byte $60,$42,$2b,$1b,$a3,$cf,$db,$f,$71,$c0
+
 err_unexpected_char:
 	;.byte "unexpected char", 0
 	.byte $ab,$85,$c4,$5,$1d,$5,$26,$c3,$40,$52,$0
@@ -172,6 +176,7 @@ err_too_many_labels:
 	err_illegal_addrmode, \
 	err_oversized_operand,\
 	err_illegal_label, \
+	err_label_too_long, \
 	err_unexpected_char, \
 	err_io, \
 	err_no_macro_name, \
