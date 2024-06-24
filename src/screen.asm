@@ -66,13 +66,13 @@ __scr_restore:
 	stxy @scr
 
 @l0:	lda shiftamount
-	beq :+
+	beq @done
 	lda #NUM_COLS
 	sec
 	sbc shiftamount
 	tay
 
-:	lda #$10
+	lda #$10
 	clc
 	adc @row
 
@@ -97,7 +97,7 @@ __scr_restore:
 	lda @row
 	cmp #NUM_ROWS
 	bne @l0
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************

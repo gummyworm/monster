@@ -29,8 +29,6 @@
 
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
-.import __BANKCODE_RUN__
-.import __BANKCODE_SIZE__
 
 ;******************************************************************************
 ; Debug info constants
@@ -95,6 +93,13 @@ debugtmp       = zp::debug+$10
 __debug_src_line = srcline ; the line # stored by dbg::storeline
 .export __debug_file
 __debug_file = file
+
+;******************************************************************************
+; NOTE: this data is stored in its own bank (FINAL_BANK_DEBUG)
+; the per-file debug info as described in the above table
+.segment "DEBUGINFO"
+.export debuginfo
+debuginfo: .res $6000
 
 ;******************************************************************************
 ; Program state variables
@@ -255,11 +260,6 @@ segaddresses: .res MAX_SEGMENTS * 2
 ;
 ; TODO: store more compactly? e.g. store offsets for line/addr from previous
 ;******************************************************************************
-
-; NOTE: this data is stored in its own bank (FINAL_BANK_DEBUG)
-; the per-file debug info as described in the above table
-.export debuginfo
-debuginfo = __BANKCODE_RUN__+__BANKCODE_SIZE__	; start after shared bank code
 
 ;******************************************************************************
 ; WATCHES

@@ -15,9 +15,6 @@
 	jmp __final_call
 .endmacro
 
-.import __BANKCODE_RUN__
-.import __BANKCODE_SIZE__
-
 ;******************************************************************************
 ; CONSTANTS
 MAX_LABELS    = 256
@@ -88,6 +85,14 @@ __label_get_fanon: LBLJUMP get_fanon
 .export __label_get_banon
 __label_get_banon: LBLJUMP get_banon
 
+;******************************************************************************
+; LABELS
+; Table of label names. Each entry corresponds to an entry in label_addresses,
+; which contains the value for the label name.
+.segment "LABELNAMES"
+.export labels
+labels: .res $6000
+
 .segment "SHAREBSS"
 ;******************************************************************************
 .export __label_num
@@ -101,12 +106,6 @@ numanon: .word 0	; total number of anonymous labels
 .segment "LABEL_BSS"
 scope: .res 8		; buffer containing the current scope
 
-;******************************************************************************
-; LABELS
-; Table of label names. Each entry corresponds to an entry in label_addresses,
-; which contains the value for the label name.
-.export labels
-labels = __BANKCODE_RUN__+__BANKCODE_SIZE__	; ~$20xx-$8000
 
 ;******************************************************************************
 ; LABEL_ADDRESSES

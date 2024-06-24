@@ -13,6 +13,10 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
+.import __BANKCODE_LOAD__
+.import __BANKCODE_RUN__
+.import __BANKCODE_SIZE__
+
 .import __BSS_LOAD__
 .import __BSS_SIZE__
 
@@ -95,9 +99,6 @@
 ; Code that is sensitive to initialization order
 ; This code loads the app and sets up various banked code
 .proc lowinit
-
-; generate low code (must occur after we're done init'ing
-	jsr fe3::init
 	lda #FINAL_BANK_FASTCOPY
 	jsr fcpy::init
 	lda #FINAL_BANK_FASTCOPY2
@@ -246,6 +247,10 @@ start:
 ; RELOCS
 ; Table of start and target addresses for segments that need to be relocated
 relocs:
+; BANK CODE
+.word __BANKCODE_LOAD__, __BANKCODE_RUN__, __BANKCODE_SIZE__
+.byte FINAL_BANK_MAIN
+
 ; DATA
 .word __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__
 .byte FINAL_BANK_MAIN

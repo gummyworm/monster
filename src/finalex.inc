@@ -18,7 +18,6 @@
 .import __final_memcpy
 .import __final_copy
 .import __final_copy_line
-.import __final_init
 .import __final_brk
 .import __final_rti
 .import __final_rti_bank
@@ -73,7 +72,7 @@ FINAL_BANK_LINKER  = $a0|6	; linker ($a000-$c000)
 ;******************************************************************************
 ; FAST bank ($0C)
 ; Used for the unrolled bitmap clear routine and backups for bitmap columns
-;  $2100-$727f: screen shift routines and backup buffers (screen.asm)
+;  $2000-$727f: screen shift routines and backup buffers (screen.asm)
 ;
 ;  $727f-$8000: 2nd part of bitmap clear routine
 ;  $a000-$c000: 1st part of bitmap clear routine 
@@ -105,7 +104,6 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 	fcopy    = __final_copy
 	copy     = __final_memcpy
 	copyline = __final_copy_line
-	init     = __final_init
 	store    = __final_store_byte
 	store_off= __final_bank_store_rel
 	load     = __final_load_byte
