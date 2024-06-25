@@ -1209,14 +1209,25 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; saves memory likely to be clobbered by the user's
 ; program (namely the screen)
 .proc save_debug_state
-@vicsave=mem::debugsave
-@colorsave=mem::debugsave+$110
+@losave=mem::dbg00+$100
+@vicsave=mem::dbg9000
+@colorsave=mem::dbg9400
 	ldx #$10
 @savevic:
 	lda $9000-1,x
 	sta @vicsave-1,x
 	dex
 	bne @savevic
+
+@savelo:
+	lda $100-1,x
+	sta @losave-1,x
+	lda $200-1,x
+	sta @losave-1,x
+	lda $300-1,x
+	sta @losave-1,x
+	dex
+	bne @savelo
 
 	ldx #$f0
 ; save $9400-$94f0
@@ -1235,7 +1246,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; saves memory clobbered by the debugger (screen, ZP, etc.)
 .export __debug_save_prog_state
 .proc __debug_save_prog_state
-@zpsave=mem::prog00
+@losave=mem::prog00
 @vicsave=mem::prog9000
 @internalmem=mem::prog1000
 @colorsave=mem::prog9400
@@ -1261,7 +1272,18 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	dex
 	bne @savecolor
 
-	; backup the user $1000 data
+; save $100-$400
+@savelo:
+	lda $100-1,x
+	sta @losave+$100-1,x
+	lda $200-1,x
+	sta @losave+$200-1,x
+	lda $300-1,x
+	sta @losave+$300-1,x
+	dex
+	bne @savelo
+
+	; backup the user $1100-$2000 data
 	JUMP FINAL_BANK_FASTCOPY, #fcpy::save
 .endproc
 
@@ -1588,14 +1610,26 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; RESTORE_DEBUG_STATE
 ; Restores the saved debugger state
 .proc restore_debug_state
-@vicsave=mem::debugsave	; $0-$10
-@colorsave=mem::debugsave+$110
+@losave=mem::dbg00+$100
+@vicsave=mem::dbg9000
+@colorsave=mem::dbg9400
 	ldx #$10
 @restorevic:
 	lda @vicsave-1,x
 	sta $9000-1,x
 	dex
 	bne @restorevic
+
+; restore $100-$400
+@restorelo:
+	lda @losave+$100-1,x
+	;sta $0100-1,x
+	lda @losave+$200-1,x
+	;sta $0200-1,x
+	lda @losave+$300-1,x
+	;sta $0300-1,x
+	dex
+	bne @restorelo
 
 	ldx #$f0
 ; save $9400-$94f0
@@ -1607,7 +1641,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; reinit the bitmap
 	jsr bm::init
-	; restore the screen
+
+	; restore the screen ($1100-$2000)
 	JUMP FINAL_BANK_FASTCOPY2, #fcpy::restore
 .endproc
 
@@ -1615,9 +1650,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; SAVE DEBUG ZP
 ; Saves the state of the debugger's zeropage
 ; TODO: only save/restore the ZP locations clobbered by the debugger
-; (will require some overall restructure of ZP usage.
+; (will require some overall restructure of ZP usage)
 .proc save_debug_zp
-@zp=mem::debugsave+$10
+@zp=mem::dbg00
 	ldx #$00
 @l0:	lda $00,x
 	sta @zp,x
@@ -1630,7 +1665,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; RESTORE DEBUG ZP
 ; Restores the state of the debugger's zeropage
 .proc restore_debug_zp
-@zp=mem::debugsave+$10
+@zp=mem::dbg00
 	ldx #$00
 @l0:	lda @zp,x
 	sta $00,x
@@ -1670,8 +1705,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; restores the saved program state
 .export __debug_restore_progstate
 .proc __debug_restore_progstate
-@vicsave=mem::prog9000
+@losave=mem::prog00+$100
 @internalmem=mem::prog1000
+@vicsave=mem::prog9000
 @colorsave=mem::prog9400
 	ldx #$10
 @restorevic:
@@ -1679,6 +1715,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta $9000-1,x
 	dex
 	bne @restorevic
+
+; restore $100-$400
+@restorelo:
+	lda @losave-1,x
+	;sta $100-1,x
+	lda @losave+$100-1,x
+	;sta $200-1,x
+	lda @losave+$200-1,x
+	;sta $300-1,x
+	dex
+	bne @restorelo
 
 ; restore $1000-$1100
 @restore1000:
@@ -2169,7 +2216,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldx @addr+1
 	bne :+
 	ldx @addr
-	sta mem::debugsave+$10,x
+	sta mem::dbg00,x
 	jmp @next
 
 :	ldy #$00

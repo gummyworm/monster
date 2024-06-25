@@ -21,14 +21,21 @@ __mem_backbuff = $c000-$f00 	; backup for the screen bitmap
 .export __mem_prog9400
 .export __mem_progsave
 .export __mem_debugsave
+.export __mem_dbg00
+.export __mem_dbg9000
+.export __mem_dbg9400
 
 __mem_progsave = __mem_backbuff 	; backup for the user's program during debug
-__mem_prog9000 = __mem_progsave
-__mem_prog00   = __mem_progsave+$10
-__mem_prog1000 = __mem_progsave+$110
-__mem_prog9400 = __mem_progsave+$210
+__mem_prog9000 = __mem_progsave		; $9000-$9010
+__mem_prog00   = __mem_progsave+$10	; $00-$0400
+__mem_prog1000 = __mem_progsave+$410	; $1000-1100
+__mem_prog9400 = __mem_progsave+$510	; $9400-$94f0
 
-__mem_debugsave=__mem_backbuff+$300 	; backup for the user's program during debug
+; we back up less for debug because we can just re-init some state
+__mem_debugsave = __mem_progsave+$600
+__mem_dbg00   = __mem_debugsave		; $00-$400
+__mem_dbg9000 = __mem_debugsave+$400	; $9000-$9010
+__mem_dbg9400 = __mem_debugsave+$410	; $9400-$94f0
 
 .export __mem_ctxbuffer
 __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
