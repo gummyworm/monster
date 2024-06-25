@@ -3579,13 +3579,13 @@ __edit_gotoline:
 	lda @target+1
 	sbc src::line+1
 	sta @diff+1
-	bne :+
+	bne @long
+
 	cpx #$01	; 1 line forward?
 	bne :+
 	jmp ccdown	; just move down if we're only going one line
 
-:	bne @long
-	lda zp::cury
+:	lda zp::cury
 	clc
 	adc @diff
 	cmp height
