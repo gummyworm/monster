@@ -2020,13 +2020,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	and #MODE_INDIRECT
 	beq @chkzpindex
 	inc @cycles	; 1 cycle for each byte read of the indirect address
-	lda op_mode
-
-	; if x-indexed, we only load 1 byte from the indirect address
-	; indirect JMP and indirect y-indexed both load 2 bytes from RAM
-	and #MODE_X_INDEXED
-	bne @chkzpindex
-	lda op_mode
 	inc @cycles
 
 ;Zero page,X, zero page,Y, and (zero page,X) addressing modes spend an extra cycle reading the unindexed zero page address.
@@ -2064,7 +2057,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	beq :+
 	inc @cycles		; penalty if write to memory
 
-:	lda effective_addr
+:	lda op_mode
+	and #MODE_X_INDEXED|MODE_INDIRECT
+	bne @done		; (x,ind) has no cross-page penalty
+
+	lda effective_addr
 	cmp #$ff		; is effective address LSB $ff?
 	bne @chkbra		; no penalty if not (no page boundary crossed)
 	inc @cycles
