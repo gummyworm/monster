@@ -31,6 +31,10 @@
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
 
+; address in user program where the BRK handler will reside
+BRK_HANDLER_ADDR = $8000-(brkhandler1_size+brkhandler2_size-2)
+RTI_ADDR         = BRK_HANDLER_ADDR + 3
+
 ;******************************************************************************
 ; Debug info constants
 MAX_FILES       = 24	; max files that debug info may be generated for
@@ -1104,11 +1108,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #ACTION_START
 	sta action
 
-; install BRK handler
-@install_isr:
-	ldxy #debug_brk
-	jsr irq::break
-
 	; initialize auxiliary views
 	jsr brkpt::init
 	lda #$00
@@ -1123,11 +1122,91 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
 
+	jsr install_brk			; install the IRQ
+
 	jsr save_debug_zp
 	jsr restore_user_zp
 
 @runpc:	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK
 .endproc
+
+;******************************************************************************
+; INSTALL BRK
+; Installs the given vector to the BRK and NMI vectors
+; The virtual vector ($0334) holds the actual address of the interrupt handler.
+; The real vectors, $0316-$0317 and $0318-$0319, are updated to a handler that
+; switches back to the main RAM bank and dispatches to this vector.
+; Care must be taken to choose an address that won't overwrite Monster
+; IN:
+;  - .XY: the address to install the BRK handler to
+.proc install_brk
+@dst=r0
+@cnt=r2
+	ldxy #BRK_HANDLER_ADDR
+	stxy @dst
+	stxy $0316		; BRK
+	stxy $0318		; NMI
+
+	lda #brkhandler1_size-1
+	sta @cnt
+; copy part 1 of the BRK handler to the user program
+@l0:	ldy @cnt
+	lda brkhandler1,y
+	sta zp::bankval
+	sty zp::bankoffset
+	ldxy @dst
+	lda #FINAL_BANK_USER
+	jsr fe3::store_off
+	dec @cnt
+	bpl @l0
+
+	ldxy #BRK_HANDLER_ADDR+3
+	stxy @dst
+	lda #brkhandler2_size-1
+	sta @cnt
+; copy part 2 of the BRK handler to our memory
+@l1:	ldy @cnt
+	lda brkhandler2,y
+	sta zp::bankval
+	sty zp::bankoffset
+	ldxy @dst
+	lda #FINAL_BANK_MAIN
+	jsr fe3::store_off
+	dec @cnt
+	bpl @l1
+	rts
+.endproc
+
+.CODE
+
+;******************************************************************************
+; BRKHANDLER
+; Handles the BRK interrupt by returning control to the main bank
+; and continuing execution there.
+; Part 1 of the handler is copied to the user program and part 2 is copied to
+; the editor, where execution will pick up after switching banks
+;
+; This is the layout of the code in each bank:
+; PHA		-- (1 byte)
+; LDA #$00	-- (2 bytes)
+; STA $9C02	STA $9C02
+; PLA		PLA
+; RTI		JMP DEBUG_BRK
+; -- (2 bytes)  -- (0 bytes)
+; handler1 has 2 empty bytes at the end and handler2 has 3 empty bytes at the
+; beginning
+brkhandler1:
+	pha
+	lda #$80
+	sta $9c02
+	pla
+	rti
+brkhandler1_size=*-brkhandler1
+brkhandler2:
+	sta $9c02
+	pla
+	jmp debug_brk
+brkhandler2_size=*-brkhandler2
 
 ;******************************************************************************
 ; INSTALL_BREAKPOINTS
@@ -1246,7 +1325,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; saves memory clobbered by the debugger (screen, ZP, etc.)
 .export __debug_save_prog_state
 .proc __debug_save_prog_state
-@losave=mem::prog00
+@losave=mem::prog00+$100
 @vicsave=mem::prog9000
 @internalmem=mem::prog1000
 @colorsave=mem::prog9400
@@ -1275,17 +1354,18 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; save $100-$400
 @savelo:
 	lda $100-1,x
-	sta @losave+$100-1,x
+	sta @losave1,x
 	lda $200-1,x
-	sta @losave+$200-1,x
+	sta @losave+$100-1,x
 	lda $300-1,x
-	sta @losave+$300-1,x
+	sta @losave+$200-1,x
 	dex
 	bne @savelo
 
 	; backup the user $1100-$2000 data
 	JUMP FINAL_BANK_FASTCOPY, #fcpy::save
 .endproc
+
 
 ;******************************************************************************
 ; DEBUG_BRK
@@ -1484,20 +1564,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 @restore_regs:
 	; from top to bottom: [STATUS, <PC, >PC]
-	lda #FINAL_BANK_USER
-	sta fe3::rti_bank	; set default RTI bank
-	ldxy sim::pc
-	jsr is_internal_address
-	bne :+
-	lda #FINAL_BANK_MAIN	; if internal address, use main bank
-	sta fe3::rti_bank
-:	lda sim::pc+1
-
+	lda sim::pc+1
 	sta prev_pc+1
 	pha
 	lda sim::pc	; restore PC
 	sta prev_pc
 	pha
+
 	lda sim::reg_p	; restore processor status
 	pha
 
@@ -1516,7 +1589,9 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sty prev_reg_y
 
 	; return from the BRK
-	jmp fe3::bank_rti
+	pha
+	lda #FINAL_BANK_USER
+	jmp RTI_ADDR
 .endproc
 
 ;******************************************************************************

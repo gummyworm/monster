@@ -130,6 +130,9 @@ opcode     = zp::asm+8
 lsb        = zp::asm+$9
 msb        = zp::asm+$a
 
+SEG_CODE = 1	; flag for CODE segment
+SEG_BSS  = 2	; flag for BSS segment (all data must be 0, PC not updated)
+
 .BSS
 ;******************************************************************************
 .export ifstack
@@ -150,6 +153,9 @@ origin: .word 0	; the lowest address in the program
 .export __asm_top
 __asm_top:
 top: .word 0	; the highest address in the program
+
+; the type of the segment being stored e.g. SEG_BSS or SEG_CODE
+segment_type: .byte 0
 
 ;******************************************************************************
 ; ASMBUFFER

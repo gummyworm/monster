@@ -44,24 +44,6 @@ TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster in
 .endproc
 
 .CODE
-;******************************************************************************
-; BRK
-; Installs the given vector to the BRK and NMI vectors
-; The virtual vector ($0334) holds the actual address of the interrupt handler.
-; $0316-$0317 and $0318-$0319 are updated to a handle that
-; switches back to the main RAM bank and dispatches to this vector.
-.export __irq_brk
-.proc __irq_brk
-	stx $0334
-	sty $0335
-	lda #<fe3::break
-	sta $0316
-	sta $0318
-	lda #>fe3::break
-	sta $0317
-	sta $0319
-	rts
-.endproc
 
 ;******************************************************************************
 .export __irq_raster
