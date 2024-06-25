@@ -3541,12 +3541,12 @@ goto_buffer:
 .export __edit_gotoline
 __edit_gotoline:
 .proc gotoline
-@target=zp::tmp6
-@row=zp::tmp8
-@seekforward=zp::tmp9	; 0=backwards 1=forwards
-@diff=zp::tmpa		; lines to move up or down
-@rowsave=zp::tmpc
-@cnt=zp::tmpd
+@target=r6
+@row=r8
+@seekforward=r9		; 0=backwards 1=forwards
+@diff=ra		; lines to move up or down
+@rowsave=rc
+@cnt=rd
 	cmpw src::lines	; is target < total # of lines?
 	bcc :+		; yes, move to target
 	ldxy src::lines ; no, move to the last line

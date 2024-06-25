@@ -1293,7 +1293,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; needed by the debugger for display etc, then it restores the debugger's state
 ; and finally transfers control to the debugger
 .proc debug_brk
-@file=debugtmp
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
 	pla
 	sta reg_y
@@ -1416,6 +1415,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy pc
 	jsr __debug_gotoaddr
 	bcs @print		; if we failed to get line #, continue
+	stxy highlight_line
 	inc lineset
 
 	jsr toggle_highlight	; highlight line
@@ -1546,18 +1546,20 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the address to "goto"
 ; OUT:
 ;  - .C:  set on failure
+;  - .XY: the line that was navigated to
 .export __debug_gotoaddr
 .proc __debug_gotoaddr
-@line=r8
+@line=debugtmp
 	jsr __debug_addr2line	; get the line #
 	bcs @done		; error
 	sta file
-	stxy highlight_line
+	stxy @line
 	jsr __debug_load_file	; load file (if not already)
 	bcs @done		; error
 
-	ldxy highlight_line
+	ldxy @line
 	jsr edit::gotoline
+	ldxy @line
 	clc
 @done:	rts
 .endproc
