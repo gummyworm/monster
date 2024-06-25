@@ -33,9 +33,9 @@ __mem_prog9400 = __mem_progsave+$510	; $9400-$94f0
 
 ; we back up less for debug because we can just re-init some state
 __mem_debugsave = __mem_progsave+$600
-__mem_dbg00   = __mem_debugsave		; $00-$400
-__mem_dbg9000 = __mem_debugsave+$400	; $9000-$9010
-__mem_dbg9400 = __mem_debugsave+$410	; $9400-$94f0
+__mem_dbg00     = __mem_debugsave	; $00-$400
+__mem_dbg9000   = __mem_debugsave+$400	; $9000-$9010
+__mem_dbg9400   = __mem_debugsave+$410	; $9400-$94f0
 
 .export __mem_ctxbuffer
 __mem_ctxbuffer = $140+40	; the buffer for the context during assembly

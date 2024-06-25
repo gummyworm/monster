@@ -1354,7 +1354,7 @@ brkhandler2_size=*-brkhandler2
 ; save $100-$400
 @savelo:
 	lda $100-1,x
-	sta @losave1,x
+	sta @losave-1,x
 	lda $200-1,x
 	sta @losave+$100-1,x
 	lda $300-1,x
@@ -1697,12 +1697,12 @@ brkhandler2_size=*-brkhandler2
 
 ; restore $100-$400
 @restorelo:
+	lda @losave-1,x
+	;sta $100-1,x
 	lda @losave+$100-1,x
-	;sta $0100-1,x
+	;sta $200-1,x
 	lda @losave+$200-1,x
-	;sta $0200-1,x
-	lda @losave+$300-1,x
-	;sta $0300-1,x
+	;sta $300-1,x
 	dex
 	bne @restorelo
 
