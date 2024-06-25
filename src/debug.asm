@@ -341,10 +341,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .C: set if an error occurred
 .export __debug_setup
 .proc __debug_setup
-@lines=zp::tmp4
-@tmp=zp::tmp6
-@segend=zp::tmp8
-@cnt=zp::tmpa
+@lines=r4
+@tmp=r6
+@segend=r8
+@cnt=ra
 	lda numsegments
 	bne :+
 	rts
@@ -648,7 +648,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .proc __debug_startsegment_byname
 @name=zp::str0
 @other=zp::str2
-@cnt=zp::tmp0
+@cnt=r0
 	stxy @name
 	ldxy #segmentnames
 	stxy @other
@@ -683,7 +683,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	sta addr+1
 	RETURN_OK
 .endproc
-
 
 ;******************************************************************************
 ; STARTSEGMENT_BYADDR
@@ -774,7 +773,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - zp::tmp0: the address corresponding to the given line number
 .export __debug_store_line
 .proc __debug_store_line
-@addr=zp::tmp0
+@addr=r0
 	lda zp::pass
 	cmp #$02
 	bne @update_linecnt
@@ -840,8 +839,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .C: set on error
 .export __debug_addr2line
 .proc __debug_addr2line
-@addr=zp::tmp2
-@cnt=zp::tmp4
+@addr=r0
+@cnt=r4
 	stxy @addr
 	lda #$00
 	sta @cnt
@@ -1058,8 +1057,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .A: the file ID for the newly copied file
 ;  - .C: clear on success, set on error
 .proc storefile
-@src=zp::tmp2
-@filename=zp::tmp0
+@filename=r0
+@src=r2
 	stxy @src
 
 	; if filename is empty, return an error
@@ -1118,6 +1117,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	jsr reset_stopwatch
 
+	jsr dummy_irq
 	jsr __debug_restore_progstate	; and copy in entire user state to start
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
@@ -1128,6 +1128,17 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	jsr restore_user_zp
 
 @runpc:	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK
+.endproc
+
+
+;******************************************************************************
+; DUMMY IRQ
+; Replaces the IRQ with a dummy (NOP) one
+.proc dummy_irq
+	; install a NOP IRQ
+	ldxy #$eb15
+	stxy $0314
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1215,8 +1226,8 @@ brkhandler2_size=*-brkhandler2
 ; immediately hit. For a breakpoint to be effective, it must be set at least
 ; one instruction from the current PC.
 .proc install_breakpoints
-@brkaddr=zp::tmp0
-@cnt=zp::tmp2
+@brkaddr=r0
+@cnt=r2
 	ldx numbreakpoints
 	beq @done
 	dex
@@ -1257,8 +1268,8 @@ brkhandler2_size=*-brkhandler2
 ; UNINSTALL_BREAKPOINTS
 ; Restores the source code by removing all breakpoints installed by the debugger
 .proc uninstall_breakpoints
-@addr=zp::tmp0
-@cnt=zp::tmp2
+@addr=r0
+@cnt=r2
 	ldx numbreakpoints
 	beq @done
 	dex
@@ -1575,8 +1586,7 @@ brkhandler2_size=*-brkhandler2
 	pha
 
 	; install a NOP IRQ
-	ldxy #$eb15
-	stxy $0314
+	jsr dummy_irq
 
 	jsr save_debug_zp
 	jsr restore_user_zp
@@ -1698,7 +1708,7 @@ brkhandler2_size=*-brkhandler2
 ; restore $100-$400
 @restorelo:
 	lda @losave-1,x
-	;sta $100-1,x
+	sta $100-1,x
 	lda @losave+$100-1,x
 	;sta $200-1,x
 	lda @losave+$200-1,x
@@ -1798,7 +1808,7 @@ brkhandler2_size=*-brkhandler2
 	lda @losave+$100-1,x
 	;sta $200-1,x
 	lda @losave+$200-1,x
-	;sta $300-1,x
+	sta $300-1,x
 	dex
 	bne @restorelo
 
@@ -1963,11 +1973,13 @@ brkhandler2_size=*-brkhandler2
 .proc swap_user_mem
 	jsr save_debug_state
 	jsr __debug_restore_progstate
+
+	; wait for a key to swap the state back
 :	jsr key::getch
 	beq :-
+
 	jsr __debug_save_prog_state
-	jsr restore_debug_state	; restore debugger state
-	rts
+	jmp restore_debug_state	; restore debugger state
 .endproc
 
 ;******************************************************************************
@@ -2112,7 +2124,6 @@ brkhandler2_size=*-brkhandler2
 	jmp step
 .endproc
 
-
 ;******************************************************************************
 ; SWAPIN
 ; Either swaps in the 3-4 bytes that were saved (if we were able to resolve the
@@ -2122,9 +2133,9 @@ brkhandler2_size=*-brkhandler2
 ; This routine is called _before_ returning from the BRK interrupt and executing
 ; the user program.
 .proc swapin
-@cnt=zp::tmp0
-@addr=zp::tmp1
-@tosave=zp::tmp3
+@cnt=r0
+@addr=r1
+@tosave=r3
 	lda swapmem
 	beq @fastswap
 
@@ -2217,10 +2228,10 @@ brkhandler2_size=*-brkhandler2
 ; values for the debugger's values of those.
 ; If not, swap the entire internal RAM state
 .proc swapout
-@cnt=zp::tmp0
-@addr=zp::tmp1
-@ysave=zp::tmp3
-@tosave=zp::tmp4
+@cnt=r0
+@addr=r1
+@ysave=r3
+@tosave=r4
 	lda swapmem
 	beq @fastswap
 	jmp @swapall

@@ -27,13 +27,13 @@
 	op               = __sim_op
 	op_mode          = __sim_op_mode
 
-	stopwatch       = __sim_stopwatch
-	effective_addr  = __sim_effective_addr
-	register_state  = __sim_register_state
-	pc              = __sim_pc
-	reg_a           = __sim_reg_a
-	reg_x           = __sim_reg_x
-	reg_y           = __sim_reg_y
-	reg_sp          = __sim_reg_sp
-	reg_p           = __sim_reg_p
+	stopwatch      = __sim_stopwatch
+	effective_addr = __sim_effective_addr
+	register_state = __sim_register_state
+	pc             = __sim_pc
+	reg_a          = __sim_reg_a
+	reg_x          = __sim_reg_x
+	reg_y          = __sim_reg_y
+	reg_sp         = __sim_reg_sp
+	reg_p          = __sim_reg_p
 .endscope

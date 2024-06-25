@@ -3321,11 +3321,8 @@ goto_buffer:
 	bne @del_ins
 
 @del_rep:
-	; if we're replacing (or in r/o mode), just decrement cursor if we can
-	lda zp::curx
-	beq @done
-	jsr cur::left
-	jmp src::prev
+	; if we're replacing (or in r/o mode), just move left if we can
+	jmp ccleft
 
 @del_ins:
 	jmp backspace
