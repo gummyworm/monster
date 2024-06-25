@@ -1,89 +1,93 @@
+; ALL.S
+; test for all opcodes
+; cycle counts (and total cycle count)
+; in comments
 .org $7700
 c:
-    adc #$00
-    adc $10
-    adc $20,x
-    adc $3030
-    adc $4040,x
-    adc $5050,y
-    adc ($60,x)
-    adc ($70),y
-    and #$80
-    and $90
-    and $10,x
-    and $1111
-    and $1212,x
-    and $1313,y
-    and ($14,x)
-    and ($15),y
-    asl
-    asl $17
-    asl $18,x
-    asl $1919
-    asl $2020,x
-    bcc *+2
-    bcs *+2
-    beq *+2
-    bit $24
-    bit $2525
-    bmi *+2
-    bne *+2
-    bpl *+2
+    adc #$00	; 2
+    adc $10	; 3 (5)
+    adc $20,x	; 4 (9)
+    adc $3030	; 4 (13)
+    adc $4040,x	; 4* (17)
+    adc $5050,y	; 4* (21)
+    adc ($60,x)	; 6 (27)
+    adc ($70),y	; 5* (32)
+    and #$80	; 2 (34)
+    and $90	; 3 (37)
+    and $10,x	; 4 (41)
+    and $1111	; 4 (45)
+    and $1212,x	; 4* (49)
+    and $1313,y ; 4* (53)
+    and ($14,x)	; 6 (59)
+    and ($15),y	; 5* (64)
+    asl		; 2 (66)
+    asl $17	; 5 (71)
+    asl $18,x	; 6 (77)
+    asl $1919	; 6 (83)
+    asl $2020,x	; 7 (90)
+    bcc *+2	; 2* (92)
+    bcs *+2	; 2+1 (95)
+    beq *+2	; 2* (97)
+    bit $24	; 3 (100)
+    bit $2525	; 4 (104)
+    bmi *+2	; 2+1 (107)
+    bne *+2	; 2* (109)
+    bpl *+2	; 2* (111)
     ;brk
-    bvc *+2
-    bvs *+2
-    clc
-    cld
-    cli
-    clv
-    cmp #$36
-    cmp $37
-    cmp $38,x
-    cmp $3939
-    cmp $4040,x
-    cmp $4141,y
-    cmp ($42,x)
-    cmp ($43),y
-    cpx #$44
-    cpx $45
-    cpx $4646
-    cpy #$47
-    cpy $48
-    cpy $4949
-    dec $50
-    dec $51,x
-    dec $5252
-    dec $5353,x
-    dex
-    dey
-    eor #$56
-    eor $57
-    eor $58,x
-    eor $5959
-    eor $6060,x
-    eor $6161,y
-    eor ($62,x)
-    eor ($63),y
-    inc $64
-    inc $65,x
-    inc $6666
-    inc $6767,x
-    inx
-    iny
-    jmp *+3
-    jmp (*+3)
+    bvc *+2	; 2* (113)
+    bvs *+2	; 2+1 (116)
+    clc		; 2 (118)
+    cld		; 2 (120)
+    cli		; 2 (122)
+    clv		; 2 (124)
+    cmp #$36	; 2 (126)
+    cmp $37	; 3 (129)
+    cmp $38,x	; 4 (133)
+    cmp $3939	; 4 (137)
+    cmp $4040,x	; 4* (141)
+    cmp $4141,y	; 4* (145)
+    cmp ($42,x)	; 6 (151)
+    cmp ($43),y	; 5* (156)
+    cpx #$44	; 2 (158)
+    cpx $45	; 3 (161)
+    cpx $4646	; 4 (165)
+    cpy #$47	; 2 (167)
+    cpy $48	; 3 (170)
+    cpy $4949	; 4 (174)
+    dec $50	; 5 (179)
+    dec $51,x	; 6 (185)
+    dec $5252	; 6 (191)
+    dec $5353,x	; 7 (198)
+    dex		; 2 (200)
+    dey		; 2 (202)
+    eor #$56	; 2 (204)
+    eor $57	; 3 (207)
+    eor $58,x	; 4 (211)
+    eor $5959	; 4 (215)
+    eor $6060,x	; 4* (219)
+    eor $6161,y	; 4* (223)
+    eor ($62,x)	; 6 (229)
+    eor ($63),y	; 5* (234)
+    inc $64	; 5 (239)
+    inc $65,x	; 6 (245)
+    inc $6666	; 6 (251)
+    inc $6767,x	; 7 (258)
+    inx		; 2 (260)
+    iny		; 2 (262)
+    jmp *+3	; 3 (265)
+    jmp (*+3)	; 5 (270)
 .dw next
 next:
-    jsr *+3
-    lda #$73
-    lda $74
-    lda $75,x
-    lda $7676
-    lda $7777,x
-    lda $7878,y
-    lda ($79,x)
-    lda ($80),y
-    ldx #$81
+    jsr *+3	; 6 (276)
+    lda #$73	; 2 (278)
+    lda $74	; 3 (281)
+    lda $75,x	; 4 (285)
+    lda $7676	; 4 (289)
+    lda $7777,x	; 4* (293)
+    lda $7878,y	; 4* (297)
+    lda ($79,x)	; 6 (303)
+    lda ($80),y	; 5* (308)
+    ldx #$81	; 2 (310)
     ldx $82
     ldx $83,y
     ldx $8484

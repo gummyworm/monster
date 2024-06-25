@@ -26,10 +26,10 @@ test.d64: monster.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
 	$(C1541) -format test,1 d64 test.d64 -attach test.d64 -write boot.prg -write masm.prg $(addprefix -write , $(TEST_FILES))
 
 start: test.d64
-	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -pal -drive10type 1541 -10 test.d64
+	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1541 -10 test.d64
 
 vstart: 
-	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -pal +drive10truedrive -virtualdev10
+	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc +drive10truedrive -virtualdev10
 
 clean:
 	rm -f *.prg *.o test.d64
