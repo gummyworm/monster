@@ -3575,11 +3575,16 @@ __edit_gotoline:
 	sec
 	sbc src::line
 	sta @diff
+	tax
 	lda @target+1
 	sbc src::line+1
 	sta @diff+1
+	bne :+
+	cpx #$01	; 1 line forward?
+	bne :+
+	jmp ccdown	; just move down if we're only going one line
 
-	bne @long
+:	bne @long
 	lda zp::cury
 	clc
 	adc @diff
