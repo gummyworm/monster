@@ -130,6 +130,7 @@ highlight_file:   .word 0	; filename of line we are highlighting
 
 action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
+debugger_sp: .byte 0	; stack pointer (SP) for debugger
 
 ;******************************************************************************
 ; WATCHES
@@ -184,7 +185,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 :	lda mem::dbg00,x
 	sta $00,x
 	lda mem::dbg00+$100,x
-	;sta $100,x
+	sta $100,x
 	lda mem::dbg00+$200,x
 	sta $200,x
 	lda mem::dbg00+$300,x
@@ -219,7 +220,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 :	lda @zp,x
 	sta $00,x
 	lda mem::prog00+$100,x
-	;sta $100,x
+	sta $100,x
 	lda mem::prog00+$200,x
 	sta $200,x
 	lda mem::prog00+$300,x
@@ -277,9 +278,11 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	dex
 	bne :-
 
+	tsx
+	stx debugger_sp
+
 	lda #$4c
 	sta zp::jmpaddr
-
 	; restore the user $1100 data
 	CALL FINAL_BANK_FASTCOPY, #fcpy::restore
 	rts
@@ -599,6 +602,11 @@ brkhandler2_size=*-brkhandler2
 	sta sim::pc+1
 
 	sei
+
+	; restore the debugger's SP
+	ldx debugger_sp
+	txs
+
 	; save the user's zeropage and restore the debugger's
 	save_user_zp
 	restore_debug_zp
@@ -758,7 +766,13 @@ brkhandler2_size=*-brkhandler2
 	jsr cur::off
 	jsr swapin
 
+	jsr save_debug_zp
+	restore_user_zp
+
 @restore_regs:
+	ldx sim::reg_sp	; restore SP
+	txs
+
 	; from top to bottom: [STATUS, <PC, >PC]
 	lda sim::pc+1
 	sta prev_pc+1
@@ -769,9 +783,6 @@ brkhandler2_size=*-brkhandler2
 
 	lda sim::reg_p	; restore processor status
 	pha
-
-	jsr save_debug_zp
-	restore_user_zp
 
 	lda sim::reg_a
 	sta prev_reg_a
