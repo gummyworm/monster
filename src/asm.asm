@@ -2,6 +2,7 @@
 .include "ctx.inc"
 .include "codes.inc"
 .include "debug.inc"
+.include "debuginfo.inc"
 .include "errors.inc"
 .include "expr.inc"
 .include "file.inc"
@@ -22,21 +23,21 @@
 .include "zeropage.inc"
 
 .macro pushdebugline
-	lda dbg::file
+	lda dbgi::file
 	pha
-	lda dbg::srcline
+	lda dbgi::srcline
 	pha
-	lda dbg::srcline+1
+	lda dbgi::srcline+1
 	pha
 .endmacro
 
 .macro popdebugline
 	pla
-	sta dbg::srcline+1
+	sta dbgi::srcline+1
 	pla
-	sta dbg::srcline
+	sta dbgi::srcline
 	pla
-	sta dbg::file
+	sta dbgi::file
 .endmacro
 
 .CODE
@@ -1029,8 +1030,8 @@ num_illegals = *-illegal_opcodes
 	rts
 :	ldxy zp::virtualpc	; current PC (address)
 	stxy r0
-	ldxy dbg::srcline
-	jmp dbg::storeline	; map them
+	ldxy dbgi::srcline
+	jmp dbgi::storeline	; map them
 .endproc
 
 ;******************************************************************************
@@ -1328,7 +1329,7 @@ num_illegals = *-illegal_opcodes
 :	bcs @err
 
 @l1:	; assemble the lines until .endrep
-	incw dbg::srcline
+	incw dbgi::srcline
 	jsr ctx::getline
 	bcc :+
 @err:	rts				; propagate error, exit
@@ -1383,14 +1384,14 @@ num_illegals = *-illegal_opcodes
 	; before rewinding, move debug line back to line we're repeating
 	jsr ctx::numlines
 	sta @tmp
-	lda dbg::srcline
+	lda dbgi::srcline
 	sec
 	sbc @tmp
-	sta dbg::srcline
-	lda dbg::srcline+1
+	sta dbgi::srcline
+	lda dbgi::srcline+1
 	sec
 	sbc #$00
-	sta dbg::srcline+1
+	sta dbgi::srcline+1
 
 	jmp ctx::rewind
 .endproc
@@ -1608,11 +1609,11 @@ __asm_include:
 
 	; add the filename to debug info (if it isn't yet) and reset line no.
 	ldxy @fname
-	jsr dbg::setfile
+	jsr dbgi::setfile
 	bcc :+
 	rts			; return err
 :	ldxy #1
-	stxy dbg::srcline
+	stxy dbgi::srcline
 
 ; read a line from file
 @doline:
@@ -1640,7 +1641,7 @@ __asm_include:
 	sta zp::file
 	bcs @close
 
-@next:	incw dbg::srcline	; next line
+@next:	incw dbgi::srcline	; next line
 	jmp @doline		; repeat
 
 @close:	; restore debug line and file info
@@ -2469,9 +2470,9 @@ __asm_include:
 	cmp #ASM_ORG
 	bne @done
 	ldxy @startpc	   ; get PC to end segment at
-	jsr dbg::endseg	   ; end previous segment (if any)
+	jsr dbgi::endseg	   ; end previous segment (if any)
 	ldxy zp::virtualpc ; start address of segment
-	jsr dbg::initseg   ; init a new segment
+	jsr dbgi::initseg   ; init a new segment
 @done:	RETURN_OK
 .endproc
 
@@ -2493,7 +2494,7 @@ __asm_include:
 	cmp #ASM_ORG
 	bne @done
 	ldxy zp::virtualpc	; address of segment
-	jmp dbg::startseg_addr	; set segment
+	jmp dbgi::startseg_addr	; set segment
 	bcs @err
 @done:	lda #$00
 	RETURN_OK

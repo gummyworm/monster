@@ -1,5 +1,6 @@
 .include "bitmap.inc"
 .include "debug.inc"
+.include "debuginfo.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "key.inc"
@@ -172,7 +173,7 @@ row:	.byte 0
 @lineno:
 	; get the line number and file
 	ldxy @addr
-	jsr dbg::addr2line
+	jsr dbgi::addr2line
 	bcc @getlineno
 
 ; an error should not occur (there must be debug info to set a breakpoint,
@@ -196,7 +197,7 @@ row:	.byte 0
 	tya
 	pha
 	lda @file
-	jsr dbg::get_filename
+	jsr dbgi::get_filename
 	tya
 	pha
 	txa
