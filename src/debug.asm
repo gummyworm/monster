@@ -130,27 +130,6 @@ highlight_file:   .word 0	; filename of line we are highlighting
 
 action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
-;******************************************************************************
-; RESTORE DEBUG ZP
-; Restores the state of the debugger's zeropage
-.macro restore_debug_zp
-	ldx #$00
-:	lda mem::dbg00,x
-	sta $00,x
-	dex
-	bne :-
-.endmacro
-
-;******************************************************************************
-; SAVE USER ZP
-; Saves the state of the user's zeropage
-.macro save_user_zp
-	ldx #$00
-:	lda $00,x
-	sta mem::prog00,x
-	dex
-	bne :-
-.endmacro
 
 ;******************************************************************************
 ; WATCHES
@@ -197,7 +176,114 @@ __debug_breakpoint_flags:
 breakpoint_flags: .res MAX_BREAKPOINTS ; active state of breakpoints
 breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
+;******************************************************************************
+; RESTORE DEBUG ZP
+; Restores the state of the debugger's zeropage
+.macro restore_debug_zp
+	ldx #$00
+:	lda mem::dbg00,x
+	sta $00,x
+	lda mem::dbg00+$100,x
+	;sta $100,x
+	lda mem::dbg00+$200,x
+	sta $200,x
+	lda mem::dbg00+$300,x
+	sta $300,x
+	dex
+	bne :-
+.endmacro
+
+;******************************************************************************
+; SAVE USER ZP
+; Saves the state of the user's zeropage
+.macro save_user_zp
+	ldx #$00
+:	lda $00,x
+	sta mem::prog00,x
+	lda $100,x
+	sta mem::prog00+$100,x
+	lda $200,x
+	sta mem::prog00+$200,x
+	lda $300,x
+	sta mem::prog00+$300,x
+	dex
+	bne :-
+.endmacro
+
+;******************************************************************************
+; RESTORE USER ZP
+; Restores the state of the user's zeropage
+.macro restore_user_zp
+@zp=mem::prog00
+	ldx #$00
+:	lda @zp,x
+	sta $00,x
+	lda mem::prog00+$100,x
+	;sta $100,x
+	lda mem::prog00+$200,x
+	sta $200,x
+	lda mem::prog00+$300,x
+	sta $300,x
+	dex
+	bne :-
+.endmacro
+
 .CODE
+
+;******************************************************************************
+; RESTORE_DEBUG_STATE
+; Restores the saved debugger state
+.proc restore_debug_state
+	ldx #$10
+:	lda mem::dbg9000-1,x
+	dex
+	bne :-
+
+	ldx #$f0
+; save $9400-$94f0
+:	lda mem::dbg9400-1,x
+	sta $9400-1,x
+	dex
+	bne :-
+
+	; reinit the bitmap
+	jsr bm::init
+
+	; restore the screen ($1100-$2000)
+	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
+	rts
+.endproc
+
+;******************************************************************************
+; RESTORE_PROGSTATE
+; restores the saved program state
+.proc __debug_restore_progstate
+	ldx #$10
+:	lda mem::prog9000-1,x
+	sta $9000-1,x
+	dex
+	bne :-
+
+; restore $1000-$1100
+:	lda mem::prog1000,x
+	sta $1000,x
+	dex
+	bne :-
+
+	ldx #$f0
+; restore $9400-$94f0
+:	lda mem::prog9400-1,x
+	sta $9400-1,x
+	dex
+	bne :-
+
+	lda #$4c
+	sta zp::jmpaddr
+
+	; restore the user $1100 data
+	CALL FINAL_BANK_FASTCOPY, #fcpy::restore
+	rts
+.endproc
 
 ;******************************************************************************
 ; START
@@ -215,14 +301,13 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 	; set the simulator's PC value
 	stxy sim::pc
+	stxy prev_pc
 
 	; backup the byte that will be overwritten by our BRK
-	ldxy sim::pc
-	stxy prev_pc
 	jsr vmem::load
 	sta startsave
 
-	; install the first BRK at the debug start address
+	; and install the first BRK at the debug start address
 	ldxy sim::pc
 	lda #$00
 	jsr vmem::store
@@ -238,16 +323,19 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	jsr dummy_irq
 
 	jsr install_brk			; install the BRK handler IRQ
+
 	jsr save_debug_state 		; save the debug state
+	;jsr __debug_save_prog_state
 	jsr __debug_restore_progstate	; and copy in entire user state to start
+
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
 
 	; the zeropage is sensitive, when we're done with all other setup,
 	; swap the user and debug zeropages
 	jsr save_debug_zp
-	jsr restore_user_zp
-@runpc:	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK
+	CALL FINAL_BANK_USER, sim::pc	; execute the user program until BRK
+	rts
 .endproc
 
 ;******************************************************************************
@@ -290,7 +378,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	dec @cnt
 	bpl @l0
 
-	ldxy #BRK_HANDLER_ADDR+3
+	ldxy #BRK_HANDLER_ADDR
 	stxy @dst
 	lda #brkhandler2_size-1
 	sta @cnt
@@ -315,14 +403,13 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; the editor, where execution will pick up after switching banks
 ;
 ; This is the layout of the code in each bank:
-; PHA		-- (1 byte)
-; LDA #$00	-- (2 bytes)
+; PHA		PHA
+; LDA #$80	LDA #$80
 ; STA $9C02	STA $9C02
 ; PLA		PLA
 ; RTI		JMP DEBUG_BRK
 ; -- (2 bytes)  -- (0 bytes)
-; handler1 has 2 empty bytes at the end and handler2 has 3 empty bytes at the
-; beginning
+; handler1 has 2 empty bytes at the end
 brkhandler1:
 	pha
 	lda #$80
@@ -331,6 +418,8 @@ brkhandler1:
 	rti
 brkhandler1_size=*-brkhandler1
 brkhandler2:
+	pha
+	lda #$80
 	sta $9c02
 	pla
 	jmp debug_brk
@@ -416,7 +505,6 @@ brkhandler2_size=*-brkhandler2
 ; saves memory likely to be clobbered by the user's
 ; program (namely the screen)
 .proc save_debug_state
-@losave=mem::dbg00+$100
 @vicsave=mem::dbg9000
 @colorsave=mem::dbg9400
 	ldx #$10
@@ -425,16 +513,6 @@ brkhandler2_size=*-brkhandler2
 	sta @vicsave-1,x
 	dex
 	bne @savevic
-
-@savelo:
-	lda $100-1,x
-	;sta @losave-1,x
-	lda $200-1,x
-	;sta @losave-1,x
-	lda $300-1,x
-	;sta @losave-1,x
-	dex
-	bne @savelo
 
 	ldx #$f0
 ; save $9400-$94f0
@@ -445,7 +523,8 @@ brkhandler2_size=*-brkhandler2
 	bne @savecolor
 
 	; backup the screen
-	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
+	CALL FINAL_BANK_FASTCOPY2, #fcpy::save
+	rts
 .endproc
 
 ;******************************************************************************
@@ -479,21 +558,10 @@ brkhandler2_size=*-brkhandler2
 	dex
 	bne @savecolor
 
-; save $100-$400
-@savelo:
-	lda $100-1,x
-	;sta @losave-1,x
-	lda $200-1,x
-	;sta @losave+$100-1,x
-	lda $300-1,x
-	;sta @losave+$200-1,x
-	dex
-	bne @savelo
-
 	; backup the user $1100-$2000 data
-	JUMP FINAL_BANK_FASTCOPY, #fcpy::save
+	CALL FINAL_BANK_FASTCOPY, #fcpy::save
+	rts
 .endproc
-
 
 ;******************************************************************************
 ; DEBUG_BRK
@@ -531,18 +599,18 @@ brkhandler2_size=*-brkhandler2
 	sta sim::pc+1
 
 	sei
-	; restore the debugger's zeropage
+	; save the user's zeropage and restore the debugger's
 	save_user_zp
 	restore_debug_zp
+
+	; swap the debugger state in
+	jsr swapout
 
 	; reinstall the main IRQ
 	ldx #<irq::sys_update
         ldy #>irq::sys_update
 	lda #$20
         jsr irq::raster
-
-	; swap the debugger state in
-	jsr swapout
 
 	; unless we can figure out the exact RAM we will affect, we'll have to
 	; swap in the entire user RAM before we return from this BRK
@@ -686,6 +754,7 @@ brkhandler2_size=*-brkhandler2
 	jsr toggle_highlight
 
 @debug_done:
+	jsr dummy_irq	; install a NOP IRQ
 	jsr cur::off
 	jsr swapin
 
@@ -701,11 +770,8 @@ brkhandler2_size=*-brkhandler2
 	lda sim::reg_p	; restore processor status
 	pha
 
-	; install a NOP IRQ
-	jsr dummy_irq
-
 	jsr save_debug_zp
-	jsr restore_user_zp
+	restore_user_zp
 
 	lda sim::reg_a
 	sta prev_reg_a
@@ -782,46 +848,6 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
-; RESTORE_DEBUG_STATE
-; Restores the saved debugger state
-.proc restore_debug_state
-@losave=mem::dbg00+$100
-@vicsave=mem::dbg9000
-@colorsave=mem::dbg9400
-	ldx #$10
-@restorevic:
-	lda @vicsave-1,x
-	sta $9000-1,x
-	dex
-	bne @restorevic
-
-; restore $100-$400
-@restorelo:
-	lda @losave-1,x
-	;sta $100-1,x
-	lda @losave+$100-1,x
-	;sta $200-1,x
-	lda @losave+$200-1,x
-	;sta $300-1,x
-	dex
-	bne @restorelo
-
-	ldx #$f0
-; save $9400-$94f0
-@restorecolor:
-	lda @colorsave-1,x
-	sta $9400-1,x
-	dex
-	bne @restorecolor
-
-	; reinit the bitmap
-	jsr bm::init
-
-	; restore the screen ($1100-$2000)
-	JUMP FINAL_BANK_FASTCOPY2, #fcpy::restore
-.endproc
-
-;******************************************************************************
 ; SAVE DEBUG ZP
 ; Saves the state of the debugger's zeropage
 ; TODO: only save/restore the ZP locations clobbered by the debugger
@@ -831,71 +857,15 @@ brkhandler2_size=*-brkhandler2
 	ldx #$00
 @l0:	lda $00,x
 	sta @zp,x
+	lda $100,x
+	sta @zp+$100,x
+	lda $200,x
+	sta @zp+$200,x
+	lda $300,x
+	sta @zp+$300,x
 	dex
 	bne @l0
 	rts
-.endproc
-
-
-;******************************************************************************
-; RESTORE USER ZP
-; Restores the state of the user's zeropage
-.proc restore_user_zp
-@zp=mem::prog00
-	ldx #$00
-@l0:	lda @zp,x
-	sta $00,x
-	dex
-	bne @l0
-	rts
-.endproc
-
-;******************************************************************************
-; RESTORE_PROGSTATE
-; restores the saved program state
-.export __debug_restore_progstate
-.proc __debug_restore_progstate
-@losave=mem::prog00+$100
-@internalmem=mem::prog1000
-@vicsave=mem::prog9000
-@colorsave=mem::prog9400
-	ldx #$10
-@restorevic:
-	lda @vicsave-1,x
-	sta $9000-1,x
-	dex
-	bne @restorevic
-
-; restore $100-$400
-@restorelo:
-	lda @losave-1,x
-	;sta $100-1,x
-	lda @losave+$100-1,x
-	;sta $200-1,x
-	lda @losave+$200-1,x
-	;sta $300-1,x
-	dex
-	bne @restorelo
-
-; restore $1000-$1100
-@restore1000:
-	lda @internalmem,x
-	sta $1000,x
-	dex
-	bne @restore1000
-
-	ldx #$f0
-; restore $9400-$94f0
-@restorecolor:
-	lda @colorsave-1,x
-	sta $9400-1,x
-	dex
-	bne @restorecolor
-
-	lda #$4c
-	sta zp::jmpaddr
-	; restore the user $1000 data
-	JUMP FINAL_BANK_FASTCOPY, #fcpy::restore
 .endproc
 
 ;******************************************************************************
@@ -1034,7 +1004,8 @@ brkhandler2_size=*-brkhandler2
 
 ;******************************************************************************
 ; SWAP_USER_MEM
-; Toggles between the user program memory and the debugger
+; Command that swaps in the user program memory, waits for a keypress, and
+; returns with the debugger's memory swapped back in
 .proc swap_user_mem
 	jsr save_debug_state
 	jsr __debug_restore_progstate
@@ -1209,7 +1180,7 @@ brkhandler2_size=*-brkhandler2
 	; swap entire user RAM in (needed if we don't know what memory will
 	; be changed before next BRK)
 	jsr save_debug_state
-	jmp __debug_restore_progstate
+	jsr __debug_restore_progstate
 
 @fastswap:
 	; save [mem_saveaddr], [step_point], and [pc, pc+2] for the debugger
@@ -1376,7 +1347,6 @@ brkhandler2_size=*-brkhandler2
 @next:	dec @cnt
 	dec @cnt
 	bpl @store
-
 	rts			; done
 
 @swapall:

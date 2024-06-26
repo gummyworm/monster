@@ -6,7 +6,6 @@
 .import __debug_init
 .import __debug_numbreakpoints
 .import __debug_numwatches
-.import __debug_restore_progstate
 .import __debug_remove_breakpoint
 .import __debug_setbreakpoint
 .import __debug_toggle_breakpoint
