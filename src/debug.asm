@@ -278,9 +278,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	dex
 	bne :-
 
-	tsx
-	stx debugger_sp
-
 	lda #$4c
 	sta zp::jmpaddr
 	; restore the user $1100 data
@@ -337,8 +334,10 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	; the zeropage is sensitive, when we're done with all other setup,
 	; swap the user and debug zeropages
 	jsr save_debug_zp
-	CALL FINAL_BANK_USER, sim::pc	; execute the user program until BRK
-	rts
+	tsx
+	stx debugger_sp
+
+	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK
 .endproc
 
 ;******************************************************************************
@@ -929,9 +928,8 @@ brkhandler2_size=*-brkhandler2
 @quit:	lda #$00		; clear BRK flag
 	pha			; push 0 status
 	plp			; clear flags (.P)
-
-	pla			; command return address
-	pla
+	ldx debugger_sp
+	txs
 @done:	rts
 .endproc
 
