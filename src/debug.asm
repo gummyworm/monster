@@ -1438,7 +1438,6 @@ brkhandler2_size=*-brkhandler2
 
 	lda #$00
 	sta lineset		; flag that line # is (yet) unknown
-	sta sim::branch_taken 	; clear branch taken flag
 
 @uninstall_brks:
 	; uninstall breakpoints (will reinstall the ones we want later)
@@ -2079,6 +2078,7 @@ brkhandler2_size=*-brkhandler2
 	adc #$00
 	sta brkaddr+1
 
+; add the breakpoint
 @addbrk:
 	ldxy brkaddr
 	jsr vmem::load
@@ -2087,6 +2087,7 @@ brkhandler2_size=*-brkhandler2
 	ldxy brkaddr
 	jsr vmem::store
 
+; count the number of cycles that the next instruction will take
 	pla			; get the instruction size
 	tax
 	lda stepsave		; get the opcode

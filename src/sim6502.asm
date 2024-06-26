@@ -93,6 +93,9 @@ __sim_stopwatch: .res 3
 	sta @sz
 	stxy @op
 
+	lda #$00
+	sta __sim_branch_taken 	; clear branch taken flag
+
 	; get the opcode
 	ldxy @op
 	jsr vmem::load
@@ -455,6 +458,8 @@ __sim_stopwatch: .res 3
 	adc @operandsz	; +1 if ZP, +2 if ABS
 	sta @cycles
 
+; abs,x, abs,y, and (zp),y need ane extra cycle if the instruction writes to
+; memory
 @chkstore:
 	lda __sim_affected
 	and #OP_STORE
@@ -468,7 +473,7 @@ __sim_stopwatch: .res 3
 	inc @cycles	; 1 cycle for each byte read of the indirect address
 	inc @cycles
 
-;Zero page,X, zero page,Y, and (zero page,X) addressing modes spend an extra cycle reading the unindexed zero page address.
+; zp,x, zp,y, and (zp,x) spend an extra cycle reading the unindexed zp address
 @chkzpindex:
 	lda __sim_op_mode
 	and #MODE_ZP
@@ -523,18 +528,23 @@ __sim_stopwatch: .res 3
 @chkstack:
 	lda __sim_affected
 	and #OP_STACK|OP_LOAD	; pulling off stack requires extra cycle
-				; this will also catch the extra JSR byte read
 	cmp #OP_STACK|OP_LOAD
 	bne @chkrts
+	inc @cycles
 	inc @cycles
 
 @chkrts:
 	lda @opcode
-	cmp #$60	; RTS needs +1 cycle to inc return address
+	cmp #$6c	; JMP ind needs 5 cycles
+	bne :+
+	lda #$05
+	rts
+:	cmp #$60	; RTS needs +1 cycle to inc return address
 	beq @penalty
-	cmp #$20	; JSR needs +1 cycle to handle return address internally
+	cmp #$20	; JSR needs 6 cycles
 	bne @done
-	inc @cycles
+	lda #$06
+	rts
 @penalty:
 	inc @cycles
 
@@ -673,7 +683,7 @@ side_effects_tab:
 .byte OP_REG_A|OP_LOAD    	; $69 ADC #
 .byte OP_REG_A                  ; $6a ROR A
 .byte $00			; ---
-.byte OP_PC|OP_LOAD		; $4c JMP ind
+.byte OP_PC			; $4c JMP ind
 .byte OP_LOAD|OP_REG_A		; $4d ADC abs
 .byte OP_LOAD|OP_STORE	        ; $4e ROR abs
 .byte $00			; ---
