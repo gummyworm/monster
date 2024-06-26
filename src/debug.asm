@@ -1,3 +1,9 @@
+;******************************************************************************
+; DEBUG.ASM
+; This file contains the debugger code, which is the main loop while debugging
+; and assembled program.
+;******************************************************************************
+
 .include "asm.inc"
 .include "asmflags.inc"
 .include "bitmap.inc"
@@ -118,10 +124,8 @@ debuginfo: .res $6000
 ;  2. restore 3 bytes of debug memory at (prev_pc)
 
 startsave:
-stepsave:	.byte 0	; opcode to save under BRK
-brkaddr:	.byte 0 ; address where our brakpoint is set
-
-op_type:       .byte 0  ; REG, LOAD, or STORE
+stepsave:  .byte 0	; opcode to save under BRK
+brkaddr:   .word 0 	; address where our brakpoint is set
 
 ;******************************************************************************
 ; Debug state values for internal RAM locations
@@ -839,7 +843,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .C: set on error
 .export __debug_addr2line
 .proc __debug_addr2line
-@addr=r0
+@addr=r2
 @cnt=r4
 	stxy @addr
 	lda #$00
@@ -1311,11 +1315,11 @@ brkhandler2_size=*-brkhandler2
 
 @savelo:
 	lda $100-1,x
-	sta @losave-1,x
+	;sta @losave-1,x
 	lda $200-1,x
-	sta @losave-1,x
+	;sta @losave-1,x
 	lda $300-1,x
-	sta @losave-1,x
+	;sta @losave-1,x
 	dex
 	bne @savelo
 
@@ -1365,11 +1369,11 @@ brkhandler2_size=*-brkhandler2
 ; save $100-$400
 @savelo:
 	lda $100-1,x
-	sta @losave-1,x
+	;sta @losave-1,x
 	lda $200-1,x
-	sta @losave+$100-1,x
+	;sta @losave+$100-1,x
 	lda $300-1,x
-	sta @losave+$200-1,x
+	;sta @losave+$200-1,x
 	dex
 	bne @savelo
 
@@ -1708,7 +1712,7 @@ brkhandler2_size=*-brkhandler2
 ; restore $100-$400
 @restorelo:
 	lda @losave-1,x
-	sta $100-1,x
+	;sta $100-1,x
 	lda @losave+$100-1,x
 	;sta $200-1,x
 	lda @losave+$200-1,x
@@ -1808,7 +1812,7 @@ brkhandler2_size=*-brkhandler2
 	lda @losave+$100-1,x
 	;sta $200-1,x
 	lda @losave+$200-1,x
-	sta $300-1,x
+	;sta $300-1,x
 	dex
 	bne @restorelo
 
@@ -1977,7 +1981,6 @@ brkhandler2_size=*-brkhandler2
 	; wait for a key to swap the state back
 :	jsr key::getch
 	beq :-
-
 	jsr __debug_save_prog_state
 	jmp restore_debug_state	; restore debugger state
 .endproc
