@@ -191,43 +191,11 @@ final_store_size=*-__final_store_byte
 	rts
 .endproc
 
-;******************************************************************************
-; BRK
-; Handles the BRK interrupt by returning control to the main bank
-; and continuing execution there.
-.export __final_brk
-.proc __final_brk
-	pha
-	lda #$80
-	sta $9c02
-	pla
-	jmp ($0334)		; execute the MAIN BRK handler
-.endproc
-
-;******************************************************************************
-; BANK_RTI
-; Returns to the given bank and then RTI's
-; MUST be called from the main bank (0)
-; IN:
-;  - zp::bankval: the bank to return to
-.export __final_rti
-.proc __final_rti
-	pha
-	lda __final_rti_bank
-	sta $9c02
-	pla
-	rti
-.endproc
-
 .export bankcode_size
 bankcode_size = *-bankcode
-;******************************************************************************
-; END OF BANK CODE
-;******************************************************************************
-
-.segment "SETUP"
 
 .CODE
+
 ;******************************************************************************
 ; COPY
 ; Writes the memory from (tmp0) to (tmp2)

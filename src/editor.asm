@@ -2882,8 +2882,8 @@ goto_buffer:
 ; OUT:
 ;  - .C: set if cursor could not be moved
 .proc ccleft
-@tabcnt=zp::tmp4
-@deselect=zp::tmp5
+@tabcnt=r4
+@deselect=r5
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne @move		; do nothing on LEFT if in VISUAL_LINE mode
@@ -2954,8 +2954,8 @@ goto_buffer:
 ; OUT:
 ;  - .C: set if cursor could not be moved
 .proc ccright
-@tabcnt=zp::tmp4
-@deselect=zp::tmp5
+@tabcnt=r4
+@deselect=r5
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	beq @ret	; do nothing on RIGHT if in VISUAL_LINE mode
@@ -3038,8 +3038,8 @@ goto_buffer:
 ; OUT:
 ;  - .C: clear if the cursor was moved DOWN or screen scrolled
 .proc ccdown
-@xend=zp::tmp9
-@selecting=zp::tmpa
+@xend=r9
+@selecting=ra
 	jsr src::end
 	bne :+
 	sec		; cursor could not be moved
@@ -3160,7 +3160,7 @@ goto_buffer:
 ;
 ; If the editor is not in visual mode, this routine does nothing
 .proc ccdown_highlight
-@togglecur=zp::tmp6
+@togglecur=r6
 	lda mode
 	cmp #MODE_VISUAL
 	bne @done
@@ -3211,9 +3211,9 @@ goto_buffer:
 ;  - zp::cury: updated
 ;  - .A: the character that was deleted (0 if none)
 .proc backspace
-@cnt=zp::tmp6
-@line2len=zp::tmp7
-@char=zp::tmp8
+@cnt=r6
+@line2len=r7
+@char=r8
 	lda #$00
 	sta @char
 	jsr src::backspace
@@ -3317,15 +3317,13 @@ goto_buffer:
 
 	jsr is_readonly
 	beq @del_rep		; handle DEL in r/o mode the same as REPLACE
-	lda text::insertmode
-	bne @del_ins
+	lda text::insertmode	; INSERT or REPLACE?
+	bne @del_ins		; if INSERT, continue to backspace
 
+; command or replace mode
 @del_rep:
-	; if we're replacing (or in r/o mode), just decrement cursor if we can
-	lda zp::curx
-	beq @done
-	jsr cur::left
-	jmp src::prev
+	; if we're replacing (or in r/o mode), just move left if we can
+	jmp ccleft
 
 @del_ins:
 	jmp backspace
@@ -3541,12 +3539,12 @@ goto_buffer:
 .export __edit_gotoline
 __edit_gotoline:
 .proc gotoline
-@target=zp::tmp6
-@row=zp::tmp8
-@seekforward=zp::tmp9	; 0=backwards 1=forwards
-@diff=zp::tmpa		; lines to move up or down
-@rowsave=zp::tmpc
-@cnt=zp::tmpd
+@target=r6
+@row=r8
+@seekforward=r9		; 0=backwards 1=forwards
+@diff=ra		; lines to move up or down
+@rowsave=rc
+@cnt=rd
 	cmpw src::lines	; is target < total # of lines?
 	bcc :+		; yes, move to target
 	ldxy src::lines ; no, move to the last line
@@ -3575,12 +3573,17 @@ __edit_gotoline:
 	sec
 	sbc src::line
 	sta @diff
+	tax
 	lda @target+1
 	sbc src::line+1
 	sta @diff+1
-
 	bne @long
-	lda zp::cury
+
+	cpx #$01	; 1 line forward?
+	bne :+
+	jmp ccdown	; just move down if we're only going one line
+
+:	lda zp::cury
 	clc
 	adc @diff
 	cmp height

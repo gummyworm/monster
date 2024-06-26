@@ -18,9 +18,6 @@
 .import __final_memcpy
 .import __final_copy
 .import __final_copy_line
-.import __final_brk
-.import __final_rti
-.import __final_rti_bank
 .import __final_bank_store_rel
 
 ;******************************************************************************
@@ -108,9 +105,6 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 	store_off= __final_bank_store_rel
 	load     = __final_load_byte
 	load_off = __final_load_byte_off
-	break    = __final_brk
-	bank_rti = __final_rti
-	rti_bank = __final_rti_bank
 .endscope
 
 ;******************************************************************************

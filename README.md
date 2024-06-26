@@ -1,5 +1,5 @@
 # MONster
-![hello](https://github.com/gummyworm/monster/assets/4626914/81ac6747-faba-4463-a6e1-8f17d8a6f5b7)
+<img width="825" alt="monster" src="https://github.com/gummyworm/monster/assets/4626914/c11cf3be-a245-4cb3-a157-04ff436a7c6b">
 
 
 Table of Contents
@@ -70,23 +70,27 @@ but it is also used to store debug info and some code.
 
 The banked memory allows the user program to execute in almost complete
 isolation.  This means that, although this environment consumes a vast amount of
-memory itself, everything except address $9c02 (the bank select register) is 
-preserved when control moves between the editor and the user program.  Moreso
-even than small monitor cartridges, the program itself is virtually unaware
-of the resident tooling.
+memory itself, everything except address $9c02 (the bank select register) and 
+a couple tiny interrupt handlers is preserved when control moves between the 
+editor and the user program.  Moreso even than small monitor cartridges, 
+the program itself is virtually unaware of the resident tooling.
 
 ## Building
 Building the source requires `ca65`. The easiest way to install this is to 
 install the latest release of [cc65](https://github.com/cc65/cc65). I've tested 
 with v2.18.
+The build process also requires `python3` (any version should do), which is
+used to break apart the large binary produced by ca65 into separate bootloader and 
+application binaries.
 
 #### Build Steps
  1. Clone this repo `git clone https://github.com/gummyworm/monster.git`
- 2. `cd` to the directory you cloned to and run `make` 
+ 2. `cd` to the directory you cloned to and run `make`
 
 ## Running
-The Makefile will generate a PRG. You may write this to your disk of choice
-and load it as you would any other program on your Vic-20: `LOAD "MONSTER.PRG",8,1`
+The Makefile will generate two PRG's: BOOT.PRG and MASM.PRG.
+You may write these to your disk of choice and load it as you would any other program on your Vic-20: 
+`LOAD "BOOT.PRG",8,1` (or `LOAD "*",8,1` if `BOOT.PRG` is the first file on the disk).
 
 If you wish to run it in an emulator (VICE), ensure that VICE is installed on your 
 machine and run `make start` from the root of the project.
@@ -94,24 +98,24 @@ machine and run `make start` from the root of the project.
 ---
 ## Editor Overview
 The editor is a substantial part of this assembler.  In addition to offering
-a high-density 40-column display, it has, by 8-bit standards, advanced navigation 
+a high-density 40-column display, it has, by 8-bit editor standards, advanced navigation 
 functionality.
 
 ### Command shortcuts
 Below are the basic commands along with their associated key combinations. These
-commands are available regardless of insertion mode (see the Editor Modes section
+commands are available regardless of insertion mode (see the _Editor Modes_ section
 below for more info on modes).
 
 |  Key   | Name          |   Description                                                         |
 |--------|---------------|-----------------------------------------------------------------------|
-| C= + b | Set Breakpoint| sets a breakpoint at the current line                                 | 
-| C= + c | Refresh       | refreshes the screen by redrawing the source buffer                  | 
-| C= + h | Help          | displays the help menu                                                | 
+| C= + b | Set Breakpoint| sets a breakpoint at the current line                                 |
+| C= + c | Refresh       | refreshes the screen by redrawing the source buffer                  |
+| C= + h | Help          | displays the help menu                                                |
 | C= + l | List          | list directory, shows the files on the current disk                   |
 | C= + n | New buffer    | creates a new source buffer and sets it as the active buffer          |
 | C= + q | Close buffer  | closes the current buffer and opens the next one that is open         |
 | C= + v | MemView       | enters the memory viewer/editor (press <- to exit)                    |
-| C= + y | Show Symbols  | lists the symbol table for the assembled program                      | 
+| C= + y | Show Symbols  | lists the symbol table for the assembled program                      |
 |   F3   | Assemble      | assembles the code in the buffer to memory                            |
 |   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
 |   F5   | Show buffers  | displays a list of the currently open buffers                         |
@@ -125,9 +129,9 @@ Most accept an argument (as described in each commands description below)
 
 |Key| Name          |   Args                          | Description                                                  |
 |---|---------------|---------------------------------|--------------------------------------------------------------|
-| a | Assemble File | Filename                        | assembles the given filename                                 | 
+| a | Assemble File | Filename                        | assembles the given filename                                 |
 | B | export Binary | Filename                        | exports the active assembly to a binary file (no .PRG header)|
-| d | Start Debugger| Symbol to debug at (optional)   | begins debugging at the given label                          | 
+| d | Start Debugger| Symbol to debug at (optional)   | begins debugging at the given label                          |
 | D | Disassemble   | Start address, End address      | Disassembles the given address range                         |
 | e | Edit          | Filename                        | loads the buffer with the contents of the given file         |
 | g | Goto          | Symbol to run at (optional)     | executes the program at the address of the given symbol      |
@@ -167,8 +171,14 @@ Example:
 #### Disassemble :D <start address>, <end address>
 Disassembles the contents of the _virtual_ memory between the given range.
 e.g. `:D $1001, $1040`.
-Expressions may be used in addition to literal addresses. 
-This could be useful if your program modifies itself at runtime. 
+
+Expressions may be used in addition to literal addresses when defining the disassembly range. 
+
+This could be useful, for example, if your program generates code and you want to view
+the results.
+
+The result of the disassembly is opened in a new buffer, where you can edit it
+as you would any of your handwritten source.
 
 Example:
 `:D PROC, PEND`
@@ -209,11 +219,11 @@ Example:
 
 ## Editor Modes
 The editor is a _modal_ editor, that is, it behaves differently depending on which _mode_ it is
-in.  The modes are all accessed from the default mode (called _COMMAND_ mode) and each returns
-to the base _COMMAND_ mode when the `<-` key is pressed.  Below is a list of the modes along with
-the key that enters that mode
+in.  The modes are all accessed from the default mode (called _COMMAND_ mode) and each mode returns
+to _COMMAND_ mode when the `<-` key is pressed.  Below is a list of the modes along with
+the key that enters that mode, and the editor behavior while in that mode.
 
-### Command Mode
+### Command Mode (<-)
 Command mode is the default mode.  The primary function of command mode is to navigate around the 
 source code and to enter other modes.
 Navigation behaves similar to `vi` and many basic `vi` commands are supported.
@@ -231,6 +241,7 @@ The following keys are handled in COMMAND mode.
 |    $       | End of Line| moves the cursor to the end of the current line                        |
 |    ;;      | Banner     | inserts a banner (full line of semicolons) below the cursor            |
 |    gg      | Top of File| moves the cursor to the first character in the file                    |
+|    gd      | Goto Def   | if the cursor is on a label reference, navigates to that label         |
 |    G       | End of File| moves the cursor to the last line in the file                          |
 |    h       | Left       | moves the cursor left                                                  |
 |    j       | Down       | moves the cursor down                                                  |
@@ -243,7 +254,7 @@ The following keys are handled in COMMAND mode.
 |    0       | Column 0   | moves the cursor to the first column of the current line               |
 |    a       | append char| enters insert mode and moves to the next character                     |
 |    A       | append line| enters insert mode and moves to the last character in the current line |
-|    o       | open line  | opens a new line below the cursror and moves to it                     |
+|    o       | open line  | opens a new line below the cursor and moves to it                     |
 |    O       | open line ^| opens a new line above the cursor and moves to it                      |
 |    p       | paste below| pastes the contents of the copy-buffer to the line below the cursor    |
 |    P       | paste above| pastes the contents of the copy-buffer to the line above the cursor    |
@@ -358,7 +369,7 @@ PROC1:
     RTS
 ```
 Note that the scope of the `@L0` defined under `PROC0` is valid until the next
-non-local label (`PROC1`) at which point the name is recylced and may be used
+non-local label (`PROC1`) at which point the name is recycled and may be used
 again.
 
 Because of the way local labels are implemented they are not totally 
@@ -800,7 +811,6 @@ handled by a mostly unrolled loop and therefore takes only a fraction of a secon
 Nonetheless, it is apparent when this is happening if you've changed the setup
 of the VIC registers, or anything in the VIC's visible address range, as the
 screen will briefly flash with the state of the user program.
-
 
 ---
 

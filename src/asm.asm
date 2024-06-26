@@ -130,6 +130,9 @@ opcode     = zp::asm+8
 lsb        = zp::asm+$9
 msb        = zp::asm+$a
 
+SEG_CODE = 1	; flag for CODE segment
+SEG_BSS  = 2	; flag for BSS segment (all data must be 0, PC not updated)
+
 .BSS
 ;******************************************************************************
 .export ifstack
@@ -150,6 +153,9 @@ origin: .word 0	; the lowest address in the program
 .export __asm_top
 __asm_top:
 top: .word 0	; the highest address in the program
+
+; the type of the segment being stored e.g. SEG_BSS or SEG_CODE
+segment_type: .byte 0
 
 ;******************************************************************************
 ; ASMBUFFER
@@ -555,11 +561,10 @@ num_illegals = *-illegal_opcodes
 @ret0:	rts
 
 ; check if the line is a label definition
-@label:
-	ldy #$00
-	lda (zp::line),y
-	cmp #':'		; anonymous label (:)?
-	bne :+
+@chklabels:
+	jsr is_anonref		; anonymous label (:)?
+	bne @label
+@anonlabel:
 	incw zp::line
 	lda (zp::line),y
 	jsr util::is_whitespace	; anon label must be followed by whitespace
@@ -572,25 +577,11 @@ num_illegals = *-illegal_opcodes
 	bcc @label_done
 	rts			; return error (too many anonymous labels?)
 
-:	ldxy zp::line
-	jsr lbl::isvalid
+@label:	jsr is_label
 	bcs @getopws
-	sta resulttype
-	ldxy zp::line
-	lda zp::virtualpc
-	sta zp::label_value
-	lda zp::virtualpc+1
-	sta zp::label_value+1
-	lda zp::pass
-	cmp #$01
-	bne @label_done		; if not pass 1, don't add the label
-	jsr lbl::add
-	bcs @ret0		; error
-	ldxy zp::line
-	jsr lbl::islocal
-	bne @label_done
-	ldxy zp::line
-	jsr lbl::setscope	; set the non-local label as the new scope
+	jsr do_label
+	bcc @label_done
+	rts			; return error
 
 @label_done:
 	jsr storedebuginfo	; store debug info for label
@@ -905,6 +896,44 @@ num_illegals = *-illegal_opcodes
 	jsr writeb
 	bcc @noerr
 	rts		; return err
+.endproc
+
+;******************************************************************************
+; IS_LABEL
+; IN:
+;  - zp::line: string to check if label
+; OUT:
+;  - .C: set if NOT a label
+.proc is_label
+	ldxy zp::line
+	jmp lbl::isvalid
+.endproc
+
+;******************************************************************************
+; DO_LABEL
+; State machine component
+; Extracts the label from the line
+.proc do_label
+	lda #ASM_LABEL
+	sta resulttype
+	ldxy zp::line
+	lda zp::virtualpc
+	sta zp::label_value
+	lda zp::virtualpc+1
+	sta zp::label_value+1
+	lda zp::pass
+	cmp #$01
+	bne @done		; if not pass 1, don't add the label
+	jsr lbl::add
+	bcs @ret		; return error
+
+@ok:	ldxy zp::line
+	jsr lbl::islocal
+	bne @done
+	ldxy zp::line
+	jsr lbl::setscope	; set the non-local label as the new scope
+@done:	clc
+@ret:	rts
 .endproc
 
 ;******************************************************************************
