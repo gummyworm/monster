@@ -1,5 +1,5 @@
 # MONster
-![hello](https://github.com/gummyworm/monster/assets/4626914/81ac6747-faba-4463-a6e1-8f17d8a6f5b7)
+<img width="825" alt="monster" src="https://github.com/gummyworm/monster/assets/4626914/c11cf3be-a245-4cb3-a157-04ff436a7c6b">
 
 
 Table of Contents
