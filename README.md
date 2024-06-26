@@ -171,7 +171,6 @@ Example:
 #### Disassemble :D <start address>, <end address>
 Disassembles the contents of the _virtual_ memory between the given range.
 e.g. `:D $1001, $1040`.
-
 Expressions may be used in addition to literal addresses when defining the disassembly range. 
 
 This could be useful, for example, if your program generates code and you want to view
