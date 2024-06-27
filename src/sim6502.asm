@@ -430,121 +430,58 @@ __sim_stopwatch: .res 3
 ; Counts the number of cycles that the given instruction will execute
 ; IN:
 ;  - .A: the opcode of the instruction
-;  - .X: the size of the instruction
 ; OUT:
 ;  - .A: the number of cycles the instruction will use
 .export __sim_count_cycles
 .proc __sim_count_cycles
 @cycles=r0
-@opcode=r1
-@operandsz=r2
-	dex
-	stx @operandsz
+	lsr
+	tax
+	bcc @l
+@r:	lda #$0f
+	and timings,x
+	bne @fix
 
-	sta @opcode
-	lda #$02	; minimum cycles an instruction may take
-	sta @cycles
+@err:	lda #$ff
+	sec
+	rts
 
-	lda __sim_op_mode
-	and #MODE_IMMEDIATE
-	beq @chkload
-	jmp @done
+@l:	lda timings,x
+	lsr
+	lsr
+	lsr
+	lsr
+	beq @err
 
-@chkload:
-	lda __sim_affected
-	and #OP_LOAD
-	beq @chkstore
-	lda #$02	; base # of cycles
-	adc @operandsz	; +1 if ZP, +2 if ABS
-	sta @cycles
-
-; abs,x, abs,y, and (zp),y need ane extra cycle if the instruction writes to
-; memory
-@chkstore:
-	lda __sim_affected
-	and #OP_STORE
-	beq @chkind
-	inc @cycles	; writes require +1 cycle
-
-@chkind:
-	lda __sim_op_mode
-	and #MODE_INDIRECT
-	beq @chkzpindex
-	inc @cycles	; 1 cycle for each byte read of the indirect address
-	inc @cycles
-
-; zp,x, zp,y, and (zp,x) spend an extra cycle reading the unindexed zp address
-@chkzpindex:
-	lda __sim_op_mode
-	and #MODE_ZP
-	beq @chkrmw
-	lda __sim_op_mode
-	and #MODE_INDIRECT|MODE_Y_INDEXED
-	cmp #MODE_INDIRECT|MODE_Y_INDEXED
-	beq @chkindexed		; if (zp),y- skip ahead
-
-	; if zp,y (zp,x) or zp,x add a penalty cycle
-	lda __sim_op_mode
-	and #MODE_Y_INDEXED|MODE_X_INDEXED|MODE_INDIRECT
-	beq @chkrmw
-	inc @cycles		; zp,y zp,x or (zp,x)
-	bne @chkindexed
-
-@chkrmw:
-	lda __sim_affected
-	and #OP_LOAD|OP_STORE	; RMW instructions need a cycle to modify
-	cmp #OP_LOAD|OP_STORE
-	bne @chkindexed
-	inc @cycles
-
-@chkindexed:
-	lda __sim_op_mode
-	and #MODE_X_INDEXED|MODE_Y_INDEXED
-	beq @chkbra
-
-@handleindexed:
-	lda __sim_affected
-	and #OP_STORE
-	beq :+
-	inc @cycles		; penalty if write to memory
-
-:	lda __sim_op_mode
-	and #MODE_X_INDEXED|MODE_INDIRECT
-	bne @done		; (x,ind) has no cross-page penalty
-
-	lda __sim_effective_addr
-	cmp #$ff		; is effective address LSB $ff?
-	bne @chkbra		; no penalty if not (no page boundary crossed)
-	inc @cycles
+@fix:	sta @cycles
 
 @chkbra:
 	lda __sim_branch_taken
-	beq @chkstack		; if no branch was taken continue
+	beq @chkpagecross
 	inc @cycles		; +1 cycle if branch taken
 	lda __sim_next_pc+1	; get target MSB
 	cmp __sim_pc+1		; is the target on the same page?
 	bne @penalty		; different page -> 1 MORE cycle penalty
+	beq @done
 
-@chkstack:
-	lda __sim_affected
-	and #OP_STACK|OP_LOAD	; pulling off stack requires extra cycle
-	cmp #OP_STACK|OP_LOAD
-	bne @chkrts
-	inc @cycles
-	inc @cycles
+;abs,x abs,y and (zp),y need an extra cycle if indexing crosses page boundary
+@chkpagecross:
+	; (zp),y
+	lda #MODE_ZP|MODE_Y_INDEXED|MODE_INDIRECT
+	and __sim_op_mode
+	cmp #MODE_ZP|MODE_Y_INDEXED|MODE_INDIRECT
+	beq @chkpage
 
-@chkrts:
-	lda @opcode
-	cmp #$6c	; JMP ind needs 5 cycles
-	bne :+
-	lda #$05
-	rts
-:	cmp #$60	; RTS needs +1 cycle to inc return address
-	beq @penalty
-	cmp #$20	; JSR needs 6 cycles
-	bne @done
-	lda #$06
-	rts
+	; abs,x and abs,y
+	lda #MODE_ABS|MODE_X_INDEXED|MODE_Y_INDEXED
+	and __sim_op_mode
+	beq @done
+	and #MODE_ABS
+	beq @done
+@chkpage:
+	lda __sim_effective_addr
+	cmp #$ff		; is effective address LSB $ff?
+	bne @done		; no penalty if not (no page boundary crossed)
 @penalty:
 	inc @cycles
 
@@ -857,3 +794,167 @@ branch_masks:
 .byte $40	; overflow
 .byte $01	; carry
 .byte $02	; zero
+
+;******************************************************************************
+; Instruction timing table
+; Packed as
+; $00
+timings:
+.byte $70|$06	; BRK       | ORA x,ind
+.byte $00
+.byte $00|$03	; --        | ORA zpg
+.byte $50|$00	; ASL zpg   | --
+.byte $30|$02	; PHP       | ORA #
+.byte $20|$00	; ASL       | --
+.byte $00|$04	; --        | ORA abs
+.byte $60|$00	; ASL abs   | --
+
+; $10
+.byte $20|$05   ; BPL       | ORA ind,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | ORA zpg,x
+.byte $60|$00   ; ASL zpg,x | --
+.byte $20|$04   ; CLC       | ORA abs,y
+.byte $00	; --        | --
+.byte $20|$04   ; CLC       | ORA abs,x
+.byte $70|$00   ; ASL abs,x | --
+
+; $20
+.byte $60|$06	; JSR       | AND x,ind
+.byte $00	; --        | --
+.byte $30|$03	; BIT zpg   | AND zpg
+.byte $50|$00	; ROL zpg   | --
+.byte $40|$02	; PLP       | AND #
+.byte $20|$00	; ROL       | --
+.byte $40|$04	; BIT abs   | AND abs
+.byte $60|$00	; ROL abs   | --
+
+; $30
+.byte $20|$05	; BMI       | AND ind,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | AND zpg,x
+.byte $60|$00   ; ROL zpg,x | --
+.byte $20|$04	; SEC       | AND abs,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | AND abs,x
+.byte $70|$00   ; ROL abs,x | --
+
+; $40
+.byte $60|$06	; RTI       | EOR x,ind
+.byte $00	; --        | --
+.byte $00|$03	; --        | EOR zpg
+.byte $50|$00	; LSR zpg   | --
+.byte $30|$02	; PHA       | EOR #
+.byte $20|$00	; LSR       | --
+.byte $30|$04	; JMP abs   | EOR abs
+.byte $60|$00	; LSR abs   |
+
+; $50
+.byte $20|$05	; BVC       | EOR ind,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | EOR zpg,x
+.byte $60|$00	; LSR zpg,x | --
+.byte $20|$04	; CLI       | EOR abs,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | EOR abs,x
+.byte $70|$00	; LSR abs,x | --
+
+; $60
+.byte $60|$06   ; RTS       | ADC x,ind
+.byte $00	; --        | --
+.byte $00|$03	; --        | ADC zpg
+.byte $50|$00	; ROR zpg   | --
+.byte $40|$02	; PLA       | ADC #
+.byte $20|$00	; ROR       | --
+.byte $50|$04	; JMP ind   | ADC abs
+.byte $60|$00	; ROR abs   | --
+
+; $70
+.byte $20|$05	; BVS       | ADC ind,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | ADC zpg,x
+.byte $60|$00	; ROR zpg,x | --
+.byte $20|$04	; SEI       | ADC abs,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | ADC abs,x
+.byte $70|$00	; ROR abs,x | --
+
+; $80
+.byte $00|$06	; --        | STA x,ind
+.byte $00	; --        | --
+.byte $30|$03	; STY zpg   | STA zpg
+.byte $30|$00	; STX zpg   | --
+.byte $20|$00	; DEY       | --
+.byte $20|$00	; TXA       | --
+.byte $40|$04	; STY abs   | STA abs
+.byte $40|$00	; STX abs   | --
+
+; $90
+.byte $20|$06	; BCC       | STA ind,y
+.byte $00	; --        | --
+.byte $40|$04	; STY zpg,x | STA zpg,x
+.byte $40|$00	; STX zpg,y | --
+.byte $20|$05	; TYA       | STA abs,y
+.byte $20|$00	; TXS       | --
+.byte $00|$05	; --        | STA abs,x
+.byte $00	; --        | --
+
+; $A0
+.byte $20|$06	; LDY #     | LDA X,ind
+.byte $20|$00	; LDX #     | --
+.byte $30|$03	; LDY zpg   | LDA zpg
+.byte $30|$00	; LDX zpg   | --
+.byte $20|$02	; TAY       | LDA #
+.byte $20|$00	; TAX       | --
+.byte $40|$04	; LDY abs   | LDA abs
+.byte $40|$00	; LDX abs
+
+; $B0
+.byte $20|$05	; BCS       | LDA ind,y
+.byte $00	; --        | --
+.byte $40|$04   ; LDY zpg,x | LDA zpg,x
+.byte $40|$00	; LDX zpg,y | --
+.byte $20|$04	; CLV       | LDA abs,y
+.byte $20|$00	; TSX       | --
+.byte $40|$04	; LDY abs,x | LDA abs,x
+.byte $40|$00	; LDX abs,y | --
+
+; $C0
+.byte $20|$06	; CPY #     | CMP x,ind
+.byte $00	; --        | --
+.byte $30|$03	; CPY zpg   | CMP zpg
+.byte $50|$00	; DEC zpg   | --
+.byte $20|$02	; INY       | CMP #
+.byte $20|$00	; DEX       | --
+.byte $40|$04	; CPY abs   | CMP abs
+.byte $60|$00	; DEC abs   | --
+
+; $D0
+.byte $20|$05	; BNE       | CMP ind,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | CMP zpg,x
+.byte $60|$00	; DEC zpg,x | --
+.byte $20|$04	; CLD       | CMP abs,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | CMP abs,x
+.byte $70|$00	; DEC abs,x | --
+
+; $E0
+.byte $20|$06	; CPX #     | SBC x,ind
+.byte $00	; --        | --
+.byte $30|$03	; CPX zpg   | SBC zpg
+.byte $50|$00	; INC zpg   | --
+.byte $20|$02	; INX       | SBC #
+.byte $20|$00	; NOP       | --
+.byte $40|$04	; CPX abs   | SBC abs
+.byte $60|$00	; INC abs
+
+; $F0
+.byte $20|$05	; BEQ       | SBC ind,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | SBC zpg,x
+.byte $60|$00	; INC zpg,x | --
+.byte $20|$04	; SED       | SBC abs,y
+.byte $00	; --        | --
+.byte $00|$04	; --        | SBC abs,x
+.byte $70|$00	; INC abs,x | --

@@ -1084,7 +1084,6 @@ brkhandler2_size=*-brkhandler2
 
 @setbrk:
 	pla			; get instruction size
-	pha			; save instruction size again
 	ldxy sim::pc		; and address of instruction to-be-executed
 
 	; get the address of the next instruction into sim::next_pc
@@ -1101,10 +1100,10 @@ brkhandler2_size=*-brkhandler2
 @notrom:
 	lda sim::op
 	cmp #$20		; JSR?
-	bne @addbrk
+	bne @countcycles
 	lda #ACTION_STEP_OVER
 	cmp action		; are we stepping over
-	bne @addbrk		; skip if not
+	bne @countcycles	; skip if not
 
 ; if stepping over a JSR, set breatpoint at current PC + 3
 ; also flag that we need to save all RAM
@@ -1120,18 +1119,8 @@ brkhandler2_size=*-brkhandler2
 	adc #$00
 	sta brkaddr+1
 
-; add the breakpoint
-@addbrk:
-	ldxy brkaddr
-	jsr vmem::load
-	sta stepsave
-	lda #$00		; BRK
-	ldxy brkaddr
-	jsr vmem::store
-
 ; count the number of cycles that the next instruction will take
-	pla			; get the instruction size
-	tax
+@countcycles:
 	lda stepsave		; get the opcode
 	jsr sim::count_cycles	; get the # of cycles for the instruction
 	clc
@@ -1143,6 +1132,15 @@ brkhandler2_size=*-brkhandler2
 	lda sim::stopwatch+2
 	adc #$00
 	sta sim::stopwatch+2
+
+; add the breakpoint
+@addbrk:
+	ldxy brkaddr
+	jsr vmem::load
+	sta stepsave
+	lda #$00		; BRK
+	ldxy brkaddr
+	jsr vmem::store
 
 	inc advance		; continue program execution
 	rts			; return to the debugger
