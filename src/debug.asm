@@ -11,6 +11,7 @@
 .include "config.inc"
 .include "cursor.inc"
 .include "debuginfo.inc"
+.include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
 .include "fastcopy.inc"
@@ -853,7 +854,7 @@ brkhandler2_size=*-brkhandler2
 	ldxy highlight_line
 	jsr edit::src2screen
 	bcs :+			; off screen
-	jmp bm::rvsline
+	jmp draw::rvs_underline
 :	rts
 .endproc
 
@@ -911,8 +912,6 @@ brkhandler2_size=*-brkhandler2
 	ldxy #strings::debug_stop_debugging
 	lda #DEBUG_MESSAGE_LINE
 	jsr text::print
-	lda #DEBUG_MESSAGE_LINE
-	jsr bm::rvsline
 
 :	jsr key::getch
 	beq :-
@@ -1775,8 +1774,7 @@ __debug_remove_breakpoint:
 	ldxy #strings::debug_brk_line
 @print:	lda #DEBUG_MESSAGE_LINE
 	jsr text::print		; break in line <line #>
-	lda #DEBUG_MESSAGE_LINE
-	jmp bm::rvsline
+	rts
 .endproc
 
 ;******************************************************************************

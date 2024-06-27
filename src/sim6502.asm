@@ -797,8 +797,11 @@ branch_masks:
 
 ;******************************************************************************
 ; Instruction timing table
-; Packed as
-; $00
+; Each byte contains the timing for two instructions beginning at opcodes $00
+; and $01 and ending at opcodes $fe and $ff.
+; The MSB represents the even opcode (0, 2, etc.) and the LSB the odd one.
+; For example, BRK and ORA x,ind (opcodes 0 and 1) are stored as:
+;   (BRK cycles << 4) | (ORA x, ind cycles)
 timings:
 .byte $70|$06	; BRK       | ORA x,ind
 .byte $00
