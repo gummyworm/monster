@@ -257,9 +257,9 @@ data: .res $6000
 .proc __src_buffer_by_name
 @name=zp::str0
 @other=zp::str2
-@names=zp::tmp0
-@cnt=zp::tmp2
-@len=zp::tmp3
+@names=r0
+@cnt=r2
+@len=r3
 	jsr str::len	; sets @name (str0) to .XY
 	sta @len
 

@@ -51,8 +51,6 @@ START_MODE = MODE_COMMAND
 
 SCREEN_H = 23
 
-MAX_HIGHLIGHTS = 8
-
 MAX_JUMPS = 8
 
 VISUAL      = 1
@@ -83,6 +81,15 @@ format:            .byte 0	; if 0, formatting is not applied on line-end
 
 overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
 cmdreps: .byte 0	; number of times to REPEAT current command
+
+.export __edit_highlight_line
+
+; highlight variables
+highlight_en: .byte 0	; highlight flag: if !0 highlight highlight_line
+
+__edit_highlight_line:	.word 0 	; the line we are highlighting
+highlight_file:   	.word 0		; filename of line we are highlighting
+highlight_status:	.byte 0		; if !0 highlight is active
 
 .CODE
 
@@ -188,7 +195,7 @@ main:	jsr key::getch
 ;         label was given.
 ;  - .C: set on error, clear on success
 .proc label_addr_or_org
-@lbl=zp::tmp0
+@lbl=r0
 	stxy @lbl
 	jsr str::len
 	cmp #$00
@@ -264,7 +271,7 @@ main:	jsr key::getch
 	bcc @ok
 @done:	rts
 
-@ok:	stxy zp::tmp0
+@ok:	stxy r0
 	ldxy @start
 	jmp disassemble		; disassemble the address range
 .endproc
@@ -273,20 +280,20 @@ main:	jsr key::getch
 ; DISASSEMBLE
 ; Disssembles the given address range to a new buffer
 ; IN:
-;  - .XY:      the start of the address range to disassemble
-;  - zp::tmp0: the stop address to disassemble
+;  - .XY: the start of the address range to disassemble
+;  - r0:  the stop address to disassemble
 .proc disassemble
 @addr=zp::editortmp
 @stop=zp::editortmp+2
 @cnt=zp::editortmp+4
 @buff=$100			; buffer to store disassembled instruction
 	stxy @addr
-	ldxy zp::tmp0
+	ldxy r0
 	stxy @stop
 	jsr new_buffer		; create/activate a new buffer
 
 @l0:	ldxy #@buff
-	stxy zp::tmp0
+	stxy r0
 	ldxy @addr
 	jsr asm::disassemble
 	bcc @ok
@@ -357,7 +364,7 @@ main:	jsr key::getch
 	sta r0
 	lda #>@filename
 	sta r0+1
-	jsr str::copy		; copy .XY to (zp::tmp0)
+	jsr str::copy		; copy .XY to (r0)
 
 	jsr dbgi::init
 
@@ -610,8 +617,8 @@ main:	jsr key::getch
 ;  - mem::linebuffer: the string contents
 .export __edit_gets
 .proc __edit_gets
-@result_offset=zp::tmp8
-@len=zp::tmp9
+@result_offset=r8
+@len=r9
 	stxy zp::jmpvec
 
 	ldx zp::curx
@@ -679,8 +686,8 @@ main:	jsr key::getch
 ; OUT:
 ;  - .C: set if no input was read (the user pressed <-)
 .proc readinput
-@prompt=zp::tmp2
-@result_offset=zp::tmp8
+@prompt=r2
+@result_offset=r8
 	stxy @prompt
 	jsr cur::off
 	jsr text::savebuff
@@ -941,7 +948,7 @@ force_enter_insert=*+5
 ;******************************************************************************_
 ; REPLACE_CHAR
 .proc replace_char
-@ch=zp::tmp0
+@ch=r0
 	jsr is_readonly
 	beq @done
 :	jsr key::getch	; get the character to replace with
@@ -1206,7 +1213,7 @@ force_enter_insert=*+5
 
 ;******************************************************************************_
 .proc delete_word
-@endonalpha=zp::tmp1
+@endonalpha=r1
 	; if we're on an alphanum char, end on the first non-alphanum char
 	; if we're NOT on an alphanum char, end on the first alphanum char
 	jsr src::after_cursor
@@ -1745,6 +1752,7 @@ __edit_refresh:
 	jsr home
 	ldx zp::cury
 	ldy #$00
+	sty highlight_status
 	sty zp::cury
 	jsr src::upn
 
@@ -1796,9 +1804,9 @@ __edit_refresh:
 ; LIST_SYMBOLS
 ; Lists the symbols in the program
 .proc list_symbols
-@cnt=zp::tmp7
-@addr=zp::tmp9
-@row=zp::tmpb
+@cnt=r7
+@addr=r9
+@row=rb
 	jsr scr::reset
 
 	ldxy lbl::num
@@ -1811,7 +1819,7 @@ __edit_refresh:
 @l0:	stx @row
 	jsr clear
 @l1:	ldxy #$100
-	stxy zp::tmp0		; destination buffer for getname
+	stxy r0			; destination buffer for getname
 	ldxy @cnt
 	jsr lbl::getname	; get the symbol name
 	lda #$01
@@ -1867,6 +1875,27 @@ __edit_refresh:
 
 @sym_line:
 	.byte "$",ESCAPE_VALUE,": ", ESCAPE_STRING, 0
+.endproc
+
+;******************************************************************************
+; PRINT LINE
+; Prints the line buffer at the given cursor's y-position and handles
+; highlighting (if applicable).
+; IN:
+;  - .A: the row to print at
+.proc print_line
+	jsr text::drawline
+
+	; check if the current line is the highlighted one
+	lda highlight_status
+	beq @done
+
+	; the highlight was destroyed by drawing the line, re-highlight it
+	ldxy src::line
+	cmpw __edit_highlight_line
+	bne @done
+	jmp toggle_highlight
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2073,7 +2102,7 @@ goto_buffer:
 ; SHOW_BUFFERS
 ; Displays the filenames and their respective ID's for every open buffer
 .proc show_buffers
-@cnt=zp::tmp9
+@cnt=r9
 	jsr scr::reset
 
 	lda #$00
@@ -2146,7 +2175,7 @@ goto_buffer:
 ; Prompts the user for a command and executes it (if valid).
 .proc get_command
 @cmdbuff=$100
-@arg=zp::tmp0
+@arg=r0
 	ldxy #$0000
 	stx overwrite		; clear OVERWRITE flag (for SAVEs)
 
@@ -2267,7 +2296,6 @@ goto_buffer:
 @file=r4
 	jsr file::open_w	; open the output filename
 	bcc :+
-	inc $900f
 	rts			; failed to open file
 :	sta @file
 	; fall through
@@ -2289,8 +2317,7 @@ goto_buffer:
 	bcs @done		; error
 	lda @file
 	jmp file::close
-@done:	inc $900f
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2301,7 +2328,7 @@ goto_buffer:
 ; overwritten if it exists
 ; If no filename is given, then the buffer name is used as the filename
 .proc command_save
-@file=zp::tmp8
+@file=r8
 	stxy @file
 
 	ldxy #strings::saving
@@ -2357,7 +2384,7 @@ goto_buffer:
 ; IN:
 ;  - .XY: the filename of the file to delete
 .proc command_scratch
-@file=zp::tmp8
+@file=r8
 	stxy @file
 
 	ldxy #strings::deleting
@@ -2382,9 +2409,9 @@ goto_buffer:
 ;  - .C: set if file could not be loaded into a buffer
 .export __edit_load
 .proc __edit_load
-@file=zp::tmp9
-@dst=zp::tmpb
-@search=zp::tmpb
+@file=r9
+@dst=rb
+@search=rb
 	stxy @file
 
 	; check if the file is already open in one of our buffers
@@ -2491,8 +2518,8 @@ goto_buffer:
 ; LINEDONE
 ; Attempts to compile the line entered in (mem::linebuffer)
 .proc linedone
-@indent=zp::tmpa	; indent boolean (!0 = indent)
-@i=zp::tmpa		; loop counter for indentation loop
+@indent=ra	; indent boolean (!0 = indent)
+@i=ra		; loop counter for indentation loop
 	jsr is_readonly
 	bne :+
 	jmp begin_next_line	; if READONLY, just go down a line
@@ -2606,7 +2633,7 @@ goto_buffer:
 	; if we're at the bottom, scroll whole screen up
 	ldx #EDITOR_ROW_START
 	lda height
-	jsr text::scrollup
+	jsr scrollup
 	; and clear the new line
 	jsr text::clrline
 	lda height
@@ -2618,7 +2645,7 @@ goto_buffer:
 :	iny
 	tya
 	ldx height
-	jsr text::scrolldown
+	jsr scrolldown
 
 @setcur:
 	jsr src::get
@@ -2771,10 +2798,10 @@ goto_buffer:
 @scroll:
 	lda #EDITOR_ROW_START
 	ldx height
-	jsr text::scrolldown	; cursor wasn't moved, scroll
+	jsr scrolldown		; cursor wasn't moved, scroll
 @redraw:
 	lda zp::cury
-	jsr text::drawline
+	jsr print_line
 
 	; if in VISUAL_LINE mode, just rvs the line and return
 	lda mode
@@ -3055,7 +3082,7 @@ goto_buffer:
 	cmpw visual_start_line
 	bcs @cont
 	lda zp::cury
-	jsr text::drawline
+	jsr print_line
 	jmp @cont
 
 @chkvis:
@@ -3106,12 +3133,12 @@ goto_buffer:
 @scroll:
 	ldx #EDITOR_ROW_START
 	lda height
-	jsr text::scrollup	; cursor wasn't moved, scroll
+	jsr scrollup	; cursor wasn't moved, scroll
 	lda height
 	sta zp::cury
 
 @redraw:
-	jsr text::drawline
+	jsr print_line
 
 	; if in VISUAL_LINE mode, just rvs the line and return
 	lda mode
@@ -3224,7 +3251,7 @@ goto_buffer:
 	jsr text::putch
 	bcs @prevline
 	lda zp::cury
-	jmp text::drawline
+	jmp print_line
 
 @prevline:
 	; get the line we're moving up to in linebuffer
@@ -3258,7 +3285,7 @@ goto_buffer:
 	ldy zp::cury
 	dey
 	tya
-	jsr text::drawline	; draw the line we'll move to
+	jsr print_line		; draw the line we'll move to
 	jsr text::savebuff
 	jsr bumpup		; scroll the screen up (also move cursor up)
 	jmp text::restorebuff
@@ -3286,7 +3313,7 @@ goto_buffer:
 	cpx height
 	beq @noscroll	; if cursor is at end of screen, nothing to scroll
 	lda height
-	jsr text::scrollup
+	jsr scrollup
 
 @noscroll:
 	; go to the bottom row and read the line that was moved up
@@ -3332,27 +3359,27 @@ goto_buffer:
 
 ;*****************************************************************************
 ; SCROLLUP
-; scrolls everything from the cursor's position up
+; scrolls everything in the given range of rows and highlights the row that
+; is scrolled in (if highlight is enabled)
+; IN:
+;  - .X: the row to start scrolling at
+;  - .A: the row to stop scrolling at
 .proc scrollup
 	; scroll everything up from below the line we deleted
-	ldx zp::cury
-	inx
-	cpx height
-	beq @noscroll	; if cursor is at end of screen, nothing to scroll
-	lda height
-	dex
 	jsr text::scrollup
-@noscroll:
-	rts
+	jmp highlight	; handle highlight (if enabled)
 .endproc
 
 ;******************************************************************************
 ; SCROLLDOWN
-; scrolls everything from the cursor's position down
+; scrolls everything in the given range of rows and highlights the row that
+; is scrolled in (if highlight is enabled)
+; IN:
+;  - .A: the row to starttop scrolling at
+;  - .X: the row to stop scrolling at
 .proc scrolldown
-	lda zp::cury
-	ldx height
-	jmp text::scrolldown
+	jsr text::scrolldown
+	jmp highlight
 .endproc
 
 ;******************************************************************************
@@ -3691,7 +3718,6 @@ __edit_gotoline:
 	jmp @longmove_cont
 
 @longb:	jsr src::upn	; go to the first line to render
-	;jsr src::up	; one more TODO: why?
 @longb_cont:
 	lda height
 
@@ -3714,17 +3740,17 @@ __edit_gotoline:
 	jsr src::get
 	lda #$00
 	jsr text::drawline
-	jmp @renderdone
+	jmp @longdone
 
 @rowdown:
 	ldx @row
 	cpx height
-	bcs @renderdone
+	bcs @longdone
 	inc @row
 	jsr src::down
 	bcc @l0
 
-@clearextra:
+@clrextra:
 	jsr text::clrline
 	lda @row
 	sta @rowsave
@@ -3739,6 +3765,11 @@ __edit_gotoline:
 
 	lda @rowsave
 	sta @row
+
+@longdone:
+	lda #$00
+	sta highlight_status
+
 @renderdone:
 	; move the cursor to the top if we searched backwards or bottom
 	; if forward
@@ -3749,8 +3780,10 @@ __edit_gotoline:
 	bne :+
 	jsr src::right
 	ldx #TAB_WIDTH
+
 :	ldy @row
-	jmp cur::set
+	jsr cur::set
+	jmp highlight
 .endproc
 
 ;******************************************************************************
@@ -3818,13 +3851,12 @@ __edit_gotoline:
 ; SRC2SCREEN
 ; Takes the given source line number and returns its row position on the screen.
 ; IN:
-;  - .XY:      the line number to get the screen row of
+;  - .XY: the line number to get the screen row of
 ; OUT:
 ;  - .A: the row that the line number resides on
 ;  - .C: set if the line number is not on screen
 .export __edit_src2screen
 .proc __edit_src2screen
-@fname=zp::tmp0
 @line=zp::editortmp
 @startline=zp::editortmp+2
 @endline=zp::editortmp+4
@@ -3848,9 +3880,10 @@ __edit_gotoline:
 
 	ldxy @line
 	cmpw @startline
+	beq @done
 	bcc @done
 	cmpw @endline
-	bcs @done
+	bcs @ret
 
 	lda @line
 	sec
@@ -3858,7 +3891,7 @@ __edit_gotoline:
 	RETURN_OK
 
 @done:	sec			; line off screen
-	rts
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -3984,6 +4017,72 @@ __edit_gotoline:
 	beq :+
 	cmp #MODE_VISUAL_LINE
 :	rts
+.endproc
+
+;******************************************************************************
+; SET_HIGHLIGHT
+; Sets the line to highlight and enables line-highlight
+; IN:
+;  - .XY: the line to highlight
+.export __edit_sethighlight
+.proc __edit_sethighlight
+@newhighlight=zp::editortmp+6
+	lda highlight_status		; is highlight active?
+	beq :+
+	stxy @newhighlight
+	jsr toggle_highlight		; toggle off old highlight if it's on
+
+	ldxy @newhighlight
+
+:	stxy __edit_highlight_line
+	lda #$01
+	sta highlight_en		; flag highlight as ON
+	sta highlight_status		; and flag highlight as on
+
+	; fall through to highlight line
+.endproc
+
+;******************************************************************************
+; TOGGLE_HIGHLIGHT
+; Unhighlights the highlighted row if it's already highlighted or highlights
+; if it it isn't
+.proc toggle_highlight
+	lda highlight_en
+	beq @done		; highlight disabled
+
+	jsr src::filename	; get filename (r0 = name)
+	ldxy __edit_highlight_line
+	jsr __edit_src2screen
+	bcs @done		; off screen
+	jmp draw::rvs_underline
+
+@done:	lda #$00
+	sta highlight_status
+	rts
+.endproc
+
+;******************************************************************************
+; HIGHLIGHT
+; If the row that should be highlighted is visible, highlight it
+.proc highlight
+@was_visible=r4
+	lda highlight_status
+	sta @was_visible
+
+	; update the status (check if the highlight was scrolled out)
+	jsr src::filename	; get filename (r0 = name)
+	ldxy __edit_highlight_line
+	jsr __edit_src2screen
+	adc #$ff		; +1 if not visible, +0 if visible
+	sta highlight_status	; highlight is (no longer) visible
+
+	; if highlight is no longer visible, continue
+	beq @done
+
+	lda @was_visible
+	bne @done		; if highlight was, and still is, visible: skip
+	jmp toggle_highlight	; highlight was NOT visible, but is now
+@done:	rts
 .endproc
 
 .RODATA

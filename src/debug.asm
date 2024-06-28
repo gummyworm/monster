@@ -699,10 +699,8 @@ brkhandler2_size=*-brkhandler2
 	ldxy sim::pc
 	jsr __debug_gotoaddr
 	bcs @print		; if we failed to get line #, continue
-	stxy highlight_line
+	jsr edit::sethighlight
 	inc lineset
-
-	jsr toggle_highlight	; highlight line
 
 @print:	jsr showstate		; show regs/BRK message
 
@@ -715,7 +713,6 @@ brkhandler2_size=*-brkhandler2
 
 	pha
 	cli
-	jsr toggle_highlight	; turn off highlight
 
 	lda #$00
 	sta advance	; by default, don't return to program after command
@@ -753,13 +750,9 @@ brkhandler2_size=*-brkhandler2
 	jsr showstate		; restore the register display (may be changed)
 
 @finishloopiter:
-	jsr toggle_highlight	; turn on highlight
 	jsr cur::on
 	lda advance		; are we ready to execute program? (GO, STEP)
 	beq @debugloop		; not yet, loop and get another command
-
-@done:	; unhighlight the BRK line if it's still visible
-	jsr toggle_highlight
 
 @debug_done:
 	jsr dummy_irq	; install a NOP IRQ
@@ -841,21 +834,6 @@ brkhandler2_size=*-brkhandler2
 	ldxy @line
 	clc
 @done:	rts
-.endproc
-
-;******************************************************************************
-; TOGGLE_HIGHLIGHT
-; Toggles the actively highlighted line's highlight
-.proc toggle_highlight
-	lda lineset
-	beq :+			; line # not known
-
-	jsr src::filename	; get filename (zp::tmp0 = name)
-	ldxy highlight_line
-	jsr edit::src2screen
-	bcs :+			; off screen
-	jmp draw::rvs_underline
-:	rts
 .endproc
 
 ;******************************************************************************
@@ -1767,9 +1745,9 @@ __debug_remove_breakpoint:
 
 @showline:
 	; display the BRK message
-	lda highlight_line
+	lda edit::highlight_line
 	pha
-	lda highlight_line+1
+	lda edit::highlight_line+1
 	pha
 	ldxy #strings::debug_brk_line
 @print:	lda #DEBUG_MESSAGE_LINE
