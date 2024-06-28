@@ -6,7 +6,7 @@
 ;******************************************************************************
 ; CONSTANTS
 
-; constants for special symbols in 5-bit compresed strings
+; constants for special symbols in 5-bit compressed strings
 SPECIAL_CHARS_START = 'z'-'a'+2
 
 SPACE = SPECIAL_CHARS_START
@@ -93,7 +93,7 @@ SLASH = SPECIAL_CHARS_START+2
 
 ;******************************************************************************
 ; CAT
-; concatentates the two provided strings.
+; concatenates the two provided strings.
 ; IN:
 ;  - .XY: the string to concatentate to
 ;  - r0:  the string to add to the end of the first

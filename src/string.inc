@@ -18,7 +18,7 @@
 
 ;******************************************************************************
 ; STREQ
-; Compares the the string in (YX) to the string s.
+; Compares the string in (YX) to the string s.
 .macro streq s, len
 	stx zp::str0
 	sty zp::str0+1
