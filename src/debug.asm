@@ -95,7 +95,7 @@ debugtmp       = zp::debug+$11
 ;  2. restore 3 bytes of debug memory at (prev_pc)
 startsave:
 stepsave:  .byte 0	; opcode to save under BRK
-brkaddr:   .word 0 	; address where our brakpoint is set
+brkaddr:   .word 0 	; address where our breakpoint is set
 
 ;******************************************************************************
 ; Debug state values for internal RAM locations
