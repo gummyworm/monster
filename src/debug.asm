@@ -10,6 +10,8 @@
 .include "breakpoints.inc"
 .include "config.inc"
 .include "cursor.inc"
+.include "debuginfo.inc"
+.include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
 .include "fastcopy.inc"
@@ -42,19 +44,8 @@ BRK_HANDLER_ADDR = $8000-(brkhandler1_size+brkhandler2_size-2)
 RTI_ADDR         = BRK_HANDLER_ADDR + 3
 
 ;******************************************************************************
-; Debug info constants
-MAX_FILES       = 24	; max files that debug info may be generated for
-MAX_SEGMENTS    = 8	; max segments that debug info may be generated for
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
 MAX_WATCHPOINTS = 8	; max number of watchpoints that may be set
-MAX_LINES       = 8000	; max number of lines across all segments
-
-SEG_START_ADDR = 0      ; offset in segment header for start address
-SEG_STOP_ADDR  = 2      ; offset in segment header for stop address
-SEG_LINE_COUNT = 4	; offset in segment header for line count
-DATA_FILE      = 0	; offset of FILE ID in debug info
-DATA_LINE      = 1	; offset of line number in debug info
-DATA_ADDR      = 3	; offset of line address in debug info
 
 AUX_MEM   = 1		; enables the memory viewer in the debug view
 AUX_BRK   = 2		; enables the breakpoint view in the debug view
@@ -81,34 +72,14 @@ ACTION_GO        = 5	; action for subsequent GO instructions
 ACTION_TRACE     = 6	; action for TRACE command
 
 ;******************************************************************************
-; Debug info pointers
-file           = zp::debug       ; current file id being worked on
-addr           = zp::debug+1     ; address of next line/addr to store
-seg            = zp::debug+3     ; address of current segment pointer
-line           = zp::debug+5
-srcline        = zp::debug+7
-segstart       = zp::debug+9
-segstop        = zp::debug+$b
-numlines       = zp::debug+$d
-debugtmp       = zp::debug+$10
-
-.export __debug_src_line
-__debug_src_line = srcline ; the line # stored by dbg::storeline
-.export __debug_file
-__debug_file = file
-
-;******************************************************************************
-; NOTE: this data is stored in its own bank (FINAL_BANK_DEBUG)
-; the per-file debug info as described in the above table
-.segment "DEBUGINFO"
-.export debuginfo
-debuginfo: .res $6000
+swapmem        = zp::debug+$10	; not zero if we need to swap in user RAM
+debugtmp       = zp::debug+$11
 
 ;******************************************************************************
 ; Program state variables
 .BSS
 
-;--------------------------------------
+;******************************************************************************
 ; Up to 4 bytes need to be saved in a given STEP.
 ;  1. The instruction at the PC (up to 3 bytes)
 ;  2. The memory value read/written by the instruction (up to 1 byte)
@@ -122,7 +93,6 @@ debuginfo: .res $6000
 ; To restore the debugger:
 ;  1. save user value at sim::effective_addr (address of effected memory)
 ;  2. restore 3 bytes of debug memory at (prev_pc)
-
 startsave:
 stepsave:  .byte 0	; opcode to save under BRK
 brkaddr:   .word 0 	; address where our brakpoint is set
@@ -137,8 +107,7 @@ debug_instruction_save: .res 3	; buffer for debugger's
 mem_debugsave:          .byte 0 ; byte under effective address during STEP
 debug_stepsave: 	.byte 0 ; debugger byte under BRK (if internal)
 
-;--------------------------------------
-
+;******************************************************************************
 ; previous values for registers etc.
 prev_reg_a:  .byte 0
 prev_reg_x:  .byte 0
@@ -155,7 +124,6 @@ prev_mem_saveaddr: .word 0
 step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
 lineset:   .byte 0	; not zero if we know the line number we're on
 advance:   .byte 0	; not zero if a command continues program execution
-swapmem:   .byte 0      ; not zero if we need to swap in user RAM
 
 aux_mode:         .byte 0	; the active auxiliary view
 highlight_line:	  .word 0 	; the line we are highlighting
@@ -163,91 +131,7 @@ highlight_file:   .word 0	; filename of line we are highlighting
 
 action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
-;******************************************************************************
-; Debug symbol variables
-; number of files that we have debug info for. The ID of a file is its index
-.export numfiles
-numfiles: .byte 0
-
-; table of 0-terminated filenames
-.export filenames
-filenames: .res MAX_FILES * 16
-
-; number of segments that we have debug info for
-.export numsegments
-numsegments: .byte 0
-
-; 0-terminated names for each segment, can be 0-length for unnamed segments
-segmentnames: .res MAX_SEGMENTS * 8
-
-; table of start addresses for each segment
-.export segaddresses
-segaddresses: .res MAX_SEGMENTS * 2
-
-;******************************************************************************
-; # DEBUG INFO
-; The structure of this info is somewhat optimized for generating while the
-; source is being assembled.  It is generated in 2 passes, which nicely
-; matches the way that the source is assembled.
-;
-; In PASS 1, the user counts the number of lines (any instruction) and segment
-; switches (.ORG) and calls `dbg::initsegment` with that info.
-; This will allocate the amount of space needed for the file's debug info
-;
-; In PASS 2, the user simply calls:
-;  - `dbg::startsegment` on each segment switch (.ORG)
-;  - `dbg::storeline` on each instruction
-; After which debug info will be stored for every line of generated code
-;
-; The assembler will call these functions itself because some directives
-; (e.g. INC, REP, and MAC) will generate more than one address per line.
-; Each address must be mapped to a line in the debug info in order to
-; meaningfully debug these directives.
-;
-; The format for a file's debug info is stored in the following format:
-;	 ---------------------------------------------
-;	 | size     | description                    |
-;	 |----------|--------------------------------|
-;	 |    2     | segment 1 start addr           |
-;	 |    2     | segment 1 stop addr            |
-;	 |    2     | segment 1 number of lines      |
-;	 |   ...    |         ...                    |
-;	 |    2     | segment n start addr           |
-;	 |    2     | segment n stop addr            |
-;	 |    2     | segment n number of lines      |
-;	 |##########|################################|
-;	 |    1     | segment 1 instruction 1 file id|
-;	 |    2     | segment 1 instruction 1 line # |
-;	 |    2     | segment 1 instruction 1 addr   |
-;	 |   ...    |         ...                    |
-;	 |    1     | segment 1 instruction n file id|
-;	 |    2     | segment 1 instruction n line # |
-;	 |    2     | segment 1 instruction n addr   |
-;	 |   ...    |         ...                    |
-;	 |    1     | segment n instruction 1 file id|
-;	 |    2     | segment n instruction 1 line # |
-;	 |    2     | segment n instruction 1 addr   |
-;	 |   ...    |         ...                    |
-;	 |    1     | segment n instruction m file id|
-;	 |    2     | segment n instruction m line # |
-;	 |    2     | segment n instruction m addr   |
-;	 |-------------------------------------------|
-; In words: a file's debug info is organized as the filename, followed by the
-; number of segments, followed by a _list_ of those segments (as start and stop
-; addresses), and lastly a list of pairs of lines/addresses for each segment
-;
-; Clearly, this is a costly amount of memory, so it requires a Final Expansion
-;
-; A new "segment" begins with a .ORG directive.
-; Address/lines are stored sequentially within a segment until a .ORG is
-; encountered at which point a new segment begins.
-;
-; NOTE: the term "segment" in the debugger refers to a contiguous block of
-; lines. That is, lines that all reside within the segment's start and stop
-; addresses.
-;
-; TODO: store more compactly? e.g. store offsets for line/addr from previous
-;******************************************************************************
+debugger_sp: .byte 0	; stack pointer (SP) for debugger
 
 ;******************************************************************************
 ; WATCHES
@@ -279,9 +163,9 @@ __debug_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 ; BREAKPOINTS
 .export __debug_breakpointslo
 .export __debug_breakpointshi
-.export __debug_numbreakpoints
-__debug_numbreakpoints:
-numbreakpoints: .byte 0 		; number of active break points
+
+numbreakpoints = dbgi::numbreakpoints
+
 __debug_breakpointslo:
 breakpointslo:      .res MAX_BREAKPOINTS	; LSB's of the break points
 __debug_breakpointshi:
@@ -295,257 +179,110 @@ breakpoint_flags: .res MAX_BREAKPOINTS ; active state of breakpoints
 breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 ;******************************************************************************
-; pointers used when building the debug info
-; may be used for other purposes after debug info is generated
-nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
-
-.segment "DEBUGGER"
-
-;******************************************************************************
-; INIT
-; Clears any debug state that exists
-.export __debug_init
-.proc __debug_init
-	; init debugger state variables
-	lda #$00
-	sta numsegments
-	sta numbreakpoints
-	sta numfiles
-	rts
-.endproc
-
-;******************************************************************************
-; GETLINE
-; Returns the current line that we're working on
-; OUT:
-;  - .XY: the line we're actively working on in the debugger
-.export __debug_getline
-.proc __debug_getline
-	ldxy srcline
-	rts
-.endproc
-
-;******************************************************************************
-; SETLINE
-; Sets the current line that we're working on
-; IN:
-;  - .XY: the line number to set the internal line to
-.export __debug_setline
-.proc __debug_setline
-	stxy srcline
-	rts
-.endproc
-
-;******************************************************************************
-; SETUP
-; Uses the line counts (generated by dbg::storeline) to calculate the start
-; and stop addresses for each segment and sets them accordingly.
-; Resets line counts to zero (it is used as a counter by dbg::storeline).
-; out:
-;  - .C: set if an error occurred
-.export __debug_setup
-.proc __debug_setup
-@lines=r4
-@tmp=r6
-@segend=r8
-@cnt=ra
-	lda numsegments
-	bne :+
-	rts
-
-:	; start of data is 6*numsegments
+; RESTORE DEBUG ZP
+; Restores the state of the debugger's zeropage
+.macro restore_debug_zp
 	ldx #$00
-	stx @segend+1
-	asl		; *2
-	sta @tmp
-	rol @segend+1
-	asl		; *4
-	rol @segend+1
-	adc @tmp	; *6
-	sta @segend
-	lda @segend+1
-	adc #$00
-	sta @segend+1
-
-	; get the address of the start of data
-	; and init 1st segment to it
-	lda @segend
-	adc #<debuginfo
-	sta @segend
-	sta segaddresses
-	lda @segend+1
-	adc #>debuginfo
-	sta @segend+1
-	sta segaddresses+1
-
-	; get the address of the start of the segments
-	ldxy #debuginfo
-	stxy seg
-
-	lda #$00
-	sta @cnt
-@l0:	ldy #SEG_LINE_COUNT	; get the line count for the segment
-	jsr read_from_seg
-	sta @lines
-	iny
-	jsr read_from_seg
-	sta @lines+1
-
-	; numlines*5 to get the size of this segment's data
-	lda @lines+1
-	sta @tmp
-	lda @lines
-	asl		; *2
-	rol @lines+1
-	asl		; *4
-	rol @lines+1
-	adc @lines	; *5
-	sta @lines
-	lda @lines+1
-	adc @tmp
-	sta @lines+1
-
-	; calculate the address for the next segment's info
-	lda @cnt
-	asl
-	tax
-	lda @lines
-	adc @segend
-	sta @segend
-	sta segaddresses,x
-	lda @lines+1
-	adc @segend+1
-	sta @segend+1
-	sta segaddresses+1,x
-
-	; reset line count
-	ldy #SEG_LINE_COUNT
-	lda #$00
-	jsr write_to_seg
-	iny
-	jsr write_to_seg
-
-	; update seg pointer
-	lda seg
-	adc #$06
-	sta seg
-	bcc @next
-	inc seg+1
-
-@next:	inc @cnt
-	lda @cnt
-	cmp numsegments
-	bcc @l0
-
-@done:	RETURN_OK
-.endproc
+:	lda mem::dbg00,x
+	sta $00,x
+	lda mem::dbg00+$100,x
+	sta $100,x
+	lda mem::dbg00+$200,x
+	sta $200,x
+	lda mem::dbg00+$300,x
+	sta $300,x
+	dex
+	bne :-
+.endmacro
 
 ;******************************************************************************
-; INITSEG
-; Initializes a segment (as with .ORG)
-; IN:
-;  .XY:      the start address of the segment
-;  zp::tmp0: the name of the segment
-.export __debug_init_segment
-.proc __debug_init_segment
-@name=r0
-@tmp=r2
-@addr=r3
-	stxy @addr
-
-	; copy the segment name
-	lda numsegments
-	asl
-	asl
-	asl
-	tax
-	ldy #$00
-@l0:	lda (@name),y
-	sta segmentnames,x
-	iny
-	inx
-	cpy #$08
-	bne @l0
-
-	; get the address of the segment
-	lda numsegments	; *6 to get offset for this segment
-	asl		; *2
-	sta @tmp
-	asl		; *4
-	adc @tmp	; *6
-	adc #<debuginfo
-	sta seg
-	lda #$00
-	adc #>debuginfo
-	sta seg+1
-
-	; store the start address of the segment
-	lda @addr+1
-	ldy #SEG_START_ADDR+1
-	jsr write_to_seg
-	lda @addr
-	dey
-	jsr write_to_seg
-
-	; end address will be determined by dbg::endseg
-
-	; initialize the line count to 0
-	ldy #SEG_LINE_COUNT
-	lda #$00
-	jsr write_to_seg
-	iny
-	jsr write_to_seg
-	inc numsegments
-	RETURN_OK
-.endproc
+; SAVE USER ZP
+; Saves the state of the user's zeropage
+.macro save_user_zp
+	ldx #$00
+:	lda $00,x
+	sta mem::prog00,x
+	lda $100,x
+	sta mem::prog00+$100,x
+	lda $200,x
+	sta mem::prog00+$200,x
+	lda $300,x
+	sta mem::prog00+$300,x
+	dex
+	bne :-
+.endmacro
 
 ;******************************************************************************
-; READ_FROM_SEG
-; Reads a byte to (seg)+y in the DEBUGGER bank
-; IN:
-;  - .Y: the offset of (seg) to read
-; OUT:
-;  - .A: the byte that was read
-; CLOBBERS:
-;  - NONE
-.proc read_from_seg
-	txa
-	pha
-	tya
-	pha
+; RESTORE USER ZP
+; Restores the state of the user's zeropage
+.macro restore_user_zp
+@zp=mem::prog00
+	ldx #$00
+:	lda @zp,x
+	sta $00,x
+	lda mem::prog00+$100,x
+	sta $100,x
+	lda mem::prog00+$200,x
+	sta $200,x
+	lda mem::prog00+$300,x
+	sta $300,x
+	dex
+	bne :-
+.endmacro
 
-	sty zp::bankval
-	ldxy seg
-	lda #FINAL_BANK_DEBUG
-	jsr fe3::load_off ; read the byte
+.CODE
 
-	sta zp::bankval
-	pla
-	tay
-	pla
-	tax
-	lda zp::bankval
+;******************************************************************************
+; RESTORE_DEBUG_STATE
+; Restores the saved debugger state
+.proc restore_debug_state
+	ldx #$10
+:	lda mem::dbg9000-1,x
+	dex
+	bne :-
+
+	ldx #$f0
+; save $9400-$94f0
+:	lda mem::dbg9400-1,x
+	sta $9400-1,x
+	dex
+	bne :-
+
+	; reinit the bitmap
+	jsr bm::init
+
+	; restore the screen ($1100-$2000)
+	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
 	rts
 .endproc
 
 ;******************************************************************************
-; WRITE_TO_SEG
-; Writes a byte to (seg)+y in the DEBUGGER bank
-; IN:
-;  .A: the byte to write
-;  seg: the address to write to
-; CLOBBERS:
-;  - NONE
-.proc write_to_seg
-	sta zp::bankval
-	pushregs
+; RESTORE_PROGSTATE
+; restores the saved program state
+.proc __debug_restore_progstate
+	ldx #$10
+:	lda mem::prog9000-1,x
+	sta $9000-1,x
+	dex
+	bne :-
 
-	sty zp::bankoffset
-	ldxy seg
-	lda #FINAL_BANK_DEBUG
-	jsr fe3::store_off	; write the byte
+; restore $1000-$1100
+:	lda mem::prog1000,x
+	sta $1000,x
+	dex
+	bne :-
 
-	popregs
+	ldx #$f0
+; restore $9400-$94f0
+:	lda mem::prog9400-1,x
+	sta $9400-1,x
+	dex
+	bne :-
+
+	lda #$4c
+	sta zp::jmpaddr
+	; restore the user $1100 data
+	CALL FINAL_BANK_FASTCOPY, #fcpy::restore
 	rts
 .endproc
 
@@ -1093,23 +830,23 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the address to begin debugging at
 .export __debug_start
 .proc __debug_start
-	stxy sim::pc
+	lda #CUR_SELECT
+	sta cur::mode
+	lda #ACTION_START
+	sta action
 
-	jsr save_debug_state 		; save the debug state
-	ldxy sim::pc
+	; set the simulator's PC value
+	stxy sim::pc
 	stxy prev_pc
+
+	; backup the byte that will be overwritten by our BRK
 	jsr vmem::load
 	sta startsave
 
-	lda #CUR_SELECT
-	sta cur::mode
-
+	; and install the first BRK at the debug start address
 	ldxy sim::pc
-	lda #$00		; BRK
+	lda #$00
 	jsr vmem::store
-
-	lda #ACTION_START
-	sta action
 
 	; initialize auxiliary views
 	jsr brkpt::init
@@ -1118,22 +855,26 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 
 	; init state
 	sta __debug_numwatches
-
 	jsr reset_stopwatch
-
 	jsr dummy_irq
+
+	jsr install_brk			; install the BRK handler IRQ
+
+	jsr save_debug_state 		; save the debug state
+	;jsr __debug_save_prog_state
 	jsr __debug_restore_progstate	; and copy in entire user state to start
+
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
 
-	jsr install_brk			; install the IRQ
-
+	; the zeropage is sensitive, when we're done with all other setup,
+	; swap the user and debug zeropages
 	jsr save_debug_zp
-	jsr restore_user_zp
+	tsx
+	stx debugger_sp
 
-@runpc:	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK
+	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK
 .endproc
-
 
 ;******************************************************************************
 ; DUMMY IRQ
@@ -1175,7 +916,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	dec @cnt
 	bpl @l0
 
-	ldxy #BRK_HANDLER_ADDR+3
+	ldxy #BRK_HANDLER_ADDR
 	stxy @dst
 	lda #brkhandler2_size-1
 	sta @cnt
@@ -1192,8 +933,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	rts
 .endproc
 
-.CODE
-
 ;******************************************************************************
 ; BRKHANDLER
 ; Handles the BRK interrupt by returning control to the main bank
@@ -1202,14 +941,13 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; the editor, where execution will pick up after switching banks
 ;
 ; This is the layout of the code in each bank:
-; PHA		-- (1 byte)
-; LDA #$00	-- (2 bytes)
+; PHA		PHA
+; LDA #$80	LDA #$80
 ; STA $9C02	STA $9C02
 ; PLA		PLA
 ; RTI		JMP DEBUG_BRK
 ; -- (2 bytes)  -- (0 bytes)
-; handler1 has 2 empty bytes at the end and handler2 has 3 empty bytes at the
-; beginning
+; handler1 has 2 empty bytes at the end
 brkhandler1:
 	pha
 	lda #$80
@@ -1218,6 +956,8 @@ brkhandler1:
 	rti
 brkhandler1_size=*-brkhandler1
 brkhandler2:
+	pha
+	lda #$80
 	sta $9c02
 	pla
 	jmp debug_brk
@@ -1303,7 +1043,6 @@ brkhandler2_size=*-brkhandler2
 ; saves memory likely to be clobbered by the user's
 ; program (namely the screen)
 .proc save_debug_state
-@losave=mem::dbg00+$100
 @vicsave=mem::dbg9000
 @colorsave=mem::dbg9400
 	ldx #$10
@@ -1312,16 +1051,6 @@ brkhandler2_size=*-brkhandler2
 	sta @vicsave-1,x
 	dex
 	bne @savevic
-
-@savelo:
-	lda $100-1,x
-	;sta @losave-1,x
-	lda $200-1,x
-	;sta @losave-1,x
-	lda $300-1,x
-	;sta @losave-1,x
-	dex
-	bne @savelo
 
 	ldx #$f0
 ; save $9400-$94f0
@@ -1332,7 +1061,8 @@ brkhandler2_size=*-brkhandler2
 	bne @savecolor
 
 	; backup the screen
-	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
+	CALL FINAL_BANK_FASTCOPY2, #fcpy::save
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1366,21 +1096,10 @@ brkhandler2_size=*-brkhandler2
 	dex
 	bne @savecolor
 
-; save $100-$400
-@savelo:
-	lda $100-1,x
-	;sta @losave-1,x
-	lda $200-1,x
-	;sta @losave+$100-1,x
-	lda $300-1,x
-	;sta @losave+$200-1,x
-	dex
-	bne @savelo
-
 	; backup the user $1100-$2000 data
-	JUMP FINAL_BANK_FASTCOPY, #fcpy::save
+	CALL FINAL_BANK_FASTCOPY, #fcpy::save
+	rts
 .endproc
-
 
 ;******************************************************************************
 ; DEBUG_BRK
@@ -1418,18 +1137,23 @@ brkhandler2_size=*-brkhandler2
 	sta sim::pc+1
 
 	sei
-	; restore the debugger's zeropage
-	jsr save_user_zp
-	jsr restore_debug_zp
+
+	; restore the debugger's SP
+	ldx debugger_sp
+	txs
+
+	; save the user's zeropage and restore the debugger's
+	save_user_zp
+	restore_debug_zp
+
+	; swap the debugger state in
+	jsr swapout
 
 	; reinstall the main IRQ
 	ldx #<irq::sys_update
         ldy #>irq::sys_update
 	lda #$20
         jsr irq::raster
-
-	; swap the debugger state in
-	jsr swapout
 
 	; unless we can figure out the exact RAM we will affect, we'll have to
 	; swap in the entire user RAM before we return from this BRK
@@ -1438,7 +1162,6 @@ brkhandler2_size=*-brkhandler2
 
 	lda #$00
 	sta lineset		; flag that line # is (yet) unknown
-	sta sim::branch_taken 	; clear branch taken flag
 
 @uninstall_brks:
 	; uninstall breakpoints (will reinstall the ones we want later)
@@ -1574,10 +1297,17 @@ brkhandler2_size=*-brkhandler2
 	jsr toggle_highlight
 
 @debug_done:
+	jsr dummy_irq	; install a NOP IRQ
 	jsr cur::off
 	jsr swapin
 
+	jsr save_debug_zp
+	restore_user_zp
+
 @restore_regs:
+	ldx sim::reg_sp	; restore SP
+	txs
+
 	; from top to bottom: [STATUS, <PC, >PC]
 	lda sim::pc+1
 	sta prev_pc+1
@@ -1588,12 +1318,6 @@ brkhandler2_size=*-brkhandler2
 
 	lda sim::reg_p	; restore processor status
 	pha
-
-	; install a NOP IRQ
-	jsr dummy_irq
-
-	jsr save_debug_zp
-	jsr restore_user_zp
 
 	lda sim::reg_a
 	sta prev_reg_a
@@ -1612,7 +1336,7 @@ brkhandler2_size=*-brkhandler2
 ; LOAD_FILE
 ; Loads the file (in the editor) for the given filename
 ; IN:
-;  - .A: the file (as returned from addr2line)
+;  - .A: the file (as returned from dbgi::addr2line)
 ; OUT:
 ;  - .C: set if the file couldn't be opened
 .export __debug_load_file
@@ -1621,9 +1345,9 @@ brkhandler2_size=*-brkhandler2
 	asl
 	asl
 	asl
-	adc #<filenames
+	adc #<dbgi::filenames
 	tax
-	lda #>filenames
+	lda #>dbgi::filenames
 	adc #$00
 	tay
 	jmp edit::load
@@ -1640,9 +1364,9 @@ brkhandler2_size=*-brkhandler2
 .export __debug_gotoaddr
 .proc __debug_gotoaddr
 @line=debugtmp
-	jsr __debug_addr2line	; get the line #
+	jsr dbgi::addr2line	; get the line #
 	bcs @done		; error
-	sta file
+	sta dbgi::file
 	stxy @line
 	jsr __debug_load_file	; load file (if not already)
 	bcs @done		; error
@@ -1652,32 +1376,6 @@ brkhandler2_size=*-brkhandler2
 	ldxy @line
 	clc
 @done:	rts
-.endproc
-
-;******************************************************************************
-; SYM2LINE
-; Returns the line # and file ID associated with the given symbol
-; IN:
-;  - .XY: the symbol (0-terminated string)
-; OUT:
-;  - .A:  the file ID of the symbol
-;  - .XY: the line # of the symbol
-;  - .C:  set on failure
-.export __debug_sym2line
-.proc __debug_sym2line
-.endproc
-
-;******************************************************************************
-; SYM2ADDR
-; Returns the address associated with the given symbol
-; IN:
-;  - .XY: the symbol (0-terminated string)
-; OUT:
-;  - .XY: the address of the symbol
-;  - .C:  set on failure
-.export __debug_sym2addr
-.proc __debug_sym2addr
-	rts
 .endproc
 
 ;******************************************************************************
@@ -1691,48 +1389,8 @@ brkhandler2_size=*-brkhandler2
 	ldxy highlight_line
 	jsr edit::src2screen
 	bcs :+			; off screen
-	jmp bm::rvsline
+	jmp draw::rvs_underline
 :	rts
-.endproc
-
-;******************************************************************************
-; RESTORE_DEBUG_STATE
-; Restores the saved debugger state
-.proc restore_debug_state
-@losave=mem::dbg00+$100
-@vicsave=mem::dbg9000
-@colorsave=mem::dbg9400
-	ldx #$10
-@restorevic:
-	lda @vicsave-1,x
-	sta $9000-1,x
-	dex
-	bne @restorevic
-
-; restore $100-$400
-@restorelo:
-	lda @losave-1,x
-	;sta $100-1,x
-	lda @losave+$100-1,x
-	;sta $200-1,x
-	lda @losave+$200-1,x
-	;sta $300-1,x
-	dex
-	bne @restorelo
-
-	ldx #$f0
-; save $9400-$94f0
-@restorecolor:
-	lda @colorsave-1,x
-	sta $9400-1,x
-	dex
-	bne @restorecolor
-
-	; reinit the bitmap
-	jsr bm::init
-
-	; restore the screen ($1100-$2000)
-	JUMP FINAL_BANK_FASTCOPY2, #fcpy::restore
 .endproc
 
 ;******************************************************************************
@@ -1745,96 +1403,15 @@ brkhandler2_size=*-brkhandler2
 	ldx #$00
 @l0:	lda $00,x
 	sta @zp,x
+	lda $100,x
+	sta @zp+$100,x
+	lda $200,x
+	sta @zp+$200,x
+	lda $300,x
+	sta @zp+$300,x
 	dex
 	bne @l0
 	rts
-.endproc
-
-;******************************************************************************
-; RESTORE DEBUG ZP
-; Restores the state of the debugger's zeropage
-.proc restore_debug_zp
-@zp=mem::dbg00
-	ldx #$00
-@l0:	lda @zp,x
-	sta $00,x
-	dex
-	bne @l0
-	rts
-.endproc
-
-;******************************************************************************
-; SAVE USER ZP
-; Saves the state of the user's zeropage
-.proc save_user_zp
-@zp=mem::prog00
-	ldx #$00
-@l0:	lda $00,x
-	sta @zp,x
-	dex
-	bne @l0
-	rts
-.endproc
-
-;******************************************************************************
-; RESTORE USER ZP
-; Restores the state of the user's zeropage
-.proc restore_user_zp
-@zp=mem::prog00
-	ldx #$00
-@l0:	lda @zp,x
-	sta $00,x
-	dex
-	bne @l0
-	rts
-.endproc
-
-;******************************************************************************
-; RESTORE_PROGSTATE
-; restores the saved program state
-.export __debug_restore_progstate
-.proc __debug_restore_progstate
-@losave=mem::prog00+$100
-@internalmem=mem::prog1000
-@vicsave=mem::prog9000
-@colorsave=mem::prog9400
-	ldx #$10
-@restorevic:
-	lda @vicsave-1,x
-	sta $9000-1,x
-	dex
-	bne @restorevic
-
-; restore $100-$400
-@restorelo:
-	lda @losave-1,x
-	;sta $100-1,x
-	lda @losave+$100-1,x
-	;sta $200-1,x
-	lda @losave+$200-1,x
-	;sta $300-1,x
-	dex
-	bne @restorelo
-
-; restore $1000-$1100
-@restore1000:
-	lda @internalmem,x
-	sta $1000,x
-	dex
-	bne @restore1000
-
-	ldx #$f0
-; restore $9400-$94f0
-@restorecolor:
-	lda @colorsave-1,x
-	sta $9400-1,x
-	dex
-	bne @restorecolor
-
-	lda #$4c
-	sta zp::jmpaddr
-	; restore the user $1000 data
-	JUMP FINAL_BANK_FASTCOPY, #fcpy::restore
 .endproc
 
 ;******************************************************************************
@@ -1870,8 +1447,6 @@ brkhandler2_size=*-brkhandler2
 	ldxy #strings::debug_stop_debugging
 	lda #DEBUG_MESSAGE_LINE
 	jsr text::print
-	lda #DEBUG_MESSAGE_LINE
-	jsr bm::rvsline
 
 :	jsr key::getch
 	beq :-
@@ -1887,9 +1462,8 @@ brkhandler2_size=*-brkhandler2
 @quit:	lda #$00		; clear BRK flag
 	pha			; push 0 status
 	plp			; clear flags (.P)
-
-	pla			; command return address
-	pla
+	ldx debugger_sp
+	txs
 @done:	rts
 .endproc
 
@@ -1960,7 +1534,7 @@ brkhandler2_size=*-brkhandler2
 	jsr edit::setbreakpoint		; set a breakpoint in the source
 	ldxy src::line
 	stxy @line
-	jsr __debug_line2addr
+	jsr dbgi::line2addr
 	bcs @nobrk			; if no line # for this line, skip
 	jsr __debug_toggle_breakpoint	; add the breakpoint to the debugger
 	lda aux_mode
@@ -1973,7 +1547,8 @@ brkhandler2_size=*-brkhandler2
 
 ;******************************************************************************
 ; SWAP_USER_MEM
-; Toggles between the user program memory and the debugger
+; Command that swaps in the user program memory, waits for a keypress, and
+; returns with the debugger's memory swapped back in
 .proc swap_user_mem
 	jsr save_debug_state
 	jsr __debug_restore_progstate
@@ -2043,7 +1618,6 @@ brkhandler2_size=*-brkhandler2
 
 @setbrk:
 	pla			; get instruction size
-	pha			; save instruction size again
 	ldxy sim::pc		; and address of instruction to-be-executed
 
 	; get the address of the next instruction into sim::next_pc
@@ -2060,10 +1634,10 @@ brkhandler2_size=*-brkhandler2
 @notrom:
 	lda sim::op
 	cmp #$20		; JSR?
-	bne @addbrk
+	bne @countcycles
 	lda #ACTION_STEP_OVER
 	cmp action		; are we stepping over
-	bne @addbrk		; skip if not
+	bne @countcycles	; skip if not
 
 ; if stepping over a JSR, set breakpoint at current PC + 3
 ; also flag that we need to save all RAM
@@ -2079,16 +1653,8 @@ brkhandler2_size=*-brkhandler2
 	adc #$00
 	sta brkaddr+1
 
-@addbrk:
-	ldxy brkaddr
-	jsr vmem::load
-	sta stepsave
-	lda #$00		; BRK
-	ldxy brkaddr
-	jsr vmem::store
-
-	pla			; get the instruction size
-	tax
+; count the number of cycles that the next instruction will take
+@countcycles:
 	lda stepsave		; get the opcode
 	jsr sim::count_cycles	; get the # of cycles for the instruction
 	clc
@@ -2100,6 +1666,15 @@ brkhandler2_size=*-brkhandler2
 	lda sim::stopwatch+2
 	adc #$00
 	sta sim::stopwatch+2
+
+; add the breakpoint
+@addbrk:
+	ldxy brkaddr
+	jsr vmem::load
+	sta stepsave
+	lda #$00		; BRK
+	ldxy brkaddr
+	jsr vmem::store
 
 	inc advance		; continue program execution
 	rts			; return to the debugger
@@ -2146,7 +1721,7 @@ brkhandler2_size=*-brkhandler2
 	; swap entire user RAM in (needed if we don't know what memory will
 	; be changed before next BRK)
 	jsr save_debug_state
-	jmp __debug_restore_progstate
+	jsr __debug_restore_progstate
 
 @fastswap:
 	; save [mem_saveaddr], [step_point], and [pc, pc+2] for the debugger
@@ -2313,7 +1888,6 @@ brkhandler2_size=*-brkhandler2
 @next:	dec @cnt
 	dec @cnt
 	bpl @store
-
 	rts			; done
 
 @swapall:
@@ -2735,8 +2309,7 @@ __debug_remove_breakpoint:
 	ldxy #strings::debug_brk_line
 @print:	lda #DEBUG_MESSAGE_LINE
 	jsr text::print		; break in line <line #>
-	lda #DEBUG_MESSAGE_LINE
-	jmp bm::rvsline
+	rts
 .endproc
 
 ;******************************************************************************
@@ -2762,58 +2335,6 @@ __debug_remove_breakpoint:
 @auxlos: .lobytes auxtab
 @auxhis: .hibytes auxtab
 @numauxviews=*-@auxhis
-.endproc
-
-;******************************************************************************
-; GETSEGMENT_BY_ID
-; Returns the start and stop addresses of a segment by its ID.
-; ID's are sequential, so to iterate over all segments, you can call this
-; routine with an incrementing counter over the range [0, numsegments)
-; IN:
-;  .A: the ID of the segment to get
-; OUT:
-;  seg: the address of the segment data
-;  segstart: the start address of the segment
-;  segstop: the stop address of the segment
-;  line: the address of the line data for the segment
-;  numlines: the number of lines in the segment
-;  .C: set if the segment doesn't exist, clear on success
-.proc get_segment_by_id
-@info=r0
-	cmp numsegments
-	bcs @done	; return error
-
-	pha
-
-	; multiply segment number by 6 (sizeof(segdata))
-	sta @info
-	asl
-	adc @info
-	asl
-	adc #<debuginfo
-	sta seg
-	lda #>debuginfo
-	adc #$00
-	sta seg+1
-
-; get the start address of the segment, stop address, and number of lines
-	ldy #SEG_START_ADDR + (2*3) - 1
-@copy:	jsr read_from_seg
-	sta segstart,y
-	dey
-	bpl @copy
-
-	; get the address of the segment data
-	pla
-	asl
-	tax
-	lda segaddresses,x
-	sta line
-	lda segaddresses+1,x
-	sta line+1
-
-	clc			; OK
-@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2858,28 +2379,6 @@ __debug_remove_breakpoint:
 	beq @yes
 	cmp #ACTION_TRACE
 @yes:	rts
-.endproc
-
-;******************************************************************************
-; NEXT_LINE
-; Updates the line pointer to point to the next line
-; OUT:
-;  - .C: set if there are no lines left in the active segment (seg)
-.proc nextline
-	lda line
-	clc
-	adc #$05
-	sta line
-	bcc :+
-	inc line+1
-:	decw numlines
-	lda numlines
-	bne @ok
-	lda numlines+1
-	bne @ok
-	sec
-	rts
-@ok:	RETURN_OK
 .endproc
 
 ;******************************************************************************

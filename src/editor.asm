@@ -13,6 +13,7 @@
 .include "ctx.inc"
 .include "cursor.inc"
 .include "debug.inc"
+.include "debuginfo.inc"
 .include "directory.inc"
 .include "draw.inc"
 .include "expr.inc"
@@ -358,17 +359,17 @@ main:	jsr key::getch
 	sta r0+1
 	jsr str::copy		; copy .XY to (zp::tmp0)
 
-	jsr dbg::init
+	jsr dbgi::init
 
 	lda #$01
 	jsr asm::startpass
 
-	sta dbg::srcline
+	sta dbgi::srcline
 	sta zp::gendebuginfo
 	sta zp::pass
 
 	lda #$00
-	sta dbg::srcline+1
+	sta dbgi::srcline+1
 
 ; do the first pass of assembly
 @pass1:
@@ -380,7 +381,7 @@ main:	jsr key::getch
 	lda zp::gendebuginfo
 	beq @done
 	ldxy zp::asmresult
-	jsr dbg::endseg
+	jsr dbgi::endseg
 
 	lda #$02
 	jsr asm::startpass	; get ready for pass 2
@@ -388,7 +389,7 @@ main:	jsr key::getch
 ; store the debug segment info (if debug info is enabled)
 	ldx zp::gendebuginfo
 	beq @pass2
-	jsr dbg::setup
+	jsr dbgi::setup
 
 ; do the second assembly pass
 @pass2:	ldxy #@filename
@@ -402,7 +403,7 @@ main:	jsr key::getch
 ; Assembles the entire source
 .export command_asm
 .proc command_asm
-	jsr dbg::init
+	jsr dbgi::init
 
 	ldxy #strings::assembling
 	jsr text::info
@@ -418,11 +419,11 @@ main:	jsr key::getch
 
 	; set the initial file for debugging
 	ldxy #$01
-	stxy dbg::srcline
+	stxy dbgi::srcline
 	lda src::activebuff
 	jsr src::filename
 	bcs @err
-	jsr dbg::setfile
+	jsr dbgi::setfile
 
 ;--------------------------------------
 ; Pass 1
@@ -433,7 +434,7 @@ main:	jsr key::getch
 
 @pass1loop:
 	ldxy src::line
-	stxy dbg::srcline
+	stxy dbgi::srcline
 	jsr src::readline
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
@@ -446,7 +447,7 @@ main:	jsr key::getch
 	lda zp::gendebuginfo
 	beq @pass2
 	ldxy zp::asmresult
-	jsr dbg::endseg
+	jsr dbgi::endseg
 
 ;--------------------------------------
 ; Pass 2
@@ -455,14 +456,14 @@ main:	jsr key::getch
 @pass2: inc zp::pass		; pass 2
 	ldx zp::gendebuginfo
 	beq :+
-	jsr dbg::setup  ; we have enough info to init debug now
+	jsr dbgi::setup  ; we have enough info to init debug now
 :	jsr src::rewind
 	lda #$02
 	jsr asm::startpass
 
 @pass2loop:
 	ldxy src::line
-	jsr dbg::setline
+	jsr dbgi::setline
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
@@ -472,7 +473,7 @@ main:	jsr key::getch
 @err:	jsr display_result	; display the error
 	jsr src::popp		; clear the source position stack
 	jsr src::goto		; restore source position
-	jsr dbg::getline	; get the line that failed assembly
+	jsr dbgi::getline	; get the line that failed assembly
 	jmp gotoline		; goto that line
 
 @next:	jsr src::end		; check if we're at the end of the source
@@ -496,7 +497,7 @@ main:	jsr key::getch
 ;  - zp::asmresult: pointer to the end of the program
 .proc display_result
 	bcc @printresult
-@err:	jsr dbg::getline
+@err:	jsr dbgi::getline
 	jmp reporterr
 
 @printresult:
