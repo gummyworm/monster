@@ -346,9 +346,10 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; DUMMY IRQ
 ; Replaces the IRQ with a dummy (NOP) one
 .proc dummy_irq
-	; install a NOP IRQ
+	sei
 	ldxy #$eb15
 	stxy $0314
+	cli
 	rts
 .endproc
 
