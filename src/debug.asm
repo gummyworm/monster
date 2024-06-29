@@ -704,6 +704,7 @@ brkhandler2_size=*-brkhandler2
 	inc lineset
 
 @print:	jsr showstate		; show regs/BRK message
+	jsr cur::on
 
 ; main debug loop
 @debugloop:
