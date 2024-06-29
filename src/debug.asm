@@ -1166,7 +1166,7 @@ brkhandler2_size=*-brkhandler2
 	; swap entire user RAM in (needed if we don't know what memory will
 	; be changed before next BRK)
 	jsr save_debug_state
-	jsr __debug_restore_progstate
+	jmp __debug_restore_progstate
 
 @fastswap:
 	; save [mem_saveaddr], [step_point], and [pc, pc+2] for the debugger
