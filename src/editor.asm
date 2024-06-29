@@ -700,7 +700,7 @@ main:	jsr key::getch
 	pha
 	lda text::insertmode	; save current insertion mode
 	pha
-	jsr enter_insert
+	jsr force_enter_insert
 
 	ldxy @prompt
 	cmpw #0
@@ -715,6 +715,7 @@ main:	jsr key::getch
 	bne :-
 
 @terminate_prompt:
+	lda #$00
 	sta mem::linebuffer+1,y	; 0-terminate prompt
 	lda #':'
 	sta mem::linebuffer,y
