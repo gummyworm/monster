@@ -131,6 +131,7 @@ highlight_file:   .word 0	; filename of line we are highlighting
 
 action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
+.export debugger_sp
 debugger_sp: .byte 0	; stack pointer (SP) for debugger
 
 ;******************************************************************************
@@ -903,6 +904,7 @@ brkhandler2_size=*-brkhandler2
 	bne :-
 
 @quit:	lda #$00		; clear BRK flag
+	sta edit::highlight_en	; disable highlighting
 	pha			; push 0 status
 	plp			; clear flags (.P)
 	ldx debugger_sp

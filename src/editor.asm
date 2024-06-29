@@ -82,10 +82,11 @@ format:            .byte 0	; if 0, formatting is not applied on line-end
 overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
 cmdreps: .byte 0	; number of times to REPEAT current command
 
+.export __edit_highlight_en
 .export __edit_highlight_line
 
 ; highlight variables
-highlight_en: .byte 0	; highlight flag: if !0 highlight highlight_line
+__edit_highlight_en: .byte 0	; highlight flag: if !0 highlight highlight_line
 
 __edit_highlight_line:	.word 0 	; the line we are highlighting
 highlight_file:   	.word 0		; filename of line we are highlighting
@@ -1772,7 +1773,6 @@ __edit_refresh:
 
 @done:	jsr text::rendered_line_len
 	stx zp::curx			; set curx so source and cursor align
-
 	; restore cursor and source
 	ldxy @saveline
 	jmp gotoline
@@ -1887,7 +1887,7 @@ __edit_refresh:
 .proc print_line
 	jsr text::drawline
 
-	lda highlight_en
+	lda __edit_highlight_en
 	beq @done
 
 	; check if the current line is the highlighted one
@@ -4039,7 +4039,7 @@ __edit_gotoline:
 
 :	stxy __edit_highlight_line
 	lda #$01
-	sta highlight_en		; flag highlight as ON
+	sta __edit_highlight_en		; flag highlight as ON
 	sta highlight_status		; and flag highlight as on
 
 	; fall through to highlight line
@@ -4050,7 +4050,7 @@ __edit_gotoline:
 ; Unhighlights the highlighted row if it's already highlighted or highlights
 ; if it it isn't
 .proc toggle_highlight
-	lda highlight_en
+	lda __edit_highlight_en
 	beq @done		; highlight disabled
 
 	jsr src::filename	; get filename (r0 = name)
@@ -4069,7 +4069,7 @@ __edit_gotoline:
 ; If the row that should be highlighted is visible, highlight it
 .proc highlight
 @was_visible=r4
-	lda highlight_en
+	lda __edit_highlight_en
 	beq @done
 	lda highlight_status
 	sta @was_visible

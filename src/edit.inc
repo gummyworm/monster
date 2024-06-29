@@ -3,6 +3,7 @@
 .import __edit_gets
 .import __edit_gotoline
 .import __edit_handle_key
+.import __edit_highlight_en
 .import __edit_highlight_line
 .import __edit_init
 .import __edit_load
@@ -18,6 +19,7 @@
 	gotoline       = __edit_gotoline
 	handlekey      = __edit_handle_key
 	height         = __edit_height
+	highlight_en   = __edit_highlight_en
 	highlight_line = __edit_highlight_line
 	init           = __edit_init
 	load           = __edit_load
