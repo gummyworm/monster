@@ -1882,18 +1882,18 @@ __edit_refresh:
 ; Prints the line buffer at the given cursor's y-position and handles
 ; highlighting (if applicable).
 ; IN:
-;  - .A: the row to print at
+;  - .A: the row to print the linebuffer to
 .proc print_line
 	jsr text::drawline
 
-	; check if the current line is the highlighted one
-	lda highlight_status
+	lda highlight_en
 	beq @done
 
-	; the highlight was destroyed by drawing the line, re-highlight it
+	; check if the current line is the highlighted one
 	ldxy src::line
 	cmpw __edit_highlight_line
 	bne @done
+	; the highlight was destroyed by drawing the line, re-highlight it
 	jmp toggle_highlight
 @done:	rts
 .endproc
@@ -2633,7 +2633,7 @@ goto_buffer:
 	; if we're at the bottom, scroll whole screen up
 	ldx #EDITOR_ROW_START
 	lda height
-	jsr scrollup
+	jsr text::scrollup
 	; and clear the new line
 	jsr text::clrline
 	lda height
@@ -2645,7 +2645,7 @@ goto_buffer:
 :	iny
 	tya
 	ldx height
-	jsr scrolldown
+	jsr text::scrolldown
 
 @setcur:
 	jsr src::get
@@ -3136,7 +3136,6 @@ goto_buffer:
 	jsr scrollup	; cursor wasn't moved, scroll
 	lda height
 	sta zp::cury
-
 @redraw:
 	jsr print_line
 
@@ -3379,7 +3378,11 @@ goto_buffer:
 ;  - .X: the row to stop scrolling at
 .proc scrolldown
 	jsr text::scrolldown
-	jmp highlight
+	ldxy __edit_highlight_line
+	cmpw src::line
+	bne :+
+	rts
+:	jmp highlight
 .endproc
 
 ;******************************************************************************
@@ -3880,10 +3883,9 @@ __edit_gotoline:
 
 	ldxy @line
 	cmpw @startline
-	beq @done
 	bcc @done
 	cmpw @endline
-	bcs @ret
+	bcs @done
 
 	lda @line
 	sec
@@ -4066,23 +4068,24 @@ __edit_gotoline:
 ; If the row that should be highlighted is visible, highlight it
 .proc highlight
 @was_visible=r4
+	lda highlight_en
+	beq @done
 	lda highlight_status
 	sta @was_visible
 
 	; update the status (check if the highlight was scrolled out)
 	jsr src::filename	; get filename (r0 = name)
+	lda #$00
+	sta highlight_status
 	ldxy __edit_highlight_line
 	jsr __edit_src2screen
-	adc #$ff		; +1 if not visible, +0 if visible
-	sta highlight_status	; highlight is (no longer) visible
+	bcc @ok
+@done:	rts
 
-	; if highlight is no longer visible, continue
-	beq @done
-
+@ok:	inc highlight_status
 	lda @was_visible
 	bne @done		; if highlight was, and still is, visible: skip
 	jmp toggle_highlight	; highlight was NOT visible, but is now
-@done:	rts
 .endproc
 
 .RODATA
