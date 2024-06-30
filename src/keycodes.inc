@@ -56,6 +56,7 @@ K_BRKVIEW         = $87	; F5
 K_WATCHVIEW       = $88	; F7
 K_SWAP_USERMEM    = $20	; SPACE
 K_RESET_STOPWATCH = $b2	; <C=> + r
+K_GOTO_BREAK      = $5e	; up-arrow
 
 K_STEP      = $ad	; <C=> + z
 K_STEPOVER  = $ae	; <C=> + s

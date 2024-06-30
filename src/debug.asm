@@ -750,6 +750,7 @@ brkhandler2_size=*-brkhandler2
 	sta zp::jmpvec+1
 
 	jsr zp::jmpaddr		; call the command
+	jsr cur::on
 	jsr showstate		; restore the register display (may be changed)
 
 @finishloopiter:
@@ -1841,6 +1842,14 @@ __debug_remove_breakpoint:
 	rts
 .endproc
 
+;******************************************************************************
+; GOTO BREAK
+; Navigates the editor to the line that corresponds to the address where the
+; debugger is currently at in the user program.
+.proc goto_break
+.endproc
+	ldxy brkaddr
+	jmp __debug_gotoaddr
 .RODATA
 
 ;******************************************************************************
@@ -1861,12 +1870,14 @@ commands:
 	.byte K_SWAP_USERMEM
 	.byte K_RESET_STOPWATCH
 	.byte K_EDIT_STATE
+	.byte K_GOTO_BREAK
 num_commands=*-commands
 
 .linecont +
 .define command_vectors quit, step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, edit_watches, \
-	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state
+	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state, \
+	goto_break
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
