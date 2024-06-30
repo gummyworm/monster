@@ -919,7 +919,7 @@ brkhandler2_size=*-brkhandler2
 .proc edit_source
 	lda #$00
 	sta aux_mode
-	lda #REGISTERS_LINE-1
+	lda #DEBUG_MESSAGE_LINE-1
 	jmp edit::resize
 .endproc
 
@@ -927,9 +927,10 @@ brkhandler2_size=*-brkhandler2
 ; EDIT_MEM
 ; Transfers control to the memory viewer/editor until the user exits it
 .proc edit_mem
-	pushcur
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
+
+	pushcur
 	lda #(DEBUG_INFO_START_ROW)*8
 	jsr bm::clrpart
 	jsr showstate		; restore the state
@@ -1878,4 +1879,5 @@ disabled_commands:
 	.byte K_CLOSE_BUFF
 	.byte K_ASM
 	.byte K_ASM_DEBUG
+	.byte K_REFRESH
 num_disabled_commands=*-disabled_commands
