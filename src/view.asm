@@ -275,11 +275,6 @@ memaddr:   .word 0
 ;--------------------------------------
 @find:	pushcur
 @len=zp::tmp0
-	jsr text::clrline
-	lda #MEMVIEW_STOP
-	sta zp::cury
-	jsr text::drawline
-
 	lda #$00
 	sta cur::minx
 	sta zp::curx
@@ -435,10 +430,6 @@ memaddr:   .word 0
 	lda #MEMVIEW_START
 	jsr text::print
 	lda #MEMVIEW_START
-	jsr bm::rvsline
-	lda #MEMVIEW_STOP
-	jsr bm::clrline
-	lda #MEMVIEW_STOP
 	jsr bm::rvsline
 
 	; initialize line to empty (all spaces)
