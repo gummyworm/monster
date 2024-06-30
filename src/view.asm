@@ -54,9 +54,6 @@ memaddr:   .word 0
 @odd=r4
 @dstoffset=r6
 @src=r8
-	ldxy memaddr
-	stxy @src
-
 	ldx #COL_START
 	ldy #MEMVIEW_START+1
 	jsr cur::setmin
@@ -77,8 +74,11 @@ memaddr:   .word 0
 
 ; until user exits (<- or RETURN), get input and update memory
 @edit:
-	jsr key::getch
-	beq @edit
+	ldxy memaddr
+	stxy @src
+
+:	jsr key::getch
+	beq :-
 
 	cmp #K_UP_ARROW
 	bne :+
@@ -86,22 +86,27 @@ memaddr:   .word 0
 	jmp __view_edit	; reactivate editor at new address
 :	cmp #K_QUIT	; <- (done)
 	beq @done
-	cmp #K_RETURN	; RETURN (done)
-	beq @done
 
 	cmp #K_UP
+	beq @up
+	cmp #$6b	; k (also up)
 	bne :+
-	jsr up
+@up:	jsr up
 	jmp @edit
 
 :	cmp #K_DOWN
+	beq @down
 	bne :+
-	jsr down
+	cmp #$6a	; j (also down)
+	bne :+
+@down:	jsr down
 	jmp @edit
 
 :	cmp #K_DEL
 	beq @retreat
 	cmp #K_LEFT
+	beq @retreat
+	cmp #$68	; h (also left)
 	bne :+
 @retreat:
 	jsr @prev_x
@@ -109,8 +114,10 @@ memaddr:   .word 0
 	jmp @edit
 
 :	cmp #K_RIGHT
+	beq @right
+	cmp #$6c	; l (also right)
 	bne :+
-	jsr @next_x
+@right: jsr @next_x
 	jsr cur::on
 	jmp @edit
 

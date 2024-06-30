@@ -52,13 +52,6 @@ row:	.byte 0
 @start=zp::tmp4			; start address
 @stop=zp::tmp6			; stop address (same as start if NOT range)
 @val=zp::tmp8			; value of watch (if NOT range)
-	; display the title
-	ldxy #strings::watches_title
-	lda #MEMVIEW_START
-	jsr text::print
-	lda #MEMVIEW_START
-	jsr bm::rvsline
-
 	; get the first visible watch's offset
 	lda scroll
 	sta @cnt
@@ -175,6 +168,13 @@ row:	.byte 0
 ; Enters the watch editor until the user exits it
 .export __watches_edit
 .proc __watches_edit
+	; display the title
+	ldxy #strings::watches_title
+	lda #MEMVIEW_START
+	jsr text::print
+	lda #MEMVIEW_START
+	jsr bm::rvsline
+
 	jsr __watches_view
 
 	lda #$00
