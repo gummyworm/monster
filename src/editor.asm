@@ -255,6 +255,7 @@ main:	jsr key::getch
 
 	dec readonly		; re-enable editing
 	jsr edit
+	jsr cancel
 	jmp refresh
 .endproc
 
@@ -2256,6 +2257,8 @@ goto_buffer:
 .proc edit
 	lda #TEXT_INSERT
 	sta text::insertmode
+	lda #EDITOR_HEIGHT
+	sta height
 	ldx #$00
 	stx readonly
 	ldy #EDITOR_ROW_START
