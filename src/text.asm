@@ -71,11 +71,14 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .endproc
 
 ;******************************************************************************
+; STATUS
+; Draws the text status (row, column, etc.) at the given row
+; IN:
+;  - .A: the row to display the status details on
 .export __text_status
 .proc __text_status
 	ldx #<mem::statusline
 	ldy #>mem::statusline
-	lda #STATUS_LINE
 	jmp __text_puts
 .endproc
 

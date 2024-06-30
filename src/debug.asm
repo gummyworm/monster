@@ -753,7 +753,6 @@ brkhandler2_size=*-brkhandler2
 	jsr showstate		; restore the register display (may be changed)
 
 @finishloopiter:
-	jsr cur::on
 	lda advance		; are we ready to execute program? (GO, STEP)
 	beq @debugloop		; not yet, loop and get another command
 

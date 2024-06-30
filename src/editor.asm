@@ -92,6 +92,10 @@ __edit_highlight_line:	.word 0 	; the line we are highlighting
 highlight_file:   	.word 0		; filename of line we are highlighting
 highlight_status:	.byte 0		; if !0 highlight is active
 
+; the status row is where the text status is displayed.
+; It is also where the program accepts commands (see get_command)
+status_row: .byte 0
+
 .CODE
 
 ;******************************************************************************
@@ -131,6 +135,7 @@ highlight_status:	.byte 0		; if !0 highlight is active
 .export __edit_run
 .proc __edit_run
 	jsr text::update
+	lda status_row
 	jsr text::status
 main:	jsr key::getch
 	beq @done
@@ -143,12 +148,6 @@ main:	jsr key::getch
 :	pla
 
 	jsr __edit_handle_key
-
-	jsr is_visual
-	beq @done
-	jsr cur::on
-	jsr text::status
-
 @done:	jsr text::update
 	jmp main	; we've used enough time, go straight to getting a key
 .endproc
@@ -181,8 +180,12 @@ main:	jsr key::getch
 	jsr ccright		; try to move past the non-source char
 	bcc @validate
 @keydone:
-	jmp text::update	; update status in case something was changed
-	rts
+	jsr text::update	; update status in case something was changed
+	jsr is_visual
+	beq :+
+	jsr cur::on
+:	lda status_row
+	jmp text::status
 .endproc
 
 ;******************************************************************************
@@ -243,13 +246,15 @@ main:	jsr key::getch
 	sta height
 	inc readonly	; enable read-only mode
 
+	lda #DEBUG_MESSAGE_LINE
+	sta status_row
+
 	jsr home_line	; avoid problems with cursor-y being below new height
 	ldxy @addr
 	jsr dbg::start	; start debugging at address in .XY
 
 	dec readonly		; re-enable editing
-	lda #EDITOR_HEIGHT
-	sta height
+	jsr edit
 	jmp refresh
 .endproc
 
@@ -723,7 +728,8 @@ main:	jsr key::getch
 	iny
 	sty cur::minx
 	sty zp::curx
-	lda #STATUS_ROW		; Y = status line
+
+	lda status_row
 	sta zp::cury
 	jsr text::drawline	; clear line & display prompt
 	ldxy #key::getch	; key-input callback
@@ -2256,6 +2262,7 @@ goto_buffer:
 	jsr cur::setmin
 	ldx #40
 	ldy #STATUS_ROW
+	sty status_row
 	jmp cur::setmax
 .endproc
 
