@@ -8,20 +8,25 @@
 
 .SEGMENT "FASTCOPY"
 
+; number of iterations to roll the copy/store routines
+NUM_ITERATIONS = 4
+
+.segment "VSCREEN"
+vscreen:
+	.res $1000
+
 ;******************************************************************************
-; SCREEN
-; Copies the screen ($1100) to ($a000)
-; this is the address that the generated unrolled loop
-; will reside in
-.export __fastcopy_save
-__fastcopy_save = $2000
-
-.export __fastcopy_restore
-__fastcopy_restore = $2000 + $2f00
-
 .export __fast_clr
 __fast_clr = $a000	; fast clear entrypoint
 fast_clr2 = $727f	; clear last 6 columns
+
+.export __fastcopy_save
+__fastcopy_save = $727f-$168a
+
+.export __fastcopy_restore
+__fastcopy_restore = $727f-$168a-$168a
+
+; from $2000 to fastcopy_save ($456b) is used for the screen
 
 .segment "SETUP"
 ;******************************************************************************
@@ -43,7 +48,7 @@ fast_clr2 = $727f	; clear last 6 columns
 	stxy @src	; source for backup
 	ldxy #$a000
 	stxy @dst	; destination for backup
-	ldxy #$f00/2
+	ldxy #$f00/NUM_ITERATIONS
 	stxy @cnt	; bytes to copy
 	ldxy #__fastcopy_save
 	stxy @addr
@@ -53,13 +58,13 @@ fast_clr2 = $727f	; clear last 6 columns
 ;COPY:
 ; LDA $1100,x
 ; STA $a000,x
-; LDA $1102,x
-; STA $a002,x
+; LDA $1104,x
+; STA $a004,x
 ; ...
-; LDA $1ff0-1,x
-; STA $aff0-1,x
+; LDA $1ff0-3,x
+; STA $aff0-3,x
 ; INX
-; CPX #2
+; CPX #NUM_ITERATIONS
 ; BEQ DONE
 ; JMP COPY
 ;DONE:
@@ -107,11 +112,20 @@ fast_clr2 = $727f	; clear last 6 columns
 	cmp #6
 	bcc @l0
 
-	incw @src
-	incw @src
-	incw @dst
-	incw @dst
-	decw @cnt
+	lda @src
+	clc
+	adc #NUM_ITERATIONS
+	sta @src
+	bcc :+
+	inc @src+1
+:	lda @dst
+	clc
+	adc #NUM_ITERATIONS
+	sta @dst
+	bcc :+
+	inc @dst+1
+
+:	decw @cnt
 	ldxy @cnt
 	cmpw #0
 	bne @copy_save
@@ -146,16 +160,18 @@ fast_clr2 = $727f	; clear last 6 columns
 	stxy @src	; source for restore
 	ldxy #BITMAP_ADDR
 	stxy @dst	; destination for restore
-	ldxy #$f00/2
+	ldxy #$f00/NUM_ITERATIONS
 	stxy @cnt	; bytes to copy
 	ldxy #__fastcopy_restore
 	stxy @addr
 
 	lda #$00
 	sta @i
+
+; copy LDX #$00
 @prefix1:
 	ldx @i
-	lda @prefix,x
+	lda @prefix,x		; LDX #$00
 	sta zp::bankval
 	ldxy @addr
 	lda @bank
@@ -170,14 +186,14 @@ fast_clr2 = $727f	; clear last 6 columns
 @copy_restore:
 	lda #$00
 	sta @i
-	lda @src
+	lda @src		; get LSB of source address to copy
 	sta @loadstore+1
-	lda @src+1
+	lda @src+1		; and MSB
 	sta @loadstore+2
 
-	lda @dst
+	lda @dst		; get LSB of dest address
 	sta @loadstore+4
-	lda @dst+1
+	lda @dst+1		; and MSB
 	sta @loadstore+5
 
 @l1:	ldx @i
@@ -189,14 +205,23 @@ fast_clr2 = $727f	; clear last 6 columns
 	incw @addr
 	inc @i
 	lda @i
-	cmp #6
+	cmp #6			; sizeof(LDA abs)+sizeof(STA abs)
 	bcc @l1
 
-	incw @src
-	incw @src
-	incw @dst
-	incw @dst
-	decw @cnt
+	lda @src
+	clc
+	adc #NUM_ITERATIONS
+	sta @src
+	bcc :+
+	inc @src+1
+:	lda @dst
+	clc
+	adc #NUM_ITERATIONS
+	sta @dst
+	bcc :+
+	inc @dst+1
+
+:	decw @cnt
 	ldxy @cnt
 	cmpw #0
 	bne @copy_restore
@@ -232,14 +257,14 @@ fast_clr2 = $727f	; clear last 6 columns
 
 @save_suffix:
 	inx
-	cpx #2
+	cpx #NUM_ITERATIONS
 	beq :+
 	jmp __fastcopy_save+2
 :	rts
 
 @restore_suffix:
 	inx
-	cpx #2
+	cpx #NUM_ITERATIONS
 	beq :+
 	jmp __fastcopy_restore+2
 :	rts

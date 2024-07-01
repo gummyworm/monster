@@ -4,6 +4,9 @@
 
 .segment "FASTTEXT"
 
+; number of columns to render
+SCREEN_TEXT_WIDTH = 80
+
 ;******************************************************************************
 ; FAST PUTCH
 ; Puts the character given at the current cursor position
@@ -127,7 +130,7 @@
 	bcc @nextch
 	inc @txtdst+1
 @nextch:
-	cpy #40
+	cpy #SCREEN_TEXT_WIDTH
 	bcc @l0
         rts
 .endproc
@@ -161,7 +164,6 @@ charmap:
 .byte   0,  85,  17,  34,  34,  68,  85,   0
 ;.byte   0, 102, 102,  51, 102, 102,  51,   0	; & 1
 .byte  $00,$22,$33,$44,$22,$44,$33,$22		; &
-
 .byte  34,  34,   0,   0,   0,   0,   0,   0
 .byte   0,  17,  34,  34,  34,  34,  17,   0
 .byte   0,  68,  34,  34,  34,  34,  68,   0
@@ -296,7 +298,10 @@ num_chars = (*-charmap)/8
 ;******************************************************************************
 .linecont +
 .define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
-  $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
+	$17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, \
+	$1f40, \
+	$2000, $20c0, $2180, $2240, $2300, $23c0, $2480, $2540, $2600, $26c0, \
+	$2780, $2840, $2900, $29c0, $2a80, $2b40, $2c00, $2cc0, $2d80, $2e40
 .linecont -
 bmcolumnslo: .lobytes cols
 bmcolumnshi: .hibytes cols

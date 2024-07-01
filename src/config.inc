@@ -15,6 +15,9 @@ TAB_WIDTH = INDENT_LEVEL
 ; editor configuration
 MAX_COPY_SIZE = 640
 
+; max width of a single line in characters
+LINE_WIDTH = 80
+
 ;******************************************************************************
 ; debugger config settings
 DEBUG_MEMVIEW_COLOR = 2

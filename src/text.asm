@@ -378,7 +378,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 :	sta @buff,x
 	iny
 	inx
-	cpx #40
+	cpx #LINE_WIDTH
 	bcs @disp
 	bne @l1
 
@@ -391,7 +391,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 @disp:	lda #' '
 :	sta @buff,x
 	inx
-	cpx #40
+	cpx #LINE_WIDTH
 	bcc :-
 
 	lda @ret+1
@@ -536,7 +536,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - mem::linebuffer: the text to draw
 .export __text_drawline
 .proc __text_drawline
-	ldx #40
+	ldx #LINE_WIDTH
 	stx __text_len
 	ldxy #mem::linebuffer
 	jmp __text_print
@@ -705,7 +705,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 @l0:	inx
 	lda mem::linebuffer,x
 	beq @done
-	cpx #40
+	cpx #LINE_WIDTH
 	bne @l0
 @done:	rts
 .endproc
@@ -737,7 +737,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	adc @tabsz
 	tax
 	dex			; undo the INX
-:	cpx #39
+:	cpx #LINE_WIDTH-1
 	bcc @l0
 @done:	rts
 .endproc
@@ -838,7 +838,7 @@ tabs_end=*-tabs
 ; called
 .export __text_savebuff
 .proc __text_savebuff
-	ldy #39
+	ldy #LINE_WIDTH-1
 :	lda mem::linebuffer,y
 	sta mem::linesave,y
 	dey
@@ -852,7 +852,7 @@ tabs_end=*-tabs
 ; recent call to text::savebuff)
 .export __text_restorebuff
 .proc __text_restorebuff
-	ldy #39
+	ldy #LINE_WIDTH-1
 :	lda mem::linesave,y
 	sta mem::linebuffer,y
 	dey

@@ -31,8 +31,6 @@ SCREEN_ROWS = 12	; number of physical rows per column
 
 PIXELS_PER_COL = 11*16	; number of pixels per column
 
-VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
-
 .CODE
 
 ;******************************************************************************
@@ -50,7 +48,7 @@ __scr_restore:
 	jsr bm::restore
 	JUMP FINAL_BANK_SAVESCR, #restore
 
-.segment "SAVESCR"
+.segment "SCREEN"
 
 ;******************************************************************************
 ; RESTORE
@@ -117,29 +115,29 @@ __scr_restore:
 ; pushes the leftmost bitmap column
 .export __scr_pushcol
 .proc __scr_pushcol
-@stack=r0
-@bm=r2
-	ldxy stackptr		; get stack address - 1
-	stxy @stack
-	ldxy bmptr		; get bmp address - 1
+@bm=r0
+@bm2=r0
+	ldxy bmptr2		; get address of start of offscreen bitmap
+	stxy @bm2
+	ldxy bmptr		; get bm address - 1
 	stxy @bm
 
 	; copy (@bm) to (@stack) and clear the bitmap area that is copied
 	ldy #PIXELS_PER_COL
-@l0:	lda (@bm),y		; save the leftmost column's bm data
-	sta (@stack),y
-	lda #$00
-	sta (@bm),y		; clear the bitmap data
+
+@l0:	; copy the new column from the virtual extended bitmap
+	lda (@bm2),y		; get pixel from virtual bitmap
+	sta (@bm),y		; store it to the leftmost column of bitmap
 	dey
 	bne @l0
 
-	; update stack pointer and bitmap pointer
-	lda stackptr
+	; update offscreen (virtual) bitmap pointer and bitmap pointer
+	lda bmptr2
 	clc
-	adc #PIXELS_PER_COL
-	sta stackptr
+	adc #SCREEN_ROWS*16
+	sta bmptr2
 	bcc :+
-	inc stackptr+1
+	inc bmptr2+1
 	clc
 
 :	; move bmptr forward a column
@@ -202,21 +200,21 @@ __scr_restore:
 ; column
 .export __scr_popcol
 .proc __scr_popcol
-@stack=r0
+@bm=r0
 @dst=r2
 	jsr __scr_dropcol
 	bcc :+
 	rts
 
-:	ldxy stackptr
-	stxy @stack
+:	ldxy bmptr2
+	stxy @bm
 
 	ldxy bmptr
 	stxy @dst
 
 	; restore the bitmap data from the stack
 	ldy #PIXELS_PER_COL
-:	lda (@stack),y
+:	lda (@bmptr2),y
 	sta (@dst),y	; restore the leftmost column's bm data
 	dey
 	bne :-
@@ -311,8 +309,5 @@ __scr_restore:
 shiftamount: .byte 0	; number of columns the screen is shifted
 
 ; these pointers are one less than the real addresses they reference
-stackptr: 	.word stack-1
 bmptr:		.word BITMAP_ADDR-1
-
-.segment "SAVESCR_BSS"
-stack: 		.res (NUM_ROWS*16)*(VSCREEN_WIDTH)-(40/2)	; $4a40
+bmptr2: 	.word BITMAP_ADDR+(SCREEN_ROWS*SCREEN_WIDTH)-1

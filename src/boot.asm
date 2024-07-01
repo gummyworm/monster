@@ -32,9 +32,9 @@
 .import __MACROCODE_RUN__
 .import __MACROCODE_SIZE__
 
-.import __SAVESCR_LOAD__
-.import __SAVESCR_RUN__
-.import __SAVESCR_SIZE__
+.import __SCREEN_LOAD__
+.import __SCREEN_RUN__
+.import __SCREEN_SIZE__
 
 .import __IRQ_LOAD__
 .import __IRQ_RUN__
@@ -268,7 +268,7 @@ relocs:
 .byte FINAL_BANK_MAIN
 
 ; SCREEN
-.word __SAVESCR_LOAD__, __SAVESCR_RUN__, __SAVESCR_SIZE__
+.word __SCREEN_LOAD__, __SCREEN_RUN__, __SCREEN_SIZE__
 .byte FINAL_BANK_SAVESCR
 
 ; LINKER

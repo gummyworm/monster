@@ -47,7 +47,7 @@ __statusline = __mem_spare+80
 __mem_drive_err: .res 20
 
 .export __linesave
-__linesave: .res 40
+__linesave: .res 80
 
 .export __mem_copybuff
 __mem_copybuff: .res MAX_COPY_SIZE
@@ -61,7 +61,6 @@ __mem_copybuff: .res MAX_COPY_SIZE
 __linebuffer = $0400
 
 .export __linebuffer2
-;__linebuffer2: .res 80		; backup buffer for when the linebuffer must be saved
 __linebuffer2 = $0400+$80
 
 .export __mem_asmbuffer

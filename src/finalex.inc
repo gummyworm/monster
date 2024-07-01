@@ -62,38 +62,38 @@ FINAL_BANK_SOURCE7 = $a0|$b	; source bank
 ; The following banks use the upper part of the 
 ; source banks ($a000-$c000)
 ; $a000-$c000 
-FINAL_BANK_MACROS       = $a0|4	; macro code & macro data ($a000-$c000)
-FINAL_BANK_UDGEDIT = $a0|5 ; UDG editor ($a000-$c000)
+FINAL_BANK_MACROS  = $a0|4	; macro code & macro data ($a000-$c000)
+FINAL_BANK_UDGEDIT = $a0|5	; UDG editor ($a000-$c000)
 FINAL_BANK_LINKER  = $a0|6	; linker ($a000-$c000)
 
 ;******************************************************************************
 ; FAST bank ($0C)
 ; Used for the unrolled bitmap clear routine and backups for bitmap columns
-;  $2000-$727f: screen shift routines and backup buffers (screen.asm)
-;
+;  $2000-$4000: the virtual extended bitmap
+;  $4000-$727f: screen code and fast text routines
 ;  $727f-$8000: 2nd part of bitmap clear routine
 ;  $a000-$c000: 1st part of bitmap clear routine 
-FINAL_BANK_SAVESCR = $a0|$0c
-FINAL_BANK_FAST    = $a0|$0c
+FINAL_BANK_SAVESCR  = $a0|$0c
+FINAL_BANK_FAST     = $a0|$0c
+FINAL_BANK_FASTTEXT = $a0|$0c
 			
 ;******************************************************************************
 ; SYMBOLS bank ($0D)
-; The SYMBOLS bank stores the label names for the progam's labels in $2000-$8000
+; The SYMBOLS bank stores label code, names, and addresses
+; $2000-$8000 is used for the label names
 ; $a000-$b000 is used to store the addresses that these names correspond to.
 ; $b000-$b800 is used for anonymous labels (up to 1024)
-; $b800-$c000 stores the linker code (code to create, remove, find, etc. labels)
+; $b800-$c000 stores the code to create, remove, find, etc. labels
 FINAL_BANK_SYMBOLS = $a0|$d	; symbols bank (label names and their addresses)
 
 ;******************************************************************************
 ; FASTCOPY blocks ($0E-$0F)
 ; In these blocks, $2000-$8000 is used to store undrolled loops that copy data
 ; to the upper RAM ($a000-$c000).  The hi RAM ($a000-$b000) stores the data 
-; for the debugger (FASTCOPY2) and user program (in FASTCOPY).
+; for the debugger (FASTCOPY2) and user program (in FASTCOPY)
 FINAL_BANK_FASTCOPY2 = $a0|$e
 FINAL_BANK_FASTCOPY  = $a0|$f
 
-; FASTTEXT lives at the top 4k ($b000-$c000) of the FASTCOPY2 bank
-FINAL_BANK_FASTTEXT  = $a0|$e
 
 ;******************************************************************************
 .scope fe3
