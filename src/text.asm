@@ -737,7 +737,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	adc @tabsz
 	tax
 	dex			; undo the INX
-:	cpx #39
+:	cpx #40
 	bcc @l0
 @done:	rts
 .endproc

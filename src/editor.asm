@@ -893,8 +893,6 @@ force_enter_insert=*+5
 ; ENTER VISUAL
 ; Enters VISUAL mode
 .proc enter_visual
-	; TODO: fix visual selection
-	rts
 	jsr cur::on
 
 	lda #MODE_VISUAL
@@ -2723,8 +2721,8 @@ goto_buffer:
 ; CCUP
 ; Handles the up cursor key
 .proc ccup
-@xend=zp::tmp9
-@ch=zp::tmpa
+@xend=r9
+@ch=ra
 	jsr on_line1
 	bne :+
 	rts
@@ -2733,7 +2731,6 @@ goto_buffer:
 	sta @ch
 
 	lda zp::curx
-
 	sta @xend
 
 	lda mode
@@ -2753,9 +2750,10 @@ goto_buffer:
 	lda mode
 	cmp #MODE_VISUAL
 	bne @up
-
-@sel:	jsr ccleft
-	bcc @sel
+	ldy #$00
+	ldx zp::curx
+	lda zp::cury
+	jsr bm::rvsline_part
 
 	; handle cursor state for VISUAL mode
 	ldxy src::line
@@ -2826,7 +2824,7 @@ goto_buffer:
 @movex: lda zp::curx
 	cmp @xend
 	bcs :+
-	jsr src::right
+	jsr src_right
 	bcs :+
 	jsr cur::right
 	jmp @movex
@@ -2840,8 +2838,18 @@ goto_buffer:
 	clc
 	adc zp::curx
 	sta zp::curx
-	lda @xend
 ; fallthrough
+.endproc
+
+;******************************************************************************
+; SRC RIGHT
+; Calls the appropriate src::right procedure based on the current editor mode
+.proc src_right
+	lda mode
+	cmp #MODE_INSERT
+	beq :+
+	jmp src::right_rep
+:	jmp src::right
 .endproc
 
 ;******************************************************************************
@@ -2868,11 +2876,10 @@ goto_buffer:
 
 	ldxy src::line
 	cmpw visual_start_line
-	ldy zp::curx
 	bcc @sel
 	beq @eq
 
-@desel:	; highlight from [0, cur-x]
+@desel:	; highlight (deselct) from [0, cur-x]
 	ldy #$00
 	ldx zp::curx
 	beq @toggle
@@ -2881,20 +2888,29 @@ goto_buffer:
 
 @sel:	; highlight from [cur-x, end-of-line]
 	jsr text::rendered_line_len
+	ldy zp::curx
 	jmp @rvs
 
 @eq:	; highlight between cur-x and visual-start-x
+	ldy zp::curx
 	cpy visual_start_x
 	beq @toggle
-	ldx visual_start_x
+	bcc :+
+
+	; swap .X and .Y
+	ldx zp::curx
+	ldy visual_start_x
 	inc @togglecur
+	bne @rvs
+
+:	ldx visual_start_x
 
 @rvs:	lda zp::cury
-	jsr bm::rvsline_part
+	jsr bm::rvsline_part	; reverse line part from column .Y to .X
 	lda @togglecur
 	beq @done
 @toggle:
-	jsr cur::toggle
+	jmp cur::toggle
 @done:	rts
 .endproc
 
@@ -2933,19 +2949,48 @@ goto_buffer:
 @move:	jsr src::atcursor
 	ldy mode
 	cpy #MODE_INSERT
+
 	beq :+
 	jsr src::after_cursor
 :	pha
 	jsr src::left
+	bcc @ok			; if we successfully moved left, continue
 	pla
-	bcs @nomove
+	rts
 
+@ok:	; check if we're in VISUAL mode
+	lda mode
+	cmp #MODE_VISUAL
+	bne @movecur
+	lda #$00
+	sta @deselect
+
+	; if (cur-line > visual_start_line) we are DESELECTING: unhighlight
+	ldxy src::line
+	cmpw visual_start_line
+	beq @eq
+	bcc @movecur		; not deselecting, continue
+@desel: lda #$01		; set deselect flag
+	bne :+			; continue to deselect
+@eq:	lda zp::curx
+	cmp visual_start_x
+	beq @movecur
+	lda #$00
+	adc #$00		; .A = 1 : (curx > visual_start_x) ? 0
+:	sta @deselect		; set deselect flag (TRUE if curx > start_x)
+	beq @movecur		; if not deselecting, continue
+	jsr cur::toggle		; turn off (deselect) old cursor position
+
+@movecur:
+	pla
 	cmp #$09
 	bne @curl
 
 	ldy mode
 	cpy #MODE_INSERT
 	beq @cont
+
+	; TAB in command/replace mode
 	dec zp::curx
 	jsr text::char_index
 	inc zp::curx
@@ -2961,7 +3006,12 @@ goto_buffer:
 
 ; handle TAB (repeat the MOVE LEFT logic til we're at the prev TAB col
 ; OR the previous character
-@cont:	jsr text::tabl_dist
+@cont:	lda @deselect
+	pha
+	lda #$00
+	sta @deselect
+
+	jsr text::tabl_dist
 	sta @tabcnt
 @tabl:	jsr @curl
 	dec zp::curx
@@ -2971,10 +3021,12 @@ goto_buffer:
 	bne :+
 	dec @tabcnt
 	bne @tabl
-:	lda mode
-	cmp #MODE_INSERT
+:	pla
+	ldx mode
+	cpx #MODE_INSERT
 	beq :+
-	dec zp::curx
+	sta @deselect
+	jsr @curl
 :	RETURN_OK
 
 @curl:  dec zp::curx
@@ -3018,7 +3070,8 @@ goto_buffer:
 	jsr src::after_cursor
 	cmp #$09
 	bne @curr
-	inc zp::curx		; if we're moving to a TAB, fool tabr_dist
+	jsr @curr		; if we're moving to a TAB, fool tabr_dist
+	lda #$09
 
 :	cmp #$09		; did we move over a TAB?
 	bne @curr
@@ -3026,14 +3079,14 @@ goto_buffer:
 	; handle TAB (repeat the MOVE RIGHT logic til we're at the TAB next col)
 	jsr text::tabr_dist
 	sta @tabcnt
-:	jsr @curr
-	dec @tabcnt
-	bne :-
 	ldy zp::editor_mode
 	cpy #MODE_INSERT
 	beq :+
-	dec zp::curx
-:	clc
+	dec @tabcnt
+:	jsr @curr
+	dec @tabcnt
+	bne :-
+	clc
 @ret:	rts
 
 @curr:	lda #$00
@@ -3102,9 +3155,8 @@ goto_buffer:
 	bne :+
 	ldxy src::line
 	cmpw visual_start_line
+	php
 	lda #$00
-	rol
-	sta @selecting
 
 :	lda zp::curx
 	sta @xend
@@ -3118,8 +3170,8 @@ goto_buffer:
 	bcc @sel
 
 	; if this is a selection, toggle the cursor
-	lda @selecting
-	bne @cont
+	plp
+	bcs @cont
 	jsr cur::toggle
 
 @cont:	jsr src::down
@@ -3199,6 +3251,7 @@ goto_buffer:
 ; If the editor is not in visual mode, this routine does nothing
 .proc ccdown_highlight
 @togglecur=r6
+@tmp=r7
 	lda mode
 	cmp #MODE_VISUAL
 	bne @done
@@ -3208,12 +3261,12 @@ goto_buffer:
 
 	ldxy src::line
 	cmpw visual_start_line
-	ldy zp::curx
 	beq @eq
 	bcs @sel
 
 @desel:	; highlight from [cur-x, end-of-line]
 	jsr text::rendered_line_len
+	ldy zp::curx
 	jmp @rvs
 
 @sel:	; highlight from [0, cur-x]
@@ -3224,10 +3277,19 @@ goto_buffer:
 	beq @rvs	; BRAnch always
 
 @eq:	; highlight between cur-x and visual-start-x
+	ldy zp::curx
 	cpy visual_start_x
 	beq @toggle
-	ldx visual_start_x
+	bcc :+
+
+	; swap .X and .Y
+	ldy visual_start_x
+	ldx zp::curx
 	inc @togglecur
+	bne @rvs
+
+:	ldx visual_start_x
+	inx
 
 @rvs:	lda zp::cury
 	jsr bm::rvsline_part
