@@ -717,17 +717,18 @@ respective Key in the table below.
 
 |  Key     | Name            |   Description                                                                        |
 |--------  |-----------------|--------------------------------------------------------------------------------------|
-|  F1      | Source View     | maximizes the screen area for viewing the source code                                |
-|  F2      | Register Editor | enters the register editor                                                           |
-|  F3      | Mem View        | activates the memory window, which takes control until `<-` is pressed               |
-|  F5      | Break View      | displays the breakpoints that have been set and allows them to be enabled/disabled   |
-|  C=+g    | Go              | begins execution at the cursor                                                       |
-|  C=+s    | StepOver        | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
-|  C=+z    | Step            | steps to the next instruction.                                                       | 
-|  C=-r    | Reset Stopwatch | resets the value of the stopwatch to 0                                               |
-|  C=+t    | Trace           | like GO but the debugger takes control between each instruction                      |
-|   <-     | Exit            | exits the debugger and returns to the editor                                         |
-| SPACE    | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  | 
+|  F1          | Source View     | maximizes the screen area for viewing the source code                                |
+|  F2          | Register Editor | enters the register editor                                                           |
+|  F3          | Mem View        | activates the memory window, which takes control until `<-` is pressed               |
+|  F5          | Break View      | displays the breakpoints that have been set and allows them to be enabled/disabled   |
+|  C=+g        | Go              | begins execution at the cursor                                                       |
+|  C=+s        | StepOver        | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
+|  C=+z        | Step            | steps to the next instruction.                                                       |
+|  C=-r        | Reset Stopwatch | resets the value of the stopwatch to 0                                               |
+|  C=+t        | Trace           | like GO but the debugger takes control between each instruction                      |
+|   <-         | Exit            | exits the debugger and returns to the editor                                         |
+| SPACE        | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  |
+| ^ (up arrow) |  Goto Break     | navigates to the address that the debugger is currently paused at                    |
 
 ### Register Editor (`F2`)
 Pressing F2 moves the cursor to the register contents and allows the user to enter

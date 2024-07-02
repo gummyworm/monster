@@ -92,7 +92,7 @@ __cur_on:
 ; Toggles the cursor (turns it off if its on or vise-versa)
 .export __cur_toggle
 __cur_toggle:
-@dst=zp::tmp0
+@dst=r0
 	ldx zp::curx
 	ldy zp::cury
 

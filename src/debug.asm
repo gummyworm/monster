@@ -131,6 +131,7 @@ highlight_file:   .word 0	; filename of line we are highlighting
 
 action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
+.export debugger_sp
 debugger_sp: .byte 0	; stack pointer (SP) for debugger
 
 ;******************************************************************************
@@ -345,9 +346,10 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; DUMMY IRQ
 ; Replaces the IRQ with a dummy (NOP) one
 .proc dummy_irq
-	; install a NOP IRQ
+	sei
 	ldxy #$eb15
 	stxy $0314
+	cli
 	rts
 .endproc
 
@@ -699,12 +701,11 @@ brkhandler2_size=*-brkhandler2
 	ldxy sim::pc
 	jsr __debug_gotoaddr
 	bcs @print		; if we failed to get line #, continue
-	stxy highlight_line
+	jsr edit::sethighlight
 	inc lineset
 
-	jsr toggle_highlight	; highlight line
-
 @print:	jsr showstate		; show regs/BRK message
+	jsr cur::on
 
 ; main debug loop
 @debugloop:
@@ -715,7 +716,6 @@ brkhandler2_size=*-brkhandler2
 
 	pha
 	cli
-	jsr toggle_highlight	; turn off highlight
 
 	lda #$00
 	sta advance	; by default, don't return to program after command
@@ -750,16 +750,12 @@ brkhandler2_size=*-brkhandler2
 	sta zp::jmpvec+1
 
 	jsr zp::jmpaddr		; call the command
+	jsr cur::on
 	jsr showstate		; restore the register display (may be changed)
 
 @finishloopiter:
-	jsr toggle_highlight	; turn on highlight
-	jsr cur::on
 	lda advance		; are we ready to execute program? (GO, STEP)
 	beq @debugloop		; not yet, loop and get another command
-
-@done:	; unhighlight the BRK line if it's still visible
-	jsr toggle_highlight
 
 @debug_done:
 	jsr dummy_irq	; install a NOP IRQ
@@ -844,21 +840,6 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
-; TOGGLE_HIGHLIGHT
-; Toggles the actively highlighted line's highlight
-.proc toggle_highlight
-	lda lineset
-	beq :+			; line # not known
-
-	jsr src::filename	; get filename (zp::tmp0 = name)
-	ldxy highlight_line
-	jsr edit::src2screen
-	bcs :+			; off screen
-	jmp draw::rvs_underline
-:	rts
-.endproc
-
-;******************************************************************************
 ; SAVE DEBUG ZP
 ; Saves the state of the debugger's zeropage
 ; TODO: only save/restore the ZP locations clobbered by the debugger
@@ -925,6 +906,7 @@ brkhandler2_size=*-brkhandler2
 	bne :-
 
 @quit:	lda #$00		; clear BRK flag
+	sta edit::highlight_en	; disable highlighting
 	pha			; push 0 status
 	plp			; clear flags (.P)
 	ldx debugger_sp
@@ -938,7 +920,7 @@ brkhandler2_size=*-brkhandler2
 .proc edit_source
 	lda #$00
 	sta aux_mode
-	lda #REGISTERS_LINE-1
+	lda #DEBUG_MESSAGE_LINE-1
 	jmp edit::resize
 .endproc
 
@@ -946,9 +928,10 @@ brkhandler2_size=*-brkhandler2
 ; EDIT_MEM
 ; Transfers control to the memory viewer/editor until the user exits it
 .proc edit_mem
-	pushcur
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
+
+	pushcur
 	lda #(DEBUG_INFO_START_ROW)*8
 	jsr bm::clrpart
 	jsr showstate		; restore the state
@@ -1186,7 +1169,7 @@ brkhandler2_size=*-brkhandler2
 	; swap entire user RAM in (needed if we don't know what memory will
 	; be changed before next BRK)
 	jsr save_debug_state
-	jsr __debug_restore_progstate
+	jmp __debug_restore_progstate
 
 @fastswap:
 	; save [mem_saveaddr], [step_point], and [pc, pc+2] for the debugger
@@ -1767,9 +1750,9 @@ __debug_remove_breakpoint:
 
 @showline:
 	; display the BRK message
-	lda highlight_line
+	lda edit::highlight_line
 	pha
-	lda highlight_line+1
+	lda edit::highlight_line+1
 	pha
 	ldxy #strings::debug_brk_line
 @print:	lda #DEBUG_MESSAGE_LINE
@@ -1859,6 +1842,14 @@ __debug_remove_breakpoint:
 	rts
 .endproc
 
+;******************************************************************************
+; GOTO BREAK
+; Navigates the editor to the line that corresponds to the address where the
+; debugger is currently at in the user program.
+.proc goto_break
+.endproc
+	ldxy brkaddr
+	jmp __debug_gotoaddr
 .RODATA
 
 ;******************************************************************************
@@ -1879,12 +1870,14 @@ commands:
 	.byte K_SWAP_USERMEM
 	.byte K_RESET_STOPWATCH
 	.byte K_EDIT_STATE
+	.byte K_GOTO_BREAK
 num_commands=*-commands
 
 .linecont +
 .define command_vectors quit, step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, edit_watches, \
-	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state
+	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state, \
+	goto_break
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
@@ -1897,4 +1890,5 @@ disabled_commands:
 	.byte K_CLOSE_BUFF
 	.byte K_ASM
 	.byte K_ASM_DEBUG
+	.byte K_REFRESH
 num_disabled_commands=*-disabled_commands
