@@ -919,8 +919,6 @@ force_enter_insert=*+5
 ; ENTER VISUAL LINE
 ; Enters VISUAL_LINE mode
 .proc enter_visual_line
-	; TODO: fix visual selection
-	rts
 	jsr enter_visual
 	jsr cur::off
 	lda #MODE_VISUAL_LINE
@@ -2834,8 +2832,8 @@ goto_buffer:
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne @movex
+	jsr text::rendered_line_len
 	ldy #$00
-	jsr text::char_index
 	lda zp::cury
 	jmp bm::rvsline_part
 
