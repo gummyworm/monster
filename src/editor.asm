@@ -2750,19 +2750,37 @@ goto_buffer:
 	lda mode
 	cmp #MODE_VISUAL
 	bne @up
-	ldy #$00
+
+	ldxy src::line
+	cmpw visual_start_line
+	beq @sameline
+@diffline:
 	ldx zp::curx
-	lda zp::cury
+	ldy #$00
+	beq @rvs0
+
+@sameline:
+	; vis start line == current line, reverse based on cursor's column
+	; relative to the visual start column
+	ldx visual_start_x
+	cpx zp::curx
+	bcs :+
+	ldy #$00
+	beq @rvs0		; reverse 0 to visual_start_x
+
+:	ldy #$00
+	ldx zp::curx		; reverse 0 to curx
+@rvs0:	lda zp::cury
+	cpx #$00
+	beq @viscur
 	jsr bm::rvsline_part
 
+@viscur:
 	; handle cursor state for VISUAL mode
 	ldxy src::line
 	cmpw visual_start_line
 	bcc @up
-	bne @toggle
-	lda zp::curx
-	cmp visual_start_x
-	bcc @up
+	beq @up
 @toggle:
 	jsr cur::toggle	; if we're deselecting, toggle cursor off
 
@@ -2842,17 +2860,6 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
-; SRC RIGHT
-; Calls the appropriate src::right procedure based on the current editor mode
-.proc src_right
-	lda mode
-	cmp #MODE_INSERT
-	beq :+
-	jmp src::right_rep
-:	jmp src::right
-.endproc
-
-;******************************************************************************
 ; CCUP HIGHLIGHT
 ; Highlights the line that the cursor is on if the editor is in VISUAL mode
 ; This is called after the ccup logic
@@ -2904,6 +2911,7 @@ goto_buffer:
 	bne @rvs
 
 :	ldx visual_start_x
+	inx
 
 @rvs:	lda zp::cury
 	jsr bm::rvsline_part	; reverse line part from column .Y to .X
@@ -2912,6 +2920,17 @@ goto_buffer:
 @toggle:
 	jmp cur::toggle
 @done:	rts
+.endproc
+
+;******************************************************************************
+; SRC RIGHT
+; Calls the appropriate src::right procedure based on the current editor mode
+.proc src_right
+	lda mode
+	cmp #MODE_INSERT
+	beq :+
+	jmp src::right_rep
+:	jmp src::right
 .endproc
 
 ;******************************************************************************
@@ -3132,6 +3151,7 @@ goto_buffer:
 .proc ccdown
 @xend=r9
 @selecting=ra
+@linelen=rb
 	jsr src::end
 	bne :+
 	sec		; cursor could not be moved
@@ -3152,12 +3172,38 @@ goto_buffer:
 @chkvis:
 	lda mode
 	cmp #MODE_VISUAL
-	bne :+
+	bne @cont
+
+	jsr text::rendered_line_len
+	stx @linelen
+
 	ldxy src::line
 	cmpw visual_start_line
-	php
-	lda #$00
+	beq @sameline
 
+@diffline:
+	ldx @linelen
+	ldy zp::curx
+	bcc @rvs0
+	iny
+	bne @rvs0
+
+@sameline:
+	; vis start line == current line, reverse based on cursor's column
+	; relative to the visual start column
+	ldx @linelen
+	ldy visual_start_x
+	cpy zp::curx
+	bcs :+
+	beq @rvs0		; reverse visual_start_x to end of line
+
+:	ldy zp::curx		; reverse curx to end of line
+@rvs0:	lda zp::cury
+	cpx #$00
+	beq @viscur
+	jsr bm::rvsline_part
+
+	lda #$00
 :	lda zp::curx
 	sta @xend
 
@@ -3166,13 +3212,16 @@ goto_buffer:
 	cmp #MODE_VISUAL
 	bne @cont
 
-@sel:	jsr ccright
-	bcc @sel
-
-	; if this is a selection, toggle the cursor
-	plp
-	bcs @cont
-	jsr cur::toggle
+@viscur:
+	; handle cursor state for VISUAL mode
+	ldxy src::line
+	cmpw visual_start_line
+	bne @cont
+	lda zp::curx
+	cmp visual_start_x
+	bcc @cont
+@toggle:
+	jsr cur::toggle	; if we're deselecting, toggle cursor off
 
 @cont:	jsr src::down
 	bcc @down
