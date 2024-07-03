@@ -4,6 +4,7 @@
 .include "irq.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "ram.inc"
 .include "string.inc"
 .include "strings.inc"
 .include "util.inc"
@@ -620,8 +621,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 	stx @src
 	sty @src+1
 
-	bank_read_byte bank, @src
-	bank_store_byte bank, @dst
+	lda24 bank, @src
+	sta24 bank, @dst
 
 	cmp #$0d
 	bne :+
@@ -735,8 +736,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 	decw @src
 	decw @dst
 
-	bank_read_byte bank, @src
-	bank_store_byte bank, @dst
+	lda24 bank, @src
+	sta24 bank, @dst
 
 	cmp #$0d
 	bne :+
@@ -829,7 +830,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 	bcs @done	; out of range
 	stxy @dst
 
-	bank_store_byte bank, @dst
+	sta24 bank, @dst
 
 	cmp #$0d
 	bne :+

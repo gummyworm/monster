@@ -1,6 +1,7 @@
 .include "bitmap.inc"
 .include "finalex.inc"
 .include "macros.inc"
+.include "ram.inc"
 .include "zeropage.inc"
 
 ;******************************************************************************
@@ -254,11 +255,12 @@ fast_clr2 = $727f	; clear last 6 columns
 @addr=r0
 @target=r2
 @row=r4
-	bank_store_byte #FINAL_BANK_FAST, #__fast_clr, #$a9	; LDA #
+	lda #$a9	; LDA #
+	sta24 #FINAL_BANK_FAST, #__fast_clr
 
-	lda #$00
+	lda #$00	; #$00
 	sta @target
-	bank_store_byte #FINAL_BANK_FAST, #__fast_clr+1 	; 0
+	sta24 #FINAL_BANK_FAST, #__fast_clr+1
 
 	ldxy #__fast_clr+2
 	stxy @addr
@@ -266,13 +268,16 @@ fast_clr2 = $727f	; clear last 6 columns
 	lda #$11
 	sta @target+1
 @gen_sta:
-	bank_store_byte #FINAL_BANK_FAST, @addr, #$8d		; STA Abs
+	lda #$8d	; STA abs
+	sta24 #FINAL_BANK_FAST, @addr
 	incw @addr
 
-	bank_store_byte #FINAL_BANK_FAST, @addr, @target	; LSB
+	lda @target	; LSB
+	sta24 #FINAL_BANK_FAST, @addr
 	incw @addr
 
-	bank_store_byte #FINAL_BANK_FAST, @addr, @target+1	; MSB
+	lda @target+1	; MSB
+	sta24 #FINAL_BANK_FAST, @addr
 	incw @addr
 
 	incw @target
@@ -283,11 +288,14 @@ fast_clr2 = $727f	; clear last 6 columns
 	cmpw #__fast_clr+(192*14*3)+2	; sizeof(lda #$00)+192*14*sizeof(sta abs)
 	bne @gen_sta
 
-	bank_store_byte #FINAL_BANK_FAST, @addr, #$4c		; JMP
+	lda #$4c	; JMP
+	sta24 #FINAL_BANK_FAST, @addr
 	incw @addr
-	bank_store_byte #FINAL_BANK_FAST, @addr, #<fast_clr2	; LSB
+	lda #<fast_clr2	; LSB
+	sta24 #FINAL_BANK_FAST, @addr
 	incw @addr
-	bank_store_byte #FINAL_BANK_FAST, @addr, #>fast_clr2	; MSB
+	lda #>fast_clr2	; MSB
+	sta24 #FINAL_BANK_FAST, @addr
 	incw @addr
 
 	ldxy #fast_clr2
@@ -295,9 +303,6 @@ fast_clr2 = $727f	; clear last 6 columns
 	jmp @gen_sta
 
 @done:	lda #$60			; RTS
-	sta zp::bankval
-	ldxy @addr
-	lda #FINAL_BANK_FAST
-	jsr fe3::store
+	sta24 #FINAL_BANK_FAST, @addr
 	rts
 .endproc

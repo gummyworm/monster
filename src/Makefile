@@ -1,3 +1,5 @@
+TARGET=vic20
+
 XVIC=xvic
 FE3BIN=fe3vice.bin
 PYTHON=python3
@@ -16,7 +18,7 @@ all: test.d64
 
 # main app binary
 monster.prg: $(BOOTSRC) $(SRC) 
-	$(CL65) -t vic20 -o $@ -C link.config $^ -Ln labels.txt -v -m map.txt
+	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) -C link.config $^ -Ln labels.txt -v -m map.txt
 
 # create the test disk image
 test.d64: monster.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)

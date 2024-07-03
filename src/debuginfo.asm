@@ -7,6 +7,7 @@
 .include "errors.inc"
 .include "finalex.inc"
 .include "macros.inc"
+.include "ram.inc"
 .include "string.inc"
 .include "zeropage.inc"
 
@@ -560,11 +561,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy #debuginfo
 	stxy seg
 
-@l0:	bank_read_byte_rel #FINAL_BANK_DEBUG, seg, #SEG_START_ADDR
+@l0:	lda24 #FINAL_BANK_DEBUG, seg, #SEG_START_ADDR
 	cmp @addr
 	bne @next
 
-	bank_read_byte_rel #FINAL_BANK_DEBUG, seg, #SEG_START_ADDR+1
+	lda24 #FINAL_BANK_DEBUG, seg, #SEG_START_ADDR+1
 	cmp @addr+1
 	beq @found
 
