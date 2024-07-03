@@ -1791,7 +1791,24 @@ __edit_refresh:
 	beq @l0
 	bcc @l0
 
-@done:	jsr text::rendered_line_len
+@done:	lda zp::cury
+	cmp height
+	bcs @cont
+
+	pha
+
+	; clear the rest of the lines
+:	jsr bm::clrline
+	inc zp::cury
+	lda zp::cury
+	cmp height
+	bcc :-
+	beq :-
+
+	pla
+	sta zp::cury
+
+@cont:	jsr text::rendered_line_len
 	stx zp::curx			; set curx so source and cursor align
 	; restore cursor and source
 	ldxy @saveline
@@ -2489,8 +2506,7 @@ goto_buffer:
 	sta zp::curx
 	sta zp::cury		; reset cursor
 	jsr refresh
-	jsr enter_command
-	RETURN_OK
+	jmp cancel
 
 @err:	pha			; push error code
 	ldxy #strings::edit_file_load_failed
@@ -3219,7 +3235,7 @@ goto_buffer:
 	jsr bm::rvsline_part
 
 	lda #$00
-:	lda zp::curx
+	lda zp::curx
 	sta @xend
 
 	; if we are in VISUAL mode, highlight to the end of the line

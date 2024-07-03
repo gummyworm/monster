@@ -16,6 +16,7 @@
 .include "memory.inc"
 .include "source.inc"
 .include "string.inc"
+.include "strings.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
@@ -861,8 +862,20 @@ tabs_end=*-tabs
 .endproc
 
 ;******************************************************************************
+; CLRINFO
+; Clears the info message line
+.export __text_clrinfo
+.proc __text_clrinfo
+	ldxy #strings::null
+
+	; fall through
+.endproc
+
+;******************************************************************************
 ; INFO
 ; Prints the given string (text::print) at the info row (STATUS_ROW-1)
+; ; IN:
+;  - .XY: the string to print
 .export __text_info
 .proc __text_info
 	lda #STATUS_ROW-1

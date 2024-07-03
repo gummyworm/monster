@@ -2,6 +2,7 @@
 .import __text_buffer
 .import __text_bufferon
 .import __text_bufferoff
+.import __text_clrinfo
 .import __text_clrline
 .import __text_drawline
 .import __text_insertmode
@@ -49,6 +50,7 @@ CH_R_ARROW	    = 135
 	bufferon         = __text_bufferon
 	bufferoff        = __text_bufferoff
 	char_index	 = __text_char_index
+	clrinfo		 = __text_clrinfo
 	clrline          = __text_clrline
 	drawline         = __text_drawline
 	info             = __text_info
