@@ -1767,8 +1767,6 @@ force_enter_insert=*+5
 __edit_refresh:
 .proc refresh
 @saveline=zp::editortmp
-	jsr clear
-
 	ldxy src::line
 	stxy @saveline
 
