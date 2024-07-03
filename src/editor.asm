@@ -1792,23 +1792,20 @@ __edit_refresh:
 	bcc @l0
 
 @done:	lda zp::cury
-	cmp height
-	bcs @cont
-
 	pha
 
 	; clear the rest of the lines
-:	jsr bm::clrline
-	inc zp::cury
+:	inc zp::cury
 	lda zp::cury
 	cmp height
-	bcc :-
-	beq :-
+	bcs @cont
+	jsr bm::clrline
+	jmp :-
 
-	pla
+@cont:	pla
 	sta zp::cury
 
-@cont:	jsr text::rendered_line_len
+	jsr text::rendered_line_len
 	stx zp::curx			; set curx so source and cursor align
 	; restore cursor and source
 	ldxy @saveline
