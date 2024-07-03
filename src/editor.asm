@@ -1322,8 +1322,9 @@ force_enter_insert=*+5
 :	ldxy visual_start_line
 	sub16 src::line
 
-@print: cmpw #1
+@print: cmpw #0
 	beq @ok		; don't display message if only 1 line was copied
+
 	inx
 	txa
 	pha
@@ -1795,10 +1796,12 @@ __edit_refresh:
 	pha
 
 	; clear the rest of the lines
-:	inc zp::cury
-	lda zp::cury
-	cmp height
+:	ldx zp::cury
+	inx
+	cpx height
 	bcs @cont
+	stx zp::cury
+	txa
 	jsr bm::clrline
 	jmp :-
 
@@ -3185,7 +3188,10 @@ goto_buffer:
 	sec		; cursor could not be moved
 	rts		; cursor is at end of source file, return
 
-:	lda mode
+:	lda zp::curx
+	sta @xend
+
+	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne @chkvis
 
