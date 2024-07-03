@@ -87,17 +87,12 @@ memaddr:   .word 0
 :	cmp #K_QUIT	; <- (done)
 	beq @done
 
-	cmp #K_UP
-	beq @up
-	cmp #$6b	; k (also up)
+	jsr key::isup
 	bne :+
 @up:	jsr up
 	jmp @edit
 
-:	cmp #K_DOWN
-	beq @down
-	bne :+
-	cmp #$6a	; j (also down)
+:	jsr key::isdown
 	bne :+
 @down:	jsr down
 	jmp @edit

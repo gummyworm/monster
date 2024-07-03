@@ -67,7 +67,7 @@ row:	.byte 0
 	bne @up
 	rts
 
-@up:	cmp #K_UP	; up
+@up:	jsr key::isup
 	bne @down
 	dec row
 	bpl @redraw
@@ -77,7 +77,7 @@ row:	.byte 0
 	inc scroll
 	jmp @redraw
 
-@down:	cmp #K_DOWN	; down
+@down:	jsr key::isdown
 	bne @enter
 	inc row
 	lda row

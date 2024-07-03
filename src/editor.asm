@@ -253,6 +253,11 @@ main:	jsr key::getch
 	ldxy @addr
 	jsr dbg::start	; start debugging at address in .XY
 
+	jsr bm::clrcolor
+	; clear the top row of the debubger's info
+	lda #DEBUG_MESSAGE_LINE
+	jsr bm::clrline
+
 	dec readonly		; re-enable editing
 	jsr edit
 	jsr cancel

@@ -155,12 +155,11 @@ SCREEN_H = 23
 
 ; check the arrow keys (used to select a file)
 @checkdown:
-	cmp #K_DOWN
+	jsr key::isdown
 	bne @checkup
+@rowdown:
 	lda @select
 	jsr bm::rvsline		; deselect the current selection
-
-@rowdown:
 	inc @select
 	lda @select
 	cmp @row
@@ -196,12 +195,12 @@ SCREEN_H = 23
 	jmp @hiselection
 
 @checkup:
-	cmp #K_UP
+	jsr key::isup
 	bne @checkret
-	lda @select
-	jsr bm::rvsline		; deselect the current selection
 
 @rowup:
+	lda @select
+	jsr bm::rvsline		; deselect the current selection
 	dec @select
 	bne @hiselection
 	inc @select		; lowest selectable row is 1
