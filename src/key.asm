@@ -124,3 +124,63 @@ CURSOR_LR_MASK      = 2
 @no:	sec
 @done:	rts
 .endproc
+
+;******************************************************************************_
+; ISUP
+; Checks if the given key is UP or 'k'
+; IN:
+;  - .A: the key value
+; OUT:
+;  - .Z: set if the given key is UP or 'k'
+.export __key_isup
+.proc __key_isup
+	cmp #$6b	; 'k'
+	beq :+
+	cmp #K_UP
+:	rts
+.endproc
+
+;******************************************************************************_
+; ISDOWN
+; Checks if the given key is DOWN or 'j'
+; IN:
+;  - .A: the key value
+; OUT:
+;  - .Z: set if the given key is DOWN or 'j'
+.export __key_isdown
+.proc __key_isdown
+	cmp #$6a	; 'j'
+	beq :+
+	cmp #K_DOWN
+:	rts
+.endproc
+
+;******************************************************************************_
+; ISLEFT
+; Checks if the given key is LEFT or 'h'
+; IN:
+;  - .A: the key value
+; OUT:
+;  - .Z: set if the given key is LEFT or 'h'
+.export __key_isleft
+.proc __key_isleft
+	cmp #K_LEFT
+	beq :+
+	cmp #$68	; 'h'
+:	rts
+.endproc
+
+;******************************************************************************_
+; ISRIGHT
+; Checks if the given key is RIGHT or 'l'
+; IN:
+;  - .A: the key value
+; OUT:
+;  - .Z: set if the given key is RIGHT or 'l'
+.export __key_isright
+.proc __key_isright
+	cmp #K_RIGHT
+	beq :+
+	cmp #$6c	; 'l'
+:	rts
+.endproc

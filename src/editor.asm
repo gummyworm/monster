@@ -253,6 +253,12 @@ main:	jsr key::getch
 	ldxy @addr
 	jsr dbg::start	; start debugging at address in .XY
 
+	lda #TEXT_COLOR
+	jsr bm::clrcolor
+	; clear the top row of the debubger's info
+	lda #DEBUG_MESSAGE_LINE
+	jsr bm::clrline
+
 	dec readonly		; re-enable editing
 	jsr edit
 	jsr cancel
@@ -919,8 +925,6 @@ force_enter_insert=*+5
 ; ENTER VISUAL LINE
 ; Enters VISUAL_LINE mode
 .proc enter_visual_line
-	; TODO: fix visual selection
-	rts
 	jsr enter_visual
 	jsr cur::off
 	lda #MODE_VISUAL_LINE
@@ -1307,18 +1311,38 @@ force_enter_insert=*+5
 	jsr yank
 	bcs @done
 
+	; if visual line, display # of lines yanked
+	lda mode
+	pha
+	jsr enter_command
+	pla
+	cmp #MODE_VISUAL_LINE
+	bne @ok
+
+	ldxy src::line
+	cmpw visual_start_line
+	bcc :+
+	sub16 visual_start_line
+	jmp @print
+
+:	ldxy visual_start_line
+	sub16 src::line
+
+@print: cmpw #0
+	beq @ok		; don't display message if only 1 line was copied
+
+	inx
 	txa
 	pha
-	tya
+	bne :+
+	iny
+:	tya
 	pha
-
-	; display message
-	jsr enter_command
-	ldxy #@yoinkmsg
+	ldxy #@msg
 	jsr text::info
-	RETURN_OK
+@ok:	clc
 @done:	rts
-@yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
+@msg: .byte "copied ",ESCAPE_VALUE_DEC, " lines",0
 .endproc
 
 ;******************************************************************************
@@ -1750,8 +1774,6 @@ force_enter_insert=*+5
 __edit_refresh:
 .proc refresh
 @saveline=zp::editortmp
-	jsr clear
-
 	ldxy src::line
 	stxy @saveline
 
@@ -1776,7 +1798,23 @@ __edit_refresh:
 	beq @l0
 	bcc @l0
 
-@done:	jsr text::rendered_line_len
+@done:	lda zp::cury
+	pha
+
+	; clear the rest of the lines
+:	ldx zp::cury
+	inx
+	cpx height
+	bcs @cont
+	stx zp::cury
+	txa
+	jsr bm::clrline
+	jmp :-
+
+@cont:	pla
+	sta zp::cury
+
+	jsr text::rendered_line_len
 	stx zp::curx			; set curx so source and cursor align
 	; restore cursor and source
 	ldxy @saveline
@@ -2474,8 +2512,7 @@ goto_buffer:
 	sta zp::curx
 	sta zp::cury		; reset cursor
 	jsr refresh
-	jsr enter_command
-	RETURN_OK
+	jmp cancel
 
 @err:	pha			; push error code
 	ldxy #strings::edit_file_load_failed
@@ -2713,8 +2750,11 @@ goto_buffer:
 @replace:
 	jsr src::replace
 	jmp text::putch
-@put:	jsr src::insert
-	jmp text::putch
+@put:	pha
+	jsr text::putch
+	pla
+	bcs @done
+	jmp src::insert
 .endproc
 
 ;******************************************************************************
@@ -2750,19 +2790,37 @@ goto_buffer:
 	lda mode
 	cmp #MODE_VISUAL
 	bne @up
-	ldy #$00
+
+	ldxy src::line
+	cmpw visual_start_line
+	beq @sameline
+@diffline:
 	ldx zp::curx
-	lda zp::cury
+	ldy #$00
+	beq @rvs0
+
+@sameline:
+	; vis start line == current line, reverse based on cursor's column
+	; relative to the visual start column
+	ldx visual_start_x
+	cpx zp::curx
+	bcs :+
+	ldy #$00
+	beq @rvs0		; reverse 0 to visual_start_x
+
+:	ldy #$00
+	ldx zp::curx		; reverse 0 to curx
+@rvs0:	lda zp::cury
+	cpx #$00
+	beq @viscur
 	jsr bm::rvsline_part
 
+@viscur:
 	; handle cursor state for VISUAL mode
 	ldxy src::line
 	cmpw visual_start_line
 	bcc @up
-	bne @toggle
-	lda zp::curx
-	cmp visual_start_x
-	bcc @up
+	beq @up
 @toggle:
 	jsr cur::toggle	; if we're deselecting, toggle cursor off
 
@@ -2816,8 +2874,8 @@ goto_buffer:
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne @movex
+	jsr text::rendered_line_len
 	ldy #$00
-	jsr text::char_index
 	lda zp::cury
 	jmp bm::rvsline_part
 
@@ -2839,17 +2897,6 @@ goto_buffer:
 	adc zp::curx
 	sta zp::curx
 ; fallthrough
-.endproc
-
-;******************************************************************************
-; SRC RIGHT
-; Calls the appropriate src::right procedure based on the current editor mode
-.proc src_right
-	lda mode
-	cmp #MODE_INSERT
-	beq :+
-	jmp src::right_rep
-:	jmp src::right
 .endproc
 
 ;******************************************************************************
@@ -2904,6 +2951,7 @@ goto_buffer:
 	bne @rvs
 
 :	ldx visual_start_x
+	inx
 
 @rvs:	lda zp::cury
 	jsr bm::rvsline_part	; reverse line part from column .Y to .X
@@ -2912,6 +2960,17 @@ goto_buffer:
 @toggle:
 	jmp cur::toggle
 @done:	rts
+.endproc
+
+;******************************************************************************
+; SRC RIGHT
+; Calls the appropriate src::right procedure based on the current editor mode
+.proc src_right
+	lda mode
+	cmp #MODE_INSERT
+	beq :+
+	jmp src::right_rep
+:	jmp src::right
 .endproc
 
 ;******************************************************************************
@@ -2949,8 +3008,8 @@ goto_buffer:
 @move:	jsr src::atcursor
 	ldy mode
 	cpy #MODE_INSERT
-
 	beq :+
+
 	jsr src::after_cursor
 :	pha
 	jsr src::left
@@ -3132,12 +3191,16 @@ goto_buffer:
 .proc ccdown
 @xend=r9
 @selecting=ra
+@linelen=rb
 	jsr src::end
 	bne :+
 	sec		; cursor could not be moved
 	rts		; cursor is at end of source file, return
 
-:	lda mode
+:	lda zp::curx
+	sta @xend
+
+	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne @chkvis
 
@@ -3152,13 +3215,39 @@ goto_buffer:
 @chkvis:
 	lda mode
 	cmp #MODE_VISUAL
-	bne :+
+	bne @cont
+
+	jsr text::rendered_line_len
+	stx @linelen
+
 	ldxy src::line
 	cmpw visual_start_line
-	php
-	lda #$00
+	beq @sameline
 
-:	lda zp::curx
+@diffline:
+	ldx @linelen
+	ldy zp::curx
+	bcc @rvs0
+	iny
+	bne @rvs0
+
+@sameline:
+	; vis start line == current line, reverse based on cursor's column
+	; relative to the visual start column
+	ldx @linelen
+	ldy visual_start_x
+	cpy zp::curx
+	bcs :+
+	beq @rvs0		; reverse visual_start_x to end of line
+
+:	ldy zp::curx		; reverse curx to end of line
+@rvs0:	lda zp::cury
+	cpx #$00
+	beq @viscur
+	jsr bm::rvsline_part
+
+	lda #$00
+	lda zp::curx
 	sta @xend
 
 	; if we are in VISUAL mode, highlight to the end of the line
@@ -3166,13 +3255,16 @@ goto_buffer:
 	cmp #MODE_VISUAL
 	bne @cont
 
-@sel:	jsr ccright
-	bcc @sel
-
-	; if this is a selection, toggle the cursor
-	plp
-	bcs @cont
-	jsr cur::toggle
+@viscur:
+	; handle cursor state for VISUAL mode
+	ldxy src::line
+	cmpw visual_start_line
+	bne @cont
+	lda zp::curx
+	cmp visual_start_x
+	bcc @cont
+@toggle:
+	jsr cur::toggle	; if we're deselecting, toggle cursor off
 
 @cont:	jsr src::down
 	bcc @down
