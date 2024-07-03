@@ -1305,18 +1305,37 @@ force_enter_insert=*+5
 	jsr yank
 	bcs @done
 
+	; if visual line, display # of lines yanked
+	lda mode
+	pha
+	jsr enter_command
+	pla
+	cmp #MODE_VISUAL_LINE
+	bne @ok
+
+	ldxy src::line
+	cmpw visual_start_line
+	bcc :+
+	sub16 visual_start_line
+	jmp @print
+
+:	ldxy visual_start_line
+	sub16 src::line
+
+@print: cmpw #1
+	beq @ok		; don't display message if only 1 line was copied
+	inx
 	txa
 	pha
-	tya
+	bne :+
+	iny
+:	tya
 	pha
-
-	; display message
-	jsr enter_command
-	ldxy #@yoinkmsg
+	ldxy #@msg
 	jsr text::info
-	RETURN_OK
+@ok:	clc
 @done:	rts
-@yoinkmsg: .byte "yoink ",ESCAPE_VALUE_DEC,0
+@msg: .byte "copied ",ESCAPE_VALUE_DEC, " lines",0
 .endproc
 
 ;******************************************************************************
