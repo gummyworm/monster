@@ -253,6 +253,7 @@ main:	jsr key::getch
 	ldxy @addr
 	jsr dbg::start	; start debugging at address in .XY
 
+	lda #TEXT_COLOR
 	jsr bm::clrcolor
 	; clear the top row of the debubger's info
 	lda #DEBUG_MESSAGE_LINE
@@ -2749,8 +2750,11 @@ goto_buffer:
 @replace:
 	jsr src::replace
 	jmp text::putch
-@put:	jsr src::insert
-	jmp text::putch
+@put:	pha
+	jsr text::putch
+	pla
+	bcs @done
+	jmp src::insert
 .endproc
 
 ;******************************************************************************
@@ -3004,8 +3008,8 @@ goto_buffer:
 @move:	jsr src::atcursor
 	ldy mode
 	cpy #MODE_INSERT
-
 	beq :+
+
 	jsr src::after_cursor
 :	pha
 	jsr src::left

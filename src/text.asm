@@ -504,7 +504,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	pla
 	sta mem::linebuffer,x
 	bne :+
-	rts			; terminating 0, we're done
+	RETURN_OK		; terminating 0, we're done
 
 :	cmp #$09		; TAB
 	bne @redraw
@@ -513,13 +513,15 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	adc zp::curx
 	sta zp::curx
 	lda zp::cury
-	jmp __text_drawline	; re-render whole line
+	jmp @redrawline		; re-render whole line
 @redraw:
 	lda __text_buffer
 	bne @done
 	lda zp::cury
 	inc zp::curx
-	jmp __text_drawline	; re-render whole line
+@redrawline:
+	jsr __text_drawline	; re-render whole line
+	RETURN_OK
 
 	; TODO: make fast?
 	ldx __text_buffer
