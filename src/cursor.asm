@@ -276,9 +276,8 @@ __cur_toggle:
 
 	ldx zp::tmp2
 	ldy zp::tmp3
-	stx zp::curx
-	sty zp::cury
-	rts
+
+	; fall through
 .endproc
 
 ;******************************************************************************

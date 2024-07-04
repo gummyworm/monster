@@ -2,7 +2,6 @@
 .import __text_buffer
 .import __text_bufferon
 .import __text_bufferoff
-.import __text_clrinfo
 .import __text_clrline
 .import __text_drawline
 .import __text_insertmode
@@ -18,6 +17,7 @@
 .import __text_restorebuff
 .import __text_savebuff
 .import __text_scrolldown
+.import __text_scrolldownn
 .import __text_scrollup
 .import __text_status 
 .import __text_status_mode
@@ -50,7 +50,6 @@ CH_R_ARROW	    = 135
 	bufferon         = __text_bufferon
 	bufferoff        = __text_bufferoff
 	char_index	 = __text_char_index
-	clrinfo		 = __text_clrinfo
 	clrline          = __text_clrline
 	drawline         = __text_drawline
 	info             = __text_info
@@ -64,6 +63,7 @@ CH_R_ARROW	    = 135
 	rvs              = __text_rvs
 	savebuff         = __text_savebuff
 	scrolldown       = __text_scrolldown
+	scrolldownn      = __text_scrolldownn
 	scrollup         = __text_scrollup
 	statusmode       = __text_status_mode
 	status           = __text_status

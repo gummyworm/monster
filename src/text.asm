@@ -57,8 +57,9 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .export __text_bufferon
 .proc __text_bufferon
 	lda #$01
-	sta __text_buffer
-	rts
+	skw
+
+	; fallthrough
 .endproc
 
 ;******************************************************************************
@@ -617,11 +618,31 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .X: the last column to scroll down to
 .export __text_scrolldown
 .proc __text_scrolldown
+	ldy #$01
+
+	; fallthrough
+.endproc
+
+;******************************************************************************
+; SCROLLDOWNN
+; Scrolls all rows in the given range down by the given number of rows
+; IN:
+;  - .A: the first row to scroll down
+;  - .X: the last row to scroll down
+;  - .Y: the number of pixels to scroll each row by
+.export __text_scrolldownn
+.proc __text_scrolldownn
 @rowstart=zp::text
 @rows=zp::text+1
 @src=zp::text+2
 @dst=zp::text+4
+@offset=r0
 	sta @rowstart
+	tya
+	asl
+	asl
+	asl
+	sta @offset
 
 	cpx @rowstart
 	beq @noscroll
@@ -643,7 +664,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	asl
 	asl
 	sta @src
-	adc #$08
+	adc @offset
 	sta @dst
 
 	lda #>BITMAP_ADDR
@@ -651,8 +672,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sta @dst+1
 
 @l0:	ldy @rows
-@l1:
-	lda (@src),y
+@l1:	lda (@src),y
 	sta (@dst),y
 	dey
 	bne @l1
@@ -861,16 +881,6 @@ tabs_end=*-tabs
 	dey
 	bpl :-
 	rts
-.endproc
-
-;******************************************************************************
-; CLRINFO
-; Clears the info message line
-.export __text_clrinfo
-.proc __text_clrinfo
-	ldxy #strings::null
-
-	; fall through
 .endproc
 
 ;******************************************************************************

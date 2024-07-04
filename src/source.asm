@@ -801,9 +801,9 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .A: the character to insert
 .export __src_insert
 .proc __src_insert
-@len=zp::tmp0
-@src=zp::tmp2
-@dst=zp::tmp4
+@len=r0
+@src=r2
+@dst=r4
 	pha
 	jsr mark_dirty
 	jsr gaplen
@@ -837,6 +837,27 @@ __src_pos = __src_start	 ; start implements the same behavior
 	incw line
 	incw lines
 :	incw pre
+@done:	rts
+.endproc
+
+;******************************************************************************
+; INSERT_LINE
+; Inserts the given string into the source at the current cursor position.
+; IN:
+;  - .XY: the string to insert
+.export __src_insertline
+.proc __src_insertline
+@str=r6
+@offset=r8
+	stxy @str
+	lda #$00
+	sta @offset
+@l0:	ldy @offset
+	lda (@str),y
+	beq @done
+	jsr __src_insert
+	inc @offset
+	bne @l0
 @done:	rts
 .endproc
 

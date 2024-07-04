@@ -15,6 +15,7 @@
 .import __src_get_filename
 .import __src_home
 .import __src_insert
+.import __src_insertline
 .import __src_isdirty
 .import __src_left
 .import __src_line
@@ -68,6 +69,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	goto           = __src_goto
 	home           = __src_home
 	insert         = __src_insert
+	insertline     = __src_insertline
 	isdirty        = __src_isdirty
 	left           = __src_left
 	line           = __src_line

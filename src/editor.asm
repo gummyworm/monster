@@ -74,10 +74,11 @@ jumpptr:  .byte 0	; offset to jumplist
 
 buffptr:  .word 0 	; copy buffer pointer (also bytes in copy buffer)
 
-visual_start_line: .word 0	; the line # a selection began at
-visual_start_x:    .byte 0	; the x-position a selection began at
-selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
-format:            .byte 0	; if 0, formatting is not applied on line-end
+visual_start_line:	.word 0	; the line # a selection began at
+visual_start_x:		.byte 0	; the x-position a selection began at
+visual_lines_copied:	.byte 0	; the number of lines copied in VISUAL modes
+selection_type:    	.byte 0 ; the type of selection (VISUAL_LINE or VISUAL)
+format:            	.byte 0	; if 0, formatting is not applied on line-end
 
 overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
 cmdreps: .byte 0	; number of times to REPEAT current command
@@ -1276,6 +1277,7 @@ force_enter_insert=*+5
 ; Inserts the contents of the buffer at the current cursor position and returns
 ; to command mode
 .proc paste_buff
+@row=ra
 	lda format
 	pha
 	lda #$00
@@ -1283,6 +1285,15 @@ force_enter_insert=*+5
 	jsr text::bufferon
 
 	jsr enter_insert
+
+	; scroll to make room for the new lines
+	lda mode
+	cmp #MODE_VISUAL_LINE
+	bne @singleline
+	ldy visual_lines_copied
+	bne @multiline
+
+@singleline:
 @l0:	jsr buff_getch
 	bcs @done
 	cmp #$0d
@@ -1297,10 +1308,30 @@ force_enter_insert=*+5
 	lda zp::cury
 	jsr text::drawline	; draw the last line (if it contains anything)
 
-:	jsr text::bufferoff
+@ret:	jsr text::bufferoff
 	pla
 	sta format
 	jmp enter_command
+
+@multiline:
+; TODO: if VISUAL (not VISUAL LINE) insert new lines between the source at cursor
+	lda zp::cury
+	sta @row
+	clc
+	adc visual_lines_copied
+	tax
+	lda zp::cury
+	ldx height
+	jsr text::scrolldownn
+
+@l1:	jsr buff_getline
+	ldxy #mem::linebuffer
+	jsr src::insertline
+	bcs @ret
+	lda @row
+	jsr text::drawline
+	inc @row
+	bne @l1
 .endproc
 
 ;******************************************************************************
@@ -1311,13 +1342,8 @@ force_enter_insert=*+5
 	jsr yank
 	bcs @done
 
-	; if visual line, display # of lines yanked
-	lda mode
-	pha
+	; display # of lines yanked
 	jsr enter_command
-	pla
-	cmp #MODE_VISUAL_LINE
-	bne @ok
 
 	ldxy src::line
 	cmpw visual_start_line
@@ -1327,6 +1353,7 @@ force_enter_insert=*+5
 
 :	ldxy visual_start_line
 	sub16 src::line
+	stxy visual_lines_copied
 
 @print: cmpw #0
 	beq @ok		; don't display message if only 1 line was copied
@@ -4145,7 +4172,7 @@ __edit_gotoline:
 ;  - .A: the last character PUT into the buffer (0 if none)
 ;  - .C: set if the buffer is empty
 .proc buff_getch
-@buff=zp::tmp0
+@buff=r0
 	ldxy buffptr
 	stxy @buff
 	cmpw #mem::copybuff
@@ -4156,6 +4183,35 @@ __edit_gotoline:
 	decw @buff
 	lda (@buff),y
 	clc
+@done:	rts
+.endproc
+
+;******************************************************************************
+; BUFF GETLINE
+; Gets the last line that was PUT to the buffer
+; OUT:
+;  - mem::linebuffer:	the last line PUT to the buffer
+;  - .C:		set if the buffer is empty
+.proc buff_getline
+@buff=r0
+	ldxy buffptr
+	stxy @buff
+	cmpw #mem::copybuff
+	beq @done		; buffer empty
+
+	ldy #$00
+	ldx #$00
+@l0:	decw buffptr
+	decw @buff
+	lda (@buff),y
+	beq @ok
+	cmp #$0d
+	beq @ok
+	sta mem::linebuffer,x
+	inx
+	bne @l0
+
+@ok:	clc
 @done:	rts
 .endproc
 
