@@ -1311,26 +1311,27 @@ force_enter_insert=*+5
 ; TODO: if VISUAL (not VISUAL LINE) insert new lines between the source at cursor
 	lda zp::cury
 	sta @row
-	clc
-	adc visual_lines_copied
-	tax
-	lda zp::cury
-	ldx height
+	ldy visual_lines_copied
 	iny
+	ldx height
 	jsr text::scrolldownn
 	jsr src::pushp
 
 @l1:	jsr buff_getline
-	bcs :+
+	bcs @multidone
 	ldxy #mem::linebuffer
 	jsr src::insertline
 	lda #$0d
 	jsr src::insert
 	lda @row
-	jsr text::drawline
 	inc @row
-	bne @l1
-:	jsr src::popgoto
+	cmp height
+	beq :+
+	bcs @l1
+:	jsr text::drawline
+	jmp @l1
+@multidone:
+	jsr src::popgoto
 	jmp @ret
 .endproc
 

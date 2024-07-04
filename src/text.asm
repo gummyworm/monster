@@ -638,11 +638,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 @dst=zp::text+4
 @offset=r0
 	sta @rowstart
-	tya
-	asl
-	asl
-	asl
-	sta @offset
+	sty @offset
+	dec @offset
 
 	cpx @rowstart
 	beq @noscroll
@@ -653,11 +650,18 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 :	txa
 	sec
 	sbc @rowstart
+	sbc @offset
 	asl
 	asl
 	asl
 	sta @rows
 	dec @rows	; -1 because we will do the last row separately
+
+	tya
+	asl
+	asl
+	asl
+	sta @offset
 
 	lda @rowstart
 	asl
