@@ -492,8 +492,7 @@ main:	jsr key::getch
 	bcc @next		; no error, continue
 
 @err:	jsr display_result	; display the error
-	jsr src::popp		; clear the source position stack
-	jsr src::goto		; restore source position
+	jsr src::popgoto	; restore source position
 	jsr dbgi::getline	; get the line that failed assembly
 	jmp gotoline		; goto that line
 
@@ -501,8 +500,7 @@ main:	jsr key::getch
 	bne @pass2loop		; repeat if not
 	clc			; successfully assembled full source
 	jsr display_result	; dispaly success msg
-	jsr src::popp
-	jsr src::goto
+	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer
 
 	RETURN_OK
@@ -615,7 +613,7 @@ main:	jsr key::getch
 
 @done:	pla
 	jsr src::setbuff	; restore buffer
-	jmp src::popp		; restore source pos
+	jmp src::popgoto	; restore source pos
 .endproc
 
 ;******************************************************************************
@@ -1284,16 +1282,12 @@ force_enter_insert=*+5
 	sta format
 	jsr text::bufferon
 
-	jsr enter_insert
-
 	; scroll to make room for the new lines
-	lda mode
-	cmp #MODE_VISUAL_LINE
-	bne @singleline
 	ldy visual_lines_copied
 	bne @multiline
 
 @singleline:
+	jsr enter_insert
 @l0:	jsr buff_getch
 	bcs @done
 	cmp #$0d
@@ -1304,7 +1298,7 @@ force_enter_insert=*+5
 	jmp @l0
 
 @done:	lda zp::curx
-	beq :+
+	beq @ret
 	lda zp::cury
 	jsr text::drawline	; draw the last line (if it contains anything)
 
@@ -1322,16 +1316,22 @@ force_enter_insert=*+5
 	tax
 	lda zp::cury
 	ldx height
+	iny
 	jsr text::scrolldownn
+	jsr src::pushp
 
 @l1:	jsr buff_getline
+	bcs :+
 	ldxy #mem::linebuffer
 	jsr src::insertline
-	bcs @ret
+	lda #$0d
+	jsr src::insert
 	lda @row
 	jsr text::drawline
 	inc @row
 	bne @l1
+:	jsr src::popgoto
+	jmp @ret
 .endproc
 
 ;******************************************************************************
@@ -1353,9 +1353,9 @@ force_enter_insert=*+5
 
 :	ldxy visual_start_line
 	sub16 src::line
-	stxy visual_lines_copied
 
-@print: cmpw #0
+@print: stxy visual_lines_copied
+	cmpw #0
 	beq @ok		; don't display message if only 1 line was copied
 
 	inx
@@ -1646,7 +1646,7 @@ force_enter_insert=*+5
 	inc @len
 	bne @readword
 
-:	jsr src::popp
+:	jsr src::popgoto
 	ldy @len
 	beq @ret		; no symbol under cursor, exit
 	lda #$00
@@ -2436,7 +2436,7 @@ goto_buffer:
 	jsr src::pushp		; save current source pos
 	lda @file
 	jsr file::savesrc	; save the buffer
-	jsr src::popp		; restore source pos
+	jsr src::popgoto	; restore source pos
 	lda @file
 	jsr file::close		; close the file
 	cmp #$00
@@ -3518,8 +3518,7 @@ goto_buffer:
 	jsr src::get
 	lda height
 	jsr text::drawline	; draw the new line that was scrolled up
-	jsr src::popp
-	jmp src::goto		; restore source position
+	jmp src::popgoto	; restore source position
 .endproc
 
 ;******************************************************************************
@@ -3698,8 +3697,7 @@ goto_buffer:
 	jmp @seekloop		; if not EOF, keep seeking
 
 @notfound:
-	jsr src::popp
-	jmp src::goto
+	jmp src::popgoto
 
 @found:	ldxy src::line	; get the line we're moving to
 	stxy @target
@@ -3740,10 +3738,9 @@ goto_buffer:
 	bne :-
 
 	; move to the line containing the search word
-@move:	jsr src::popp	; get old source position
-	jsr src::goto	; and restore it
+@move:	jsr src::popgoto	; restore old source position
 	ldxy @target
-	jsr gotoline	; go to the new line
+	jsr gotoline		; go to the new line
 
 	; update the x cursor position to the first character of the search
 	lda @cnt
@@ -4199,11 +4196,19 @@ __edit_gotoline:
 	cmpw #mem::copybuff
 	beq @done		; buffer empty
 
-	ldy #$00
 	ldx #$00
+	ldy #$00
 @l0:	decw buffptr
 	decw @buff
-	lda (@buff),y
+
+	lda @buff
+	cmp mem::copybuff+1
+	bne :+
+	lda @buff+1
+	cmp mem::copybuff
+	beq @ok
+
+:	lda (@buff),y
 	beq @ok
 	cmp #$0d
 	beq @ok
@@ -4211,7 +4216,9 @@ __edit_gotoline:
 	inx
 	bne @l0
 
-@ok:	clc
+@ok:	lda #$00
+	sta mem::linebuffer,x
+	clc
 @done:	rts
 .endproc
 

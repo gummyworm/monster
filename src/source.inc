@@ -28,6 +28,7 @@
 .import __src_up
 .import __src_upn
 .import __src_popp
+.import __src_popgoto
 .import __src_pos
 .import __src_prev
 .import __src_pushp
@@ -79,6 +80,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	next           = __src_next
 	replace        = __src_replace
 	popp           = __src_popp
+	popgoto        = __src_popgoto
 	pos            = __src_pos
 	pushp          = __src_pushp
 	prev           = __src_prev

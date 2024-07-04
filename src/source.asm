@@ -521,6 +521,17 @@ data: .res $6000
 .endproc
 
 ;******************************************************************************
+; POPGOTO
+; Navigates to the the most recent source position pushed in .YX
+.export __src_popgoto
+.proc __src_popgoto
+	jsr __src_popp
+	bcc :+
+	rts
+:	jmp __src_goto
+.endproc
+
+;******************************************************************************
 ; POS
 ; Returns the current source position.  You may go to this position with the
 ; src::goto routine.  Note that if the source changes since this procedure is
