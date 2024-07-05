@@ -1275,64 +1275,110 @@ force_enter_insert=*+5
 ; Inserts the contents of the buffer at the current cursor position and returns
 ; to command mode
 .proc paste_buff
-@row=ra
-	lda format
-	pha
-	lda #$00
-	sta format
-	jsr text::bufferon
-
-	; scroll to make room for the new lines
-	ldy visual_lines_copied
-	bne @multiline
-
-@singleline:
-	jsr enter_insert
-@l0:	jsr buff_getch
-	bcs @done
-	cmp #$0d
-	bne :+
-	jsr linedone
-	jmp @l0
-:	jsr insert
-	jmp @l0
-
-@done:	lda zp::curx
-	beq @ret
-	lda zp::cury
-	jsr text::drawline	; draw the last line (if it contains anything)
-
-@ret:	jsr text::bufferoff
-	pla
-	sta format
-	jmp enter_command
-
-@multiline:
-; TODO: if VISUAL (not VISUAL LINE) insert new lines between the source at cursor
+@row=rd
+@splitindex=re
+@posttext=$100
+; paste between [linebuffer, char_index(curx)] with the first line from buffer
 	lda zp::cury
 	sta @row
+	jsr text::char_index
+	sty @splitindex
+
 	ldy visual_lines_copied
+	beq @noscroll
 	iny
 	ldx height
+	lda @row
 	jsr text::scrolldownn
+
+@noscroll:
 	jsr src::pushp
 
-@l1:	jsr buff_getline
-	bcs @multidone
-	ldxy #mem::linebuffer
-	jsr src::insertline
-	lda #$0d
+	ldx @splitindex	; get index of text to save
+	ldy #$00
+	; save the part of the line that we're inserting BEFORE
+:	lda mem::linebuffer,x
+	inx
+	sta @posttext,y
+	cmp #$00
+	beq @copydone
+	iny
+	bne :-
+
+@copydone:
+	; read the first buffer line into the proper textbuffer location
+	lda @splitindex
+	clc
+	adc #<mem::linebuffer
+	tax
+	lda #>mem::linebuffer
+	adc #$00
+	tay
+	jsr buff_getline
+	bcs @done		; buffer empty (nothing to paste)
+	pha			; save newline flag
+	ldxy r9			; dst (set in buff_getline)
+	jsr src::insertline	; insert the first line from the paste buffer
+	pla
+	cmp #$0d		; did line end with a newline?
+	bne @lastline		; if not, this is a < 1 line paste
 	jsr src::insert
+
+	; redraw the line and move to the next one
+	lda @row
+	jsr text::drawline
+	inc @row
+
+@middlerows:
+	; for full rows ($0d terminated), just get a line and draw it
+@l1:	ldxy #mem::linebuffer
+	jsr buff_getline
+	bcs @done		; if the buffer is empty, we're done
+	pha			; save last char read
+	ldxy r9			; (getline leaves result in r0)
+	jsr src::insertline	; insert the line read
+	pla			; restore last char read
+	cmp #$0d		; was this line a newline?
+	bne @lastline		; if not continue to merge it with last line
+	jsr src::insert
+
 	lda @row
 	inc @row
+	jsr draw_line_if_visible
+	jmp @l1
+
+@lastline:
+	; copy the text after the cursor upon insertion to the buffer again
+	jsr text::linelen
+	ldy #$00
+:	lda @posttext,y
+	sta mem::linebuffer,x
+	beq @lastdone
+	inx
+	iny
+	bne :-
+
+@lastdone:
+	lda @row
+	inc @row
+	jsr draw_line_if_visible
+
+@done:	jmp src::popgoto
+.endproc
+
+;******************************************************************************
+; DRAW_LINE_IF_VISIBLE
+; If the given row is within the current screen range, (0, height], draws the
+; linebuffer.  If not, does nothing.
+; IN:
+;  - .A:	      the row of the line
+;  - mem::linebuffer: the line to draw
+.proc draw_line_if_visible
 	cmp height
 	beq :+
-	bcs @l1
-:	jsr text::drawline
-	jmp @l1
-@multidone:
-	jsr src::popgoto
-	jmp @ret
+	bcs @done
+:	jmp text::drawline
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1343,7 +1389,6 @@ force_enter_insert=*+5
 	jsr yank
 	bcs @done
 
-	; display # of lines yanked
 	jsr enter_command
 
 	ldxy src::line
@@ -1355,7 +1400,7 @@ force_enter_insert=*+5
 :	ldxy visual_start_line
 	sub16 src::line
 
-@print: stxy visual_lines_copied
+@print: stx visual_lines_copied	; (max 255)
 	cmpw #0
 	beq @ok		; don't display message if only 1 line was copied
 
@@ -1367,7 +1412,7 @@ force_enter_insert=*+5
 :	tya
 	pha
 	ldxy #@msg
-	jsr text::info
+	jsr text::info	; display # of lines yanked
 @ok:	clc
 @done:	rts
 @msg: .byte "copied ",ESCAPE_VALUE_DEC, " lines",0
@@ -1409,7 +1454,7 @@ force_enter_insert=*+5
 	bcs @done
 
 	; set the selection type so we know how to handle the eventual paste
-	lda #$01
+	lda #VISUAL
 	sta selection_type
 	lda mode
 	cmp #MODE_VISUAL_LINE
@@ -4151,7 +4196,7 @@ __edit_gotoline:
 ;  - .A: the same as was passed in
 ;  - .C: set if the buffer is full (couldn't add char)
 .proc buff_putch
-@buff=zp::tmp0
+@buff=r0
 	ldxy buffptr
 	stxy @buff
 	cmpw #mem::copybuff+MAX_COPY_SIZE	; buffer is full
@@ -4159,7 +4204,6 @@ __edit_gotoline:
 	ldy #$00
 	sta (@buff),y
 	incw buffptr
-	clc
 @done:	rts
 .endproc
 
@@ -4170,7 +4214,7 @@ __edit_gotoline:
 ;  - .A: the last character PUT into the buffer (0 if none)
 ;  - .C: set if the buffer is empty
 .proc buff_getch
-@buff=r0
+@buff=rb
 	ldxy buffptr
 	stxy @buff
 	cmpw #mem::copybuff
@@ -4187,38 +4231,40 @@ __edit_gotoline:
 ;******************************************************************************
 ; BUFF GETLINE
 ; Gets the last line that was PUT to the buffer
+; IN:
+;  - .XY: the address to store the line to
 ; OUT:
-;  - mem::linebuffer:	the last line PUT to the buffer
-;  - .C:		set if the buffer is empty
+;  - mem::linebuffer: the last line PUT to the buffer
+;  - .A:              $0d if last character is a newline
+;  - .C:	      set if the buffer is empty
 .proc buff_getline
-@buff=r0
+@dst=r9
+@buff=rb
+@i=r4
+	stxy @dst
 	ldxy buffptr
-	stxy @buff
 	cmpw #mem::copybuff
 	beq @done		; buffer empty
 
-	ldx #$00
-	ldy #$00
-@l0:	decw buffptr
-	decw @buff
-
-	lda @buff
-	cmp mem::copybuff+1
-	bne :+
-	lda @buff+1
-	cmp mem::copybuff
-	beq @ok
-
-:	lda (@buff),y
-	beq @ok
+	lda #$00
+	sta @i
+@l0:	jsr buff_getch
+	bcs @empty
 	cmp #$0d
 	beq @ok
-	sta mem::linebuffer,x
-	inx
+	ldy @i
+	sta (@dst),y
+	inc @i
 	bne @l0
 
-@ok:	lda #$00
-	sta mem::linebuffer,x
+@empty: lda #$00
+@ok:	pha
+	ldxy @buff
+	stxy buffptr
+	lda #$00
+	ldy @i
+	sta (@dst),y	; insert the $0d or $00
+	pla
 	clc
 @done:	rts
 .endproc
