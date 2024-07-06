@@ -1298,10 +1298,9 @@ force_enter_insert=*+5
 	ldy #$00
 	; save the part of the line that we're inserting BEFORE
 :	lda mem::linebuffer,x
-	inx
 	sta @posttext,y
-	cmp #$00
 	beq @copydone
+	inx
 	iny
 	bne :-
 
@@ -1333,7 +1332,7 @@ force_enter_insert=*+5
 	; for full rows ($0d terminated), just get a line and draw it
 @l1:	ldxy #mem::linebuffer
 	jsr buff_getline
-	bcs @done		; if the buffer is empty, we're done
+	bcs @lastline		; if the buffer is empty, we're done
 	pha			; save last char read
 	ldxy r9			; (getline leaves result in r0)
 	jsr src::insertline	; insert the line read
@@ -4234,9 +4233,9 @@ __edit_gotoline:
 ; IN:
 ;  - .XY: the address to store the line to
 ; OUT:
-;  - mem::linebuffer: the last line PUT to the buffer
-;  - .A:              $0d if last character is a newline
-;  - .C:	      set if the buffer is empty
+;  - (.XY): the last line PUT to the buffer
+;  - .A:    $0d if last character is a newline
+;  - .C:    set if the buffer is empty
 .proc buff_getline
 @dst=r9
 @buff=rb
@@ -4263,7 +4262,7 @@ __edit_gotoline:
 	stxy buffptr
 	lda #$00
 	ldy @i
-	sta (@dst),y	; insert the $0d or $00
+	sta (@dst),y	; terminate the line
 	pla
 	clc
 @done:	rts
