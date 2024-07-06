@@ -1278,6 +1278,12 @@ force_enter_insert=*+5
 @row=rd
 @splitindex=re
 @posttext=$100
+	; save the current buffer pointer
+	lda buffptr
+	pha
+	lda buffptr+1
+	pha
+
 ; paste between [linebuffer, char_index(curx)] with the first line from buffer
 	lda zp::cury
 	sta @row
@@ -1286,7 +1292,6 @@ force_enter_insert=*+5
 
 	ldy visual_lines_copied
 	beq @noscroll
-	iny
 	ldx height
 	lda @row
 	jsr text::scrolldownn
@@ -1339,8 +1344,8 @@ force_enter_insert=*+5
 	pla			; restore last char read
 	cmp #$0d		; was this line a newline?
 	bne @lastline		; if not continue to merge it with last line
-	jsr src::insert
 
+	jsr src::insert
 	lda @row
 	inc @row
 	jsr draw_line_if_visible
@@ -1359,10 +1364,14 @@ force_enter_insert=*+5
 
 @lastdone:
 	lda @row
-	inc @row
 	jsr draw_line_if_visible
 
-@done:	jmp src::popgoto
+@done:	; restore the buffer pointer
+	pla
+	sta buffptr+1
+	pla
+	sta buffptr
+	jmp src::popgoto
 .endproc
 
 ;******************************************************************************
@@ -1399,8 +1408,7 @@ force_enter_insert=*+5
 :	ldxy visual_start_line
 	sub16 src::line
 
-@print: stx visual_lines_copied	; (max 255)
-	cmpw #0
+@print: cmpw #0
 	beq @ok		; don't display message if only 1 line was copied
 
 	inx
@@ -1451,6 +1459,11 @@ force_enter_insert=*+5
 	rts
 :	jsr get_selection_bounds
 	bcs @done
+
+	lda #$00
+	sta visual_lines_copied
+	ldxy #mem::copybuff
+	stxy buffptr
 
 	; set the selection type so we know how to handle the eventual paste
 	lda #VISUAL
@@ -4202,7 +4215,11 @@ __edit_gotoline:
 	bcs @done
 	ldy #$00
 	sta (@buff),y
-	incw buffptr
+	cmp #$0d
+	bne :+
+	inc visual_lines_copied
+:	incw buffptr
+	clc
 @done:	rts
 .endproc
 
@@ -4241,6 +4258,9 @@ __edit_gotoline:
 @buff=rb
 @i=r4
 	stxy @dst
+	lda #$00
+	tay
+	sta (@dst),y
 	ldxy buffptr
 	cmpw #mem::copybuff
 	beq @done		; buffer empty
