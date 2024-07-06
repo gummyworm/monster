@@ -162,7 +162,7 @@ data: .res $6000
 ;  - .A: the next available ID
 ;  - .C: set if no open bank was found
 .proc find_bank
-@free=zp::tmp0
+@free=r0
 	lda #FINAL_BANK_SOURCE0
 @l0:	ldx #$00
 	stx @free
@@ -299,9 +299,9 @@ data: .res $6000
 ;  - .A: the id of the buffer to get the name of
 ; OUT:
 ;  - .XY: the filename of the buffer or [NO NAME] if it has no name
-; CLOBBERS:
 ;  - .C:  set if the file has no name ([NO NAME])
-;  - zp:tmp0-zp::tmp1
+; CLOBBERS:
+;  - r0-r1
 .export __src_get_filename
 .proc __src_get_filename
 	asl			; * 16
@@ -619,8 +619,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .A: the character at the new cursor position in .A
 .export __src_next
 .proc __src_next
-@src=zp::tmp0
-@dst=zp::tmp2
+@src=r0
+@dst=r2
 	jsr __src_end
 	beq @skip
 
@@ -730,8 +730,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .C: set if we're at the start of the buffer and couldn't move back
 .export __src_prev
 .proc __src_prev
-@src=zp::tmp0
-@dst=zp::tmp2
+@src=r0
+@dst=r2
 	jsr __src_start
 	bne :+
 	jsr atcursor
@@ -989,7 +989,7 @@ __src_atcursor:
 ;  - .C: set if the end of the source was reached
 .export __src_readline
 .proc __src_readline
-@cnt=zp::tmp4
+@cnt=r4
 	lda #$00
 	sta mem::linebuffer
 	sta @cnt
@@ -1027,7 +1027,7 @@ __src_atcursor:
 ;  - .XY: the source position to go to (see src::pos, src::pushp, src::popp)
 .export __src_goto
 .proc __src_goto
-@dest=zp::tmp4
+@dest=r4
 	stxy @dest
 	cmpw pre
 	beq @done
@@ -1058,8 +1058,8 @@ __src_atcursor:
 ;  - .C: set if the end of the buffer was reached as we were reading
 .export __src_get
 .proc __src_get
-@cnt=zp::tmp1
-@src=zp::tmp3
+@cnt=r1
+@src=r3
 	jsr gaplen
 	add16 pre
 	add16 #data
@@ -1102,7 +1102,7 @@ __src_atcursor:
 ;  - .C: set if the end was reached before the total lines requested could be reached
 .export __src_downn
 .proc __src_downn
-@cnt=zp::tmp4
+@cnt=r4
 	stxy @cnt
 @loop:	ldxy @cnt
 	decw @cnt
@@ -1124,7 +1124,7 @@ __src_atcursor:
 ;  - .C: set if the beginning was reached before the total lines requested could be reached
 .export __src_upn
 .proc __src_upn
-@cnt=zp::tmp4
+@cnt=r4
 	stxy @cnt
 @loop:	ldxy @cnt
 	decw @cnt
