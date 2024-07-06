@@ -884,7 +884,9 @@ __src_pos = __src_start	 ; start implements the same behavior
 	jsr mark_dirty
 	jsr __src_delete
 	pla
-	jmp __src_insert
+	bcc @ok
+	rts
+@ok:	jmp __src_insert
 .endproc
 
 ;******************************************************************************

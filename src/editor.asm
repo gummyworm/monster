@@ -2835,6 +2835,7 @@ goto_buffer:
 	bne @put
 @replace:
 	jsr src::replace
+	bcs @done		; nothing to replace
 	jmp text::putch
 @put:	pha
 	jsr text::putch

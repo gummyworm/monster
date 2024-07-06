@@ -290,11 +290,11 @@ When the paste command is executed, the buffer is cleared.
 
 ### Jump Lists
 When the user "jumps" to a different position in the source (`gg`, `G`, `goto line`,
-`find`, `[`, and `]`) the editor tracks this new position.  To recall these
-jump points there are two commands.
-These are _jump-forward_ (`C= + i`) and _jump-backward_ (`C= + o`).
+`find`, `[`, and `]`) the editor saves the old position.  To recall the positions
+that were "jumped" from are two commands: _jump-forward_ (`C= + i`) and _jump-backward_ (`C= + o`).
 
 ---
+
 ## Assembler Overview
 
 ### Syntax
