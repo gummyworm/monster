@@ -288,6 +288,10 @@ When text is deleted (delete line, delete word) or _yanked_, it is stored to a b
 it may be recalled by the paste commands (`p`, paste below and `P` paste above).
 When the paste command is executed, the buffer is cleared.
 
+The copy buffer's size can be configured per-build in `src/config.inc`.  Without
+modification it is set to 880 bytes, which is enough for a completely full
+screen of text (22 lines of 40 columns).
+
 ### Jump Lists
 When the user "jumps" to a different position in the source (`gg`, `G`, `goto line`,
 `find`, `[`, and `]`) the editor saves the old position.  To recall the positions
@@ -631,6 +635,12 @@ less than the maximum number it expects as in this example:
 .ENDIF
 .ENDMAC
 ```
+
+There are some limitations on the number of macros and overall size of the 
+macros per assembly.  The source for all macros must be less than $1400 bytes.
+There is also a 128 macro limit.
+
+Each macro can be a maximum size of 512 bytes (this restriction applies to .REP).
 
 ---
 ### Example program
