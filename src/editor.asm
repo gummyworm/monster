@@ -857,6 +857,21 @@ force_enter_insert=*+5
 @done:	rts
 .endproc
 
+;******************************************************************************
+; CANCEL
+; Returns to COMMAND mode.
+; If an error is being displayed, hides it.
+.proc cancel
+	jsr clrerror
+	lda #EDITOR_HEIGHT
+	jsr __edit_resize
+
+	lda #TEXT_REPLACE
+	sta text::insertmode
+
+	; fall through to enter_command
+.endproc
+
 ;******************************************************************************_
 ; ENTER_COMMAND
 ; Enters COMMAND mode
@@ -1859,52 +1874,45 @@ force_enter_insert=*+5
 .export __edit_refresh
 __edit_refresh:
 .proc refresh
-@saveline=zp::editortmp
-	ldxy src::line
-	stxy @saveline
+@row=zp::editortmp
+	jsr src::pushp
 
-	; move source/cursor to top-left of screen
-	jsr home
-	ldx zp::cury
-	ldy #$00
+	jsr src::atcursor
+	ldx zp::cury		; number of lines to move up
+	cmp #$0d
+	beq :+
+	inx			; if not on a newline, 1st UP is to HOME
+:	ldy #$00
 	sty highlight_status
-	sty zp::cury
+	sty @row
 	jsr src::upn
 
 	; redraw the visible lines
 @l0:	jsr src::readline
 	php
-	lda zp::cury
+	lda @row
 	jsr text::drawline
 	plp
-	bcs @done
-	inc zp::cury
-	lda zp::cury
+	bcs @clr
+	inc @row
+	lda @row
 	cmp height
 	beq @l0
 	bcc @l0
 
-@done:	lda zp::cury
-	pha
-
-	; clear the rest of the lines
-:	ldx zp::cury
+@clr:	; clear the rest of the lines
+	ldx @row
 	inx
 	cpx height
-	bcs @cont
-	stx zp::cury
+	bcs @done
+	stx @row
 	txa
 	jsr bm::clrline
-	jmp :-
+	jmp @clr
 
-@cont:	pla
-	sta zp::cury
-
-	jsr text::rendered_line_len
-	stx zp::curx			; set curx so source and cursor align
-	; restore cursor and source
-	ldxy @saveline
-	jmp gotoline
+@done:	; restore source position
+	jsr src::popgoto
+	jmp src::get
 .endproc
 
 ;******************************************************************************
@@ -2975,14 +2983,17 @@ goto_buffer:
 	jmp @movex
 
 :	; if we ended on a TAB, advance to the next TAB col else curx
-	jsr text::char_index
+	jsr src::after_cursor
 	cmp #$09		; did we end on a TAB?
 	bne ccup_highlight	; if not, continue
-	jsr src::right
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
+	lda mode
+	cmp #MODE_INSERT
+	beq ccup_highlight
+	dec zp::curx
 ; fallthrough
 .endproc
 
@@ -3404,14 +3415,17 @@ goto_buffer:
 	bcc @xloop
 
 @end:	; if we ended on a TAB, advance to next tab col
-	jsr text::char_index
+	jsr src::after_cursor
 	cmp #$09		; did we end on a TAB?
 	bne ccdown_highlight	; if not, continue
-	jsr src::right
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
+	lda mode
+	cmp #MODE_INSERT
+	beq ccdown_highlight
+	dec zp::curx
 ; fall through to ccdown_highlight
 .endproc
 
@@ -3634,20 +3648,6 @@ goto_buffer:
 	bne :+
 	rts
 :	jmp highlight
-.endproc
-
-;******************************************************************************
-; CANCEL
-; Returns to COMMAND mode.
-; If an error is being displayed, hides it.
-.proc cancel
-	jsr clrerror
-	lda #EDITOR_HEIGHT
-	jsr __edit_resize
-
-	lda #TEXT_REPLACE
-	sta text::insertmode
-	jmp enter_command
 .endproc
 
 ;******************************************************************************
