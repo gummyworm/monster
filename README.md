@@ -636,11 +636,15 @@ less than the maximum number it expects as in this example:
 .ENDMAC
 ```
 
+#### Limitations
+
 There are some limitations on the number of macros and overall size of the 
 macros per assembly.  The source for all macros must be less than $1400 bytes.
 There is also a 128 macro limit.
 
-Each macro can be a maximum size of 512 bytes (this restriction applies to .REP).
+Each macro can be at most 16 lines or 512 bytes, whichever is lower. This restriction applies to .REP.
+
+Comments are excluded from the internal context buffer, so using them will not count toward the byte limit.
 
 ---
 ### Example program

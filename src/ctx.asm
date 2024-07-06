@@ -216,6 +216,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 ;******************************************************************************
 ; WRITE
 ; Writes the given line to the context at its current position
+; Comments are ignored to save space in the context buffer.
 ; IN:
 ;  - .XY: the line to write to the active context
 ; OUT:
@@ -226,6 +227,9 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	stxy @line
 	ldy #$00
 @write: lda (@line),y
+	beq @done
+	cmp #';'
+	beq @done
 	sta (cur),y
 	beq @done
 	iny
@@ -233,7 +237,11 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	bne @write
 @err:	RETURN_ERR ERR_LINE_TOO_LONG
 
-@done:	iny
+@done:	lda #$00
+	sta (cur),y	; terminate this line in the buffer
+
+	; update buffer cursor
+	iny
 	tya
 	clc
 	adc cur
