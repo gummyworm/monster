@@ -48,10 +48,10 @@ row:	.byte 0
 .export __watches_view
 .proc __watches_view
 @cnt=zp::tmp13
-@range=zp::tmp3			; if !0, start != stop (watch is a range)
-@start=zp::tmp4			; start address
-@stop=zp::tmp6			; stop address (same as start if NOT range)
-@val=zp::tmp8			; value of watch (if NOT range)
+@range=r3			; if !0, start != stop (watch is a range)
+@start=r4			; start address
+@stop=r6			; stop address (same as start if NOT range)
+@val=r8			; value of watch (if NOT range)
 	; get the first visible watch's offset
 	lda scroll
 	sta @cnt
@@ -288,8 +288,8 @@ command_vectorshi: .hibytes command_vectors
 ; If the watch represents a RANGE of values, does not store new value
 .export __watches_update
 .proc __watches_update
-@cnt=zp::tmp0
-@addr=zp::tmp1
+@cnt=r0
+@addr=r1
 	ldx dbg::numwatches
 	beq @done
 	dex
@@ -327,9 +327,9 @@ command_vectorshi: .hibytes command_vectors
 ; OUT:
 ;  - .Z: set if the given address IS within the given watch's range
 .proc in_range
-@addr=zp::tmp0
-@watchstart=zp::tmp2
-@watchstop=zp::tmp4
+@addr=r0
+@watchstart=r2
+@watchstop=r4
 	stxy @addr
 	tax
 @chklo:
@@ -368,9 +368,9 @@ command_vectorshi: .hibytes command_vectors
 ;  - .C: set if the given address was being watched by at least 1 watch
 .export __watches_mark
 .proc __watches_mark
-@cnt=zp::tmp6
-@addr=zp::tmp7
-@found=zp::tmp9
+@cnt=r6
+@addr=r7
+@found=r9
 	lda #$00
 	sta @found
 
@@ -403,8 +403,8 @@ command_vectorshi: .hibytes command_vectors
 ; The syntax for the entry is:
 ;  <expression> Optional[, <expression>]
 .proc command_add_watch
-@addr=zp::tmp4
-@stop=zp::tmp6
+@addr=r4
+@stop=r6
 	pushcur
 	jsr cur::off
 
@@ -437,7 +437,7 @@ command_vectorshi: .hibytes command_vectors
 	incw zp::line		; move past the separator (,)
 	jsr expr::eval
 	bcs @done
-	stxy zp::tmp0		; stop address
+	stxy r0		; stop address
 	ldxy @addr		; get start address
 @add:	jsr __watches_add	; add the watch
 
@@ -464,9 +464,9 @@ command_vectorshi: .hibytes command_vectors
 ;  - .A:  the type of watch (WATCH_LOAD, WATCH_STORE, or WATCH_LOAD_STORE)
 .export __watches_add
 .proc __watches_add
-@stop=zp::tmp0
-@addr=zp::tmp2
-@flags=zp::tmp4
+@stop=r0
+@addr=r2
+@flags=r4
 	sta @flags
 	stxy @addr
 	ldx dbg::numwatches
@@ -503,13 +503,13 @@ command_vectorshi: .hibytes command_vectors
 ; GETWATCH
 ; Returns the index of the watch at the given address
 ; IN:
-;  - zp::tmp0: the address of the watch
+;  - r0: the address of the watch
 ;
 ; OUT:
 ;  - .C: set if the watch exists
 ;  - .X: the id of the watch * 2
 .proc getwatch
-@addr=zp::tmp2
+@addr=r2
 	ldx dbg::numwatches
 @l0:	lda @addr
 	cmp dbg::watcheslo,x
