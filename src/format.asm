@@ -26,8 +26,8 @@
 ; Formats linebuffer as a label.
 .export __fmt_label
 .proc __fmt_label
-@curr=zp::tmp6
-@cnt=zp::tmp6
+@curr=r6
+@cnt=r6
 	; read past the label
 	ldy #$00
 	sty @curr
@@ -57,7 +57,7 @@
 ; Formats linebuffer as an opcode.
 .export __fmt_opcode
 .proc __fmt_opcode
-@cnt=zp::tmp8
+@cnt=r8
 	; indent the linebuffer and source
 	lda #$09
 	jmp src::insert
@@ -73,7 +73,7 @@
 ;  - .A: the line length
 .export __fmt_line
 .proc __fmt_line
-@linecontent=zp::tmp6
+@linecontent=r6
 @tmp=r4
 	cmp #$00
 	beq @done

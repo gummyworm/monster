@@ -31,11 +31,11 @@ SCREEN_H = 23
 .proc __dir_view
 @file=r8
 @line=r8
-@row=zp::tmpa
-@select=zp::tmpb
-@cnt=zp::tmpc			; number of files extracted from listing
-@scrollmax=zp::tmpc		; maximum amount to allow scrolling
-@scroll=zp::tmpd
+@row=ra
+@select=rb
+@cnt=rc			; number of files extracted from listing
+@scrollmax=rc		; maximum amount to allow scrolling
+@scroll=rd
 @dirbuff=mem::spare+40		; 0-40 will be corrupted by text routines
 @namebuff=mem::spareend-40	; buffer for the file name
 @fptrs=mem::spareend-(128*2)	; room for 128 files
@@ -74,9 +74,9 @@ SCREEN_H = 23
 	bne :-
 	; parse the name of the file
 	lda #>(@namebuff+@dirmsglen-1)
-	sta zp::tmp0+1
+	sta r0+1
 	lda #<(@namebuff+@dirmsglen-1)
-	sta zp::tmp0
+	sta r0
 	ldxy #@dirbuff+5
 	jsr util::parse_enquoted_string
 	jmp @l2

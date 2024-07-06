@@ -32,12 +32,12 @@ fast_clr2 = $727f	; clear last 6 columns
 ;  - .A: the bank to store the fast copy code to
 .export __fastcopy_init
 .proc __fastcopy_init
-@src=zp::tmp1
-@dst=zp::tmp3
-@cnt=zp::tmp5
-@addr=zp::tmp7
-@i=zp::tmp9
-@bank=zp::tmpa
+@src=r1
+@dst=r3
+@cnt=r5
+@addr=r7
+@i=r9
+@bank=ra
 	sta @bank
 
 	ldxy #BITMAP_ADDR

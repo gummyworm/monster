@@ -2718,8 +2718,8 @@ goto_buffer:
 ; Redraws the line starting at the cursor's x position to the next $0d in the
 ; source
 .proc redraw_to_end_of_line
-@x=zp::tmp7
-@cnt=zp::tmp8
+@x=r7
+@cnt=r8
 	jsr text::char_index
 	sty @x
 	lda #$00
@@ -3011,7 +3011,7 @@ goto_buffer:
 ;
 ; If the editor is not in visual mode, this routine does nothing
 .proc ccup_highlight
-@togglecur=zp::tmp6
+@togglecur=r6
 	lda mode
 	cmp #MODE_VISUAL
 	bne @done
@@ -3703,10 +3703,10 @@ goto_buffer:
 .proc __edit_find
 @string=zp::str0
 @seekptr=zp::str2
-@tofind=zp::tmp2
-@target=zp::tmp8
-@len=zp::tmpa
-@cnt=zp::tmpd
+@tofind=r2
+@target=r8
+@len=ra
+@cnt=rd
 @searchbuff=$120	; buffer of bytes to search
 	stxy @string
 	jsr str::len
@@ -4047,7 +4047,7 @@ __edit_gotoline:
 ;  -.XY: the line number of the error
 ;  - mem::linebuffer: the line containing the error
 .proc reporterr
-@err=zp::tmp0
+@err=r0
 	sta @err
 
 	; push the line number
@@ -4072,9 +4072,9 @@ __edit_gotoline:
 	jsr str::uncompress
 
 	lda #<strings::edit_line_err
-	sta zp::tmp0
+	sta r0
 	lda #>strings::edit_line_err
-	sta zp::tmp0+1
+	sta r0+1
 	jsr str::cat
 
 	lda #ERROR_ROW

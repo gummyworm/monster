@@ -293,7 +293,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Initializes a segment (as with .ORG)
 ; IN:
 ;  .XY:      the start address of the segment
-;  zp::tmp0: the name of the segment
+;  r0: the name of the segment
 .export __debug_init_segment
 .proc __debug_init_segment
 @name=r0
@@ -622,7 +622,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;
 ; in:
 ;  - .XY: the line number
-;  - zp::tmp0: the address corresponding to the given line number
+;  - r0: the address corresponding to the given line number
 .export __debug_store_line
 .proc __debug_store_line
 @addr=r0
@@ -926,7 +926,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stxy @filename		 ; store as filename dest
 
 	ldxy @src
-	jsr str::copy		; copy @src to zp::tmp0 (@filename)
+	jsr str::copy		; copy @src to r0 (@filename)
 
 	lda numfiles
 	inc numfiles

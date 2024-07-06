@@ -205,14 +205,14 @@ bankcode_size = *-bankcode
 ; IN:
 ;  - .A: the source/destination block
 ;  - .XY: the number of bytes to copy
-;  - zp::tmp2: the source address
-;  - zp::tmp4: the destination address
+;  - r2: the source address
+;  - r4: the destination address
 .export __final_memcpy
 .proc __final_memcpy
-@src=zp::tmp2
-@dst=zp::tmp4
-@bank=zp::tmp6
-@size=zp::tmp0
+@src=r2
+@dst=r4
+@bank=r6
+@size=r0
 	cmpw #$00
 	beq @done
 

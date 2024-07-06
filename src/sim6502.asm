@@ -257,7 +257,7 @@ __sim_stopwatch: .res 3
 ; IN:
 ;  - .XY: address of the binary instruction
 ;  - .A: the size of the instruction
-;  - zp::tmp0: the address modes for the instruction (see asm::disassemble)
+;  - r0: the address modes for the instruction (see asm::disassemble)
 ; OUT:
 ;  - .C:                   clear if the instruction is desctructive
 ;  - __sim_effective_addr: holds the address of the byte that will be
@@ -323,9 +323,9 @@ __sim_stopwatch: .res 3
 ; same as the operand (if the opcode represents a zeropage or absolute address
 ; mode) or not (indirect or indexed address modes)
 ; IN:
-;  - .XY:      the operand
-;  - .A:       the opcode
-;  - zp::tmp0: the address mode of the instruction
+;  - .XY: the operand
+;  - .A:  the opcode
+;  - r0:  the address mode of the instruction
 ; OUT:
 ;  - .XY: the effective address of the instruction
 .proc get_effective_addr

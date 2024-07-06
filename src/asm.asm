@@ -867,7 +867,7 @@ num_illegals = *-illegal_opcodes
 ;------------------
 ; check that the BBB and CC combination we have is valid
 @validate_cc:
-@optmp=zp::tmp0
+@optmp=r0
 	ldy cc
 	bne :+
 	lda bbb00,x
@@ -1148,8 +1148,8 @@ num_illegals = *-illegal_opcodes
 ;  - .C: set if (line) is not an opcode
 ;  - cc: updated with the cc part of the opcode
 .proc getopcode
-@optab = zp::tmp6
-@op = zp::tmp8
+@optab = r6
+@op = r8
 	lda #$00
 	sta @op
 	sta cc
@@ -1231,7 +1231,7 @@ num_illegals = *-illegal_opcodes
 ; OUT:
 ;  - .C: set if the contents of zp::line is not a directive
 .proc getdirective
-@cnt=zp::tmp2
+@cnt=r2
 	ldy #$00
 	lda (zp::line),y
 	cmp #'.'
@@ -1532,9 +1532,9 @@ num_illegals = *-illegal_opcodes
 .proc incbinfile
 @filename=$100
 	lda #<@filename
-	sta zp::tmp0
+	sta r0
 	lda #>@filename
-	sta zp::tmp0+1
+	sta r0+1
 	ldxy zp::line
 	jsr util::parse_enquoted_string
 	bcs @err
@@ -1594,8 +1594,8 @@ num_illegals = *-illegal_opcodes
 ; entry point for assembling a given file
 .export __asm_include
 __asm_include:
-@err=zp::tmpa
-@fname=zp::tmpc
+@err=ra
+@fname=rc
 @readfile:
 	stxy @fname
 	jsr file::open
@@ -1853,7 +1853,7 @@ __asm_include:
 	; get the context data (the macro definition)
 	pha
 	ldxy #$100
-	stxy zp::tmp0
+	stxy r0
 	jsr ctx::getdata
 	pla
 
@@ -1942,30 +1942,30 @@ __asm_include:
 ; disassembles the given instruction
 ; IN:
 ;  - .XY: the address of the instruction to disassemble
-;  - zp::tmp0: the address of the buffer to disassemble to
+;  - r0: the address of the buffer to disassemble to
 ; OUT:
 ;  - .A:         the size of the instruction that was disassembled
 ;  - .X:         the address modes for the instruction
 ;  - .C:         clear if instruction was successfully disassembled
-;  - (zp::tmp0): the (0-terminated) disassembled instruction string
+;  - (r0): the (0-terminated) disassembled instruction string
 .export __asm_disassemble
 .proc __asm_disassemble
-@dst=zp::tmp0
-@cc=zp::tmp2
+@dst=r0
+@cc=r2
 
-@op=zp::tmp3
-@operand=zp::tmp4
+@op=r3
+@operand=r4
 
-@optab=zp::tmp7
-@illegals=zp::tmp7
-@cc8=zp::tmp7
-@xxy=zp::tmp7
-@cc8_plus_aaa=zp::tmp7
-@modes=zp::tmp7
+@optab=r7
+@illegals=r7
+@cc8=r7
+@xxy=r7
+@cc8_plus_aaa=r7
+@modes=r7
 
-@bbb=zp::tmp8
-@aaa=zp::tmp9
-@opaddr=zp::tmpa
+@bbb=r8
+@aaa=r9
+@opaddr=ra
 	stxy @opaddr		; opcode
 	jsr vmem::load
 	sta @op
@@ -2631,8 +2631,8 @@ __asm_include:
 ; OUT:
 ;  - .C: set on error, clear on success
 .proc writeb
-@savex=zp::tmpe
-@savey=zp::tmpf
+@savex=re
+@savey=rf
 	sta zp::bankval
 	lda pcset
 	bne :+
@@ -2656,8 +2656,8 @@ __asm_include:
 ; OUT:
 ;  - .A: contains the byte from (zp::asmresult),y
 .proc readb
-@savex=zp::tmpe
-@savey=zp::tmpf
+@savex=re
+@savey=rf
 	stx @savex
 	sty @savey
 	tya			; .A = offset to load
