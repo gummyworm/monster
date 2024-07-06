@@ -49,7 +49,8 @@ files        = $259	; KERNAL open file table
 file_devices = $261	; KERNAL device ID table
 kernal_sas   = $26d	; KERNAL secondary address table
 
-isbin        = zp::tmp17	; flag for binary save/load  to memory
+isvirtual = zp::tmp16 	; flag for binary load to VIRTUAL memory
+isbin     = zp::tmp17	; flag for binary save/load to memory
 
 ;******************************************************************************
 ; The address to load from during a binary LOAD
@@ -74,6 +75,8 @@ __file_save_address_end = zp::tmpd
 ;  - .C: set on error
 .export __file_load_bin
 .proc __file_load_bin
+	ldx #$00
+	sta isvirtual
 	ldx #$01
 	stx isbin
 	bne load
@@ -479,6 +482,8 @@ __file_load_src:
 ; PUTB
 ; Outputs a byte to the __file_load_address (if isbin is !0) or to the current
 ; source if not.
+; If loading a binary file, isvirtual determines if it will be loaded into
+; physical memory (isvirtual == 0) or virtual (isvirtual != 0)
 ; IN:
 ;  - .A: the byte to output
 .proc putb
@@ -487,8 +492,13 @@ __file_load_src:
 
 	; if not loading to SOURCE, write to memory
 	ldy #$00
-	sta (__file_load_address),y
-	incw __file_load_address
+	ldx isvirtual
+	beq :+
+	ldxy __file_load_address
+	jsr vmem::store
+	skw
+:	sta (__file_load_address),y
+@done:	incw __file_load_address
 	rts
 @src:	jmp src::insert
 .endproc

@@ -267,6 +267,13 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; COMMAND_DISASM_FILE
+; :d <filename>
+; Disassembles the contents of the given file to a new buffer
+.proc command_disasm_file
+.endproc
+
+;******************************************************************************
 ; COMMAND_DISASM
 ; :d <start addr>, <stop addr>
 ; Disassembles the given address range
