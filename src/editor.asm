@@ -1642,9 +1642,9 @@ force_enter_insert=*+5
 
 ;******************************************************************************
 .proc goto_end
+	jsr add_jump_point
 	ldxy #$ffff
-	jsr gotoline
-	jmp add_jump_point
+	jmp gotoline
 .endproc
 
 ;******************************************************************************
@@ -1713,7 +1713,8 @@ force_enter_insert=*+5
 	jsr str::toupper
 	ldxy #mem::spare
 	jsr lbl::addr		; get the address of the line
-	bcs @ret		; no address found
+	bcc @ret		; no address found
+	jsr add_jump_point
 	jmp dbg::gotoaddr	; goto it
 .endproc
 
@@ -3797,6 +3798,7 @@ goto_buffer:
 
 	; move to the line containing the search word
 @move:	jsr src::popgoto	; restore old source position
+	jsr add_jump_point	; add a jump point
 	ldxy @target
 	jsr gotoline		; go to the new line
 
@@ -4147,7 +4149,7 @@ __edit_gotoline:
 ; ADD JUMP POINT
 ; Adds a jump point at the current source position
 .proc add_jump_point
-@end=zp::tmp0
+@end=r0
 	lda jumpptr
 	cmp #MAX_JUMPS
 	bcc @cont
