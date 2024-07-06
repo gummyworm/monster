@@ -269,8 +269,35 @@ main:	jsr key::getch
 ;******************************************************************************
 ; COMMAND_DISASM_FILE
 ; :d <filename>
-; Disassembles the contents of the given file to a new buffer
+; Disassembles the contents of the given file to a new buffer.
+; The .PRG load address determines where (in virtual memory) the file's
+; binary data is loaded
+; IN:
+;  - .XY: address of the command argument (filename to load)
 .proc command_disasm_file
+@file=zp::editortmp
+@filename=zp::editortmp+1
+@start=zp::editortmp+3
+	stxy @filename
+	jsr file::open_r_prg
+	sta @file
+
+	; read .PRG header
+	jsr file::readb
+	sta @start
+	sta file::loadaddr
+	jsr file::readb
+	sta @start+1
+	sta file::loadaddr+1
+
+	lda @file
+	jsr file::loadbinv	; load the binary
+
+	; disassemble the binary
+	ldxy file::loadaddr	; disassembly stop address
+	stxy r0
+	ldxy @start
+	jmp disassemble
 .endproc
 
 ;******************************************************************************
@@ -294,7 +321,8 @@ main:	jsr key::getch
 
 @ok:	stxy r0
 	ldxy @start
-	jmp disassemble		; disassemble the address range
+
+	; fall through to disassemble
 .endproc
 
 ;******************************************************************************
@@ -2375,6 +2403,7 @@ goto_buffer:
 	.byte $78		; x - scratch file
 	.byte $61		; a - assemble file
 	.byte $44		; D - disassemble
+	.byte $46		; F - disassemble file
 	.byte $42		; B - create .BIN
 	.byte $50		; P - create .PRG
 @num_ex_commands=*-@ex_commands
@@ -2382,7 +2411,8 @@ goto_buffer:
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
 	command_load, command_rename, command_save, command_scratch, \
-	command_assemble_file, command_disasm, command_savebin, command_saveprg
+	command_assemble_file, command_disasm, command_disasm_file, \
+	command_savebin, command_saveprg
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs

@@ -66,6 +66,23 @@ __file_save_address     = zp::tmpb
 __file_save_address_end = zp::tmpd
 
 ;******************************************************************************
+; LOADBINV
+; loads the given file into the given virtual memory address
+; IN:
+;  .A:                      the file handle to load from
+;  file::file_load_address: the address to load the file to
+; OUT:
+;  - .C: set on error
+.export __file_load_binv
+.proc __file_load_binv
+	ldx #$01
+	sta isvirtual
+	ldx #$01
+	stx isbin
+	bne load
+.endproc
+
+;******************************************************************************
 ; LOADBIN
 ; loads the given file into the given memory address
 ; IN:

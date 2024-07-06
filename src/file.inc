@@ -1,6 +1,7 @@
 .import __file_close
 .import __file_getline
 .import __file_load_bin
+.import __file_load_binv
 .importzp __file_load_address
 .import __file_load_src
 .import __file_open
@@ -20,6 +21,7 @@
 	close            = __file_close
 	getline          = __file_getline
 	loadbin          = __file_load_bin
+	loadbinv         = __file_load_binv
 	loadaddr         = __file_load_address
 	loadsrc          = __file_load_src
 	open_r           = __file_open_r
