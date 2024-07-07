@@ -1947,6 +1947,7 @@ __edit_refresh:
 .proc refresh
 @row=zp::editortmp
 	jsr src::pushp
+	jsr text::savebuff
 
 	jsr src::atcursor
 	ldx zp::cury		; number of lines to move up
@@ -1983,7 +1984,7 @@ __edit_refresh:
 
 @done:	; restore source position
 	jsr src::popgoto
-	jmp src::get
+	jmp text::restorebuff
 .endproc
 
 ;******************************************************************************
