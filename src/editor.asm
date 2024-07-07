@@ -2109,6 +2109,8 @@ __edit_refresh:
 	ldxy src::line
 	cmpw __edit_highlight_line
 	bne @done
+	lda #$01
+	sta highlight_status
 	; the highlight was destroyed by drawing the line, re-highlight it
 	jmp toggle_highlight
 @done:	rts
