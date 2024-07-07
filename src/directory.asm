@@ -36,7 +36,8 @@ SCREEN_H = 23
 @cnt=rc			; number of files extracted from listing
 @scrollmax=rc		; maximum amount to allow scrolling
 @scroll=rd
-@dirbuff=mem::spare+40		; 0-40 will be corrupted by text routines
+@dirbuff=mem::spare+42		; 0-40 will be corrupted by text routines
+				; 40-41 is load address
 @namebuff=mem::spareend-40	; buffer for the file name
 @fptrs=mem::spareend-(128*2)	; room for 128 files
 	ldxy #strings::dir
@@ -46,7 +47,7 @@ SCREEN_H = 23
 @err:	rts			; error
 
 	; load the directory into dirbuff
-:	ldxy #@dirbuff
+:	ldxy #@dirbuff-2
 	stxy __file_load_address
 	jsr file::loadbin
 	bcs @err

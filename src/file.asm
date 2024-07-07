@@ -77,7 +77,6 @@ __file_save_address_end = rd
 .proc __file_load_binv
 	ldx #$01
 	stx isvirtual
-	ldx #$01
 	stx isbin
 	bne load
 .endproc
@@ -94,7 +93,7 @@ __file_save_address_end = rd
 .proc __file_load_bin
 	ldx #$00
 	sta isvirtual
-	ldx #$01
+	inx
 	stx isbin
 	bne load
 .endproc
@@ -118,23 +117,13 @@ __file_load_src:
 ; LOAD
 ; loads the given file into memory or a source buffer
 ; IN:
-;  - .A the file handle
-;  zp::tmpb: the address to load the file to
+;  - .A  the file handle
+;  - rb: the address to load the file to
 ; OUT:
-;  .C: set on error, clear on success
+;  - .C: set on error, clear on success
 .proc load
 	tax
-	jsr $ffc6     ; CHKIN (file in .X now used as input)
-
-	; if .PRG, read load address
-	lda secondaryaddr
-	bne @l0
-	jsr $ffb7	; READST
-	bne @eof	; error/eof
-	jsr $ffcf	; CHRIN, read 1st byte
-	jsr $ffb7	; READST
-	bne @eof	; error/eof
-	jsr $ffcf	; CHRIN, read 2nd byte of load address
+	jsr $ffc6	; CHKIN (file in .X now used as input)
 
 @l0: 	jsr $ffb7	; call READST (read status byte)
 	cmp #$00

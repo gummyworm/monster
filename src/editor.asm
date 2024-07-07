@@ -288,10 +288,10 @@ main:	jsr key::getch
 	jsr $ffc6     ; CHKIN (file in .X now used as input)
 
 	; read .PRG header
-	jsr file::readb
+	jsr $ffcf
 	sta @start
 	sta file::loadaddr
-	jsr file::readb
+	jsr $ffcf
 	sta @start+1
 	sta file::loadaddr+1
 
