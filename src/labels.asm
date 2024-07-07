@@ -342,6 +342,7 @@ anon_addrs = $b000
 @seek:	; check label length
 	ldy #$00
 :	lda (@name),y
+	jsr isseparator
 	beq :+
 	iny
 	bne :-
@@ -1117,7 +1118,6 @@ anon_addrs = $b000
 
 	; following characters must be between '0' and 'Z'
 @l0:	lda (@name),y
-	beq @done
 	jsr isseparator
 	beq @done
 	cmp #'0'
@@ -1232,6 +1232,11 @@ anon_addrs = $b000
 .endproc
 
 ;******************************************************************************
+; ISSEPARATOR
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is any separator
 .proc isseparator
 	cmp #':'
 	beq @yes
