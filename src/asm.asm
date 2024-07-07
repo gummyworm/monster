@@ -258,6 +258,8 @@ num_opcode_singles=*-opcode_singles
 
 ;******************************************************************************
 ; DIRECTIVES
+.export __asm_org_string
+
 DIRECTIVE_ELSE = 9
 DIRECTIVE_ENDIF = 10
 directives:
@@ -265,6 +267,7 @@ directives:
 .byte "eq",0
 .byte "dw",0
 .byte "inc",0
+__asm_org_string:
 .byte "org",0
 .byte "rorg",0
 .byte "rep",0
@@ -1942,11 +1945,11 @@ __asm_include:
 ; disassembles the given instruction
 ; IN:
 ;  - .XY: the address of the instruction to disassemble
-;  - r0: the address of the buffer to disassemble to
+;  - r0:  the address of the buffer to disassemble to
 ; OUT:
-;  - .A:         the size of the instruction that was disassembled
-;  - .X:         the address modes for the instruction
-;  - .C:         clear if instruction was successfully disassembled
+;  - .A:   the size of the instruction that was disassembled
+;  - .X:   the address modes for the instruction
+;  - .C:   clear if instruction was successfully disassembled
 ;  - (r0): the (0-terminated) disassembled instruction string
 .export __asm_disassemble
 .proc __asm_disassemble

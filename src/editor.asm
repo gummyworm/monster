@@ -280,7 +280,10 @@ main:	jsr key::getch
 @start=zp::editortmp+3
 	stxy @filename
 	jsr file::open_r_prg
-	sta @file
+	bcc @ok
+	rts			; failed to open file
+
+@ok:	sta @file
 
 	; read .PRG header
 	jsr file::readb
@@ -339,7 +342,36 @@ main:	jsr key::getch
 	stxy @addr
 	ldxy r0
 	stxy @stop
-	jsr new_buffer		; create/activate a new buffer
+	jsr new_buffer		; create/activate a new source buffer
+
+	lda #'.'
+	jsr src::insert
+	ldxy #asm::org_string
+	jsr src::insertline
+	lda #' '
+	jsr src::insert
+
+	lda #'$'
+	jsr src::insert
+	lda @addr+1
+	jsr util::hextostr
+	txa
+	pha
+	tya
+	jsr src::insert
+	pla
+	jsr src::insert
+
+	lda @addr
+	jsr util::hextostr
+	txa
+	pha
+	tya
+	jsr src::insert
+	pla
+	jsr src::insert
+	lda #$0d
+	jsr src::insert
 
 @l0:	ldxy #@buff
 	stxy r0
@@ -393,8 +425,10 @@ main:	jsr key::getch
 	cmpw @stop
 	bcc @l0			; disassemble next instruction
 
-	ldxy #1
-	jsr gotoline
+	lda #$00
+	sta zp::curx
+	sta zp::cury
+	jsr src::rewind
 	jmp refresh
 
 @db:   .byte ".db $"
@@ -2481,9 +2515,9 @@ goto_buffer:
 
 ;******************************************************************************
 ; WRITE_ASM
-; Writes the assembled program to the file in r0
+; Writes the assembled program to the file in r0 and then closes the file
 ; IN:
-;  - r0: the file handle to write out
+;  - r4: the file handle to write out
 .proc write_asm
 @file=r4
 	; write the assembled program

@@ -56,14 +56,14 @@ isbin     = zp::tmp17	; flag for binary save/load to memory
 ; The address to load from during a binary LOAD
 ; VOLATILE should be set immediately before calling
 .export __file_load_address
-__file_load_address = zp::tmpb
+__file_load_address = rb
 
 ; The address to save to during a binary SAVE
 ; VOLATILE should be set immediately before calling
 .export __file_save_address
-__file_save_address     = zp::tmpb
+__file_save_address     = rb
 .export __file_save_address_end
-__file_save_address_end = zp::tmpd
+__file_save_address_end = rd
 
 ;******************************************************************************
 ; LOADBINV
@@ -445,7 +445,7 @@ __file_load_src:
 .proc __file_close
 	sei
 	pha
-	jsr $ffc3
+	jsr $ffc3		; CLOSE
 	pla
 	jmp $ffb7		; READST
 .endproc
