@@ -437,7 +437,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 
 	jsr __text_char_index
 	sty @curi
-
 	; get the new x position
 	lda mem::linebuffer-1,y
 	pha
@@ -445,7 +444,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sta mem::linebuffer-1,y	; temporarily 0-terminate line
 	jsr __text_rendered_line_len
 	stx zp::curx
-
 	pla
 	ldy @curi
 	sta mem::linebuffer-1,y	; restore
@@ -472,7 +470,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	ldx zp::curx
 	cpx cur::maxx
 	bcs @err	; cursor is limited
-
 	pha
 	jsr __text_char_index
 	sty @curi
@@ -805,6 +802,47 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	pla
 	bcc @l0
 @done:	lda mem::linebuffer,y
+	rts
+.endproc
+
+;******************************************************************************
+; INDEX2CURSOR
+; Returns the x cursor position for the given offset in linebuffer
+; IN:
+;  - .A: the index in linebuffer to get the cursor position for
+; OUT:
+;  - .X: the corresponding cursor position
+.export __text_index2cursor
+.proc __text_index2cursor
+@i=zp::text
+@x=zp::text+1
+@seek=zp::text+2
+	sta @seek
+	lda #$00
+	sta @i
+	sta @x
+
+@l0:	ldx @i
+	lda mem::linebuffer,x
+	beq @end	; end of buffer
+	cpx @seek
+	beq @done
+	inc @i
+	cmp #$09	; TAB
+	bne :+
+
+	lda @x
+	jsr __text_tabr_dist_a
+	clc
+	adc @x
+	sta @x
+	bne @l0
+
+:	inc @x
+	bne @l0
+
+@end:	dec @x
+@done:	ldx @x
 	rts
 .endproc
 

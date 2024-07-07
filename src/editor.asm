@@ -2795,39 +2795,35 @@ goto_buffer:
 ; Redraws the line starting at the cursor's x position to the next $0d in the
 ; source
 .proc redraw_to_end_of_line
-@x=r7
-@cnt=r8
 	jsr text::char_index
-	sty @x			; offset to cat old buffer at
-	jsr text::savebuff	; save the current text line
-	jsr src::get		; get the rest (after cursor) of the new one
+	tya
+	pha
 
-	ldx @x
-	ldy #$00
-:	lda mem::linebuffer,y
-	sta mem::linesave,x
-	beq @draw
-	iny
-	inx
-	bne :-
-
-@draw:	; redraw
-	jsr text::restorebuff
+	jsr src::pushp
+	jsr src::home
+	jsr src::get
 	lda zp::cury
 	jsr text::drawline
+	jsr src::popgoto
 
-	; if cursor is beyond new line length, move it to the new end
-	jsr text::rendered_line_len
-	dex
-	cpx zp::curx
-	bcs @done
-
-	; cursor is beyond line and source is at the newline (or end)
-	; move cursor and source so that they point to last character of the
-	; line
+	pla
+	jsr text::index2cursor
 	stx zp::curx
-	jsr src::prev
 
+	; if we're on a TAB, move cursor to the end of it
+	jsr src::after_cursor
+	cmp #$09
+	bne :+
+	jsr text::tabr_dist
+	clc
+	adc zp::curx
+	sta zp::curx
+	dec zp::curx
+
+:	jsr src::after_cursor
+	cmp #$0d
+	bne @done
+	jmp src::prev
 @done:	rts
 .endproc
 
@@ -3156,16 +3152,18 @@ goto_buffer:
 ; OUT:
 ;  - .C: set if no character could be deleted.
 .proc delch
+@tmp=r0
 	jsr is_readonly
 	beq @nodel
 	jsr src::end
 	beq @nodel
 	jsr src::before_newl
 	beq @nodel
-	jmp src::delete
+@del:	jmp src::delete
 @nodel:	sec
 	rts
 .endproc
+
 
 ;******************************************************************************
 ; CCLEFT
@@ -3313,7 +3311,7 @@ goto_buffer:
 	bne @curr
 
 	; handle TAB (repeat the MOVE RIGHT logic til we're at the TAB next col)
-	jsr text::tabr_dist
+jsr text::tabr_dist
 	sta @tabcnt
 	ldy zp::editor_mode
 	cpy #MODE_INSERT

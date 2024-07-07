@@ -5,6 +5,7 @@
 .import __text_clrline
 .import __text_drawline
 .import __text_insertmode
+.import __text_index2cursor
 .import __text_len
 .import __text_linelen
 .import __text_puts
@@ -54,6 +55,7 @@ CH_R_ARROW	    = 135
 	drawline         = __text_drawline
 	info             = __text_info
 	insertmode       = __text_insertmode
+	index2cursor     = __text_index2cursor
 	len              = __text_len
 	linelen          = __text_linelen
 	print            = __text_print
