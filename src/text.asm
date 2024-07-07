@@ -511,7 +511,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	adc zp::curx
 	sta zp::curx
 	lda zp::cury
-	jmp @redrawline		; re-render whole line
+	jmp @redrawline		; re-render the line
+
 @redraw:
 	lda __text_buffer
 	bne @done
@@ -521,10 +522,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	jsr __text_drawline	; re-render whole line
 	RETURN_OK
 
-	; TODO: make fast?
-	ldx __text_buffer
-	bne @done		; if BUFFER is enabled, don't blit
-	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
 @done:	inc zp::curx
 	RETURN_OK		; "put" was successful
 .endproc
@@ -821,6 +818,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	lda #$00
 	sta @i
 	sta @x
+	lda mem::linebuffer
+	beq @done
 
 @l0:	ldx @i
 	lda mem::linebuffer,x

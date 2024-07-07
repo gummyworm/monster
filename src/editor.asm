@@ -1047,16 +1047,20 @@ force_enter_insert=*+5
 @ch=r0
 	jsr is_readonly
 	beq @done
+
 :	jsr key::getch	; get the character to replace with
 	beq :-
 	sta @ch
+
 	lda text::insertmode
 	pha
 	lda #TEXT_REPLACE
 	sta text::insertmode
+
 	lda @ch
 	jsr insert
-	jsr cur::left	; don't advance cursor
+	jsr ccleft	; don't advance cursor
+
 	pla
 	sta text::insertmode
 @done:	rts
@@ -2820,10 +2824,14 @@ goto_buffer:
 	sta zp::curx
 	dec zp::curx
 
-:	jsr src::after_cursor
+:	; make sure cursor is pointing to something in the source
+	; (unless line is empty)
+	jsr src::end
+	beq @back
+	jsr src::after_cursor
 	cmp #$0d
 	bne @done
-	jmp src::prev
+@back:	jmp src::left
 @done:	rts
 .endproc
 
@@ -3154,8 +3162,6 @@ goto_buffer:
 .proc delch
 @tmp=r0
 	jsr is_readonly
-	beq @nodel
-	jsr src::end
 	beq @nodel
 	jsr src::before_newl
 	beq @nodel

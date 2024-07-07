@@ -554,6 +554,18 @@ __src_pos = __src_start	 ; start implements the same behavior
 .endproc
 
 ;******************************************************************************
+; BEFORE END
+; Checks if the source cursor is located just before the end of the buffer.
+; OUT:
+;  - .Z: set if the cursor is before the end of the buffer
+.export __src_before_end
+.proc __src_before_end
+	ldxy post
+	cmpw #1
+	rts
+.endproc
+
+;******************************************************************************
 ; START
 ; Returns .Z set if the cursor is at the start of the buffer.
 ; OUT:
@@ -878,6 +890,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 ; replacing the character that currently resides there
 ; IN:
 ;  - .A: the character to replace the existing one with
+; OUT:
+;  - .C: set if there is nothing to replace
 .export __src_replace
 .proc __src_replace
 	pha
@@ -886,7 +900,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 	pla
 	bcc @ok
 	rts
-@ok:	jmp __src_insert
+@ok:	jsr __src_insert
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
