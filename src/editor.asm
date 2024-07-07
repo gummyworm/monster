@@ -2620,6 +2620,8 @@ goto_buffer:
 ;******************************************************************************
 ; LOAD
 ; Loads the file from disk into the source buffer
+; IN:
+;  - .XY: the filename to load
 ; OUT:
 ;  - .C: set if file could not be loaded into a buffer
 .export __edit_load
@@ -2654,9 +2656,9 @@ goto_buffer:
 
 @notfound:
 ; buffer doesn't exist in any RAM bank, load from disk
-	; get the file length
 	ldxy @file
-	jsr str::len
+	jsr file::exists
+	bne @err		; if file doesn't exist, we're done
 
 	; display loading...
 	ldxy #strings::loading
@@ -2680,9 +2682,13 @@ goto_buffer:
 	sta zp::curx
 	sta zp::cury		; reset cursor
 	jsr refresh
-	jmp cancel
+	jsr cancel
+	clc
+	rts
 
-@err:	jmp report_typein_error
+@err:	jsr report_typein_error
+	sec
+	rts
 .endproc
 
 ;******************************************************************************

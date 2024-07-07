@@ -1,8 +1,12 @@
+.importzp __file_load_address
+.importzp __file_save_address
+.importzp __file_save_address_end
+
 .import __file_close
+.import __file_exists
 .import __file_getline
 .import __file_load_bin
 .import __file_load_binv
-.importzp __file_load_address
 .import __file_load_src
 .import __file_open
 .import __file_open_r
@@ -10,8 +14,6 @@
 .import __file_open_w
 .import __file_readb
 .import __file_save_bin
-.importzp __file_save_address
-.importzp __file_save_address_end
 .import __file_save_src
 .import __file_scratch
 .import __file_write
@@ -19,6 +21,7 @@
 
 .scope file
 	close            = __file_close
+	exists           = __file_exists
 	getline          = __file_getline
 	loadbin          = __file_load_bin
 	loadbinv         = __file_load_binv

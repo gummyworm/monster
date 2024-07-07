@@ -401,6 +401,35 @@ __file_load_src:
 .endproc
 
 ;******************************************************************************
+; EXISTS
+; Opens, reads a byte, and closes a file of the given name to check for its
+; existence.
+; IN:
+;  - .XY: the filename to check if exists
+; OUT:
+;  - .Z: set if the file exists; clear if it does
+.export __file_exists
+.proc __file_exists
+@file=r0
+	jsr __file_open_r
+	ldx #$01	; failed to open file
+	bcs @done
+	sta @file
+	tax
+	jsr $ffc6	; CHKIN (file in .X now used as input)
+	jsr __file_readb
+	jsr $ffb7	; call READST (read status byte)
+	pha
+	lda @file
+	jsr __file_close
+	pla		; restore READST status flag
+	beq @done
+	lda #ERR_FILE_NOT_FOUND
+@done:	rts
+.endproc
+
+
+;******************************************************************************
 ; CLOSE
 ; Closes the file with the given handle.
 ; IN:
