@@ -1,5 +1,5 @@
 # MONster
-<img width="825" alt="monster" src="https://github.com/gummyworm/monster/assets/4626914/c11cf3be-a245-4cb3-a157-04ff436a7c6b">
+<img width="712" alt="Screenshot 2024-07-06 at 9 15 06 PM" src="https://github.com/gummyworm/monster/assets/4626914/3b4661c9-210a-4699-9a95-e99ebbe464f8">
 
 
 Table of Contents
