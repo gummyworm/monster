@@ -1296,7 +1296,9 @@ force_enter_insert=*+5
 ;******************************************************************************_
 .proc delete_char
 	jsr delch
-	jmp redraw_to_end_of_line
+	bcc @ok
+	rts
+@ok:	jmp redraw_to_end_of_line
 .endproc
 
 ;******************************************************************************_
@@ -2796,35 +2798,35 @@ goto_buffer:
 @x=r7
 @cnt=r8
 	jsr text::char_index
-	sty @x
-	lda #$00
-	sta @cnt
+	sty @x			; offset to cat old buffer at
+	jsr text::savebuff	; save the current text line
+	jsr src::get		; get the rest (after cursor) of the new one
 
-:	jsr src::end
-	beq @draw
-	jsr src::next
-	inc @cnt
-	cmp #$0d
-	beq @draw
 	ldx @x
-	sta mem::linebuffer,x
-	inc @x
+	ldy #$00
+:	lda mem::linebuffer,y
+	sta mem::linesave,x
+	beq @draw
+	iny
+	inx
 	bne :-
 
-@draw:	lda #$00
-	ldx @x
-	sta mem::linebuffer,x
+@draw:	; redraw
+	jsr text::restorebuff
 	lda zp::cury
-	ldxy #mem::linebuffer
-	jsr text::print
+	jsr text::drawline
 
-	; move back to where we were in the source
-	lda @cnt
-	beq @done
-@restore:
+	; if cursor is beyond new line length, move it to the new end
+	jsr text::rendered_line_len
+	dex
+	cpx zp::curx
+	bcs @done
+
+	; cursor is beyond line and source is at the newline (or end)
+	; move cursor and source so that they point to last character of the
+	; line
+	stx zp::curx
 	jsr src::prev
-	dec @cnt
-	bne @restore
 
 @done:	rts
 .endproc
@@ -3157,6 +3159,8 @@ goto_buffer:
 	jsr is_readonly
 	beq @nodel
 	jsr src::end
+	beq @nodel
+	jsr src::before_newl
 	beq @nodel
 	jmp src::delete
 @nodel:	sec
