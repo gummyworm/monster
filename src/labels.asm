@@ -496,7 +496,7 @@ anon_addrs = $b000
 	; write the label
 :	lda (@name),y
 	beq @storeaddr
-	cmp #' '
+	jsr iswhitespace
 	beq @storeaddr
 	cmp #':'
 	beq @storeaddr
