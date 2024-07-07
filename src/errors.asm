@@ -50,6 +50,8 @@ err_unmatched_endif:
 	;.byte "endif with no if",0
 	.byte $2b,$84,$49,$9b,$ba,$54,$46,$ce,$7e,$c9,$30,$0
 
+NUM_ERRORS=*-err_no_err
+
 ;******************************************************************************
 err_unaligned_label:
 	;.byte "label not left aligned",0
@@ -202,6 +204,8 @@ err_too_many_labels:
 errorslo: .lobytes errors
 errorshi: .hibytes errors
 
+err_unknown_err: .byte $aa,$ce,$7d,$ce,$d9,$52,$93,$d2,$0
+
 .CODE
 ;******************************************************************************
 ; GET
@@ -213,7 +217,13 @@ errorshi: .hibytes errors
 .export __err_get
 .proc __err_get
 	tax
-	ldy errorshi,x
+	cpx #NUM_ERRORS
+	bcc :+
+	ldy #>err_unknown_err
+	ldx #<err_unknown_err
+	rts
+
+:	ldy errorshi,x
 	lda errorslo,x
 	tax
 	rts

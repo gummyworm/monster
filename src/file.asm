@@ -121,6 +121,7 @@ __file_load_src:
 ;  - rb: the address to load the file to
 ; OUT:
 ;  - .C: set on error, clear on success
+;  - .A: if .C is set, the error code
 .proc load
 	tax
 	jsr $ffc6	; CHKIN (file in .X now used as input)
@@ -139,12 +140,7 @@ __file_load_src:
 
 @eof:	eor #$40
 	beq @noerr	; if EOF, return
-@error:
-	jsr io::readerr
-	txa
-	beq @noerr
-	sec
-	rts
+@error:	jmp geterr
 @noerr: clc
 	rts
 .endproc
@@ -173,7 +169,7 @@ __file_load_src:
 	lda #$00	; no error
 	RETURN_OK	; done
 
-@error:	jmp io::readerr
+@error:	jmp geterr
 .endproc
 
 ;******************************************************************************
@@ -229,13 +225,7 @@ __file_load_src:
 	RETURN_OK
 
 ; read drive err chan and translate CBM DOS error code to ours if possible
-@eof:  	jsr io::readerr
-	txa
-	cmp #62		; FILE NOT FOUND
-	bne :+
-	lda #ERR_FILE_NOT_FOUND
-:	sec
-	rts
+@eof:  	jmp geterr
 .endproc
 
 ;******************************************************************************
@@ -306,8 +296,7 @@ __file_load_src:
 	lda #$00	; no error
 	RETURN_OK
 
-@err:   jsr io::readerr
-	jsr @close
+@err:   jsr @close
 	RETURN_ERR ERR_IO_ERROR
 @s_colon:
 	.byte "s:",0
@@ -408,20 +397,7 @@ __file_load_src:
 	rts		; return it
 
 @getopenerr:
-	cmp #$01
-	bne :+
-	lda #ERR_TOO_MANY_OPEN_FILES
-	rts
-:	cmp #$02
-	bne :+
-	lda #ERR_LOGICAL_FILE_IN_USE
-	rts
-:	cmp #$05
-	bne :+
-	lda #ERR_DRIVE_DID_NOT_RESPOND
-	rts
-
-:	RETURN_ERR ERR_IO_ERROR		; unknown error
+	jmp geterr
 .endproc
 
 ;******************************************************************************
@@ -482,6 +458,26 @@ __file_load_src:
 	ldxy __file_save_address
 	cmpw __file_save_address_end ; set .C if src >= end address
 @done:	rts
+.endproc
+
+;******************************************************************************
+; GETERR
+; Reads the error channel and maps the DOS error code to the internal one
+; IN:
+;  - .A: the error code to map e.g. #$3e (62)
+; OUT:
+;  - .A: the internal error code e.g. ERR_FILE_NOT_FOUND
+.proc geterr
+	jsr io::readerr
+	cpx #$01
+	bcs :+
+@ok:	rts
+
+:	cpx #$3e
+	bne :+
+	lda #ERR_FILE_NOT_FOUND
+	rts
+:	RETURN_ERR ERR_IO_ERROR		; unknown error
 .endproc
 
 ;******************************************************************************

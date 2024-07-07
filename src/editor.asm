@@ -2682,11 +2682,7 @@ goto_buffer:
 	jsr refresh
 	jmp cancel
 
-@err:	pha			; push error code
-	ldxy #strings::edit_file_load_failed
-	jsr text::info
-	sec			; error
-	rts
+@err:	jmp report_typein_error
 .endproc
 
 ;******************************************************************************
@@ -2695,7 +2691,6 @@ goto_buffer:
 .proc command_load
 	jsr __edit_load
 	bcs @err
-
 	jmp asm::reset	; reinitialize
 @err:	rts
 .endproc
