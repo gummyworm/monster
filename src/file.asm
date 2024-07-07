@@ -69,14 +69,14 @@ __file_save_address_end = rd
 ; LOADBINV
 ; loads the given file into the given virtual memory address
 ; IN:
-;  .A:                      the file handle to load from
-;  file::file_load_address: the address to load the file to
+;  .A:             the file handle to load from
+;  file::loadaddr: the address to load the file to
 ; OUT:
 ;  - .C: set on error
 .export __file_load_binv
 .proc __file_load_binv
 	ldx #$01
-	sta isvirtual
+	stx isvirtual
 	ldx #$01
 	stx isbin
 	bne load

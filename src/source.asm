@@ -975,8 +975,7 @@ __src_atcursor:
 .export __src_rewind
 .proc __src_rewind
 @l0:	jsr __src_prev
-	jsr __src_start
-	bne @l0
+	bcc @l0
 	rts
 .endproc
 

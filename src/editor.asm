@@ -284,6 +284,8 @@ main:	jsr key::getch
 	rts			; failed to open file
 
 @ok:	sta @file
+	tax
+	jsr $ffc6     ; CHKIN (file in .X now used as input)
 
 	; read .PRG header
 	jsr file::readb
