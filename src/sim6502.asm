@@ -160,8 +160,7 @@ __sim_stopwatch: .res 3
 	bne @notrti
 
 @rti:	ldy __sim_reg_sp
-	lda $100,y
-	tax
+	ldx $100,y
 	lda $100+1,y
 	tay
 

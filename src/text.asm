@@ -239,6 +239,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
         sty @str+1
 	sta @row
 
+	; save the return address (variadic args are stored on stack)
 	pla
 	sta @ret
 	pla
@@ -396,21 +397,22 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	cpx #40
 	bcc :-
 
+	; restore the return address
 	lda @ret+1
 	pha
 	lda @ret
 	pha
 
-	ldx #<@buff
-	ldy #>@buff
+	; print the rendered string
+	ldxy #@buff
 	lda @row
 	jsr __text_puts
 
 	; if __text_rvs is set, reverse the line after drawing it
 	lda __text_rvs
-	bne :+
+	bne @rvs
 	rts
-:	lda @row
+@rvs:	lda @row
 	jmp bm::rvsline
 .endproc
 

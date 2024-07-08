@@ -122,7 +122,7 @@
 	bpl @l1
 
         lda @txtdst
-        clc
+        ; clc
         adc #192
         sta @txtdst
 	bcc @nextch
