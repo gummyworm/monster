@@ -705,13 +705,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .A: the text to display
 .export __text_puts
 .proc __text_puts
-@txtdst   = zp::text+5
-@txtsrc = zp::text+7
-	stxy @txtsrc
-	asl
-        asl
-        asl
-        sta @txtdst
 	JUMP FINAL_BANK_FASTTEXT, #ftxt::puts
 .endproc
 

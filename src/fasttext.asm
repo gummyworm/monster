@@ -73,16 +73,17 @@
 ; the string, text::len characters are displayed (including 0's etc.)
 ; IN:
 ;  - .XY: the string to display
-;  - .A: the text to display
+;  - .A:  the row to display the text at
 .export __ftxt_puts
 .proc __ftxt_puts
 @txtbyte  = zp::text
-@txtdst   = zp::text+5
 @txtsrc   = zp::text+7
 @ysave	  = zp::text+9
-        lda #<BITMAP_ADDR
-	clc
-        adc @txtdst
+	stxy @txtsrc
+	asl
+        asl
+        asl
+	; adc #<BITMAP_ADDR
         sta @txtdst
 	lda #>BITMAP_ADDR
         sta @txtdst+1
@@ -105,17 +106,18 @@
 	sta @txtright+1
 
 	sty @ysave
-
-        ldy #8-1
+	ldy #8-1
+@l1:
 @txtleft=*+1
-@l1:    lda $f00d,y
-        and #$f0
-        sta @txtbyte
+	lda $f00d,y
+	and #$f0
+	sta @txtbyte
 @txtright=*+1
 	lda $f00d,y
-        and #$0f
-        ora @txtbyte
-        sta (@txtdst),y
+	and #$0f
+	ora @txtbyte
+@txtdst=*+1
+	sta $f00d,y
 	dey
 	bpl @l1
 
