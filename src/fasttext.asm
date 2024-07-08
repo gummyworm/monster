@@ -79,7 +79,8 @@
 @txtbyte  = zp::text
 @txtsrc   = zp::text+7
 @ysave	  = zp::text+9
-	stxy @txtsrc
+	stxy @txtsrc0
+	stxy @txtsrc1
 	asl
         asl
         asl
@@ -89,39 +90,37 @@
         sta @txtdst+1
 
 	ldy #$00
-@l0:    lda (@txtsrc),y
+@txtsrc0=*+1
+@l0:    ldx $f00d,y
 	iny
-	tax
 	lda charaddrlo-32,x
 	sta @txtleft
 	lda charaddrhi-32,x
 	sta @txtleft+1
 
-@right:	lda (@txtsrc),y
+@txtsrc1=*+1
+@right:	ldx $f00d,y
         iny
-	tax
 	lda charaddrlo-32,x
 	sta @txtright
 	lda charaddrhi-32,x
 	sta @txtright+1
 
-	sty @ysave
-	ldy #8-1
+	ldx #8-1
 @l1:
 @txtleft=*+1
-	lda $f00d,y
+	lda $f00d,x
 	and #$f0
 	sta @txtbyte
 @txtright=*+1
-	lda $f00d,y
+	lda $f00d,x
 	and #$0f
 	ora @txtbyte
 @txtdst=*+1
-	sta $f00d,y
-	dey
+	sta $f00d,x
+	dex
 	bpl @l1
 
-	ldy @ysave
         lda @txtdst
         clc
         adc #192
