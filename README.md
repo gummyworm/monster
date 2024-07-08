@@ -743,11 +743,11 @@ respective Key in the table below.
 |  F2          | Register Editor | enters the register editor                                                           |
 |  F3          | Mem View        | activates the memory window, which takes control until `<-` is pressed               |
 |  F5          | Break View      | displays the breakpoints that have been set and allows them to be enabled/disabled   |
-|  C=+g        | Go              | begins execution at the cursor                                                       |
-|  C=+s        | StepOver        | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
-|  C=+z        | Step            | steps to the next instruction.                                                       |
+|  g           | Go              | begins execution at the cursor                                                       |
+|  s           | StepOver        | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
+|  z           | Step            | steps to the next instruction.                                                       |
+|  t           | Trace           | like GO but the debugger takes control between each instruction                      |
 |  C=-r        | Reset Stopwatch | resets the value of the stopwatch to 0                                               |
-|  C=+t        | Trace           | like GO but the debugger takes control between each instruction                      |
 |   <-         | Exit            | exits the debugger and returns to the editor                                         |
 | SPACE        | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  |
 | ^ (up arrow) |  Goto Break     | navigates to the address that the debugger is currently paused at                    |
@@ -771,9 +771,9 @@ information in the debug view, which is displayed in hexadecimal.
 ---
 
 ### Stepping through code
-#### Step Into (`C= + z`)
+#### Step Into (`z`)
 Stepping is a common way to debug a program line-by-line.
-Stepping _into_ code (`C= + z`) will, if possible, return to the debugger
+Stepping _into_ code will, if possible, return to the debugger
 after the next instruction (the one currently highlighted if we have debug
 information) is executed. There is a scenario where this is not possible: if
 the next instruction is in ROM.  In this case, step _into_ behaves the same
@@ -789,16 +789,16 @@ value hasn't changed*. The same is true of watches.  We can activate a watch
 even if we don't store a new value to it. In fact, we can activate them when a
 value is loaded.
 
-#### Step Over (`C= + s`)
+#### Step Over (`s`)
 Step _over_ behaves the same as step _into_, but if the next
 instruction is a subroutine call (`JSR`), execution continues until the
 instruction _after_ the `JSR` (after the subroutine returns).
 
-#### Go (`C= + g`)
+#### Go (`g`)
 The go command begins execution and returns to the debugger only when a
 breakpoint is encountered.
 
-#### Trace (`C= + t`)
+#### Trace (`t`)
 Trace is similar to `GO`, but the debugger executes the program as a series 
 of STEPs instead of running the program binary directly.
 This is useful because it allows the debugger to break if any watched memory

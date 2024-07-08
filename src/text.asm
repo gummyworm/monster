@@ -391,7 +391,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 @cont:	iny
         jmp @l0
 
-@disp:	lda #' '
+@disp:	; fill the rest of the line buffer with spaces
+	lda #' '
 :	sta @buff,x
 	inx
 	cpx #40
