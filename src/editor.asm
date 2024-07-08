@@ -704,6 +704,13 @@ main:	jsr key::getch
 @len=r9
 	stxy zp::jmpvec
 
+	; save insert mode etc.
+	lda zp::editor_mode
+	pha
+	lda text::insertmode	; save current insertion mode
+	pha
+	jsr force_enter_insert
+
 	ldx zp::curx
 	stx @result_offset	; offset to the user-input in line buffer
 
@@ -756,6 +763,10 @@ main:	jsr key::getch
 	lda @len
 
 	plp			; get success state
+	pla
+	sta text::insertmode	; restore insert mode
+	pla
+	sta zp::editor_mode	; restore editor mode
 	rts
 .endproc
 
@@ -777,13 +788,6 @@ main:	jsr key::getch
 	jsr text::clrline
 
 	pushcur			; save the cursor state
-
-	; save insert mode etc.
-	lda zp::editor_mode
-	pha
-	lda text::insertmode	; save current insertion mode
-	pha
-	jsr force_enter_insert
 
 	ldxy @prompt
 	cmpw #0
@@ -821,10 +825,6 @@ main:	jsr key::getch
 	ldy #$01
 
 	plp			; get success state
-	pla
-	sta text::insertmode	; restore insert mode
-	pla
-	sta zp::editor_mode	; restore editor mode
 	popcur			; restore cursor
 
 	lda #$00

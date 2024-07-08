@@ -408,9 +408,6 @@ command_vectorshi: .hibytes command_vectors
 	pushcur
 	jsr cur::off
 
-	lda #$01
-	sta text::rvs		; enable RVS
-
 	jsr text::clrline
 	lda #WATCHVIEW_STOP
 	jsr text::drawline	; clear the entry line
@@ -441,9 +438,7 @@ command_vectorshi: .hibytes command_vectors
 	ldxy @addr		; get start address
 @add:	jsr __watches_add	; add the watch
 
-@done:	lda #$00
-	sta text::rvs		; disable reverse
-	popcur			; restore cursor
+@done:	popcur			; restore cursor
 	rts
 .endproc
 
