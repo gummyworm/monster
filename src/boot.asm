@@ -295,16 +295,16 @@ num_relocs=(*-relocs)/7
 ; address space ($1000-$2000) as a bitmap
 .export enter
 enter:
-	ldx #<irq::sys_update
-        ldy #>irq::sys_update
-        lda #$20
+        lda #$10
         jsr irq::raster
+	sei
 	lda #<start
 	sta $0316		; BRK
 	sta $0318		; NMI
 	lda #>start
 	sta $0317		; BRK
 	sta $0319		; NMI
+	cli
 
 	ldx #$ff
 	txs

@@ -618,8 +618,6 @@ brkhandler2_size=*-brkhandler2
 	jsr swapout
 
 	; reinstall the main IRQ
-	ldx #<irq::sys_update
-        ldy #>irq::sys_update
 	lda #$20
         jsr irq::raster
 
