@@ -28,7 +28,7 @@ TIMER_ROW_VALUE = 8 * CYCLES_PER_LINE - 2
 	sbc $9124
 	cmp #$0a
 	bcc @s0
-	jmp $eabf
+	jmp $eb15
 @s0:	sta @s1+1
 @s1:	bcc @s1
 	lda #$a9
