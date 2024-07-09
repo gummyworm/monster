@@ -1,4 +1,5 @@
 .include "beep.inc"
+.include "config.inc"
 .include "finalex.inc"
 .include "macros.inc"
 
@@ -10,7 +11,13 @@ LINES           = 261
 CYCLES_PER_LINE = 65
 .endif
 TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster int.
-TIMER_ROW_VALUE = 8 * CYCLES_PER_LINE - 2
+CYCLES_PER_ROW  = 8 * (CYCLES_PER_LINE - 2) - 25
+
+NUM_ROWS = 20
+
+;******************************************************************************
+.BSS
+rowcnt: .byte 0
 
 .segment "IRQ"
 ;******************************************************************************
@@ -18,30 +25,22 @@ TIMER_ROW_VALUE = 8 * CYCLES_PER_LINE - 2
 ; This is the main IRQ for this program. It handles updating the beeper.
 ; It is relocated to a place where it may be called from any bank
 .proc sys_update
-	cld
-	sec
-.ifdef PAL
-	lda #$58
-.else
-	lda #$15
-.endif
-	sbc $9124
-	cmp #$0a
-	bcc @s0
-	jmp $eb15
-@s0:	sta @s1+1
-@s1:	bcc @s1
-	lda #$a9
-	lda #$a9
-	lda #$a9
-	lda #$a9
-	lda #$a5
-	nop
 	lda $9c02
 	pha
 	lda #FINAL_BANK_MAIN
 	sta $9c02
 	jsr stable_handler
+	pla
+	sta $9c02
+	jmp $eb15
+.endproc
+
+.proc row_interrupt
+	lda $9c02
+	pha
+	lda #FINAL_BANK_MAIN
+	sta $9c02
+	jsr row_handler
 	pla
 	sta $9c02
 	jmp $eb15
@@ -113,8 +112,41 @@ TIMER_ROW_VALUE = 8 * CYCLES_PER_LINE - 2
 ;******************************************************************************
 ; STABLE_HANDLER
 .proc stable_handler
+	cld
+	sec
+.ifdef PAL
+	lda #$58
+.else
+	; base phase value minus all instructions
+	; executed in handler before this
+	lda #$15-4-3-2-4-6
+.endif
+	sbc $9124
+	cmp #$0a
+	bcc @s0
+	rts
+
+@s0:	sta @s1+1
+@s1:	bcc @s1
+	lda #$a9
+	lda #$a9
+	lda #$a9
+	lda #$a9
+	lda #$a5
+	nop
 	inc $900f
 	dec $900f
+
+	; set up sub-interrupt that executes every character row to draw
+	; breakpoints on any line that has one
+	lda #$00
+	sta rowcnt
+	lda #$80|$20
+	sta $912e		; enable T2 interrupts
+	ldxy #CYCLES_PER_ROW
+	stxy $9128
+	ldxy #row_interrupt
+	stxy $0314
 
 	;jsr beep::update
         lda $f5
@@ -122,7 +154,7 @@ TIMER_ROW_VALUE = 8 * CYCLES_PER_LINE - 2
         lda $f6
         pha
 
-        jsr $eb1e               ; scan keyboard
+	jsr $eb1e               ; scan keyboard
 
 	; inject TAB ($09) into keyboard buffer if the CTRL key is pressed
 	lda $028d		; get CTRL flag reg
@@ -138,4 +170,55 @@ TIMER_ROW_VALUE = 8 * CYCLES_PER_LINE - 2
         pla
         sta $f5
 	rts
+.endproc
+
+;******************************************************************************
+; ROW HANDLER
+; Handles the sub-interrupt responsible for drawing breakpoints
+.proc row_handler
+	cld
+	sec
+.ifdef PAL
+	lda #$58
+.else
+	;lda #$4+3+4+2+4+6+2+2+8+$10+ 24
+	lda #$be
+.endif
+	sbc $9128	; add signed overflow value from timer
+	cmp #$0a
+	bcc @s0
+	bcs @done
+
+@s0:	sta @s1+1
+@s1:	bcc @s1
+	lda #$a9
+	lda #$a9
+	lda #$a9
+	lda #$a9
+	lda #$a5
+	nop
+
+@done:	; reload timer
+	ldxy #CYCLES_PER_ROW+3
+	stxy $9128
+
+	lda #(BG_COLOR<<4) | $02
+	ldx #(BG_COLOR<<4 | BORDER_COLOR)
+	sta $900f
+	stx $900f
+
+	inc rowcnt
+	lda rowcnt
+	cmp #NUM_ROWS
+	bcc :+
+
+	; reinstal main IRQ handler
+	lda #$00
+	sta rowcnt
+	ldxy #sys_update
+	stxy $0314
+	lda #$00|$20		; disable T2 interrupts
+	sta $912e
+
+:	rts
 .endproc
