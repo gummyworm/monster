@@ -1602,7 +1602,7 @@ __asm_include:
 @fname=rc
 @readfile:
 	stxy @fname
-	jsr file::open
+	jsr file::open_r
 	bcc :+
 	rts		; return err
 :	pha		; save the id of the file we're working on

@@ -13,6 +13,7 @@
 .include "memory.inc"
 .include "string.inc"
 .include "util.inc"
+.include "view.inc"
 .include "vmem.inc"
 .include "watches.inc"
 .include "zeropage.inc"
@@ -176,6 +177,7 @@
 	; get the start address
 	ldxy zp::line
 	jsr expr::eval
+	stxy @start
 	bcs @done
 
 	; move past separator
@@ -184,6 +186,7 @@
 
 	; get the stop address
 	jsr expr::eval
+	stxy @stop
 	bcs @done
 
 	; move past separator
@@ -206,13 +209,17 @@
 :	ldy @listlen
 	stx @list,y		; store LSB of expression as fill val
 	inc @listlen
-
 	jsr line::nextch
 	bne @l0
 
+	ldxy @start
+	stxy view::addr
+
 	lda #$00
 	sta @i
-@fill:	lda @list,x
+	beq @chk		; branch to check if start == stop on 1st iter
+@fill:	ldx @i
+	lda @list,x
 	ldxy @start
 	jsr vmem::store
 	ldxy @start
@@ -223,14 +230,17 @@
 	lda #$00
 	sta @i
 :	incw @start
-	ldxy @start
+@chk:	ldxy @start
 	cmpw @stop
 	bne @fill
+
+	; active mem viewer
+	jsr view::mem
 	RETURN_OK
+
 @err:	sec
 @done:	rts
 .endproc
-
 
 ;******************************************************************************
 .RODATA

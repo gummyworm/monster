@@ -248,16 +248,13 @@ __file_load_src:
 	ldy #$00
 @l0:	jsr __file_readb
 	bcs @ret	; return err
+
 	cmp #$0d
 	beq @done
-
-	; convert tab characters
 	cmp #$0a
-	beq @done
-	cmp #$09	; TAB
-	bne :+
-	lda #' '
-:	sta (__file_load_address),y
+	beq @done	; end of line
+
+	sta (__file_load_address),y
 	iny
 	bne @l0
 
