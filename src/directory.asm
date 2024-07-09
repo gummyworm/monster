@@ -31,12 +31,13 @@ SCREEN_H = 23
 .proc __dir_view
 @file=r8
 @line=r8
-@row=zp::tmpa
-@select=zp::tmpb
-@cnt=zp::tmpc			; number of files extracted from listing
-@scrollmax=zp::tmpc		; maximum amount to allow scrolling
-@scroll=zp::tmpd
-@dirbuff=mem::spare+40		; 0-40 will be corrupted by text routines
+@row=ra
+@select=rb
+@cnt=rc			; number of files extracted from listing
+@scrollmax=rc		; maximum amount to allow scrolling
+@scroll=rd
+@dirbuff=mem::spare+42		; 0-40 will be corrupted by text routines
+				; 40-41 is load address
 @namebuff=mem::spareend-40	; buffer for the file name
 @fptrs=mem::spareend-(128*2)	; room for 128 files
 	ldxy #strings::dir
@@ -46,7 +47,7 @@ SCREEN_H = 23
 @err:	rts			; error
 
 	; load the directory into dirbuff
-:	ldxy #@dirbuff
+:	ldxy #@dirbuff-2
 	stxy __file_load_address
 	jsr file::loadbin
 	bcs @err
@@ -74,9 +75,9 @@ SCREEN_H = 23
 	bne :-
 	; parse the name of the file
 	lda #>(@namebuff+@dirmsglen-1)
-	sta zp::tmp0+1
+	sta r0+1
 	lda #<(@namebuff+@dirmsglen-1)
-	sta zp::tmp0
+	sta r0
 	ldxy #@dirbuff+5
 	jsr util::parse_enquoted_string
 	jmp @l2

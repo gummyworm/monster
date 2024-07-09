@@ -52,6 +52,10 @@
 .import __UDGEDIT_RUN__
 .import __UDGEDIT_SIZE__
 
+.import __RODATA_LOAD__
+.import __RODATA_RUN__
+.import __RODATA_SIZE__
+
 ;******************************************************************************
 ; RELOC
 ; relocates code from 1 address to another
@@ -215,20 +219,12 @@ start:
 	sta $9c02
 	jsr ftxt::init
 
-;--------------------------------------
-; initialize the JMP vector
+	; initialize the JMP vector
 	lda #$4c		; JMP
 	sta zp::jmpaddr
 
-
-;--------------------------------------
-; clean up files
+	; clean up files
 	jsr $ffe7		; CLALL (close all files)
-
-;--------------------------------------
-; misc. setup
-	; save current screen for debugger
-	;jsr dbg::save_progstate
 
 	; TODO: enable write-protection for the $2000-$8000 blocks when
 	; all SMC is removed from the segments in that range
@@ -283,6 +279,9 @@ relocs:
 .word __UDGEDIT_LOAD__, __UDGEDIT_RUN__, __UDGEDIT_SIZE__
 .byte FINAL_BANK_UDGEDIT
 
+; RODATA
+.word __RODATA_LOAD__, __RODATA_RUN__, __RODATA_SIZE__
+.byte FINAL_BANK_MAIN
 num_relocs=(*-relocs)/7
 
 .export get_crunched_byte

@@ -1,6 +1,6 @@
 .include "zeropage.inc"
 
-;############################################################################
+;******************************************************************************
 ; Final Expansion overview
 ;  The final expansion enables a full 32k of RAM to be usable for a source file
 ;  With the final expansion, the 16 available 32k blocks are divided as follows:
@@ -9,7 +9,7 @@
 ;    block 2-15: source files (1 per block)
 ;  Monster installs an NMI prior to executing the user's program that allows 
 ;  them to return to the editor (and it's bank) via the RESTORE key
-;############################################################################
+;******************************************************************************
 
 .import __final_call
 .import __final_store_byte
@@ -108,61 +108,6 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 .endscope
 
 ;******************************************************************************
-; Macros
-.macro bank_store_byte bank, addr, val
-.ifnblank val
-	lda val
-.endif
-	sta zp::bankval
-	ldxy addr
-	lda bank
-	jsr __final_store_byte
-.endmacro
-
-.macro bank_store_byte_rel bank, addr, offset, val
-.ifnblank val
-	lda val
-.endif
-	sta zp::bankval
-	lda offset
-	sta zp::bankoffset
-	ldxy addr
-	lda bank
-	jsr __final_bank_store_rel
-.endmacro
-
-.macro bank_read_byte bank,addr
-	ldxy addr
-	lda bank
-	jsr __final_load_byte
-.endmacro
-
-.macro bank_read_byte_rel bank,addr,offset
-	lda offset
-	sta zp::bankval
-	ldxy addr
-	lda bank
-	jsr __final_load_byte_off
-.endmacro
-
-
-; pushes the current RAM bank 
-.macro PUSH_BANK
-	sta zp::final
-	lda $9c02
-	pha
-	lda zp::final
-.endmacro
-
-; pops/restores the last RAM bank 
-; NOTE: switches banks; make sure code using this macro exists in the bank
-; it switches to
-.macro POP_BANK
-	sta zp::final
-	pla
-	sta $9c02
-	lda zp::final
-.endmacro
 
 ; calls the banked routine
 ; params:

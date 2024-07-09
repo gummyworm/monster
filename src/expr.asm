@@ -46,6 +46,12 @@ MAX_OPERANDS  = $10/2
 	lda #$01
 	sta @may_be_unary
 
+	ldy #$00
+	lda (zp::line),y
+	bne @l0
+	sec
+	rts			; no expression
+
 @l0:	ldy #$00
 	lda (zp::line),y
 	jsr util::is_whitespace	; eat whitespace
@@ -279,21 +285,21 @@ MAX_OPERANDS  = $10/2
 	bne :+
 	; get the product TODO: 32-bit precision expressions?
 	ldxy @val1
-	stxy zp::tmp0
+	stxy r0
 	ldxy @val2
-	stxy zp::tmp2
+	stxy r2
 	jsr m::mul16
-	ldxy zp::tmpa	; get product
+	ldxy ra	; get product
 	jmp @pushval
 
 :	cmp #'/'
 	bne :+
 	ldxy @val1
-	stxy zp::tmp2
+	stxy r2
 	ldxy @val2
-	stxy zp::tmp0
+	stxy r0
 	jsr m::div16
-	ldxy zp::tmp0
+	ldxy r0
 	jmp @pushval
 
 :	cmp #'&'	; AND

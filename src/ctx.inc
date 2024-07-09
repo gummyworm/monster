@@ -16,8 +16,6 @@ MAX_CTX_LINES = 16
 CTX_REPEAT = 1
 CTX_MACRO = 2
 
-CONTEXT_REPEAT_SIZE = 16*40+4
-
 .scope repctx
 	base = 0
 	iter = 2

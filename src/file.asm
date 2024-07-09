@@ -49,20 +49,37 @@ files        = $259	; KERNAL open file table
 file_devices = $261	; KERNAL device ID table
 kernal_sas   = $26d	; KERNAL secondary address table
 
-isbin        = zp::tmp17	; flag for binary save/load  to memory
+isvirtual = zp::tmp16 	; flag for binary load to VIRTUAL memory
+isbin     = zp::tmp17	; flag for binary save/load to memory
 
 ;******************************************************************************
 ; The address to load from during a binary LOAD
 ; VOLATILE should be set immediately before calling
 .export __file_load_address
-__file_load_address = zp::tmpb
+__file_load_address = rb
 
 ; The address to save to during a binary SAVE
 ; VOLATILE should be set immediately before calling
 .export __file_save_address
-__file_save_address     = zp::tmpb
+__file_save_address     = rb
 .export __file_save_address_end
-__file_save_address_end = zp::tmpd
+__file_save_address_end = rd
+
+;******************************************************************************
+; LOADBINV
+; loads the given file into the given virtual memory address
+; IN:
+;  .A:             the file handle to load from
+;  file::loadaddr: the address to load the file to
+; OUT:
+;  - .C: set on error
+.export __file_load_binv
+.proc __file_load_binv
+	ldx #$01
+	stx isvirtual
+	stx isbin
+	bne load
+.endproc
 
 ;******************************************************************************
 ; LOADBIN
@@ -74,7 +91,9 @@ __file_save_address_end = zp::tmpd
 ;  - .C: set on error
 .export __file_load_bin
 .proc __file_load_bin
-	ldx #$01
+	ldx #$00
+	sta isvirtual
+	inx
 	stx isbin
 	bne load
 .endproc
@@ -98,23 +117,14 @@ __file_load_src:
 ; LOAD
 ; loads the given file into memory or a source buffer
 ; IN:
-;  - .A the file handle
-;  zp::tmpb: the address to load the file to
+;  - .A  the file handle
+;  - rb: the address to load the file to
 ; OUT:
-;  .C: set on error, clear on success
+;  - .C: set on error, clear on success
+;  - .A: if .C is set, the error code
 .proc load
 	tax
-	jsr $ffc6     ; CHKIN (file in .X now used as input)
-
-	; if .PRG, read load address
-	lda secondaryaddr
-	bne @l0
-	jsr $ffb7	; READST
-	bne @eof	; error/eof
-	jsr $ffcf	; CHRIN, read 1st byte
-	jsr $ffb7	; READST
-	bne @eof	; error/eof
-	jsr $ffcf	; CHRIN, read 2nd byte of load address
+	jsr $ffc6	; CHKIN (file in .X now used as input)
 
 @l0: 	jsr $ffb7	; call READST (read status byte)
 	cmp #$00
@@ -130,12 +140,7 @@ __file_load_src:
 
 @eof:	eor #$40
 	beq @noerr	; if EOF, return
-@error:
-	jsr io::readerr
-	txa
-	beq @noerr
-	sec
-	rts
+@error:	jmp geterr
 @noerr: clc
 	rts
 .endproc
@@ -164,7 +169,7 @@ __file_load_src:
 	lda #$00	; no error
 	RETURN_OK	; done
 
-@error:	jmp io::readerr
+@error:	jmp geterr
 .endproc
 
 ;******************************************************************************
@@ -209,10 +214,13 @@ __file_load_src:
 ; READB
 ; Reads a byte from the open file
 ; OUT:
-;  - .C: set on error or EOF
-;  - .A: the byte that was read
+;  - .C:  set on error or EOF
+;  - .A:  the byte that was read
+;  - eof: set if READST returns eof
 .export __file_readb
 .proc __file_readb
+	lda #$00
+	sta __file_eof
 	jsr $ffb7     ; call READST (read status byte)
 	cmp #$00
 	bne @eof      ; either EOF or read error
@@ -220,13 +228,12 @@ __file_load_src:
 	RETURN_OK
 
 ; read drive err chan and translate CBM DOS error code to ours if possible
-@eof:  	jsr io::readerr
-	txa
-	cmp #62		; FILE NOT FOUND
-	bne :+
-	lda #ERR_FILE_NOT_FOUND
-:	sec
-	rts
+@eof:  	and #$40
+	beq @err
+	inc __file_eof
+	RETURN_OK
+
+@err:	jmp geterr
 .endproc
 
 ;******************************************************************************
@@ -248,26 +255,22 @@ __file_load_src:
 
 	ldy #$00
 @l0:	jsr __file_readb
-	bcs @ret	; return err
+	bcs @ret	; return err or check EOF
+
 	cmp #$0d
 	beq @done
-
-	; convert tab characters
 	cmp #$0a
-	beq @done
-	cmp #$09	; TAB
-	bne :+
-	lda #' '
-:	sta (__file_load_address),y
+	beq @done	; end of line
+
+	sta (__file_load_address),y
 	iny
 	bne @l0
 
 @done:  lda #$00
 	sta (__file_load_address),y	; 0-terminate the string
 	tya		; put # of bytes read in .A
-	RETURN_OK	; no error
-@ret:	cmp #$01	; set .C if error > 0
-	rts
+@ok:	clc		; no error
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -297,8 +300,7 @@ __file_load_src:
 	lda #$00	; no error
 	RETURN_OK
 
-@err:   jsr io::readerr
-	jsr @close
+@err:   jsr @close
 	RETURN_ERR ERR_IO_ERROR
 @s_colon:
 	.byte "s:",0
@@ -399,21 +401,37 @@ __file_load_src:
 	rts		; return it
 
 @getopenerr:
-	cmp #$01
-	bne :+
-	lda #ERR_TOO_MANY_OPEN_FILES
-	rts
-:	cmp #$02
-	bne :+
-	lda #ERR_LOGICAL_FILE_IN_USE
-	rts
-:	cmp #$05
-	bne :+
-	lda #ERR_DRIVE_DID_NOT_RESPOND
-	rts
-
-:	RETURN_ERR ERR_IO_ERROR		; unknown error
+	jmp geterr
 .endproc
+
+;******************************************************************************
+; EXISTS
+; Opens, reads a byte, and closes a file of the given name to check for its
+; existence.
+; IN:
+;  - .XY: the filename to check if exists
+; OUT:
+;  - .Z: set if the file exists; clear if it does
+.export __file_exists
+.proc __file_exists
+@file=r0
+	jsr __file_open_r
+	ldx #$01	; failed to open file
+	bcs @done
+	sta @file
+	tax
+	jsr $ffc6	; CHKIN (file in .X now used as input)
+	jsr __file_readb
+	jsr $ffb7	; call READST (read status byte)
+	pha
+	lda @file
+	jsr __file_close
+	pla		; restore READST status flag
+	beq @done
+	lda #ERR_FILE_NOT_FOUND
+@done:	rts
+.endproc
+
 
 ;******************************************************************************
 ; CLOSE
@@ -425,7 +443,7 @@ __file_load_src:
 .proc __file_close
 	sei
 	pha
-	jsr $ffc3
+	jsr $ffc3		; CLOSE
 	pla
 	jmp $ffb7		; READST
 .endproc
@@ -476,9 +494,31 @@ __file_load_src:
 .endproc
 
 ;******************************************************************************
+; GETERR
+; Reads the error channel and maps the DOS error code to the internal one
+; IN:
+;  - .A: the error code to map e.g. #$3e (62)
+; OUT:
+;  - .A: the internal error code e.g. ERR_FILE_NOT_FOUND
+.proc geterr
+	jsr io::readerr
+	cpx #$01
+	bcs :+
+@ok:	rts
+
+:	cpx #$3e
+	bne :+
+	lda #ERR_FILE_NOT_FOUND
+	rts
+:	RETURN_ERR ERR_IO_ERROR		; unknown error
+.endproc
+
+;******************************************************************************
 ; PUTB
 ; Outputs a byte to the __file_load_address (if isbin is !0) or to the current
 ; source if not.
+; If loading a binary file, isvirtual determines if it will be loaded into
+; physical memory (isvirtual == 0) or virtual (isvirtual != 0)
 ; IN:
 ;  - .A: the byte to output
 .proc putb
@@ -487,12 +527,20 @@ __file_load_src:
 
 	; if not loading to SOURCE, write to memory
 	ldy #$00
-	sta (__file_load_address),y
-	incw __file_load_address
+	ldx isvirtual
+	beq :+
+	ldxy __file_load_address
+	jsr vmem::store
+	skw
+:	sta (__file_load_address),y
+@done:	incw __file_load_address
 	rts
 @src:	jmp src::insert
 .endproc
 
 .BSS
 ;******************************************************************************
-secondaryaddr: .byte 0	; secondary address to use on file open
+secondaryaddr:	.byte 0	; secondary address to use on file open
+
+.export __file_eof
+__file_eof:	.byte 0	; if !0, EOF; only valid after call to readb or getline

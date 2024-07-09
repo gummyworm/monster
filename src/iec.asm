@@ -11,7 +11,8 @@
 ; Reads the drive's error into mem::drive_err (0-terminated)
 ; NOTE: file #15 is opened and should be closed by the caller when done
 ; OUT:
-;  mem::driveerr: the drive error message
+;  - .X:             the error code
+;  - mem::drive_err: the drive error message
 .export __io_readerr
 .proc __io_readerr
 @ch=zp::tmpf
@@ -41,20 +42,6 @@
 	bne @loop	; next byte
 
 @eof:
-@done:
-.ifdef DRAW_DRIVE_ERR
-	ldx @ch
-	dex
-	dex
-:	lda mem::drive_err,x
-	sta mem::statusline+DRIVE_ERR_COL,x
-
-	dex
-	bpl :-
-.endif
-	; TODO: why does save fail if this is closed?
-	;lda #$0f
-	;jsr $ffc3	; CLOSE
-	ldxy #mem::drive_err
+@done:	ldxy #mem::drive_err
 	jmp atoi
 .endproc

@@ -47,15 +47,15 @@
 ;16-bit multiply with 32-bit product
 ;from 6502.org
 ; IN:
-;  - zp::tmp0: the multiplier
-;  - zp::tmp2: the multiplicand
+;  - r0: the multiplier
+;  - r2: the multiplicand
 ; OUT:
-;  - zp::tmpa: the product
+;  - ra: the product
 .export __math_mul16
 .proc __math_mul16
-@multiplier	= zp::tmp0
-@multiplicand	= zp::tmp2
-@product	= zp::tmpa
+@multiplier	= r0
+@multiplicand	= r2
+@product	= ra
 	lda	#$00
 	sta	@product+2	; clear upper bits of product
 	sta	@product+3
@@ -87,16 +87,16 @@
 ; DIV16
 ; Divides the given divisor by the given dividend
 ; IN:
-;  - zp::tmp2: the divisor
-;  - zp::tmp0: the dividend
+;  - r2: the divisor
+;  - r0: the dividend
 ; OUT:
-;  - zp::tmpa: the remainder
-;  - zp::tmp0: the quotient
+;  - ra: the remainder
+;  - r0: the quotient
 .export __math_div16
 .proc __math_div16
-@divisor = zp::tmp2
-@dividend = zp::tmp0
-@remainder = zp::tmp4
+@divisor = r2
+@dividend = r0
+@remainder = r4
 @result = @dividend	;return quotient in dividend's place
 	lda #0	        ;preset remainder to 0
 	sta @remainder

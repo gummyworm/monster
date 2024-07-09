@@ -11,14 +11,14 @@
 ; IN:
 ;  - .A:  the value to look for
 ;  - .XY: the address of list to seek for the value in
-;  - zp::tmp0: the # of items in the list
+;  - r0: the # of items in the list
 ; OUT:
 ;  - .Y: the index of the item (if found)
 ;  - .Z: set if the item was found in the list
 .export __util_findb
 .proc __util_findb
 @list=zp::util
-@cnt=zp::tmp0
+@cnt=r0
 	stxy @list
 	ldy @cnt
 	dey
@@ -31,14 +31,14 @@
 
 ;******************************************************************************
 ; MEMSET
-; Sets zp::tmp0 bytes of the memory at (YX) to .A.
+; Sets r0 bytes of the memory at (YX) to .A.
 ; IN:
-;  - zp::tmp0: the memory address to set
+;  - r0: the memory address to set
 ;  - .A: the value to set the memory to
 .export __util_memset
 .proc __util_memset
 	stxy zp::util
-	ldy zp::tmp0
+	ldy r0
 @l0:	sta (zp::util),y
 	dey
 	bpl @l0
@@ -47,16 +47,16 @@
 
 ;******************************************************************************
 ; MEMCPY
-; Moves zp::tmp0 bytes from (zp::tmp2) to (zp::tmp4).
+; Moves r0 bytes from (r2) to (r4).
 ; IN:
-;  - zp::tmp0: the number of bytes to move
-;  - zp::tmp2: the source address
-;  - zp::tmp4: the destination address
+;  - r0: the number of bytes to move
+;  - r2: the source address
+;  - r4: the destination address
 .export __util_memcpy
 .proc __util_memcpy
-@src=zp::tmp2
-@dst=zp::tmp4
-@len=zp::tmp0
+@src=r2
+@dst=r4
+@len=r0
 	ldxy @len
 	cmpw #$0000
 	beq @done
@@ -71,6 +71,40 @@
 	cmpw #$0000
 	bne @l0
 @done:  rts
+.endproc
+
+;******************************************************************************
+; MEMMOVE
+; Moves .A bytes from (r0) to (r2)
+; Can move at most 128 bytes
+; IN:
+;  - .A: the number of bytes to move
+;  - r0: the source address
+;  - r2: the destination address
+.export __util_memmove
+.proc __util_memmove
+@src=r0
+@dst=r2
+@sz=r4
+	sta @sz
+	ldxy r0
+	cmpw r2
+	bcc @fwd
+
+@bwd:	tay
+:	lda (@src),y
+	sta (@dst),y
+	dey
+	bpl :-
+	rts
+
+@fwd:	ldy #$00
+:	lda (@src),y
+	sta (@dst),y
+	iny
+	cmp @sz
+	bcc :-
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -398,8 +432,8 @@ result=mem::spare
 ;  - .XY: the address of the string to convert
 .export __util_todec24
 .proc __util_todec24
-@input=zp::tmp0		; 3 bytes
-@result=zp::tmp3	; 4 bytes
+@input=r0		; 3 bytes
+@result=r3	; 4 bytes
 @str=$100
 	sta @input+2
 	sty @input+1
@@ -554,7 +588,7 @@ result=mem::spare
 ; returns the length in .A ($ff if no string was found)
 ; IN:
 ;  - .XY: the address of the string to parse
-;  - zp::tmp0: the address to store the parsed string
+;  - r0: the address to store the parsed string
 ; OUT:
 ;  - r0: the text within the quotes (")
 ;  - .C: set if the given string was not valid

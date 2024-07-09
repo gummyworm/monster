@@ -7,6 +7,7 @@
 .include "errors.inc"
 .include "finalex.inc"
 .include "macros.inc"
+.include "ram.inc"
 .include "string.inc"
 .include "zeropage.inc"
 
@@ -292,7 +293,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Initializes a segment (as with .ORG)
 ; IN:
 ;  .XY:      the start address of the segment
-;  zp::tmp0: the name of the segment
+;  r0: the name of the segment
 .export __debug_init_segment
 .proc __debug_init_segment
 @name=r0
@@ -560,11 +561,11 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	ldxy #debuginfo
 	stxy seg
 
-@l0:	bank_read_byte_rel #FINAL_BANK_DEBUG, seg, #SEG_START_ADDR
+@l0:	lda24 #FINAL_BANK_DEBUG, seg, #SEG_START_ADDR
 	cmp @addr
 	bne @next
 
-	bank_read_byte_rel #FINAL_BANK_DEBUG, seg, #SEG_START_ADDR+1
+	lda24 #FINAL_BANK_DEBUG, seg, #SEG_START_ADDR+1
 	cmp @addr+1
 	beq @found
 
@@ -621,7 +622,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;
 ; in:
 ;  - .XY: the line number
-;  - zp::tmp0: the address corresponding to the given line number
+;  - r0: the address corresponding to the given line number
 .export __debug_store_line
 .proc __debug_store_line
 @addr=r0
@@ -893,10 +894,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the 0-terminated file to set as the current file
 .export __debug_set_file
 .proc __debug_set_file
-	jsr get_fileid
+	jsr get_fileid	; get the file ID (if the file is already stored)
 	bcc :+
-	jsr storefile
-:	sta file
+	jsr storefile	; copy the filename and get its new ID
+:	sta file	; store the ID
 	rts
 .endproc
 
@@ -925,7 +926,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	stxy @filename		 ; store as filename dest
 
 	ldxy @src
-	jsr str::copy		; copy @src to zp::tmp0 (@filename)
+	jsr str::copy		; copy @src to r0 (@filename)
 
 	lda numfiles
 	inc numfiles

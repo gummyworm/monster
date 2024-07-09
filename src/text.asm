@@ -57,8 +57,9 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .export __text_bufferon
 .proc __text_bufferon
 	lda #$01
-	sta __text_buffer
-	rts
+	skw
+
+	; fallthrough
 .endproc
 
 ;******************************************************************************
@@ -238,6 +239,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
         sty @str+1
 	sta @row
 
+	; save the return address (variadic args are stored on stack)
 	pla
 	sta @ret
 	pla
@@ -389,27 +391,29 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 @cont:	iny
         jmp @l0
 
-@disp:	lda #' '
+@disp:	; fill the rest of the line buffer with spaces
+	lda #' '
 :	sta @buff,x
 	inx
 	cpx #40
 	bcc :-
 
+	; restore the return address
 	lda @ret+1
 	pha
 	lda @ret
 	pha
 
-	ldx #<@buff
-	ldy #>@buff
+	; print the rendered string
+	ldxy #@buff
 	lda @row
 	jsr __text_puts
 
 	; if __text_rvs is set, reverse the line after drawing it
 	lda __text_rvs
-	bne :+
+	bne @rvs
 	rts
-:	lda @row
+@rvs:	lda @row
 	jmp bm::rvsline
 .endproc
 
@@ -436,7 +440,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 
 	jsr __text_char_index
 	sty @curi
-
 	; get the new x position
 	lda mem::linebuffer-1,y
 	pha
@@ -444,7 +447,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sta mem::linebuffer-1,y	; temporarily 0-terminate line
 	jsr __text_rendered_line_len
 	stx zp::curx
-
 	pla
 	ldy @curi
 	sta mem::linebuffer-1,y	; restore
@@ -471,7 +473,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	ldx zp::curx
 	cpx cur::maxx
 	bcs @err	; cursor is limited
-
 	pha
 	jsr __text_char_index
 	sty @curi
@@ -513,7 +514,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	adc zp::curx
 	sta zp::curx
 	lda zp::cury
-	jmp @redrawline		; re-render whole line
+	jmp @redrawline		; re-render the line
+
 @redraw:
 	lda __text_buffer
 	bne @done
@@ -523,10 +525,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	jsr __text_drawline	; re-render whole line
 	RETURN_OK
 
-	; TODO: make fast?
-	ldx __text_buffer
-	bne @done		; if BUFFER is enabled, don't blit
-	CALL FINAL_BANK_FASTTEXT, #ftxt::putch
 @done:	inc zp::curx
 	RETURN_OK		; "put" was successful
 .endproc
@@ -617,11 +615,28 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .X: the last column to scroll down to
 .export __text_scrolldown
 .proc __text_scrolldown
+	ldy #$01
+
+	; fallthrough
+.endproc
+
+;******************************************************************************
+; SCROLLDOWNN
+; Scrolls all rows in the given range down by the given number of rows
+; IN:
+;  - .A: the first row to scroll down
+;  - .X: the last row to scroll down
+;  - .Y: the number of pixels to scroll each row by
+.export __text_scrolldownn
+.proc __text_scrolldownn
 @rowstart=zp::text
 @rows=zp::text+1
 @src=zp::text+2
 @dst=zp::text+4
+@offset=r0
 	sta @rowstart
+	sty @offset
+	dec @offset
 
 	cpx @rowstart
 	beq @noscroll
@@ -632,18 +647,25 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 :	txa
 	sec
 	sbc @rowstart
+	sbc @offset
 	asl
 	asl
 	asl
 	sta @rows
 	dec @rows	; -1 because we will do the last row separately
 
+	tya
+	asl
+	asl
+	asl
+	sta @offset
+
 	lda @rowstart
 	asl
 	asl
 	asl
 	sta @src
-	adc #$08
+	adc @offset
 	sta @dst
 
 	lda #>BITMAP_ADDR
@@ -651,8 +673,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sta @dst+1
 
 @l0:	ldy @rows
-@l1:
-	lda (@src),y
+@l1:	lda (@src),y
 	sta (@dst),y
 	dey
 	bne @l1
@@ -687,13 +708,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .A: the text to display
 .export __text_puts
 .proc __text_puts
-@txtdst   = zp::text+5
-@txtsrc = zp::text+7
-	stxy @txtsrc
-	asl
-        asl
-        asl
-        sta @txtdst
 	JUMP FINAL_BANK_FASTTEXT, #ftxt::puts
 .endproc
 
@@ -785,6 +799,49 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .endproc
 
 ;******************************************************************************
+; INDEX2CURSOR
+; Returns the x cursor position for the given offset in linebuffer
+; IN:
+;  - .A: the index in linebuffer to get the cursor position for
+; OUT:
+;  - .X: the corresponding cursor position
+.export __text_index2cursor
+.proc __text_index2cursor
+@i=zp::text
+@x=zp::text+1
+@seek=zp::text+2
+	sta @seek
+	lda #$00
+	sta @i
+	sta @x
+	lda mem::linebuffer
+	beq @done
+
+@l0:	ldx @i
+	lda mem::linebuffer,x
+	beq @end	; end of buffer
+	cpx @seek
+	beq @done
+	inc @i
+	cmp #$09	; TAB
+	bne :+
+
+	lda @x
+	jsr __text_tabr_dist_a
+	clc
+	adc @x
+	sta @x
+	bne @l0
+
+:	inc @x
+	bne @l0
+
+@end:	dec @x
+@done:	ldx @x
+	rts
+.endproc
+
+;******************************************************************************
 ; TABR_DIST
 ; Returns the # of columns to the next tab
 ; OUT:
@@ -861,16 +918,6 @@ tabs_end=*-tabs
 	dey
 	bpl :-
 	rts
-.endproc
-
-;******************************************************************************
-; CLRINFO
-; Clears the info message line
-.export __text_clrinfo
-.proc __text_clrinfo
-	ldxy #strings::null
-
-	; fall through
 .endproc
 
 ;******************************************************************************

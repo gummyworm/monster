@@ -1,5 +1,5 @@
 # MONster
-<img width="825" alt="monster" src="https://github.com/gummyworm/monster/assets/4626914/c11cf3be-a245-4cb3-a157-04ff436a7c6b">
+<img width="712" alt="Screenshot 2024-07-06 at 9 15 06 PM" src="https://github.com/gummyworm/monster/assets/4626914/3b4661c9-210a-4699-9a95-e99ebbe464f8">
 
 
 Table of Contents
@@ -127,18 +127,19 @@ below for more info on modes).
 The following commands are entered at the "Ex Command" prompt (accessed with the `:` key).
 Most accept an argument (as described in each commands description below)
 
-|Key| Name          |   Args                          | Description                                                  |
-|---|---------------|---------------------------------|--------------------------------------------------------------|
-| a | Assemble File | Filename                        | assembles the given filename                                 |
-| B | export Binary | Filename                        | exports the active assembly to a binary file (no .PRG header)|
-| d | Start Debugger| Symbol to debug at (optional)   | begins debugging at the given label                          |
-| D | Disassemble   | Start address, End address      | Disassembles the given address range                         |
-| e | Edit          | Filename                        | loads the buffer with the contents of the given file         |
-| g | Goto          | Symbol to run at (optional)     | executes the program at the address of the given symbol      |
-| P | export .PRG   | Filename                        | exports the active assembly to a .PRG file                   |
-| r | Rename        | Name                            | renames the buffer to the given name                         |
-| s | Save          | Filename                        | saves the buffer to the given filename                       |
-| x | Scratch       | Filename                        | scratches (deletes) the given filename                       |
+|Key| Name              |   Args                          | Description                                                  |
+|---|-------------------|---------------------------------|--------------------------------------------------------------|
+| a | Assemble File     | Filename                        | assembles the given filename                                 |
+| B | export Binary     | Filename                        | exports the active assembly to a binary file (no .PRG header)|
+| d | Start Debugger    | Symbol to debug at (optional)   | begins debugging at the given label                          |
+| D | Disassemble       | Start address, End address      | Disassembles the given address range                         |
+| e | Edit              | Filename                        | loads the buffer with the contents of the given file         |
+| g | Goto              | Symbol to run at (optional)     | executes the program at the address of the given symbol      |
+| F | Disassemble File  | Filename                        | disassembles the given file to a new source buffer           |
+| P | export .PRG       | Filename                        | exports the active assembly to a .PRG file                   |
+| r | Rename            | Name                            | renames the buffer to the given name                         |
+| s | Save              | Filename                        | saves the buffer to the given filename                       |
+| x | Scratch           | Filename                        | scratches (deletes) the given filename                       |
 
 #### Assemble File :a <filename>
 Assembles the contents of the given file. This is functionally the same as opening
@@ -187,6 +188,13 @@ Loads the given filename to a new buffer and activates it.
 
 Example:
 `:e HELLO.S`
+
+#### Disassemble from File :F <filename>
+Disassembles the contents of the given binary file.
+e.g. `:F EXAMPLE.PRG`
+
+The result of the disassembly is opened in a new buffer, where you can edit it
+as you would any of your handwritten source.
 
 #### Export .PRG :P <filename>
 Exports the active assembly (F3/F4) to the given file as a .PRG file.  This means
@@ -288,13 +296,17 @@ When text is deleted (delete line, delete word) or _yanked_, it is stored to a b
 it may be recalled by the paste commands (`p`, paste below and `P` paste above).
 When the paste command is executed, the buffer is cleared.
 
+The copy buffer's size can be configured per-build in `src/config.inc`.  Without
+modification it is set to 880 bytes, which is enough for a completely full
+screen of text (22 lines of 40 columns).
+
 ### Jump Lists
 When the user "jumps" to a different position in the source (`gg`, `G`, `goto line`,
-`find`, `[`, and `]`) the editor tracks this new position.  To recall these
-jump points there are two commands.
-These are _jump-forward_ (`C= + i`) and _jump-backward_ (`C= + o`).
+`find`, `[`, and `]`) the editor saves the old position.  To recall the positions
+that were "jumped" from are two commands: _jump-forward_ (`C= + i`) and _jump-backward_ (`C= + o`).
 
 ---
+
 ## Assembler Overview
 
 ### Syntax
@@ -632,6 +644,16 @@ less than the maximum number it expects as in this example:
 .ENDMAC
 ```
 
+#### Limitations
+
+There are some limitations on the number of macros and overall size of the 
+macros per assembly.  The source for all macros must be less than $1400 bytes.
+There is also a 128 macro limit.
+
+Each macro can be at most 16 lines or 512 bytes, whichever is lower. This restriction also applies to .REP.
+
+Comments are excluded from the internal context buffer, so using them will not count toward the byte limit.
+
 ---
 ### Example program
 Here is a basic hello world program to demonstrate some of the assembler's
@@ -715,20 +737,21 @@ and color RAM.
 The following commands are supported by the debugger and are accessed by their
 respective Key in the table below.
 
-|  Key     | Name            |   Description                                                                        |
-|--------  |-----------------|--------------------------------------------------------------------------------------|
+|  Key         | Name            |   Description                                                                        |
+|--------------|-----------------|--------------------------------------------------------------------------------------|
 |  F1          | Source View     | maximizes the screen area for viewing the source code                                |
 |  F2          | Register Editor | enters the register editor                                                           |
 |  F3          | Mem View        | activates the memory window, which takes control until `<-` is pressed               |
 |  F5          | Break View      | displays the breakpoints that have been set and allows them to be enabled/disabled   |
-|  C=+g        | Go              | begins execution at the cursor                                                       |
-|  C=+s        | StepOver        | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
-|  C=+z        | Step            | steps to the next instruction.                                                       |
+|  s           | StepOver        | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
+|  z           | Step            | steps to the next instruction.                                                       |
+|  t           | Trace           | like GO but the debugger takes control between each instruction                      |
+|  C=-g        | Go              | begins execution at the cursor                                                       |
 |  C=-r        | Reset Stopwatch | resets the value of the stopwatch to 0                                               |
-|  C=+t        | Trace           | like GO but the debugger takes control between each instruction                      |
 |   <-         | Exit            | exits the debugger and returns to the editor                                         |
 | SPACE        | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  |
 | ^ (up arrow) |  Goto Break     | navigates to the address that the debugger is currently paused at                    |
+| !            | Enter command   | prompts for a debug command (see the debug command section for more info)            |
 
 ### Register Editor (`F2`)
 Pressing F2 moves the cursor to the register contents and allows the user to enter
@@ -749,9 +772,9 @@ information in the debug view, which is displayed in hexadecimal.
 ---
 
 ### Stepping through code
-#### Step Into (`C= + z`)
+#### Step Into (`z`)
 Stepping is a common way to debug a program line-by-line.
-Stepping _into_ code (`C= + z`) will, if possible, return to the debugger
+Stepping _into_ code will, if possible, return to the debugger
 after the next instruction (the one currently highlighted if we have debug
 information) is executed. There is a scenario where this is not possible: if
 the next instruction is in ROM.  In this case, step _into_ behaves the same
@@ -767,16 +790,16 @@ value hasn't changed*. The same is true of watches.  We can activate a watch
 even if we don't store a new value to it. In fact, we can activate them when a
 value is loaded.
 
-#### Step Over (`C= + s`)
+#### Step Over (`s`)
 Step _over_ behaves the same as step _into_, but if the next
 instruction is a subroutine call (`JSR`), execution continues until the
 instruction _after_ the `JSR` (after the subroutine returns).
 
 #### Go (`C= + g`)
 The go command begins execution and returns to the debugger only when a
-breakpoint is encountered.
+breakpoint is encountered or when RUN/STOP is pressed.
 
-#### Trace (`C= + t`)
+#### Trace (`t`)
 Trace is similar to `GO`, but the debugger executes the program as a series 
 of STEPs instead of running the program binary directly.
 This is useful because it allows the debugger to break if any watched memory
@@ -938,3 +961,17 @@ value of a watch and what it was changed to when it is updated.
 When a value is changed the watch view is activated to alert the user to the
 alteration.  If a read or write is detected while stepping _into_ the code,
 the viewer is also activated.
+
+---
+
+## Debug Commands
+Debug commands offer a text interface for performing the actions that can
+be done within the various debug editors as well as some other ones.
+
+Pressing `!` while debugging opens the prompt.  The following commands can
+then be input
+
+|  Command | Parameters       | Name            |   Description                                                                        |
+|-----------------------------|-----------------|--------------------------------------------------------------------------------------|
+|     wa   | addr stopaddr    | Add Watch       | Adds a watch at the given start and (optional) stop address                          |
+|     wr   | id               | Remove Watch    | removes the watch with the given id                                                  |

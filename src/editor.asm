@@ -74,10 +74,11 @@ jumpptr:  .byte 0	; offset to jumplist
 
 buffptr:  .word 0 	; copy buffer pointer (also bytes in copy buffer)
 
-visual_start_line: .word 0	; the line # a selection began at
-visual_start_x:    .byte 0	; the x-position a selection began at
-selection_type:    .byte 0      ; the type of selection (VISUAL_LINE or VISUAL)
-format:            .byte 0	; if 0, formatting is not applied on line-end
+visual_start_line:	.word 0	; the line # a selection began at
+visual_start_x:		.byte 0	; the x-position a selection began at
+visual_lines_copied:	.byte 0	; the number of lines copied in VISUAL modes
+selection_type:    	.byte 0 ; the type of selection (VISUAL_LINE or VISUAL)
+format:            	.byte 0	; if 0, formatting is not applied on line-end
 
 overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
 cmdreps: .byte 0	; number of times to REPEAT current command
@@ -246,6 +247,9 @@ main:	jsr key::getch
 	sta height
 	inc readonly	; enable read-only mode
 
+	lda #$00
+	sta state::verify
+
 	lda #DEBUG_MESSAGE_LINE
 	sta status_row
 
@@ -263,6 +267,45 @@ main:	jsr key::getch
 	jsr edit
 	jsr cancel
 	jmp refresh
+.endproc
+
+;******************************************************************************
+; COMMAND_DISASM_FILE
+; :d <filename>
+; Disassembles the contents of the given file to a new buffer.
+; The .PRG load address determines where (in virtual memory) the file's
+; binary data is loaded
+; IN:
+;  - .XY: address of the command argument (filename to load)
+.proc command_disasm_file
+@file=zp::editortmp
+@filename=zp::editortmp+1
+@start=zp::editortmp+3
+	stxy @filename
+	jsr file::open_r_prg
+	bcc @ok
+	rts			; failed to open file
+
+@ok:	sta @file
+	tax
+	jsr $ffc6     ; CHKIN (file in .X now used as input)
+
+	; read .PRG header
+	jsr $ffcf
+	sta @start
+	sta file::loadaddr
+	jsr $ffcf
+	sta @start+1
+	sta file::loadaddr+1
+
+	lda @file
+	jsr file::loadbinv	; load the binary
+
+	; disassemble the binary
+	ldxy file::loadaddr	; disassembly stop address
+	stxy r0
+	ldxy @start
+	jmp disassemble
 .endproc
 
 ;******************************************************************************
@@ -286,7 +329,8 @@ main:	jsr key::getch
 
 @ok:	stxy r0
 	ldxy @start
-	jmp disassemble		; disassemble the address range
+
+	; fall through to disassemble
 .endproc
 
 ;******************************************************************************
@@ -303,7 +347,36 @@ main:	jsr key::getch
 	stxy @addr
 	ldxy r0
 	stxy @stop
-	jsr new_buffer		; create/activate a new buffer
+	jsr new_buffer		; create/activate a new source buffer
+
+	lda #'.'
+	jsr src::insert
+	ldxy #asm::org_string
+	jsr src::insertline
+	lda #' '
+	jsr src::insert
+
+	lda #'$'
+	jsr src::insert
+	lda @addr+1
+	jsr util::hextostr
+	txa
+	pha
+	tya
+	jsr src::insert
+	pla
+	jsr src::insert
+
+	lda @addr
+	jsr util::hextostr
+	txa
+	pha
+	tya
+	jsr src::insert
+	pla
+	jsr src::insert
+	lda #$0d
+	jsr src::insert
 
 @l0:	ldxy #@buff
 	stxy r0
@@ -357,8 +430,10 @@ main:	jsr key::getch
 	cmpw @stop
 	bcc @l0			; disassemble next instruction
 
-	ldxy #1
-	jsr gotoline
+	lda #$00
+	sta zp::curx
+	sta zp::cury
+	jsr src::rewind
 	jmp refresh
 
 @db:   .byte ".db $"
@@ -491,17 +566,15 @@ main:	jsr key::getch
 	bcc @next		; no error, continue
 
 @err:	jsr display_result	; display the error
-	jsr src::popp		; clear the source position stack
-	jsr src::goto		; restore source position
+	jsr src::popgoto	; restore source position
 	jsr dbgi::getline	; get the line that failed assembly
 	jmp gotoline		; goto that line
 
 @next:	jsr src::end		; check if we're at the end of the source
 	bne @pass2loop		; repeat if not
 	clc			; successfully assembled full source
-	jsr display_result	; display success msg
-	jsr src::popp
-	jsr src::goto
+	jsr display_result	; dispaly success msg
+	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer
 
 	RETURN_OK
@@ -614,7 +687,7 @@ main:	jsr key::getch
 
 @done:	pla
 	jsr src::setbuff	; restore buffer
-	jmp src::popp		; restore source pos
+	jmp src::popgoto	; restore source pos
 .endproc
 
 ;******************************************************************************
@@ -633,6 +706,13 @@ main:	jsr key::getch
 @result_offset=r8
 @len=r9
 	stxy zp::jmpvec
+
+	; save insert mode etc.
+	lda zp::editor_mode
+	pha
+	lda text::insertmode	; save current insertion mode
+	pha
+	jsr force_enter_insert
 
 	ldx zp::curx
 	stx @result_offset	; offset to the user-input in line buffer
@@ -686,6 +766,10 @@ main:	jsr key::getch
 	lda @len
 
 	plp			; get success state
+	pla
+	sta text::insertmode	; restore insert mode
+	pla
+	sta zp::editor_mode	; restore editor mode
 	rts
 .endproc
 
@@ -707,13 +791,6 @@ main:	jsr key::getch
 	jsr text::clrline
 
 	pushcur			; save the cursor state
-
-	; save insert mode etc.
-	lda zp::editor_mode
-	pha
-	lda text::insertmode	; save current insertion mode
-	pha
-	jsr force_enter_insert
 
 	ldxy @prompt
 	cmpw #0
@@ -751,10 +828,6 @@ main:	jsr key::getch
 	ldy #$01
 
 	plp			; get success state
-	pla
-	sta text::insertmode	; restore insert mode
-	pla
-	sta zp::editor_mode	; restore editor mode
 	popcur			; restore cursor
 
 	lda #$00
@@ -856,6 +929,21 @@ force_enter_insert=*+5
 	dec @tabcnt
 	bne @tabl
 @done:	rts
+.endproc
+
+;******************************************************************************
+; CANCEL
+; Returns to COMMAND mode.
+; If an error is being displayed, hides it.
+.proc cancel
+	jsr clrerror
+	lda #EDITOR_HEIGHT
+	jsr __edit_resize
+
+	lda #TEXT_REPLACE
+	sta text::insertmode
+
+	; fall through to enter_command
 .endproc
 
 ;******************************************************************************_
@@ -962,16 +1050,20 @@ force_enter_insert=*+5
 @ch=r0
 	jsr is_readonly
 	beq @done
+
 :	jsr key::getch	; get the character to replace with
 	beq :-
 	sta @ch
+
 	lda text::insertmode
 	pha
 	lda #TEXT_REPLACE
 	sta text::insertmode
+
 	lda @ch
 	jsr insert
-	jsr cur::left	; don't advance cursor
+	jsr ccleft	; don't advance cursor
+
 	pla
 	sta text::insertmode
 @done:	rts
@@ -1211,7 +1303,9 @@ force_enter_insert=*+5
 ;******************************************************************************_
 .proc delete_char
 	jsr delch
-	jmp redraw_to_end_of_line
+	bcc @ok
+	rts
+@ok:	jmp redraw_to_end_of_line
 .endproc
 
 ;******************************************************************************_
@@ -1276,31 +1370,118 @@ force_enter_insert=*+5
 ; Inserts the contents of the buffer at the current cursor position and returns
 ; to command mode
 .proc paste_buff
-	lda format
+@row=rd
+@splitindex=re
+@posttext=$100
+	; save the current buffer pointer
+	lda buffptr
 	pha
-	lda #$00
-	sta format
-	jsr text::bufferon
+	lda buffptr+1
+	pha
 
-	jsr enter_insert
-@l0:	jsr buff_getch
-	bcs @done
-	cmp #$0d
-	bne :+
-	jsr linedone
-	jmp @l0
-:	jsr insert
-	jmp @l0
-
-@done:	lda zp::curx
-	beq :+
+; paste between [linebuffer, char_index(curx)] with the first line from buffer
 	lda zp::cury
-	jsr text::drawline	; draw the last line (if it contains anything)
+	sta @row
+	jsr text::char_index
+	sty @splitindex
 
-:	jsr text::bufferoff
+	ldy visual_lines_copied
+	beq @noscroll
+	ldx height
+	lda @row
+	jsr text::scrolldownn
+
+@noscroll:
+	jsr src::pushp
+
+	ldx @splitindex	; get index of text to save
+	ldy #$00
+	; save the part of the line that we're inserting BEFORE
+:	lda mem::linebuffer,x
+	sta @posttext,y
+	beq @copydone
+	inx
+	iny
+	bne :-
+
+@copydone:
+	; read the first buffer line into the proper textbuffer location
+	lda @splitindex
+	clc
+	adc #<mem::linebuffer
+	tax
+	lda #>mem::linebuffer
+	adc #$00
+	tay
+	jsr buff_getline
+	bcs @done		; buffer empty (nothing to paste)
+	pha			; save newline flag
+	ldxy r9			; dst (set in buff_getline)
+	jsr src::insertline	; insert the first line from the paste buffer
 	pla
-	sta format
-	jmp enter_command
+	cmp #$0d		; did line end with a newline?
+	bne @lastline		; if not, this is a < 1 line paste
+	jsr src::insert
+
+	; redraw the line and move to the next one
+	lda @row
+	jsr text::drawline
+	inc @row
+
+@middlerows:
+	; for full rows ($0d terminated), just get a line and draw it
+@l1:	ldxy #mem::linebuffer
+	jsr buff_getline
+	bcs @lastline		; if the buffer is empty, we're done
+	pha			; save last char read
+	ldxy r9			; (getline leaves result in r0)
+	jsr src::insertline	; insert the line read
+	pla			; restore last char read
+	cmp #$0d		; was this line a newline?
+	bne @lastline		; if not continue to merge it with last line
+
+	jsr src::insert
+	lda @row
+	inc @row
+	jsr draw_line_if_visible
+	jmp @l1
+
+@lastline:
+	; copy the text after the cursor upon insertion to the buffer again
+	jsr text::linelen
+	ldy #$00
+:	lda @posttext,y
+	sta mem::linebuffer,x
+	beq @lastdone
+	inx
+	iny
+	bne :-
+
+@lastdone:
+	lda @row
+	jsr draw_line_if_visible
+
+@done:	; restore the buffer pointer
+	pla
+	sta buffptr+1
+	pla
+	sta buffptr
+	jmp src::popgoto
+.endproc
+
+;******************************************************************************
+; DRAW_LINE_IF_VISIBLE
+; If the given row is within the current screen range, (0, height], draws the
+; linebuffer.  If not, does nothing.
+; IN:
+;  - .A:	      the row of the line
+;  - mem::linebuffer: the line to draw
+.proc draw_line_if_visible
+	cmp height
+	beq :+
+	bcs @done
+:	jmp text::drawline
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1311,13 +1492,7 @@ force_enter_insert=*+5
 	jsr yank
 	bcs @done
 
-	; if visual line, display # of lines yanked
-	lda mode
-	pha
 	jsr enter_command
-	pla
-	cmp #MODE_VISUAL_LINE
-	bne @ok
 
 	ldxy src::line
 	cmpw visual_start_line
@@ -1339,7 +1514,7 @@ force_enter_insert=*+5
 :	tya
 	pha
 	ldxy #@msg
-	jsr text::info
+	jsr text::info	; display # of lines yanked
 @ok:	clc
 @done:	rts
 @msg: .byte "copied ",ESCAPE_VALUE_DEC, " lines",0
@@ -1380,8 +1555,13 @@ force_enter_insert=*+5
 :	jsr get_selection_bounds
 	bcs @done
 
+	lda #$00
+	sta visual_lines_copied
+	ldxy #mem::copybuff
+	stxy buffptr
+
 	; set the selection type so we know how to handle the eventual paste
-	lda #$01
+	lda #VISUAL
 	sta selection_type
 	lda mode
 	cmp #MODE_VISUAL_LINE
@@ -1557,9 +1737,9 @@ force_enter_insert=*+5
 
 ;******************************************************************************
 .proc goto_end
+	jsr add_jump_point
 	ldxy #$ffff
-	jsr gotoline
-	jmp add_jump_point
+	jmp gotoline
 .endproc
 
 ;******************************************************************************
@@ -1619,7 +1799,7 @@ force_enter_insert=*+5
 	inc @len
 	bne @readword
 
-:	jsr src::popp
+:	jsr src::popgoto
 	ldy @len
 	beq @ret		; no symbol under cursor, exit
 	lda #$00
@@ -1628,7 +1808,8 @@ force_enter_insert=*+5
 	jsr str::toupper
 	ldxy #mem::spare
 	jsr lbl::addr		; get the address of the line
-	bcs @ret		; no address found
+	bcc @ret		; no address found
+	jsr add_jump_point
 	jmp dbg::gotoaddr	; goto it
 .endproc
 
@@ -1773,52 +1954,46 @@ force_enter_insert=*+5
 .export __edit_refresh
 __edit_refresh:
 .proc refresh
-@saveline=zp::editortmp
-	ldxy src::line
-	stxy @saveline
+@row=zp::editortmp
+	jsr src::pushp
+	jsr text::savebuff
 
-	; move source/cursor to top-left of screen
-	jsr home
-	ldx zp::cury
-	ldy #$00
+	jsr src::atcursor
+	ldx zp::cury		; number of lines to move up
+	cmp #$0d
+	beq :+
+	inx			; if not on a newline, 1st UP is to HOME
+:	ldy #$00
 	sty highlight_status
-	sty zp::cury
+	sty @row
 	jsr src::upn
 
 	; redraw the visible lines
 @l0:	jsr src::readline
 	php
-	lda zp::cury
+	lda @row
 	jsr text::drawline
 	plp
-	bcs @done
-	inc zp::cury
-	lda zp::cury
+	bcs @clr
+	inc @row
+	lda @row
 	cmp height
 	beq @l0
 	bcc @l0
 
-@done:	lda zp::cury
-	pha
-
-	; clear the rest of the lines
-:	ldx zp::cury
-	inx
+@clr:	; clear the rest of the lines
+	ldx @row
 	cpx height
-	bcs @cont
-	stx zp::cury
+	inx
+	bcs @done
+	stx @row
 	txa
 	jsr bm::clrline
-	jmp :-
+	jmp @clr
 
-@cont:	pla
-	sta zp::cury
-
-	jsr text::rendered_line_len
-	stx zp::curx			; set curx so source and cursor align
-	; restore cursor and source
-	ldxy @saveline
-	jmp gotoline
+@done:	; restore source position
+	jsr src::popgoto
+	jmp text::restorebuff
 .endproc
 
 ;******************************************************************************
@@ -1937,6 +2112,8 @@ __edit_refresh:
 	ldxy src::line
 	cmpw __edit_highlight_line
 	bne @done
+	lda #$01
+	sta highlight_status
 	; the highlight was destroyed by drawing the line, re-highlight it
 	jmp toggle_highlight
 @done:	rts
@@ -2274,6 +2451,7 @@ goto_buffer:
 	.byte $78		; x - scratch file
 	.byte $61		; a - assemble file
 	.byte $44		; D - disassemble
+	.byte $46		; F - disassemble file
 	.byte $42		; B - create .BIN
 	.byte $50		; P - create .PRG
 @num_ex_commands=*-@ex_commands
@@ -2281,7 +2459,8 @@ goto_buffer:
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
 	command_load, command_rename, command_save, command_scratch, \
-	command_assemble_file, command_disasm, command_savebin, command_saveprg
+	command_assemble_file, command_disasm, command_disasm_file, \
+	command_savebin, command_saveprg
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
@@ -2350,9 +2529,9 @@ goto_buffer:
 
 ;******************************************************************************
 ; WRITE_ASM
-; Writes the assembled program to the file in r0
+; Writes the assembled program to the file in r0 and then closes the file
 ; IN:
-;  - r0: the file handle to write out
+;  - r4: the file handle to write out
 .proc write_asm
 @file=r4
 	; write the assembled program
@@ -2409,7 +2588,7 @@ goto_buffer:
 	jsr src::pushp		; save current source pos
 	lda @file
 	jsr file::savesrc	; save the buffer
-	jsr src::popp		; restore source pos
+	jsr src::popgoto	; restore source pos
 	lda @file
 	jsr file::close		; close the file
 	cmp #$00
@@ -2452,6 +2631,8 @@ goto_buffer:
 ;******************************************************************************
 ; LOAD
 ; Loads the file from disk into the source buffer
+; IN:
+;  - .XY: the filename to load
 ; OUT:
 ;  - .C: set if file could not be loaded into a buffer
 .export __edit_load
@@ -2486,9 +2667,9 @@ goto_buffer:
 
 @notfound:
 ; buffer doesn't exist in any RAM bank, load from disk
-	; get the file length
 	ldxy @file
-	jsr str::len
+	jsr file::exists
+	bne @err		; if file doesn't exist, we're done
 
 	; display loading...
 	ldxy #strings::loading
@@ -2512,12 +2693,12 @@ goto_buffer:
 	sta zp::curx
 	sta zp::cury		; reset cursor
 	jsr refresh
-	jmp cancel
+	jsr cancel
+	clc
+	rts
 
-@err:	pha			; push error code
-	ldxy #strings::edit_file_load_failed
-	jsr text::info
-	sec			; error
+@err:	jsr report_typein_error
+	sec
 	rts
 .endproc
 
@@ -2527,7 +2708,6 @@ goto_buffer:
 .proc command_load
 	jsr __edit_load
 	bcs @err
-
 	jmp asm::reset	; reinitialize
 @err:	rts
 .endproc
@@ -2624,39 +2804,39 @@ goto_buffer:
 ; Redraws the line starting at the cursor's x position to the next $0d in the
 ; source
 .proc redraw_to_end_of_line
-@x=zp::tmp7
-@cnt=zp::tmp8
 	jsr text::char_index
-	sty @x
-	lda #$00
-	sta @cnt
+	tya
+	pha
 
-:	jsr src::end
-	beq @draw
-	jsr src::next
-	inc @cnt
-	cmp #$0d
-	beq @draw
-	ldx @x
-	sta mem::linebuffer,x
-	inc @x
-	bne :-
-
-@draw:	lda #$00
-	ldx @x
-	sta mem::linebuffer,x
+	jsr src::pushp
+	jsr src::home
+	jsr src::get
 	lda zp::cury
-	ldxy #mem::linebuffer
-	jsr text::print
+	jsr text::drawline
+	jsr src::popgoto
 
-	; move back to where we were in the source
-	lda @cnt
-	beq @done
-@restore:
-	jsr src::prev
-	dec @cnt
-	bne @restore
+	pla
+	jsr text::index2cursor
+	stx zp::curx
 
+	; if we're on a TAB, move cursor to the end of it
+	jsr src::after_cursor
+	cmp #$09
+	bne :+
+	jsr text::tabr_dist
+	clc
+	adc zp::curx
+	sta zp::curx
+	dec zp::curx
+
+:	; make sure cursor is pointing to something in the source
+	; (unless line is empty)
+	jsr src::end
+	beq @back
+	jsr src::after_cursor
+	cmp #$0d
+	bne @done
+@back:	jmp src::left
 @done:	rts
 .endproc
 
@@ -2749,6 +2929,7 @@ goto_buffer:
 	bne @put
 @replace:
 	jsr src::replace
+	bcs @done		; nothing to replace
 	jmp text::putch
 @put:	pha
 	jsr text::putch
@@ -2888,14 +3069,17 @@ goto_buffer:
 	jmp @movex
 
 :	; if we ended on a TAB, advance to the next TAB col else curx
-	jsr text::char_index
+	jsr src::after_cursor
 	cmp #$09		; did we end on a TAB?
 	bne ccup_highlight	; if not, continue
-	jsr src::right
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
+	lda mode
+	cmp #MODE_INSERT
+	beq ccup_highlight
+	dec zp::curx
 ; fallthrough
 .endproc
 
@@ -2913,7 +3097,7 @@ goto_buffer:
 ;
 ; If the editor is not in visual mode, this routine does nothing
 .proc ccup_highlight
-@togglecur=zp::tmp6
+@togglecur=r6
 	lda mode
 	cmp #MODE_VISUAL
 	bne @done
@@ -2981,14 +3165,16 @@ goto_buffer:
 ; OUT:
 ;  - .C: set if no character could be deleted.
 .proc delch
+@tmp=r0
 	jsr is_readonly
 	beq @nodel
-	jsr src::end
+	jsr src::before_newl
 	beq @nodel
-	jmp src::delete
+@del:	jmp src::delete
 @nodel:	sec
 	rts
 .endproc
+
 
 ;******************************************************************************
 ; CCLEFT
@@ -3136,7 +3322,7 @@ goto_buffer:
 	bne @curr
 
 	; handle TAB (repeat the MOVE RIGHT logic til we're at the TAB next col)
-	jsr text::tabr_dist
+jsr text::tabr_dist
 	sta @tabcnt
 	ldy zp::editor_mode
 	cpy #MODE_INSERT
@@ -3317,14 +3503,17 @@ goto_buffer:
 	bcc @xloop
 
 @end:	; if we ended on a TAB, advance to next tab col
-	jsr text::char_index
+	jsr src::after_cursor
 	cmp #$09		; did we end on a TAB?
 	bne ccdown_highlight	; if not, continue
-	jsr src::right
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
+	lda mode
+	cmp #MODE_INSERT
+	beq ccdown_highlight
+	dec zp::curx
 ; fall through to ccdown_highlight
 .endproc
 
@@ -3491,8 +3680,7 @@ goto_buffer:
 	jsr src::get
 	lda height
 	jsr text::drawline	; draw the new line that was scrolled up
-	jsr src::popp
-	jmp src::goto		; restore source position
+	jmp src::popgoto	; restore source position
 .endproc
 
 ;******************************************************************************
@@ -3551,20 +3739,6 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
-; CANCEL
-; Returns to COMMAND mode.
-; If an error is being displayed, hides it.
-.proc cancel
-	jsr clrerror
-	lda #EDITOR_HEIGHT
-	jsr __edit_resize
-
-	lda #TEXT_REPLACE
-	sta text::insertmode
-	jmp enter_command
-.endproc
-
-;******************************************************************************
 ; COMMAND_GOTOLINE
 ; Gets a line number from the user and moves the cursor and source to that line
 .proc command_gotoline
@@ -3617,10 +3791,10 @@ goto_buffer:
 .proc __edit_find
 @string=zp::str0
 @seekptr=zp::str2
-@tofind=zp::tmp2
-@target=zp::tmp8
-@len=zp::tmpa
-@cnt=zp::tmpd
+@tofind=r2
+@target=r8
+@len=ra
+@cnt=rd
 @searchbuff=$120	; buffer of bytes to search
 	stxy @string
 	jsr str::len
@@ -3671,8 +3845,7 @@ goto_buffer:
 	jmp @seekloop		; if not EOF, keep seeking
 
 @notfound:
-	jsr src::popp
-	jmp src::goto
+	jmp src::popgoto
 
 @found:	ldxy src::line	; get the line we're moving to
 	stxy @target
@@ -3713,10 +3886,10 @@ goto_buffer:
 	bne :-
 
 	; move to the line containing the search word
-@move:	jsr src::popp	; get old source position
-	jsr src::goto	; and restore it
+@move:	jsr src::popgoto	; restore old source position
+	jsr add_jump_point	; add a jump point
 	ldxy @target
-	jsr gotoline	; go to the new line
+	jsr gotoline		; go to the new line
 
 	; update the x cursor position to the first character of the search
 	lda @cnt
@@ -3962,7 +4135,7 @@ __edit_gotoline:
 ;  -.XY: the line number of the error
 ;  - mem::linebuffer: the line containing the error
 .proc reporterr
-@err=zp::tmp0
+@err=r0
 	sta @err
 
 	; push the line number
@@ -3987,9 +4160,9 @@ __edit_gotoline:
 	jsr str::uncompress
 
 	lda #<strings::edit_line_err
-	sta zp::tmp0
+	sta r0
 	lda #>strings::edit_line_err
-	sta zp::tmp0+1
+	sta r0+1
 	jsr str::cat
 
 	lda #ERROR_ROW
@@ -4065,7 +4238,7 @@ __edit_gotoline:
 ; ADD JUMP POINT
 ; Adds a jump point at the current source position
 .proc add_jump_point
-@end=zp::tmp0
+@end=r0
 	lda jumpptr
 	cmp #MAX_JUMPS
 	bcc @cont
@@ -4126,14 +4299,17 @@ __edit_gotoline:
 ;  - .A: the same as was passed in
 ;  - .C: set if the buffer is full (couldn't add char)
 .proc buff_putch
-@buff=zp::tmp0
+@buff=r0
 	ldxy buffptr
 	stxy @buff
 	cmpw #mem::copybuff+MAX_COPY_SIZE	; buffer is full
 	bcs @done
 	ldy #$00
 	sta (@buff),y
-	incw buffptr
+	cmp #$0d
+	bne :+
+	inc visual_lines_copied
+:	incw buffptr
 	clc
 @done:	rts
 .endproc
@@ -4145,7 +4321,7 @@ __edit_gotoline:
 ;  - .A: the last character PUT into the buffer (0 if none)
 ;  - .C: set if the buffer is empty
 .proc buff_getch
-@buff=zp::tmp0
+@buff=rb
 	ldxy buffptr
 	stxy @buff
 	cmpw #mem::copybuff
@@ -4155,6 +4331,50 @@ __edit_gotoline:
 	decw buffptr
 	decw @buff
 	lda (@buff),y
+	clc
+@done:	rts
+.endproc
+
+;******************************************************************************
+; BUFF GETLINE
+; Gets the last line that was PUT to the buffer
+; IN:
+;  - .XY: the address to store the line to
+; OUT:
+;  - (.XY): the last line PUT to the buffer
+;  - .A:    $0d if last character is a newline
+;  - .C:    set if the buffer is empty
+.proc buff_getline
+@dst=r9
+@buff=rb
+@i=r4
+	stxy @dst
+	lda #$00
+	tay
+	sta (@dst),y
+	ldxy buffptr
+	cmpw #mem::copybuff
+	beq @done		; buffer empty
+
+	lda #$00
+	sta @i
+@l0:	jsr buff_getch
+	bcs @empty
+	cmp #$0d
+	beq @ok
+	ldy @i
+	sta (@dst),y
+	inc @i
+	bne @l0
+
+@empty: lda #$00
+@ok:	pha
+	ldxy @buff
+	stxy buffptr
+	lda #$00
+	ldy @i
+	sta (@dst),y	; terminate the line
+	pla
 	clc
 @done:	rts
 .endproc

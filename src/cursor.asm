@@ -217,8 +217,8 @@ __cur_toggle:
 ;  - .Y: the signed number of rows to move
 .export __cur_move
 .proc __cur_move
-@xdst=zp::tmp2
-@ydst=zp::tmp3
+@xdst=r2
+@ydst=r3
 	stx @xdst
 	sty @ydst
 	lda __cur_mode
@@ -261,7 +261,7 @@ __cur_toggle:
 :	cpx minx
 	bcs :+
 	ldx minx
-:	stx zp::tmp2
+:	stx r2
 
 	cpy maxy
 	bcc :+
@@ -270,15 +270,14 @@ __cur_toggle:
 :	cpy miny
 	bcs :+
 	ldy miny
-:	sty zp::tmp3
+:	sty r3
 
 	jsr __cur_off
 
-	ldx zp::tmp2
-	ldy zp::tmp3
-	stx zp::curx
-	sty zp::cury
-	rts
+	ldx r2
+	ldy r3
+
+	; fall through
 .endproc
 
 ;******************************************************************************

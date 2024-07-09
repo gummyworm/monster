@@ -166,6 +166,8 @@ SLASH = SPECIAL_CHARS_START+2
 ; ($41-$5a) ones.
 ; IN:
 ;  - .XY: the address of the string to convert to uppercase
+; OUT:
+;  - .XY: the same address that was given
 .export __str_toupper
 .proc __str_toupper
 @str=zp::str0
@@ -181,7 +183,8 @@ SLASH = SPECIAL_CHARS_START+2
 	sta (@str),y
 @next:	iny
 	bne @l0
-@done:	rts
+@done:	ldy @str+1
+	rts
 .endproc
 
 ;******************************************************************************

@@ -4,6 +4,7 @@
 .include "irq.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "ram.inc"
 .include "string.inc"
 .include "strings.inc"
 .include "util.inc"
@@ -161,7 +162,7 @@ data: .res $6000
 ;  - .A: the next available ID
 ;  - .C: set if no open bank was found
 .proc find_bank
-@free=zp::tmp0
+@free=r0
 	lda #FINAL_BANK_SOURCE0
 @l0:	ldx #$00
 	stx @free
@@ -298,9 +299,9 @@ data: .res $6000
 ;  - .A: the id of the buffer to get the name of
 ; OUT:
 ;  - .XY: the filename of the buffer or [NO NAME] if it has no name
-; CLOBBERS:
 ;  - .C:  set if the file has no name ([NO NAME])
-;  - zp:tmp0-zp::tmp1
+; CLOBBERS:
+;  - r0-r1
 .export __src_get_filename
 .proc __src_get_filename
 	asl			; * 16
@@ -520,6 +521,17 @@ data: .res $6000
 .endproc
 
 ;******************************************************************************
+; POPGOTO
+; Navigates to the the most recent source position pushed in .YX
+.export __src_popgoto
+.proc __src_popgoto
+	jsr __src_popp
+	bcc :+
+	rts
+:	jmp __src_goto
+.endproc
+
+;******************************************************************************
 ; POS
 ; Returns the current source position.  You may go to this position with the
 ; src::goto routine.  Note that if the source changes since this procedure is
@@ -538,6 +550,18 @@ __src_pos = __src_start	 ; start implements the same behavior
 .proc __src_end
 	ldxy post
 	cmpw #$0000
+	rts
+.endproc
+
+;******************************************************************************
+; BEFORE END
+; Checks if the source cursor is located just before the end of the buffer.
+; OUT:
+;  - .Z: set if the cursor is before the end of the buffer
+.export __src_before_end
+.proc __src_before_end
+	ldxy post
+	cmpw #1
 	rts
 .endproc
 
@@ -607,8 +631,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .A: the character at the new cursor position in .A
 .export __src_next
 .proc __src_next
-@src=zp::tmp0
-@dst=zp::tmp2
+@src=r0
+@dst=r2
 	jsr __src_end
 	beq @skip
 
@@ -620,8 +644,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 	stx @src
 	sty @src+1
 
-	bank_read_byte bank, @src
-	bank_store_byte bank, @dst
+	lda24 bank, @src
+	sta24 bank, @dst
 
 	cmp #$0d
 	bne :+
@@ -718,8 +742,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .C: set if we're at the start of the buffer and couldn't move back
 .export __src_prev
 .proc __src_prev
-@src=zp::tmp0
-@dst=zp::tmp2
+@src=r0
+@dst=r2
 	jsr __src_start
 	bne :+
 	jsr atcursor
@@ -735,8 +759,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 	decw @src
 	decw @dst
 
-	bank_read_byte bank, @src
-	bank_store_byte bank, @dst
+	lda24 bank, @src
+	sta24 bank, @dst
 
 	cmp #$0d
 	bne :+
@@ -800,9 +824,9 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .A: the character to insert
 .export __src_insert
 .proc __src_insert
-@len=zp::tmp0
-@src=zp::tmp2
-@dst=zp::tmp4
+@len=r0
+@src=r2
+@dst=r4
 	pha
 	jsr mark_dirty
 	jsr gaplen
@@ -829,7 +853,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 	bcs @done	; out of range
 	stxy @dst
 
-	bank_store_byte bank, @dst
+	sta24 bank, @dst
 
 	cmp #$0d
 	bne :+
@@ -840,18 +864,44 @@ __src_pos = __src_start	 ; start implements the same behavior
 .endproc
 
 ;******************************************************************************
+; INSERT_LINE
+; Inserts the given string into the source at the current cursor position.
+; IN:
+;  - .XY: the string to insert
+.export __src_insertline
+.proc __src_insertline
+@str=r6
+@offset=r8
+	stxy @str
+	lda #$00
+	sta @offset
+@l0:	ldy @offset
+	lda (@str),y
+	beq @done
+	jsr __src_insert
+	inc @offset
+	bne @l0
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; REPLACE
 ; Adds the character in .A to the buffer at the cursor position,
 ; replacing the character that currently resides there
 ; IN:
 ;  - .A: the character to replace the existing one with
+; OUT:
+;  - .C: set if there is nothing to replace
 .export __src_replace
 .proc __src_replace
 	pha
 	jsr mark_dirty
 	jsr __src_delete
 	pla
-	jmp __src_insert
+	bcc @ok
+	rts
+@ok:	jsr __src_insert
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -940,8 +990,7 @@ __src_atcursor:
 .export __src_rewind
 .proc __src_rewind
 @l0:	jsr __src_prev
-	jsr __src_start
-	bne @l0
+	bcc @l0
 	rts
 .endproc
 
@@ -954,7 +1003,7 @@ __src_atcursor:
 ;  - .C: set if the end of the source was reached
 .export __src_readline
 .proc __src_readline
-@cnt=zp::tmp4
+@cnt=r4
 	lda #$00
 	sta mem::linebuffer
 	sta @cnt
@@ -992,7 +1041,7 @@ __src_atcursor:
 ;  - .XY: the source position to go to (see src::pos, src::pushp, src::popp)
 .export __src_goto
 .proc __src_goto
-@dest=zp::tmp4
+@dest=r4
 	stxy @dest
 	cmpw pre
 	beq @done
@@ -1023,8 +1072,8 @@ __src_atcursor:
 ;  - .C: set if the end of the buffer was reached as we were reading
 .export __src_get
 .proc __src_get
-@cnt=zp::tmp1
-@src=zp::tmp3
+@cnt=r1
+@src=r3
 	jsr gaplen
 	add16 pre
 	add16 #data
@@ -1067,7 +1116,7 @@ __src_atcursor:
 ;  - .C: set if the end was reached before the total lines requested could be reached
 .export __src_downn
 .proc __src_downn
-@cnt=zp::tmp4
+@cnt=r4
 	stxy @cnt
 @loop:	ldxy @cnt
 	decw @cnt
@@ -1089,7 +1138,7 @@ __src_atcursor:
 ;  - .C: set if the beginning was reached before the total lines requested could be reached
 .export __src_upn
 .proc __src_upn
-@cnt=zp::tmp4
+@cnt=r4
 	stxy @cnt
 @loop:	ldxy @cnt
 	decw @cnt

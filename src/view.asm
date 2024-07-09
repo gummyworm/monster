@@ -269,7 +269,7 @@ memaddr:   .word 0
 
 ;--------------------------------------
 @find:	pushcur
-@len=zp::tmp0
+@len=r0
 	lda #$00
 	sta cur::minx
 	sta zp::curx
@@ -406,8 +406,8 @@ memaddr:   .word 0
 .export __view_mem
 .proc __view_mem
 @src=ra
-@col=zp::tmpc
-@row=zp::tmpd
+@col=rc
+@row=rd
 	lda memaddr
 	sta @src
 	jsr util::hextostr
@@ -429,7 +429,7 @@ memaddr:   .word 0
 
 	; initialize line to empty (all spaces)
 	lda #40
-	sta zp::tmp0
+	sta r0
 	lda #' '
 	ldx #<mem::spare
 	ldy #>mem::spare
@@ -511,7 +511,7 @@ memaddr:   .word 0
 ;  - .Z: set if the display is dirty
 .export __view_dirty
 .proc __view_dirty
-@cnt=zp::tmp2
+@cnt=r2
 	ldx #TOTAL_BYTES-1
 	stx @cnt
 
@@ -578,8 +578,8 @@ memaddr:   .word 0
 ;  - .XY: the address of the first occurrence of the value
 ;  - .C:  set if the value was not found
 .proc find_word
-@val=zp::tmp0
-@addr=zp::tmp2
+@val=r0
+@addr=r2
 	stxy @val
 	ldxy memaddr
 	stxy @addr
@@ -616,9 +616,9 @@ memaddr:   .word 0
 ;  - .XY: the address of the first occurrence of the value
 ;  - .C:  set if the value was not found
 .proc find_byte
-@addr=zp::tmp4
-@val=zp::tmp6
-@start=zp::tmp7
+@addr=r4
+@val=r6
+@start=r7
 	stxy @start
 	stxy @addr
 	sta @val

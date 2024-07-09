@@ -2,6 +2,7 @@
 .import __src_after_cursor
 .import __src_atcursor
 .import __src_backspace
+.import __src_before_end
 .import __src_before_newl
 .import __src_buffer_by_name
 .import __src_close
@@ -15,6 +16,7 @@
 .import __src_get_filename
 .import __src_home
 .import __src_insert
+.import __src_insertline
 .import __src_isdirty
 .import __src_left
 .import __src_line
@@ -27,6 +29,7 @@
 .import __src_up
 .import __src_upn
 .import __src_popp
+.import __src_popgoto
 .import __src_pos
 .import __src_prev
 .import __src_pushp
@@ -53,6 +56,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	after_cursor   = __src_after_cursor
 	atcursor       = __src_atcursor
 	backspace      = __src_backspace
+	before_end     = __src_before_end
 	before_newl    = __src_before_newl
 	buffer_by_name = __src_buffer_by_name
 	close          = __src_close
@@ -68,6 +72,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	goto           = __src_goto
 	home           = __src_home
 	insert         = __src_insert
+	insertline     = __src_insertline
 	isdirty        = __src_isdirty
 	left           = __src_left
 	line           = __src_line
@@ -77,6 +82,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	next           = __src_next
 	replace        = __src_replace
 	popp           = __src_popp
+	popgoto        = __src_popgoto
 	pos            = __src_pos
 	pushp          = __src_pushp
 	prev           = __src_prev

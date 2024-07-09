@@ -147,9 +147,9 @@ numparams = zp::ctx+10	; the number of parameters for the context
 ;  - (.XY): the updated buffer filled with 0-separated params
 .export __ctx_getparams
 .proc __ctx_getparams
-@buff=zp::tmp0
-@cnt=zp::tmp2
-@params=zp::tmp3
+@buff=r0
+@cnt=r2
+@params=r3
 	stxy @buff
 	ldx numparams
 	beq @done
@@ -216,16 +216,20 @@ numparams = zp::ctx+10	; the number of parameters for the context
 ;******************************************************************************
 ; WRITE
 ; Writes the given line to the context at its current position
+; Comments are ignored to save space in the context buffer.
 ; IN:
 ;  - .XY: the line to write to the active context
 ; OUT:
 ;  - .XY: the address of the active context.
 .export __ctx_write
 .proc __ctx_write
-@line=zp::tmp0
+@line=r0
 	stxy @line
 	ldy #$00
 @write: lda (@line),y
+	beq @done
+	cmp #';'
+	beq @done
 	sta (cur),y
 	beq @done
 	iny
@@ -233,7 +237,11 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	bne @write
 @err:	RETURN_ERR ERR_LINE_TOO_LONG
 
-@done:	iny
+@done:	lda #$00
+	sta (cur),y	; terminate this line in the buffer
+
+	; update buffer cursor
+	iny
 	tya
 	clc
 	adc cur
@@ -252,7 +260,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 ;  - .XY: the rest of the string after the parameter that was extracted
 .export __ctx_addparam
 .proc __ctx_addparam
-@param=zp::tmp0
+@param=r0
 	stxy @param
 
 	; move pointer to next open param
