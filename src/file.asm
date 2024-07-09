@@ -214,10 +214,13 @@ __file_load_src:
 ; READB
 ; Reads a byte from the open file
 ; OUT:
-;  - .C: set on error or EOF
-;  - .A: the byte that was read
+;  - .C:  set on error or EOF
+;  - .A:  the byte that was read
+;  - eof: set if READST returns eof
 .export __file_readb
 .proc __file_readb
+	lda #$00
+	sta __file_eof
 	jsr $ffb7     ; call READST (read status byte)
 	cmp #$00
 	bne @eof      ; either EOF or read error
@@ -225,7 +228,12 @@ __file_load_src:
 	RETURN_OK
 
 ; read drive err chan and translate CBM DOS error code to ours if possible
-@eof:  	jmp geterr
+@eof:  	and #$40
+	beq @err
+	inc __file_eof
+	RETURN_OK
+
+@err:	jmp geterr
 .endproc
 
 ;******************************************************************************
@@ -247,7 +255,7 @@ __file_load_src:
 
 	ldy #$00
 @l0:	jsr __file_readb
-	bcs @ret	; return err
+	bcs @ret	; return err or check EOF
 
 	cmp #$0d
 	beq @done
@@ -261,9 +269,8 @@ __file_load_src:
 @done:  lda #$00
 	sta (__file_load_address),y	; 0-terminate the string
 	tya		; put # of bytes read in .A
-	RETURN_OK	; no error
-@ret:	cmp #$01	; set .C if error > 0
-	rts
+@ok:	clc		; no error
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -533,4 +540,7 @@ __file_load_src:
 
 .BSS
 ;******************************************************************************
-secondaryaddr: .byte 0	; secondary address to use on file open
+secondaryaddr:	.byte 0	; secondary address to use on file open
+
+.export __file_eof
+__file_eof:	.byte 0	; if !0, EOF; only valid after call to readb or getline

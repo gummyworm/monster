@@ -895,9 +895,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 .export __debug_set_file
 .proc __debug_set_file
 	jsr get_fileid
-	bcc :+
-	jsr storefile
-:	sta file
+	bcs storefile
+	sta file
 	rts
 .endproc
 

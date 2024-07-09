@@ -1602,7 +1602,7 @@ __asm_include:
 @fname=rc
 @readfile:
 	stxy @fname
-	jsr file::open_r
+	jsr file::open
 	bcc :+
 	rts		; return err
 :	pha		; save the id of the file we're working on
@@ -1614,9 +1614,8 @@ __asm_include:
 	; add the filename to debug info (if it isn't yet) and reset line no.
 	ldxy @fname
 	jsr dbgi::setfile
-	bcc :+
-	rts			; return err
-:	ldxy #1
+
+	ldxy #1
 	stxy dbgi::srcline
 
 ; read a line from file
@@ -1624,18 +1623,16 @@ __asm_include:
 	ldxy #mem::spare
 	lda zp::file
 	jsr file::getline	; read a line from the file
-	sta @err
-	bcc @ok
-	jmp @close		; close file and return the error
-
-@ok:	cmp #$00
+	bcc @asm
+	lda file::eof
 	beq @close
 
 ; assemble the line
 @asm:	ldxy #mem::spare
 	lda zp::file
 	pha
-	lda #FINAL_BANK_MAIN	; bank doesn't matter for mem::spare
+
+	lda #FINAL_BANK_MAIN	; any bank that is valid (low mem is used)
 	jsr __asm_tokenize_pass
 	ldx #$00
 	bcc :+
@@ -1646,14 +1643,22 @@ __asm_include:
 	bcs @close
 
 @next:	incw dbgi::srcline	; next line
-	jmp @doline		; repeat
+	lda file::eof		; EOF?
+	beq @doline		; repeat til we are
 
-@close:	; restore debug line and file info
+@close:
+	; restore debug line and file info
 	popdebugline
-
-	pla		; get the file ID for the include file
+	pla		; get the file ID for the include file to close
 	jsr file::close	; close the file
-	lda @err	; get err code
+	lda file::eof	; were we at the EOF?
+	bne :+		; if so, continue
+
+	; reading the file failed (failed to read all lines)
+	lda #ERR_IO_ERROR
+	skw
+
+:	lda @err	; get err code
 	cmp #$01	; set carry if > 0
 	rts
 .endproc
@@ -2392,6 +2397,8 @@ __asm_include:
 ; TOKENIZE_PASS
 ; Based on the current pass (zp::pass), calls the appropriate routine to
 ; handle assembly for that pass
+; IN:
+;  - .XY: the string to tokenize
 .export __asm_tokenize_pass
 .proc __asm_tokenize_pass
 	pha

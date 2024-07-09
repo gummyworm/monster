@@ -3,6 +3,7 @@
 .importzp __file_save_address_end
 
 .import __file_close
+.import __file_eof
 .import __file_exists
 .import __file_getline
 .import __file_load_bin
@@ -21,6 +22,7 @@
 
 .scope file
 	close            = __file_close
+	eof              = __file_eof
 	exists           = __file_exists
 	getline          = __file_getline
 	loadbin          = __file_load_bin
