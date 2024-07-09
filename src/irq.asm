@@ -2,6 +2,7 @@
 .include "config.inc"
 .include "finalex.inc"
 .include "macros.inc"
+.include "memory.inc"
 
 .ifdef PAL
 LINES           = 312
@@ -137,22 +138,25 @@ rowcnt: .byte 0
 	inc $900f
 	dec $900f
 
+	; save $f5-$f6
+        lda $f5
+        pha
+        lda $f6
+        pha
+
 	; set up sub-interrupt that executes every character row to draw
 	; breakpoints on any line that has one
 	lda #$00
 	sta rowcnt
 	lda #$80|$20
 	sta $912e		; enable T2 interrupts
-	ldxy #CYCLES_PER_ROW
-	stxy $9128
+	ldxy #CYCLES_PER_ROW+23
+	sty $9129
+	stx $9128
 	ldxy #row_interrupt
 	stxy $0314
 
 	;jsr beep::update
-        lda $f5
-        pha
-        lda $f6
-        pha
 
 	jsr $eb1e               ; scan keyboard
 
@@ -202,14 +206,10 @@ rowcnt: .byte 0
 	ldxy #CYCLES_PER_ROW+3
 	stxy $9128
 
-	lda #(BG_COLOR<<4) | $02
-	ldx #(BG_COLOR<<4 | BORDER_COLOR)
-	sta $900f
-	stx $900f
-
+	ldx rowcnt
+	lda mem::rowcolors,x
 	inc rowcnt
-	lda rowcnt
-	cmp #NUM_ROWS
+	cpx #NUM_ROWS-1
 	bcc :+
 
 	; reinstal main IRQ handler
@@ -220,5 +220,7 @@ rowcnt: .byte 0
 	lda #$00|$20		; disable T2 interrupts
 	sta $912e
 
-:	rts
+	lda #(BG_COLOR<<4 | BORDER_COLOR)
+:	sta $900f
+	rts
 .endproc
