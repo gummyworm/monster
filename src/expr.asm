@@ -46,6 +46,12 @@ MAX_OPERANDS  = $10/2
 	lda #$01
 	sta @may_be_unary
 
+	ldy #$00
+	lda (zp::line),y
+	bne @l0
+	sec
+	rts			; no expression
+
 @l0:	ldy #$00
 	lda (zp::line),y
 	jsr util::is_whitespace	; eat whitespace

@@ -6,11 +6,14 @@
 ;******************************************************************************
 
 .include "debug.inc"
+.include "errors.inc"
 .include "expr.inc"
 .include "line.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "string.inc"
 .include "util.inc"
+.include "vmem.inc"
 .include "watches.inc"
 .include "zeropage.inc"
 
@@ -91,9 +94,8 @@
 	stxy @addr
 	stxy r0
 
-	jsr line::process_ws
-	beq @set		; skip 2nd eval if no stop address given
-	incw zp::line		; move past separator
+	jsr line::nextch
+	beq @err
 
 	; evaluate the 2nd expression (if any) to get stop address
 	jsr expr::eval
@@ -139,6 +141,98 @@
 .endproc
 
 ;******************************************************************************
+; ADD BREAK
+; /br <expr>
+; Adds a breakpoint at the given address/expression
+; IN:
+;  - .XY: the parameters for the command
+.proc add_break
+.endproc
+
+;******************************************************************************
+; REMOVE BREAK
+; /br <id>
+; Deletes the breakpoint with the given ID. The IDs can be found by listing
+; breakpoints (bl) or going to the breakpoint viewer
+; IN:
+;  - .XY: the parameters for the command
+.proc remove_break
+.endproc
+
+;******************************************************************************
+; FILL
+; /f <start>, <stop> a [, b, c, ...]
+; Fills the range between the two addresses/expressions with the given fill
+; list.  The given list is repeated in memory from the start address until the
+; stop address is reached
+; IN:
+;  - .XY: the parameters for the command
+.proc fill
+@start=r4
+@stop=r6
+@listlen=r8
+@i=r0
+@list=ra
+	; get the start address
+	ldxy zp::line
+	jsr expr::eval
+	bcs @done
+
+	; move past separator
+	jsr line::nextch
+	beq @err
+
+	; get the stop address
+	jsr expr::eval
+	bcs @done
+
+	; move past separator
+	jsr line::nextch
+	beq @err
+
+	lda #$00
+	sta @listlen
+
+	; get the fill values
+@l0:	jsr expr::eval
+	bcs @err
+	cmp #$02		; 2 bytes?
+	bcc :+
+	tya
+	ldy @listlen
+	sta @list+1,y		; store MSB of the expression as a fill val
+	inc @listlen
+	skw			; don't reload listlen
+:	ldy @listlen
+	stx @list,y		; store LSB of expression as fill val
+	inc @listlen
+
+	jsr line::nextch
+	bne @l0
+
+	lda #$00
+	sta @i
+@fill:	lda @list,x
+	ldxy @start
+	jsr vmem::store
+	ldxy @start
+	inc @i
+	lda @i
+	cmp @listlen
+	bcc :+
+	lda #$00
+	sta @i
+:	incw @start
+	ldxy @start
+	cmpw @stop
+	bne @fill
+	RETURN_OK
+@err:	sec
+@done:	rts
+.endproc
+
+
+;******************************************************************************
 .RODATA
 
 ;******************************************************************************
@@ -154,7 +248,9 @@ commands:
 .byte "c",0	; compare the memory in the two given range
 .byte "h",0	; hunts the given address range for the given data
 
-.define command_vectors add_watch, remove_watch
+.linecont +
+.define command_vectors add_watch, remove_watch, add_break, remove_break, fill
+.linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors
 num_commands=*-commandshi

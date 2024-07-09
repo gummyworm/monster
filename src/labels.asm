@@ -1023,7 +1023,7 @@ anon_addrs = $b000
 
 ;******************************************************************************
 ; BY_ADDR
-; Returns the label for a label given by its address
+; Returns the label for a given address
 ; IN:
 ;  - .XY: the label address to get the name of
 ; OUT:
