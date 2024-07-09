@@ -3005,8 +3005,11 @@ goto_buffer:
 @toggle:
 	jsr cur::toggle	; if we're deselecting, toggle cursor off
 
-@up:	jsr src::up	; move up a line or to start of line
-	bcc @cont
+@up:	jsr src::home
+	jsr src::start
+	bne @cont
+
+	; couldn't move up, we're now at the start of the buffer
 	lda @ch
 	cmp #$0d
 	beq @cont	; if we crossed a newline, continue
@@ -3027,11 +3030,7 @@ goto_buffer:
 	sec
 	rts		; done
 
-@cont:	jsr text::char_index
-	cpy #$00
-	beq :+
-	jsr src::up	; move to start of line we're moving to
-:	jsr text::clrline
+@cont:	jsr src::up
 	jsr src::get	; read the line we're moving to into linebuffer
 
 	ldx #$00
@@ -3072,14 +3071,13 @@ goto_buffer:
 	jsr src::after_cursor
 	cmp #$09		; did we end on a TAB?
 	bne ccup_highlight	; if not, continue
+	lda mode
+	cmp #MODE_INSERT
+	beq ccup_highlight
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
-	lda mode
-	cmp #MODE_INSERT
-	beq ccup_highlight
-	dec zp::curx
 ; fallthrough
 .endproc
 
@@ -3506,14 +3504,13 @@ jsr text::tabr_dist
 	jsr src::after_cursor
 	cmp #$09		; did we end on a TAB?
 	bne ccdown_highlight	; if not, continue
+	lda mode
+	cmp #MODE_INSERT
+	beq ccdown_highlight
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
-	lda mode
-	cmp #MODE_INSERT
-	beq ccdown_highlight
-	dec zp::curx
 ; fall through to ccdown_highlight
 .endproc
 
