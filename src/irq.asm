@@ -155,6 +155,7 @@ rowcnt: .byte 0
 	stx $9128
 	ldxy #row_interrupt
 	stxy $0314
+	cli			; allow the color interrupt to trigger
 
 	;jsr beep::update
 
