@@ -894,9 +894,10 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .XY: the 0-terminated file to set as the current file
 .export __debug_set_file
 .proc __debug_set_file
-	jsr get_fileid
-	bcs storefile
-	sta file
+	jsr get_fileid	; get the file ID (if the file is already stored)
+	bcc :+
+	jsr storefile	; copy the filename and get its new ID
+:	sta file	; store the ID
 	rts
 .endproc
 
