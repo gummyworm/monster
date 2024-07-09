@@ -10,6 +10,7 @@ LINES           = 261
 CYCLES_PER_LINE = 65
 .endif
 TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster int.
+TIMER_ROW_VALUE = 8 * CYCLES_PER_LINE - 2
 
 .segment "IRQ"
 ;******************************************************************************
