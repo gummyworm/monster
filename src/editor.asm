@@ -1983,8 +1983,8 @@ __edit_refresh:
 
 @clr:	; clear the rest of the lines
 	ldx @row
-	inx
 	cpx height
+	inx
 	bcs @done
 	stx @row
 	txa

@@ -553,13 +553,13 @@ num_illegals = *-illegal_opcodes
 	ldxy zp::line
 	CALL FINAL_BANK_MACROS, #mac::get
 
-	bcs @label
+	bcs @chklabels
 	pha
 	jsr line::process_word	; read past macro name
 	pla
 
 	jsr assemble_macro
-	bcs :+			; error
+	bcs @ret0		; error
 	lda #ASM_MACRO
 	sta resulttype
 	clc
@@ -966,15 +966,15 @@ num_illegals = *-illegal_opcodes
 .proc anonref
 	lda zp::pass
 	cmp #$02
-	beq :+
+	beq @pass2
 
-	; if pass 1, return success with dummy value
+@pass1:	; if pass 1, return success with dummy value
 	jsr line::process_word
 	ldxy zp::virtualpc	; TODO: dummy address
 	lda #2
 	RETURN_OK
 
-:	ldy #$01		; past the ':'
+@pass2:	ldy #$01		; past the ':'
 	lda (zp::line),y	; forward or backward?
 	cmp #'+'
 	beq @f			; if +, forward
