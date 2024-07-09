@@ -159,6 +159,9 @@ err_label_already_defined:
 err_too_many_labels:
 	.byte $68,$58,$db,$1,$11,$4c,$9e,$c5,$c0,$c5,$29,$5,$20,$0
 
+err_invalid_command:
+	.byte $4b,$96,$b,$9,$26,$c3,$7b,$4d,$b,$84,$0
+
 ;******************************************************************************
 .linecont +
 .define errors \
@@ -199,7 +202,8 @@ err_too_many_labels:
 	err_no_filename, \
 	err_no_open_scope, \
 	err_label_already_defined, \
-	err_too_many_labels
+	err_too_many_labels, \
+	err_invalid_command
 .linecont -
 errorslo: .lobytes errors
 errorshi: .hibytes errors

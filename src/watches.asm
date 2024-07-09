@@ -495,14 +495,40 @@ command_vectorshi: .hibytes command_vectors
 .endproc
 
 ;******************************************************************************
+; REMOVE
+; Removes the watch with the given ID
+; IN:
+;  - .A: the ID of the watch to remove
+.export __watches_remove
+.proc __watches_remove
+@id=r6
+	cmp dbg::numwatches
+	bcs @done		; can't remove (invalid ID)
+
+	; shift watches down
+	tax
+@l0:	lda dbg::watcheshi+1,x
+	sta dbg::watcheshi,x
+	lda dbg::watcheslo+1,x
+	sta dbg::watcheslo,x
+	inx
+	cpx dbg::numwatches
+	bcc @l0
+@removed:
+	dec dbg::numwatches
+@done:	clc
+@ret:	rts
+.endproc
+
+;******************************************************************************
 ; GETWATCH
 ; Returns the index of the watch at the given address
 ; IN:
-;  - r0: the address of the watch
-;
+;  - r2: the address of the watch
 ; OUT:
 ;  - .C: set if the watch exists
 ;  - .X: the id of the watch * 2
+.export getwatch
 .proc getwatch
 @addr=r2
 	ldx dbg::numwatches
@@ -517,4 +543,3 @@ command_vectorshi: .hibytes command_vectors
 	bpl @l0
 @done:	rts
 .endproc
-

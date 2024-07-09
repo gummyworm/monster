@@ -56,10 +56,12 @@ ERR_NO_OPEN_SCOPE  = 34
 ERR_LABEL_ALREADY_DEFINED = 35
 ERR_TOO_MANY_LABELS       = 36
 
+ERR_INVALID_COMMAND = 37
+
 ;******************************************************************************
 ; linker errors
-ERR_SECTION_TOO_SMALL = 37
-ERR_NO_SECTIONS = 38
+ERR_SECTION_TOO_SMALL = 38
+ERR_NO_SECTIONS = 39
 
 .import __err_get
 

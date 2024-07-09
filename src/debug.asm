@@ -11,6 +11,7 @@
 .include "config.inc"
 .include "cursor.inc"
 .include "debuginfo.inc"
+.include "debugcmd.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
@@ -962,7 +963,8 @@ brkhandler2_size=*-brkhandler2
 ;******************************************************************************
 ; EDIT_WATCHES
 ; Transfers control to the watch viewer/editor until the user exits it
-.proc edit_watches
+.export __debug_edit_watches
+.proc __debug_edit_watches
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
 	lda #(DEBUG_INFO_START_ROW)*8
@@ -1400,13 +1402,13 @@ __debug_remove_breakpoint:
 	sta @end
 	cpx @end
 	beq @removed
-@l1:	lda breakpointshi+1,x
+@l0:	lda breakpointshi+1,x
 	sta breakpointshi,x
 	lda breakpointslo+1,x
 	sta breakpointslo,x
 	inx
 	cpx @end
-	bcc @l1
+	bcc @l0
 @removed:
 	dec numbreakpoints
 @done:	clc
@@ -1853,6 +1855,59 @@ __debug_remove_breakpoint:
 .RODATA
 
 ;******************************************************************************
+; ENTER DEBUG CMD
+; Reads command input and returns it (0-terminated) in mem::linebuffer
+; used
+; IN:
+;  - .XY: a prompt to display or $0000 for no prompt
+; OUT:
+;  - .C: set if no input was read (the user pressed <-)
+.proc enter_debug_cmd
+@result_offset=r8
+	jsr cur::off
+	jsr text::savebuff
+	jsr text::clrline
+
+	pushcur			; save the cursor state
+
+	lda #$00
+	sta mem::linebuffer+1	; 0-terminate the line
+	lda #'!'
+	sta mem::linebuffer
+	lda #1
+	sta cur::minx
+	sta zp::curx
+
+	lda #DEBUG_MESSAGE_LINE
+	sta zp::cury
+	jsr text::drawline	; clear line & display prompt
+	ldxy #key::getch	; key-input callback
+	jsr __edit_gets		; read the user input
+	php			; save success state
+
+	lda #40
+	sta cur::maxx		; restore cursor x limit
+
+	jsr text::restorebuff
+	ldx @result_offset
+	ldy #$01
+
+	plp			; get success state
+	popcur			; restore cursor
+	lda #$00
+	sta cur::minx
+
+	jsr dbgcmd::run
+	bcc @ok
+	; display the error
+	jsr err::get
+	jsr str::uncompress
+	lda #DEBUG_MESSAGE_LINE
+	jsr text::drawline
+@ok:	rts
+.endproc
+
+;******************************************************************************
 ; COMMANDS
 ; This table contains the keys used to invoke the corresponding command
 ; within the debugger
@@ -1871,13 +1926,14 @@ commands:
 	.byte K_RESET_STOPWATCH
 	.byte K_EDIT_STATE
 	.byte K_GOTO_BREAK
+	.byte K_ENTER_DEBUG_CMD
 num_commands=*-commands
 
 .linecont +
 .define command_vectors quit, step, step_over, go, \
-	trace, edit_source, edit_mem, edit_breakpoints, edit_watches, \
+	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
 	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state, \
-	goto_break
+	goto_break, enter_debug_cmd
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors

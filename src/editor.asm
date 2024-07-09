@@ -247,6 +247,9 @@ main:	jsr key::getch
 	sta height
 	inc readonly	; enable read-only mode
 
+	lda #$00
+	sta state::verify
+
 	lda #DEBUG_MESSAGE_LINE
 	sta status_row
 

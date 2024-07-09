@@ -9,6 +9,7 @@
 .include "finalex.inc"
 .include "layout.inc"
 .include "labels.inc"
+.include "line.inc"
 .include "macro.inc"
 .include "macros.inc"
 .include "math.inc"
@@ -463,7 +464,7 @@ num_illegals = *-illegal_opcodes
 	jsr dbg::toggle_breakpoint	; set the breakpoint
 	incw zp::line			; advance line beyond the breakpoint
 
-:	jsr process_ws
+:	jsr line::process_ws
 	beq @noasm 	; empty line
 
 ; check if we're in an .IF (FALSE) and if we are, return
@@ -507,7 +508,7 @@ num_illegals = *-illegal_opcodes
 	lda (zp::line),y
 	beq @noasm
 
-	jsr process_ws
+	jsr line::process_ws
 ; 1. check if the line contains a directive
 @directive:
 	jsr getdirective
@@ -554,7 +555,7 @@ num_illegals = *-illegal_opcodes
 
 	bcs @label
 	pha
-	jsr process_word	; read past macro name
+	jsr line::process_word	; read past macro name
 	pla
 
 	jsr assemble_macro
@@ -589,7 +590,7 @@ num_illegals = *-illegal_opcodes
 
 @label_done:
 	jsr storedebuginfo	; store debug info for label
-	jsr process_word	; read past the label name
+	jsr line::process_word	; read past the label name
 	ldxy zp::line
 	jsr @assemble		; assemble the rest of the line
 	bcs @ret0		; return error
@@ -603,7 +604,7 @@ num_illegals = *-illegal_opcodes
 
 ; from here on we are either reading a comment or an operand
 @getopws:
-	jsr process_ws
+	jsr line::process_ws
 	bne @pound
 	jmp @done
 
@@ -687,7 +688,7 @@ num_illegals = *-illegal_opcodes
 
 ; we've evaluated the expression, now look for a right parentheses,
 ; ',X' or ',Y' to conclude if this is indirect or indexed addressing
-@cont:	jsr process_ws
+@cont:	jsr line::process_ws
 	ldy #$00
 	lda indirect		; is indirect flagged? (we saw a '(' earlier)?
 	beq @index		; if not, skip to absolute
@@ -699,11 +700,11 @@ num_illegals = *-illegal_opcodes
 	cmp #','		; is it a ','?
 	bne @rparen_noprex	; if not, only valid string is a plain ')'
 
-	jsr nextch		; eat any WS and get next char
+	jsr line::nextch		; eat any WS and get next char
 	cmp #'x'		; is it an .X?
 	bne @unexpected_char
 
-	jsr nextch		; get next char after ",X"
+	jsr line::nextch		; get next char after ",X"
 	inc indexed		; inc once to flag X-indexed
 	cmp #')'
 	beq @finishline		; if ')', continue
@@ -722,7 +723,7 @@ num_illegals = *-illegal_opcodes
 	lda (zp::line),y
 	cmp #','
 	bne @getws2
-	jsr nextch		; get next char (past any whitespace)
+	jsr line::nextch		; get next char (past any whitespace)
 
 @getindexx:
 	cmp #'x'
@@ -750,7 +751,7 @@ num_illegals = *-illegal_opcodes
 @finishline:
 	incw zp::line		; next char
 @getws2:
-	jsr process_ws
+	jsr line::process_ws
 
 	; check for comment or garbage
 	jsr islineterminator
@@ -968,7 +969,7 @@ num_illegals = *-illegal_opcodes
 	beq :+
 
 	; if pass 1, return success with dummy value
-	jsr process_word
+	jsr line::process_word
 	ldxy zp::virtualpc	; TODO: dummy address
 	lda #2
 	RETURN_OK
@@ -1278,7 +1279,7 @@ num_illegals = *-illegal_opcodes
 	sta zp::line
 	bcc :+
 	inc zp::line+1
-:	jsr process_ws
+:	jsr line::process_ws
 
 	lda @cnt
 	asl
@@ -1441,7 +1442,7 @@ num_illegals = *-illegal_opcodes
 ; OUT:
 ;  - .A: the number of bytes written
 .proc definebyte
-	jsr process_ws
+	jsr line::process_ws
 	ldxy zp::line
 	jsr expr::eval
 	bcs @text
@@ -1496,7 +1497,7 @@ num_illegals = *-illegal_opcodes
 ; OUT:
 ;  - .C: set if a word could not be parsed
 .proc defineword
-	jsr process_ws
+	jsr line::process_ws
 	ldxy zp::line
 	jsr expr::eval
 	bcs @err
@@ -1569,7 +1570,7 @@ num_illegals = *-illegal_opcodes
 ;  Stores the corresponding lines for addresses of assembled code
 .proc includefile
 @filename=$100
-	jsr process_ws
+	jsr line::process_ws
 	ldy #$00
 @quote1:
 	lda (zp::line),y
@@ -1664,7 +1665,7 @@ __asm_include:
 ; addresses to it
 ; e.g.: `.ORG $1000` or `ORG $1000+LABEL`
 .proc defineorg
-	jsr process_ws
+	jsr line::process_ws
 	ldxy zp::line
 	jsr expr::eval
 	bcc :+
@@ -1697,7 +1698,7 @@ __asm_include:
 ; Note that the physical assembly target (asmresult) is unaffected.
 ; e.g.: `.RORG $1000` or `RORG $1000+LABEL`
 .proc define_psuedo_org
-	jsr process_ws
+	jsr line::process_ws
 	ldxy zp::line
 	jsr expr::eval
 	bcc :+
@@ -1724,7 +1725,7 @@ __asm_include:
 	lda zp::line+1
 	pha
 	jsr processstring	; move past label name
-	jsr process_ws		; eat whitespace
+	jsr line::process_ws		; eat whitespace
 	jsr expr::eval		; get constant value
 	bcc @ok
 	pla
@@ -1755,7 +1756,7 @@ __asm_include:
 	rts	 	; error evaluating # of reps expression
 
 @ok:	stxy zp::ctx+repctx::iter_end
-	jsr process_ws
+	jsr line::process_ws
 	ldy #$00
 	lda (zp::line),y
 	cmp #','
@@ -1800,7 +1801,7 @@ __asm_include:
 
 ; get the first parameter (the name)
 @getname:
-	jsr process_ws	; sets .Y to 0
+	jsr line::process_ws	; sets .Y to 0
 	jsr islineterminator
 	bne :+
 	RETURN_ERR ERR_NO_MACRO_NAME
@@ -1811,7 +1812,7 @@ __asm_include:
 :	stxy zp::line	; update line pointer
 
 @getparams:
-	jsr process_ws	; sets .Y to 0
+	jsr line::process_ws	; sets .Y to 0
 	lda (zp::line),y
 	jsr islineterminator
 	beq @done
@@ -1820,7 +1821,7 @@ __asm_include:
 	stxy zp::line
 
 	; look for the comma or line-end
-	jsr process_ws	; sets .Y to 0
+	jsr line::process_ws	; sets .Y to 0
 	lda (zp::line),y
 	jsr islineterminator
 	beq @done
@@ -1867,52 +1868,6 @@ __asm_include:
 	lda #$00
 	jsr set_ctx_type
 	jmp ctx::pop	; cleanup; pop the context
-.endproc
-
-;******************************************************************************
-; NEXTCH
-; advances the character and THEN processes whitespace
-; (equivalent to incw zp::line : jsr process_ws)
-.proc nextch
-	incw zp::line
-	; fall through
-.endproc
-
-;******************************************************************************
-; PROCESS_WS
-; Reads (line) and updates it to point past ' ' chars and non-printing chars
-; out:
-;  .Z: set if we're at the end of the line
-;  .A: the last character processed
-;  .Y: 0
-;  zp::line: updated to first non ' ' character
-.proc process_ws
-	ldy #$00
-	lda (zp::line),y
-	bmi :+			; skip non-printing chars
-	beq @done		; if end of line, we're done
-	jsr util::is_whitespace
-	bne @done		; if not space, we're done
-:	incw zp::line
-	bne process_ws
-@done:	rts
-.endproc
-
-;******************************************************************************
-; PROCESS_WORD
-; Reads (line) and updates it to point to the next whitespace character
-; OUT:
-;  - .A: contains the last character processed
-;  - .Z: set if we're at the end of the line ($00)
-.proc process_word
-	ldy #$00
-	lda (zp::line),y
-	beq @done
-	jsr util::is_whitespace
-	beq @done
-	incw zp::line
-	jmp process_word
-@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2327,7 +2282,7 @@ __asm_include:
 	bne @l1
 
 	stx @cnt
-	jsr process_ws
+	jsr line::process_ws
 	jsr expr::eval
 	bcc @setparam
 	rts		; return err
@@ -2428,7 +2383,7 @@ __asm_include:
 	ldx ifstacksp
 	sta ifstack,x
 @done:
-	jsr process_word
+	jsr line::process_word
 	lda #ASM_DIRECTIVE
 	RETURN_OK
 .endproc

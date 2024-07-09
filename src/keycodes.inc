@@ -56,8 +56,9 @@ K_WATCHVIEW       = $88	; F7
 K_SWAP_USERMEM    = $20	; SPACE
 K_RESET_STOPWATCH = $b2	; <C=> + r
 K_GOTO_BREAK      = $5e	; up-arrow
+K_ENTER_DEBUG_CMD = $21	; !
 
-K_GO       = $67	; g
+K_GO       = $a5	; <C=> + g
 K_STEPOVER = $73	; s
 K_TRACE    = $74	; t
 K_STEP     = $7a	; z

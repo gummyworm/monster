@@ -1,6 +1,7 @@
 .import __debug_breakpointslo
 .import __debug_breakpointshi
 .import __debug_breakpoint_flags
+.import __debug_edit_watches
 .import __debug_gotoaddr
 .import __debug_load_file
 .import __debug_init
@@ -23,6 +24,7 @@
 	breakpointslo     = __debug_breakpointslo
 	breakpointshi     = __debug_breakpointshi
 	breakpoint_flags  = __debug_breakpoint_flags
+	edit_watches      = __debug_edit_watches
 	gotoaddr          = __debug_gotoaddr
 	loadfile          = __debug_load_file
 	init              = __debug_init

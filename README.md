@@ -737,20 +737,21 @@ and color RAM.
 The following commands are supported by the debugger and are accessed by their
 respective Key in the table below.
 
-|  Key     | Name            |   Description                                                                        |
-|--------  |-----------------|--------------------------------------------------------------------------------------|
+|  Key         | Name            |   Description                                                                        |
+|--------------|-----------------|--------------------------------------------------------------------------------------|
 |  F1          | Source View     | maximizes the screen area for viewing the source code                                |
 |  F2          | Register Editor | enters the register editor                                                           |
 |  F3          | Mem View        | activates the memory window, which takes control until `<-` is pressed               |
 |  F5          | Break View      | displays the breakpoints that have been set and allows them to be enabled/disabled   |
-|  g           | Go              | begins execution at the cursor                                                       |
 |  s           | StepOver        | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
 |  z           | Step            | steps to the next instruction.                                                       |
 |  t           | Trace           | like GO but the debugger takes control between each instruction                      |
+|  C=-g        | Go              | begins execution at the cursor                                                       |
 |  C=-r        | Reset Stopwatch | resets the value of the stopwatch to 0                                               |
 |   <-         | Exit            | exits the debugger and returns to the editor                                         |
 | SPACE        | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  |
 | ^ (up arrow) |  Goto Break     | navigates to the address that the debugger is currently paused at                    |
+| !            | Enter command   | prompts for a debug command (see the debug command section for more info)            |
 
 ### Register Editor (`F2`)
 Pressing F2 moves the cursor to the register contents and allows the user to enter
@@ -794,9 +795,9 @@ Step _over_ behaves the same as step _into_, but if the next
 instruction is a subroutine call (`JSR`), execution continues until the
 instruction _after_ the `JSR` (after the subroutine returns).
 
-#### Go (`g`)
+#### Go (`C= + g`)
 The go command begins execution and returns to the debugger only when a
-breakpoint is encountered.
+breakpoint is encountered or when RUN/STOP is pressed.
 
 #### Trace (`t`)
 Trace is similar to `GO`, but the debugger executes the program as a series 
@@ -960,3 +961,17 @@ value of a watch and what it was changed to when it is updated.
 When a value is changed the watch view is activated to alert the user to the
 alteration.  If a read or write is detected while stepping _into_ the code,
 the viewer is also activated.
+
+---
+
+## Debug Commands
+Debug commands offer a text interface for performing the actions that can
+be done within the various debug editors as well as some other ones.
+
+Pressing `!` while debugging opens the prompt.  The following commands can
+then be input
+
+|  Command | Parameters       | Name            |   Description                                                                        |
+|-----------------------------|-----------------|--------------------------------------------------------------------------------------|
+|     wa   | addr stopaddr    | Add Watch       | Adds a watch at the given start and (optional) stop address                          |
+|     wr   | id               | Remove Watch    | removes the watch with the given id                                                  |
