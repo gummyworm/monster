@@ -138,28 +138,31 @@ rowcnt: .byte 0
 	inc $900f
 	dec $900f
 
+	; set up sub-interrupt that executes every character row to draw
+	; breakpoints on any line that has one
+	; we only do this when at least one row has color to save cycles in the
+	; average case (no color)
+	lda mem::coloron
+	beq @cont
+	lda #$00
+	sta rowcnt
+	lda #$80|$20
+	sta $912e		; enable T2 interrupts
+	ldxy #CYCLES_PER_ROW+23-(CYCLES_PER_LINE*1)+40
+	sty $9129
+	stx $9128
+	ldxy #row_interrupt
+	stxy $0314
+
+@cont:	cli			; allow the color interrupt to trigger
+
 	; save $f5-$f6
         lda $f5
         pha
         lda $f6
         pha
-
-	; set up sub-interrupt that executes every character row to draw
-	; breakpoints on any line that has one
-	lda #$00
-	sta rowcnt
-	lda #$80|$20
-	sta $912e		; enable T2 interrupts
-	ldxy #CYCLES_PER_ROW+23-(CYCLES_PER_LINE*1)+50
-	sty $9129
-	stx $9128
-	ldxy #row_interrupt
-	stxy $0314
-	cli			; allow the color interrupt to trigger
-
-	;jsr beep::update
-
 	jsr $eb1e               ; scan keyboard
+	;jsr beep::update
 
 	; inject TAB ($09) into keyboard buffer if the CTRL key is pressed
 	lda $028d		; get CTRL flag reg
@@ -213,15 +216,15 @@ rowcnt: .byte 0
 
 	cpx #NUM_ROWS-1
 	inc rowcnt
-	cpx #NUM_ROWS-1
-	bcc :+
+	bcs :+
+	rts
 
-	; reinstall main IRQ handler
+:	; reinstall main IRQ handler
 	lda #$00
 	sta rowcnt
 	ldxy #sys_update
 	stxy $0314
 	lda #$00|$20		; disable T2 interrupts
 	sta $912e
-:	rts
+	rts
 .endproc

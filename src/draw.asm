@@ -1,4 +1,5 @@
 .include "bitmap.inc"
+.include "config.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "zeropage.inc"
@@ -15,6 +16,15 @@
 .proc __draw_hline
 @dst=r0
 	sta mem::rowcolors,x
+
+	; check if we need to color in the IRQ
+	ldx #22
+	lda #DEFAULT_900F
+:	cmp mem::rowcolors-1,x
+	bne @done
+	dex
+	bne :-
+@done:	stx mem::coloron	; (en/dis)able color
 	rts
 .endproc
 

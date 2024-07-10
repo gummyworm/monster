@@ -52,6 +52,9 @@ __linesave: .res 40
 .export __mem_copybuff
 __mem_copybuff: .res MAX_COPY_SIZE
 
+.export __mem_coloron
+__mem_coloron: .byte 0
+
 .export __mem_rowcolors
 __mem_rowcolors: .res 22
 

@@ -2366,9 +2366,10 @@ goto_buffer:
 	jsr text::print
 
 @next:	inc @cnt
-	ldx @cnt
-	cpx src::numbuffers
+	lda @cnt
+	cmp src::numbuffers
 	bcc @l0
+	tax
 	lda #DEFAULT_900F^$08
 	jsr draw::hline
 
@@ -2773,28 +2774,17 @@ goto_buffer:
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize
-	bcc @fmt
+	bcs @err
 
-; check for errors that are allowed when syntax checking; we won't know if they
-; are real errors until full assembly occurs
-@chkerrs:
-	ldy #@num_ignored_errs-1
-:	cmp @ignored_errs,y
-	beq @fmt
-	dey
-	bpl :-
-@err:	jsr report_typein_error
-	jmp @nextline
-
-; format the line based on the line's content type (in .X from tokenize)
-@fmt:	ldy #$00		; init flag to NO indentation
-	cpx #ASM_COMMENT	; if this is a comment, don't format
+; format the line based on the line's contents (in .A from tokenize)
+@fmt:	ldx #$00		; init flag to NO indentation
+	cmp #ASM_COMMENT	; if this is a comment, don't indent
 	beq @nextline
 	jsr fmt::line
+	ldx #$01		; default to indent ON
 
-	ldy #$01		; default to indent ON
 @nextline:
-	sty @indent		; set indent flag
+	stx @indent		; set indent flag
 	jsr drawline		; draw the formatted line and move to next row
 
 	; redraw the cleared status line
@@ -2813,12 +2803,8 @@ goto_buffer:
 	lda zp::cury
 	jmp text::drawline
 
-@ignored_errs:
-	.byte ERR_NO_ORIGIN
-@num_ignored_errs=*-@ignored_errs
-@warning_errs:
-	.byte ERR_LABEL_UNDEFINED
-@num_warning_errs=*-@warning_errs
+@err:	jsr report_typein_error
+	jmp @nextline
 .endproc
 
 ;******************************************************************************

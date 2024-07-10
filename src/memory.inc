@@ -15,8 +15,11 @@
 .import __mem_dbg00
 .import __mem_dbg9000
 .import __mem_dbg9400
+
+.import __mem_coloron
 .import __mem_rowcolors
 .import __mem_rowcolors_save
+
 .import __mem_prog00
 .import __mem_prog1000
 .import __mem_prog9000
@@ -34,6 +37,7 @@
 	statusline	= __statusline
 	copybuff        = __mem_copybuff
 	drive_err	= __mem_drive_err
+	coloron         = __mem_coloron
 	rowcolors       = __mem_rowcolors
 	rowcolors_save  = __mem_rowcolors_save
 	progsave	= __mem_progsave
