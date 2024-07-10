@@ -150,7 +150,7 @@ rowcnt: .byte 0
 	sta rowcnt
 	lda #$80|$20
 	sta $912e		; enable T2 interrupts
-	ldxy #CYCLES_PER_ROW+23
+	ldxy #CYCLES_PER_ROW+23-(CYCLES_PER_LINE*1)+50
 	sty $9129
 	stx $9128
 	ldxy #row_interrupt
@@ -204,24 +204,24 @@ rowcnt: .byte 0
 	nop
 
 @done:	; reload timer
-	ldxy #CYCLES_PER_ROW+3
+	ldxy #CYCLES_PER_ROW-52
 	stxy $9128
 
 	ldx rowcnt
 	lda mem::rowcolors,x
+	sta $900f
+
+	cpx #NUM_ROWS-1
 	inc rowcnt
 	cpx #NUM_ROWS-1
 	bcc :+
 
-	; reinstal main IRQ handler
+	; reinstall main IRQ handler
 	lda #$00
 	sta rowcnt
 	ldxy #sys_update
 	stxy $0314
 	lda #$00|$20		; disable T2 interrupts
 	sta $912e
-
-	lda #(BG_COLOR<<4 | BORDER_COLOR)
-:	sta $900f
-	rts
+:	rts
 .endproc

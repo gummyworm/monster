@@ -2766,8 +2766,22 @@ goto_buffer:
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize
-	bcs @err
+	bcc @fmt
 
+; check for errors that are allowed during editing
+@chkerrs:
+	pha
+	txa
+	ldy #@num_allowed_errs-1
+:	cmp @allowed_errs,x
+	beq @ok
+	dey
+	bpl :-
+@err:	pla
+	jsr report_typein_error
+	jmp @nextline
+
+@ok:	pla
 ; format the line based on the line's contents (in .A from tokenize)
 @fmt:	ldx #$00		; init flag to NO indentation
 	cmp #ASM_COMMENT	; if this is a comment, don't indent
@@ -2795,8 +2809,9 @@ goto_buffer:
 	lda zp::cury
 	jmp text::drawline
 
-@err:	jsr report_typein_error
-	jmp @nextline
+@allowed_errs:
+	.byte ERR_NO_ORIGIN
+@num_allowed_errs=*-@allowed_errs
 .endproc
 
 ;******************************************************************************

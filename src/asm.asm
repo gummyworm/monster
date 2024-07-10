@@ -428,12 +428,13 @@ num_illegals = *-illegal_opcodes
 ; Assembles the string at (YX) into an instruction in (asm::result)
 ; if (YX) contains an instruction.  Any labels or comments encountered are
 ; saved at the address in (pc).
-; in:
+; IN:
 ;  - .XY: the string to assemble
 ;  - .A:  the bank of the string to assemble
 ;  - zp::asmresult: pointer to the location to assemble the instruction
-; out:
-;  - .A: the type of the result e.g. ASM_OPCODE or the error code
+; OUT:
+;  - .A: the type of the result (or best guess if .C set) e.g. ASM_OPCODE
+;  - .X: the error code (if .C is set)
 ;  - .C: set if an error occurred
 .export __asm_tokenize
 .proc __asm_tokenize
