@@ -554,6 +554,20 @@ __src_pos = __src_start	 ; start implements the same behavior
 .endproc
 
 ;******************************************************************************
+; END_REP
+; Returns .Z set if the current or next cursor position is at the end of the
+; buffer.
+; OUT:
+;  - .Z: set if the cursor is at the end of the buffer
+.export __src_end_rep
+.proc __src_end_rep
+	ldxy post
+	cmpw #$0001
+	bne __src_end
+	rts
+.endproc
+
+;******************************************************************************
 ; BEFORE END
 ; Checks if the source cursor is located just before the end of the buffer.
 ; OUT:
@@ -724,9 +738,10 @@ __src_pos = __src_start	 ; start implements the same behavior
 	beq @endofline
 	jsr __src_next
 	jsr __src_after_cursor	;if moving would put us at end of line, stay
+	bcs @back
 	cmp #$0d
 	bne @done
-	jsr __src_prev
+@back:	jsr __src_prev
 @endofline:
 	sec
 	rts
@@ -901,6 +916,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 	bcc @ok
 	rts
 @ok:	jsr __src_insert
+	jsr __src_left
 	RETURN_OK
 .endproc
 

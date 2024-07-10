@@ -10,6 +10,7 @@
 .import __src_down
 .import __src_downn
 .import __src_end
+.import __src_end_rep
 .import __src_get
 .import __src_getflags
 .import __src_goto
@@ -66,6 +67,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	names          = __src_names
 	numbuffers     = __src_numbuffers
 	end            = __src_end
+	end_rep        = __src_end_rep
 	filename       = __src_get_filename
 	get            = __src_get
 	getflags       = __src_getflags

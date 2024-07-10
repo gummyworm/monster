@@ -135,8 +135,6 @@ rowcnt: .byte 0
 	lda #$a9
 	lda #$a5
 	nop
-	inc $900f
-	dec $900f
 
 	; set up sub-interrupt that executes every character row to draw
 	; breakpoints on any line that has one
@@ -148,7 +146,7 @@ rowcnt: .byte 0
 	sta rowcnt
 	lda #$80|$20
 	sta $912e		; enable T2 interrupts
-	ldxy #CYCLES_PER_ROW+23-(CYCLES_PER_LINE*1)+40
+	ldxy #CYCLES_PER_ROW+23-(CYCLES_PER_LINE*1)+40-12
 	sty $9129
 	stx $9128
 	ldxy #row_interrupt

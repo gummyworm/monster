@@ -1053,25 +1053,22 @@ force_enter_insert=*+5
 ;******************************************************************************_
 ; REPLACE_CHAR
 .proc replace_char
-@ch=r0
 	jsr is_readonly
 	beq @done
 
 :	jsr key::getch	; get the character to replace with
 	beq :-
-	sta @ch
-
-	lda text::insertmode
 	pha
-	lda #TEXT_REPLACE
-	sta text::insertmode
-
-	lda @ch
-	jsr insert
-	jsr ccleft	; don't advance cursor
-
+	jsr src::replace
+	jsr text::char_index
 	pla
-	sta text::insertmode
+	sta mem::linebuffer,y
+
+	tya
+	jsr text::index2cursor
+	stx zp::curx
+	lda zp::cury
+	jsr text::drawline
 @done:	rts
 .endproc
 
@@ -3384,9 +3381,15 @@ jsr text::tabr_dist
 @xend=r9
 @selecting=ra
 @linelen=rb
+	lda mode
+	cmp #MODE_INSERT
+	beq @endins
+	jsr src::end_rep
+	bne :+
+	rts
+@endins:
 	jsr src::end
 	bne :+
-	sec		; cursor could not be moved
 	rts		; cursor is at end of source file, return
 
 :	lda zp::curx
