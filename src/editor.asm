@@ -3083,6 +3083,7 @@ goto_buffer:
 	clc
 	adc zp::curx
 	sta zp::curx
+	dec zp::curx
 ; fallthrough
 .endproc
 
@@ -3522,6 +3523,7 @@ jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
+	dec zp::curx
 ; fall through to ccdown_highlight
 .endproc
 
