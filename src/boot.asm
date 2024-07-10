@@ -1,5 +1,6 @@
 .include "asm.inc"
 .include "bitmap.inc"
+.include "config.inc"
 .include "debug.inc"
 .include "edit.inc"
 .include "fastcopy.inc"
@@ -233,6 +234,13 @@ start:
 
 	sta $028a	; repeat all characters
 	sta $0291	; don't swap charset on C= + SHIFT
+
+	; clear row colors
+	lda #DEFAULT_900F
+	ldx #22
+:	sta mem::rowcolors,x
+	dex
+	bpl :-
 
 	jmp lowinit
 

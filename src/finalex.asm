@@ -55,7 +55,6 @@ bankcode:
 	ldx #$80
 	stx $9c02	; restore bank
 	ldxy @dst
-	cli
 	rts
 .endproc
 final_store_size=*-__final_store_byte
@@ -97,7 +96,6 @@ final_store_size=*-__final_store_byte
 	ldx #$80
 	stx $9c02	; restore bank
 	ldx @src
-	cli
 	rts
 .endproc
 
@@ -120,7 +118,6 @@ final_store_size=*-__final_store_byte
 	bpl :-
 	ldx #$80
 	stx $9c02	; restore bank
-	cli
 	rts
 .endproc
 
@@ -148,7 +145,6 @@ final_store_size=*-__final_store_byte
 	bne :-
 @done:	ldx #$80
 	stx $9c02	; restore bank
-	cli
 	rts
 .endproc
 
@@ -180,7 +176,6 @@ final_store_size=*-__final_store_byte
 	sta $9c02		; restore bank
 
 	lda @a			; restore .A
-	cli
 	rts
 .endproc
 

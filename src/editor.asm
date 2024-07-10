@@ -498,6 +498,7 @@ main:	jsr key::getch
 ; Assembles the entire source
 .export command_asm
 .proc command_asm
+	sei
 	jsr dbgi::init
 
 	ldxy #strings::assembling
@@ -568,6 +569,8 @@ main:	jsr key::getch
 @err:	jsr display_result	; display the error
 	jsr src::popgoto	; restore source position
 	jsr dbgi::getline	; get the line that failed assembly
+
+	cli
 	jmp gotoline		; goto that line
 
 @next:	jsr src::end		; check if we're at the end of the source
@@ -577,6 +580,7 @@ main:	jsr key::getch
 	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer
 
+	cli
 	RETURN_OK
 .endproc
 
@@ -644,11 +648,13 @@ main:	jsr key::getch
 	; TODO: save all dirty buffers
 	; jsr saveall
 
+	sei
 	inc $900f
 	lda #$01
 	sta zp::gendebuginfo	; enable debug info
 	jsr command_asm
 	dec $900f
+	cli
 	bcs @done		; error
 
 @ok:	dec zp::gendebuginfo	; turn off debug-info
@@ -2360,9 +2366,10 @@ goto_buffer:
 	jsr text::print
 
 @next:	inc @cnt
-	lda @cnt
-	cmp src::numbuffers
+	ldx @cnt
+	cpx src::numbuffers
 	bcc @l0
+	lda #DEFAULT_900F^$08
 	jsr draw::hline
 
 @getch: jsr key::getch		; get a key to confirm
@@ -2771,8 +2778,8 @@ goto_buffer:
 ; check for errors that are allowed when syntax checking; we won't know if they
 ; are real errors until full assembly occurs
 @chkerrs:
-	ldy #@num_allowed_errs-1
-:	cmp @allowed_errs,y
+	ldy #@num_ignored_errs-1
+:	cmp @ignored_errs,y
 	beq @fmt
 	dey
 	bpl :-
@@ -2806,9 +2813,12 @@ goto_buffer:
 	lda zp::cury
 	jmp text::drawline
 
-@allowed_errs:
+@ignored_errs:
 	.byte ERR_NO_ORIGIN
-@num_allowed_errs=*-@allowed_errs
+@num_ignored_errs=*-@ignored_errs
+@warning_errs:
+	.byte ERR_LABEL_UNDEFINED
+@num_warning_errs=*-@warning_errs
 .endproc
 
 ;******************************************************************************

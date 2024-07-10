@@ -428,13 +428,12 @@ num_illegals = *-illegal_opcodes
 ; Assembles the string at (YX) into an instruction in (asm::result)
 ; if (YX) contains an instruction.  Any labels or comments encountered are
 ; saved at the address in (pc).
-; IN:
+; in:
 ;  - .XY: the string to assemble
 ;  - .A:  the bank of the string to assemble
 ;  - zp::asmresult: pointer to the location to assemble the instruction
-; OUT:
-;  - .A: the error code (if .C is set)
-;  - .X: the type of the result (or best guess if .C set) e.g. ASM_OPCODE
+; out:
+;  - .A: the type of the result e.g. ASM_OPCODE or the error code
 ;  - .C: set if an error occurred
 .export __asm_tokenize
 .proc __asm_tokenize
@@ -488,7 +487,7 @@ num_illegals = *-illegal_opcodes
 	beq @exec_directive
 	cmp #DIRECTIVE_ELSE
 	beq @exec_directive
-@noasm:	ldx #ASM_NONE
+@noasm:	lda #ASM_NONE
 	RETURN_OK
 
 ; check if the line is a full line comment
@@ -497,8 +496,8 @@ num_illegals = *-illegal_opcodes
 	cmp #';'
 	bne @assemble
 	; rest of the line is a comment, we're done
-	ldx #ASM_COMMENT
-	stx resulttype
+	lda #ASM_COMMENT
+	sta resulttype
 	RETURN_OK
 
 ; assembly entrypoint for successive single-line assembly
@@ -510,7 +509,7 @@ num_illegals = *-illegal_opcodes
 	beq @noasm
 
 	jsr line::process_ws
-; check if the line contains a directive
+; 1. check if the line contains a directive
 @directive:
 	jsr getdirective
 	bcs @ctx
@@ -548,8 +547,6 @@ num_illegals = *-illegal_opcodes
 	jsr writeb	; store the opcode
 	bcs @ret0	; return err
 	jmp @getopws	; continue if no error
-@ret0:	ldx #ASM_OPCODE
-	rts
 
 ; check if the line contains a macro
 @macro:
@@ -562,8 +559,11 @@ num_illegals = *-illegal_opcodes
 	pla
 
 	jsr assemble_macro
-	ldx #ASM_MACRO
-	rts
+	bcs @ret0		; error
+	lda #ASM_MACRO
+	sta resulttype
+	clc
+@ret0:	rts
 
 ; check if the line is a label definition
 @chklabels:
@@ -580,14 +580,12 @@ num_illegals = *-illegal_opcodes
 	ldxy zp::virtualpc
 	jsr lbl::addanon	; add the anonymous label
 	bcc @label_done
-	ldx #ASM_LABEL
 	rts			; return error (too many anonymous labels?)
 
 @label:	jsr is_label
 	bcs @getopws
 	jsr do_label
 	bcc @label_done
-	ldx #ASM_LABEL
 	rts			; return error
 
 @label_done:
@@ -598,12 +596,10 @@ num_illegals = *-illegal_opcodes
 	bcs @ret0		; return error
 	cmp #ASM_LABEL
 	bne :+
-	; if we found another label, return error
-	ldx #ASM_LABEL
-	lda #ERR_UNEXPECTED_CHAR
-	rts
 
-:	ldx #ASM_LABEL		; return as LABEL (don't indent this line)
+	; if we found another label, return error
+	RETURN_ERR ERR_UNEXPECTED_CHAR
+:	lda #ASM_LABEL		; return as LABEL (don't indent this line)
 	RETURN_OK
 
 ; from here on we are either reading a comment or an operand
@@ -652,12 +648,10 @@ num_illegals = *-illegal_opcodes
 	bne :+
 	jsr anonref
 	bcc @store_value
-	ldx #ASM_OPCODE
 	rts			; return error
 
 :	jsr expr::eval
 	bcc @store_value
-	ldx #ASM_OPCODE
 	rts			; return error, eval failed
 
 ; store the value, note that we don't really care if we write 2 bytes when we
@@ -683,10 +677,8 @@ num_illegals = *-illegal_opcodes
 	tya			; .A = MSB
 	ldy #$02
 	jsr writeb		; write the MSB (or garbage)
-	bcs @ret
 	bcc @store_lsb		; if successful, write LSB
-@ret:	ldx resulttype
-	rts			; return err
+@ret:	rts			; return err
 
 @store_lsb:
 	txa			; .X = LSB
@@ -769,14 +761,13 @@ num_illegals = *-illegal_opcodes
 ;------------------------------------------------------------------------------
 ; done, create the assembled result based upon the opcode, operand, and addr mode
 @done:
-	ldx resulttype
-	cpx #ASM_OPCODE
+	lda resulttype
+	cmp #ASM_OPCODE
 	beq :+
 	RETURN_OK	; if not an instruction, we're done
 
 :	jsr getaddrmode
 	bcc @checkjmp
-	ldx #ASM_OPCODE
 	rts
 
 @checkjmp:
@@ -796,7 +787,6 @@ num_illegals = *-illegal_opcodes
 	lda #$6c
 	jsr writeb
 	bcc @noerr
-	ldx #ASM_OPCODE
 	rts		; return err
 
 @jmpabs:
@@ -805,7 +795,6 @@ num_illegals = *-illegal_opcodes
 	lda #$4c
 	jsr writeb
 	bcc @noerr
-@operr:	ldx #ASM_OPCODE
 	rts		; return err
 
 @getbbb:
@@ -852,7 +841,7 @@ num_illegals = *-illegal_opcodes
 	dey
 	jsr writeb
 	bcc :+
-	bcs @operr
+	rts		; return err
 :	lda #$01
 	sta operandsz
 	jmp @noerr
@@ -876,7 +865,7 @@ num_illegals = *-illegal_opcodes
 	txa
 	jsr addpc		; add operand size + 1 to assembly pointers
 
-@retop:	ldx #ASM_OPCODE
+@retop:	lda #ASM_OPCODE
 	RETURN_OK
 
 ;------------------
@@ -911,8 +900,6 @@ num_illegals = *-illegal_opcodes
 	bpl :-
 	jsr writeb
 	bcc @noerr
-	lda #ERR_UNEXPECTED_CHAR
-	ldx #ASM_OPCODE
 	rts		; return err
 .endproc
 
@@ -1705,7 +1692,7 @@ __asm_include:
 	bcc @done
 @set:	stxy origin
 
-@done:	ldx #ASM_ORG
+@done:	lda #ASM_ORG
 	RETURN_OK
 .endproc
 
@@ -1851,7 +1838,7 @@ __asm_include:
 	bne @getparams
 @done:	lda #CTX_MACRO
 	jsr set_ctx_type	; store MACRO as current context type
-	ldx #ASM_DIRECTIVE
+	lda #ASM_DIRECTIVE
 	RETURN_OK
 .endproc
 
@@ -2351,7 +2338,7 @@ __asm_include:
 	inc ifstacksp
 	ldx ifstacksp
 	sta ifstack,x
-	ldx #ASM_DIRECTIVE
+	lda #ASM_DIRECTIVE
 	RETURN_OK
 .endproc
 
@@ -2364,7 +2351,7 @@ __asm_include:
 	RETURN_ERR ERR_UNMATCHED_ENDIF
 
 :	dec ifstacksp
-	ldx #ASM_DIRECTIVE
+	lda #ASM_DIRECTIVE
 	RETURN_OK
 .endproc
 
@@ -2376,7 +2363,7 @@ __asm_include:
 	lda #$01
 	eor ifstack,x
 	sta ifstack,x
-	ldx #ASM_DIRECTIVE
+	lda #ASM_DIRECTIVE
 	RETURN_OK
 .endproc
 
@@ -2402,7 +2389,7 @@ __asm_include:
 	sta ifstack,x
 @done:
 	jsr line::process_word
-	ldx #ASM_DIRECTIVE
+	lda #ASM_DIRECTIVE
 	RETURN_OK
 .endproc
 
