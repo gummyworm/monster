@@ -2768,29 +2768,26 @@ goto_buffer:
 	jsr asm::tokenize
 	bcc @fmt
 
-; check for errors that are allowed during editing
+; check for errors that are allowed when syntax checking; we won't know if they
+; are real errors until full assembly occurs
 @chkerrs:
-	pha
-	txa
 	ldy #@num_allowed_errs-1
-:	cmp @allowed_errs,x
-	beq @ok
+:	cmp @allowed_errs,y
+	beq @fmt
 	dey
 	bpl :-
-@err:	pla
-	jsr report_typein_error
+@err:	jsr report_typein_error
 	jmp @nextline
 
-@ok:	pla
-; format the line based on the line's contents (in .A from tokenize)
-@fmt:	ldx #$00		; init flag to NO indentation
-	cmp #ASM_COMMENT	; if this is a comment, don't indent
+; format the line based on the line's content type (in .X from tokenize)
+@fmt:	ldy #$00		; init flag to NO indentation
+	cpx #ASM_COMMENT	; if this is a comment, don't format
 	beq @nextline
 	jsr fmt::line
-	ldx #$01		; default to indent ON
 
+	ldy #$01		; default to indent ON
 @nextline:
-	stx @indent		; set indent flag
+	sty @indent		; set indent flag
 	jsr drawline		; draw the formatted line and move to next row
 
 	; redraw the cleared status line
