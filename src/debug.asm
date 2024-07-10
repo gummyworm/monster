@@ -714,7 +714,6 @@ brkhandler2_size=*-brkhandler2
 	beq @debugloop
 
 	pha
-	cli
 
 	lda #$00
 	sta advance	; by default, don't return to program after command
@@ -742,7 +741,6 @@ brkhandler2_size=*-brkhandler2
 	jmp @finishloopiter
 
 @runcmd:
-	sei
 	lda command_vectorslo,x	 ; vector LSB
 	sta zp::jmpvec
 	lda command_vectorshi,x  ; vector MSB
