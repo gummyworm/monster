@@ -618,7 +618,7 @@ brkhandler2_size=*-brkhandler2
 	jsr swapout
 
 	; reinstall the main IRQ
-	lda #$20
+	lda #$11-8
         jsr irq::raster
 
 	; unless we can figure out the exact RAM we will affect, we'll have to

@@ -424,8 +424,9 @@ memaddr:   .word 0
 	ldxy #strings::memview_title
 	lda #MEMVIEW_START
 	jsr text::print
-	lda #MEMVIEW_START
-	jsr bm::rvsline
+	lda #DEFAULT_900F^$08
+	ldx #MEMVIEW_START
+	jsr draw::hline
 
 	; initialize line to empty (all spaces)
 	lda #40
