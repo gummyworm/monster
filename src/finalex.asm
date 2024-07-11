@@ -27,7 +27,6 @@ bankcode:
 ;  - .A
 .export __final_store_byte
 .proc __final_store_byte
-	sei
 	pha
 	lda #$00
 	sta zp::bankoffset
@@ -46,7 +45,6 @@ bankcode:
 .export __final_bank_store_rel
 .proc __final_bank_store_rel
 @dst=zp::banktmp
-	sei
 	stxy @dst
 
 	sta $9c02
@@ -57,7 +55,6 @@ bankcode:
 	ldx #$80
 	stx $9c02	; restore bank
 	ldxy @dst
-	cli
 	rts
 .endproc
 final_store_size=*-__final_store_byte
@@ -72,7 +69,6 @@ final_store_size=*-__final_store_byte
 ;  - .A: the byte that was read
 .export __final_load_byte
 .proc __final_load_byte
-	sei
 	pha
 	lda #$00
 	sta zp::bankval
@@ -93,7 +89,6 @@ final_store_size=*-__final_store_byte
 .export __final_load_byte_off
 .proc __final_load_byte_off
 @src=zp::banktmp
-	sei
 	stxy @src
 	sta $9c02	; set bank
 	ldy zp::bankval
@@ -101,7 +96,6 @@ final_store_size=*-__final_store_byte
 	ldx #$80
 	stx $9c02	; restore bank
 	ldx @src
-	cli
 	rts
 .endproc
 
@@ -117,7 +111,6 @@ final_store_size=*-__final_store_byte
 ;  .A, .Y, .X
 .export __final_copy
 .proc __final_copy
-	sei
 	sta $9c02
 :	lda (zp::bankaddr0),y
 	sta (zp::bankaddr1),y
@@ -125,7 +118,6 @@ final_store_size=*-__final_store_byte
 	bpl :-
 	ldx #$80
 	stx $9c02	; restore bank
-	cli
 	rts
 .endproc
 
@@ -142,7 +134,6 @@ final_store_size=*-__final_store_byte
 ;   - .A: the last byte copied
 .export __final_copy_line
 .proc __final_copy_line
-	sei
 	sta $9c02
 	ldy #$00
 :	lda (zp::bankaddr0),y
@@ -154,7 +145,6 @@ final_store_size=*-__final_store_byte
 	bne :-
 @done:	ldx #$80
 	stx $9c02	; restore bank
-	cli
 	rts
 .endproc
 
@@ -169,7 +159,6 @@ final_store_size=*-__final_store_byte
 .proc __final_call
 @a=zp::banktmp+1
 @bank=zp::banktmp
-	sei
 	sta @a
 
 	lda #$4c
@@ -187,7 +176,6 @@ final_store_size=*-__final_store_byte
 	sta $9c02		; restore bank
 
 	lda @a			; restore .A
-	cli
 	rts
 .endproc
 

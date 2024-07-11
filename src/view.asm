@@ -1,7 +1,9 @@
 .include "beep.inc"
 .include "bitmap.inc"
+.include "config.inc"
 .include "cursor.inc"
 .include "debug.inc"
+.include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
 .include "expr.inc"
@@ -363,8 +365,9 @@ memaddr:   .word 0
 	pushcur
 	jsr cur::off
 
-	lda #$01
-	sta text::rvs		; enable RVS
+	lda #DEFAULT_900F^$08
+	ldx #MEMVIEW_START
+	jsr draw::hline
 
 	; copy title to linebuffer
 	ldx #25-1
@@ -385,9 +388,6 @@ memaddr:   .word 0
 
 	ldxy #key::gethex
 	jsr edit::gets
-
-	lda #$00
-	sta text::rvs		; disable reverse
 
 	ldxy #mem::linebuffer+17
 	stxy zp::line
@@ -424,8 +424,9 @@ memaddr:   .word 0
 	ldxy #strings::memview_title
 	lda #MEMVIEW_START
 	jsr text::print
-	lda #MEMVIEW_START
-	jsr bm::rvsline
+	lda #DEFAULT_900F^$08
+	ldx #MEMVIEW_START
+	jsr draw::hline
 
 	; initialize line to empty (all spaces)
 	lda #40

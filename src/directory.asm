@@ -5,6 +5,7 @@
 ;******************************************************************************
 
 .include "bitmap.inc"
+.include "config.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "file.inc"
@@ -138,10 +139,6 @@ SCREEN_H = 23
 	sbc #SCREEN_H
 	tax
 :	stx @scrollmax
-
-	; draw a line to separate file display
-	lda @row
-	jsr draw::hline
 
 	; highlight the first item
 	lda @select

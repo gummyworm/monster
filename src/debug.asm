@@ -618,9 +618,7 @@ brkhandler2_size=*-brkhandler2
 	jsr swapout
 
 	; reinstall the main IRQ
-	ldx #<irq::sys_update
-        ldy #>irq::sys_update
-	lda #$20
+	lda #$11-8
         jsr irq::raster
 
 	; unless we can figure out the exact RAM we will affect, we'll have to
@@ -716,7 +714,6 @@ brkhandler2_size=*-brkhandler2
 	beq @debugloop
 
 	pha
-	cli
 
 	lda #$00
 	sta advance	; by default, don't return to program after command
@@ -744,7 +741,6 @@ brkhandler2_size=*-brkhandler2
 	jmp @finishloopiter
 
 @runcmd:
-	sei
 	lda command_vectorslo,x	 ; vector LSB
 	sta zp::jmpvec
 	lda command_vectorshi,x  ; vector MSB

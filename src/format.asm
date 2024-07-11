@@ -65,20 +65,16 @@
 
 ;******************************************************************************
 ; LINE
-; Formats the linebuffer according to the value in .A. The line length is
-; returned in .A
+; Formats the linebuffer according to the given content type.
 ; IN:
-;  - .A: the "type" to format see (codes.inc) e.g. ASM_OPCODE, etc.
-; OUT:
-;  - .A: the line length
+;  - .X: the "type" to format see (codes.inc) e.g. ASM_OPCODE, etc.
 .export __fmt_line
 .proc __fmt_line
 @linecontent=r6
 @tmp=r4
-	cmp #$00
+	cpx #$00
 	beq @done
-	sta @linecontent	; save the types to format
-
+	stx @linecontent	; save the types to format
 
 	; remove spaces from start of line
 	jsr src::up

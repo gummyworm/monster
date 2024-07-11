@@ -291,6 +291,7 @@ Navigating to rows above or below will select additional lines.  The delete and 
 in _VISUAL_ mode.
 
 ---
+
 ### Copy buffer
 When text is deleted (delete line, delete word) or _yanked_, it is stored to a buffer where
 it may be recalled by the paste commands (`p`, paste below and `P` paste above).
@@ -304,6 +305,24 @@ screen of text (22 lines of 40 columns).
 When the user "jumps" to a different position in the source (`gg`, `G`, `goto line`,
 `find`, `[`, and `]`) the editor saves the old position.  To recall the positions
 that were "jumped" from are two commands: _jump-forward_ (`C= + i`) and _jump-backward_ (`C= + o`).
+
+### Syntax Checking
+Lines are checked and formatted according to their contents each time they
+are completed (RETURN is pressed).  
+While this should reduce the number of errors you encounter when assembling,
+it does not guarantee it.  The following assumptions are made when checking
+the syntax of a line:
+    - macros are defined
+    - labels may not be defined
+    - origin may not be set
+This means that lines using undefined labels are treated as valid.  If
+the label does not exist at assembly time, of course this will result in an
+error.
+Macros, however, are expected to be defined.
+
+Although labels aren't _required_ to be defined, they are internally tracked 
+while editing.  Because their addresses aren't valid til assembly, you cannot
+access them (e.g. in the symbol viewer) until then.
 
 ---
 
@@ -972,6 +991,6 @@ Pressing `!` while debugging opens the prompt.  The following commands can
 then be input
 
 |  Command | Parameters       | Name            |   Description                                                                        |
-|-----------------------------|-----------------|--------------------------------------------------------------------------------------|
+|----------|------------------|-----------------|--------------------------------------------------------------------------------------|
 |     wa   | addr stopaddr    | Add Watch       | Adds a watch at the given start and (optional) stop address                          |
 |     wr   | id               | Remove Watch    | removes the watch with the given id                                                  |

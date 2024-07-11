@@ -124,7 +124,7 @@ anon_addrs = $b000
 ; IN:
 ;  - .XY: the address of the scope string to set as the current scope
 .proc set_scope
-@scope=zp::tmp0
+@scope=r0
 	stxy @scope
 	ldy #$00
 :	lda (@scope),y
@@ -200,9 +200,9 @@ anon_addrs = $b000
 ;  - .A: contains the length of the label because why not
 ;  - .XY: the id of the label or the id where the label WOULD be if not found
 .proc find
-@cnt=zp::tmp6
-@search=zp::tmp8
-@label=zp::tmpa
+@cnt=r6
+@search=r8
+@label=ra
 	stxy @label
 
 	; check (and flag) if the label is local. if it is, we will start
@@ -327,13 +327,13 @@ anon_addrs = $b000
 ; OUT:
 ;  - .C: set on error or clear if the label was successfully added
 .proc addlabel
-@id=zp::tmp0
-@label=zp::tmp2
-@name=zp::tmp4
-@src=zp::tmp6
-@dst=zp::tmp8
-@cnt=zp::tmpa
-@addr=zp::tmpc
+@id=r0
+@label=r2
+@name=r4
+@src=r6
+@dst=r8
+@cnt=ra
+@addr=rc
 	stxy @name
 	jsr is_valid
 	bcc @seek
@@ -837,7 +837,7 @@ anon_addrs = $b000
 ;  - .C: is set if no label was found, clear if it was
 ;  - .A: the size of the label
 .proc address
-@table=zp::tmp0
+@table=r0
 	jsr find	; get the id in YX
 	bcc :+
 	RETURN_ERR ERR_LABEL_UNDEFINED
@@ -875,10 +875,10 @@ anon_addrs = $b000
 ; IN:
 ;  - .XY: the address of the label name to delete
 .proc del
-@id=zp::tmp6
-@cnt=zp::tmp8
-@cnt2=zp::tmpa
-@src=zp::tmpe
+@id=r6
+@cnt=r8
+@cnt2=ra
+@src=re
 @dst=zp::tmp10
 @name=zp::tmp12
 	stxy @name
@@ -1001,9 +1001,9 @@ anon_addrs = $b000
 ;  - .XY: the id of the label to get the address of
 ; OUT:
 ;  - .XY: the address of the given label id
-;  - zp::tmpc: the address of the label (same as .XY)
+;  - rc:  the address of the label (same as .XY)
 .proc by_id
-@addr=zp::tmpc
+@addr=rc
 	txa
 	asl
 	sta @addr
@@ -1030,8 +1030,8 @@ anon_addrs = $b000
 ;  - .XY: the ID of the label
 ;  - .C: set if no label is found
 .proc by_addr
-@other=zp::tmpc
-@addr=zp::tmpe
+@other=rc
+@addr=re
 @cnt=zp::tmp10
 	stxy @addr
 	ldxy #$ffff
@@ -1096,7 +1096,7 @@ anon_addrs = $b000
 ; OUT:
 ;  - .C: set if the label is NOT valid
 .proc is_valid
-@name=zp::tmp4
+@name=r4
 	stxy @name
 	ldy #$00
 ; first character must be a letter or '@'
@@ -1134,11 +1134,11 @@ anon_addrs = $b000
 ; Copies the name of the label ID given to the provided buffer
 ; IN:
 ;  - .XY: the ID of the label to get the name of
-;  - zp::tmp0: the address to copy to
+;  - r0:  the address to copy to
 ; OUT:
-;  - (zp::tmp0): the label name
+;  - (r0): the label name
 .proc get_name
-@dst=zp::tmp0
+@dst=r0
 @src=zp::labels
 	jsr name_by_id
 	stxy @src

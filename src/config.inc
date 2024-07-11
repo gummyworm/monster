@@ -1,6 +1,8 @@
 TEXT_COLOR	 = 6	      		; text color for the editor
 BORDER_COLOR	 = $3|8	      		; border color for the editor
 BG_COLOR	 = $1	      		; bg color for the editor
+DEFAULT_900F     = (BG_COLOR<<4 | BORDER_COLOR)
+
 ERROR_COLOR	 = ($00|$08) 		; $900f color of error highlight
 DEBUG_LINE_COLOR = ($70|BORDER_COLOR)	; row cursor color during debug
 

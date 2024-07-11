@@ -441,7 +441,6 @@ __file_load_src:
 ;  - .Z: clear on error
 .export __file_close
 .proc __file_close
-	sei
 	pha
 	jsr $ffc3		; CLOSE
 	pla

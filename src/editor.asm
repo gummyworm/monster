@@ -498,6 +498,7 @@ main:	jsr key::getch
 ; Assembles the entire source
 .export command_asm
 .proc command_asm
+	sei
 	jsr dbgi::init
 
 	ldxy #strings::assembling
@@ -568,6 +569,8 @@ main:	jsr key::getch
 @err:	jsr display_result	; display the error
 	jsr src::popgoto	; restore source position
 	jsr dbgi::getline	; get the line that failed assembly
+
+	cli
 	jmp gotoline		; goto that line
 
 @next:	jsr src::end		; check if we're at the end of the source
@@ -577,6 +580,7 @@ main:	jsr key::getch
 	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer
 
+	cli
 	RETURN_OK
 .endproc
 
@@ -644,11 +648,13 @@ main:	jsr key::getch
 	; TODO: save all dirty buffers
 	; jsr saveall
 
+	sei
 	inc $900f
 	lda #$01
 	sta zp::gendebuginfo	; enable debug info
 	jsr command_asm
 	dec $900f
+	cli
 	bcs @done		; error
 
 @ok:	dec zp::gendebuginfo	; turn off debug-info
@@ -1047,25 +1053,22 @@ force_enter_insert=*+5
 ;******************************************************************************_
 ; REPLACE_CHAR
 .proc replace_char
-@ch=r0
 	jsr is_readonly
 	beq @done
 
 :	jsr key::getch	; get the character to replace with
 	beq :-
-	sta @ch
-
-	lda text::insertmode
 	pha
-	lda #TEXT_REPLACE
-	sta text::insertmode
-
-	lda @ch
-	jsr insert
-	jsr ccleft	; don't advance cursor
-
+	jsr src::replace
+	jsr text::char_index
 	pla
-	sta text::insertmode
+	sta mem::linebuffer,y
+
+	tya
+	jsr text::index2cursor
+	stx zp::curx
+	lda zp::cury
+	jsr text::drawline
 @done:	rts
 .endproc
 
@@ -2363,6 +2366,8 @@ goto_buffer:
 	lda @cnt
 	cmp src::numbuffers
 	bcc @l0
+	tax
+	lda #DEFAULT_900F^$08
 	jsr draw::hline
 
 @getch: jsr key::getch		; get a key to confirm
@@ -3005,8 +3010,11 @@ goto_buffer:
 @toggle:
 	jsr cur::toggle	; if we're deselecting, toggle cursor off
 
-@up:	jsr src::up	; move up a line or to start of line
-	bcc @cont
+@up:	jsr src::home
+	jsr src::start
+	bne @cont
+
+	; couldn't move up, we're now at the start of the buffer
 	lda @ch
 	cmp #$0d
 	beq @cont	; if we crossed a newline, continue
@@ -3027,11 +3035,7 @@ goto_buffer:
 	sec
 	rts		; done
 
-@cont:	jsr text::char_index
-	cpy #$00
-	beq :+
-	jsr src::up	; move to start of line we're moving to
-:	jsr text::clrline
+@cont:	jsr src::up
 	jsr src::get	; read the line we're moving to into linebuffer
 
 	ldx #$00
@@ -3072,13 +3076,13 @@ goto_buffer:
 	jsr src::after_cursor
 	cmp #$09		; did we end on a TAB?
 	bne ccup_highlight	; if not, continue
+	lda mode
+	cmp #MODE_INSERT
+	beq ccup_highlight
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
-	lda mode
-	cmp #MODE_INSERT
-	beq ccup_highlight
 	dec zp::curx
 ; fallthrough
 .endproc
@@ -3378,9 +3382,15 @@ jsr text::tabr_dist
 @xend=r9
 @selecting=ra
 @linelen=rb
+	lda mode
+	cmp #MODE_INSERT
+	beq @endins
+	jsr src::end_rep
+	bne :+
+	rts
+@endins:
 	jsr src::end
 	bne :+
-	sec		; cursor could not be moved
 	rts		; cursor is at end of source file, return
 
 :	lda zp::curx
@@ -3506,13 +3516,13 @@ jsr text::tabr_dist
 	jsr src::after_cursor
 	cmp #$09		; did we end on a TAB?
 	bne ccdown_highlight	; if not, continue
+	lda mode
+	cmp #MODE_INSERT
+	beq ccdown_highlight
 	jsr text::tabr_dist
 	clc
 	adc zp::curx
 	sta zp::curx
-	lda mode
-	cmp #MODE_INSERT
-	beq ccdown_highlight
 	dec zp::curx
 ; fall through to ccdown_highlight
 .endproc

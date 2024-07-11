@@ -14,7 +14,7 @@
 ;******************************************************************************
 ; CONSTANTS
 MAX_OPERATORS = $10
-MAX_OPERANDS  = $10/2
+MAX_OPERANDS  = MAX_OPERATORS/2
 
 .CODE
 
@@ -355,10 +355,10 @@ MAX_OPERANDS  = $10/2
 	jsr lbl::addr
 	bcc @updateline
 
-	; if we failed to get the address, see if we're just verifying.
-	; if we are, allow us to proceed with a dummy value
+	; if we failed to get the address, but we're just verifying,
+	; proceed with a dummy value
 	lda state::verify
-	beq @done	; not verifying, return with error
+	beq @done		; not verifying, return with error
 
 	lda #$ff		; flag that we don't know the size of the label
 	ldxy zp::virtualpc	; TODO: assume smallest possible value

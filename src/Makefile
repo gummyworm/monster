@@ -1,4 +1,5 @@
 TARGET=vic20
+REGION=NTSC
 
 XVIC=xvic
 FE3BIN=fe3vice.bin
@@ -18,7 +19,7 @@ all: test.d64
 
 # main app binary
 monster.prg: $(BOOTSRC) $(SRC) 
-	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) -C link-$(TARGET).config $^ -Ln labels.txt -v -m map.txt
+	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) --asm-define $(REGION) -C link-$(TARGET).config $^ -Ln labels.txt -v -m map.txt
 
 # create the test disk image
 test.d64: monster.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)

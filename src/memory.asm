@@ -52,6 +52,15 @@ __linesave: .res 40
 .export __mem_copybuff
 __mem_copybuff: .res MAX_COPY_SIZE
 
+.export __mem_coloron
+__mem_coloron: .byte 0
+
+.export __mem_rowcolors
+__mem_rowcolors: .res 22
+
+.export __mem_rowcolors_save
+__mem_rowcolors_save: .res 22
+
 ;******************************************************************************
 ; LINEBUFFER
 ; The linebuffer must live in lower RAM, which is NOT switched out with the

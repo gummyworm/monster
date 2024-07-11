@@ -20,6 +20,7 @@
 .include "bitmap.inc"
 .include "finalex.inc"
 .include "macros.inc"
+.include "memory.inc"
 .include "source.inc"
 .include "zeropage.inc"
 
@@ -42,12 +43,24 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .export __scr_reset
 .proc __scr_reset
 	jsr bm::save
+	; save the per-row colors
+	ldx #NUM_ROWS*2-1
+:	lda mem::rowcolors,x
+	sta mem::rowcolors_save,x
+	dex
+	bpl :-
 	jmp bm::init
 .endproc
 
 .export __scr_restore
 __scr_restore:
 	jsr bm::restore
+	; restore the per-row colors
+	ldx #NUM_ROWS*2-1
+:	lda mem::rowcolors_save,x
+	sta mem::rowcolors,x
+	dex
+	bpl :-
 	JUMP FINAL_BANK_SAVESCR, #restore
 
 .segment "SAVESCR"
