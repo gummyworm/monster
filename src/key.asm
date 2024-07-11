@@ -21,8 +21,19 @@ CURSOR_LR_MASK      = 2
 ;  - .Z: set if no key is pressed
 .export __key_getch
 .proc __key_getch
-	jsr $f1f9
-	beq @done
+	lda $c6		; get keyboard buffer length
+	beq @done	; if buffer empty, return
+
+	ldy $0277
+	ldx #$00
+:	lda $0277+1,x
+	sta $0277,x
+	inx
+	cpx $c6
+	bne :-
+	dec $c6		; dec keyboard buffer index
+	tya		; get key
+
 	cmp #$41
 	bcc @done
 	cmp #$5a+1
