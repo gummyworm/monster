@@ -18,7 +18,7 @@
 	sta mem::rowcolors,x
 
 	; check if we need to color in the IRQ
-	ldx #22
+	ldx #24
 	lda #DEFAULT_900F
 :	cmp mem::rowcolors-1,x
 	bne @done

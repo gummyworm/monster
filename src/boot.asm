@@ -2,6 +2,7 @@
 .include "bitmap.inc"
 .include "config.inc"
 .include "debug.inc"
+.include "draw.inc"
 .include "edit.inc"
 .include "fastcopy.inc"
 .include "fasttext.inc"
@@ -303,7 +304,6 @@ num_relocs=(*-relocs)/7
 ; address space ($1000-$2000) as a bitmap
 .export enter
 enter:
-        lda #$11-4
         jsr irq::raster
 	sei
 	lda #<start
@@ -313,6 +313,13 @@ enter:
 	sta $0317		; BRK
 	sta $0319		; NMI
 	cli
+
+	lda #DEFAULT_900F^$08
+	ldx #22
+	jsr draw::hline
+	lda #DEFAULT_900F^$08
+	ldx #23
+	jsr draw::hline
 
 	ldx #$ff
 	txs

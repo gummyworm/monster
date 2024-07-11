@@ -7,15 +7,17 @@
 .import __key_isright
 .import __key_isup
 .import __key_is_printing
+.import __key_num_processed
 
 .scope key
-	getch      = __key_getch
-	gethex     = __key_gethex
-	isdown     = __key_isdown
-	isdec      = __key_isdec
-	isleft     = __key_isleft
-	ishex      = __key_ishex
-	isright    = __key_isright
-	isup       = __key_isup
-	isprinting = __key_is_printing
+	getch        = __key_getch
+	gethex       = __key_gethex
+	isdown       = __key_isdown
+	isdec        = __key_isdec
+	isleft       = __key_isleft
+	ishex        = __key_ishex
+	isright      = __key_isright
+	isup         = __key_isup
+	isprinting   = __key_is_printing
+	numprocessed = __key_num_processed
 .endscope

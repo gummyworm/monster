@@ -323,7 +323,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	; init state
 	sta __debug_numwatches
 	jsr reset_stopwatch
-	jsr dummy_irq
 
 	jsr install_brk			; install the BRK handler IRQ
 
@@ -366,10 +365,12 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 .proc install_brk
 @dst=r0
 @cnt=r2
+	sei
 	ldxy #BRK_HANDLER_ADDR
 	stxy @dst
 	stxy $0316		; BRK
 	stxy $0318		; NMI
+	cli
 
 	lda #brkhandler1_size-1
 	sta @cnt
@@ -618,7 +619,6 @@ brkhandler2_size=*-brkhandler2
 	jsr swapout
 
 	; reinstall the main IRQ
-	lda #$11-8
         jsr irq::raster
 
 	; unless we can figure out the exact RAM we will affect, we'll have to
@@ -755,7 +755,6 @@ brkhandler2_size=*-brkhandler2
 	beq @debugloop		; not yet, loop and get another command
 
 @debug_done:
-	jsr dummy_irq	; install a NOP IRQ
 	jsr cur::off
 	jsr swapin
 
