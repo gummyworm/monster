@@ -499,7 +499,11 @@ main:	jsr key::getch
 ; Assembles the entire source
 .export command_asm
 .proc command_asm
+	lda #EDITOR_HEIGHT
+	jsr __edit_resize
+
 	sei
+
 	jsr dbgi::init
 
 	ldxy #strings::assembling
@@ -520,14 +524,15 @@ main:	jsr key::getch
 	stxy dbgi::srcline
 	lda src::activebuff
 	jsr src::filename
-	bcc @pass1
+	bcc :+
 	jsr errlog::log
-
+:	jsr dbgi::setfile
 ;--------------------------------------
 ; Pass 1
 ; do a pass on the source to simply get labels and basic debug info
 ; (# of lines and # of segments/file)
-@pass1:	lda #$01
+@pass1:
+	lda #$01
 	jsr asm::startpass
 
 @pass1loop:
@@ -586,7 +591,6 @@ main:	jsr key::getch
 	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer
 	jsr display_result	; dispaly success msg
-
 	RETURN_OK
 .endproc
 
@@ -607,14 +611,14 @@ main:	jsr key::getch
 	beq @printresult
 
 @err:	lda height
-	jmp errlog::activate
+	jsr errlog::activate
+	jmp enter_command
 
 @printresult:
 	; get the size of the assembled program and print it
-	lda asm::pcset		; did this program actually assemble > 0 bytes?
-	bne :+
 	ldxy #@success0
-	jmp @print
+	lda asm::pcset		; did this program actually assemble > 0 bytes?
+	beq @print 		; if not, print a simple "done"
 
 	; get the size of the assembled program (top - origin)
 :	lda asm::top
@@ -637,11 +641,8 @@ main:	jsr key::getch
 
 @success:
 	ldxy #@success_msg
-@print: jsr text::info
-	lda #EDITOR_HEIGHT
-	jmp __edit_resize
-
-@asmdone:
+@print: lda #STATUS_ROW
+	jsr text::print
 	RETURN_OK
 
 @success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0

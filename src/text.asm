@@ -40,9 +40,6 @@ __text_len: .byte 0
 .export  __text_buffer
 __text_buffer: .byte 0	; if 0, putch immediately draws to the screen
 
-.export __text_rvs
-__text_rvs: .byte 0	; reverse text state ($ff = rvs on, $00 = rvs off)
-
 .export __text_insertmode
 __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
@@ -422,14 +419,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	; print the rendered string
 	ldxy #@buff
 	lda @row
-	jsr __text_puts
-
-	; if __text_rvs is set, reverse the line after drawing it
-	lda __text_rvs
-	bne @rvs
-	rts
-@rvs:	lda @row
-	jmp bm::rvsline
+	jmp __text_puts
 .endproc
 
 ;******************************************************************************
