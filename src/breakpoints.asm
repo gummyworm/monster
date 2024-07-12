@@ -1,4 +1,5 @@
 .include "bitmap.inc"
+.include "config.inc"
 .include "debug.inc"
 .include "debuginfo.inc"
 .include "draw.inc"
@@ -45,8 +46,9 @@ row:	.byte 0
 	ldxy #strings::breakpoints_title
 	lda #MEMVIEW_START
 	jsr text::print
-	lda #MEMVIEW_START
-	jsr bm::rvsline
+	ldx #MEMVIEW_START
+	lda #DEFAULT_900F^$08
+	jsr draw::hline
 
 	; if there are no breakpoints, just wait for user to quit
 	lda dbg::numbreakpoints

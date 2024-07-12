@@ -1,4 +1,5 @@
 .include "bitmap.inc"
+.include "config.inc"
 .include "cursor.inc"
 .include "debug.inc"
 .include "draw.inc"
@@ -172,8 +173,9 @@ row:	.byte 0
 	ldxy #strings::watches_title
 	lda #MEMVIEW_START
 	jsr text::print
-	lda #MEMVIEW_START
-	jsr bm::rvsline
+	ldx #MEMVIEW_START
+	lda #DEFAULT_900F^$08
+	jsr draw::hline
 
 	jsr __watches_view
 
