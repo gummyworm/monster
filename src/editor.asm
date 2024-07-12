@@ -4148,51 +4148,6 @@ __edit_gotoline:
 .endproc
 
 ;******************************************************************************
-; REPORTERR
-; reports the given error
-; in:
-;  -.A: the error code
-;  -.XY: the line number of the error
-;  - mem::linebuffer: the line containing the error
-.proc reporterr
-@err=r0
-	sta @err
-
-	; push the line number
-	txa
-	pha
-	tya
-	pha
-
-	; push pass #
-	lda zp::pass
-	pha
-	lda #$00
-	pha
-
-	; display the line containing the error
-	ldxy #mem::linebuffer
-	lda #ERROR_ROW+1
-	jsr text::print
-
-	lda @err
-	jsr err::get	; get the address of the error
-	jsr str::uncompress
-
-	lda #<strings::edit_line_err
-	sta r0
-	lda #>strings::edit_line_err
-	sta r0+1
-	jsr str::cat
-
-	lda #ERROR_ROW
-	jsr text::print
-
-	lda #ERROR_ROW-1
-	jmp __edit_resize
-.endproc
-
-;******************************************************************************
 ; REPORT TYPEIN ERROR
 ; Reports just the error message for the given error.
 ; This is used for giving the user realtime errors as they are typing in their

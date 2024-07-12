@@ -34,7 +34,7 @@ __str_debug_registers: .byte " pc  a  x  y  sp nv-bdizc  addr      clk",0
 __str_debug_stop_debugging: .byte "stop debugging? (press 'y' to quit)",0
 
 .export __str_edit_line_err
-__str_edit_line_err: .byte ";pass ", ESCAPE_VALUE_DEC,";line ", ESCAPE_VALUE_DEC,0
+__str_edit_line_err: .byte "l", ESCAPE_VALUE_DEC,":", ESCAPE_STRING,0
 
 .export __str_edit_file_load_failed
 __str_edit_file_load_failed: .byte "failed to load file; error $",ESCAPE_BYTE,0
@@ -77,6 +77,9 @@ __str_run: .byte "run",0
 
 .export __str_watches_range_line
 __str_watches_range_line: .byte ESCAPE_CHAR, " $", ESCAPE_VALUE, "-$", ESCAPE_VALUE,0
+
+.export __str_errors
+__str_errors: .byte "errors",0
 
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA

@@ -212,7 +212,7 @@ SLASH = SPECIAL_CHARS_START+2
 @tmp=r0
 @tmp2=r1
 @chars=r2
-@dst=mem::spare
+@dst=mem::spare+40
 	stxy @rptr
 	ldxy #@dst
 	stxy @wptr

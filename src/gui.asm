@@ -38,6 +38,7 @@
 ;    - OUT: .C: set if the menu should exit
 ;  - r2: the get data handler
 ;    - IN: .A: the item index to get the line of data for
+;  - r4: the title of the menu
 .export  __gui_listmenu
 .proc __gui_listmenu
 @keyhandler=r0
@@ -50,16 +51,32 @@
 	sta @baserow
 	stx @maxheight
 	sty @num
+	cpy @maxheight
+	bcs :+
+	sty @maxheight
+
+:	ldxy r0
+	stxy @handlekey
+	ldxy r2
+	stxy @getdata
+
+	lda @baserow
+	sec
+	sbc @maxheight
+	pha
+	ldxy r4
+	jsr text::print
+	pla
+	tax
+	lda #DEFAULT_900F^$08
+	jsr draw::hline
+
+	dec @maxheight
 
 	ldx #$00
 	stx @scroll
 	stx @select
-
-	ldxy r0
-	stxy @handlekey
-	ldxy r2
-	stxy @getdata
-	jmp @redraw
+	beq @redraw
 
 @loop:	jsr key::getch
 	beq @loop
@@ -153,7 +170,6 @@
 	clc
 	adc @scroll
 	jsr @getline
-	bcs @highlight_selection	; out of data
 
 	lda @row
 	jsr text::print
