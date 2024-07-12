@@ -13,7 +13,8 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-.segment "DEBUGGER"
+;******************************************************************************
+.BSS
 
 .export __sim_register_state
 .export __sim_pc
@@ -30,6 +31,17 @@ __sim_reg_x:  .byte 0
 __sim_reg_y:  .byte 0
 __sim_reg_sp: .byte 0
 __sim_reg_p:  .byte 0
+
+; VIA state
+__sim_via1_t1:  .byte 0
+__sim_via1_t2:  .byte 0
+__sim_via1_ier: .byte 0
+__sim_via1_ifr: .byte 0
+
+__sim_via2_t1:  .byte 0
+__sim_via2_t2:  .byte 0
+__sim_via2_ier: .byte 0
+__sim_via2_ifr: .byte 0
 
 ; if !0, a relative branch will be taken next STEP
 .export __sim_branch_taken
@@ -59,6 +71,7 @@ __sim_effective_addr: .word 0
 .export __sim_stopwatch
 __sim_stopwatch: .res 3
 
+.segment "DEBUGGER"
 ;******************************************************************************
 ; NEXT_INSTRUCTION
 ; Given the address of the current instruction, returns the address of the next
@@ -77,6 +90,8 @@ __sim_stopwatch: .res 3
 ;  - .XY:           the address of the next instruction that will be executed
 ;  - __sim_op:      the next opcode that will be executed
 ;  - __sim_next_pc: the address of the next instruction that will be executed
+; TODO: handle interrupts (VIA timers)
+; TODO: handle BRK
 .export __sim_next_instruction
 .proc __sim_next_instruction
 @op=r0
@@ -422,7 +437,6 @@ __sim_stopwatch: .res 3
 @done:	ldxy @target
 	RETURN_OK
 .endproc
-
 
 ;******************************************************************************
 ; COUNT CYCLES

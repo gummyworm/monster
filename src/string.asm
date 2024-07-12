@@ -209,9 +209,9 @@ SLASH = SPECIAL_CHARS_START+2
 .proc __str_uncompress
 @rptr=zp::str0
 @wptr=zp::str2
-@tmp=zp::tmp0
-@tmp2=zp::tmp1
-@chars=zp::tmp2		; 3 bytes
+@tmp=r0
+@tmp2=r1
+@chars=r2
 @dst=mem::spare
 	stxy @rptr
 	ldxy #@dst

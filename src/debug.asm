@@ -355,11 +355,10 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 ;******************************************************************************
 ; INSTALL BRK
-; Installs the given vector to the BRK and NMI vectors
-; The virtual vector ($0334) holds the actual address of the interrupt handler.
-; The real vectors, $0316-$0317 and $0318-$0319, are updated to a handler that
-; switches back to the main RAM bank and dispatches to this vector.
-; Care must be taken to choose an address that won't overwrite Monster
+; Installs the debugger BRK handler to the BRK and NMI vectors and copies the
+; code to enter the handler to the user program's RAM at BRK_HANDLER_ADDR.
+; This handler switches back to the debuggers RAM bank, where the debugger takes
+; over.
 ; IN:
 ;  - .XY: the address to install the BRK handler to
 .proc install_brk
@@ -410,13 +409,17 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; the editor, where execution will pick up after switching banks
 ;
 ; This is the layout of the code in each bank:
-; PHA		PHA
-; LDA #$80	LDA #$80
-; STA $9C02	STA $9C02
-; PLA		PLA
-; RTI		JMP DEBUG_BRK
-; -- (2 bytes)  -- (0 bytes)
-; handler1 has 2 empty bytes at the end
+; | User         |  Debugger                     |
+; |--------------|-------------------------------|
+; | PHA          |	PHA                      |
+; | LDA #$80     |	LDA #$80                 |
+; | STA $9C02    |	STA $9C02                |
+; | PLA          |	PLA                      |
+; | RTI          | 	JMP DEBUG_BRK            |
+; | -- (2 bytes) |  -- (0 bytes)                 |
+;
+; handler1 (the User handler) has 2 empty bytes at the end
+;
 brkhandler1:
 	pha
 	lda #$80
@@ -592,6 +595,8 @@ brkhandler2_size=*-brkhandler2
 	sta sim::pc+1
 	tsx
 	stx sim::reg_sp
+
+	; TODO: save timer values
 
 	; clear decimal in case user set it
 	cld
@@ -782,6 +787,8 @@ brkhandler2_size=*-brkhandler2
 	stx prev_reg_x
 	ldy sim::reg_y
 	sty prev_reg_y
+
+	; TODO: restore timer values
 
 	; return from the BRK
 	pha

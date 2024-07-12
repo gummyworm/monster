@@ -315,9 +315,6 @@ enter:
 	cli
 
 	lda #DEFAULT_900F^$08
-	ldx #22
-	jsr draw::hline
-	lda #DEFAULT_900F^$08
 	ldx #23
 	jsr draw::hline
 

@@ -18,6 +18,7 @@
 .include "draw.inc"
 .include "expr.inc"
 .include "errors.inc"
+.include "errlog.inc"
 .include "file.inc"
 .include "finalex.inc"
 .include "format.inc"
@@ -509,6 +510,7 @@ main:	jsr key::getch
 	jsr src::pushp
 	jsr src::rewind
 	jsr asm::reset
+	jsr errlog::clear
 
 	lda zp::gendebuginfo
 	beq @pass1
@@ -518,8 +520,8 @@ main:	jsr key::getch
 	stxy dbgi::srcline
 	lda src::activebuff
 	jsr src::filename
-	bcs @err
-	jsr dbgi::setfile
+	bcc @pass1
+	jsr errlog::log
 
 ;--------------------------------------
 ; Pass 1
@@ -535,9 +537,17 @@ main:	jsr key::getch
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize_pass1
-	bcs @err
-	jsr src::end
+	bcc @ok
+
+	jsr errlog::log
+	bcs @done		; if max errors reached, abort
+
+@ok:	jsr src::end
 	bne @pass1loop
+
+	; if there were any errors after pass 1, abort
+	lda errlog::numerrs
+	bne @done
 
 	; end the last segment (if debug info generation enabled)
 	lda zp::gendebuginfo
@@ -565,22 +575,18 @@ main:	jsr key::getch
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize_pass2
 	bcc @next		; no error, continue
-
-@err:	jsr display_result	; display the error
-	jsr src::popgoto	; restore source position
-	jsr dbgi::getline	; get the line that failed assembly
-
-	cli
-	jmp gotoline		; goto that line
+	jsr errlog::log
+	bcc @next		; continue if we haven't reached error threshold
 
 @next:	jsr src::end		; check if we're at the end of the source
 	bne @pass2loop		; repeat if not
-	clc			; successfully assembled full source
-	jsr display_result	; dispaly success msg
+
+@done:
+	cli
 	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer
+	jsr display_result	; dispaly success msg
 
-	cli
 	RETURN_OK
 .endproc
 
@@ -593,16 +599,20 @@ main:	jsr key::getch
 ;  - .A: the error code (if error occurred)
 ;  - zp::asmresult: pointer to the end of the program
 .proc display_result
-	bcc @printresult
-@err:	jsr dbgi::getline
-	jmp reporterr
-
-@printresult:
-	jsr clrerror		; clear the error if there is one
-
+	jsr clrerror
 	lda #$01
 	sta state::verify	; re-enable verify
 
+	lda errlog::numerrs
+	beq @printresult
+
+@err:	jsr scr::reset
+	lda height
+	jsr errlog::activate
+	jsr scr::restore
+	jmp clrerror		; clear the error if there is one
+
+@printresult:
 	; get the size of the assembled program and print it
 	lda asm::pcset		; did this program actually assemble > 0 bytes?
 	bne :+
@@ -631,8 +641,8 @@ main:	jsr key::getch
 @success:
 	ldxy #@success_msg
 @print: jsr text::info
-	lda #STATUS_ROW-2
-	sta height
+	lda #EDITOR_HEIGHT
+	jmp __edit_resize
 
 @asmdone:
 	RETURN_OK
