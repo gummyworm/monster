@@ -173,7 +173,6 @@
 
 	lda @row
 	jsr text::print
-
 	dec @row
 	inc @i
 	bne @dloop

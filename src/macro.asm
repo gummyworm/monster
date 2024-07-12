@@ -54,14 +54,14 @@ macros:          .res $1400
 ;  - .XY: pointer to the macro definition
 ;     This will not contain the .MAC but does end with .ENDMAC)
 ;  - .A: number of parameters
-;  -  zp::tmp0: pointer to parameters as a sequence of 0-terminated strings
+;  -  r0: pointer to parameters as a sequence of 0-terminated strings
 .export __mac_add
 .proc __mac_add
 @src=zp::macros
 @dst=zp::macros+2
 @addr=zp::macros+4
-@params=zp::tmp0
-@numparams=zp::tmp2
+@params=r0
+@numparams=r2
 	sta @numparams
 	stxy @src
 	lda nummacros
@@ -297,10 +297,10 @@ macros:          .res $1400
 ;  - .C: set if there is no macro for the given text, clear if there is
 .export __mac_get
 .proc __mac_get
-@tofind=zp::tmp0
-@addr=zp::tmp2
-@name=zp::tmp4
-@cnt=zp::tmp6
+@tofind=r0
+@addr=r2
+@name=r4
+@cnt=r6
 	stxy @tofind
 	lda #<macro_addresses
 	sta @addr

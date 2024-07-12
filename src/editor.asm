@@ -607,6 +607,8 @@ main:	jsr key::getch
 	beq @printresult
 
 @err:	lda height
+	sec
+	sbc #$01		; -1 for info row
 	jmp errlog::activate
 
 @printresult:

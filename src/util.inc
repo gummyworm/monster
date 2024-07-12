@@ -37,10 +37,10 @@
 
 .macro copy dst, src, len
 	ldxy src
-	stxy zp::tmp2
+	stxy r2
 	ldxy dst
-	stxy zp::tmp4
+	stxy r4
 	ldxy len
-	stxy zp::tmp0
+	stxy r0
 	jsr util::memcpy
 .endmacro

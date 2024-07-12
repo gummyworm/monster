@@ -1020,7 +1020,7 @@ brkhandler2_size=*-brkhandler2
 .proc step
 @mode=r0
 	ldxy #$100		; TODO: use ROM addr? (we don't need the string)
-	stxy zp::tmp0		; TODO: make way to not disassemble to string
+	stxy r0			; TODO: make way to not disassemble to string
 	ldxy sim::pc		; get address of next instruction
 	jsr asm::disassemble  ; disassemble it to get its size (next BRK offset)
 	stx sim::op_mode
@@ -1524,7 +1524,7 @@ __debug_remove_breakpoint:
 ;--------------------------------------
 ; parse the linebuffer2 and update all registers
 @updatevals:
-@val=zp::tmp0
+@val=r0
 	ldxy #mem::linebuffer2
 	stxy @val
 

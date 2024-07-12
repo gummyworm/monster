@@ -90,9 +90,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ; SIDE-EFFECTS:
 ;  - mem::statusline: contains the new status info
 .proc update_statusline
-@filename=zp::tmp0
-@tmp=zp::tmp0
-
+@filename=r0
+@tmp=r0
 @columnstart=STATUS_COL+3
 @linestart=STATUS_COL+6
 @sizestart=STATUS_COL+13
@@ -734,8 +733,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .X: the length of mem::linebuffer as it appears on screen
 .proc __text_rendered_line_len
 .export __text_rendered_line_len
-@tabsz=zp::tmp0
-@savey=zp::tmp1
+@tabsz=r0
+@savey=r1
 	ldx #$ff
 	ldy #$ff
 @l0:	iny
