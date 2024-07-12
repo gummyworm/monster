@@ -92,6 +92,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .proc update_statusline
 @filename=r0
 @tmp=r0
+@rightend=r4
 @columnstart=STATUS_COL+3
 @linestart=STATUS_COL+6
 @sizestart=STATUS_COL+13
@@ -148,6 +149,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	lda __text_status_mode
 	sta mem::statusline+@modestart
 
+	stx @rightend	; save end of left-side data
+
 @copy_filename:
 	; filename
 	lda src::activebuff
@@ -186,6 +189,19 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sta mem::statusline-2,y
 :	lda #'#'
 	sta mem::statusline-3,y
+	sty @tmp
+
+	ldx #$00
+	ldy @rightend
+	; copy as much info as we can between the left-side and right-side stuff
+:	lda mem::statusinfo,x
+	beq @done
+	sta mem::statusline+@linestart+2,y
+	inx
+	iny
+	cpy @tmp
+	bcc :-
+
 @done:	rts
 .endproc
 
@@ -926,6 +942,14 @@ tabs_end=*-tabs
 ;  - .XY: the string to print
 .export __text_info
 .proc __text_info
-	lda #STATUS_ROW-1
-	jmp __text_print
+@info=r0
+	stxy @info
+	ldy #$00
+:	lda (@info),y
+	sta mem::statusinfo,y
+	beq @done
+	iny
+	cpy #20
+	bne :-
+@done:	rts
 .endproc

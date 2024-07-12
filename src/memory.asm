@@ -43,6 +43,9 @@ __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
 .export __statusline
 __statusline = __mem_spare+80
 
+.export __statusinfo
+__statusinfo: .res 20
+
 .export __mem_drive_err
 __mem_drive_err: .res 20
 

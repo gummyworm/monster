@@ -607,8 +607,6 @@ main:	jsr key::getch
 	beq @printresult
 
 @err:	lda height
-	sec
-	sbc #$01		; -1 for info row
 	jmp errlog::activate
 
 @printresult:
@@ -2912,13 +2910,8 @@ goto_buffer:
 ; CLRERROR
 ; Clears any error message
 .proc clrerror
-	lda height
-	cmp #ERROR_ROW		; is there an error being displayed?
-	bcs :+			; if not, continue
-	lda #ERROR_ROW
-	jsr bm::clrline		; clear the error line
-:	lda #STATUS_ROW-1
-	jmp bm::clrline		; clear the status line
+	lda #$00
+	sta mem::statusinfo
 .endproc
 
 ;******************************************************************************
