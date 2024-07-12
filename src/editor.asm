@@ -658,13 +658,9 @@ main:	jsr key::getch
 	; TODO: save all dirty buffers
 	; jsr saveall
 
-	sei
-	inc $900f
 	lda #$01
 	sta zp::gendebuginfo	; enable debug info
 	jsr command_asm
-	dec $900f
-	cli
 	bcs @done		; error
 
 @ok:	dec zp::gendebuginfo	; turn off debug-info
