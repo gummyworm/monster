@@ -606,11 +606,8 @@ main:	jsr key::getch
 	lda errlog::numerrs
 	beq @printresult
 
-@err:	jsr scr::reset
-	lda height
-	jsr errlog::activate
-	jsr scr::restore
-	jmp clrerror		; clear the error if there is one
+@err:	lda height
+	jmp errlog::activate
 
 @printresult:
 	; get the size of the assembled program and print it
@@ -945,15 +942,21 @@ force_enter_insert=*+5
 
 ;******************************************************************************
 ; CANCEL
-; Returns to COMMAND mode.
-; If an error is being displayed, hides it.
+; If not in COMMAND mode, just enters command mode
+; If already in command mode: clears auxiliary views (if any active), errors,
+; etc
 .proc cancel
-	jsr clrerror
-	lda #EDITOR_HEIGHT
-	jsr __edit_resize
+	lda mode
+	cmp #MODE_COMMAND
+	bne enter_command
 
 	lda #TEXT_REPLACE
 	sta text::insertmode
+
+	; jsr clrerror
+
+	lda #EDITOR_HEIGHT
+	jmp __edit_resize
 
 	; fall through to enter_command
 .endproc
@@ -1990,11 +1993,13 @@ __edit_refresh:
 	beq @l0
 	bcc @l0
 
-@clr:	; clear the rest of the lines
+@clr:	; clear the rest of the lines (including highlights)
 	ldx @row
 	cpx height
 	inx
 	bcs @done
+	lda #DEFAULT_900F
+	sta mem::rowcolors,x
 	stx @row
 	txa
 	jsr bm::clrline

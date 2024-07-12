@@ -34,8 +34,10 @@ errfileids: .res MAX_ERRORS
 .export __errlog_numerrs
 __errlog_numerrs:
 numerrs: .byte 0
+baserow: .byte 0		; the base row visible to the user
 
 .CODE
+
 ;******************************************************************************
 ; ACTIVATE
 ; Displays the error window and resizes the editor to fit it.
@@ -43,6 +45,13 @@ numerrs: .byte 0
 ;  - .A: the row to base the window at (grows upward)
 .export __errlog_activate
 .proc __errlog_activate
+	pha
+	sec
+	sbc #MAX_HEIGHT
+	sbc #$01		; -1 for title
+	jsr edit::resize
+
+	pla
 	ldxy #@keyhandler
 	stxy r0
 	ldxy #@getline
@@ -57,6 +66,7 @@ numerrs: .byte 0
 @getline:
 @keyret=rb
 @err=ra
+	sta baserow
 	sta @err
 	tax
 	pla
@@ -115,6 +125,7 @@ numerrs: .byte 0
 .proc __errlog_clear
 	lda #$00
 	sta numerrs
+	sta baserow
 	rts
 .endproc
 
