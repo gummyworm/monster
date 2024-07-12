@@ -502,8 +502,6 @@ main:	jsr key::getch
 	lda #EDITOR_HEIGHT
 	jsr __edit_resize
 
-	sei
-
 	jsr dbgi::init
 
 	ldxy #strings::assembling
@@ -587,11 +585,10 @@ main:	jsr key::getch
 	bne @pass2loop		; repeat if not
 
 @done:
-	cli
 	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer
-	jsr display_result	; dispaly success msg
-	RETURN_OK
+
+	; fall through to display_result
 .endproc
 
 ;******************************************************************************
@@ -643,6 +640,8 @@ main:	jsr key::getch
 	ldxy #@success_msg
 @print: lda #STATUS_ROW
 	jsr text::print
+:	jsr key::getch		; wait for key
+	beq :-
 	RETURN_OK
 
 @success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0
