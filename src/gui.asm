@@ -116,8 +116,8 @@
 	adc @scroll
 	beq @redraw		; can't move
 
-	inc @scroll
-	bne @redraw		; redraw the scrolled display
+	dec @scroll
+	bpl @redraw		; redraw the scrolled display
 
 ;--------------------------------------
 @getkey:
