@@ -452,20 +452,17 @@ num_illegals = *-illegal_opcodes
 	ldy #$00
 	lda (zp::line),y
 	beq @noasm		; empty line, early out
-	cmp #BREAKPOINT_CHAR
-	bne :+
-
 @setbrk:
 	lda zp::pass
 	cmp #2
 	bne :+
-	; only set breakpoints in pass 2
-	ldxy zp::virtualpc		; current PC (address)
-	jsr dbg::toggle_breakpoint	; set the breakpoint
-	incw zp::line			; advance line beyond the breakpoint
+
+	; handle breakpoints (only set breakpoints in pass 2)
+	ldxy zp::virtualpc	; current PC (address)
+	jsr dbg::brksetaddr	; if there is a breakpoint, set its address
 
 :	jsr line::process_ws
-	beq @noasm 	; empty line
+	beq @noasm 		; empty line
 
 ; check if we're in an .IF (FALSE) and if we are, return
 @checkifs:

@@ -983,18 +983,12 @@ brkhandler2_size=*-brkhandler2
 ; Sets a breakpoint at the current line selection
 .proc set_breakpoint
 @line=r0
-	jsr edit::setbreakpoint		; set a breakpoint in the source
 	ldxy src::line
-	stxy @line
+	jsr __debug_setbrkatline	; set the line #
+
+	ldxy src::line
 	jsr dbgi::line2addr
-	bcs @nobrk			; if no line # for this line, skip
-	jsr __debug_toggle_breakpoint	; add the breakpoint to the debugger
-	lda aux_mode
-	cmp #AUX_BRK
-	bne @done			; done if breakpoint viewer isn't active
-	jmp show_aux			; refresh viewer
-@done:
-@nobrk:	rts
+	jmp __debug_brksetaddr	; map the address to the line
 .endproc
 
 ;******************************************************************************
@@ -1349,36 +1343,58 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
-; TOGGLE_BREAKPOINT
-; Sets a breakpoint at the address in .XY or removes it if one already exists
+; SETBRKATLINE
+; Sets a breakpoint at the given line.  During assembly the address will be
+; populated.
 ; IN:
-;  - .XY: the address of the breakpoint to set
-;  - r0:  the line # of the breakpoint
-.export __debug_toggle_breakpoint
-.proc __debug_toggle_breakpoint
-@line=r0
-	; if this is a duplicate, remove the existing breakpoint
-	jsr remove_breakpoint
-	bcc @done		; breakpoint existed, but we removed it
-
+;  - .XY: the line number to set the breakpoint at
+.export __debug_setbrkatline
+.proc __debug_setbrkatline
+	; store line #
 	txa
 	ldx numbreakpoints
-
-	; store address
-	sta breakpointslo,x
-	tya
-	sta breakpointshi,x
-
-	; store line #
-	lda r0
 	sta breakpoint_lineslo,x
-	lda r1
+	tya
 	sta breakpoint_lineshi,y
-
-	ldx numbreakpoints
 	lda #BREAKPOINT_ENABLED
 	sta breakpoint_flags,x
+
 	inc numbreakpoints
+	rts
+.endproc
+
+;******************************************************************************
+; BRKSETADDR
+; Sets the address for the given breakpoint. If no matching breakpoint is found,
+; does nothing
+; IN:
+;   - .XY: the line # of the breakpoint to set the address for
+;   - r0:  the address to store for the breakpoint
+.export __debug_brksetaddr
+.proc __debug_brksetaddr
+@line=r0
+@addr=r2
+	stxy @line
+
+	; find the matching line #
+	ldx numbreakpoints
+	dex
+@l0:	lda @line
+	cmp breakpoint_lineslo,x
+	bne @next
+	lda @line+1
+	cmp breakpoint_lineshi,x
+	bne @next
+
+@found:	; store address
+	lda @addr
+	sta breakpointslo,x
+	lda @addr+1
+	sta breakpointshi,x
+	rts
+
+@next:	dex
+	bpl @l0
 @done:	rts
 .endproc
 
@@ -1416,6 +1432,63 @@ __debug_remove_breakpoint:
 @done:	clc
 @ret:	rts
 .endproc
+
+;******************************************************************************
+; SHIFT BREAKPOINTS D
+; Shifts DOWN the line numbers for all breakpoints on lines greater than the one
+; given by the given offset.
+; IN:
+;  - .XY: the line number to shift
+;  - .A:  the offset to shift
+.export __debug_shift_breakpointsd
+.proc __debug_shift_breakpointsd
+@line=r0
+@offset=r2
+	stxy @line
+	sta @offset
+	ldx numbreakpoints
+@l0:	lda breakpoint_lineshi,x
+	cmp @line+1
+	bcc @next
+	lda breakpoint_lineslo,x
+	cmp @line
+	bcc @next
+	clc
+	adc @offset
+	bcc @next
+	inc breakpoint_lineshi,x
+@next:	dex
+	bpl @l0
+.endproc
+
+;******************************************************************************
+; SHIFT BREAKPOINTS U
+; Shifts UP the line numbers for all breakpoints on lines less than the one
+; given by the given offset.
+; IN:
+;  - .XY: the line number to shift
+;  - .A:  the offset to shift
+.export __debug_shift_breakpointsu
+.proc __debug_shift_breakpointsu
+@line=r0
+@offset=r2
+	stxy @line
+	sta @offset
+	ldx numbreakpoints
+@l0:	lda breakpoint_lineshi,x
+	cmp @line+1
+	bcs @next
+	lda breakpoint_lineslo,x
+	cmp @line
+	bcs @next
+	clc
+	adc @offset
+	bcc @next
+	inc breakpoint_lineshi,x
+@next:	dex
+	bpl @l0
+.endproc
+
 
 ;******************************************************************************
 ; GET BREAKPOINT

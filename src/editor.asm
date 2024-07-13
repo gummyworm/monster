@@ -618,7 +618,7 @@ main:	jsr key::getch
 	beq @print 		; if not, print a simple "done"
 
 	; get the size of the assembled program (top - origin)
-:	lda asm::top
+	lda asm::top
 	sec
 	sbc asm::origin
 	pha
@@ -2135,51 +2135,17 @@ __edit_refresh:
 
 ;******************************************************************************
 ; SET_BREAKPOINT
-; insert a BREAKPOINT character at the beginning of the line
+; insert a BREAKPOINT character at the cursor's current line
 .export __edit_set_breakpoint
 __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
-	; save the index of the character we're on
-	jsr text::char_index
-	sty @savex
+	ldxy src::line
+	jsr dbg::setbrkatline
 
-	jsr force_enter_insert
-	jsr home	; go to col 0 (or 1 if there's already a breakpoint)
-
-	lda mem::linebuffer
-	cmp #BREAKPOINT_CHAR	; is there already a breakpoint here?
-	bne @add
-@remove:
-	jsr src::delete
-	lda #$14
-	inc zp::curx
-	jsr text::putch
-	lda zp::cury
-	jsr text::drawline
-	dec @savex
-	bmi :+
-	dec @savex
-	bpl @cont
-:	jsr enter_command
-	jmp @done
-
-@add:	lda #BREAKPOINT_CHAR
-	jsr src::insert
-	jsr text::putch
-
-@cont:	jsr enter_command
-
-@restore:
-	jsr ccright
-	bcs @done
-	jsr text::char_index
-	cpy @savex
-	bcc @restore
-	beq @restore	; because the breakpoint character was added, we want
-			; want to go to the index AFTER the one we started on
-
-@done:	rts
+	lda #BREAKPOINT_OFF_COLOR
+	ldx zp::cury
+	jmp draw::hline
 .endproc
 
 ;******************************************************************************
@@ -2740,6 +2706,11 @@ goto_buffer:
 	lda #$00
 	jsr text::putch
 
+	; shift breakpoints by 1
+	ldxy src::line
+	lda #$01
+	jsr dbg::shift_breakpointsd
+
 @nextline:
 	jsr drawline
 	; redraw everything from <cursor> to EOL on next line
@@ -2879,7 +2850,7 @@ goto_buffer:
 	; and clear the new line
 	jsr text::clrline
 	lda height
-	jsr text::drawline
+	jsr bm::clrline
 
 	dec zp::cury
 	bne @setcur		; branch always
@@ -3684,6 +3655,11 @@ jsr text::tabr_dist
 	lda height
 	jsr scrollup
 
+	; shift breakpoints up by 1
+	ldxy src::line
+	lda #$01
+	jsr dbg::shift_breakpointsu
+
 @noscroll:
 	; go to the bottom row and read the line that was moved up
 	jsr src::pushp	; save current source pos
@@ -4109,10 +4085,11 @@ __edit_gotoline:
 
 @clrextra:
 	jsr text::clrline
-	lda @row
-	sta @rowsave
+	ldx @row
+	stx @rowsave
 @clrloop:
-	jsr text::drawline
+	txa
+	jsr bm::clrline
 	inc @row
 @clrnext:
 	ldx @row
