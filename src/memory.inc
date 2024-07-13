@@ -10,6 +10,7 @@
 .import __linebuffer2
 .import __mem_asmbuffer
 .import __mem_progsave
+.import __statusinfo
 .import __statusline
 .import __mem_debugsave
 .import __mem_dbg00
@@ -34,6 +35,7 @@
 	linebuffer      = __linebuffer
 	linebuffer2     = __linebuffer2
 	linesave        = __linesave
+	statusinfo      = __statusinfo
 	statusline	= __statusline
 	copybuff        = __mem_copybuff
 	drive_err	= __mem_drive_err

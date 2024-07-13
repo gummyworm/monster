@@ -40,9 +40,6 @@ __text_len: .byte 0
 .export  __text_buffer
 __text_buffer: .byte 0	; if 0, putch immediately draws to the screen
 
-.export __text_rvs
-__text_rvs: .byte 0	; reverse text state ($ff = rvs on, $00 = rvs off)
-
 .export __text_insertmode
 __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
@@ -90,9 +87,9 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ; SIDE-EFFECTS:
 ;  - mem::statusline: contains the new status info
 .proc update_statusline
-@filename=zp::tmp0
-@tmp=zp::tmp0
-
+@filename=r0
+@tmp=r0
+@rightend=r4
 @columnstart=STATUS_COL+3
 @linestart=STATUS_COL+6
 @sizestart=STATUS_COL+13
@@ -149,6 +146,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	lda __text_status_mode
 	sta mem::statusline+@modestart
 
+	stx @rightend	; save end of left-side data
+
 @copy_filename:
 	; filename
 	lda src::activebuff
@@ -187,6 +186,19 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sta mem::statusline-2,y
 :	lda #'#'
 	sta mem::statusline-3,y
+	sty @tmp
+
+	ldx #$00
+	ldy @rightend
+	; copy as much info as we can between the left-side and right-side stuff
+:	lda mem::statusinfo,x
+	beq @done
+	sta mem::statusline+@linestart+2,y
+	inx
+	iny
+	cpy @tmp
+	bcc :-
+
 @done:	rts
 .endproc
 
@@ -407,14 +419,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	; print the rendered string
 	ldxy #@buff
 	lda @row
-	jsr __text_puts
-
-	; if __text_rvs is set, reverse the line after drawing it
-	lda __text_rvs
-	bne @rvs
-	rts
-@rvs:	lda @row
-	jmp bm::rvsline
+	jmp __text_puts
 .endproc
 
 ;******************************************************************************
@@ -734,8 +739,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .X: the length of mem::linebuffer as it appears on screen
 .proc __text_rendered_line_len
 .export __text_rendered_line_len
-@tabsz=zp::tmp0
-@savey=zp::tmp1
+@tabsz=r0
+@savey=r1
 	ldx #$ff
 	ldy #$ff
 @l0:	iny
@@ -927,6 +932,14 @@ tabs_end=*-tabs
 ;  - .XY: the string to print
 .export __text_info
 .proc __text_info
-	lda #STATUS_ROW-1
-	jmp __text_print
+@info=r0
+	stxy @info
+	ldy #$00
+:	lda (@info),y
+	sta mem::statusinfo,y
+	beq @done
+	iny
+	cpy #20
+	bne :-
+@done:	rts
 .endproc

@@ -323,7 +323,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	; init state
 	sta __debug_numwatches
 	jsr reset_stopwatch
-	jsr dummy_irq
 
 	jsr install_brk			; install the BRK handler IRQ
 
@@ -356,20 +355,21 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 ;******************************************************************************
 ; INSTALL BRK
-; Installs the given vector to the BRK and NMI vectors
-; The virtual vector ($0334) holds the actual address of the interrupt handler.
-; The real vectors, $0316-$0317 and $0318-$0319, are updated to a handler that
-; switches back to the main RAM bank and dispatches to this vector.
-; Care must be taken to choose an address that won't overwrite Monster
+; Installs the debugger BRK handler to the BRK and NMI vectors and copies the
+; code to enter the handler to the user program's RAM at BRK_HANDLER_ADDR.
+; This handler switches back to the debuggers RAM bank, where the debugger takes
+; over.
 ; IN:
 ;  - .XY: the address to install the BRK handler to
 .proc install_brk
 @dst=r0
 @cnt=r2
+	sei
 	ldxy #BRK_HANDLER_ADDR
 	stxy @dst
 	stxy $0316		; BRK
 	stxy $0318		; NMI
+	cli
 
 	lda #brkhandler1_size-1
 	sta @cnt
@@ -409,13 +409,17 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; the editor, where execution will pick up after switching banks
 ;
 ; This is the layout of the code in each bank:
-; PHA		PHA
-; LDA #$80	LDA #$80
-; STA $9C02	STA $9C02
-; PLA		PLA
-; RTI		JMP DEBUG_BRK
-; -- (2 bytes)  -- (0 bytes)
-; handler1 has 2 empty bytes at the end
+; | User         |  Debugger                     |
+; |--------------|-------------------------------|
+; | PHA          |	PHA                      |
+; | LDA #$80     |	LDA #$80                 |
+; | STA $9C02    |	STA $9C02                |
+; | PLA          |	PLA                      |
+; | RTI          | 	JMP DEBUG_BRK            |
+; | -- (2 bytes) |  -- (0 bytes)                 |
+;
+; handler1 (the User handler) has 2 empty bytes at the end
+;
 brkhandler1:
 	pha
 	lda #$80
@@ -592,6 +596,8 @@ brkhandler2_size=*-brkhandler2
 	tsx
 	stx sim::reg_sp
 
+	; TODO: save timer values
+
 	; clear decimal in case user set it
 	cld
 
@@ -618,7 +624,6 @@ brkhandler2_size=*-brkhandler2
 	jsr swapout
 
 	; reinstall the main IRQ
-	lda #$11-8
         jsr irq::raster
 
 	; unless we can figure out the exact RAM we will affect, we'll have to
@@ -755,7 +760,6 @@ brkhandler2_size=*-brkhandler2
 	beq @debugloop		; not yet, loop and get another command
 
 @debug_done:
-	jsr dummy_irq	; install a NOP IRQ
 	jsr cur::off
 	jsr swapin
 
@@ -783,6 +787,8 @@ brkhandler2_size=*-brkhandler2
 	stx prev_reg_x
 	ldy sim::reg_y
 	sty prev_reg_y
+
+	; TODO: restore timer values
 
 	; return from the BRK
 	pha
@@ -977,18 +983,12 @@ brkhandler2_size=*-brkhandler2
 ; Sets a breakpoint at the current line selection
 .proc set_breakpoint
 @line=r0
-	jsr edit::setbreakpoint		; set a breakpoint in the source
 	ldxy src::line
-	stxy @line
+	jsr __debug_setbrkatline	; set the line #
+
+	ldxy src::line
 	jsr dbgi::line2addr
-	bcs @nobrk			; if no line # for this line, skip
-	jsr __debug_toggle_breakpoint	; add the breakpoint to the debugger
-	lda aux_mode
-	cmp #AUX_BRK
-	bne @done			; done if breakpoint viewer isn't active
-	jmp show_aux			; refresh viewer
-@done:
-@nobrk:	rts
+	jmp __debug_brksetaddr	; map the address to the line
 .endproc
 
 ;******************************************************************************
@@ -1014,7 +1014,7 @@ brkhandler2_size=*-brkhandler2
 .proc step
 @mode=r0
 	ldxy #$100		; TODO: use ROM addr? (we don't need the string)
-	stxy zp::tmp0		; TODO: make way to not disassemble to string
+	stxy r0			; TODO: make way to not disassemble to string
 	ldxy sim::pc		; get address of next instruction
 	jsr asm::disassemble  ; disassemble it to get its size (next BRK offset)
 	stx sim::op_mode
@@ -1343,36 +1343,58 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
-; TOGGLE_BREAKPOINT
-; Sets a breakpoint at the address in .XY or removes it if one already exists
+; SETBRKATLINE
+; Sets a breakpoint at the given line.  During assembly the address will be
+; populated.
 ; IN:
-;  - .XY: the address of the breakpoint to set
-;  - r0:  the line # of the breakpoint
-.export __debug_toggle_breakpoint
-.proc __debug_toggle_breakpoint
-@line=r0
-	; if this is a duplicate, remove the existing breakpoint
-	jsr remove_breakpoint
-	bcc @done		; breakpoint existed, but we removed it
-
+;  - .XY: the line number to set the breakpoint at
+.export __debug_setbrkatline
+.proc __debug_setbrkatline
+	; store line #
 	txa
 	ldx numbreakpoints
-
-	; store address
-	sta breakpointslo,x
-	tya
-	sta breakpointshi,x
-
-	; store line #
-	lda r0
 	sta breakpoint_lineslo,x
-	lda r1
+	tya
 	sta breakpoint_lineshi,y
-
-	ldx numbreakpoints
 	lda #BREAKPOINT_ENABLED
 	sta breakpoint_flags,x
+
 	inc numbreakpoints
+	rts
+.endproc
+
+;******************************************************************************
+; BRKSETADDR
+; Sets the address for the given breakpoint. If no matching breakpoint is found,
+; does nothing
+; IN:
+;   - .XY: the line # of the breakpoint to set the address for
+;   - r0:  the address to store for the breakpoint
+.export __debug_brksetaddr
+.proc __debug_brksetaddr
+@line=r0
+@addr=r2
+	stxy @line
+
+	; find the matching line #
+	ldx numbreakpoints
+	dex
+@l0:	lda @line
+	cmp breakpoint_lineslo,x
+	bne @next
+	lda @line+1
+	cmp breakpoint_lineshi,x
+	bne @next
+
+@found:	; store address
+	lda @addr
+	sta breakpointslo,x
+	lda @addr+1
+	sta breakpointshi,x
+	rts
+
+@next:	dex
+	bpl @l0
 @done:	rts
 .endproc
 
@@ -1410,6 +1432,63 @@ __debug_remove_breakpoint:
 @done:	clc
 @ret:	rts
 .endproc
+
+;******************************************************************************
+; SHIFT BREAKPOINTS D
+; Shifts DOWN the line numbers for all breakpoints on lines greater than the one
+; given by the given offset.
+; IN:
+;  - .XY: the line number to shift
+;  - .A:  the offset to shift
+.export __debug_shift_breakpointsd
+.proc __debug_shift_breakpointsd
+@line=r0
+@offset=r2
+	stxy @line
+	sta @offset
+	ldx numbreakpoints
+@l0:	lda breakpoint_lineshi,x
+	cmp @line+1
+	bcc @next
+	lda breakpoint_lineslo,x
+	cmp @line
+	bcc @next
+	clc
+	adc @offset
+	bcc @next
+	inc breakpoint_lineshi,x
+@next:	dex
+	bpl @l0
+.endproc
+
+;******************************************************************************
+; SHIFT BREAKPOINTS U
+; Shifts UP the line numbers for all breakpoints on lines less than the one
+; given by the given offset.
+; IN:
+;  - .XY: the line number to shift
+;  - .A:  the offset to shift
+.export __debug_shift_breakpointsu
+.proc __debug_shift_breakpointsu
+@line=r0
+@offset=r2
+	stxy @line
+	sta @offset
+	ldx numbreakpoints
+@l0:	lda breakpoint_lineshi,x
+	cmp @line+1
+	bcs @next
+	lda breakpoint_lineslo,x
+	cmp @line
+	bcs @next
+	clc
+	adc @offset
+	bcc @next
+	inc breakpoint_lineshi,x
+@next:	dex
+	bpl @l0
+.endproc
+
 
 ;******************************************************************************
 ; GET BREAKPOINT
@@ -1518,7 +1597,7 @@ __debug_remove_breakpoint:
 ;--------------------------------------
 ; parse the linebuffer2 and update all registers
 @updatevals:
-@val=zp::tmp0
+@val=r0
 	ldxy #mem::linebuffer2
 	stxy @val
 

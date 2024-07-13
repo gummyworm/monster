@@ -10,6 +10,7 @@
 .import __str_debug_stop_debugging
 .import __str_dir
 .import __str_deleting
+.import __str_errors
 .import __str_load
 .import __str_edit_line_err
 .import __str_edit_file_delete_failed
@@ -47,7 +48,7 @@
 	edit_file_load_failed   = __str_edit_file_load_failed
 	edit_file_delete_failed = __str_edit_file_delete_failed
 	edit_file_save_failed   = __str_edit_file_save_failed
-
+	errors                  = __str_errors
 	watch_added             = __str_watch_added
 	watches_line            = __str_watches_line
 	watches_line_end        = __str_watches_line_end

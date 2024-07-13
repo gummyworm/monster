@@ -18,6 +18,7 @@
 .include "draw.inc"
 .include "expr.inc"
 .include "errors.inc"
+.include "errlog.inc"
 .include "file.inc"
 .include "finalex.inc"
 .include "format.inc"
@@ -498,7 +499,9 @@ main:	jsr key::getch
 ; Assembles the entire source
 .export command_asm
 .proc command_asm
-	sei
+	lda #EDITOR_HEIGHT
+	jsr __edit_resize
+
 	jsr dbgi::init
 
 	ldxy #strings::assembling
@@ -509,6 +512,7 @@ main:	jsr key::getch
 	jsr src::pushp
 	jsr src::rewind
 	jsr asm::reset
+	jsr errlog::clear
 
 	lda zp::gendebuginfo
 	beq @pass1
@@ -518,14 +522,15 @@ main:	jsr key::getch
 	stxy dbgi::srcline
 	lda src::activebuff
 	jsr src::filename
-	bcs @err
-	jsr dbgi::setfile
-
+	bcc :+
+	jsr errlog::log
+:	jsr dbgi::setfile
 ;--------------------------------------
 ; Pass 1
 ; do a pass on the source to simply get labels and basic debug info
 ; (# of lines and # of segments/file)
-@pass1:	lda #$01
+@pass1:
+	lda #$01
 	jsr asm::startpass
 
 @pass1loop:
@@ -535,9 +540,17 @@ main:	jsr key::getch
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize_pass1
-	bcs @err
-	jsr src::end
+	bcc @ok
+
+	jsr errlog::log
+	bcs @done		; if max errors reached, abort
+
+@ok:	jsr src::end
 	bne @pass1loop
+
+	; if there were any errors after pass 1, abort
+	lda errlog::numerrs
+	bne @done
 
 	; end the last segment (if debug info generation enabled)
 	lda zp::gendebuginfo
@@ -565,23 +578,17 @@ main:	jsr key::getch
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize_pass2
 	bcc @next		; no error, continue
-
-@err:	jsr display_result	; display the error
-	jsr src::popgoto	; restore source position
-	jsr dbgi::getline	; get the line that failed assembly
-
-	cli
-	jmp gotoline		; goto that line
+	jsr errlog::log
+	bcc @next		; continue if we haven't reached error threshold
 
 @next:	jsr src::end		; check if we're at the end of the source
 	bne @pass2loop		; repeat if not
-	clc			; successfully assembled full source
-	jsr display_result	; dispaly success msg
+
+@done:
 	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer
 
-	cli
-	RETURN_OK
+	; fall through to display_result
 .endproc
 
 ;******************************************************************************
@@ -593,24 +600,25 @@ main:	jsr key::getch
 ;  - .A: the error code (if error occurred)
 ;  - zp::asmresult: pointer to the end of the program
 .proc display_result
-	bcc @printresult
-@err:	jsr dbgi::getline
-	jmp reporterr
-
-@printresult:
-	jsr clrerror		; clear the error if there is one
-
+	jsr clrerror
 	lda #$01
 	sta state::verify	; re-enable verify
 
+	lda errlog::numerrs
+	beq @printresult
+
+@err:	lda height
+	jsr errlog::activate
+	jmp enter_command
+
+@printresult:
 	; get the size of the assembled program and print it
-	lda asm::pcset		; did this program actually assemble > 0 bytes?
-	bne :+
 	ldxy #@success0
-	jmp @print
+	lda asm::pcset		; did this program actually assemble > 0 bytes?
+	beq @print 		; if not, print a simple "done"
 
 	; get the size of the assembled program (top - origin)
-:	lda asm::top
+	lda asm::top
 	sec
 	sbc asm::origin
 	pha
@@ -630,11 +638,10 @@ main:	jsr key::getch
 
 @success:
 	ldxy #@success_msg
-@print: jsr text::info
-	lda #STATUS_ROW-2
-	sta height
-
-@asmdone:
+@print: lda #STATUS_ROW
+	jsr text::print
+:	jsr key::getch		; wait for key
+	beq :-
 	RETURN_OK
 
 @success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0
@@ -648,13 +655,9 @@ main:	jsr key::getch
 	; TODO: save all dirty buffers
 	; jsr saveall
 
-	sei
-	inc $900f
 	lda #$01
 	sta zp::gendebuginfo	; enable debug info
 	jsr command_asm
-	dec $900f
-	cli
 	bcs @done		; error
 
 @ok:	dec zp::gendebuginfo	; turn off debug-info
@@ -939,15 +942,21 @@ force_enter_insert=*+5
 
 ;******************************************************************************
 ; CANCEL
-; Returns to COMMAND mode.
-; If an error is being displayed, hides it.
+; If not in COMMAND mode, just enters command mode
+; If already in command mode: clears auxiliary views (if any active), errors,
+; etc
 .proc cancel
-	jsr clrerror
-	lda #EDITOR_HEIGHT
-	jsr __edit_resize
+	lda mode
+	cmp #MODE_COMMAND
+	bne enter_command
 
 	lda #TEXT_REPLACE
 	sta text::insertmode
+
+	; jsr clrerror
+
+	lda #EDITOR_HEIGHT
+	jmp __edit_resize
 
 	; fall through to enter_command
 .endproc
@@ -1984,11 +1993,13 @@ __edit_refresh:
 	beq @l0
 	bcc @l0
 
-@clr:	; clear the rest of the lines
+@clr:	; clear the rest of the lines (including highlights)
 	ldx @row
 	cpx height
 	inx
 	bcs @done
+	lda #DEFAULT_900F
+	sta mem::rowcolors,x
 	stx @row
 	txa
 	jsr bm::clrline
@@ -2124,51 +2135,17 @@ __edit_refresh:
 
 ;******************************************************************************
 ; SET_BREAKPOINT
-; insert a BREAKPOINT character at the beginning of the line
+; insert a BREAKPOINT character at the cursor's current line
 .export __edit_set_breakpoint
 __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
-	; save the index of the character we're on
-	jsr text::char_index
-	sty @savex
+	ldxy src::line
+	jsr dbg::setbrkatline
 
-	jsr force_enter_insert
-	jsr home	; go to col 0 (or 1 if there's already a breakpoint)
-
-	lda mem::linebuffer
-	cmp #BREAKPOINT_CHAR	; is there already a breakpoint here?
-	bne @add
-@remove:
-	jsr src::delete
-	lda #$14
-	inc zp::curx
-	jsr text::putch
-	lda zp::cury
-	jsr text::drawline
-	dec @savex
-	bmi :+
-	dec @savex
-	bpl @cont
-:	jsr enter_command
-	jmp @done
-
-@add:	lda #BREAKPOINT_CHAR
-	jsr src::insert
-	jsr text::putch
-
-@cont:	jsr enter_command
-
-@restore:
-	jsr ccright
-	bcs @done
-	jsr text::char_index
-	cpy @savex
-	bcc @restore
-	beq @restore	; because the breakpoint character was added, we want
-			; want to go to the index AFTER the one we started on
-
-@done:	rts
+	lda #BREAKPOINT_OFF_COLOR
+	ldx zp::cury
+	jmp draw::hline
 .endproc
 
 ;******************************************************************************
@@ -2729,6 +2706,11 @@ goto_buffer:
 	lda #$00
 	jsr text::putch
 
+	; shift breakpoints by 1
+	ldxy src::line
+	lda #$01
+	jsr dbg::shift_breakpointsd
+
 @nextline:
 	jsr drawline
 	; redraw everything from <cursor> to EOL on next line
@@ -2868,7 +2850,7 @@ goto_buffer:
 	; and clear the new line
 	jsr text::clrline
 	lda height
-	jsr text::drawline
+	jsr bm::clrline
 
 	dec zp::cury
 	bne @setcur		; branch always
@@ -2899,13 +2881,8 @@ goto_buffer:
 ; CLRERROR
 ; Clears any error message
 .proc clrerror
-	lda height
-	cmp #ERROR_ROW		; is there an error being displayed?
-	bcs :+			; if not, continue
-	lda #ERROR_ROW
-	jsr bm::clrline		; clear the error line
-:	lda #STATUS_ROW-1
-	jmp bm::clrline		; clear the status line
+	lda #$00
+	sta mem::statusinfo
 .endproc
 
 ;******************************************************************************
@@ -3678,6 +3655,11 @@ jsr text::tabr_dist
 	lda height
 	jsr scrollup
 
+	; shift breakpoints up by 1
+	ldxy src::line
+	lda #$01
+	jsr dbg::shift_breakpointsu
+
 @noscroll:
 	; go to the bottom row and read the line that was moved up
 	jsr src::pushp	; save current source pos
@@ -4103,10 +4085,11 @@ __edit_gotoline:
 
 @clrextra:
 	jsr text::clrline
-	lda @row
-	sta @rowsave
+	ldx @row
+	stx @rowsave
 @clrloop:
-	jsr text::drawline
+	txa
+	jsr bm::clrline
 	inc @row
 @clrnext:
 	ldx @row
@@ -4135,51 +4118,6 @@ __edit_gotoline:
 :	ldy @row
 	jsr cur::set
 	jmp highlight
-.endproc
-
-;******************************************************************************
-; REPORTERR
-; reports the given error
-; in:
-;  -.A: the error code
-;  -.XY: the line number of the error
-;  - mem::linebuffer: the line containing the error
-.proc reporterr
-@err=r0
-	sta @err
-
-	; push the line number
-	txa
-	pha
-	tya
-	pha
-
-	; push pass #
-	lda zp::pass
-	pha
-	lda #$00
-	pha
-
-	; display the line containing the error
-	ldxy #mem::linebuffer
-	lda #ERROR_ROW+1
-	jsr text::print
-
-	lda @err
-	jsr err::get	; get the address of the error
-	jsr str::uncompress
-
-	lda #<strings::edit_line_err
-	sta r0
-	lda #>strings::edit_line_err
-	sta r0+1
-	jsr str::cat
-
-	lda #ERROR_ROW
-	jsr text::print
-
-	lda #ERROR_ROW-1
-	jmp __edit_resize
 .endproc
 
 ;******************************************************************************

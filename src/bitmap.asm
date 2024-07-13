@@ -90,7 +90,7 @@ COLMEM_ADDR = $9400
 	dey
 	lda #$00
 ;clear the character memory (bitmap)
-@l1:    sta (zp::tmp0),y
+@l1:    sta (r0),y
         dey
         bne @l1
 

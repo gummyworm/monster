@@ -43,6 +43,9 @@ __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
 .export __statusline
 __statusline = __mem_spare+80
 
+.export __statusinfo
+__statusinfo: .res 20
+
 .export __mem_drive_err
 __mem_drive_err: .res 20
 
@@ -56,10 +59,10 @@ __mem_copybuff: .res MAX_COPY_SIZE
 __mem_coloron: .byte 0
 
 .export __mem_rowcolors
-__mem_rowcolors: .res 22
+__mem_rowcolors: .res 24
 
 .export __mem_rowcolors_save
-__mem_rowcolors_save: .res 22
+__mem_rowcolors_save: .res 24
 
 ;******************************************************************************
 ; LINEBUFFER
