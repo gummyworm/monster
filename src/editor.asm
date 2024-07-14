@@ -69,7 +69,8 @@ __edit_height = height
 
 .BSS
 ;******************************************************************************
-readonly: .byte 0	; if !0 no edits are allowed to be made via the editor
+readonly:  .byte 0	; if !0 no edits are allowed to be made via the editor
+debugging: .byte 0	; if !0, debugger is active
 
 jumplist: .res 8*2	; line #'s between jumps
 jumpptr:  .byte 0	; offset to jumplist
@@ -83,7 +84,7 @@ selection_type:    	.byte 0 ; the type of selection (VISUAL_LINE or VISUAL)
 format:            	.byte 0	; if 0, formatting is not applied on line-end
 
 overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
-cmdreps: .byte 0	; number of times to REPEAT current command
+cmdreps:   .byte 0	; number of times to REPEAT current command
 
 .export __edit_highlight_en
 .export __edit_highlight_line
@@ -239,6 +240,9 @@ main:	jsr key::getch
 ;  - .XY: the label name or address to start debugging at
 .proc command_debug
 @addr=zp::editortmp
+	lda debugging
+	beq @ret	; if already debugging, don't do anything
+
 	jsr label_addr_or_org
 	stxy @addr
 	bcc :+
@@ -257,7 +261,10 @@ main:	jsr key::getch
 
 	jsr home_line	; avoid problems with cursor-y being below new height
 	ldxy @addr
+
+	inc debugging
 	jsr dbg::start	; start debugging at address in .XY
+	dec debugging
 
 	lda #TEXT_COLOR
 	jsr bm::clrcolor
