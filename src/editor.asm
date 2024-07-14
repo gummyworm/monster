@@ -507,13 +507,10 @@ main:	jsr key::getch
 ; Assembles the entire source
 .export command_asm
 .proc command_asm
-	lda #EDITOR_HEIGHT
-	jsr __edit_resize
-
-	jsr dbgi::init
-
 	ldxy #strings::assembling
 	jsr print_info
+
+	jsr dbgi::init
 
 	; save the current source position and rewind it for assembly
 	jsr text::savebuff
@@ -648,8 +645,15 @@ main:	jsr key::getch
 	ldxy #@success_msg
 @print: lda #STATUS_ROW
 	jsr text::print
-:	jsr key::getch		; wait for key
+
+	ldx #STATUS_ROW
+	lda #ASM_SUCCESS_COLOR
+	jsr draw::hline
+:	jsr key::getch          ; wait for key
 	beq :-
+	lda #DEFAULT_RVS
+	ldx #STATUS_ROW
+	jsr draw::hline
 	RETURN_OK
 
 @success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0
@@ -2652,10 +2656,6 @@ goto_buffer:
 @file=r9
 	stxy @file
 
-	; display loading...
-	ldxy #strings::loading
-	jsr print_info
-
 	; check if the file is already open in one of our buffers
 	lda src::numbuffers
 	cmp #MAX_SOURCES
@@ -2685,9 +2685,13 @@ goto_buffer:
 	jsr file::exists
 	bne @err		; if file doesn't exist, we're done
 
+	; display loading...
+	ldxy #strings::loading
+	jsr print_info
+
 	; load the file
 	ldxy @file
-	jsr file::open
+	jsr file::open_r
 	bcs @err		; failed to load file
 	pha			; save file handle
 	jsr src::new
@@ -4493,14 +4497,11 @@ __edit_gotoline:
 ; PRINT_INFO
 ; Updates the status line with the given info message and refreshses the status
 .proc print_info
-	jsr text::info
-	jsr text::updatestatusline
-
-	lda #$00
-	sta mem::coloron
-
+	;lda #$00
+	;sta mem::coloron
 	lda status_row
-	jmp text::status
+	jsr text::print
+	rts
 .endproc
 
 ;******************************************************************************
