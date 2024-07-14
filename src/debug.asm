@@ -165,6 +165,9 @@ __debug_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 ; BREAKPOINTS
 .export __debug_breakpointslo
 .export __debug_breakpointshi
+.export __debug_breakpoint_lineslo
+.export __debug_breakpoint_lineshi
+.export __debug_breakpoint_fileids
 
 numbreakpoints = dbgi::numbreakpoints
 
@@ -172,8 +175,9 @@ __debug_breakpointslo:
 breakpointslo:      .res MAX_BREAKPOINTS	; LSB's of the break points
 __debug_breakpointshi:
 breakpointshi:      .res MAX_BREAKPOINTS	; MSB's of the break points
-breakpoint_lineslo: .res MAX_BREAKPOINTS	; breakpoint line # (LSB)
-breakpoint_lineshi: .res MAX_BREAKPOINTS	; breakpoint line # (MSB)
+__debug_breakpoint_lineslo: .res MAX_BREAKPOINTS	; breakpoint line # (LSB)
+__debug_breakpoint_lineshi: .res MAX_BREAKPOINTS	; breakpoint line # (MSB)
+__debug_breakpoint_fileids: .res MAX_BREAKPOINTS	; breakpoint file ID's
 
 .export __debug_breakpoint_flags
 __debug_breakpoint_flags:
@@ -316,7 +320,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	jsr vmem::store
 
 	; initialize auxiliary views
-	jsr brkpt::init
 	lda #$00
 	sta aux_mode
 
@@ -1348,14 +1351,18 @@ brkhandler2_size=*-brkhandler2
 ; populated.
 ; IN:
 ;  - .XY: the line number to set the breakpoint at
+;  - .A:  the file ID to set the breakpoint in
 .export __debug_setbrkatline
 .proc __debug_setbrkatline
 	; store line #
+	pha
 	txa
 	ldx numbreakpoints
-	sta breakpoint_lineslo,x
+	sta __debug_breakpoint_lineslo,x
 	tya
-	sta breakpoint_lineshi,y
+	sta __debug_breakpoint_lineshi,x
+	pla
+	sta __debug_breakpoint_fileids,x
 	lda #BREAKPOINT_ENABLED
 	sta breakpoint_flags,x
 
@@ -1372,29 +1379,14 @@ brkhandler2_size=*-brkhandler2
 ;   - r0:  the address to store for the breakpoint
 .export __debug_brksetaddr
 .proc __debug_brksetaddr
-@line=r0
-@addr=r2
-	stxy @line
-
-	; find the matching line #
-	ldx numbreakpoints
-	dex
-@l0:	lda @line
-	cmp breakpoint_lineslo,x
-	bne @next
-	lda @line+1
-	cmp breakpoint_lineshi,x
-	bne @next
-
+@addr=r0
+	jsr brkpt::getbyline	; get breakpoint # in .X
+	bcs @done		; no match
 @found:	; store address
 	lda @addr
 	sta breakpointslo,x
 	lda @addr+1
 	sta breakpointshi,x
-	rts
-
-@next:	dex
-	bpl @l0
 @done:	rts
 .endproc
 
@@ -1424,6 +1416,8 @@ __debug_remove_breakpoint:
 	sta breakpointshi,x
 	lda breakpointslo+1,x
 	sta breakpointslo,x
+	lda __debug_breakpoint_fileids+1,x
+	sta __debug_breakpoint_fileids,x
 	inx
 	cpx @end
 	bcc @l0
@@ -1440,23 +1434,28 @@ __debug_remove_breakpoint:
 ; IN:
 ;  - .XY: the line number to shift
 ;  - .A:  the offset to shift
+;  - r0:  the file ID of the file to shift
 .export __debug_shift_breakpointsd
 .proc __debug_shift_breakpointsd
-@line=r0
+@fileid=r0
+@line=r1
 @offset=r2
 	stxy @line
 	sta @offset
 	ldx numbreakpoints
-@l0:	lda breakpoint_lineshi,x
+@l0:	lda @fileid
+	cmp __debug_breakpoint_fileids,x
+	bne @next
+	lda __debug_breakpoint_lineshi,x
 	cmp @line+1
 	bcc @next
-	lda breakpoint_lineslo,x
+	lda __debug_breakpoint_lineslo,x
 	cmp @line
 	bcc @next
 	clc
 	adc @offset
 	bcc @next
-	inc breakpoint_lineshi,x
+	inc __debug_breakpoint_lineshi,x
 @next:	dex
 	bpl @l0
 .endproc
@@ -1468,23 +1467,28 @@ __debug_remove_breakpoint:
 ; IN:
 ;  - .XY: the line number to shift
 ;  - .A:  the offset to shift
+;  - r0:  the file ID of the file to shift within
 .export __debug_shift_breakpointsu
 .proc __debug_shift_breakpointsu
-@line=r0
-@offset=r2
+@fileid=r0
+@line=r1
+@offset=r3
 	stxy @line
 	sta @offset
 	ldx numbreakpoints
-@l0:	lda breakpoint_lineshi,x
+@l0:	lda @fileid
+	cmp __debug_breakpoint_fileids,x
+	bne @next
+	lda __debug_breakpoint_lineshi,x
 	cmp @line+1
 	bcs @next
-	lda breakpoint_lineslo,x
+	lda __debug_breakpoint_lineslo,x
 	cmp @line
 	bcs @next
 	clc
 	adc @offset
 	bcc @next
-	inc breakpoint_lineshi,x
+	inc __debug_breakpoint_lineshi,x
 @next:	dex
 	bpl @l0
 .endproc
@@ -1856,7 +1860,7 @@ __debug_remove_breakpoint:
 
 	jmp zp::jmpaddr
 @done:	rts
-.define auxtab view::mem, brkpt::view, watch::view
+.define auxtab view::mem, brkpt::edit, watch::view
 @auxlos: .lobytes auxtab
 @auxhis: .hibytes auxtab
 @numauxviews=*-@auxhis

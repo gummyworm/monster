@@ -1,5 +1,8 @@
 .import __debug_breakpointslo
 .import __debug_breakpointshi
+.import __debug_breakpoint_lineslo
+.import __debug_breakpoint_lineshi
+.import __debug_breakpoint_fileids
 .import __debug_breakpoint_flags
 .import __debug_brksetaddr
 .import __debug_setbrkatline
@@ -26,6 +29,9 @@
 .scope dbg
 	breakpointslo      = __debug_breakpointslo
 	breakpointshi      = __debug_breakpointshi
+	breakpoint_lineslo = __debug_breakpoint_lineslo
+	breakpoint_lineshi = __debug_breakpoint_lineshi
+	breakpoint_fileids = __debug_breakpoint_fileids
 	breakpoint_flags   = __debug_breakpoint_flags
 	brksetaddr         = __debug_brksetaddr
 	setbrkatline       = __debug_setbrkatline

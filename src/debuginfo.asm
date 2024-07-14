@@ -157,7 +157,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	; init debugger state variables
 	lda #$00
 	sta numsegments
-	sta numbreakpoints
 	sta numfiles
 	rts
 .endproc
@@ -815,6 +814,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; OUT:
 ;  - .A: the file ID
 ;  - .C: set if there was no match
+.export __debuginfo_get_fileid
+__debuginfo_get_fileid:
 .proc get_fileid
 @other=zp::str0
 @filename=zp::str2

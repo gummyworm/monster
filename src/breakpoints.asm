@@ -4,6 +4,8 @@
 .include "debuginfo.inc"
 .include "draw.inc"
 .include "edit.inc"
+.include "errors.inc"
+.include "gui.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "labels.inc"
@@ -20,22 +22,7 @@
 HEIGHT             = BRKVIEW_STOP-BRKVIEW_START-1
 BREAKPOINT_ENABLED = 1
 
-.BSS
-;******************************************************************************
-scroll: .byte 0
-row:	.byte 0
-
 .CODE
-;******************************************************************************
-; INIT
-; Initializes the breakpoint editor
-.export __breakpoint_init
-.proc __breakpoint_init
-	lda #$00
-	sta row
-	sta scroll
-	rts
-.endproc
 
 ;******************************************************************************
 ; EDIT
@@ -43,112 +30,54 @@ row:	.byte 0
 .export __breakpoint_edit
 .proc __breakpoint_edit
 	; display the title
+	ldxy #@getkey
+	stxy r0
+	ldxy #@getdata
+	stxy r2
 	ldxy #strings::breakpoints_title
-	lda #MEMVIEW_START
-	jsr text::print
-	ldx #MEMVIEW_START
-	lda #DEFAULT_900F^$08
-	jsr draw::hline
+	stxy r4
+	lda #BRKVIEW_STOP
+	ldx #HEIGHT
+	ldy dbg::numbreakpoints
+	jmp gui::listmenu
 
-	; if there are no breakpoints, just wait for user to quit
-	lda dbg::numbreakpoints
-	bne :++
-:	jsr key::getch
-	cmp #K_QUIT	; <-
-	bne :-
-	rts
-
-:	lda #$00
-	sta row
-	sta scroll
-	jmp @redraw	; highlight the first row
-
-@loop:	jsr key::getch
-	beq @loop
-	cmp #K_QUIT	; <-
-	bne @up
-	rts
-
-@up:	jsr key::isup
-	bne @down
-	dec row
-	bpl @redraw
-	inc row
-	dec scroll
-	bpl @redraw
-	inc scroll
-	jmp @redraw
-
-@down:	jsr key::isdown
-	bne @enter
-	inc row
-	lda row
-	cmp dbg::numbreakpoints
-	bcs :+
-	cmp #HEIGHT
-	bcc @redraw
-:	dec row
-	inc scroll
-	lda scroll
-	clc
-	adc row
-	cmp dbg::numbreakpoints
-	bcc @redraw
-	dec scroll
-	jmp @redraw
-
-@enter:	cmp #K_RETURN
-	bne @del
+;--------------------------------------
+@getkey:
+	cmp #K_RETURN
+	bne @chkdel
 	; toggle the breakpoint's active status
-	lda row
-	clc
-	adc scroll
+	txa
 	jsr toggle_breakpoint
-	jmp @redraw
-
-@del:	cmp #K_DEL		; DEL
-	bne @loop
-	lda row
-	clc
-	adc scroll
-	tax
+	RETURN_OK
+@chkdel:
+	cmp #K_DEL		; DEL
+	bne @done
 	ldy dbg::breakpointshi,x
 	lda dbg::breakpointslo,x
 	tax
-	jsr dbg::removebreakpoint
+	jmp dbg::removebreakpoint
+@done:	RETURN_OK
 
-@redraw:
-	jsr __breakpoint_view
-	lda row
-	clc
-	adc #BRKVIEW_START+1
-	jsr bm::rvsline
-	jmp @loop
-.endproc
-
-;******************************************************************************
-; VIEW
-; Displays the breakpoints
-.export __breakpoint_view
-.proc __breakpoint_view
+;--------------------------------------
+@getdata:
 @cnt=zp::tmp13
 @addr=zp::tmp14
 @file=zp::tmp16
 @namebuff=mem::spare+40
-	; get the first visible breakpoint's offset
-	lda scroll
-	sta @cnt
+	tax
+	pla
+	sta @keyretlo
+	pla
+	sta @keyrethi
 
-@l0:	ldy @cnt
-	cpy dbg::numbreakpoints
-	bcc :+
-	rts
+	cpx dbg::numbreakpoints
+	bcs @keydone
 
-:	; push the address of the breakpoint
-	lda dbg::breakpointslo,y
+	; push the address of the breakpoint
+	lda dbg::breakpointslo,x
 	pha
 	tax
-	lda dbg::breakpointshi,y
+	lda dbg::breakpointshi,x
 	pha
 	tay
 
@@ -166,70 +95,47 @@ row:	.byte 0
 @getname:
 	lda #>@namebuff
 	pha
-	sta zp::tmp0+1
+	sta r0+1
 	lda #<@namebuff
 	pha
-	sta zp::tmp0
+	sta r0
 	jsr lbl::getname
 
 @lineno:
-	; get the line number and file
-	ldxy @addr
-	jsr dbgi::addr2line
-	bcc @getlineno
-
-; an error should not occur (there must be debug info to set a breakpoint,
-; but we handle this scenario by just pushing 0 for the line number and ???
-; for the filename
-@err:	lda #$00
+	; get the line number and file name
+	lda dbg::breakpoint_lineslo,x
 	pha
+	lda dbg::breakpoint_lineshi,x
 	pha
 
-	lda #>strings::question_marks
-	pha
-	lda #<strings::question_marks
-	pha
-	jmp @print
-
-@getlineno:
-	sta @file
-	; push the line # and filename
-	txa
-	pha
-	tya
-	pha
-	lda @file
+	lda dbg::breakpoint_fileids,x
 	jsr dbgi::get_filename
 	tya
 	pha
 	txa
 	pha
 
-@print:; display a symbol if the breakpoint is active
+@print:
+	; display a symbol if the breakpoint is active
 	ldx @cnt
 	ldy #BREAKPOINT_OFF_CHAR
 	lda dbg::breakpoint_flags,x
 	beq :+
 	ldy #BREAKPOINT_CHAR
-
 :	sty strings::breakpoints_line
 
 	; print the breakpoint info
 	ldxy #strings::breakpoints_line
-	lda @cnt
-	sec
-	sbc scroll
-	adc #BRKVIEW_START	; +1 (carry set)
-	jsr text::print
 
-	lda @cnt
-	sec
-	sbc scroll
-	cmp #HEIGHT-1
-	bcs @done
-	inc @cnt
-	jmp @l0		; next breakpoint
-@done:	rts
+@keydone:
+	; restore return address
+@keyrethi=*+1
+	lda #$00
+	pha
+@keyretlo=*+1
+	lda #$00
+	pha
+	rts
 .endproc
 
 ;******************************************************************************
@@ -241,5 +147,40 @@ row:	.byte 0
 	lda dbg::breakpoint_flags,x
 	eor #BREAKPOINT_ENABLED
 	sta dbg::breakpoint_flags,x
+	rts
+.endproc
+
+;******************************************************************************
+; GETBYLINE
+; Returns the ID of the breakpoint at the given line (if one exists)
+; IN:
+;  - .XY: the line # to get the breakpoint at
+;  - .A:  the file ID of the breakpoint
+; OUT:
+;  - .X: the ID of the breakpoint at the given line (if one exists)
+;  - .C: set if there is no breakpoint at the given line
+.export __brkpt_getbyline
+.proc __brkpt_getbyline
+@line=r2
+@file=r4
+	stxy @line
+	sta @file
+	; find the matching line #
+	ldx dbgi::numbreakpoints
+	dex
+@l0:	lda @file
+	cmp dbg::breakpoint_fileids,x
+	bne @next
+	lda @line
+	cmp dbg::breakpoint_lineslo,x
+	bne @next
+	lda @line+1
+	cmp dbg::breakpoint_lineshi,x
+	bne @next
+	RETURN_OK
+
+@next:	dex
+	bpl @l0
+	sec		; not found
 	rts
 .endproc

@@ -6,6 +6,7 @@
 .import __debug_filenames
 .import __debug_getline
 .import __debug_get_filename
+.import __debuginfo_get_fileid
 .import __debug_line2addr
 .import __debug_init
 .import __debug_init_segment
@@ -23,6 +24,7 @@
 	filenames         = __debug_filenames
 	getline           = __debug_getline
 	get_filename      = __debug_get_filename
+	getfileid         = __debuginfo_get_fileid
 	numbreakpoints    = __debug_numbreakpoints
 	line2addr         = __debug_line2addr
 	init              = __debug_init

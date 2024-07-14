@@ -113,10 +113,11 @@ cury   = $d7
 curtmr = $d8
 
 ;******************************************************************************
-; $d9-$e0 editor state
+; $d9-$e0 editor/GUI state
 editor 	  	= $d9
 editor_mode	= $db	; editor mode (MODE_COMMAND or MODE_INSERT)
 editortmp 	= $dc
+gui             = $d9	; GUI temp storage (overlaps editor)
 
 ;******************************************************************************
 ; $e0-$ff temporary storage
