@@ -56,3 +56,67 @@
 
 	rts
 .endproc
+
+;******************************************************************************
+; SCROLLCOLORSU
+; Scrolls all colors from the given start row to the given stop row up by the
+; given amount
+; IN:
+;  - .X: the first row to scroll
+;  - .Y: the last row to scroll
+;  - .A: the amount to scroll
+.export __draw_scrollcolorsu
+.proc __draw_scrollcolorsu
+@n=r0
+@last=r1
+	sty @last
+	sta @n
+
+	; get start row + scroll amount
+	txa
+	clc
+	adc @n
+	tay
+@l0:	lda mem::rowcolors,y	; start+.X
+	sta mem::rowcolors,x	; start+.A+.X
+	inx
+	iny
+	cpx @last
+	bne @l0
+	lda #DEFAULT_900F
+	sta mem::rowcolors,x	; clear last row
+	rts
+.endproc
+
+;******************************************************************************
+; SCROLLCOLORSD
+; Scrolls all colors from the given start row to the given stop row down by the
+; given amount
+;  - .X: the first row to scroll
+;  - .Y: the last row to scroll
+;  - .A: the amount to scroll
+.export __draw_scrollcolorsd
+.proc __draw_scrollcolorsd
+@n=r0
+@last=r1
+@start=r2
+	stx @start
+	sty @last
+	sta @n
+
+	; get start row + scroll amount
+	tya
+	sec
+	sbc @n
+	tax
+@l0:	lda mem::rowcolors,x	; start+.X
+	sta mem::rowcolors,y	; start+.A+.X
+	dey
+	dex
+	bmi :+
+	cpx @start
+	bcs @l0
+:	lda #DEFAULT_900F
+	sta mem::rowcolors	; clear top row
+	rts
+.endproc

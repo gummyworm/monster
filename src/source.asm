@@ -1,4 +1,5 @@
 .include "cursor.inc"
+.include "debug.inc"
 .include "errors.inc"
 .include "finalex.inc"
 .include "irq.inc"
@@ -367,7 +368,8 @@ data: .res $6000
 
 ;******************************************************************************
 ; CLOSE
-; Closes the active buffer
+; Closes the active buffer. If the buffer being closed is the only one open,
+; initializes a new buffer and makes it the active buffer.
 .export __src_close
 .proc __src_close
 @cnt=r0
@@ -442,6 +444,16 @@ data: .res $6000
 	bne :-
 	dec @cnt
 	bne @l2
+
+	; decrement any breakpoint file IDs greater than the active buffer's
+	ldx dbg::numbreakpoints
+	beq @cont
+@l3:	lda activesrc
+	cmp dbg::breakpoint_fileids,x
+	bcs :+
+	dec dbg::breakpoint_fileids,x
+:	dex
+	bpl @l3
 
 @cont:	; if there is no next buffer, open the previous
 	dec numsrcs

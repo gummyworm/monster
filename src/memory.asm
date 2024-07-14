@@ -11,7 +11,7 @@ __mem_spare=$0500
 __mem_spareend = $1000
 
 .export __mem_backbuff
-__mem_backbuff = $c000-$f00 	; backup for the screen bitmap
+__mem_backbuff: .res $f00
 
 .export __mem_backbuff
 .export __mem_progsave

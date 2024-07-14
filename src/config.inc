@@ -5,8 +5,9 @@ BG_COLOR	 = $1	      		; bg color for the editor
 DEFAULT_900F     = (BG_COLOR<<4 | BORDER_COLOR)
 DEFAULT_RVS      = DEFAULT_900F^$08
 
-BREAKPOINT_ON_COLOR  = (9<<4 | $02|$08)
-BREAKPOINT_OFF_COLOR = (9<<4 | BORDER_COLOR)
+; colors for breakpoints that are enabled and disabled
+BREAKPOINT_ON_COLOR  = (9<<4 | BORDER_COLOR)
+BREAKPOINT_OFF_COLOR = (14<<4 | BORDER_COLOR)
 
 ERROR_COLOR	 = ($00|$08) 		; $900f color of error highlight
 DEBUG_LINE_COLOR = ($70|BORDER_COLOR)	; row cursor color during debug
@@ -20,7 +21,7 @@ TAB_WIDTH = INDENT_LEVEL
 
 ;******************************************************************************
 ; editor configuration
-MAX_COPY_SIZE = 880
+MAX_COPY_SIZE = 640
 
 ;******************************************************************************
 ; debugger config settings

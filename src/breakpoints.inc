@@ -1,9 +1,9 @@
-.import __breakpoint_init
 .import __breakpoint_edit
-.import __breakpoint_view
+.import __brkpt_getbyline
+
+BREAKPOINT_ENABLED = 1
 
 .scope brkpt
-	edit = __breakpoint_edit
-	init = __breakpoint_init
-	view = __breakpoint_view
+	edit      = __breakpoint_edit
+	getbyline = __brkpt_getbyline
 .endscope

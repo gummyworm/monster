@@ -2,6 +2,7 @@
 .import __text_buffer
 .import __text_bufferon
 .import __text_bufferoff
+.import __text_clrinfo
 .import __text_clrline
 .import __text_drawline
 .import __text_insertmode
@@ -24,6 +25,7 @@
 .import __text_tabl_dist
 .import __text_tabr_dist
 .import __text_update
+.import __text_update_statusline
 
 ; ESCAPE CODES
 ESCAPE_STRING    = $ff	; 2 byte: address of string
@@ -50,6 +52,7 @@ CH_R_ARROW	    = 135
 	bufferon         = __text_bufferon
 	bufferoff        = __text_bufferoff
 	char_index	 = __text_char_index
+	clrinfo          = __text_clrinfo
 	clrline          = __text_clrline
 	drawline         = __text_drawline
 	info             = __text_info
@@ -71,4 +74,5 @@ CH_R_ARROW	    = 135
 	tabl_dist        = __text_tabl_dist
 	tabr_dist        = __text_tabr_dist
 	update           = __text_update
+	updatestatusline = __text_update_statusline
 .endscope

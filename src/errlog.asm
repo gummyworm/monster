@@ -45,13 +45,6 @@ baserow: .byte 0		; the base row visible to the user
 ;  - .A: the row to base the window at (grows upward)
 .export __errlog_activate
 .proc __errlog_activate
-	pha
-	sec
-	sbc #MAX_HEIGHT
-	sbc #$01		; -1 for title
-	jsr edit::resize
-
-	pla
 	ldxy #@keyhandler
 	stxy r0
 	ldxy #@getline

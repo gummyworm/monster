@@ -76,8 +76,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ;  - .A: the row to display the status details on
 .export __text_status
 .proc __text_status
-	ldx #<mem::statusline
-	ldy #>mem::statusline
+	ldxy #mem::statusline
 	jmp __text_puts
 .endproc
 
@@ -86,10 +85,11 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ; Updates mem::statusline with new information (cursor pos, etc.)
 ; SIDE-EFFECTS:
 ;  - mem::statusline: contains the new status info
-.proc update_statusline
-@filename=r0
-@tmp=r0
-@rightend=r4
+.export __text_update_statusline
+.proc __text_update_statusline
+@filename=zp::text
+@tmp=zp::text
+@rightend=zp::text+2
 @columnstart=STATUS_COL+3
 @linestart=STATUS_COL+6
 @sizestart=STATUS_COL+13
@@ -208,7 +208,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 ; and blinks the cursor if it's time
 .export __text_update
 .proc __text_update
-	jsr update_statusline
+	jsr __text_update_statusline
 @blink: lda cur::mode
 	bne @done			; if not NORMAL (SELECT), don't blink
 	dec zp::curtmr
@@ -932,7 +932,7 @@ tabs_end=*-tabs
 ;  - .XY: the string to print
 .export __text_info
 .proc __text_info
-@info=r0
+@info=zp::text
 	stxy @info
 	ldy #$00
 :	lda (@info),y
@@ -942,4 +942,15 @@ tabs_end=*-tabs
 	cpy #20
 	bne :-
 @done:	rts
+.endproc
+
+;******************************************************************************
+; CLRINFO
+; Clears the info part of the status line
+.export __text_clrinfo
+.proc __text_clrinfo
+@info=zp::text
+	lda #$00
+	sta mem::statusinfo
+	rts
 .endproc

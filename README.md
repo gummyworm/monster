@@ -22,6 +22,7 @@ Table of Contents
       * [Expressions](https://github.com/gummyworm/monster#expressions)
       * [Formatting](https://github.com/gummyworm/monster#formatting)
       * [Labels](https://github.com/gummyworm/monster#labels)
+      * [Best Practices](https://github.com/gummyworm/monster#best-practices)
   * [File I/O](https://github.com/gummyworm/monster#files)
       * [Directory Viewer](https://github.com/gummyworm/monster#directory-viewer-c--l)
   * [Debugger](https://github.com/gummyworm/monster#debugger)
@@ -663,7 +664,7 @@ less than the maximum number it expects as in this example:
 .ENDMAC
 ```
 
-#### Limitations
+### Limitations
 
 There are some limitations on the number of macros and overall size of the 
 macros per assembly.  The source for all macros must be less than $1400 bytes.
@@ -674,6 +675,29 @@ Each macro can be at most 16 lines or 512 bytes, whichever is lower. This restri
 Comments are excluded from the internal context buffer, so using them will not count toward the byte limit.
 
 ---
+
+### Best Practices 
+Although Monster strives to feel like unbothered by the physical limits of the
+Vic-20, certain usage patterns can cause issues. By following these practices,
+you should have a smooth experience without running into some of the
+limitations that you may hit if you are unconcious about them.
+
+#### Avoid using many files
+When possible, try to stick to 8 or fewer files for your project.  This will
+allow all of them to be stored in memory during assembly, which will greatly
+speed up your edit/debug loop.  When debugging, this practice will also allow
+all files to be available in RAM when you are stepping through the program, 
+which will be a much smoother experience than programs that continuously must
+page to disk.
+
+#### Use anonymous labels
+Anonymous labels take up no space for the label names, only address.  Using
+them is much more efficient than labels, and so this should be done for short
+branches that don't require much description.  Using too many labels, in the
+extreme case, can push your program over the symbol limit (256).
+
+---
+
 ### Example program
 Here is a basic hello world program to demonstrate some of the assembler's
 features

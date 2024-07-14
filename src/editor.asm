@@ -8,6 +8,7 @@
 
 .include "asm.inc"
 .include "bitmap.inc"
+.include "breakpoints.inc"
 .include "codes.inc"
 .include "config.inc"
 .include "ctx.inc"
@@ -68,7 +69,8 @@ __edit_height = height
 
 .BSS
 ;******************************************************************************
-readonly: .byte 0	; if !0 no edits are allowed to be made via the editor
+readonly:  .byte 0	; if !0 no edits are allowed to be made via the editor
+debugging: .byte 0	; if !0, debugger is active
 
 jumplist: .res 8*2	; line #'s between jumps
 jumpptr:  .byte 0	; offset to jumplist
@@ -82,7 +84,7 @@ selection_type:    	.byte 0 ; the type of selection (VISUAL_LINE or VISUAL)
 format:            	.byte 0	; if 0, formatting is not applied on line-end
 
 overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
-cmdreps: .byte 0	; number of times to REPEAT current command
+cmdreps:   .byte 0	; number of times to REPEAT current command
 
 .export __edit_highlight_en
 .export __edit_highlight_line
@@ -238,6 +240,9 @@ main:	jsr key::getch
 ;  - .XY: the label name or address to start debugging at
 .proc command_debug
 @addr=zp::editortmp
+	lda debugging
+	bne @ret	; if already debugging, don't do anything
+
 	jsr label_addr_or_org
 	stxy @addr
 	bcc :+
@@ -256,7 +261,10 @@ main:	jsr key::getch
 
 	jsr home_line	; avoid problems with cursor-y being below new height
 	ldxy @addr
+
+	inc debugging
 	jsr dbg::start	; start debugging at address in .XY
+	dec debugging
 
 	lda #TEXT_COLOR
 	jsr bm::clrcolor
@@ -505,7 +513,7 @@ main:	jsr key::getch
 	jsr dbgi::init
 
 	ldxy #strings::assembling
-	jsr text::info
+	jsr print_info
 
 	; save the current source position and rewind it for assembly
 	jsr text::savebuff
@@ -1238,6 +1246,9 @@ force_enter_insert=*+5
 .endproc
 
 ;******************************************************************************_
+; DELETE TO BEGIN (d0)
+; Deletes everything from the current cursor position to the beginning of the
+; line
 .proc delete_to_begin
 	jsr text::bufferon
 	jsr enter_insert
@@ -1255,6 +1266,9 @@ force_enter_insert=*+5
 .endproc
 
 ;******************************************************************************_
+; DELETE LINE (dd)
+; Deletes the entire contents of the line that the cursor is on and scrolls
+; everything below it up.
 .proc delete_line
 	jsr is_readonly
 	bne :+
@@ -1984,7 +1998,7 @@ __edit_refresh:
 @l0:	jsr src::readline
 	php
 	lda @row
-	jsr text::drawline
+	jsr draw_src_line
 	plp
 	bcs @clr
 	inc @row
@@ -2113,11 +2127,11 @@ __edit_refresh:
 ;******************************************************************************
 ; PRINT LINE
 ; Prints the line buffer at the given cursor's y-position and handles
-; highlighting (if applicable).
+; highlighting/coloring (if applicable).
 ; IN:
 ;  - .A: the row to print the linebuffer to
 .proc print_line
-	jsr text::drawline
+	jsr draw_src_line
 
 	lda __edit_highlight_en
 	beq @done
@@ -2135,16 +2149,30 @@ __edit_refresh:
 
 ;******************************************************************************
 ; SET_BREAKPOINT
-; insert a BREAKPOINT character at the cursor's current line
+; insert a BREAKPOINT character at the cursor's current file nad line
 .export __edit_set_breakpoint
 __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
 	ldxy src::line
-	jsr dbg::setbrkatline
+	lda src::activebuff
+	jsr brkpt::getbyline
+	bcs @set
+@remove:
+	jsr dbg::removebreakpoint
+	lda #DEFAULT_900F
+	bne @done
 
-	lda #BREAKPOINT_OFF_COLOR
-	ldx zp::cury
+@set:
+	lda src::activebuff
+	jsr src::filename
+	jsr dbgi::getfileid	; .A = id of the file
+	ldxy src::line
+	lda src::activebuff
+	jsr dbg::setbrkatline
+	lda #BREAKPOINT_ON_COLOR
+
+@done:	ldx zp::cury
 	jmp draw::hline
 .endproc
 
@@ -2540,7 +2568,7 @@ goto_buffer:
 	stxy @file
 
 	ldxy #strings::saving
-	jsr text::info
+	jsr print_info
 
 	ldxy @file
 	jsr str::len
@@ -2576,6 +2604,7 @@ goto_buffer:
 	cmp #$00
 	bne @err
 
+	jsr text::clrinfo
 	; clear flags on the source buffer and return
 	jmp src::setflags
 
@@ -2596,11 +2625,12 @@ goto_buffer:
 	stxy @file
 
 	ldxy #strings::deleting
-	jsr text::info
+	jsr print_info
 
 	ldxy @file
 	jsr file::scratch
 	bcs @err
+	jsr text::clrinfo
 @ret:	rts		; no error
 
 @err:	pha
@@ -2620,9 +2650,11 @@ goto_buffer:
 .export __edit_load
 .proc __edit_load
 @file=r9
-@dst=rb
-@search=rb
 	stxy @file
+
+	; display loading...
+	ldxy #strings::loading
+	jsr print_info
 
 	; check if the file is already open in one of our buffers
 	lda src::numbuffers
@@ -2653,10 +2685,6 @@ goto_buffer:
 	jsr file::exists
 	bne @err		; if file doesn't exist, we're done
 
-	; display loading...
-	ldxy #strings::loading
-	jsr text::info
-
 	; load the file
 	ldxy @file
 	jsr file::open
@@ -2675,6 +2703,7 @@ goto_buffer:
 	sta zp::curx
 	sta zp::cury		; reset cursor
 	jsr refresh
+	jsr text::clrinfo
 	jsr cancel
 	clc
 	rts
@@ -2842,11 +2871,14 @@ goto_buffer:
 	; scroll lines below cursor position
 	ldy zp::cury
 	cpy height
-	bcc :+
+	bcc @scrolld
+
+@scrollu:
 	; if we're at the bottom, scroll whole screen up
 	ldx #EDITOR_ROW_START
 	lda height
 	jsr text::scrollup
+
 	; and clear the new line
 	jsr text::clrline
 	lda height
@@ -2855,7 +2887,8 @@ goto_buffer:
 	dec zp::cury
 	bne @setcur		; branch always
 
-:	iny
+@scrolld:
+	iny
 	tya
 	ldx height
 	jsr text::scrolldown
@@ -3660,6 +3693,12 @@ jsr text::tabr_dist
 	lda #$01
 	jsr dbg::shift_breakpointsu
 
+	; shift colors up by 1
+	ldx #$00
+	ldy height
+	lda #$01
+	jsr draw::scrollcolorsu
+
 @noscroll:
 	; go to the bottom row and read the line that was moved up
 	jsr src::pushp	; save current source pos
@@ -3671,7 +3710,7 @@ jsr text::tabr_dist
 	jsr src::downn		; move to the line that we're bringing up
 	jsr src::get
 	lda height
-	jsr text::drawline	; draw the new line that was scrolled up
+	jsr draw_src_line	; draw the new line that was scrolled up
 	jmp src::popgoto	; restore source position
 .endproc
 
@@ -3709,8 +3748,19 @@ jsr text::tabr_dist
 ;  - .X: the row to start scrolling at
 ;  - .A: the row to stop scrolling at
 .proc scrollup
+@start=r1
+@stop=r2
+	stx @start
+	sta @stop
 	; scroll everything up from below the line we deleted
 	jsr text::scrollup
+
+	; shift colors up by 1
+	ldx @start
+	ldy @stop
+	lda #$01
+	jsr draw::scrollcolorsu
+
 	jmp highlight	; handle highlight (if enabled)
 .endproc
 
@@ -3719,10 +3769,21 @@ jsr text::tabr_dist
 ; scrolls everything in the given range of rows and highlights the row that
 ; is scrolled in (if highlight is enabled)
 ; IN:
-;  - .A: the row to starttop scrolling at
+;  - .A: the row to start scrolling at
 ;  - .X: the row to stop scrolling at
 .proc scrolldown
+@start=r1
+@stop=r2
+	stx @stop
+	sta @start
 	jsr text::scrolldown
+
+	; shift colors down by 1
+	ldx @start
+	ldy @stop
+	lda #$01
+	jsr draw::scrollcolorsd
+
 	ldxy __edit_highlight_line
 	cmpw src::line
 	bne :+
@@ -3742,6 +3803,38 @@ jsr text::tabr_dist
 :	jsr gotoline		; go to the target line
 	jmp add_jump_point	; save the current position as a jump point
 @done:	rts
+.endproc
+
+;******************************************************************************
+; DRAW SRC LINE
+; Draws the linebuffer to the given row and updates the color based on
+; properties of the current source line
+; IN:
+;  - .A: the row to draw the text at
+.proc draw_src_line
+	pha		; save the row
+
+	; if there's a breakpoint on this line, draw it
+	ldxy src::line
+	lda src::activebuff
+	jsr brkpt::getbyline
+	bcs @nobrk
+
+	and #BREAKPOINT_ENABLED
+	bne :+
+	ldy #BREAKPOINT_OFF_COLOR
+	skw
+:	ldy #BREAKPOINT_ON_COLOR
+	skw
+@nobrk:	ldy #DEFAULT_900F
+	pla
+	pha
+	tax
+	tya
+	jsr draw::hline
+
+	pla		; restore the row
+	jmp text::drawline
 .endproc
 
 ;******************************************************************************
@@ -4058,7 +4151,7 @@ __edit_gotoline:
 	sta @row
 @l0: 	jsr src::get
 	lda @row
-	jsr text::drawline
+	jsr draw_src_line
 
 	lda @seekforward
 	bne @rowdown
@@ -4072,7 +4165,7 @@ __edit_gotoline:
 	; draw the last row (src::up will return .C=1 for it)
 	jsr src::get
 	lda #$00
-	jsr text::drawline
+	jsr draw_src_line
 	jmp @longdone
 
 @rowdown:
@@ -4394,6 +4487,20 @@ __edit_gotoline:
 @done:	lda #$00
 	sta highlight_status
 	rts
+.endproc
+
+;******************************************************************************
+; PRINT_INFO
+; Updates the status line with the given info message and refreshses the status
+.proc print_info
+	jsr text::info
+	jsr text::updatestatusline
+
+	lda #$00
+	sta mem::coloron
+
+	lda status_row
+	jmp text::status
 .endproc
 
 ;******************************************************************************

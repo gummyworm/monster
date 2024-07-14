@@ -6,6 +6,7 @@
 .include "bitmap.inc"
 .include "config.inc"
 .include "draw.inc"
+.include "edit.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "macros.inc"
@@ -41,13 +42,10 @@
 ;  - r4: the title of the menu
 .export  __gui_listmenu
 .proc __gui_listmenu
-@keyhandler=r0
-@datahandler=r2
-@select=r6	; selection offset
-@scroll=r5	; scroll amount
-@baserow=r7
-@maxheight=r8
-@num=r9
+@select=zp::gui		; selection offset
+@scroll=zp::gui+1	; scroll amount
+@baserow=zp::gui+2
+@maxheight=zp::gui+3
 	sta @baserow
 	stx @maxheight
 	sty @num
@@ -63,6 +61,11 @@
 	lda @baserow
 	sec
 	sbc @maxheight
+	pha
+	sbc #$01
+	jsr edit::resize
+
+	pla
 	pha
 	ldxy r4
 	jsr text::print
@@ -102,7 +105,8 @@
 	clc
 	adc @scroll
 	adc #$01		; need to check num-1
-	cmp @num
+@num=*+1
+	cmp #$00
 	bcs @redraw		; out of bounds
 
 	lda @select
@@ -146,15 +150,13 @@
 	pla
 @handlekey=*+1
 	jsr $f00d
-	bcc @loop
+	bcc @redraw
 	rts
 
 ;--------------------------------------
 ; draw all visible lines and highlight the selected one
 @redraw:
-@row=rd
-@rowstop=re
-@i=rf
+@row=zp::gui+4
 	lda @baserow
 	sta @row
 	sec
@@ -164,9 +166,11 @@
 	sta @i
 
 @dloop:	lda @row
-	cmp @rowstop
+@rowstop=*+1
+	cmp #$00
 	bcc @highlight_selection
-	lda @i
+@i=*+1
+	lda #$00
 	clc
 	adc @scroll
 	jsr @getline
