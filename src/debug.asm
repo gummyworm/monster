@@ -952,10 +952,6 @@ brkhandler2_size=*-brkhandler2
 ; EDIT_BREAKPOINTS
 ; Transfers control to the breakpoint viewer/editor until the user exits it
 .proc edit_breakpoints
-	lda #DEBUG_INFO_START_ROW-1
-	jsr edit::resize
-	lda #(DEBUG_INFO_START_ROW)*8
-	jsr bm::clrpart
 	jsr showstate		; restore the state
 
 	lda #AUX_BRK

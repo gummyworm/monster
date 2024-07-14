@@ -241,7 +241,7 @@ main:	jsr key::getch
 .proc command_debug
 @addr=zp::editortmp
 	lda debugging
-	beq @ret	; if already debugging, don't do anything
+	bne @ret	; if already debugging, don't do anything
 
 	jsr label_addr_or_org
 	stxy @addr

@@ -6,6 +6,7 @@
 .include "bitmap.inc"
 .include "config.inc"
 .include "draw.inc"
+.include "edit.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "macros.inc"
@@ -60,6 +61,11 @@
 	lda @baserow
 	sec
 	sbc @maxheight
+	pha
+	sbc #$01
+	jsr edit::resize
+
+	pla
 	pha
 	ldxy r4
 	jsr text::print
