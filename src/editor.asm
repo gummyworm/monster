@@ -2696,7 +2696,12 @@ goto_buffer:
 	pha			; save file handle
 	jsr src::new
 	pla			; get the file handle
+	pha
 	jsr file::loadsrc	; load to SOURCE buff
+	pla
+	php
+	jsr file::close		; close the file
+	plp
 	bcs @err
 	ldxy @file
 	jsr src::name
