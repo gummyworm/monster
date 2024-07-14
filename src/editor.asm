@@ -2170,7 +2170,7 @@ __edit_set_breakpoint:
 	ldxy src::line
 	lda src::activebuff
 	jsr dbg::setbrkatline
-	lda #BREAKPOINT_OFF_COLOR
+	lda #BREAKPOINT_ON_COLOR
 
 @done:	ldx zp::cury
 	jmp draw::hline
