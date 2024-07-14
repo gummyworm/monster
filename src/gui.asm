@@ -144,7 +144,7 @@
 	pla
 @handlekey=*+1
 	jsr $f00d
-	bcc @loop
+	bcc @redraw
 	rts
 
 ;--------------------------------------

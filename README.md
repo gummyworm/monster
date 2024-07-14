@@ -22,7 +22,7 @@ Table of Contents
       * [Expressions](https://github.com/gummyworm/monster#expressions)
       * [Formatting](https://github.com/gummyworm/monster#formatting)
       * [Labels](https://github.com/gummyworm/monster#labels)
-      * [Labels](https://github.com/gummyworm/monster#best-practices)
+      * [Best Practices](https://github.com/gummyworm/monster#best-practices)
   * [File I/O](https://github.com/gummyworm/monster#files)
       * [Directory Viewer](https://github.com/gummyworm/monster#directory-viewer-c--l)
   * [Debugger](https://github.com/gummyworm/monster#debugger)

@@ -26,7 +26,7 @@ BREAKPOINT_ENABLED = 1
 
 ;******************************************************************************
 ; EDIT
-; Begins the breakpoint editor loop.
+; Begins the breakpoint editor
 .export __breakpoint_edit
 .proc __breakpoint_edit
 	; display the title
@@ -60,10 +60,10 @@ BREAKPOINT_ENABLED = 1
 
 ;--------------------------------------
 @getdata:
-@cnt=zp::tmp13
+@offset=zp::tmp13
 @addr=zp::tmp14
-@file=zp::tmp16
 @namebuff=mem::spare+40
+	sta @offset
 	tax
 	pla
 	sta @keyretlo
@@ -117,7 +117,7 @@ BREAKPOINT_ENABLED = 1
 
 @print:
 	; display a symbol if the breakpoint is active
-	ldx @cnt
+	ldx @offset
 	ldy #BREAKPOINT_OFF_CHAR
 	lda dbg::breakpoint_flags,x
 	beq :+
@@ -147,7 +147,20 @@ BREAKPOINT_ENABLED = 1
 	lda dbg::breakpoint_flags,x
 	eor #BREAKPOINT_ENABLED
 	sta dbg::breakpoint_flags,x
-	rts
+
+	; if the breakpoint is visible, toggle its color
+	lda dbg::breakpoint_lineslo,x
+	ldy dbg::breakpoint_lineshi,x
+	tax
+	jsr edit::src2screen
+	tax
+	bcs :+
+
+	lda mem::rowcolors,x
+	eor #(BREAKPOINT_OFF_COLOR)^(BREAKPOINT_ON_COLOR)
+	sta mem::rowcolors,x
+
+:	rts
 .endproc
 
 ;******************************************************************************
@@ -157,6 +170,7 @@ BREAKPOINT_ENABLED = 1
 ;  - .XY: the line # to get the breakpoint at
 ;  - .A:  the file ID of the breakpoint
 ; OUT:
+;  - .A: the flags for the breakpoint
 ;  - .X: the ID of the breakpoint at the given line (if one exists)
 ;  - .C: set if there is no breakpoint at the given line
 .export __brkpt_getbyline
@@ -177,6 +191,7 @@ BREAKPOINT_ENABLED = 1
 	lda @line+1
 	cmp dbg::breakpoint_lineshi,x
 	bne @next
+	lda dbg::breakpoint_flags,x
 	RETURN_OK
 
 @next:	dex

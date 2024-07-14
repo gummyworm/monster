@@ -3810,15 +3810,20 @@ jsr text::tabr_dist
 	ldxy src::line
 	lda src::activebuff
 	jsr brkpt::getbyline
+	bcs @nobrk
 
+	and #BREAKPOINT_ENABLED
+	bne :+
+	ldy #BREAKPOINT_OFF_COLOR
+	skw
+:	ldy #BREAKPOINT_ON_COLOR
+	skw
+@nobrk:	ldy #DEFAULT_900F
 	pla
 	pha
-
 	tax
-	lda #DEFAULT_900F
-	bcs :+
-	lda #BREAKPOINT_ON_COLOR
-:	jsr draw::hline
+	tya
+	jsr draw::hline
 
 	pla		; restore the row
 	jmp text::drawline

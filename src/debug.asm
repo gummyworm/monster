@@ -52,8 +52,6 @@ AUX_MEM   = 1		; enables the memory viewer in the debug view
 AUX_BRK   = 2		; enables the breakpoint view in the debug view
 AUX_WATCH = 3		; enables the watchpoint view in the debug view
 
-BREAKPOINT_ENABLED = 1
-
 ; layout constants for the register view
 REG_PC_OFFSET = 0
 REG_A_OFFSET = 5
