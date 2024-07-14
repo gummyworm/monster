@@ -513,7 +513,7 @@ main:	jsr key::getch
 	jsr dbgi::init
 
 	ldxy #strings::assembling
-	jsr text::info
+	jsr print_info
 
 	; save the current source position and rewind it for assembly
 	jsr text::savebuff
@@ -2568,7 +2568,7 @@ goto_buffer:
 	stxy @file
 
 	ldxy #strings::saving
-	jsr text::info
+	jsr print_info
 
 	ldxy @file
 	jsr str::len
@@ -2604,6 +2604,7 @@ goto_buffer:
 	cmp #$00
 	bne @err
 
+	jsr text::clrinfo
 	; clear flags on the source buffer and return
 	jmp src::setflags
 
@@ -2624,11 +2625,12 @@ goto_buffer:
 	stxy @file
 
 	ldxy #strings::deleting
-	jsr text::info
+	jsr print_info
 
 	ldxy @file
 	jsr file::scratch
 	bcs @err
+	jsr text::clrinfo
 @ret:	rts		; no error
 
 @err:	pha
@@ -2648,9 +2650,11 @@ goto_buffer:
 .export __edit_load
 .proc __edit_load
 @file=r9
-@dst=rb
-@search=rb
 	stxy @file
+
+	; display loading...
+	ldxy #strings::loading
+	jsr print_info
 
 	; check if the file is already open in one of our buffers
 	lda src::numbuffers
@@ -2681,10 +2685,6 @@ goto_buffer:
 	jsr file::exists
 	bne @err		; if file doesn't exist, we're done
 
-	; display loading...
-	ldxy #strings::loading
-	jsr text::info
-
 	; load the file
 	ldxy @file
 	jsr file::open
@@ -2703,6 +2703,7 @@ goto_buffer:
 	sta zp::curx
 	sta zp::cury		; reset cursor
 	jsr refresh
+	jsr text::clrinfo
 	jsr cancel
 	clc
 	rts
@@ -4486,6 +4487,20 @@ __edit_gotoline:
 @done:	lda #$00
 	sta highlight_status
 	rts
+.endproc
+
+;******************************************************************************
+; PRINT_INFO
+; Updates the status line with the given info message and refreshses the status
+.proc print_info
+	jsr text::info
+	jsr text::updatestatusline
+
+	lda #$00
+	sta mem::coloron
+
+	lda status_row
+	jmp text::status
 .endproc
 
 ;******************************************************************************
