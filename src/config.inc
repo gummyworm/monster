@@ -12,6 +12,8 @@ BREAKPOINT_OFF_COLOR = (14<<4 | BORDER_COLOR)
 ERROR_COLOR	 = ($00|$08) 		; $900f color of error highlight
 DEBUG_LINE_COLOR = ($70|BORDER_COLOR)	; row cursor color during debug
 
+ASM_SUCCESS_COLOR = (13<<4 | BORDER_COLOR)      ; color for asm done message
+
 CUR_BLINK_SPEED  = 250	; number of updates before blink
 
 ;******************************************************************************
