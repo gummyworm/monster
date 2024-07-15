@@ -89,7 +89,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .proc __text_update_statusline
 @filename=zp::text
 @tmp=zp::text
-@rightend=zp::text+2
+@leftend=zp::text+2
 @columnstart=STATUS_COL+3
 @linestart=STATUS_COL+6
 @sizestart=STATUS_COL+13
@@ -146,7 +146,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	lda __text_status_mode
 	sta mem::statusline+@modestart
 
-	stx @rightend	; save end of left-side data
+	stx @leftend	; save end of left-side data
 
 @copy_filename:
 	; filename
@@ -189,13 +189,12 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	sty @tmp
 
 	ldx #$00
-	ldy @rightend
+	ldy @leftend
 	; copy as much info as we can between the left-side and right-side stuff
 :	lda mem::statusinfo,x
 	beq @done
 	sta mem::statusline+@linestart+2,y
 	inx
-	iny
 	cpy @tmp
 	bcc :-
 

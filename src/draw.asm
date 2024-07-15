@@ -7,6 +7,30 @@
 .CODE
 
 ;******************************************************************************
+; BLANK
+; Disables coloring in the IRQ
+.export __draw_blank
+.proc __draw_blank
+	sei
+	lda #DEFAULT_900F
+	sta $900f
+	lda #$00
+	sta mem::coloron
+	cli
+	rts
+.endproc
+
+;******************************************************************************
+; UNBLANK
+; Enables coloring in the IRQ
+.export __draw_unblank
+.proc __draw_unblank
+	lda #$01
+	sta mem::coloron
+	rts
+.endproc
+
+;******************************************************************************
 ; HLINE
 ; Draws a horizontal line at the row given in .A
 ; IN:

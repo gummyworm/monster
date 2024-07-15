@@ -742,7 +742,9 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .A: the character at the position that was moved to
 .export __src_right_rep
 .proc __src_right_rep
-	jsr __src_end
+	jsr __src_before_end
+	beq @endofline
+	jsr __src_end		; should be impossible in REPLACE
 	beq @endofline
 
 	jsr __src_after_cursor	; if we're at end of line, don't move

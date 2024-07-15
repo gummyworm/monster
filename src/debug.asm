@@ -823,12 +823,13 @@ brkhandler2_size=*-brkhandler2
 ; Navigates the editor to the file/line associated with the give address
 ; IN:
 ;  - .XY: the address to "goto"
+;  - .A:  the file ID to goto
 ; OUT:
 ;  - .C:  set on failure
 ;  - .XY: the line that was navigated to
 .export __debug_gotoaddr
 .proc __debug_gotoaddr
-@line=debugtmp
+@line=debugtmp+2
 	jsr dbgi::addr2line	; get the line #
 	bcs @done		; error
 	sta dbgi::file
@@ -1394,16 +1395,26 @@ brkhandler2_size=*-brkhandler2
 .export __debug_remove_breakpoint
 __debug_remove_breakpoint:
 .proc remove_breakpoint
+	jsr get_breakpoint
+	bcs :+
+
+	tax
+	; fall through to removebreakpointbyid
+.endproc
+
+;******************************************************************************
+; REMOVEBREAKPOINTBYID
+; Removes the ID with the given handle.
+; IN:
+;  - .X: the breakpoint to remove
+.export __debug_removebreakpointbyid
+.proc __debug_removebreakpointbyid
 @addr=debugtmp
 @end=debugtmp+2
-	jsr get_breakpoint
-	bcs @ret
-	tax
-
-@remove:
 	; shift breakpoints down
 	lda numbreakpoints
 	sta @end
+	dex
 	cpx @end
 	beq @removed
 @l0:	lda breakpointshi+1,x
@@ -1418,7 +1429,7 @@ __debug_remove_breakpoint:
 @removed:
 	dec numbreakpoints
 @done:	clc
-@ret:	rts
+:	rts
 .endproc
 
 ;******************************************************************************

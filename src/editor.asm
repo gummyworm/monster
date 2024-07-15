@@ -268,12 +268,8 @@ main:	jsr key::getch
 
 	lda #TEXT_COLOR
 	jsr bm::clrcolor
-	; clear the top row of the debubger's info
-	lda #DEBUG_MESSAGE_LINE
-	jsr bm::clrline
 
-	dec readonly		; re-enable editing
-	jsr edit
+	jsr edit	; re-init editor state
 	jsr cancel
 	jmp refresh
 .endproc
@@ -507,13 +503,10 @@ main:	jsr key::getch
 ; Assembles the entire source
 .export command_asm
 .proc command_asm
-	lda #EDITOR_HEIGHT
-	jsr __edit_resize
-
-	jsr dbgi::init
-
 	ldxy #strings::assembling
 	jsr print_info
+
+	jsr dbgi::init
 
 	; save the current source position and rewind it for assembly
 	jsr text::savebuff
@@ -648,8 +641,15 @@ main:	jsr key::getch
 	ldxy #@success_msg
 @print: lda #STATUS_ROW
 	jsr text::print
-:	jsr key::getch		; wait for key
+
+	ldx #STATUS_ROW
+	lda #ASM_SUCCESS_COLOR
+	jsr draw::hline
+:	jsr key::getch          ; wait for key
 	beq :-
+	lda #DEFAULT_RVS
+	ldx #STATUS_ROW
+	jsr draw::hline
 	RETURN_OK
 
 @success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0
@@ -2154,21 +2154,25 @@ __edit_refresh:
 __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
-	ldxy src::line
 	lda src::activebuff
+	jsr src::filename
+	jsr dbgi::getfileid	; .A = id of the file
+	ldxy src::line
 	jsr brkpt::getbyline
 	bcs @set
+
 @remove:
+	jsr dbg::removebreakpointbyid
+	lda dbg::breakpoint_lineslo,x
+	ldy dbg::breakpoint_lineshi,x
 	jsr dbg::removebreakpoint
 	lda #DEFAULT_900F
 	bne @done
-
 @set:
 	lda src::activebuff
 	jsr src::filename
 	jsr dbgi::getfileid	; .A = id of the file
 	ldxy src::line
-	lda src::activebuff
 	jsr dbg::setbrkatline
 	lda #BREAKPOINT_ON_COLOR
 
@@ -2652,10 +2656,6 @@ goto_buffer:
 @file=r9
 	stxy @file
 
-	; display loading...
-	ldxy #strings::loading
-	jsr print_info
-
 	; check if the file is already open in one of our buffers
 	lda src::numbuffers
 	cmp #MAX_SOURCES
@@ -2685,14 +2685,23 @@ goto_buffer:
 	jsr file::exists
 	bne @err		; if file doesn't exist, we're done
 
+	; display loading...
+	ldxy #strings::loading
+	jsr print_info
+
 	; load the file
 	ldxy @file
-	jsr file::open
+	jsr file::open_r
 	bcs @err		; failed to load file
 	pha			; save file handle
 	jsr src::new
 	pla			; get the file handle
+	pha
 	jsr file::loadsrc	; load to SOURCE buff
+	pla
+	php
+	jsr file::close		; close the file
+	plp
 	bcs @err
 	ldxy @file
 	jsr src::name
@@ -3310,13 +3319,12 @@ goto_buffer:
 	cmp #MODE_VISUAL_LINE
 	beq @ret	; do nothing on RIGHT if in VISUAL_LINE mode
 
-	lda text::insertmode
-	cmp #TEXT_INSERT
+	cmp #MODE_INSERT
 	beq @ins
 
 @rep:	jsr src::right_rep
 	bcc @ok
-	rts
+	rts		; can't move right
 
 @ins:	jsr src::right
 	bcs @done
@@ -3815,8 +3823,10 @@ jsr text::tabr_dist
 	pha		; save the row
 
 	; if there's a breakpoint on this line, draw it
-	ldxy src::line
 	lda src::activebuff
+	jsr src::filename
+	jsr dbgi::getfileid	; .A = id of the file
+	ldxy src::line
 	jsr brkpt::getbyline
 	bcs @nobrk
 
@@ -4466,7 +4476,6 @@ __edit_gotoline:
 	lda #$01
 	sta __edit_highlight_en		; flag highlight as ON
 	sta highlight_status		; and flag highlight as on
-
 	; fall through to highlight line
 .endproc
 
@@ -4493,14 +4502,11 @@ __edit_gotoline:
 ; PRINT_INFO
 ; Updates the status line with the given info message and refreshses the status
 .proc print_info
-	jsr text::info
-	jsr text::updatestatusline
-
-	lda #$00
-	sta mem::coloron
-
+	;lda #$00
+	;sta mem::coloron
 	lda status_row
-	jmp text::status
+	jsr text::print
+	rts
 .endproc
 
 ;******************************************************************************

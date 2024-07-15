@@ -221,6 +221,8 @@ rowcnt: .byte 0
 	stxy $9128
 
 	ldx rowcnt
+	lda mem::coloron
+	beq :+
 	lda mem::rowcolors,x
 	sta $900f
 
