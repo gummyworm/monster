@@ -268,12 +268,8 @@ main:	jsr key::getch
 
 	lda #TEXT_COLOR
 	jsr bm::clrcolor
-	; clear the top row of the debubger's info
-	lda #DEBUG_MESSAGE_LINE
-	jsr bm::clrline
 
-	dec readonly		; re-enable editing
-	jsr edit
+	jsr edit	; re-init editor state
 	jsr cancel
 	jmp refresh
 .endproc
@@ -2158,21 +2154,25 @@ __edit_refresh:
 __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
-	ldxy src::line
 	lda src::activebuff
+	jsr src::filename
+	jsr dbgi::getfileid	; .A = id of the file
+	ldxy src::line
 	jsr brkpt::getbyline
 	bcs @set
+
 @remove:
+	jsr dbg::removebreakpointbyid
+	lda dbg::breakpoint_lineslo,x
+	ldy dbg::breakpoint_lineshi,x
 	jsr dbg::removebreakpoint
 	lda #DEFAULT_900F
 	bne @done
-
 @set:
 	lda src::activebuff
 	jsr src::filename
 	jsr dbgi::getfileid	; .A = id of the file
 	ldxy src::line
-	lda src::activebuff
 	jsr dbg::setbrkatline
 	lda #BREAKPOINT_ON_COLOR
 
@@ -3824,8 +3824,10 @@ jsr text::tabr_dist
 	pha		; save the row
 
 	; if there's a breakpoint on this line, draw it
-	ldxy src::line
 	lda src::activebuff
+	jsr src::filename
+	jsr dbgi::getfileid	; .A = id of the file
+	ldxy src::line
 	jsr brkpt::getbyline
 	bcs @nobrk
 
@@ -4475,7 +4477,6 @@ __edit_gotoline:
 	lda #$01
 	sta __edit_highlight_en		; flag highlight as ON
 	sta highlight_status		; and flag highlight as on
-
 	; fall through to highlight line
 .endproc
 

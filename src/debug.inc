@@ -13,6 +13,7 @@
 .import __debug_numbreakpoints
 .import __debug_numwatches
 .import __debug_remove_breakpoint
+.import __debug_removebreakpointbyid
 .import __debug_setbreakpoint
 .import __debug_save_prog_state
 .import __debug_shift_breakpointsd
@@ -42,6 +43,7 @@
 	numbreakpoints     = __debug_numbreakpoints
 	numwatches         = __debug_numwatches
 	removebreakpoint   = __debug_remove_breakpoint
+	removebreakpointbyid = __debug_removebreakpointbyid
 	save_progstate     = __debug_save_prog_state
 	shift_breakpointsd = __debug_shift_breakpointsd
 	shift_breakpointsu = __debug_shift_breakpointsu
