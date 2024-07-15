@@ -981,9 +981,9 @@ brkhandler2_size=*-brkhandler2
 ; Sets a breakpoint at the current line selection
 .proc set_breakpoint
 @line=r0
-	ldxy src::line
-	jsr __debug_setbrkatline	; set the line #
+	jsr edit::setbreakpoint
 
+	; map the address to the breakpoint
 	ldxy src::line
 	jsr dbgi::line2addr
 	jmp __debug_brksetaddr	; map the address to the line
@@ -1371,6 +1371,7 @@ brkhandler2_size=*-brkhandler2
 ; does nothing
 ; IN:
 ;   - .XY: the line # of the breakpoint to set the address for
+;   - .A:  the file ID for the breakpoint to set
 ;   - r0:  the address to store for the breakpoint
 .export __debug_brksetaddr
 .proc __debug_brksetaddr

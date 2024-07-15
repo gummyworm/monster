@@ -453,6 +453,8 @@ main:	jsr key::getch
 ;  - .XY: the filename of the file to assemble
 .proc command_assemble_file
 @filename=mem::backbuff
+	jsr cancel		; close errlog (if open)
+
 	lda #<@filename
 	sta r0
 	lda #>@filename
@@ -505,6 +507,8 @@ main:	jsr key::getch
 .proc command_asm
 	ldxy #strings::assembling
 	jsr print_info
+
+	jsr cancel		; close errlog (if open)
 
 	jsr dbgi::init
 
@@ -952,7 +956,9 @@ force_enter_insert=*+5
 ; CANCEL
 ; If not in COMMAND mode, just enters command mode
 ; If already in command mode: clears auxiliary views (if any active), errors,
-; etc
+; etc.
+; Calling this from within a command handler (e.g. command_asm) will do the
+; latter as the editor is guaranteed to already be in COMMAND mode.
 .proc cancel
 	lda mode
 	cmp #MODE_COMMAND

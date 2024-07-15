@@ -459,6 +459,9 @@ num_illegals = *-illegal_opcodes
 
 	; handle breakpoints (only set breakpoints in pass 2)
 	ldxy zp::virtualpc	; current PC (address)
+	stxy r0
+	lda dbgi::file
+	ldxy dbgi::srcline
 	jsr dbg::brksetaddr	; if there is a breakpoint, set its address
 
 :	jsr line::process_ws
