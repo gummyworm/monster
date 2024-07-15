@@ -173,18 +173,10 @@ main:	jsr key::getch
 	cpx #MODE_COMMAND
 	bne @ins
 @cmd:	jsr onkey_cmd
-	jmp @validate
+	jmp @done
 @ins:	jsr onkey
-@validate:
-	; make sure cursor is on a valid character
-	lda text::insertmode
-	jsr src::after_cursor
-	cmp #$80
-	bcc @keydone
-	jsr ccright		; try to move past the non-source char
-	bcc @validate
-@keydone:
-	jsr text::update	; update status in case something was changed
+
+@done:	jsr text::update	; update status in case something was changed
 	jsr is_visual
 	beq :+
 	jsr cur::on
@@ -2453,9 +2445,7 @@ goto_buffer:
 	beq :-
 	ldy #>@cmdbuff
 
-	; run the command
-	jsr zp::jmpaddr
-	jmp text::update
+	jmp (zp::jmpvec)
 @done:  rts			; no input
 
 @ex_commands:

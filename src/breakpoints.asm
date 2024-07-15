@@ -102,6 +102,7 @@ BREAKPOINT_ENABLED = 1
 	jsr lbl::getname
 
 @lineno:
+	ldx @offset
 	; get the line number and file name
 	lda dbg::breakpoint_lineslo,x
 	pha
