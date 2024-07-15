@@ -3319,13 +3319,12 @@ goto_buffer:
 	cmp #MODE_VISUAL_LINE
 	beq @ret	; do nothing on RIGHT if in VISUAL_LINE mode
 
-	lda text::insertmode
-	cmp #TEXT_INSERT
+	cmp #MODE_INSERT
 	beq @ins
 
 @rep:	jsr src::right_rep
 	bcc @ok
-	rts
+	rts		; can't move right
 
 @ins:	jsr src::right
 	bcs @done
