@@ -2160,11 +2160,10 @@ __edit_refresh:
 __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
-	lda src::activebuff
-	jsr src::filename
-	jsr dbgi::getfileid	; .A = id of the file
-	ldxy src::line
+	jsr __edit_current_file
+	pha
 	jsr brkpt::getbyline
+	pla
 	bcs @set
 
 @remove:
@@ -2175,9 +2174,6 @@ __edit_set_breakpoint:
 	lda #DEFAULT_900F
 	bne @done
 @set:
-	lda src::activebuff
-	jsr src::filename
-	jsr dbgi::getfileid	; .A = id of the file
 	ldxy src::line
 	jsr dbg::setbrkatline
 	lda #BREAKPOINT_ON_COLOR
@@ -3829,10 +3825,7 @@ jsr text::tabr_dist
 	pha		; save the row
 
 	; if there's a breakpoint on this line, draw it
-	lda src::activebuff
-	jsr src::filename
-	jsr dbgi::getfileid	; .A = id of the file
-	ldxy src::line
+	jsr __edit_current_file
 	jsr brkpt::getbyline
 	bcs @nobrk
 
@@ -4538,6 +4531,21 @@ __edit_gotoline:
 	lda @was_visible
 	bne @done		; if highlight was, and still is, visible: skip
 	jmp toggle_highlight	; highlight was NOT visible, but is now
+.endproc
+
+;******************************************************************************
+; CURRENT FILE ID
+; Returns the debug file ID of the active source buffer.
+; OUT:
+;  - .A:  the debug file ID of the current file
+;  - .XY: the current line in the file
+.export __edit_current_file
+.proc __edit_current_file
+	lda src::activebuff
+	jsr src::filename
+	jsr dbgi::getfileid	; .A = id of the file
+	ldxy src::line
+	rts
 .endproc
 
 .RODATA

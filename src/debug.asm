@@ -977,19 +977,6 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
-; SET_BREAKPOINT
-; Sets a breakpoint at the current line selection
-.proc set_breakpoint
-@line=r0
-	jsr edit::setbreakpoint
-
-	; map the address to the breakpoint
-	ldxy src::line
-	jsr dbgi::line2addr
-	jmp __debug_brksetaddr	; map the address to the line
-.endproc
-
-;******************************************************************************
 ; SWAP_USER_MEM
 ; Command that swaps in the user program memory, waits for a keypress, and
 ; returns with the debugger's memory swapped back in
@@ -1363,6 +1350,23 @@ brkhandler2_size=*-brkhandler2
 
 	inc numbreakpoints
 	rts
+.endproc
+
+;******************************************************************************
+; SET_BREAKPOINT
+; Sets a breakpoint at the current line selection
+.proc set_breakpoint
+	jsr edit::setbreakpoint
+
+	; map the address to the breakpoint
+	jsr edit::currentfile
+	pha
+	jsr dbgi::line2addr
+	stxy r0
+	ldxy src::line
+	pla
+
+	; fall through to __debug_brksetaddr
 .endproc
 
 ;******************************************************************************
