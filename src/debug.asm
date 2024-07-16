@@ -315,11 +315,12 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	; and install the first BRK at the debug start address
 	ldxy sim::pc
 	lda #$00
+	sta aux_mode	; initialize auxiliary views
 	jsr vmem::store
 
-	; initialize auxiliary views
-	lda #$00
-	sta aux_mode
+	lda #DEFAULT_RVS
+	ldx #DEBUG_MESSAGE_LINE
+	jsr draw::hline
 
 	; init state
 	sta __debug_numwatches

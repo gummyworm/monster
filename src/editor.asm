@@ -898,12 +898,14 @@ main:	jsr key::getch
 	lda command_vecs_hi,x
 	sta zp::jmpvec+1
 
-; repeat the command for the number of reps the user requested
-@doreps:
-	jsr zp::jmpaddr
+:	jsr @dorep
 	dec cmdreps
-	bne @doreps
+	bne :-
 	rts
+
+; repeat the command for the number of reps the user requested
+@dorep:
+	jmp (zp::jmpvec)
 .endproc
 
 ;******************************************************************************_
@@ -1978,7 +1980,8 @@ force_enter_insert=*+5
 .export __edit_refresh
 __edit_refresh:
 .proc refresh
-@row=zp::editortmp
+	lda zp::cury
+	pha
 	jsr src::pushp
 	jsr text::savebuff
 
@@ -1989,36 +1992,41 @@ __edit_refresh:
 	inx			; if not on a newline, 1st UP is to HOME
 :	ldy #$00
 	sty highlight_status
-	sty @row
+	sty zp::cury
 	jsr src::upn
 
 	; redraw the visible lines
 @l0:	jsr src::readline
 	php
-	lda @row
-	jsr draw_src_line
+	bcs :+
+	jsr src::prev	; print_line expects source and zp::cury to be synced
+:	lda zp::cury
+	jsr print_line
 	plp
 	bcs @clr
-	inc @row
-	lda @row
+	jsr src::next	; move past the $0d again
+	inc zp::cury
+	lda zp::cury
 	cmp height
 	beq @l0
 	bcc @l0
 
 @clr:	; clear the rest of the lines (including highlights)
-	ldx @row
+	ldx zp::cury
 	cpx height
 	inx
 	bcs @done
 	lda #DEFAULT_900F
 	sta mem::rowcolors,x
-	stx @row
+	stx zp::cury
 	txa
 	jsr bm::clrline
 	jmp @clr
 
 @done:	; restore source position
 	jsr src::popgoto
+	pla
+	sta zp::cury
 	jmp text::restorebuff
 .endproc
 
