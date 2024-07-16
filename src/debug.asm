@@ -315,11 +315,12 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	; and install the first BRK at the debug start address
 	ldxy sim::pc
 	lda #$00
+	sta aux_mode	; initialize auxiliary views
 	jsr vmem::store
 
-	; initialize auxiliary views
-	lda #$00
-	sta aux_mode
+	lda #DEFAULT_RVS
+	ldx #DEBUG_MESSAGE_LINE
+	jsr draw::hline
 
 	; init state
 	sta __debug_numwatches
@@ -977,19 +978,6 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
-; SET_BREAKPOINT
-; Sets a breakpoint at the current line selection
-.proc set_breakpoint
-@line=r0
-	ldxy src::line
-	jsr __debug_setbrkatline	; set the line #
-
-	ldxy src::line
-	jsr dbgi::line2addr
-	jmp __debug_brksetaddr	; map the address to the line
-.endproc
-
-;******************************************************************************
 ; SWAP_USER_MEM
 ; Command that swaps in the user program memory, waits for a keypress, and
 ; returns with the debugger's memory swapped back in
@@ -1366,11 +1354,29 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
+; SET_BREAKPOINT
+; Sets a breakpoint at the current line selection
+.proc set_breakpoint
+	jsr edit::setbreakpoint
+
+	; map the address to the breakpoint
+	jsr edit::currentfile
+	pha
+	jsr dbgi::line2addr
+	stxy r0
+	ldxy src::line
+	pla
+
+	; fall through to __debug_brksetaddr
+.endproc
+
+;******************************************************************************
 ; BRKSETADDR
 ; Sets the address for the given breakpoint. If no matching breakpoint is found,
 ; does nothing
 ; IN:
 ;   - .XY: the line # of the breakpoint to set the address for
+;   - .A:  the file ID for the breakpoint to set
 ;   - r0:  the address to store for the breakpoint
 .export __debug_brksetaddr
 .proc __debug_brksetaddr

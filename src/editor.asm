@@ -173,18 +173,10 @@ main:	jsr key::getch
 	cpx #MODE_COMMAND
 	bne @ins
 @cmd:	jsr onkey_cmd
-	jmp @validate
+	jmp @done
 @ins:	jsr onkey
-@validate:
-	; make sure cursor is on a valid character
-	lda text::insertmode
-	jsr src::after_cursor
-	cmp #$80
-	bcc @keydone
-	jsr ccright		; try to move past the non-source char
-	bcc @validate
-@keydone:
-	jsr text::update	; update status in case something was changed
+
+@done:	jsr text::update	; update status in case something was changed
 	jsr is_visual
 	beq :+
 	jsr cur::on
@@ -453,6 +445,8 @@ main:	jsr key::getch
 ;  - .XY: the filename of the file to assemble
 .proc command_assemble_file
 @filename=mem::backbuff
+	jsr cancel		; close errlog (if open)
+
 	lda #<@filename
 	sta r0
 	lda #>@filename
@@ -505,6 +499,8 @@ main:	jsr key::getch
 .proc command_asm
 	ldxy #strings::assembling
 	jsr print_info
+
+	jsr cancel		; close errlog (if open)
 
 	jsr dbgi::init
 
@@ -902,12 +898,14 @@ main:	jsr key::getch
 	lda command_vecs_hi,x
 	sta zp::jmpvec+1
 
-; repeat the command for the number of reps the user requested
-@doreps:
-	jsr zp::jmpaddr
+:	jsr @dorep
 	dec cmdreps
-	bne @doreps
+	bne :-
 	rts
+
+; repeat the command for the number of reps the user requested
+@dorep:
+	jmp (zp::jmpvec)
 .endproc
 
 ;******************************************************************************_
@@ -952,7 +950,9 @@ force_enter_insert=*+5
 ; CANCEL
 ; If not in COMMAND mode, just enters command mode
 ; If already in command mode: clears auxiliary views (if any active), errors,
-; etc
+; etc.
+; Calling this from within a command handler (e.g. command_asm) will do the
+; latter as the editor is guaranteed to already be in COMMAND mode.
 .proc cancel
 	lda mode
 	cmp #MODE_COMMAND
@@ -1980,7 +1980,8 @@ force_enter_insert=*+5
 .export __edit_refresh
 __edit_refresh:
 .proc refresh
-@row=zp::editortmp
+	lda zp::cury
+	pha
 	jsr src::pushp
 	jsr text::savebuff
 
@@ -1991,36 +1992,41 @@ __edit_refresh:
 	inx			; if not on a newline, 1st UP is to HOME
 :	ldy #$00
 	sty highlight_status
-	sty @row
+	sty zp::cury
 	jsr src::upn
 
 	; redraw the visible lines
 @l0:	jsr src::readline
 	php
-	lda @row
-	jsr draw_src_line
+	bcs :+
+	jsr src::prev	; print_line expects source and zp::cury to be synced
+:	lda zp::cury
+	jsr print_line
 	plp
 	bcs @clr
-	inc @row
-	lda @row
+	jsr src::next	; move past the $0d again
+	inc zp::cury
+	lda zp::cury
 	cmp height
 	beq @l0
 	bcc @l0
 
 @clr:	; clear the rest of the lines (including highlights)
-	ldx @row
+	ldx zp::cury
 	cpx height
 	inx
 	bcs @done
 	lda #DEFAULT_900F
 	sta mem::rowcolors,x
-	stx @row
+	stx zp::cury
 	txa
 	jsr bm::clrline
 	jmp @clr
 
 @done:	; restore source position
 	jsr src::popgoto
+	pla
+	sta zp::cury
 	jmp text::restorebuff
 .endproc
 
@@ -2154,11 +2160,10 @@ __edit_refresh:
 __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
-	lda src::activebuff
-	jsr src::filename
-	jsr dbgi::getfileid	; .A = id of the file
-	ldxy src::line
+	jsr __edit_current_file
+	pha
 	jsr brkpt::getbyline
+	pla
 	bcs @set
 
 @remove:
@@ -2169,9 +2174,6 @@ __edit_set_breakpoint:
 	lda #DEFAULT_900F
 	bne @done
 @set:
-	lda src::activebuff
-	jsr src::filename
-	jsr dbgi::getfileid	; .A = id of the file
 	ldxy src::line
 	jsr dbg::setbrkatline
 	lda #BREAKPOINT_ON_COLOR
@@ -2451,9 +2453,7 @@ goto_buffer:
 	beq :-
 	ldy #>@cmdbuff
 
-	; run the command
-	jsr zp::jmpaddr
-	jmp text::update
+	jmp (zp::jmpvec)
 @done:  rts			; no input
 
 @ex_commands:
@@ -3823,10 +3823,7 @@ jsr text::tabr_dist
 	pha		; save the row
 
 	; if there's a breakpoint on this line, draw it
-	lda src::activebuff
-	jsr src::filename
-	jsr dbgi::getfileid	; .A = id of the file
-	ldxy src::line
+	jsr __edit_current_file
 	jsr brkpt::getbyline
 	bcs @nobrk
 
@@ -4532,6 +4529,21 @@ __edit_gotoline:
 	lda @was_visible
 	bne @done		; if highlight was, and still is, visible: skip
 	jmp toggle_highlight	; highlight was NOT visible, but is now
+.endproc
+
+;******************************************************************************
+; CURRENT FILE ID
+; Returns the debug file ID of the active source buffer.
+; OUT:
+;  - .A:  the debug file ID of the current file
+;  - .XY: the current line in the file
+.export __edit_current_file
+.proc __edit_current_file
+	lda src::activebuff
+	jsr src::filename
+	jsr dbgi::getfileid	; .A = id of the file
+	ldxy src::line
+	rts
 .endproc
 
 .RODATA

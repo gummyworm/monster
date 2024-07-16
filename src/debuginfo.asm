@@ -764,12 +764,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; Returns the address of the given line.
 ; IN:
 ;  - .XY: the line to get the address of
+;  - .A:  the file ID of the file containing the line
 ; OUT:
 ;  - .XY: the address of the given line
 .export  __debug_line2addr
 .proc __debug_line2addr
 @line=r2
 @cnt=r4
+@file=r5
+	sta @file
 	stxy @line
 	lda #$00
 	sta @cnt
@@ -778,12 +781,15 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ; so just iterate over every line in every segment
 @l0:	lda @cnt
 	jsr get_segment_by_id
-	bcc @checklines
-@done:	rts
+	bcs @ret
 
 ; check every line in the segment for a match
 @checklines:
-@l1:	ldy #DATA_LINE
+@l1:	ldy #DATA_FILE
+	jsr read_from_line
+	cmp @file
+	bne @next
+	ldy #DATA_LINE
 	jsr read_from_line
 	cmp @line
 	bne @next
@@ -798,7 +804,8 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	iny
 	jsr read_from_line
 	tay
-	RETURN_OK
+	clc
+@ret:	rts
 
 @next:	jsr nextline
 	bcc @l1
