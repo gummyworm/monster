@@ -13,7 +13,32 @@
 .include "text.inc"
 .include "zeropage.inc"
 
+.BSS
+;******************************************************************************
+baserow: .byte 0
+scroll:  .byte 0
+height:  .byte 0
+num:     .byte 0
+
 .CODE
+
+;******************************************************************************
+; REFRESH
+; Redraws the active GUI (if any) without activating it
+.export  __gui_refresh
+.proc __gui_refresh
+.endproc
+
+;******************************************************************************
+; REENTER
+; Activates the most recently created GUI without reinitializing it.
+.export __gui_reenter
+.proc __gui_reenter
+	lda baserow
+	ldx height
+	ldy num
+	; fall through to list_menu
+.endproc
 
 ;******************************************************************************
 ; LIST_MENU
@@ -32,33 +57,45 @@
 ;
 ; IN:
 ;  - .A: the row to start the list at
-;  - .X: the height of the view
 ;  - .Y: the number of items
-;  - r0: the key handler
-;    - IN:  .A: the key code, .X: the item index
-;    - OUT: .C: set if the menu should exit
-;  - r2: the get data handler
-;    - IN: .A: the item index to get the line of data for
-;  - r4: the title of the menu
+;  - r0: the menu data:
+;    - 0: height of the view
+;    - 1: address of key handler
+;    	- IN:  .A: the key code, .X: the item index
+;    	- OUT: .C: set if the menu should exit
+;    - 3: address to the get data handler
+;    	- IN: .A: the item index to get the line of data for
+;    - 5: address of menu title
 .export  __gui_listmenu
 .proc __gui_listmenu
-@select=zp::gui		; selection offset
-@scroll=zp::gui+1	; scroll amount
-@baserow=zp::gui+2
-@maxheight=zp::gui+3
+@baserow=zp::gui
+@select=zp::gui+1	; selection offset
+@scroll=zp::gui+2	; scroll amount
+@guivars=zp::gui+3
+@maxheight=@guivars
+@getkey=@guivars+1
+@getdata=@guivars+3
+@title=@guivars+5
+	sta baserow
 	sta @baserow
-	stx @maxheight
 	sty @num
-	cpy @maxheight
+	sty num
+
+	ldxy #@maxheight
+	stxy r2
+	ldy #6
+:	lda (r0),y
+	sta (r2),y
+	dey
+	bpl :-
+
+	lda num
+	cmp @maxheight
 	bcs :+
-	sty @maxheight
+	sta @maxheight
+	sta height
 
-:	ldxy r0
-	stxy @handlekey
-	ldxy r2
-	stxy @getdata
-
-	lda @baserow
+:	lda @baserow
 	sec
 	sbc @maxheight
 	pha
@@ -67,7 +104,7 @@
 
 	pla
 	pha
-	ldxy r4
+	ldxy @title
 	jsr text::print
 	pla
 	tax
@@ -125,7 +162,7 @@
 
 @chkdown:
 	jsr key::isdown
-	bne @getkey		; if not down, call handler for all other keys
+	bne @getch		; if not down, call handler for all other keys
 
 	lda @select
 	beq @scrolldown
@@ -141,22 +178,16 @@
 	bpl @redraw		; redraw the scrolled display
 
 ;--------------------------------------
-@getkey:
-	pha
-	lda @scroll
-	clc
-	adc @select
-	tax
-	pla
-@handlekey=*+1
-	jsr $f00d
-	bcc @redraw
-	rts
+@getch:
+	jsr @keycallback
+	bcs @quit
+
+	; fall through to redraw
 
 ;--------------------------------------
 ; draw all visible lines and highlight the selected one
 @redraw:
-@row=zp::gui+4
+@row=@guivars+7
 	lda @baserow
 	sta @row
 	sec
@@ -173,8 +204,15 @@
 	lda #$00
 	clc
 	adc @scroll
-	jsr @getline
 
+;--------------------------------------
+; gets a line of data at the active scroll/selection
+; OUT: .XY: the line of text
+@getline:
+	jmp (@getdata)
+
+; getdata will jump back here
+@guireturn:
 	lda @row
 	jsr text::print
 	dec @row
@@ -189,13 +227,24 @@
 	tax
 	lda #DEFAULT_900F^$08
 	jsr draw::hline
-
 	jmp @loop
 
 ;--------------------------------------
-; gets a line of data at the active scroll/selection
-; OUT: .XY: the line of text
-@getline:
-@getdata=*+1
-	jmp $f00d
+@keycallback:
+	; get the item index
+	pha
+	lda @scroll
+	clc
+	adc @select
+	tax
+	pla
+	jmp (@getkey)
+
+;--------------------------------------
+; GUIRETURN
+; Entrypoint for "getline" handlers to return from
+; This is done because these handlers often push values to be printed and this
+; saves them from having to do stack management
+.export __gui_return
+__gui_return = @guireturn
 .endproc
