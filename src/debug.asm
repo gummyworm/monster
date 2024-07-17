@@ -1858,12 +1858,12 @@ __debug_remove_breakpoint:
 ; Displays the memory viewer, breakpoint viewer, or watchpoint viewer depending
 ; on which is enabled
 .proc show_aux
-	ldx aux_mode
+	lda aux_mode
 	beq @none		; no aux mode
-	cmp #$01
+	cmp #AUX_MEM
 	bne @gui
 @mem:	jmp view::mem		; refresh the memory viewer
-@gui:	jmp gui::draw_listmenu	; refresh the active GUI
+@gui:	jmp gui::refresh	; refresh the active GUI
 @none:	rts
 .endproc
 
@@ -1992,6 +1992,7 @@ __debug_remove_breakpoint:
 ; This table contains the keys used to invoke the corresponding command
 ; within the debugger
 commands:
+	.byte K_QUIT_DEBUGGER
 	.byte K_QUIT
 	.byte K_STEP
 	.byte K_STEPOVER
@@ -2010,7 +2011,7 @@ commands:
 num_commands=*-commands
 
 .linecont +
-.define command_vectors quit, step, step_over, go, \
+.define command_vectors quit, edit_source, step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
 	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state, \
 	goto_break, enter_debug_cmd

@@ -13,8 +13,9 @@
 .include "text.inc"
 .include "zeropage.inc"
 
-.BSS
 ;******************************************************************************
+.BSS
+
 baserow:	.byte 0
 scroll:		.byte 0
 select:		.byte 0
@@ -26,14 +27,8 @@ getkey:		.word 0
 getdata:	.word 0
 title:		.word 0
 
-.CODE
-
 ;******************************************************************************
-; REFRESH
-; Redraws the active GUI (if any) without activating it
-.export  __gui_refresh
-.proc __gui_refresh
-.endproc
+.CODE
 
 ;******************************************************************************
 ; REENTER
@@ -111,7 +106,7 @@ __gui_listmenu:
 	jsr draw::hline
 
 	dec height
-	jsr __gui_draw_listmenu
+	jsr __gui_refresh
 
 @loop:	jsr key::getch
 	beq @loop
@@ -181,7 +176,7 @@ __gui_listmenu:
 	jsr @keycallback
 	bcs @quit
 @redraw:
-	jsr __gui_draw_listmenu	; refresh the display
+	jsr __gui_refresh	; refresh the display
 	jmp @loop
 
 ;--------------------------------------
@@ -197,9 +192,12 @@ __gui_listmenu:
 .endproc
 
 ;******************************************************************************
-.export __gui_draw_listmenu
-.proc __gui_draw_listmenu
-; draw all visible lines and highlight the selected one
+; REFRESH
+; Redraws the active GUI. This should be called after making changes that
+; would affect the state of the GUI window, e.g. setting a breakpoint could
+; cause the breakpoints GUI to populate with new data.
+.export __gui_refresh
+.proc __gui_refresh
 @row=zp::gui
 	lda baserow
 	sta @row
@@ -234,12 +232,13 @@ __gui_listmenu:
 	sec
 	sbc select
 	tax
-	lda #DEFAULT_900F^$08
+	lda #DEFAULT_RVS
 	jmp draw::hline
 
-;--------------------------------------
+;******************************************************************************
 ; GUIRETURN
-; Entrypoint for "getline" handlers to return from
+; Entrypoint for "getline" handlers to return from.  These handlers should
+; end with a `jmp gui::return` instead of `rts`
 ; This is done because these handlers often push values to be printed and this
 ; saves them from having to do stack management
 .export __gui_return

@@ -64,6 +64,7 @@ __key_num_processed: .byte 0
 ; GETHEX
 ; Gets a key from the keyboard, and returns its value ONLY
 ; if it is a hex value, a DELETE, a RETURN, or a QUIT (<-)
+; Lowercase hex is converted to uppercase
 ; OUT:
 ;  - .A: the key pressed (if valid)
 .export __key_gethex
@@ -78,8 +79,12 @@ __key_num_processed: .byte 0
 	jsr __key_ishex
 	bcs :+
 	lda #$00	; don't accept non-hex characters
-:	cmp #$00
 	rts
+
+:	cmp #$46+1
+	bcc @done
+	eor #$20	; convert to upper-case
+@done:	rts
 .endproc
 
 ;******************************************************************************_
@@ -88,14 +93,18 @@ __key_num_processed: .byte 0
 ; IN:
 ;  - .A: the key to check if is hex
 ; OUT:
-;  - .C: set if the given key is 0-9 or A-F
+;  - .C: set if the given key is 0-9, a-f, or A-F
 .export __key_ishex
 .proc __key_ishex
 	cmp #'0'
 	bcc @done
-	cmp #'f'+1
+	cmp #$66+1	; 'f'+1
 	bcs @nothex
-	cmp #'a'
+	cmp #$60	; 'a'
+	bcs @done
+	cmp #$46+1	; 'F' + 1
+	bcs @nothex
+	cmp #$40	; 'A'
 	bcs @done
 	cmp #'9'+1
 	bcs @nothex

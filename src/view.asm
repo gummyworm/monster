@@ -365,16 +365,22 @@ memaddr:   .word 0
 	pushcur
 	jsr cur::off
 
-	lda #DEFAULT_900F^$08
+	lda #DEFAULT_RVS
 	ldx #MEMVIEW_START
 	jsr draw::hline
 
 	; copy title to linebuffer
-	ldx #25-1
+	ldx #17
 :	lda strings::memview_title,x
 	sta mem::linebuffer,x
 	dex
 	bpl :-
+
+	; clear the existing value
+	lda #']'
+	sta mem::linebuffer+18
+	lda #$00
+	sta mem::linebuffer+19
 
 	; set bounds for the input
 	lda #18
@@ -424,7 +430,7 @@ memaddr:   .word 0
 	ldxy #strings::memview_title
 	lda #MEMVIEW_START
 	jsr text::print
-	lda #DEFAULT_900F^$08
+	lda #DEFAULT_RVS
 	ldx #MEMVIEW_START
 	jsr draw::hline
 
