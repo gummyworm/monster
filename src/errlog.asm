@@ -34,7 +34,6 @@ errfileids: .res MAX_ERRORS
 .export __errlog_numerrs
 __errlog_numerrs:
 numerrs: .byte 0
-baserow: .byte 0		; the base row visible to the user
 
 .CODE
 
@@ -45,27 +44,21 @@ baserow: .byte 0		; the base row visible to the user
 ;  - .A: the row to base the window at (grows upward)
 .export __errlog_activate
 .proc __errlog_activate
-	ldxy #@keyhandler
+	ldxy #@menu
 	stxy r0
-	ldxy #@getline
-	stxy r2
-	ldxy #strings::errors
-	stxy r4
-	ldx #MAX_HEIGHT
 	ldy numerrs
 	jmp gui::listmenu
+@menu:
+.byte MAX_HEIGHT	; max height
+.word @keyhandler	; key handler
+.word @getline		; get line handler
+.word strings::errors	; title
 
 ; callback to get the item in .A
 @getline:
-@keyret=rb
 @err=ra
-	sta baserow
 	sta @err
 	tax
-	pla
-	sta @keyret
-	pla
-	sta @keyret+1
 
 	cpx numerrs
 	bcc :+
@@ -86,13 +79,8 @@ baserow: .byte 0		; the base row visible to the user
 	lda errlineshi,x
 	pha
 
-	lda @keyret+1
-	pha
-	lda @keyret
-	pha
-
 	ldxy #strings::edit_line_err
-	rts
+	jmp gui::ret
 
 ; callback to handle keypress
 @keyhandler:
@@ -118,7 +106,6 @@ baserow: .byte 0		; the base row visible to the user
 .proc __errlog_clear
 	lda #$00
 	sta numerrs
-	sta baserow
 	rts
 .endproc
 

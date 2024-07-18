@@ -30,16 +30,16 @@ BREAKPOINT_ENABLED = 1
 .export __breakpoint_edit
 .proc __breakpoint_edit
 	; display the title
-	ldxy #@getkey
+	ldxy #@menu
 	stxy r0
-	ldxy #@getdata
-	stxy r2
-	ldxy #strings::breakpoints_title
-	stxy r4
 	lda #BRKVIEW_STOP
-	ldx #HEIGHT
 	ldy dbg::numbreakpoints
 	jmp gui::listmenu
+@menu:
+.byte HEIGHT				; max height
+.word @getkey				; key handler
+.word @getdata				; get line handler
+.word strings::breakpoints_title	; title
 
 ;--------------------------------------
 @getkey:
@@ -55,7 +55,7 @@ BREAKPOINT_ENABLED = 1
 	ldy dbg::breakpointshi,x
 	lda dbg::breakpointslo,x
 	tax
-	jmp dbg::removebreakpoint
+	jsr dbg::removebreakpoint
 @done:	RETURN_OK
 
 ;--------------------------------------
@@ -65,13 +65,9 @@ BREAKPOINT_ENABLED = 1
 @namebuff=mem::spare+40
 	sta @offset
 	tax
-	pla
-	sta @keyretlo
-	pla
-	sta @keyrethi
 
 	cpx dbg::numbreakpoints
-	bcs @keydone
+	bcs @datadone
 
 	; push the address of the breakpoint
 	lda dbg::breakpointslo,x
@@ -128,15 +124,8 @@ BREAKPOINT_ENABLED = 1
 	; print the breakpoint info
 	ldxy #strings::breakpoints_line
 
-@keydone:
-	; restore return address
-@keyrethi=*+1
-	lda #$00
-	pha
-@keyretlo=*+1
-	lda #$00
-	pha
-	rts
+@datadone:
+	jmp gui::ret
 .endproc
 
 ;******************************************************************************

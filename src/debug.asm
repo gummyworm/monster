@@ -19,6 +19,7 @@
 .include "file.inc"
 .include "finalex.inc"
 .include "flags.inc"
+.include "gui.inc"
 .include "labels.inc"
 .include "irq.inc"
 .include "key.inc"
@@ -48,9 +49,9 @@ RTI_ADDR         = BRK_HANDLER_ADDR + 3
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
 MAX_WATCHPOINTS = 8	; max number of watchpoints that may be set
 
-AUX_MEM   = 1		; enables the memory viewer in the debug view
-AUX_BRK   = 2		; enables the breakpoint view in the debug view
-AUX_WATCH = 3		; enables the watchpoint view in the debug view
+AUX_NONE = 0		; flag for no viewer enabled
+AUX_MEM  = 1		; enables the memory viewer in the debug view
+AUX_GUI  = 2		; enables viewers that use the standard GUI list menu
 
 ; layout constants for the register view
 REG_PC_OFFSET = 0
@@ -956,7 +957,7 @@ brkhandler2_size=*-brkhandler2
 .proc edit_breakpoints
 	jsr showstate		; restore the state
 
-	lda #AUX_BRK
+	lda #AUX_GUI
 	sta aux_mode
 	jmp brkpt::edit
 .endproc
@@ -972,7 +973,7 @@ brkhandler2_size=*-brkhandler2
 	jsr bm::clrpart
 	jsr showstate		; restore the state
 
-	lda #AUX_WATCH
+	lda #AUX_GUI
 	sta aux_mode
 	jmp watch::edit
 .endproc
@@ -1044,7 +1045,7 @@ brkhandler2_size=*-brkhandler2
 	; activate the watch window so user sees change
 	lda #(DEBUG_INFO_START_ROW+1)*8
 	jsr bm::clrpart
-	lda #AUX_WATCH
+	lda #AUX_GUI
 	sta aux_mode
 	jsr watch::view
 
@@ -1858,23 +1859,12 @@ __debug_remove_breakpoint:
 ; on which is enabled
 .proc show_aux
 	ldx aux_mode
-	beq @done		; no aux mode
-	cpx #@numauxviews+1
-	bcs @done		; invalid selection
-	lda @auxlos-1,x
-	sta zp::jmpvec
-	lda @auxhis-1,x
-	sta zp::jmpvec+1
-
-	lda #(DEBUG_INFO_START_ROW+1)*8
-	jsr bm::clrpart
-
-	jmp zp::jmpaddr
-@done:	rts
-.define auxtab view::mem, brkpt::edit, watch::view
-@auxlos: .lobytes auxtab
-@auxhis: .hibytes auxtab
-@numauxviews=*-@auxhis
+	beq @none		; no aux mode
+	cmp #$01
+	bne @gui
+@mem:	jmp view::mem		; refresh the memory viewer
+@gui:	jmp gui::draw_listmenu	; refresh the active GUI
+@none:	rts
 .endproc
 
 ;******************************************************************************

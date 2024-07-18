@@ -23,6 +23,7 @@
 .include "file.inc"
 .include "finalex.inc"
 .include "format.inc"
+.include "gui.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "layout.inc"
@@ -2337,15 +2338,21 @@ goto_buffer:
 ; SHOW_BUFFERS
 ; Displays the filenames and their respective ID's for every open buffer
 .proc show_buffers
-@cnt=r9
-	jsr scr::reset
+	ldxy #@menu
+	stxy r0
+	lda height
+	ldy src::numbuffers
+	jmp gui::listmenu
+@menu:
+.byte 8			; max height
+.word @getkey		; key handler
+.word @getdata		; get line handler
+.word strings::null	; title
 
-	lda #$00
-	sta @cnt
-
-@l0:	ldy #$00
-	lda @cnt
-
+;--------------------------------------
+@getdata:
+@offset=r9
+	sta @offset
 	; push the buffer's name (for printing)
 	jsr src::filename
 	tya
@@ -2354,7 +2361,7 @@ goto_buffer:
 	pha
 
 	; display a '*' before filename if the buffer is dirty
-	lda @cnt
+	lda @offset
 	jsr src::getflags
 	ldx #' '
 	and #FLAG_DIRTY
@@ -2363,39 +2370,29 @@ goto_buffer:
 :	txa
 	pha
 
-@id:	lda @cnt
+@id:	lda @offset
 	clc
 	adc #$01	; display buffer ID as 1-based
 	pha
 
 	; print the buffer name at its corresponding row
-	lda @cnt
 	ldxy #@buffer_line
-	jsr text::print
+	jmp gui::ret
+@buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
 
-@next:	inc @cnt
-	lda @cnt
-	cmp src::numbuffers
-	bcc @l0
-	tax
-	lda #DEFAULT_900F^$08
-	jsr draw::hline
-
-@getch: jsr key::getch		; get a key to confirm
-	beq @getch
-	cmp #K_QUIT
-	beq @done
+;--------------------------------------
+@getkey:
 	cmp #'1'
-	bcc @getch
+	bcc :+
 	cmp #'8'+1
-	bcs @getch
+	bcs :+
 	sec
 	sbc #'1'
-	jmp goto_buffer
-
-@done:	jmp scr::restore
-
-@buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
+	jsr goto_buffer
+	sec		; flag to exit GUI
+	rts
+:	clc		; flag to get more keys
+	rts
 .endproc
 
 ;******************************************************************************
@@ -4546,6 +4543,14 @@ __edit_gotoline:
 	rts
 .endproc
 
+;******************************************************************************
+; SWAPWIN
+; Swaps to the current GUI (if one is active), this is the last gui created
+; via gui::activate.
+.proc swapwin
+	jmp gui::reenter
+.endproc
+
 .RODATA
 ;******************************************************************************
 controlcodes:
@@ -4563,50 +4568,51 @@ ccvectorshi: .hibytes ccvectors
 
 ;******************************************************************************
 commands:
-	.byte $68	; h (left)
-	.byte $6c	; l (right)
-	.byte $6b	; k (up)
-	.byte $6a	; j (down)
-	.byte $65	; e (end of word)
-	.byte $62	; b (beginning of word)
-	.byte $49	; I (insert start of line)
-	.byte $69	; i (insert)
-	.byte $72	; r (replace char)
-	.byte $52	; R (replace mode)
-	.byte $41	; A (append to line/insert)
-	.byte $61	; a (append to character)
-	.byte $64	; d (delete)
-	.byte $70	; p (paste below)
-	.byte $50	; P (paste above)
-	.byte $78	; x (erase char)
-	.byte $77	; w (word advance)
-	.byte $30	; 0 (column 0)
-	.byte $4c	; L (last line)
-	.byte $48	; H (home [first] line)
-	.byte $14	; DEL (back)
-	.byte $20	; SPACE (right)
-	.byte $47	; G (goto end)
-	.byte $67	; g (goto start)
-	.byte $4f	; O (Open line above cursor)
-	.byte $6f	; o (Open line below cursor)
-	.byte $24	; $ (end of line)
-	.byte $5b	; [ (previous empty line)
-	.byte $5d	; ] (next empty line)
-	.byte $0d	; RETURN (go to start of next line)
-	.byte $3b	; ; (comment out)
-	.byte $76	; v (enter visual mode)
-	.byte $56	; V (enter visual line mode)
-	.byte $79	; y (yank)
-	.byte $7a	; z (move screen prefix)
-	.byte K_FIND	; find
-	.byte K_NEXT_DRIVE ; next drive
-	.byte K_PREV_DRIVE ; prev drive
-	.byte K_GETCMD  ; get command
+	.byte K_SWAP_WINS	; C= + s (swap windows)
+	.byte $68		; h (left)
+	.byte $6c		; l (right)
+	.byte $6b		; k (up)
+	.byte $6a		; j (down)
+	.byte $65		; e (end of word)
+	.byte $62		; b (beginning of word)
+	.byte $49		; I (insert start of line)
+	.byte $69		; i (insert)
+	.byte $72		; r (replace char)
+	.byte $52		; R (replace mode)
+	.byte $41		; A (append to line/insert)
+	.byte $61		; a (append to character)
+	.byte $64		; d (delete)
+	.byte $70		; p (paste below)
+	.byte $50		; P (paste above)
+	.byte $78		; x (erase char)
+	.byte $77		; w (word advance)
+	.byte $30		; 0 (column 0)
+	.byte $4c		; L (last line)
+	.byte $48		; H (home [first] line)
+	.byte $14		; DEL (back)
+	.byte $20		; SPACE (right)
+	.byte $47		; G (goto end)
+	.byte $67		; g (goto start)
+	.byte $4f		; O (Open line above cursor)
+	.byte $6f		; o (Open line below cursor)
+	.byte $24		; $ (end of line)
+	.byte $5b		; [ (previous empty line)
+	.byte $5d		; ] (next empty line)
+	.byte $0d		; RETURN (go to start of next line)
+	.byte $3b		; ; (comment out)
+	.byte $76		; v (enter visual mode)
+	.byte $56		; V (enter visual line mode)
+	.byte $79		; y (yank)
+	.byte $7a		; z (move screen prefix)
+	.byte K_FIND		; find
+	.byte K_NEXT_DRIVE	; next drive
+	.byte K_PREV_DRIVE	; prev drive
+	.byte K_GETCMD		; get command
 numcommands=*-commands
 
 ; command tables for COMMAND mode key commands
 .linecont +
-.define cmd_vecs ccleft, ccright, ccup, ccdown, endofword, beginword, \
+.define cmd_vecs swapwin, ccleft, ccright, ccup, ccdown, endofword, beginword, \
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, paste_below, paste_above, delete_char, \
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
