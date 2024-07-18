@@ -1919,6 +1919,7 @@ force_enter_insert=*+5
 	clc		; not a universal key code; return to be handled
 	rts
 
+.RODATA
 @specialkeys:
 	.byte K_HOME		; HOME
 	.byte K_ASM 		; assemble
@@ -1955,6 +1956,7 @@ force_enter_insert=*+5
 .linecont -
 @specialvecslo: .lobytes specialvecs
 @specialvecshi: .hibytes specialvecs
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -2180,7 +2182,8 @@ __edit_set_breakpoint:
 	lda #BREAKPOINT_ON_COLOR
 
 @done:	ldx zp::cury
-	jmp draw::hline
+	jsr draw::hline
+	jmp gui::refresh
 .endproc
 
 ;******************************************************************************
@@ -2453,6 +2456,7 @@ goto_buffer:
 	jmp (zp::jmpvec)
 @done:  rts			; no input
 
+.RODATA
 @ex_commands:
 	.byte $67		; g - go
 	.byte $64		; d - debug
@@ -2475,6 +2479,8 @@ goto_buffer:
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
+
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -4428,6 +4434,8 @@ __edit_gotoline:
 ; IS READONLY
 ; Returns .Z set if the buffer should not allow edits (true if readonly has
 ; been explictly enabled or if we are in a VISUAL editing mode)
+; OUT:
+;   - .Z: set if the editor is currently in readonly mode
 .proc is_readonly
 	ldx readonly
 	bne @ro
@@ -4496,8 +4504,6 @@ __edit_gotoline:
 ; PRINT_INFO
 ; Updates the status line with the given info message and refreshses the status
 .proc print_info
-	;lda #$00
-	;sta mem::coloron
 	lda status_row
 	jsr text::print
 	rts

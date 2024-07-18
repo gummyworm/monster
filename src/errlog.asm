@@ -45,15 +45,15 @@ numerrs: .byte 0
 .export __errlog_activate
 .proc __errlog_activate
 	ldxy #@menu
-	stxy r0
-	ldy numerrs
 	jmp gui::listmenu
 @menu:
 .byte MAX_HEIGHT	; max height
 .word @keyhandler	; key handler
 .word @getline		; get line handler
+.word numerrs		; pointer to number of errors
 .word strings::errors	; title
 
+;--------------------------------------
 ; callback to get the item in .A
 @getline:
 @err=ra
@@ -82,6 +82,7 @@ numerrs: .byte 0
 	ldxy #strings::edit_line_err
 	jmp gui::ret
 
+;--------------------------------------
 ; callback to handle keypress
 @keyhandler:
 	cmp #K_RETURN

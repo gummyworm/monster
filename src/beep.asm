@@ -1,4 +1,5 @@
 .include "config.inc"
+.include "macros.inc"
 
 .BSS
 ;******************************************************************************
@@ -11,7 +12,7 @@ beep_tmr: .byte 0
 .export __beep_short
 .proc __beep_short
 	lda #SHORT_BEEP_DURATION
-	.byte $2c
+	skw
 	; fallthrough
 .endproc
 

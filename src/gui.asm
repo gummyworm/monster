@@ -1,6 +1,9 @@
 ;******************************************************************************
 ; GUI.ASM
 ; This file contains procedures for GUI functionality like graphical menus.
+; GUI windows are created by defining a structure containing handlers for 
+; retrieving the lines of data to draw and handling key presses. 
+; Handlers should stay away from the gui zeropage area (see zeropage.inc)
 ;******************************************************************************
 
 .include "bitmap.inc"
@@ -14,18 +17,42 @@
 .include "zeropage.inc"
 
 ;******************************************************************************
+MAX_WINDOWS = 3
+
+;******************************************************************************
 .BSS
 
-baserow:	.byte 0
-scroll:		.byte 0
-select:		.byte 0
-num:		.byte 0
+guidata = zp::gui
+guidata_size=$b
+; the following is the sequence stored 
+height	= zp::gui	; height of the GUI window
+getkey	= zp::gui+1	; pointer to get key handler function
+getdata = zp::gui+3	; pointer to get data handler function
+numptr  = zp::gui+5	; pointer to the number of items in the GUI
+title	= zp::gui+7	; pointer to the title string for the GUI
 
-guidata:
-height:		.byte 0
-getkey:		.word 0
-getdata:	.word 0
-title:		.word 0
+; the following are not part of the initialization struct, they are initialized
+; upon constructing the window and persisted (along side the above fields)
+; for the duration of it
+scroll  = zp::gui+9	; amount that the GUI window is scrolled
+select	= zp::gui+$a	; offset that is currently selected (highlighted)
+baserow = zp::gui+$b	; base row for active GUI (set on creation of GUI)
+
+; the following are not stored in the stack, but just used locally within
+; a single procedure call
+num    = zp::gui+$c	; number of items (cached read from numptr)
+guitmp = zp::gui+$d
+
+;******************************************************************************
+; GUISTACK
+; The guistack holds the gui data for each active window.
+; Activating a new window will push the current window (if any), and 
+; deactivating the window will pop it back into the active gui data memory.
+guistack:	.res MAX_WINDOWS*guidata_size
+
+;******************************************************************************
+.DATA
+guisp:		.word guistack
 
 ;******************************************************************************
 .CODE
@@ -38,7 +65,7 @@ title:		.word 0
 	lda baserow
 	ldx height
 	ldy num
-	jmp listmenu_cont
+	jmp __gui_activate
 .endproc
 
 ;******************************************************************************
@@ -57,45 +84,96 @@ title:		.word 0
 ; It is also called with the offset of the item in .A
 ;
 ; IN:
-;  - .A: the row to start the list at
-;  - .Y: the number of items
-;  - r0: the menu data:
-;    - 0: height of the view
-;    - 1: address of key handler
-;    	- IN:  .A: the key code, .X: the item index
-;    	- OUT: .C: set if the menu should exit
-;    - 3: address to the get data handler
-;    	- IN: .A: the item index to get the line of data for
-;    - 5: address of menu title
+;  - .XY: pointer to the menu data struct
+;	- 0: height of the view
+;	- 1: address of key handler
+;    		- IN:  .A: the key code, .X: the item index
+;    		- OUT: .C: set if the menu should exit
+;	- 3: address to the get data handler
+;    		- IN:  .A: the item index to get the line of data for
+;		- OUT: mem::linebuffer: the line to display
+;	- 5: pointer to number of items in the GUI
+;	- 7: address of menu title
+;	- 9: scroll value for the menu
+;	- A: selection offset for the menu
 .export  __gui_listmenu
-__gui_listmenu:
+.proc __gui_listmenu
+@src=r0
+@stack=r2
+	pha
+	stxy @src
+	lda guisp
+	beq @cont		; no GUI active
+
+	; save the current active GUI
+	ldxy guisp
+	stxy @stack
+
+	; update GUI stack pointer
+	lda #guidata_size
+	clc
+	adc @stack
+	sta guisp
+	bcc :+
+	inc guisp
+
+:	; copy the GUI data to the GUI stack
+	ldy #guidata_size-1
+	; initialize scroll and selection offset to 0
+	lda #$00
+	sta (@stack),y	; select
+	dey
+	sta (@stack),y	; scroll
+	dey
+@l0:	lda (@src),y
+	sta (@stack),y
+	dey
+	bpl @l0
+
+@cont:	pla
 	sta baserow
 	sty num
-	ldx #$00
-	stx scroll
-	stx select
 
-;--------------------------------------
-.proc listmenu_cont
-	ldy #6
-:	lda (r0),y
+
+	; fall through to __gui_activate
+.endproc
+
+;******************************************************************************
+; ACTIVATE
+; Activates the most recently created (top of the GUI stack) GUI window.
+.export __gui_activate
+.proc __gui_activate
+@stack=r0
+	; peek the address of the top element and set @stack to it
+	ldxy guisp
+	sub16 #guidata_size
+	stxy @stack
+
+	; copy the data from the GUI stack to the zeropage area
+	ldy #guidata_size-1
+@l0:	lda (@stack),y
 	sta guidata,y
 	dey
-	bpl :-
+	bpl @l0
 
-	lda num
+	; get the number of items in the GUI (may change between activations)
+	iny
+	lda (numptr),y
+	sta num
+
 	cmp height
-	bcs :+
-	sta height
-	sta height
-
-:	lda baserow
+	bcs @resize	; if # of items is > max height, use full height
+	sta height	; else, only resize to the size needed to fit all items
+@resize:
+	; resize the main editor window to fit the GUI
+	lda baserow
 	sec
 	sbc height
 	pha
 	sbc #$01
 	jsr edit::resize
 
+	; print the title for the menu
 	pla
 	pha
 	ldxy title
@@ -105,15 +183,16 @@ __gui_listmenu:
 	lda #DEFAULT_900F^$08
 	jsr draw::hline
 
+	; draw GUI before entering the main GUI loop
 	dec height
-	jsr __gui_refresh
+	bne @redraw
 
 @loop:	jsr key::getch
 	beq @loop
 
-	pha
+	pha		; save the key
 
-	; unhighlight the current line
+	; unhighlight the current line in case we move lines
 	lda baserow
 	sec
 	sbc select
@@ -121,14 +200,11 @@ __gui_listmenu:
 	lda #DEFAULT_900F
 	jsr draw::hline
 
-	pla
+	pla		; get the key
 	cmp #K_QUIT
 	bne @chkup
-@quit:	; save current offset/scroll/etc.
-	lda select
-	sta select
-	lda scroll
-	sta scroll
+
+@quit:	; TOOD: copy current state back to (guisp)
 	rts
 
 @chkup:	jsr key::isup
@@ -198,7 +274,7 @@ __gui_listmenu:
 ; cause the breakpoints GUI to populate with new data.
 .export __gui_refresh
 .proc __gui_refresh
-@row=zp::gui
+@row=guitmp
 	lda baserow
 	sta @row
 	sec
@@ -237,10 +313,27 @@ __gui_listmenu:
 
 ;******************************************************************************
 ; GUIRETURN
-; Entrypoint for "getline" handlers to return from.  These handlers should
+; Jump target for "getline" handlers to return from.  These handlers should
 ; end with a `jmp gui::return` instead of `rts`
 ; This is done because these handlers often push values to be printed and this
 ; saves them from having to do stack management
 .export __gui_return
 __gui_return = @guireturn
+.endproc
+
+;******************************************************************************
+; DEACTIVATE
+; Exits the GUI that is at the top of the GUI stack
+.export __gui_deactivate
+.proc __gui_deactivate
+	ldxy guisp
+	cmpw #guistack
+	beq @done		; do nothing if stack is empty
+	lda guisp
+	sec
+	sbc #guidata_size
+	sta guisp
+	bcs @done
+	dec guisp+1
+@done:	rts
 .endproc
