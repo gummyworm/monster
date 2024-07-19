@@ -3,6 +3,9 @@
 ;******************************************************************************
 .RODATA
 
+.export __str_buffers
+__str_buffers: .byte "buffers",0
+
 .export __str_noname
 __str_noname: .byte "[no name]",0
 

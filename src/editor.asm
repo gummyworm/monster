@@ -2342,15 +2342,14 @@ goto_buffer:
 ; Displays the filenames and their respective ID's for every open buffer
 .proc show_buffers
 	ldxy #@menu
-	stxy r0
 	lda height
-	ldy src::numbuffers
 	jmp gui::listmenu
 @menu:
 .byte 8			; max height
 .word @getkey		; key handler
 .word @getdata		; get line handler
-.word strings::null	; title
+.word src::numbuffers	; num ptr
+.word strings::buffers	; title
 
 ;--------------------------------------
 @getdata:

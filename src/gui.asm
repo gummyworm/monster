@@ -1,8 +1,8 @@
 ;******************************************************************************
 ; GUI.ASM
 ; This file contains procedures for GUI functionality like graphical menus.
-; GUI windows are created by defining a structure containing handlers for 
-; retrieving the lines of data to draw and handling key presses. 
+; GUI windows are created by defining a structure containing handlers for
+; retrieving the lines of data to draw and handling key presses.
 ; Handlers should stay away from the gui zeropage area (see zeropage.inc)
 ;******************************************************************************
 
@@ -24,7 +24,7 @@ MAX_WINDOWS = 3
 
 guidata = zp::gui
 guidata_size=$b
-; the following is the sequence stored 
+; the following is the sequence stored
 height	= zp::gui	; height of the GUI window
 getkey	= zp::gui+1	; pointer to get key handler function
 getdata = zp::gui+3	; pointer to get data handler function
@@ -46,7 +46,7 @@ guitmp = zp::gui+$d
 ;******************************************************************************
 ; GUISTACK
 ; The guistack holds the gui data for each active window.
-; Activating a new window will push the current window (if any), and 
+; Activating a new window will push the current window (if any), and
 ; deactivating the window will pop it back into the active gui data memory.
 guistack:	.res MAX_WINDOWS*guidata_size
 
@@ -102,11 +102,11 @@ guisp:		.word guistack
 @stack=r2
 	pha
 	stxy @src
-	lda guisp
+	ldxy guisp
+	cmpw #guistack
 	beq @cont		; no GUI active
 
 	; save the current active GUI
-	ldxy guisp
 	stxy @stack
 
 	; update GUI stack pointer
@@ -115,7 +115,7 @@ guisp:		.word guistack
 	adc @stack
 	sta guisp
 	bcc :+
-	inc guisp
+	inc guisp+1
 
 :	; copy the GUI data to the GUI stack
 	ldy #guidata_size-1
@@ -132,8 +132,6 @@ guisp:		.word guistack
 
 @cont:	pla
 	sta baserow
-	sty num
-
 
 	; fall through to __gui_activate
 .endproc
@@ -144,27 +142,9 @@ guisp:		.word guistack
 .export __gui_activate
 .proc __gui_activate
 @stack=r0
-	; peek the address of the top element and set @stack to it
-	ldxy guisp
-	sub16 #guidata_size
-	stxy @stack
+	; copy the persistent GUI state to the zeropage
+	jsr copyvars
 
-	; copy the data from the GUI stack to the zeropage area
-	ldy #guidata_size-1
-@l0:	lda (@stack),y
-	sta guidata,y
-	dey
-	bpl @l0
-
-	; get the number of items in the GUI (may change between activations)
-	iny
-	lda (numptr),y
-	sta num
-
-	cmp height
-	bcs @resize	; if # of items is > max height, use full height
-	sta height	; else, only resize to the size needed to fit all items
-@resize:
 	; resize the main editor window to fit the GUI
 	lda baserow
 	sec
@@ -185,7 +165,7 @@ guisp:		.word guistack
 
 	; draw GUI before entering the main GUI loop
 	dec height
-	bne @redraw
+	bpl @redraw
 
 @loop:	jsr key::getch
 	beq @loop
@@ -252,7 +232,7 @@ guisp:		.word guistack
 	jsr @keycallback
 	bcs @quit
 @redraw:
-	jsr __gui_refresh	; refresh the display
+	jsr __gui_refresh+3	; refresh the display (skip copying vars)
 	jmp @loop
 
 ;--------------------------------------
@@ -275,7 +255,12 @@ guisp:		.word guistack
 .export __gui_refresh
 .proc __gui_refresh
 @row=guitmp
-	lda baserow
+	; copy the persistent GUI state to the zeropage
+	jsr copyvars
+	bcc :+
+	rts				; no GUI to draw
+
+:	lda baserow
 	sta @row
 	sec
 	sbc height
@@ -336,4 +321,39 @@ __gui_return = @guireturn
 	bcs @done
 	dec guisp+1
 @done:	rts
+.endproc
+
+;******************************************************************************
+; COPYVARS
+; Copies the GUI state to the zeropage
+; OUT:
+;  - .C: set if there is no GUI active
+.proc copyvars
+@stack=r0
+	; peek the address of the top element and set @stack to it
+	ldxy guisp
+	cmpw #guistack
+	bne :+
+	rts
+
+:	sub16 #guidata_size
+	stxy @stack
+
+	; copy the data from the GUI stack to the zeropage area
+	ldy #guidata_size-1
+@l0:	lda (@stack),y
+	sta guidata,y
+	dey
+	bpl @l0
+
+	; get the number of items in the GUI (may change between activations)
+	iny
+	lda (numptr),y
+	sta num
+
+	cmp height
+	bcs :+		; if # of items is > max height, use full height
+	sta height	; else, only resize to the size needed to fit all items
+:	clc
+	rts
 .endproc
