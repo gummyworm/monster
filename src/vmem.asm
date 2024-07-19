@@ -2,6 +2,8 @@
 .include "macros.inc"
 .include "memory.inc"
 
+.CODE
+
 ;******************************************************************************
 ; LOAD
 ; Reads a byte from the physical address associated with the given virtual
@@ -72,7 +74,7 @@
 .export __vmem_translate
 .proc __vmem_translate
 	lda #FINAL_BANK_USER	; default to user's bank
-	cmpw #$100
+	cpy #>$0100
 	bcs :+
 
 @00:	; $00-$100 is stored in the prog00 buffer
@@ -80,9 +82,9 @@
 	lda #FINAL_BANK_MAIN
 	rts
 
-:	cmpw #$1000
+:	cpy #>$1000
 	bcc @done
-	cmpw #$1100
+	cpy #>$1100
 	bcs :+
 
 @1000:	; $1000-$1100 is stored in the prog1000 buffer
@@ -90,7 +92,7 @@
 	lda #FINAL_BANK_MAIN
 	rts
 
-:	cmpw #$2000
+:	cpy #>$2000
 	bcs :+
 
 @1100:	; $1100-$2000 is stored in the "fast copy" bank
