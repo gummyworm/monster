@@ -326,6 +326,16 @@ __gui_return = @guireturn
 .endproc
 
 ;******************************************************************************
+; CLOSEALL
+; Frees the GUI stack by setting it back to its base.
+.export __gui_closeall
+.proc __gui_closeall
+	ldxy #guistack
+	stxy guisp
+	rts
+.endproc
+
+;******************************************************************************
 ; COPYVARS
 ; Copies the GUI state to the zeropage
 ; OUT:

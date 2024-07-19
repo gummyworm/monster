@@ -136,8 +136,11 @@ memaddr:   .word 0
 	pha
 	lda #WATCH_STORE
 	jsr watch::add
+
 	ldxy #strings::watch_added
-	jsr text::info
+	lda #DEBUG_MESSAGE_LINE
+	jsr text::print
+
 	jsr beep::short	; beep to confirm add
 	jmp @edit
 

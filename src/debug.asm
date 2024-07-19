@@ -316,15 +316,14 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	; and install the first BRK at the debug start address
 	ldxy sim::pc
 	lda #$00
-	sta aux_mode	; initialize auxiliary views
+	sta aux_mode		; initialize auxiliary views
+	sta __debug_numwatches	; clear watches
 	jsr vmem::store
 
 	lda #DEFAULT_RVS
 	ldx #DEBUG_MESSAGE_LINE
 	jsr draw::hline
 
-	; init state
-	sta __debug_numwatches
 	jsr reset_stopwatch
 
 	jsr install_brk			; install the BRK handler IRQ
@@ -1047,7 +1046,7 @@ brkhandler2_size=*-brkhandler2
 	jsr bm::clrpart
 	lda #AUX_GUI
 	sta aux_mode
-	jsr watch::view
+	jsr watch::edit
 
 @setbrk:
 	pla			; get instruction size
