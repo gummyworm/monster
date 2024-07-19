@@ -152,6 +152,8 @@ guisp:		.word guistack
 	pha		; save the key
 
 	; unhighlight the current line in case we move lines
+	lda num
+	beq :+
 	lda baserow
 	sec
 	sbc select
@@ -159,7 +161,7 @@ guisp:		.word guistack
 	lda #DEFAULT_900F
 	jsr draw::hline
 
-	pla		; get the key
+:	pla		; get the key
 	cmp #K_QUIT
 	bne @chkup
 

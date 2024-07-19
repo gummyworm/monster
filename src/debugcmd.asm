@@ -82,7 +82,7 @@
 
 ;******************************************************************************
 ; ADD WATCH
-; /wa <expression> [, expression]
+; !wa <expression> [, expression]
 ; Prompts for a start address and (optional) stop address and adds a watch
 ; at that location
 ; IN:
@@ -112,7 +112,7 @@
 
 ;******************************************************************************
 ; LIST WATCHES
-; /w
+; !w
 ; Lists all active watches
 .proc list_watches
 	; TODO
@@ -120,7 +120,7 @@
 
 ;******************************************************************************
 ; REMOVE WATCH
-; /wr <id>
+; !wr <id>
 ; Deletes the watch with the given ID. The ID's can be found by listing watches
 ; with the w command or going to the watch viewer.
 ; IN:
@@ -143,7 +143,7 @@
 
 ;******************************************************************************
 ; ADD BREAK
-; /br <expr>
+; !br <expr>
 ; Adds a breakpoint at the given address/expression
 ; IN:
 ;  - .XY: the parameters for the command
