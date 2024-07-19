@@ -23,7 +23,7 @@ MAX_WINDOWS = 3
 .BSS
 
 guidata = zp::gui
-guidata_size=$b
+guidata_size=$c
 ; the following is the sequence stored
 height	= zp::gui	; height of the GUI window
 getkey	= zp::gui+1	; pointer to get key handler function
@@ -116,7 +116,10 @@ guisp:		.word guistack
 
 :	; copy the GUI data to the GUI stack
 	ldy #guidata_size-1
+	pla
+	sta (@stack),y	; base row
 	; initialize scroll and selection offset to 0
+	dey
 	lda #$00
 	sta (@stack),y	; select
 	dey
@@ -126,9 +129,6 @@ guisp:		.word guistack
 	sta (@stack),y
 	dey
 	bpl @l0
-
-	pla
-	sta baserow
 
 	; fall through to __gui_activate
 .endproc
@@ -146,27 +146,13 @@ guisp:		.word guistack
 	lda baserow
 	sec
 	sbc height
-	pha
 	sbc #$01
 	jsr edit::resize
 
-	; print the title for the menu
-	pla
-	pha
-	ldxy title
-	jsr text::print
-	pla
-	tax
-	lda #DEFAULT_900F^$08
-	jsr draw::hline
-
 	; draw GUI before entering the main GUI loop
-	dec height
-	bpl @redraw
-
-@loop:	jsr key::getch
-	beq @loop
-
+@loop:	jsr redraw_state
+:	jsr key::getch
+	beq :-
 	pha		; save the key
 
 	; unhighlight the current line in case we move lines
@@ -181,7 +167,7 @@ guisp:		.word guistack
 	cmp #K_QUIT
 	bne @chkup
 
-@quit:	; TOOD: copy current state back to (guisp)
+@quit:	; TODO: copy current state back to (guisp)
 	rts
 
 @chkup:	jsr key::isup
@@ -191,7 +177,7 @@ guisp:		.word guistack
 	adc scroll
 	adc #$01		; need to check num-1
 	cmp num
-	bcs @redraw		; out of bounds
+	bcs @loop		; out of bounds
 
 	lda select
 	cmp height
@@ -203,9 +189,9 @@ guisp:		.word guistack
 	bcc @goup		; if < maxheight, just move cursor
 	clc
 	inc scroll
-	bne @redraw		; redraw the scrolled display
+	bne @loop		; redraw the scrolled display
 @goup:	inc select
-	bne @redraw
+	bne @loop
 
 @chkdown:
 	jsr key::isdown
@@ -215,22 +201,20 @@ guisp:		.word guistack
 	beq @scrolldown
 
 	dec select
-	bpl @redraw
+	bpl @loop
 @scrolldown:
 	clc
 	adc scroll
-	beq @redraw		; can't move
+	beq @loop		; can't move
 
 	dec scroll
-	bpl @redraw		; redraw the scrolled display
+	bpl @loop		; redraw the scrolled display
 
 ;--------------------------------------
 @getch:
 	jsr @keycallback
 	bcs @quit
-@redraw:
-	jsr redraw_state	; refresh the display (skip copying vars)
-	jmp @loop
+	bcc @loop
 
 ;--------------------------------------
 @keycallback:
@@ -263,8 +247,17 @@ __gui_refresh:
 	sta @row
 	sec
 	sbc height
-	beq :-
 	sta @rowstop
+
+	; draw the title
+	ldxy title
+	jsr text::print
+	ldx @rowstop
+	lda #DEFAULT_900F^$08
+	jsr draw::hline
+
+	inc @rowstop
+
 	lda #$00
 	sta @i
 
@@ -333,10 +326,9 @@ __gui_return = @guireturn
 	; peek the address of the top element and set @stack to it
 	ldxy guisp
 	cmpw #guistack
-	bne :+
-	rts
+	beq @done
 
-:	sub16 #guidata_size
+	sub16 #guidata_size
 	stxy @stack
 
 	; copy the data from the GUI stack to the zeropage area
@@ -352,8 +344,8 @@ __gui_return = @guireturn
 	sta num
 
 	cmp height
-	bcs :+		; if # of items is > max height, use full height
+	bcs @done	; if # of items is > max height, use full height
 	sta height	; else, only resize to the size needed to fit all items
-:	clc
-	rts
+	clc
+@done:	rts
 .endproc
