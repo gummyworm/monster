@@ -2158,7 +2158,8 @@ __edit_refresh:
 
 ;******************************************************************************
 ; SET_BREAKPOINT
-; insert a BREAKPOINT character at the cursor's current file nad line
+; Inserts a BREAKPOINT character at the cursor's current file and line number.
+; If a breakpoint already exists there, removes it.
 .export __edit_set_breakpoint
 __edit_set_breakpoint:
 .proc set_breakpoint
@@ -2171,9 +2172,6 @@ __edit_set_breakpoint:
 
 @remove:
 	jsr dbg::removebreakpointbyid
-	lda dbg::breakpoint_lineslo,x
-	ldy dbg::breakpoint_lineshi,x
-	jsr dbg::removebreakpoint
 	lda #DEFAULT_900F
 	bne @done
 @set:

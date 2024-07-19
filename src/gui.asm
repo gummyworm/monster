@@ -142,13 +142,6 @@ guisp:		.word guistack
 	; copy the persistent GUI state to the zeropage
 	jsr copyvars
 
-	; resize the main editor window to fit the GUI
-	lda baserow
-	sec
-	sbc height
-	sbc #$01
-	jsr edit::resize
-
 	; draw GUI before entering the main GUI loop
 	dec height
 @loop:	inc height
@@ -245,6 +238,14 @@ __gui_refresh:
 
 ; entrypoint to draw the already copied zeropage state
 .proc redraw_state
+	; resize the main editor window to fit the GUI (may increase editor
+	; size if the GUI window has shrunk since the last call)
+	lda baserow
+	sec
+	sbc height
+	sbc #$01
+	jsr edit::resize
+
 @row=guitmp
 	lda baserow
 	sta @row
