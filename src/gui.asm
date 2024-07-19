@@ -150,7 +150,10 @@ guisp:		.word guistack
 	jsr edit::resize
 
 	; draw GUI before entering the main GUI loop
-@loop:	jsr redraw_state
+	dec height
+@loop:	inc height
+	jsr redraw_state
+	dec height
 :	jsr key::getch
 	beq :-
 	pha		; save the key
@@ -276,6 +279,11 @@ __gui_refresh:
 @guireturn:				; getdata will jump back here
 	lda @row
 	jsr text::print
+
+	lda #DEFAULT_900F		; unhighlight
+	ldx @row
+	jsr draw::hline
+
 	dec @row
 	inc @i
 	bne @dloop
