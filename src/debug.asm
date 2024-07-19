@@ -265,6 +265,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; RESTORE_PROGSTATE
 ; restores the saved program state
 .proc __debug_restore_progstate
+; restore $9000-$9010
 	ldx #$10
 :	lda mem::prog9000-1,x
 	sta $9000-1,x
@@ -982,6 +983,10 @@ brkhandler2_size=*-brkhandler2
 ; Command that swaps in the user program memory, waits for a keypress, and
 ; returns with the debugger's memory swapped back in
 .proc swap_user_mem
+	; disable coloring in the IRQ
+	lda #$00
+	sta mem::coloron
+
 	jsr save_debug_state
 	jsr __debug_restore_progstate
 
@@ -989,6 +994,10 @@ brkhandler2_size=*-brkhandler2
 :	jsr key::getch
 	beq :-
 	jsr __debug_save_prog_state
+
+	; reenable coloring
+	inc mem::coloron
+
 	jmp restore_debug_state	; restore debugger state
 .endproc
 

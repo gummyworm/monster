@@ -98,9 +98,9 @@
 	lda #FINAL_BANK_FASTCOPY
 	rts
 
-:	cmpw #$9000
+:	cpy #>$9000
 	bcc @done
-	cmpw #$9010
+	cpx #<$9010
 	bcs :+
 
 @9000:	; $9000-$9010 is stored in the prog9000 buffer
@@ -108,10 +108,8 @@
 	lda #FINAL_BANK_MAIN
 	rts
 
-:	cmpw #$9400
-	bcc @done
-	cmpw #$9500
-	bcs @done
+:	cpy #>$9400
+	bne @done
 
 @9400:	; $9400-$9500 is stored in the prog9400 buffer
 	add16 #(mem::prog9400-$9400)

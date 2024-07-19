@@ -2337,7 +2337,9 @@ goto_buffer:
 
 ;******************************************************************************
 ; SHOW_BUFFERS
-; Displays the filenames and their respective ID's for every open buffer
+; Displays the filenames and their respective ID's for every open buffer.
+; Then prompts the user for a selection via the standard GUI.  This window
+; is closed upon exiting or selecting a buffer
 .proc show_buffers
 	ldxy #@menu
 	lda height
