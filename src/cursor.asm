@@ -77,6 +77,7 @@ __cur_off:
 	lda __cur_status
 	bne __cur_toggle
 	rts
+
 ;******************************************************************************
 ; ON
 ; Turns on the cursor if it is off. Has no effect if the cursor is already on.
@@ -87,6 +88,7 @@ __cur_on:
 	lda __cur_status
 	beq __cur_toggle
 	rts
+
 ;******************************************************************************
 ; TOGGLE
 ; Toggles the cursor (turns it off if its on or vise-versa)
@@ -329,4 +331,3 @@ __cur_toggle:
 	ldy #23
 	jmp __cur_setmax
 .endproc
-

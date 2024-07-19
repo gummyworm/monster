@@ -199,7 +199,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 ;******************************************************************************
 ; GETDATA
 ; returns the address of the data for the active context.
-; out:
+; OUT:
 ;  - .XY: the address of the data for the current context
 .export __ctx_getdata
 .proc __ctx_getdata

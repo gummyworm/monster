@@ -2341,7 +2341,10 @@ goto_buffer:
 .proc show_buffers
 	ldxy #@menu
 	lda height
-	jmp gui::listmenu
+	jsr gui::listmenu
+
+	; we don't need to keep this window open, close it
+	jmp cancel
 @menu:
 .byte 8			; max height
 .word @getkey		; key handler
@@ -2382,12 +2385,18 @@ goto_buffer:
 
 ;--------------------------------------
 @getkey:
-	cmp #'1'
+	cmp #K_RETURN
+	bne :+
+	txa
+	bpl @gotobuff
+
+:	cmp #'1'
 	bcc :+
 	cmp #'8'+1
 	bcs :+
 	sec
 	sbc #'1'
+@gotobuff:
 	jsr goto_buffer
 	sec		; flag to exit GUI
 	rts
