@@ -102,11 +102,8 @@ guisp:		.word guistack
 @stack=r2
 	pha
 	stxy @src
-	ldxy guisp
-	cmpw #guistack
-	beq @cont		; no GUI active
 
-	; save the current active GUI
+	ldxy guisp
 	stxy @stack
 
 	; update GUI stack pointer
@@ -130,7 +127,7 @@ guisp:		.word guistack
 	dey
 	bpl @l0
 
-@cont:	pla
+	pla
 	sta baserow
 
 	; fall through to __gui_activate
@@ -232,7 +229,7 @@ guisp:		.word guistack
 	jsr @keycallback
 	bcs @quit
 @redraw:
-	jsr __gui_refresh+3	; refresh the display (skip copying vars)
+	jsr redraw_state	; refresh the display (skip copying vars)
 	jmp @loop
 
 ;--------------------------------------
@@ -253,17 +250,20 @@ guisp:		.word guistack
 ; would affect the state of the GUI window, e.g. setting a breakpoint could
 ; cause the breakpoints GUI to populate with new data.
 .export __gui_refresh
-.proc __gui_refresh
-@row=guitmp
+__gui_refresh:
 	; copy the persistent GUI state to the zeropage
 	jsr copyvars
-	bcc :+
-	rts				; no GUI to draw
+	bcc redraw_state
+:	rts				; no GUI to draw
 
-:	lda baserow
+; entrypoint to draw the already copied zeropage state
+.proc redraw_state
+@row=guitmp
+	lda baserow
 	sta @row
 	sec
 	sbc height
+	beq :-
 	sta @rowstop
 	lda #$00
 	sta @i
