@@ -993,12 +993,12 @@ brkhandler2_size=*-brkhandler2
 	; wait for a key to swap the state back
 :	jsr key::getch
 	beq :-
-	jsr __debug_save_prog_state
 
 	; reenable coloring
 	inc mem::coloron
 
-	jmp restore_debug_state	; restore debugger state
+	; restore debugger state
+	jmp restore_debug_state
 .endproc
 
 ;******************************************************************************

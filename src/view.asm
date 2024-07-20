@@ -209,7 +209,7 @@ memaddr:   .word 0
 	asl
 	asl
 	ora @odd
-	jmp @store
+	bcc @store	; branch always
 
 ;--------------------------------------
 @lownybble:
@@ -225,8 +225,7 @@ memaddr:   .word 0
 	sta zp::bankval
 	ldxy @dst
 	lda @dstoffset
-	jsr vmem::store_off
-	rts
+	jmp vmem::store_off
 
 ;--------------------------------------
 ; move cursor to the next x-position
@@ -507,10 +506,9 @@ memaddr:   .word 0
 	cmp #$20
 	bcc :+
 	cmp #$80
-	bcs :+
-	rts
+	bcc @done
 :	lda #'.'	; use '.' for undisplayable chars
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -546,6 +544,7 @@ memaddr:   .word 0
 ; IN:
 ;  - memaddr: the base address of the current view
 ; OUT:
+;  - .XY: the address under the cursor
 ;  - r0: the address under the cursor
 .proc get_addr
 @dst=r0
@@ -572,6 +571,7 @@ memaddr:   .word 0
 	tya
 	clc
 	adc @dst
+	sta @dst
 	tax
 	bcc :+
 	inc @dst+1

@@ -101,9 +101,9 @@
 	rts
 
 :	cpy #>$9000
-	bcc @done
+	bne :+
 	cpx #<$9010
-	bcs :+
+	bcs @done		; $9010-$9100 is not buffered anywhere
 
 @9000:	; $9000-$9010 is stored in the prog9000 buffer
 	add16 #(mem::prog9000-$9000)
