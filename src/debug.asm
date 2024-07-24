@@ -265,6 +265,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; RESTORE_PROGSTATE
 ; restores the saved program state
 .proc __debug_restore_progstate
+; restore $9000-$9010
 	ldx #$10
 :	lda mem::prog9000-1,x
 	sta $9000-1,x
@@ -316,15 +317,14 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	; and install the first BRK at the debug start address
 	ldxy sim::pc
 	lda #$00
-	sta aux_mode	; initialize auxiliary views
+	sta aux_mode		; initialize auxiliary views
+	sta __debug_numwatches	; clear watches
 	jsr vmem::store
 
 	lda #DEFAULT_RVS
 	ldx #DEBUG_MESSAGE_LINE
 	jsr draw::hline
 
-	; init state
-	sta __debug_numwatches
 	jsr reset_stopwatch
 
 	jsr install_brk			; install the BRK handler IRQ
@@ -983,14 +983,22 @@ brkhandler2_size=*-brkhandler2
 ; Command that swaps in the user program memory, waits for a keypress, and
 ; returns with the debugger's memory swapped back in
 .proc swap_user_mem
+	; disable coloring in the IRQ
+	lda #$00
+	sta mem::coloron
+
 	jsr save_debug_state
 	jsr __debug_restore_progstate
 
 	; wait for a key to swap the state back
 :	jsr key::getch
 	beq :-
-	jsr __debug_save_prog_state
-	jmp restore_debug_state	; restore debugger state
+
+	; reenable coloring
+	inc mem::coloron
+
+	; restore debugger state
+	jmp restore_debug_state
 .endproc
 
 ;******************************************************************************
@@ -1047,7 +1055,7 @@ brkhandler2_size=*-brkhandler2
 	jsr bm::clrpart
 	lda #AUX_GUI
 	sta aux_mode
-	jsr watch::view
+	jsr watch::edit
 
 @setbrk:
 	pla			; get instruction size
@@ -1858,12 +1866,12 @@ __debug_remove_breakpoint:
 ; Displays the memory viewer, breakpoint viewer, or watchpoint viewer depending
 ; on which is enabled
 .proc show_aux
-	ldx aux_mode
+	lda aux_mode
 	beq @none		; no aux mode
-	cmp #$01
+	cmp #AUX_MEM
 	bne @gui
 @mem:	jmp view::mem		; refresh the memory viewer
-@gui:	jmp gui::draw_listmenu	; refresh the active GUI
+@gui:	jmp gui::refresh	; refresh the active GUI
 @none:	rts
 .endproc
 
@@ -1992,6 +2000,7 @@ __debug_remove_breakpoint:
 ; This table contains the keys used to invoke the corresponding command
 ; within the debugger
 commands:
+	.byte K_QUIT_DEBUGGER
 	.byte K_QUIT
 	.byte K_STEP
 	.byte K_STEPOVER
@@ -2010,7 +2019,7 @@ commands:
 num_commands=*-commands
 
 .linecont +
-.define command_vectors quit, step, step_over, go, \
+.define command_vectors quit, edit_source, step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
 	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state, \
 	goto_break, enter_debug_cmd

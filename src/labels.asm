@@ -3,6 +3,7 @@
 .include "macros.inc"
 .include "zeropage.inc"
 
+;******************************************************************************
 .macro LBLJUMP proc
 	pha
 	lda #<proc

@@ -157,8 +157,8 @@ rowcnt: .byte 0
 	sty $9129
 	cli
 
-@cont:	inc $900f
-	dec $900f
+@cont:	; inc $900f
+	; dec $900f
 	lda #$00
 	sta rowcnt
 

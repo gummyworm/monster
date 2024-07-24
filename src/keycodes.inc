@@ -9,10 +9,10 @@ K_UP_ARROW  = $5e	; up arrow
 
 K_PREV_BUFF  = $3c	; <
 K_NEXT_BUFF  = $3e	; >
-K_NEW_BUFF   = $aa	; <C=> + n
-K_CLOSE_BUFF = $ab	; <C=> + q
+K_NEW_BUFF   = $aa	; C= + n
+K_CLOSE_BUFF = $ab	; C= + q
 
-K_UDG_EDIT   = $b8	; <C=> + u
+K_UDG_EDIT   = $b8	; C= + u
 
 ; GLOBAL INTERFACE KEYS
 K_RETURN    = $0d	; RETURN
@@ -42,23 +42,23 @@ K_GOTO_BUFF8     = $9b  ; C= + 8
 K_JUMPBACK       = $b9	; C= + o
 K_JUMPFORWARD    = $a2	; C= + i
 K_OPEN           = $b1	; C= + e
-K_SCRATCH	 = $bd	; C= + x
 K_NEXT_DRIVE     = $a6  ; C= + +
 K_PREV_DRIVE     = $dc  ; C= + -
 K_EDIT_STATE     = $89	; F2
 K_SWAP_WINS      = $b3	; C= + s
 
 ; DEBUGGER KEYS
-K_SRCVIEW         = $85	; F1
-K_MEMVIEW         = $86	; F3
-K_BRKVIEW         = $87	; F5
-K_WATCHVIEW       = $88	; F7
-K_SWAP_USERMEM    = $20	; SPACE
-K_RESET_STOPWATCH = $b2	; <C=> + r
-K_GOTO_BREAK      = $5e	; up-arrow
-K_ENTER_DEBUG_CMD = $21	; !
+K_SRCVIEW		= $85	; F1
+K_MEMVIEW		= $86	; F3
+K_BRKVIEW		= $87	; F5
+K_WATCHVIEW		= $88	; F7
+K_SWAP_USERMEM		= $20	; SPACE
+K_RESET_STOPWATCH	= $b2	; C= + r
+K_QUIT_DEBUGGER		= $bd	; C= + x
+K_GOTO_BREAK		= $5e	; up-arrow
+K_ENTER_DEBUG_CMD	= $21	; !
 
-K_GO       = $a5	; <C=> + g
+K_GO       = $a5	; C= + g
 K_STEPOVER = $73	; s
 K_TRACE    = $74	; t
 K_STEP     = $7a	; z

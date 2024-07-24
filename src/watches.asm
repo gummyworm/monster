@@ -8,6 +8,7 @@
 .include "expr.inc"
 .include "finalex.inc"
 .include "flags.inc"
+.include "gui.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "labels.inc"
@@ -44,25 +45,55 @@ row:	.byte 0
 .endproc
 
 ;******************************************************************************
-; VIEW
-; Displays the watches
-.export __watches_view
-.proc __watches_view
+; EDIT
+; Begins the breakpoint editor
+.export __watches_edit
+.proc __watches_edit
+	; display the title
+	ldxy #@menu
+	lda #WATCHVIEW_STOP
+	jmp gui::listmenu
+@menu:
+.byte HEIGHT				; max height
+.word @getkey				; key handler
+.word @getdata				; get line handler
+.word dbg::numwatches			; # of breakpoints pointer
+.word strings::watches_title		; title
+
+;--------------------------------------
+@getkey:
+	cmp #K_RETURN
+	bne @chkdel
+
+	; invoke the memory editor at the selected watch's address
+	lda row
+	clc
+	adc scroll
+	tax
+	lda dbg::watcheslo,x
+	sta view::addr
+	lda dbg::watcheshi,x
+	sta view::addr+1
+	jsr view::edit		; invoke the memory editor
+	sec			; after returning from mem editor, quit
+	rts
+
+@chkdel:
+	cmp #K_DEL		; DEL
+	bne @done
+
+	; TODO: delete the watch
+@done:	RETURN_OK
+
+;--------------------------------------
+@getdata:
 @cnt=zp::tmp13
 @range=r3			; if !0, start != stop (watch is a range)
 @start=r4			; start address
 @stop=r6			; stop address (same as start if NOT range)
 @val=r8			; value of watch (if NOT range)
-	; get the first visible watch's offset
-	lda scroll
 	sta @cnt
-
-@l0:	ldx @cnt
-	cpx dbg::numwatches
-	bcc :+
-	rts
-
-:	lda #$00
+	lda #$00
 	sta @range			; init RANGE flag to false
 	sta strings::watches_line_end	; restore string if it was changed
 
@@ -80,6 +111,7 @@ row:	.byte 0
 	cmp dbg::watches_stophi,y
 	beq :+
 	inc @range
+
 :	sta @start+1
 	lda dbg::watches_stophi,y
 	sta @stop+1
@@ -88,6 +120,7 @@ row:	.byte 0
 	lda @range			; is it a range of addresses?
 	beq @valline			; not a range
 
+;--------------------------------------
 ; if the start address != stop address, print both
 @rangeline:
 	; push the stop address
@@ -112,8 +145,9 @@ row:	.byte 0
 	pha
 
 	; if start addr != stop addr, print the address range
-	ldxy #strings::watches_range_line
-	jmp @print			; print this line and continue
+	ldx #<strings::watches_range_line
+	ldy #>strings::watches_range_line
+	bne @getdatadone
 
 ; if the start address == stop address, just print the one address and its val
 @valline:
@@ -146,141 +180,10 @@ row:	.byte 0
 	pha
 
 	ldxy #strings::watches_line
-
-@print:	lda @cnt
-	sec
-	sbc scroll
-	adc #WATCHVIEW_START	; +1 (carry set)
-	jsr text::print
-
- @nextline:
-	lda @cnt
-	sec
-	sbc scroll
-	cmp #HEIGHT-1
-	bcs @done
-	inc @cnt
-	jmp @l0		; next watch
-@done:	rts
+@getdatadone:
+	jmp gui::ret
 .endproc
 
-;******************************************************************************
-; EDIT
-; Enters the watch editor until the user exits it
-.export __watches_edit
-.proc __watches_edit
-	; display the title
-	ldxy #strings::watches_title
-	lda #MEMVIEW_START
-	jsr text::print
-	ldx #MEMVIEW_START
-	lda #DEFAULT_900F^$08
-	jsr draw::hline
-
-	jsr __watches_view
-
-	lda #$00
-	sta row
-	sta scroll
-	jmp @redraw	; highlight the first row
-
-@loop:	jsr key::getch
-	beq @loop
-	cmp #K_QUIT
-	bne :+
-	rts		; quit
-
-:	ldx #num_commands-1
-@getcmd:
-	cmp commands,x
-	beq @runcmd
-	dex
-	bpl @getcmd
-	bmi @loop	; unknown command
-
-@runcmd:
-	lda command_vectorslo,x	 ; vector LSB
-	sta zp::jmpvec
-	lda command_vectorshi,x  ; vector MSB
-	sta zp::jmpvec+1
-	jsr zp::jmpaddr		 ; call the command
-
-; redraw after handling the command
-@redraw:
-	jsr __watches_view
-	lda dbg::numwatches
-	beq @loop		; no watches, don't highlight
-	lda row			; highlight the row selected
-	clc
-	adc #WATCHVIEW_START+1
-	jsr bm::rvsline
-
-	jmp @loop		; continue the watch-viewer loop
-.endproc
-
-;******************************************************************************
-; COMMANDS
-; Table of the command keys valid within the watch viewer
-commands:
-	.byte K_DOWN
-	.byte K_UP
-	.byte K_RETURN
-num_commands=*-commands
-
-.define command_vectors down, up, select
-
-command_vectorslo: .lobytes command_vectors
-command_vectorshi: .hibytes command_vectors
-
-;******************************************************************************
-; UP
-; Handles the UP key
-.proc up
-	dec row
-	bpl :+
-	inc row
-	dec scroll
-	bpl :+
-	inc scroll
-:	rts
-.endproc
-
-;******************************************************************************
-; DOWN
-; Handles the DOWN key
-.proc down
-	inc row
-	lda row
-	cmp dbg::numwatches
-	bcs :+
-	cmp #HEIGHT
-	bcc @done
-:	dec row
-	inc scroll
-	lda scroll
-	clc
-	adc row
-	cmp dbg::numwatches
-	bcc @done
-	dec scroll
-@done:	rts
-.endproc
-
-;******************************************************************************
-; SELECT
-; Handles the RETURN key
-; Invokes the memory editor/viewer at the address of the selected watch
-.proc select
-	lda row
-	clc
-	adc scroll
-	tax
-	lda dbg::watcheslo,x
-	sta view::addr
-	lda dbg::watcheshi,x
-	sta view::addr+1
-	jmp view::edit		; invoke the memory editor
-.endproc
 
 ;******************************************************************************
 ; UPDATE

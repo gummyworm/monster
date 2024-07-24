@@ -136,8 +136,11 @@ memaddr:   .word 0
 	pha
 	lda #WATCH_STORE
 	jsr watch::add
+
 	ldxy #strings::watch_added
-	jsr text::info
+	lda #DEBUG_MESSAGE_LINE
+	jsr text::print
+
 	jsr beep::short	; beep to confirm add
 	jmp @edit
 
@@ -206,7 +209,7 @@ memaddr:   .word 0
 	asl
 	asl
 	ora @odd
-	jmp @store
+	bcc @store	; branch always
 
 ;--------------------------------------
 @lownybble:
@@ -222,8 +225,7 @@ memaddr:   .word 0
 	sta zp::bankval
 	ldxy @dst
 	lda @dstoffset
-	jsr vmem::store_off
-	rts
+	jmp vmem::store_off
 
 ;--------------------------------------
 ; move cursor to the next x-position
@@ -365,16 +367,22 @@ memaddr:   .word 0
 	pushcur
 	jsr cur::off
 
-	lda #DEFAULT_900F^$08
+	lda #DEFAULT_RVS
 	ldx #MEMVIEW_START
 	jsr draw::hline
 
 	; copy title to linebuffer
-	ldx #25-1
+	ldx #17
 :	lda strings::memview_title,x
 	sta mem::linebuffer,x
 	dex
 	bpl :-
+
+	; clear the existing value
+	lda #']'
+	sta mem::linebuffer+18
+	lda #$00
+	sta mem::linebuffer+19
 
 	; set bounds for the input
 	lda #18
@@ -424,7 +432,7 @@ memaddr:   .word 0
 	ldxy #strings::memview_title
 	lda #MEMVIEW_START
 	jsr text::print
-	lda #DEFAULT_900F^$08
+	lda #DEFAULT_RVS
 	ldx #MEMVIEW_START
 	jsr draw::hline
 
@@ -498,10 +506,9 @@ memaddr:   .word 0
 	cmp #$20
 	bcc :+
 	cmp #$80
-	bcs :+
-	rts
+	bcc @done
 :	lda #'.'	; use '.' for undisplayable chars
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -537,6 +544,7 @@ memaddr:   .word 0
 ; IN:
 ;  - memaddr: the base address of the current view
 ; OUT:
+;  - .XY: the address under the cursor
 ;  - r0: the address under the cursor
 .proc get_addr
 @dst=r0
@@ -563,6 +571,7 @@ memaddr:   .word 0
 	tya
 	clc
 	adc @dst
+	sta @dst
 	tax
 	bcc :+
 	inc @dst+1

@@ -31,14 +31,13 @@ BREAKPOINT_ENABLED = 1
 .proc __breakpoint_edit
 	; display the title
 	ldxy #@menu
-	stxy r0
 	lda #BRKVIEW_STOP
-	ldy dbg::numbreakpoints
 	jmp gui::listmenu
 @menu:
 .byte HEIGHT				; max height
 .word @getkey				; key handler
 .word @getdata				; get line handler
+.word dbg::numbreakpoints		; # of breakpoints pointer
 .word strings::breakpoints_title	; title
 
 ;--------------------------------------
