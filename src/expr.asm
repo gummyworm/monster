@@ -281,7 +281,7 @@ MAX_OPERANDS  = MAX_OPERATORS/2
 	tay
 	jmp @pushval
 
-:	cmp #'*'
+:	cmp #'*'	; MULTIPLY
 	bne :+
 	; get the product TODO: 32-bit precision expressions?
 	ldxy @val1
@@ -292,7 +292,7 @@ MAX_OPERANDS  = MAX_OPERATORS/2
 	ldxy ra	; get product
 	jmp @pushval
 
-:	cmp #'/'
+:	cmp #'/'	; DIVIDE
 	bne :+
 	ldxy @val1
 	stxy r2
@@ -347,7 +347,7 @@ MAX_OPERANDS  = MAX_OPERATORS/2
 ;  - .A: the size of the label's address
 ;  - .XY: the value of the label
 .proc get_label
-	jsr lbl::isvalid ; if we're verifying, let this pass if its a valid label
+	jsr lbl::isvalid 	; if verifying, let this pass if label is valid
 	bcs @done
 
 	; try to get the label address

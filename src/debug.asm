@@ -1165,11 +1165,12 @@ brkhandler2_size=*-brkhandler2
 	jmp __debug_restore_progstate
 
 @fastswap:
-	; save [mem_saveaddr], [step_point], and [pc, pc+2] for the debugger
+	; save [effective_addr], [pc, pc+2], and [brkaddr] for the debugger
 	lda sim::pc+1
 	sta @tosave+1
 	sta @tosave+3
 	sta @tosave+5
+
 	ldx sim::pc
 	stx @tosave
 	inx
@@ -1940,7 +1941,6 @@ __debug_remove_breakpoint:
 .endproc
 	ldxy brkaddr
 	jmp __debug_gotoaddr
-.RODATA
 
 ;******************************************************************************
 ; ENTER DEBUG CMD
@@ -1995,6 +1995,7 @@ __debug_remove_breakpoint:
 @ok:	rts
 .endproc
 
+.RODATA
 ;******************************************************************************
 ; COMMANDS
 ; This table contains the keys used to invoke the corresponding command
