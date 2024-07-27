@@ -9,10 +9,6 @@
 .include "zeropage.inc"
 .include "macros.inc"
 
-.BSS
-.export __final_rti_bank
-__final_rti_bank:	.byte 0	; NOTE: only available in the main bank
-
 .segment "BANKCODE"
 
 bankcode:

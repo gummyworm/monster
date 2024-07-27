@@ -926,7 +926,8 @@ tabs_end=*-tabs
 
 ;******************************************************************************
 ; INFO
-; Prints the given string (text::print) at the info row (STATUS_ROW-1)
+; Copies the given message directly to the status line.
+; Format strings are not supported.
 ; ; IN:
 ;  - .XY: the string to print
 .export __text_info

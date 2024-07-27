@@ -87,6 +87,7 @@
 	bne @removespaces
 	jsr src::next
 	inc @tmp
+
 @removespaces:
 	jsr src::after_cursor
 	jsr util::is_whitespace
@@ -103,11 +104,13 @@
 	beq @notlabel
 	jsr __fmt_label
 	jmp @refresh
+
 @notlabel:
 	lda @linecontent
 	and #ASM_COMMENT 	; if comment, don't format at all
 	bne @done
 @ident: jsr __fmt_opcode 	; anything else- indent
+
 @refresh:
 	jsr src::up	; back to start of line
 	jsr src::get	; refresh linebuffer

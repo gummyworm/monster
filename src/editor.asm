@@ -1387,11 +1387,16 @@ force_enter_insert=*+5
 .proc paste_below
 	lda selection_type
 	cmp #VISUAL
-	beq :+
+	beq @vis
+
+@visline:
+	; visual line, move to next line and paste there
 	jsr ccdown
 	jsr home
 	jmp paste_buff
-:	jsr ccright
+
+@vis:	; visual, move to next character and paste there
+	jsr ccright
 	jmp paste_buff
 .endproc
 
@@ -1530,33 +1535,8 @@ force_enter_insert=*+5
 .proc command_yank
 	jsr yank
 	bcs @done
-
-	jsr enter_command
-
-	ldxy src::line
-	cmpw visual_start_line
-	bcc :+
-	sub16 visual_start_line
-	jmp @print
-
-:	ldxy visual_start_line
-	sub16 src::line
-
-@print: cmpw #0
-	beq @ok		; don't display message if only 1 line was copied
-
-	inx
-	txa
-	pha
-	bne :+
-	iny
-:	tya
-	pha
-	ldxy #@msg
-	jsr text::info	; display # of lines yanked
-@ok:	clc
+	jmp enter_command
 @done:	rts
-@msg: .byte "copied ",ESCAPE_VALUE_DEC, " lines",0
 .endproc
 
 ;******************************************************************************
