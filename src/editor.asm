@@ -1204,10 +1204,11 @@ force_enter_insert=*+5
 	jsr is_visual
 	bne @cont
 
-; VISUAL mode; delete the selection
+; VISUAL kode; delete the selection
 @delvis:
-@cur=zp::editortmp+1
-@end=zp::editortmp+3
+@cur=zp::editortmp+1	; set by yank
+@end=zp::editortmp+3	; set by yank
+
 	jsr yank			; yank the selection
 	bcs @notfound			; quit if error occurred
 	ldxy @end
@@ -1228,13 +1229,16 @@ force_enter_insert=*+5
 	bpl :-
 @notfound:
 	rts
+
 @found:	lda @subcmdslo,x
 	sta zp::jmpvec
 	lda @subcmdshi,x
 	sta zp::jmpvec+1
 
 	jsr buff_clear		; clear the copy buffer
-	jmp zp::jmpaddr
+	jmp zp::jmpaddr		; execute the delete command 
+
+.RODATA
 @subcmds:
 .byte $77	; w delete word
 .byte $64	; d delete line
@@ -1245,6 +1249,7 @@ force_enter_insert=*+5
 .define subcmds delete_word, delete_line, delete_to_end, delete_to_begin
 @subcmdshi: .hibytes subcmds
 @subcmdslo: .lobytes subcmds
+.CODE
 .endproc
 
 ;******************************************************************************_
@@ -1576,17 +1581,18 @@ force_enter_insert=*+5
 ; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
 ; mode, does nothing
 ; OUT:
-;  - .XY: the number of bytes yanked
-;  - .C: set if selection was not able to be yanked
+;  - .XY:		the number of bytes yanked
+;  - .C:		set if selection was not able to be yanked
+;  - zp::editortmp+1:	address of the beginning of the selection
+;  - zp::editortmp+3:	address of the end of the selection
 .proc yank
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
 @size=zp::editortmp+5
-@start=zp::editortmp+7
+@start=zp::editortmp+7	; set by get_selection_bounds
 	jsr is_visual
-	beq :+
-	rts
-:	jsr get_selection_bounds
+	bne @ret
+	jsr get_selection_bounds
 	bcs @done
 
 	jsr buff_clear
@@ -1619,7 +1625,7 @@ force_enter_insert=*+5
 
 @done:	jsr enter_command
 	sec
-	rts
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -1627,8 +1633,8 @@ force_enter_insert=*+5
 ; Returns the start and stop source positions for the current selection
 ; OUT:
 ;  - .C: set if nothing is selected
-;  - zp::editortmp+1: the start position
 ;  - zp::editortmp+3: the end position
+;  - zp::editortmp+7: the start position
 .proc get_selection_bounds
 @cur=zp::editortmp+1
 @end=zp::editortmp+3

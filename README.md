@@ -1,4 +1,4 @@
-# MONster
+# Monster
 <img width="712" alt="Screenshot 2024-07-06 at 9 15 06 PM" src="https://github.com/gummyworm/monster/assets/4626914/3b4661c9-210a-4699-9a95-e99ebbe464f8">
 
 
@@ -40,17 +40,21 @@ Table of Contents
 
 ## Overview
 
-MONster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
-The design philosophy is uncompromising maximalism.  This is the polar opposite of most
-existing Vic-20 assemblers, which, though impressive in their own right, are
-mostly designed with memory efficiency in mind.
+Monster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
+The design philosophy is uncompromising maximalism.  This is in contrast to most
+existing Vic-20 assemblers (and most native development tools on 8-bit computers), 
+which mostly designed with memory efficiency in mind.  The primary reason for this
+was (or is) to leave the majority of the RAM available to the programmer.
+
+Large RAM expansions have become ubiquitous on the platform, so the philosophy of
+this project is to choose feature richness without much concern for the memory footprint.
 Virtually any feature that I deem valuable in an editor/assembler is included. 
 
 Some of its features are:
  - 40 column bitmap-based editor
  - vi-like keybindings
- - breakpoint editor
  - interactive visual debugger
+ - breakpoint editor
  - memory viewer/editor
  - file I/O (save/load)
  - directory viewer
@@ -60,11 +64,10 @@ Some of its features are:
  - user program/source/editor isolation
  - many more...
 
-The source code is stored in a gap buffer to allow for efficient insertion/deletion.
-
 ---
+
 ## Requirements
-For now MONster requires a [Final Expansion](https://github.com/edi-z/FE3) to
+For now Monster requires a [Final Expansion](https://github.com/edi-z/FE3) to
 function.  It could easily be modified for other 512k+ carts.
 Much of this RAM is used to store the multiple source code buffers (up to 8),
 but it is also used to store debug info and some code.
