@@ -3366,12 +3366,13 @@ goto_buffer:
 	bne @curr
 
 	; handle TAB (repeat the MOVE RIGHT logic til we're at the TAB next col)
-jsr text::tabr_dist
+	jsr text::tabr_dist
 	sta @tabcnt
 	ldy zp::editor_mode
 	cpy #MODE_INSERT
 	beq :+
 	dec @tabcnt
+	beq @ret
 :	jsr @curr
 	dec @tabcnt
 	bne :-
