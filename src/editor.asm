@@ -126,8 +126,7 @@ status_row: .byte 0
 
 	jsr enter_command
 
-	ldxy #mem::copybuff
-	stxy buffptr
+	jsr buff_clear
 
 	ldx #$00
 	ldy #$00
@@ -1233,6 +1232,8 @@ force_enter_insert=*+5
 	sta zp::jmpvec
 	lda @subcmdshi,x
 	sta zp::jmpvec+1
+
+	jsr buff_clear		; clear the copy buffer
 	jmp zp::jmpaddr
 @subcmds:
 .byte $77	; w delete word
@@ -1285,29 +1286,35 @@ force_enter_insert=*+5
 	bne :+			; if not, need to do more than a backspace
 	jsr on_line1		; are we on the 1st line?
 	beq :+			; if we are, need to do more than backspace
+	lda #$0d
+	jsr buff_putch		; put a newline into the copy buffer
 	jsr backspace
 	jmp @done
 
 :	jsr src::down		; go to the end of the line
 	php			; save EOF flag
 	bcs @l0			; if EOF, skip scroll up
+
 	inc zp::cury		; move cursor to row to scroll up
 	jsr bumpup		; scroll up
 
 @l0:	jsr src::backspace	; delete a character
 	bcs :+			; break if at start of source buffer
+	jsr buff_putch		; put the character that was deleted into the copy buffer
 	jsr src::atcursor	; are we on a newline?
 	cmp #$0d
 	bne @l0			; loop until we are on newline
 
 :	plp			; get EOF flag (.C)
 	bcc :+			; skip if not EOF
-	jsr on_line1		; are we on the 1st line?
+
+@eof:	jsr on_line1		; are we on the 1st line?
 	beq :+			; if so, we won't be changing lines, skip
 	lda zp::cury		; if EOF, clear the line we're on
 	jsr bm::clrline
 	dec zp::cury		; no newline was deleted yet,
 	jsr src::backspace	; so delete the newline
+	jsr buff_putch		; and add it to the copy buffer
 	jsr src::up		; and go to the start of the, now, last line
 
 :	jsr src::get
@@ -1584,8 +1591,7 @@ force_enter_insert=*+5
 
 	lda #$00
 	sta visual_lines_copied
-	ldxy #mem::copybuff
-	stxy buffptr
+	jsr buff_clear
 
 	; set the selection type so we know how to handle the eventual paste
 	lda #VISUAL
@@ -3204,7 +3210,8 @@ goto_buffer:
 	beq @nodel
 	jsr src::before_newl
 	beq @nodel
-@del:	jmp src::delete
+@del:	jsr buff_putch
+	jmp src::delete
 @nodel:	sec
 	rts
 .endproc
@@ -4347,6 +4354,15 @@ __edit_gotoline:
 	lda jumplist,x
 	tax
 	jmp gotoline
+.endproc
+
+;******************************************************************************
+; BUFF CLEAR
+; Initializes the copy buffer by clearing it
+.proc buff_clear
+	ldxy #mem::copybuff
+	stxy buffptr
+	rts
 .endproc
 
 ;******************************************************************************

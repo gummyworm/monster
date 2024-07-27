@@ -1211,9 +1211,7 @@ brkhandler2_size=*-brkhandler2
 ; them to their physical addresses
 	ldx #8
 	stx @cnt
-@store: lda @cnt
-	tax
-
+@store: ldx @cnt
 	lda @tosave,x
 	sta @addr
 	ldy @tosave+1,x
