@@ -1589,8 +1589,6 @@ force_enter_insert=*+5
 :	jsr get_selection_bounds
 	bcs @done
 
-	lda #$00
-	sta visual_lines_copied
 	jsr buff_clear
 
 	; set the selection type so we know how to handle the eventual paste
@@ -4360,6 +4358,8 @@ __edit_gotoline:
 ; BUFF CLEAR
 ; Initializes the copy buffer by clearing it
 .proc buff_clear
+	ldx #$00
+	stx visual_lines_copied
 	ldxy #mem::copybuff
 	stxy buffptr
 	rts
