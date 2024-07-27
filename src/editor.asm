@@ -2040,6 +2040,8 @@ __edit_refresh:
 	jsr src::popgoto
 	pla
 	sta zp::cury
+	lda #CUR_OFF
+	sta cur::status
 	jmp text::restorebuff
 .endproc
 
