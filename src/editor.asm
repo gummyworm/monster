@@ -1396,7 +1396,7 @@ force_enter_insert=*+5
 	jmp paste_buff
 
 @vis:	; visual, move to next character and paste there
-	jsr ccright
+	jsr append_char
 	jmp paste_buff
 .endproc
 
@@ -1428,7 +1428,6 @@ force_enter_insert=*+5
 	sta @row
 	jsr text::char_index
 	sty @splitindex
-
 	ldy visual_lines_copied
 	beq @noscroll
 	ldx height
@@ -1436,8 +1435,6 @@ force_enter_insert=*+5
 	jsr text::scrolldownn
 
 @noscroll:
-	jsr src::pushp
-
 	ldx @splitindex	; get index of text to save
 	ldy #$00
 	; save the part of the line that we're inserting BEFORE
@@ -1502,6 +1499,15 @@ force_enter_insert=*+5
 	bne :-
 
 @lastdone:
+	txa
+	pha
+
+	jsr enter_command
+
+	pla
+	jsr text::index2cursor
+	stx zp::curx
+
 	lda @row
 	jsr draw_line_if_visible
 
@@ -1510,7 +1516,7 @@ force_enter_insert=*+5
 	sta buffptr+1
 	pla
 	sta buffptr
-	jmp src::popgoto
+	rts
 .endproc
 
 ;******************************************************************************
