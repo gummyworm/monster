@@ -1430,6 +1430,10 @@ force_enter_insert=*+5
 	sty @splitindex
 	ldy visual_lines_copied
 	beq @noscroll
+
+	; multi-line pastes don't move the cursor / source position
+	jsr src::pushp
+
 	ldx height
 	lda @row
 	jsr text::scrolldownn
@@ -1502,14 +1506,23 @@ force_enter_insert=*+5
 	txa
 	pha
 
+	lda @row
+	jsr draw_line_if_visible
+
 	jsr enter_command
 
+	lda visual_lines_copied
+	beq :+
+
+	; if we pasted multiple lines, restore source position and don't move cursor
+	jsr src::popgoto
 	pla
+	jmp @done
+
+:	pla
 	jsr text::index2cursor
 	stx zp::curx
 
-	lda @row
-	jsr draw_line_if_visible
 
 @done:	; restore the buffer pointer
 	pla
