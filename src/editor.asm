@@ -777,13 +777,13 @@ main:	jsr key::getch
 	; get address of the result
 	ldx @result_offset
 	ldy #$01
-	lda @len
 
 	plp			; get success state
 	pla
 	sta text::insertmode	; restore insert mode
 	pla
 	sta zp::editor_mode	; restore editor mode
+	lda @len
 	rts
 .endproc
 

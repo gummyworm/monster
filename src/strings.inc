@@ -30,6 +30,7 @@
 .import __str_watches_line_end
 .import __str_watches_title
 .import __str_watches_range_line
+.import __str_invalid_command
 
 .scope strings
 	assembling            = __str_assembling
@@ -62,4 +63,5 @@
 	null                    = __str_null
 	saving                  = __str_saving
 	endmac                  = __str_endmac
+	invalid_command         = __str_invalid_command
 .endscope
