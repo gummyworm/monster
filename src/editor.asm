@@ -209,6 +209,18 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; ENTER CONSOLE
+; Activates the console
+.proc enter_console
+	pushcur
+	jsr scr::reset
+	jsr con::enter
+	jsr scr::restore
+	popcur
+	rts
+.endproc
+
+;******************************************************************************
 ; COMMAND_GO
 ; :g <symbol>
 ; Begins execution at the address of the given symbol.
@@ -714,7 +726,6 @@ main:	jsr key::getch
 ;  - .XY: 	      address of the string that was read
 ;  - .A:              length of the string that was read
 ;  - .C:              set if no input was given (e.g. <-)
-;  - mem::linebuffer: the string contents
 .export __edit_gets
 .proc __edit_gets
 @result_offset=r8
@@ -731,7 +742,7 @@ main:	jsr key::getch
 	ldx zp::curx
 	stx @result_offset	; offset to the user-input in line buffer
 
-	jsr cur::on
+	jmp @redraw
 @getloop:
 	jsr text::update
 
@@ -752,6 +763,7 @@ main:	jsr key::getch
 	jsr key::isprinting
 	bcs @getloop		; don't print if not printable
 :	jsr text::putch
+@redraw:
 	lda zp::cury
 	jsr text::drawline
 	jsr cur::on
@@ -774,7 +786,7 @@ main:	jsr key::getch
 :	stx @len		; store the length of the string
 	jsr cur::off
 
-	; get address of the result
+	; get address of the result ($1xx)
 	ldx @result_offset
 	ldy #$01
 
@@ -4658,7 +4670,7 @@ numcommands=*-commands
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
-	command_find, next_drive, prev_drive, get_command, con::enter
+	command_find, next_drive, prev_drive, get_command, enter_console
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs
