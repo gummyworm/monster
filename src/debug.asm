@@ -1839,7 +1839,9 @@ __debug_remove_breakpoint:
 	inx
 	bcc @cpyclk
 
-@print:	ldxy #@buff
+@print:	lda #$00
+	sta @buff+40
+	ldxy #@buff
 	rts
 .endproc
 

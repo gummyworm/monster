@@ -87,7 +87,8 @@ line: .byte 0	; the line that the console is on
 	cmp #$02		; 2 because prompt makes min length 1
 	bcc @prompt		; if command length is 0, there is no command
 
-	; run the command
+	; run the commanu
+	ldxy #$101
 	jsr dbgcmd::run
 	bcc @prompt		; if it succeeded, continue
 
