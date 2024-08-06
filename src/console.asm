@@ -3,19 +3,21 @@
 .include "debugcmd.inc"
 .include "edit.inc"
 .include "key.inc"
+.include "finalex.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"
 
+
 ;******************************************************************************
 HEIGHT = 24
 
-.BSS
+.segment "CONSOLE_BSS"
 line: .byte 0	; the line that the console is on
 
-.CODE
+.segment "CONSOLE"
 
 ;******************************************************************************
 ; PUTS
@@ -35,13 +37,13 @@ line: .byte 0	; the line that the console is on
 	; scroll everything up
 	ldx #$00
 	lda #HEIGHT
-	jsr text::scrollup
+	CALL FINAL_BANK_MAIN, #text::scrollup
 	dec line
 	lda line
 
 @print:	inc line
 	ldxy @msg
-	jsr text::print
+	CALL FINAL_BANK_MAIN, #text::print
 	rts
 .endproc
 
@@ -50,14 +52,17 @@ line: .byte 0	; the line that the console is on
 ; Activates the console. Returns when F7 is pressed
 .export __console_enter
 .proc __console_enter
-	jsr bm::clr
+	CALL FINAL_BANK_MAIN, #bm::clr
 	lda #$00
 	sta line
-	
 @prompt:
-	jsr text::clrline
+	ldxy #mem::linebuffer
+	lda line
+	CALL FINAL_BANK_MAIN, #text::print
 	lda #'>'
 	sta mem::linebuffer
+	lda #$00
+	sta mem::linebuffer+1
 @clrline:
 	lda #$00
 	sta mem::linebuffer+1
@@ -68,14 +73,22 @@ line: .byte 0	; the line that the console is on
 	sta cur::minx
 	sta zp::curx		; move to start of line
 	ldxy #key::getch
-	jsr edit::gets		; get a command
+	CALL FINAL_BANK_MAIN, #edit::gets
 	bcs @clrline
+	pha
 	
-	inc line		; move down a row before running command
-	cmp #$00
-	beq @prompt		; if command length is 0, there is no command
+	lda line
+	cmp #HEIGHT-1
+	bcc :+
+	CALL FINAL_BANK_MAIN, #text::scrollup
+	dec line
+:	inc line		; move down a row before running command
+	pla
+	cmp #$02		; 2 because prompt makes min length 1
+	bcc @prompt		; if command length is 0, there is no command
 
-	jsr dbgcmd::run		; run the command
+	; run the command
+	jsr dbgcmd::run
 	bcc @prompt		; if it succeeded, continue
 
 	ldxy #strings::invalid_command

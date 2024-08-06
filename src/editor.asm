@@ -214,7 +214,7 @@ main:	jsr key::getch
 .proc enter_console
 	pushcur
 	jsr scr::reset
-	jsr con::enter
+	CALL FINAL_BANK_CONSOLE, #con::enter
 	jsr scr::restore
 	popcur
 	rts

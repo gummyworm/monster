@@ -14,7 +14,7 @@ final   = $04
 banksp  = $05	; bank stack pointer
 bankval = $07	; the value written by store_byte
 bankjmpaddr = $08
-bankjmpvec = $09
+bankjmpvec  = $09
 
 ;******************************************************************************
 ; $0b-$0f are reserved for math

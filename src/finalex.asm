@@ -163,9 +163,9 @@ final_store_size=*-__final_store_byte
 	pha			; save current bank
 
 	lda @bank
-	sta $9c02
-	lda @a
-	jsr zp::bankjmpaddr
+	sta $9c02		; swap in the target bank
+	lda @a			; restore .A
+	jsr zp::bankjmpaddr	; call the target routine
 	sta @a			; save .A
 
 	pla			; get the caller's bank

@@ -230,198 +230,6 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .endproc
 
 ;******************************************************************************
-; PRINT
-; displays the format string in (<X,>Y) at the row in .A.
-; NOTE: you MUST call it with JSR (not JMP) because it manipulates the stack to
-; get operands
-; IN:
-;  - .XY: the address of the message to print
-;  - .A:  the row to print the string at
-.export __text_print
-.proc __text_print
-@sub = zp::text	; address of string to replace escape char with
-@str = zp::text+2
-@row = zp::text+4
-@savex = zp::text+5
-@savey = zp::text+6
-@ret = zp::text+8
-@buff = mem::linebuffer2
-        stx @str
-        sty @str+1
-	sta @row
-
-	; save the return address (variadic args are stored on stack)
-	pla
-	sta @ret
-	pla
-	sta @ret+1
-
-        ldx #$00
-        ldy #$00
-;copy the string (substituting escaped characters)
-@l0:    lda (@str),y
-	bne :+
-	jmp @disp
-
-:	cmp #$09		; TAB
-	bne :+
-
-	sty @savey
-	txa
-	jsr __text_tabr_dist_a
-	tay
-	lda #' '
-@tab:	sta @buff,x
-	inx
-	dey
-	bne @tab
-	ldy @savey
-	jmp @cont
-
-:	cmp #ESCAPE_CHAR
-	bne :+
-	pla			; get the character
-	jmp @ch			; and continue to printing it
-
-:	cmp #ESCAPE_STRING
-	bne :+
-	jmp @string
-:	cmp #ESCAPE_BYTE
-	beq @value_byte
-	cmp #ESCAPE_VALUE
-	beq @value
-	cmp #ESCAPE_VALUE_DEC
-	beq @value_dec
-	cmp #ESCAPE_SPACING
-	beq @spacing
-	jmp @ch
-
-@spacing:
-;substitute escape character with number of spaces from stack
-	iny
-	sty @savey
-	lda (@str),y
-	tay
-	bne :+
-	jmp @cont
-:	lda #' '
-	sta @buff,x
-	inx
-	dey
-	bne :-
-	ldy @savey
-	jmp @cont
-
-@value_byte:
-	stx @savex
-	sty @savey
-
-	pla
-	jsr util::hextostr
-	txa
-	ldx @savex
-	sta @buff+1,x
-	tya
-	sta @buff,x
-	jmp @value_1byte_done
-
-;substitute escape character with value from stack formatted in base-10
-@value_dec:
-	stx @savex
-	sty @savey
-
-	pla
-	tay
-	pla
-	tax
-	jsr util::todec
-	ldy #0
-	ldx @savex
-:	lda mem::spare,y
-	beq @decdone
-	sta @buff,x
-	inx
-	iny
-	bne :-
-@decdone:
-	ldy @savey
-	jmp @cont
-
-;substitute escape character with value from stack
-@value:
-	stx @savex
-	sty @savey
-
-	pla
-	jsr util::hextostr
-	txa
-	ldx @savex
-	sta @buff+1,x
-	tya
-	sta @buff,x
-
-	pla
-	jsr util::hextostr
-	txa
-	ldx @savex
-	sta @buff+3,x
-	tya
-	sta @buff+2,x
-
-@value_2byte_done:
-	inx
-	inx
-@value_1byte_done:
-	inx
-	inx
-	ldy @savey
-	jmp @cont
-
-;substitute escape character with string from stack
-@string:
-	pla
-	sta @sub
-	pla
-	sta @sub+1
-	sty @savey
-	ldy #$00
-@l1:	lda (@sub),y
-	bne :+
-	ldy @savey
-	bpl @cont	; branch always
-:	sta @buff,x
-	iny
-	inx
-	cpx #40
-	bcs @disp
-	bne @l1
-
-@ch:	sta @buff,x
-	inx
-
-@cont:	iny
-        jmp @l0
-
-@disp:	; fill the rest of the line buffer with spaces
-	lda #' '
-:	sta @buff,x
-	inx
-	cpx #40
-	bcc :-
-
-	; restore the return address
-	lda @ret+1
-	pha
-	lda @ret
-	pha
-
-	; print the rendered string
-	ldxy #@buff
-	lda @row
-	jmp __text_puts
-.endproc
-
-;******************************************************************************
 ; PUTCH
 ; Adds the character in .A to the current cursor position in the
 ; text linebuffer. The cursor is then updated to the next position.
@@ -701,6 +509,199 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	cmp #$20
 	bcc @l0
 	rts
+.endproc
+
+;******************************************************************************
+; PRINT
+; displays the format string in (<X,>Y) at the row in .A.
+; NOTE: you MUST call it with JSR (not JMP) because it manipulates the stack to
+; get operands
+; IN:
+;  - .XY: the address of the message to print
+;  - .A:  the row to print the string at
+.export __text_print
+.proc __text_print
+@sub = zp::text	; address of string to replace escape char with
+@str = zp::text+2
+@row = zp::text+4
+@savex = zp::text+5
+@savey = zp::text+6
+@ret = zp::text+8
+@buff = mem::linebuffer2
+        stx @str
+        sty @str+1
+	sta @row
+
+	; save the return address (variadic args are stored on stack)
+	pla
+	sta @ret
+	pla
+	sta @ret+1
+
+        ldx #$00
+        ldy #$00
+;copy the string (substituting escaped characters)
+@l0:    lda (@str),y
+	bne :+
+	jmp @disp
+
+:	cmp #$09		; TAB
+	bne :+
+
+	sty @savey
+	txa
+	jsr __text_tabr_dist_a
+	tay
+	lda #' '
+@tab:	sta @buff,x
+	inx
+	dey
+	bne @tab
+	ldy @savey
+	jmp @cont
+
+:	cmp #ESCAPE_CHAR
+	bne :+
+	pla			; get the character
+	jmp @ch			; and continue to printing it
+
+:	cmp #ESCAPE_STRING
+	bne :+
+	jmp @string
+:	cmp #ESCAPE_BYTE
+	beq @value_byte
+	cmp #ESCAPE_VALUE
+	beq @value
+	cmp #ESCAPE_VALUE_DEC
+	beq @value_dec
+	cmp #ESCAPE_SPACING
+	beq @spacing
+	jmp @ch
+
+@spacing:
+;substitute escape character with number of spaces from stack
+	iny
+	sty @savey
+	lda (@str),y
+	tay
+	bne :+
+	jmp @cont
+:	lda #' '
+	sta @buff,x
+	inx
+	dey
+	bne :-
+	ldy @savey
+	jmp @cont
+
+@value_byte:
+	stx @savex
+	sty @savey
+
+	pla
+	jsr util::hextostr
+	txa
+	ldx @savex
+	sta @buff+1,x
+	tya
+	sta @buff,x
+	jmp @value_1byte_done
+
+;substitute escape character with value from stack formatted in base-10
+@value_dec:
+	stx @savex
+	sty @savey
+
+	pla
+	tay
+	pla
+	tax
+	jsr util::todec
+	ldy #0
+	ldx @savex
+:	lda mem::spare,y
+	beq @decdone
+	sta @buff,x
+	inx
+	iny
+	bne :-
+@decdone:
+	ldy @savey
+	jmp @cont
+
+;substitute escape character with value from stack
+@value:
+	stx @savex
+	sty @savey
+
+	pla
+	jsr util::hextostr
+	txa
+	ldx @savex
+	sta @buff+1,x
+	tya
+	sta @buff,x
+
+	pla
+	jsr util::hextostr
+	txa
+	ldx @savex
+	sta @buff+3,x
+	tya
+	sta @buff+2,x
+
+@value_2byte_done:
+	inx
+	inx
+@value_1byte_done:
+	inx
+	inx
+	ldy @savey
+	jmp @cont
+
+;substitute escape character with string from stack
+@string:
+	pla
+	sta @sub
+	pla
+	sta @sub+1
+	sty @savey
+	ldy #$00
+@l1:	lda (@sub),y
+	bne :+
+	ldy @savey
+	bpl @cont	; branch always
+:	sta @buff,x
+	iny
+	inx
+	cpx #40
+	bcs @disp
+	bne @l1
+
+@ch:	sta @buff,x
+	inx
+
+@cont:	iny
+        jmp @l0
+
+@disp:	; fill the rest of the line buffer with spaces
+	lda #' '
+:	sta @buff,x
+	inx
+	cpx #40
+	bcc :-
+
+	; restore the return address
+	lda @ret+1
+	pha
+	lda @ret
+	pha
+
+	; print the rendered string
+	ldxy #@buff
+	lda @row
+
+	; fall through to __text_puts
 .endproc
 
 ;******************************************************************************

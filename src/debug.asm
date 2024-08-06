@@ -1671,14 +1671,26 @@ __debug_remove_breakpoint:
 ;   PC  A  X  Y  SP NV-BDIZC ADDR
 ;  f59c 02 02 00 f7 00100000 1003
 .proc showregs
-@tmp=zp::asm+6
-@flag=zp::asm+7
-@buff=mem::linebuffer2
 	; display the register names
 	ldxy #strings::debug_registers
 	lda #REGISTERS_LINE
 	jsr text::print
 
+	jsr __debug_regs_contents
+	lda #REGISTERS_LINE+1
+	jmp text::puts
+.endproc
+
+;******************************************************************************
+; REGS_CONTENTS
+; Returns a line containing the contents of the registers
+; OUT: mem::linebuffer: a line of text containing the values for each tegister
+;      matches the format: PC  A  X  Y  SP NV-BDIZC ADDR
+.export __debug_regs_contents
+.proc __debug_regs_contents
+@tmp=zp::asm+6
+@flag=zp::asm+7
+@buff=mem::linebuffer2
 	ldy #39
 	lda #' '
 :	sta @buff,y
@@ -1828,8 +1840,7 @@ __debug_remove_breakpoint:
 	bcc @cpyclk
 
 @print:	ldxy #@buff
-	lda #REGISTERS_LINE+1
-	jmp text::puts
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1983,7 +1994,7 @@ __debug_remove_breakpoint:
 	lda #$00
 	sta cur::minx
 
-	jsr dbgcmd::run
+	CALL FINAL_BANK_CONSOLE, #dbgcmd::run
 	bcc @ok
 	; display the error
 	jsr err::get

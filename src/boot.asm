@@ -54,6 +54,10 @@
 .import __UDGEDIT_RUN__
 .import __UDGEDIT_SIZE__
 
+.import __CONSOLE_LOAD__
+.import __CONSOLE_RUN__
+.import __CONSOLE_SIZE__
+
 .import __RODATA_LOAD__
 .import __RODATA_RUN__
 .import __RODATA_SIZE__
@@ -288,9 +292,14 @@ relocs:
 .word __UDGEDIT_LOAD__, __UDGEDIT_RUN__, __UDGEDIT_SIZE__
 .byte FINAL_BANK_UDGEDIT
 
+; CONSOLE
+.word __CONSOLE_LOAD__, __CONSOLE_RUN__, __CONSOLE_SIZE__
+.byte FINAL_BANK_CONSOLE
+
 ; RODATA
 .word __RODATA_LOAD__, __RODATA_RUN__, __RODATA_SIZE__
 .byte FINAL_BANK_MAIN
+
 num_relocs=(*-relocs)/7
 
 .export get_crunched_byte

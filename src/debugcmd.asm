@@ -5,18 +5,24 @@
 ; sub-views (memory editor, etc.)
 ;******************************************************************************
 
+.include "asm.inc"
+.include "console.inc"
 .include "debug.inc"
 .include "errors.inc"
 .include "expr.inc"
+.include "finalex.inc"
 .include "line.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "string.inc"
+.include "strings.inc"
 .include "util.inc"
 .include "view.inc"
 .include "vmem.inc"
 .include "watches.inc"
 .include "zeropage.inc"
+
+.segment "CONSOLE"
 
 ;******************************************************************************
 ; DBGCMD RUN
@@ -29,7 +35,7 @@
 .export __dbgcmd_run
 .proc __dbgcmd_run
 @cnt=r0
-	jsr str::toupper
+	CALL FINAL_BANK_MAIN, #str::toupper
 	stxy zp::line
 
 	ldy #$00
@@ -38,7 +44,7 @@
 
 @l0:	lda (zp::line),y
 	beq @cmdfound
-	jsr util::is_whitespace
+	CALL FINAL_BANK_MAIN, #util::is_whitespace
 	beq @cmdfound
 
 @l1:	cmp commands,x
@@ -71,7 +77,7 @@
 	bcc :+
 	inc zp::line+1
 
-:	jsr line::process_ws
+:	CALL FINAL_BANK_MAIN, #line::process_ws
 @run:	ldx @cnt
 	lda commandslo,x
 	sta zp::jmpvec
@@ -90,22 +96,21 @@
 .proc add_watch
 @addr=r8
 	; evaluate the expression to get start address
-	jsr expr::eval
+	CALL FINAL_BANK_MAIN, #expr::eval
 	bcs @err
 	stxy @addr
 	stxy r0
 
-	jsr line::nextch
+	CALL FINAL_BANK_MAIN, #line::nextch
 	beq @err
 
 	; evaluate the 2nd expression (if any) to get stop address
-	jsr expr::eval
+	CALL FINAL_BANK_MAIN, #expr::eval
 	bcs @err
 	stxy r0
 
 @set:	ldxy @addr
-	jsr watch::add		; add the watch
-	jsr dbg::edit_watches
+	CALL FINAL_BANK_MAIN, #watch::add		; add the watch
 	clc
 @err:	rts
 .endproc
@@ -129,14 +134,13 @@
 @addr=r0
 	; get the ID
 	ldxy zp::line
-	jsr atoi
+	CALL FINAL_BANK_MAIN, #atoi
 	bcc @ok
 @done:	rts
 @ok:	cpy #$00
 	bne @done	; there can't be > $ff watches
 	txa
-	jsr watch::remove
-	jsr dbg::edit_watches
+	CALL FINAL_BANK_MAIN, #watch::remove
 	clc
 	rts
 .endproc
@@ -176,28 +180,30 @@
 @list=ra
 	; get the start address
 	ldxy zp::line
-	jsr expr::eval
+	CALL FINAL_BANK_MAIN, #expr::eval
 	stxy @start
-	bcs @done
+	bcc :+
+@err:	sec
+@done:	rts
 
-	; move past separator
-	jsr line::nextch
+:	; move past separator
+	CALL FINAL_BANK_MAIN, #line::nextch
 	beq @err
 
 	; get the stop address
-	jsr expr::eval
+	CALL FINAL_BANK_MAIN, #expr::eval
 	stxy @stop
 	bcs @done
 
 	; move past separator
-	jsr line::nextch
+	CALL FINAL_BANK_MAIN, #line::nextch
 	beq @err
 
 	lda #$00
 	sta @listlen
 
 	; get the fill values
-@l0:	jsr expr::eval
+@l0:	CALL FINAL_BANK_MAIN, #expr::eval
 	bcs @err
 	cmp #$02		; 2 bytes?
 	bcc :+
@@ -209,7 +215,7 @@
 :	ldy @listlen
 	stx @list,y		; store LSB of expression as fill val
 	inc @listlen
-	jsr line::nextch
+	CALL FINAL_BANK_MAIN, #line::nextch
 	bne @l0
 
 	ldxy @start
@@ -221,7 +227,7 @@
 @fill:	ldx @i
 	lda @list,x
 	ldxy @start
-	jsr vmem::store
+	CALL FINAL_BANK_MAIN, #vmem::store
 	ldxy @start
 	inc @i
 	lda @i
@@ -233,17 +239,83 @@
 @chk:	ldxy @start
 	cmpw @stop
 	bne @fill
-
-	; active mem viewer
-	jsr view::mem
 	RETURN_OK
-
-@err:	sec
-@done:	rts
 .endproc
 
 ;******************************************************************************
-.RODATA
+.proc goto
+.endproc
+
+;******************************************************************************
+.proc compare
+.endproc
+
+;******************************************************************************
+.proc move
+.endproc
+
+;******************************************************************************
+.proc hunt
+.endproc
+
+;******************************************************************************
+; REGISTERS
+; Displays the current contents of the registers.
+.proc regs
+	ldxy #strings::debug_registers
+	jsr con::puts
+	CALL FINAL_BANK_MAIN, #dbg::regs_contents
+	jsr con::puts
+	clc
+	rts
+.endproc
+
+;******************************************************************************
+; DISASM
+; Disassembles from the given expression
+.proc disasm
+@addr=rb
+@lines=rd
+	; get the address to start disassembling at
+	lda #20
+	sta @lines
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @done
+
+	stxy @addr
+@l0:	ldxy #$100
+	stxy r0
+	CALL FINAL_BANK_MAIN, #asm::disassemble
+
+	tax
+
+	; push the address
+	lda @addr
+	pha
+	lda @addr+1
+	pha
+
+	txa
+	clc
+	adc @addr
+	sta @addr
+	bcc :+
+	inc @addr+1
+
+:	; push the disassembled string
+	lda r0+1
+	pha
+	lda r0
+	pha
+	ldxy #@disasm_msg
+	jsr con::puts
+
+	dec @lines
+	bne @l0
+@done:	rts
+@disasm_msg:
+	.byte $fe," ", $ff,0	; <address> <instruction>
+.endproc
 
 ;******************************************************************************
 ; commands
@@ -257,9 +329,12 @@ commands:
 .byte "g",0	; goto given expression/address
 .byte "c",0	; compare the memory in the two given range
 .byte "h",0	; hunts the given address range for the given data
+.byte "r",0	; shows the contents of the registers
+.byte "d",0	; shows the contents of the registers
 
 .linecont +
-.define command_vectors add_watch, remove_watch, add_break, remove_break, fill
+.define command_vectors add_watch, remove_watch, add_break, remove_break, \
+	fill, move, goto, compare, hunt, regs, disasm
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors
