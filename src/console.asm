@@ -43,8 +43,7 @@ line: .byte 0	; the line that the console is on
 
 @print:	inc line
 	ldxy @msg
-	CALL FINAL_BANK_MAIN, #text::print
-	rts
+	JUMP FINAL_BANK_MAIN, #text::print
 .endproc
 
 ;******************************************************************************

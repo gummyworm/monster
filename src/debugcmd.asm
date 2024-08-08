@@ -44,7 +44,7 @@
 
 @l0:	lda (zp::line),y
 	beq @cmdfound
-	CALL FINAL_BANK_MAIN, #util::is_whitespace
+	jsr is_whitespace
 	beq @cmdfound
 
 @l1:	cmp commands,x
@@ -266,16 +266,15 @@
 	jsr con::puts
 	CALL FINAL_BANK_MAIN, #dbg::regs_contents
 	jsr con::puts
-	clc
-	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
 ; DISASM
 ; Disassembles from the given expression
 .proc disasm
-@addr=rb
-@lines=rd
+@addr=rc
+@lines=re
 	; get the address to start disassembling at
 	lda #20
 	sta @lines
@@ -283,11 +282,24 @@
 	bcs @done
 
 	stxy @addr
+
 @l0:	ldxy #$100
 	stxy r0
+	ldxy @addr
 	CALL FINAL_BANK_MAIN, #asm::disassemble
 
+	jsr @drawline
+	dec @lines
+	bne @l0
+@done:	RETURN_OK
+
+@drawline:
 	tax
+	; push the disassembled string
+	lda #>$100
+	pha
+	lda #<$100
+	pha
 
 	; push the address
 	lda @addr
@@ -295,26 +307,45 @@
 	lda @addr+1
 	pha
 
-	txa
+	; update the address pointer
+	txa		; get size of instruction
 	clc
 	adc @addr
 	sta @addr
 	bcc :+
 	inc @addr+1
 
-:	; push the disassembled string
-	lda r0+1
-	pha
-	lda r0
-	pha
-	ldxy #@disasm_msg
-	jsr con::puts
+:	ldxy #@disasm_msg
+	jmp con::puts
 
-	dec @lines
-	bne @l0
-@done:	rts
+
+.RODATA
 @disasm_msg:
 	.byte $fe," ", $ff,0	; <address> <instruction>
+.segment "CONSOLE"
+.endproc
+
+;******************************************************************************
+; SHOWMEM
+; Shows the contents of memory at the target of the given expression
+.proc showmem
+.endproc
+
+;******************************************************************************
+; IS_WHITESPACE
+; Checks if the given character is a whitespace character
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if if the character in .A is whitespace
+.export is_whitespace
+.proc is_whitespace
+	cmp #$0d	; newline
+	beq :+
+	cmp #$09	; TAB
+	beq :+
+	cmp #' '
+:	rts
 .endproc
 
 ;******************************************************************************
@@ -325,16 +356,17 @@ commands:
 .byte "ba",0	; breakpoint add
 .byte "br",0	; breakpoint remove
 .byte "f",0	; fill memory in the given address range with the given data
-.byte "m",0	; move memory from the given address range to the target address
+.byte "move",0	; move memory from the given address range to the target address
 .byte "g",0	; goto given expression/address
 .byte "c",0	; compare the memory in the two given range
 .byte "h",0	; hunts the given address range for the given data
 .byte "r",0	; shows the contents of the registers
-.byte "d",0	; shows the contents of the registers
+.byte "d",0	; disassembles from the given address
+.byte "m",0	; show contents of memory at the given address
 
 .linecont +
 .define command_vectors add_watch, remove_watch, add_break, remove_break, \
-	fill, move, goto, compare, hunt, regs, disasm
+	fill, move, goto, compare, hunt, regs, disasm, showmem
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors

@@ -2086,13 +2086,13 @@ __asm_include:
 	clc
 	adc @cc8
 	cmp #(opcode_branches-opcodes)/3
-	bcc :+
-	rts			; invalid opcode
+	bcs @invalid
 :	sta @cc8_plus_aaa
 	asl
 	adc @cc8_plus_aaa
 	bne :+
 	sec
+@invalid:
 	rts			; optab code 0 is invalid
 
 :	adc #<opcodes
