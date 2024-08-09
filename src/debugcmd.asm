@@ -273,14 +273,13 @@
 ; DISASM
 ; Disassembles from the given expression
 .proc disasm
-@addr=rc
-@lines=re
+@addr=rd
+@lines=rf
 	; get the address to start disassembling at
 	lda #20
 	sta @lines
 	CALL FINAL_BANK_MAIN, #expr::eval
-	bcs @done
-
+	bcs @ret
 	stxy @addr
 
 @l0:	ldxy #$100
@@ -291,7 +290,8 @@
 	jsr @drawline
 	dec @lines
 	bne @l0
-@done:	RETURN_OK
+@done:	clc
+@ret:	rts
 
 @drawline:
 	tax
@@ -318,7 +318,6 @@
 :	ldxy #@disasm_msg
 	jmp con::puts
 
-
 .RODATA
 @disasm_msg:
 	.byte $fe," ", $ff,0	; <address> <instruction>
@@ -329,6 +328,14 @@
 ; SHOWMEM
 ; Shows the contents of memory at the target of the given expression
 .proc showmem
+	; get the address to start showing memory at
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @ret
+	CALL FINAL_BANK_MAIN, #view::memline
+	jsr @print
+	clc
+@ret:	rts
+@print:	jsr con::puts
 .endproc
 
 ;******************************************************************************

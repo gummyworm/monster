@@ -236,7 +236,7 @@ __gui_refresh:
 	; copy the persistent GUI state to the zeropage
 	jsr copyvars
 	bcc redraw_state
-:	rts				; no GUI to draw
+	rts				; no GUI to draw
 
 ; entrypoint to draw the already copied zeropage state
 .proc redraw_state

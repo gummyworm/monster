@@ -177,7 +177,7 @@ final_store_size=*-__final_store_byte
 
 	dec banksp
 	ldx banksp
-	lda zp::bankstack,x		; get the caller's bank
+	lda zp::bankstack,x	; get the caller's bank
 	sta $9c02		; restore bank
 
 	lda @a			; restore .A
@@ -186,9 +186,6 @@ final_store_size=*-__final_store_byte
 .endproc
 
 banksp:    .byte 0
-
-.export bankcode_size
-bankcode_size = *-bankcode
 
 .CODE
 

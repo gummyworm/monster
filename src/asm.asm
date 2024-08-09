@@ -2087,7 +2087,7 @@ __asm_include:
 	adc @cc8
 	cmp #(opcode_branches-opcodes)/3
 	bcs @invalid
-:	sta @cc8_plus_aaa
+	sta @cc8_plus_aaa
 	asl
 	adc @cc8_plus_aaa
 	bne :+

@@ -436,6 +436,35 @@ memaddr:   .word 0
 	ldx #MEMVIEW_START
 	jsr draw::hline
 
+	lda #MEMVIEW_START+1
+	sta @row
+
+@l0:	ldxy @src
+	jsr __view_mem_line
+	lda @row
+	jsr text::puts		; draw the row of rendered bytes
+	inc @row
+	lda @row
+	cmp #MEMVIEW_STOP	; have we drawn all rows?
+	bcc @l0			; repeat til we have
+	rts
+.endproc
+
+;******************************************************************************
+; MEM_LINE
+; Returns a line containing 8 bytes of the contents of the given address
+; along with a text rendering of those 8 bytes.
+; IN:
+;   - .XY: the address to get the memory rendering of
+; OUT:
+;   - mem::spare: the rendered memory data
+;   - .XY:        the rendered memory data
+.export __view_mem_line
+.proc __view_mem_line
+@src=ra
+@col=rc
+	stxy @src
+
 	; initialize line to empty (all spaces)
 	lda #40
 	sta r0
@@ -443,9 +472,6 @@ memaddr:   .word 0
 	ldx #<mem::spare
 	ldy #>mem::spare
 	jsr util::memset
-
-	lda #MEMVIEW_START+1
-	sta @row
 
 @l0:	; draw the address of this line
 	lda @src+1
@@ -491,12 +517,6 @@ memaddr:   .word 0
 
 	ldx #<mem::spare
 	ldy #>mem::spare
-	lda @row
-	jsr text::puts		; draw the row of rendered bytes
-	inc @row
-	lda @row
-	cmp #MEMVIEW_STOP	; have we drawn all rows?
-	bcc @l0			; repeat til we have
 	rts
 .endproc
 
