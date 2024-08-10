@@ -328,13 +328,58 @@
 ; SHOWMEM
 ; Shows the contents of memory at the target of the given expression
 .proc showmem
+@addr=r6
+@lines=r8
+	; default to 8 lines (64 bytes total)
+	lda #$08
+	sta @lines
+	lda #$00
+	sta @lines+1
+
 	; get the address to start showing memory at
 	CALL FINAL_BANK_MAIN, #expr::eval
 	bcs @ret
+	stxy @addr
+
+	; get the (optional) end address and divide by 8 to get # of lines
+	ldy #$00
+	lda (zp::line),y
+	beq @l0
+	incw zp::line		; move past separator
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @ret		; error
+	sub16 @addr
+	stx @lines
+	tya
+	lsr
+	ror @lines
+	lsr
+	ror @lines
+	lsr
+	ror @lines
+	sta @lines+1
+
+	ldxy @lines
+	cmpw #0
+	bne @l0
+	inc @lines		; minimum of 1 line
+
+@l0:	ldxy @addr
 	CALL FINAL_BANK_MAIN, #view::memline
 	jsr @print
+
+	; move to address for next row
+	lda @addr
 	clc
+	adc #$08
+	sta @addr
+	bcc :+
+	inc @addr+1
+:	dec @lines		; (max 255 lines)
+	bne @l0
+	clc			; OK
 @ret:	rts
+
 @print:	jsr con::puts
 .endproc
 
