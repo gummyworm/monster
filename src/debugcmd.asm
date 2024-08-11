@@ -325,6 +325,39 @@
 .endproc
 
 ;******************************************************************************
+; ASSEMBLE
+; Assembles the given instruction at the address of the given expression
+; e.g.
+; >.A $1000, lda #$00
+.proc assemble
+@addr=rd
+@lines=rf
+	; get the address to assemble at
+	lda #20
+	sta @lines
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @ret		; return if address is invalid expression
+	stxy @addr
+	CALL FINAL_BANK_MAIN, #asm::setpc
+
+	ldy #$00
+	lda (zp::line),y
+	beq @nexti		; if no instruction provided, prompt for more
+	incw zp::line
+	ldxy zp::line
+	lda #FINAL_BANK_MAIN
+	CALL FINAL_BANK_MAIN, #asm::tokenize	; assemble the instruction
+	bcs @err
+@nexti:	rts
+
+@err:	CALL FINAL_BANK_MAIN, #err::get
+	CALL FINAL_BANK_MAIN, #str::uncompress
+	jsr con::puts		; print the error
+	clc
+@ret:	rts
+.endproc
+
+;******************************************************************************
 ; SHOWMEM
 ; Shows the contents of memory at the target of the given expression
 .proc showmem
@@ -414,11 +447,12 @@ commands:
 .byte "h",0	; hunts the given address range for the given data
 .byte "r",0	; shows the contents of the registers
 .byte "d",0	; disassembles from the given address
+.byte "a",0	; assembles the given instruction given address
 .byte "m",0	; show contents of memory at the given address
 
 .linecont +
 .define command_vectors add_watch, remove_watch, add_break, remove_break, \
-	fill, move, goto, compare, hunt, regs, disasm, showmem
+	fill, move, goto, compare, hunt, regs, disasm, assemble, showmem
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors

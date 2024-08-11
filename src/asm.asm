@@ -437,7 +437,7 @@ num_illegals = *-illegal_opcodes
 ;  - .C: set if an error occurred
 .export __asm_tokenize
 .proc __asm_tokenize
-	; copy the line to a new buffer and make it uppercase (assembly is
+	; copy the line to the main RAM bank and make it uppercase (assembly is
 	; case-insensitive)
 	stxy zp::bankaddr0
 	ldxy #asmbuffer
@@ -700,7 +700,7 @@ num_illegals = *-illegal_opcodes
 	cmp #','		; is it a ','?
 	bne @rparen_noprex	; if not, only valid string is a plain ')'
 
-	jsr line::nextch		; eat any WS and get next char
+	jsr line::nextch	; eat any WS and get next char
 	cmp #'x'		; is it an .X?
 	bne @unexpected_char
 
@@ -1695,6 +1695,23 @@ __asm_include:
 @done:	lda #ASM_ORG
 	RETURN_OK
 .endproc
+
+;******************************************************************************
+; SET PC
+; Sets the address to assemble at next time tokenize is called.
+; This is only useful in the context of assembling a line directly to 
+; memory.  It should not be used when assembling a file/buffer
+; IN:
+;   - .XY: the address to assemble the next instruction to
+.export __asm_set_pc
+.proc __asm_set_pc
+	stxy zp::asmresult
+	stxy zp::virtualpc
+	lda #$01
+	sta pcset
+	rts
+.endproc
+
 
 ;******************************************************************************
 ; DEFINE_PSUEDO_ORG
