@@ -16,7 +16,22 @@
 MAX_OPERATORS = $10
 MAX_OPERANDS  = MAX_OPERATORS/2
 
+.BSS
+end_on_whitespace: .byte 0
+
 .CODE
+
+;******************************************************************************
+; END_ON_SPACE
+; Configures the evaluation behavior when whitespace is encountered.
+; IN:
+;   - .A: if set to 0, future calls to eval will ignore whitespace
+;         if set to 1, future calls to eval will treat whitespace as end of expr
+.export __expr_end_on_whitespace
+.proc __expr_end_on_whitespace
+	sta end_on_whitespace
+	rts
+.endproc
 
 ;******************************************************************************
 ; EVAL
@@ -56,13 +71,17 @@ MAX_OPERANDS  = MAX_OPERATORS/2
 	lda (zp::line),y
 	jsr util::is_whitespace	; eat whitespace
 	bne :+
+
+	; check whitespace behavior, finish if configured as terminator
+	lda end_on_whitespace
+	bne @end
 	incw zp::line
 	jmp @l0
 
 :	lda (zp::line),y
 	jsr @isterminator
 	bne @rparen
-	jmp @done
+@end:	jmp @done
 
 @rparen:
 	cmp #'('

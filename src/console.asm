@@ -2,6 +2,7 @@
 .include "cursor.inc"
 .include "debugcmd.inc"
 .include "edit.inc"
+.include "expr.inc"
 .include "key.inc"
 .include "finalex.inc"
 .include "macros.inc"
@@ -9,7 +10,6 @@
 .include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"
-
 
 ;******************************************************************************
 HEIGHT = 24
@@ -54,6 +54,11 @@ line: .byte 0	; the line that the console is on
 	CALL FINAL_BANK_MAIN, #bm::clr
 	lda #$00
 	sta line
+
+	; treat whitespace as separator for expressions in the console
+	lda #$01
+	CALL FINAL_BANK_MAIN, #expr::end_on_ws
+
 @prompt:
 	ldxy #mem::linebuffer
 	lda line
@@ -68,9 +73,13 @@ line: .byte 0	; the line that the console is on
 
 @loop:	lda line
 	sta zp::cury
+
 	lda #$01
-	sta cur::minx
 	sta zp::curx		; move to start of line
+	ldx #$01
+	ldy #$00
+	CALL FINAL_BANK_MAIN, #cur::setmin
+
 	ldxy #key::getch
 	CALL FINAL_BANK_MAIN, #edit::gets
 	bcs @clrline
@@ -79,19 +88,22 @@ line: .byte 0	; the line that the console is on
 	lda line
 	cmp #HEIGHT-1
 	bcc :+
+
+	; if at bottom of the screen, scroll everything up
 	CALL FINAL_BANK_MAIN, #text::scrollup
 	dec line
 :	inc line		; move down a row before running command
 	pla
 	cmp #$02		; 2 because prompt makes min length 1
-	bcc @prompt		; if command length is 0, there is no command
+	bcs @run
+	jmp @prompt		; if command length is 0, there is no command
 
-	; run the commanu
+@run:	; run the command
 	ldxy #$101
 	jsr dbgcmd::run
-	bcc @prompt		; if it succeeded, continue
+	bcc @ok			; if it succeeded, continue
 
-	ldxy #strings::invalid_command
+@err:	ldxy #strings::invalid_command
 	jsr __con_puts
-	jmp @prompt
+@ok:	jmp @prompt
 .endproc
