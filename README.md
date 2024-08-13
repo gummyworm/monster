@@ -1026,7 +1026,7 @@ then be input
 The monitor is a text based interface for debugging programs and manipulating 
 program state.  The symbol table is usable by the monitor
 
-#### Monitor Commands
+### Monitor Commands
 | Command  |  Name       |  Parameters                  |   Description                                                                                              |
 |----------|-------------|------------------------------|------------------------------------------------------------------------------------------------------------|
 |    a     | assemble    |  expression instruction      | assembles the given instruction at the address of the provided expression                                  |

@@ -214,8 +214,11 @@ main:	jsr key::getch
 .proc enter_console
 	pushcur
 	jsr scr::reset
+	lda #$00
+	sta mem::coloron
 	CALL FINAL_BANK_CONSOLE, #con::enter
 	jsr scr::restore
+	inc mem::coloron
 	popcur
 	rts
 .endproc
