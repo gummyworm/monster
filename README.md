@@ -1027,10 +1027,8 @@ The monitor is a text based interface for debugging programs and manipulating
 program state.  The symbol table is usable by the monitor
 
 #### Monitor Commands
-| Command  |  Name       |  Parameters                  |   Description                                                              |
-|----------|-------------|------------------------------|----------------------------------------------------------------------------|
-|    a     | assemble    |  expression instruction      | assembles the given instruction at the address of the provided expression  |
-|    d     | disassemble |  expression (expression)     | disassembles from the given start address or, if an end address is given,  |
-|          |             |                              | over the given range.                                                      |
-|    m     | show memory |  expression (expression)     | displays the contents of memory from the given start address or, if given, |
-|          |             |                              | up to the given end address                                                |
+| Command  |  Name       |  Parameters                  |   Description                                                                                              |
+|----------|-------------|------------------------------|------------------------------------------------------------------------------------------------------------|
+|    a     | assemble    |  expression instruction      | assembles the given instruction at the address of the provided expression                                  |
+|    d     | disassemble |  expression (expression)     | disassembles from the given start address or, if an end address is given, up to the the given end address. |
+|    m     | show memory |  expression (expression)     | displays the contents of memory from the given start address or, if given, up to the given end address     |
