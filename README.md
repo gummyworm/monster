@@ -35,6 +35,7 @@ Table of Contents
           * [Watch Viewer](https://github.com/gummyworm/monster#watch-viewer-f7-while-debugging)
       * [Breakpoints](https://github.com/gummyworm/monster#breakpoints)
       * [Watches](https://github.com/gummyworm/monster#watches)
+  * [Monitor](https://github.com/gummyworm/monster#monitor)
 
 ---
 
@@ -1021,3 +1022,15 @@ then be input
 |----------|------------------|-----------------|--------------------------------------------------------------------------------------|
 |     wa   | addr stopaddr    | Add Watch       | Adds a watch at the given start and (optional) stop address                          |
 |     wr   | id               | Remove Watch    | removes the watch with the given id                                                  |
+## Monitor
+The monitor is a text based interface for debugging programs and manipulating 
+program state.  The symbol table is usable by the monitor
+
+#### Monitor Commands
+| Command  |  Name       |  Parameters                  |   Description                                                              |
+|----------|-------------|------------------------------|----------------------------------------------------------------------------|
+|    a     | assemble    |  expression instruction      | assembles the given instruction at the address of the provided expression  |
+|    d     | disassemble |  expression (expression)     | disassembles from the given start address or, if an end address is given,  |
+|          |             |                              | over the given range.                                                      |
+|    m     | show memory |  expression (expression)     | displays the contents of memory from the given start address or, if given, |
+|          |             |                              | up to the given end address                                                |
