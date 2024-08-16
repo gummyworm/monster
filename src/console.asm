@@ -47,6 +47,28 @@ line: .byte 0	; the line that the console is on
 .endproc
 
 ;******************************************************************************
+; PRINT
+; Prints the given text to the console without a newline
+; IN:
+;   - .XY: the address of the line to print
+.export __con_print
+.proc __con_print
+@msg=r0
+	stxy @msg
+
+	ldy #$00
+:	lda (@msg),y
+	sta mem::linebuffer,y
+	beq @done
+	iny
+	bne :-
+
+	lda line
+	JUMP FINAL_BANK_MAIN, #text::print
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; ENTER
 ; Activates the console. Returns when F7 is pressed
 .export __console_enter

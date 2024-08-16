@@ -417,6 +417,48 @@
 .endproc
 
 ;******************************************************************************
+; QUIT
+; Quits the debugger, returning to the editor
+.proc quit
+.endproc
+
+;******************************************************************************
+; STEP
+; Steps to the next instruction while debugging
+.proc step
+.endproc
+
+;******************************************************************************
+; STEP_OVER
+; Steps over the next instruction while debugging.  Subroutines (JSR) are
+; treated as one instruction
+; instruction
+.proc step_over
+.endproc
+
+;******************************************************************************
+; GO
+; Continues program execution at the current PC
+.proc go
+.endproc
+
+;******************************************************************************
+; BACKTRACE
+; Prints the call (JSR) stack (with symbols if possible).
+; This is based on the contents of the stack, so any data on the stack may
+; result in a bad rendering.
+; An optional offset from the stack pointer can be given to adjust the
+; stack's start location
+.proc backtrace
+.endproc
+
+;******************************************************************************
+; STEP_OUT
+; Continues execution til the current subroutine returns with an RTS
+.proc step_out
+.endproc
+
+;******************************************************************************
 ; IS_WHITESPACE
 ; Checks if the given character is a whitespace character
 ; IN:
@@ -449,10 +491,17 @@ commands:
 .byte "d",0	; disassembles from the given address
 .byte "a",0	; assembles the given instruction given address
 .byte "m",0	; show contents of memory at the given address
+.byte "q",0	; quit the debugger
+.byte "z",0	; step to the next instruction
+.byte "n",0	; step over the next instruction
+.byte "g",0	; go (continue program execution)
+.byte "bt",0	; backgrace
+.byte "zo",0	; step out
 
 .linecont +
 .define command_vectors add_watch, remove_watch, add_break, remove_break, \
-	fill, move, goto, compare, hunt, regs, disasm, assemble, showmem
+	fill, move, goto, compare, hunt, regs, disasm, assemble, showmem, \
+	quit, step, step_over, go, backtrace, step_out
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors

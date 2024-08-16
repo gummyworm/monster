@@ -9,6 +9,7 @@
 .include "bitmap.inc"
 .include "breakpoints.inc"
 .include "config.inc"
+.include "console.inc"
 .include "cursor.inc"
 .include "debuginfo.inc"
 .include "debugcmd.inc"
@@ -72,12 +73,22 @@ ACTION_GO        = 5	; action for subsequent GO instructions
 ACTION_TRACE     = 6	; action for TRACE command
 
 ;******************************************************************************
+; IFACE (interface) constants
+; These are the valid values for dbg::interface. This value determines the
+; interface that is entered in the debug breakpoint handler
+DEBUG_IFACE_GUI  = 0
+DEBUG_IFACE_TEXT = 1
+
+;******************************************************************************
 swapmem        = zp::debug+$10	; not zero if we need to swap in user RAM
 debugtmp       = zp::debug+$11
 
 ;******************************************************************************
 ; Program state variables
 .BSS
+
+.export __debug_interface
+__debug_interface: .byte DEBUG_IFACE_GUI
 
 ;******************************************************************************
 ; Up to 4 bytes need to be saved in a given STEP.
@@ -644,7 +655,7 @@ brkhandler2_size=*-brkhandler2
 	; if we're beginning a GO, get on with it
 	lda action
 	cmp #ACTION_GO_START
-	bne @update_watches
+	bne @enter_iface
 
 	; continue the GO command
 	jsr step_restore
@@ -652,9 +663,17 @@ brkhandler2_size=*-brkhandler2
 	sta action
 
 @continue_debug:
-	jsr install_breakpoints	 ; reinstall rest of breakpoints
-	jmp @debug_done		 ; continue execution
+	jsr install_breakpoints	; reinstall rest of breakpoints
+	jmp __debug_done	; continue execution
 
+@enter_iface:
+	lda __debug_interface
+	beq @iface_debug	; if interface is GUI, continue
+
+	; pass control to the console (text interface)
+	JUMP FINAL_BANK_CONSOLE, #con::enter
+
+@iface_debug:
 @update_watches:
 	jsr watch::update
 	jsr show_aux		; display the auxiliary mode
@@ -761,15 +780,22 @@ brkhandler2_size=*-brkhandler2
 @finishloopiter:
 	lda advance		; are we ready to execute program? (GO, STEP)
 	beq @debugloop		; not yet, loop and get another command
+.endproc
 
-@debug_done:
+;******************************************************************************
+; DONE
+; Returns from the debug BRK interrupt.
+; The text debugger also returns here to restore the program state and 
+; continue execution of the program.
+.export __debug_done
+.proc __debug_done
 	jsr cur::off
 	jsr swapin
 
 	jsr save_debug_zp
 	restore_user_zp
 
-@restore_regs:
+restore_regs:
 	ldx sim::reg_sp	; restore SP
 	txs
 
