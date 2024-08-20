@@ -114,7 +114,7 @@ brkaddr:   .word 0 	; address where our brakpoint is set
 ; these must be stored next to each other as they are backed up/restored as
 ; a unit.
 debug_state_save:
-debug_instruction_save: .res 3	; buffer for debugger's
+debug_instruction_save: .res 3	; buffer for debugger RAM at current instruction
 mem_debugsave:          .byte 0 ; byte under effective address during STEP
 debug_stepsave: 	.byte 0 ; debugger byte under BRK (if internal)
 
@@ -655,7 +655,7 @@ brkhandler2_size=*-brkhandler2
 	; if we're beginning a GO, get on with it
 	lda action
 	cmp #ACTION_GO_START
-	bne @enter_iface
+	bne @continue_debug
 
 	; continue the GO command
 	jsr step_restore
@@ -666,17 +666,8 @@ brkhandler2_size=*-brkhandler2
 	jsr install_breakpoints	; reinstall rest of breakpoints
 	jmp __debug_done	; continue execution
 
-@enter_iface:
-	lda __debug_interface
-	beq @iface_debug	; if interface is GUI, continue
-
-	; pass control to the console (text interface)
-	JUMP FINAL_BANK_CONSOLE, #con::enter
-
-@iface_debug:
 @update_watches:
 	jsr watch::update
-	jsr show_aux		; display the auxiliary mode
 
 	; check if action was STEP or TRACE
 	lda action
@@ -722,6 +713,17 @@ brkhandler2_size=*-brkhandler2
 	lda #$00
 	sta action
 
+; we're done updating state, check which interface we should transfer
+; execution to
+@enter_iface:
+	lda __debug_interface
+	beq @iface_gui		; if interface is GUI, continue
+
+	; pass control to the console (text interface)
+	JUMP FINAL_BANK_CONSOLE, #con::enter
+
+@iface_gui:
+	jsr show_aux		; display the auxiliary mode
 @showbrk:
 	; get the address before the BRK and go to it
 	ldxy sim::pc
@@ -2032,6 +2034,15 @@ __debug_remove_breakpoint:
 @ok:	rts
 .endproc
 
+;******************************************************************************
+; ACTIVATE MONITOR
+; Activates the text user interface debugger (monitor)
+.proc activate_monitor
+	lda #DEBUG_IFACE_TEXT
+	sta __debug_interface
+	rts
+.endproc
+
 .RODATA
 ;******************************************************************************
 ; COMMANDS
@@ -2054,13 +2065,14 @@ commands:
 	.byte K_EDIT_STATE
 	.byte K_GOTO_BREAK
 	.byte K_ENTER_DEBUG_CMD
+	.byte K_CONSOLE
 num_commands=*-commands
 
 .linecont +
 .define command_vectors quit, edit_source, step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
 	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state, \
-	goto_break, enter_debug_cmd
+	goto_break, enter_debug_cmd, activate_monitor
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
