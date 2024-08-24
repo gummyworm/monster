@@ -798,7 +798,7 @@ respective Key in the table below.
 |   <-         | Exit            | exits the debugger and returns to the editor                                         |
 | SPACE        | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  |
 | ^ (up arrow) |  Goto Break     | navigates to the address that the debugger is currently paused at                    |
-| !            | Enter command   | prompts for a debug command (see the debug command section for more info)            |
+| C= + t       | Enter monitor   | enters the text-based debug interface (see the monitor commands section for more info|
 
 ### Register Editor (`F2`)
 Pressing F2 moves the cursor to the register contents and allows the user to enter
@@ -1011,20 +1011,9 @@ the viewer is also activated.
 
 ---
 
-## Debug Commands
-Debug commands offer a text interface for performing the actions that can
-be done within the various debug editors as well as some other ones.
-
-Pressing `!` while debugging opens the prompt.  The following commands can
-then be input
-
-|  Command | Parameters       | Name            |   Description                                                                        |
-|----------|------------------|-----------------|--------------------------------------------------------------------------------------|
-|     wa   | addr stopaddr    | Add Watch       | Adds a watch at the given start and (optional) stop address                          |
-|     wr   | id               | Remove Watch    | removes the watch with the given id                                                  |
 ## Monitor
 The monitor is a text based interface for debugging programs and manipulating 
-program state.  The symbol table is usable by the monitor
+program state.
 
 ### Monitor Commands
 | Command  |  Name       |  Parameters                  |   Description                                                                                              |
@@ -1032,3 +1021,7 @@ program state.  The symbol table is usable by the monitor
 |    a     | assemble    |  expression instruction      | assembles the given instruction at the address of the provided expression                                  |
 |    d     | disassemble |  expression (expression)     | disassembles from the given start address or, if an end address is given, up to the the given end address. |
 |    m     | show memory |  expression (expression)     | displays the contents of memory from the given start address or, if given, up to the given end address     |
+|    z     | step        |                              | runs the next instrcution and returns to the the monitor prompt                                            |
+|    s     | step over   |                              | runs the next instruction, treating JSR's as a single instruction                                          |
+|    wa    | add watch   | expression (expression)      | adds a watch at the given start and (optional) stop address                                                |
+|    wr    | remove watch| id                           | removes the watch with the given id                                                                        |

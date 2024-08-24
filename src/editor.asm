@@ -211,7 +211,8 @@ main:	jsr key::getch
 ;******************************************************************************
 ; ENTER CONSOLE
 ; Activates the console
-.proc enter_console
+.export __edit_enter_console
+.proc __edit_enter_console
 	pushcur
 	jsr scr::reset
 	lda #$00
@@ -4673,7 +4674,7 @@ numcommands=*-commands
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
-	command_find, next_drive, prev_drive, get_command, enter_console
+	command_find, next_drive, prev_drive, get_command, __edit_enter_console
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs

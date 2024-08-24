@@ -655,7 +655,7 @@ brkhandler2_size=*-brkhandler2
 	; if we're beginning a GO, get on with it
 	lda action
 	cmp #ACTION_GO_START
-	bne @continue_debug
+	bne @update_watches
 
 	; continue the GO command
 	jsr step_restore
@@ -735,7 +735,7 @@ brkhandler2_size=*-brkhandler2
 @print:	jsr showstate		; show regs/BRK message
 	jsr cur::on
 
-; main debug loop
+; main (graphical) debug loop
 @debugloop:
 	cli
 	jsr text::update
@@ -777,6 +777,11 @@ brkhandler2_size=*-brkhandler2
 
 	jsr zp::jmpaddr		; call the command
 	jsr cur::on
+
+	lda __debug_interface
+	cmp #DEBUG_IFACE_GUI
+	bne @finishloopiter
+@finishloopgui:
 	jsr showstate		; restore the register display (may be changed)
 
 @finishloopiter:
@@ -901,7 +906,7 @@ restore_regs:
 .proc go
 	; for the first instruction, just STEP, this lets us keep the breakpoint
 	; we are on (if there is one) intact
-	jsr step
+	jsr __debug_step
 	lda #$00
 	sta sw_valid		; invalidate stopwatch
 	lda #ACTION_GO_START
@@ -915,7 +920,7 @@ restore_regs:
 ; Puts the debugger into TRACE mode and steps to the next instruction to
 ; begin the trace
 .proc trace
-	jsr step
+	jsr __debug_step
 	lda #ACTION_TRACE
 	sta action
 	rts
@@ -1030,11 +1035,26 @@ restore_regs:
 .endproc
 
 ;******************************************************************************
+; STEP_OVER
+; Runs the next instruction from the .PC and returns to the debug prompt.
+; This works by inserting a BRK instruction after
+; the current instruction and RUNning.
+; Unlike STEP, if the next procedure is a JSR, execution will continue
+; at the line after the subroutine (after the subroutine has run)
+.proc step_over
+	lda #$00
+	sta sw_valid		; invalidate stopwatch
+
+	; fall through to __debug_step
+.endproc
+
+;******************************************************************************
 ; STEP
 ; Runs the next instruction from the .PC and returns to the debug prompt.
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
-.proc step
+.export __debug_step
+.proc __debug_step
 @mode=r0
 	ldxy #$100		; TODO: use ROM addr? (we don't need the string)
 	stxy r0			; TODO: make way to not disassemble to string
@@ -1156,19 +1176,6 @@ restore_regs:
 	lda stepsave
 	ldxy brkaddr
 	jmp vmem::store
-.endproc
-
-;******************************************************************************
-; STEP_OVER
-; Runs the next instruction from the .PC and returns to the debug prompt.
-; This works by inserting a BRK instruction after
-; the current instruction and RUNning.
-; Unlike STEP, if the next procedure is a JSR, execution will continue
-; at the line after the subroutine (after the subroutine has run)
-.proc step_over
-	lda #$00
-	sta sw_valid		; invalidate stopwatch
-	jmp step
 .endproc
 
 ;******************************************************************************
@@ -2040,7 +2047,7 @@ __debug_remove_breakpoint:
 .proc activate_monitor
 	lda #DEBUG_IFACE_TEXT
 	sta __debug_interface
-	rts
+	jmp edit::enterconsole
 .endproc
 
 .RODATA
@@ -2069,7 +2076,7 @@ commands:
 num_commands=*-commands
 
 .linecont +
-.define command_vectors quit, edit_source, step, step_over, go, \
+.define command_vectors quit, edit_source, __debug_step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
 	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state, \
 	goto_break, enter_debug_cmd, activate_monitor

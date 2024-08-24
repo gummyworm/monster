@@ -420,12 +420,18 @@
 ; QUIT
 ; Quits the debugger, returning to the editor
 .proc quit
+	; eat the caller's return address 
+	pla
+	pla
+	rts
 .endproc
 
 ;******************************************************************************
 ; STEP
 ; Steps to the next instruction while debugging
 .proc step
+	JUMP FINAL_BANK_MAIN, #dbg::step
+	jmp quit		; let the debugger take over to comple STEP
 .endproc
 
 ;******************************************************************************
@@ -491,7 +497,7 @@ commands:
 .byte "d",0	; disassembles from the given address
 .byte "a",0	; assembles the given instruction given address
 .byte "m",0	; show contents of memory at the given address
-.byte "q",0	; quit the debugger
+.byte "x",0	; quit the debugger
 .byte "z",0	; step to the next instruction
 .byte "n",0	; step over the next instruction
 .byte "g",0	; go (continue program execution)

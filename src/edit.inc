@@ -1,6 +1,7 @@
 .importzp __edit_height
 
 .import __edit_current_file
+.import __edit_enter_console
 .import __edit_gets
 .import __edit_gotoline
 .import __edit_handle_key
@@ -17,6 +18,7 @@
 
 .scope edit
 	currentfile    = __edit_current_file
+	enterconsole   = __edit_enter_console
 	gets           = __edit_gets
 	gotoline       = __edit_gotoline
 	handlekey      = __edit_handle_key
