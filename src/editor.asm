@@ -213,11 +213,27 @@ main:	jsr key::getch
 ; Activates the console
 .export __edit_enter_console
 .proc __edit_enter_console
-	pushcur
 	jsr scr::reset
 	lda #$00
 	sta mem::coloron
-	CALL FINAL_BANK_CONSOLE, #con::enter
+	JUMP FINAL_BANK_CONSOLE, #con::enter
+.endproc
+
+;******************************************************************************
+; MON
+; Activates the monitor and restores the editor when it exits
+.proc mon
+	pushcur
+	jsr __edit_enter_console
+
+	; fall through to __edit_exit_console
+.endproc
+
+;******************************************************************************
+; EXIT CONSOLE
+; Returns from the console 
+.export __edit_exit_console
+.proc __edit_exit_console
 	jsr scr::restore
 	inc mem::coloron
 	popcur
@@ -4674,7 +4690,7 @@ numcommands=*-commands
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
-	command_find, next_drive, prev_drive, get_command, __edit_enter_console
+	command_find, next_drive, prev_drive, get_command, mon
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs

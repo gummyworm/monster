@@ -261,7 +261,8 @@
 ;******************************************************************************
 ; REGISTERS
 ; Displays the current contents of the registers.
-.proc regs
+.export __dbgcmd_regs
+.proc __dbgcmd_regs
 	ldxy #strings::debug_registers
 	jsr con::puts
 	CALL FINAL_BANK_MAIN, #dbg::regs_contents
@@ -430,7 +431,7 @@
 ; STEP
 ; Steps to the next instruction while debugging
 .proc step
-	JUMP FINAL_BANK_MAIN, #dbg::step
+	CALL FINAL_BANK_MAIN, #dbg::step
 	jmp quit		; let the debugger take over to comple STEP
 .endproc
 
@@ -506,8 +507,8 @@ commands:
 
 .linecont +
 .define command_vectors add_watch, remove_watch, add_break, remove_break, \
-	fill, move, goto, compare, hunt, regs, disasm, assemble, showmem, \
-	quit, step, step_over, go, backtrace, step_out
+	fill, move, goto, compare, hunt, __dbgcmd_regs, disasm, assemble, \
+	showmem, quit, step, step_over, go, backtrace, step_out
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors

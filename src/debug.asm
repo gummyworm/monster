@@ -712,6 +712,7 @@ brkhandler2_size=*-brkhandler2
 @reset_state:
 	lda #$00
 	sta action
+	sta advance	; by default, don't return to program after command
 
 ; we're done updating state, check which interface we should transfer
 ; execution to
@@ -719,8 +720,12 @@ brkhandler2_size=*-brkhandler2
 	lda __debug_interface
 	beq @iface_gui		; if interface is GUI, continue
 
-	; pass control to the console (text interface)
-	JUMP FINAL_BANK_CONSOLE, #con::enter
+@iface_tui:
+	; display the contents of the registers
+	CALL FINAL_BANK_CONSOLE, #dbgcmd::regs
+@debugloop_tui:
+	CALL FINAL_BANK_CONSOLE, #con::reenter
+	jmp @finishloopiter
 
 @iface_gui:
 	jsr show_aux		; display the auxiliary mode
@@ -738,14 +743,15 @@ brkhandler2_size=*-brkhandler2
 ; main (graphical) debug loop
 @debugloop:
 	cli
+	lda __debug_interface
+	bne @debugloop_tui
+
 	jsr text::update
 	jsr key::getch
 	beq @debugloop
 
 	pha
 
-	lda #$00
-	sta advance	; by default, don't return to program after command
 	jsr cur::off
 	pla
 
@@ -779,7 +785,6 @@ brkhandler2_size=*-brkhandler2
 	jsr cur::on
 
 	lda __debug_interface
-	cmp #DEBUG_IFACE_GUI
 	bne @finishloopiter
 @finishloopgui:
 	jsr showstate		; restore the register display (may be changed)
@@ -800,7 +805,9 @@ brkhandler2_size=*-brkhandler2
 	jsr swapin
 
 	jsr save_debug_zp
+	sei
 	restore_user_zp
+	jsr dummy_irq
 
 restore_regs:
 	ldx sim::reg_sp	; restore SP
@@ -1059,7 +1066,7 @@ restore_regs:
 	ldxy #$100		; TODO: use ROM addr? (we don't need the string)
 	stxy r0			; TODO: make way to not disassemble to string
 	ldxy sim::pc		; get address of next instruction
-	jsr asm::disassemble  ; disassemble it to get its size (next BRK offset)
+	jsr asm::disassemble	; disassemble it to get its size (BRK offset)
 	stx sim::op_mode
 	bcc @ok
 	rts		; return error
@@ -1166,7 +1173,7 @@ restore_regs:
 	jsr vmem::store
 
 	inc advance		; continue program execution
-	rts			; return to the debugger
+	RETURN_OK		; return to the debugger
 .endproc
 
 ;******************************************************************************
@@ -2047,6 +2054,7 @@ __debug_remove_breakpoint:
 .proc activate_monitor
 	lda #DEBUG_IFACE_TEXT
 	sta __debug_interface
+	jsr save_debug_state
 	jmp edit::enterconsole
 .endproc
 

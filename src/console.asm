@@ -70,13 +70,21 @@ line: .byte 0	; the line that the console is on
 
 ;******************************************************************************
 ; ENTER
-; Activates the console. Returns when F7 is pressed
+; Activates the console.
 .export __console_enter
 .proc __console_enter
 	CALL FINAL_BANK_MAIN, #bm::clr
 	lda #$00
 	sta line
 
+	; fall through to __console_reenter
+.endproc
+
+;******************************************************************************
+; REENTER
+; Activates the console without clearing the screen
+.export __console_reenter
+.proc __console_reenter
 	; treat whitespace as separator for expressions in the console
 	lda #$01
 	CALL FINAL_BANK_MAIN, #expr::end_on_ws
