@@ -23,6 +23,7 @@
 .import __debug_shift_breakpointsu
 .import __debug_start
 .import __debug_step
+.import __debug_swap_user_mem
 .import __debug_watcheslo
 .import __debug_watcheshi
 .import __debug_watches_stoplo
@@ -56,6 +57,7 @@
 	shift_breakpointsu = __debug_shift_breakpointsu
 	start              = __debug_start
 	step               = __debug_step
+	swapusermem        = __debug_swap_user_mem
 	watcheslo          = __debug_watcheslo
 	watcheshi          = __debug_watcheshi
 	watches_stoplo	   = __debug_watches_stoplo

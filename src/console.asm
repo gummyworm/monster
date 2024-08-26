@@ -1,9 +1,11 @@
 .include "bitmap.inc"
 .include "cursor.inc"
+.include "debug.inc"
 .include "debugcmd.inc"
 .include "edit.inc"
 .include "expr.inc"
 .include "key.inc"
+.include "keycodes.inc"
 .include "finalex.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -16,6 +18,22 @@ HEIGHT = 24
 
 .segment "CONSOLE_BSS"
 line: .byte 0	; the line that the console is on
+
+
+.CODE
+;******************************************************************************
+; GETCH
+; Handles the key (called by the keyboard gets handler)
+.proc getch
+	jsr key::getch
+	beq :+
+	cmp #K_SWAP_USERMEM_TUI
+	bne :+
+	jsr dbg::swapusermem
+	dec mem::coloron	; (re-disable color)
+	lda #$00
+:	rts
+.endproc
 
 .segment "CONSOLE"
 
@@ -110,7 +128,7 @@ line: .byte 0	; the line that the console is on
 	ldy #$00
 	CALL FINAL_BANK_MAIN, #cur::setmin
 
-	ldxy #key::getch
+	ldxy #getch
 	CALL FINAL_BANK_MAIN, #edit::gets
 	bcs @clrline
 	pha

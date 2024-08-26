@@ -1022,7 +1022,8 @@ restore_regs:
 ; SWAP_USER_MEM
 ; Command that swaps in the user program memory, waits for a keypress, and
 ; returns with the debugger's memory swapped back in
-.proc swap_user_mem
+.export __debug_swap_user_mem
+.proc __debug_swap_user_mem
 	; disable coloring in the IRQ
 	lda #$00
 	sta mem::coloron
@@ -1795,7 +1796,10 @@ __debug_remove_breakpoint:
 	sty @buff+2
 	stx @buff+3
 
-; if registers were affected, highlight them
+; if registers were affected, highlight them (GUI only)
+	lda __debug_interface
+	bne @colordone
+
 	ldx #TEXT_COLOR
 	lda sim::affected
 	and #OP_REG_A
@@ -1826,6 +1830,7 @@ __debug_remove_breakpoint:
 	ldx #DEBUG_REG_CHANGED_COLOR
 :	stx COLMEM_ADDR+(20*$b)+7
 
+@colordone:
 ; if memory was loaded or stored, show the effective address
 @memaddr:
 	lda sim::affected
@@ -2086,7 +2091,7 @@ num_commands=*-commands
 .linecont +
 .define command_vectors quit, edit_source, __debug_step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
-	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state, \
+	set_breakpoint, __debug_swap_user_mem, reset_stopwatch, edit_state, \
 	goto_break, enter_debug_cmd, activate_monitor
 .linecont -
 command_vectorslo: .lobytes command_vectors
