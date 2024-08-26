@@ -807,7 +807,7 @@ brkhandler2_size=*-brkhandler2
 	jsr save_debug_zp
 	sei
 	restore_user_zp
-	jsr dummy_irq
+	;jsr dummy_irq
 
 restore_regs:
 	ldx sim::reg_sp	; restore SP

@@ -213,7 +213,6 @@ main:	jsr key::getch
 ; Activates the console
 .export __edit_enter_console
 .proc __edit_enter_console
-	jsr scr::reset
 	lda #$00
 	sta mem::coloron
 	JUMP FINAL_BANK_CONSOLE, #con::enter
@@ -223,10 +222,12 @@ main:	jsr key::getch
 ; MON
 ; Activates the monitor and restores the editor when it exits
 .proc mon
+	jsr scr::reset
 	pushcur
 	jsr __edit_enter_console
-
-	; fall through to __edit_exit_console
+	jsr __edit_exit_console
+	popcur
+	jmp scr::restore
 .endproc
 
 ;******************************************************************************
@@ -234,9 +235,7 @@ main:	jsr key::getch
 ; Returns from the console 
 .export __edit_exit_console
 .proc __edit_exit_console
-	jsr scr::restore
 	inc mem::coloron
-	popcur
 	rts
 .endproc
 
