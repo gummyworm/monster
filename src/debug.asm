@@ -1025,8 +1025,7 @@ restore_regs:
 .export __debug_swap_user_mem
 .proc __debug_swap_user_mem
 	; disable coloring in the IRQ
-	lda #$00
-	sta mem::coloron
+	jsr draw::coloroff
 
 	jsr save_debug_state
 	jsr __debug_restore_progstate

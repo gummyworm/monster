@@ -213,8 +213,7 @@ main:	jsr key::getch
 ; Activates the console
 .export __edit_enter_console
 .proc __edit_enter_console
-	lda #$00
-	sta mem::coloron
+	jsr draw::coloroff
 	JUMP FINAL_BANK_CONSOLE, #con::enter
 .endproc
 
