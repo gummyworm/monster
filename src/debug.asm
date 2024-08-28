@@ -9,6 +9,7 @@
 .include "bitmap.inc"
 .include "breakpoints.inc"
 .include "config.inc"
+.include "console.inc"
 .include "cursor.inc"
 .include "debuginfo.inc"
 .include "debugcmd.inc"
@@ -72,12 +73,22 @@ ACTION_GO        = 5	; action for subsequent GO instructions
 ACTION_TRACE     = 6	; action for TRACE command
 
 ;******************************************************************************
+; IFACE (interface) constants
+; These are the valid values for dbg::interface. This value determines the
+; interface that is entered in the debug breakpoint handler
+DEBUG_IFACE_GUI  = 0
+DEBUG_IFACE_TEXT = 1
+
+;******************************************************************************
 swapmem        = zp::debug+$10	; not zero if we need to swap in user RAM
 debugtmp       = zp::debug+$11
 
 ;******************************************************************************
 ; Program state variables
 .BSS
+
+.export __debug_interface
+__debug_interface: .byte DEBUG_IFACE_GUI
 
 ;******************************************************************************
 ; Up to 4 bytes need to be saved in a given STEP.
@@ -103,7 +114,7 @@ brkaddr:   .word 0 	; address where our breakpoint is set
 ; these must be stored next to each other as they are backed up/restored as
 ; a unit.
 debug_state_save:
-debug_instruction_save: .res 3	; buffer for debugger's
+debug_instruction_save: .res 3	; buffer for debugger RAM at current instruction
 mem_debugsave:          .byte 0 ; byte under effective address during STEP
 debug_stepsave: 	.byte 0 ; debugger byte under BRK (if internal)
 
@@ -652,12 +663,11 @@ brkhandler2_size=*-brkhandler2
 	sta action
 
 @continue_debug:
-	jsr install_breakpoints	 ; reinstall rest of breakpoints
-	jmp @debug_done		 ; continue execution
+	jsr install_breakpoints	; reinstall rest of breakpoints
+	jmp __debug_done	; continue execution
 
 @update_watches:
 	jsr watch::update
-	jsr show_aux		; display the auxiliary mode
 
 	; check if action was STEP or TRACE
 	lda action
@@ -702,7 +712,23 @@ brkhandler2_size=*-brkhandler2
 @reset_state:
 	lda #$00
 	sta action
+	sta advance	; by default, don't return to program after command
 
+; we're done updating state, check which interface we should transfer
+; execution to
+@enter_iface:
+	lda __debug_interface
+	beq @iface_gui		; if interface is GUI, continue
+
+@iface_tui:
+	; display the contents of the registers
+	CALL FINAL_BANK_CONSOLE, #dbgcmd::regs
+@debugloop_tui:
+	CALL FINAL_BANK_CONSOLE, #con::reenter
+	jmp @finishloopiter
+
+@iface_gui:
+	jsr show_aux		; display the auxiliary mode
 @showbrk:
 	; get the address before the BRK and go to it
 	ldxy sim::pc
@@ -714,17 +740,18 @@ brkhandler2_size=*-brkhandler2
 @print:	jsr showstate		; show regs/BRK message
 	jsr cur::on
 
-; main debug loop
+; main (graphical) debug loop
 @debugloop:
 	cli
+	lda __debug_interface
+	bne @debugloop_tui
+
 	jsr text::update
 	jsr key::getch
 	beq @debugloop
 
 	pha
 
-	lda #$00
-	sta advance	; by default, don't return to program after command
 	jsr cur::off
 	pla
 
@@ -756,20 +783,33 @@ brkhandler2_size=*-brkhandler2
 
 	jsr zp::jmpaddr		; call the command
 	jsr cur::on
+
+	lda __debug_interface
+	bne @finishloopiter
+@finishloopgui:
 	jsr showstate		; restore the register display (may be changed)
 
 @finishloopiter:
 	lda advance		; are we ready to execute program? (GO, STEP)
 	beq @debugloop		; not yet, loop and get another command
+.endproc
 
-@debug_done:
+;******************************************************************************
+; DONE
+; Returns from the debug BRK interrupt.
+; The text debugger also returns here to restore the program state and 
+; continue execution of the program.
+.export __debug_done
+.proc __debug_done
 	jsr cur::off
 	jsr swapin
 
 	jsr save_debug_zp
+	sei
 	restore_user_zp
+	;jsr dummy_irq
 
-@restore_regs:
+restore_regs:
 	ldx sim::reg_sp	; restore SP
 	txs
 
@@ -873,7 +913,7 @@ brkhandler2_size=*-brkhandler2
 .proc go
 	; for the first instruction, just STEP, this lets us keep the breakpoint
 	; we are on (if there is one) intact
-	jsr step
+	jsr __debug_step
 	lda #$00
 	sta sw_valid		; invalidate stopwatch
 	lda #ACTION_GO_START
@@ -887,7 +927,7 @@ brkhandler2_size=*-brkhandler2
 ; Puts the debugger into TRACE mode and steps to the next instruction to
 ; begin the trace
 .proc trace
-	jsr step
+	jsr __debug_step
 	lda #ACTION_TRACE
 	sta action
 	rts
@@ -982,10 +1022,10 @@ brkhandler2_size=*-brkhandler2
 ; SWAP_USER_MEM
 ; Command that swaps in the user program memory, waits for a keypress, and
 ; returns with the debugger's memory swapped back in
-.proc swap_user_mem
+.export __debug_swap_user_mem
+.proc __debug_swap_user_mem
 	; disable coloring in the IRQ
-	lda #$00
-	sta mem::coloron
+	jsr draw::coloroff
 
 	jsr save_debug_state
 	jsr __debug_restore_progstate
@@ -1002,16 +1042,31 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
+; STEP_OVER
+; Runs the next instruction from the .PC and returns to the debug prompt.
+; This works by inserting a BRK instruction after
+; the current instruction and RUNning.
+; Unlike STEP, if the next procedure is a JSR, execution will continue
+; at the line after the subroutine (after the subroutine has run)
+.proc step_over
+	lda #$00
+	sta sw_valid		; invalidate stopwatch
+
+	; fall through to __debug_step
+.endproc
+
+;******************************************************************************
 ; STEP
 ; Runs the next instruction from the .PC and returns to the debug prompt.
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
-.proc step
+.export __debug_step
+.proc __debug_step
 @mode=r0
 	ldxy #$100		; TODO: use ROM addr? (we don't need the string)
 	stxy r0			; TODO: make way to not disassemble to string
 	ldxy sim::pc		; get address of next instruction
-	jsr asm::disassemble  ; disassemble it to get its size (next BRK offset)
+	jsr asm::disassemble	; disassemble it to get its size (BRK offset)
 	stx sim::op_mode
 	bcc @ok
 	rts		; return error
@@ -1118,7 +1173,7 @@ brkhandler2_size=*-brkhandler2
 	jsr vmem::store
 
 	inc advance		; continue program execution
-	rts			; return to the debugger
+	RETURN_OK		; return to the debugger
 .endproc
 
 ;******************************************************************************
@@ -1128,19 +1183,6 @@ brkhandler2_size=*-brkhandler2
 	lda stepsave
 	ldxy brkaddr
 	jmp vmem::store
-.endproc
-
-;******************************************************************************
-; STEP_OVER
-; Runs the next instruction from the .PC and returns to the debug prompt.
-; This works by inserting a BRK instruction after
-; the current instruction and RUNning.
-; Unlike STEP, if the next procedure is a JSR, execution will continue
-; at the line after the subroutine (after the subroutine has run)
-.proc step_over
-	lda #$00
-	sta sw_valid		; invalidate stopwatch
-	jmp step
 .endproc
 
 ;******************************************************************************
@@ -1165,11 +1207,12 @@ brkhandler2_size=*-brkhandler2
 	jmp __debug_restore_progstate
 
 @fastswap:
-	; save [mem_saveaddr], [step_point], and [pc, pc+2] for the debugger
+	; save [effective_addr], [pc, pc+2], and [brkaddr] for the debugger
 	lda sim::pc+1
 	sta @tosave+1
 	sta @tosave+3
 	sta @tosave+5
+
 	ldx sim::pc
 	stx @tosave
 	inx
@@ -1210,9 +1253,7 @@ brkhandler2_size=*-brkhandler2
 ; them to their physical addresses
 	ldx #8
 	stx @cnt
-@store: lda @cnt
-	tax
-
+@store: ldx @cnt
 	lda @tosave,x
 	sta @addr
 	ldy @tosave+1,x
@@ -1672,14 +1713,26 @@ __debug_remove_breakpoint:
 ;   PC  A  X  Y  SP NV-BDIZC ADDR
 ;  f59c 02 02 00 f7 00100000 1003
 .proc showregs
-@tmp=zp::asm+6
-@flag=zp::asm+7
-@buff=mem::linebuffer2
 	; display the register names
 	ldxy #strings::debug_registers
 	lda #REGISTERS_LINE
 	jsr text::print
 
+	jsr __debug_regs_contents
+	lda #REGISTERS_LINE+1
+	jmp text::puts
+.endproc
+
+;******************************************************************************
+; REGS_CONTENTS
+; Returns a line containing the contents of the registers
+; OUT: mem::linebuffer: a line of text containing the values for each tegister
+;      matches the format: PC  A  X  Y  SP NV-BDIZC ADDR
+.export __debug_regs_contents
+.proc __debug_regs_contents
+@tmp=zp::asm+6
+@flag=zp::asm+7
+@buff=mem::linebuffer2
 	ldy #39
 	lda #' '
 :	sta @buff,y
@@ -1742,7 +1795,10 @@ __debug_remove_breakpoint:
 	sty @buff+2
 	stx @buff+3
 
-; if registers were affected, highlight them
+; if registers were affected, highlight them (GUI only)
+	lda __debug_interface
+	bne @colordone
+
 	ldx #TEXT_COLOR
 	lda sim::affected
 	and #OP_REG_A
@@ -1773,6 +1829,7 @@ __debug_remove_breakpoint:
 	ldx #DEBUG_REG_CHANGED_COLOR
 :	stx COLMEM_ADDR+(20*$b)+7
 
+@colordone:
 ; if memory was loaded or stored, show the effective address
 @memaddr:
 	lda sim::affected
@@ -1828,9 +1885,10 @@ __debug_remove_breakpoint:
 	inx
 	bcc @cpyclk
 
-@print:	ldxy #@buff
-	lda #REGISTERS_LINE+1
-	jmp text::puts
+@print:	lda #$00
+	sta @buff+40
+	ldxy #@buff
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1940,7 +1998,6 @@ __debug_remove_breakpoint:
 .endproc
 	ldxy brkaddr
 	jmp __debug_gotoaddr
-.RODATA
 
 ;******************************************************************************
 ; ENTER DEBUG CMD
@@ -1985,7 +2042,7 @@ __debug_remove_breakpoint:
 	lda #$00
 	sta cur::minx
 
-	jsr dbgcmd::run
+	CALL FINAL_BANK_CONSOLE, #dbgcmd::run
 	bcc @ok
 	; display the error
 	jsr err::get
@@ -1995,6 +2052,17 @@ __debug_remove_breakpoint:
 @ok:	rts
 .endproc
 
+;******************************************************************************
+; ACTIVATE MONITOR
+; Activates the text user interface debugger (monitor)
+.proc activate_monitor
+	lda #DEBUG_IFACE_TEXT
+	sta __debug_interface
+	jsr save_debug_state
+	jmp edit::enterconsole
+.endproc
+
+.RODATA
 ;******************************************************************************
 ; COMMANDS
 ; This table contains the keys used to invoke the corresponding command
@@ -2016,13 +2084,14 @@ commands:
 	.byte K_EDIT_STATE
 	.byte K_GOTO_BREAK
 	.byte K_ENTER_DEBUG_CMD
+	.byte K_CONSOLE
 num_commands=*-commands
 
 .linecont +
-.define command_vectors quit, edit_source, step, step_over, go, \
+.define command_vectors quit, edit_source, __debug_step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
-	set_breakpoint, swap_user_mem, reset_stopwatch, edit_state, \
-	goto_break, enter_debug_cmd
+	set_breakpoint, __debug_swap_user_mem, reset_stopwatch, edit_state, \
+	goto_break, enter_debug_cmd, activate_monitor
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors

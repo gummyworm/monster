@@ -9,10 +9,6 @@
 .include "zeropage.inc"
 .include "macros.inc"
 
-.BSS
-.export __final_rti_bank
-__final_rti_bank:	.byte 0	; NOTE: only available in the main bank
-
 .segment "BANKCODE"
 
 bankcode:
@@ -153,34 +149,43 @@ final_store_size=*-__final_store_byte
 ; Performs a JSR to the target address at the given bank. When the routine is
 ; done, returns to the caller's bank.
 ; IN:
+;  - zp::bank:        the bank of the procedure to call
 ;  - zp::bankjmpaddr: the procedure address
 ;  - zp::banktmp: the destination bank address
 .export __final_call
 .proc __final_call
 @a=zp::banktmp+1
+@x=zp::banktmp+2
 @bank=zp::banktmp
+	stx @x
 	sta @a
 
 	lda #$4c
 	sta zp::bankjmpaddr	; write the JMP instruction
 	lda $9c02
-	pha			; save current bank
+	ldx banksp
+	inc banksp
+	sta zp::bankstack,x
 
 	lda @bank
-	sta $9c02
-	lda @a
-	jsr zp::bankjmpaddr
+	sta $9c02		; swap in the target bank
+	lda @a			; restore .A
+	ldx @x			; restore .X
+	jsr zp::bankjmpaddr	; call the target routine
 	sta @a			; save .A
+	stx @x			; save .X
 
-	pla			; get the caller's bank
+	dec banksp
+	ldx banksp
+	lda zp::bankstack,x	; get the caller's bank
 	sta $9c02		; restore bank
 
 	lda @a			; restore .A
+	ldx @x			; restore .X
 	rts
 .endproc
 
-.export bankcode_size
-bankcode_size = *-bankcode
+banksp:    .byte 0
 
 .CODE
 

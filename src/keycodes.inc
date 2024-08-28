@@ -25,6 +25,7 @@ K_ASM            = $86	; F3
 K_ASM_DEBUG      = $8a  ; F4 (shift + F3)
 K_ASM_FILE       = $b0	; C= + a
 K_SHOW_BUFFERS   = $87	; F5
+K_CONSOLE        = $a3	; C= + t
 K_REFRESH        = $bc  ; C= + c
 K_RENAME         = $b2  ; C= + r
 K_DIR            = $b6  ; C= + l
@@ -53,6 +54,7 @@ K_MEMVIEW		= $86	; F3
 K_BRKVIEW		= $87	; F5
 K_WATCHVIEW		= $88	; F7
 K_SWAP_USERMEM		= $20	; SPACE
+K_SWAP_USERMEM_TUI	= $85	; F1
 K_RESET_STOPWATCH	= $b2	; C= + r
 K_QUIT_DEBUGGER		= $bd	; C= + x
 K_GOTO_BREAK		= $5e	; up-arrow

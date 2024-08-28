@@ -5,6 +5,7 @@
 .import __asm_pcset
 .import __asm_reset
 .import __asm_resetpc
+.import __asm_set_pc
 .import __asm_startpass
 .import __asm_tokenize
 .import __asm_tokenize_pass
@@ -20,6 +21,7 @@
 	pcset          = __asm_pcset
 	reset          = __asm_reset
 	resetpc        = __asm_resetpc
+	setpc          = __asm_set_pc
 	startpass      = __asm_startpass
 	tokenize       = __asm_tokenize
 	tokenize_pass  = __asm_tokenize_pass

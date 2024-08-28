@@ -5,18 +5,24 @@
 ; sub-views (memory editor, etc.)
 ;******************************************************************************
 
+.include "asm.inc"
+.include "console.inc"
 .include "debug.inc"
 .include "errors.inc"
 .include "expr.inc"
+.include "finalex.inc"
 .include "line.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "string.inc"
+.include "strings.inc"
 .include "util.inc"
 .include "view.inc"
 .include "vmem.inc"
 .include "watches.inc"
 .include "zeropage.inc"
+
+.segment "CONSOLE"
 
 ;******************************************************************************
 ; DBGCMD RUN
@@ -29,7 +35,7 @@
 .export __dbgcmd_run
 .proc __dbgcmd_run
 @cnt=r0
-	jsr str::toupper
+	CALL FINAL_BANK_MAIN, #str::toupper
 	stxy zp::line
 
 	ldy #$00
@@ -38,7 +44,7 @@
 
 @l0:	lda (zp::line),y
 	beq @cmdfound
-	jsr util::is_whitespace
+	jsr is_whitespace
 	beq @cmdfound
 
 @l1:	cmp commands,x
@@ -71,7 +77,7 @@
 	bcc :+
 	inc zp::line+1
 
-:	jsr line::process_ws
+:	CALL FINAL_BANK_MAIN, #line::process_ws
 @run:	ldx @cnt
 	lda commandslo,x
 	sta zp::jmpvec
@@ -90,22 +96,21 @@
 .proc add_watch
 @addr=r8
 	; evaluate the expression to get start address
-	jsr expr::eval
+	CALL FINAL_BANK_MAIN, #expr::eval
 	bcs @err
 	stxy @addr
 	stxy r0
 
-	jsr line::nextch
+	CALL FINAL_BANK_MAIN, #line::nextch
 	beq @err
 
 	; evaluate the 2nd expression (if any) to get stop address
-	jsr expr::eval
+	CALL FINAL_BANK_MAIN, #expr::eval
 	bcs @err
 	stxy r0
 
 @set:	ldxy @addr
-	jsr watch::add		; add the watch
-	jsr dbg::edit_watches
+	CALL FINAL_BANK_MAIN, #watch::add		; add the watch
 	clc
 @err:	rts
 .endproc
@@ -129,14 +134,13 @@
 @addr=r0
 	; get the ID
 	ldxy zp::line
-	jsr atoi
+	CALL FINAL_BANK_MAIN, #atoi
 	bcc @ok
 @done:	rts
 @ok:	cpy #$00
 	bne @done	; there can't be > $ff watches
 	txa
-	jsr watch::remove
-	jsr dbg::edit_watches
+	CALL FINAL_BANK_MAIN, #watch::remove
 	clc
 	rts
 .endproc
@@ -176,28 +180,30 @@
 @list=ra
 	; get the start address
 	ldxy zp::line
-	jsr expr::eval
+	CALL FINAL_BANK_MAIN, #expr::eval
 	stxy @start
-	bcs @done
+	bcc :+
+@err:	sec
+@done:	rts
 
-	; move past separator
-	jsr line::nextch
+:	; move past separator
+	CALL FINAL_BANK_MAIN, #line::nextch
 	beq @err
 
 	; get the stop address
-	jsr expr::eval
+	CALL FINAL_BANK_MAIN, #expr::eval
 	stxy @stop
 	bcs @done
 
 	; move past separator
-	jsr line::nextch
+	CALL FINAL_BANK_MAIN, #line::nextch
 	beq @err
 
 	lda #$00
 	sta @listlen
 
 	; get the fill values
-@l0:	jsr expr::eval
+@l0:	CALL FINAL_BANK_MAIN, #expr::eval
 	bcs @err
 	cmp #$02		; 2 bytes?
 	bcc :+
@@ -209,7 +215,7 @@
 :	ldy @listlen
 	stx @list,y		; store LSB of expression as fill val
 	inc @listlen
-	jsr line::nextch
+	CALL FINAL_BANK_MAIN, #line::nextch
 	bne @l0
 
 	ldxy @start
@@ -221,7 +227,7 @@
 @fill:	ldx @i
 	lda @list,x
 	ldxy @start
-	jsr vmem::store
+	CALL FINAL_BANK_MAIN, #vmem::store
 	ldxy @start
 	inc @i
 	lda @i
@@ -233,17 +239,248 @@
 @chk:	ldxy @start
 	cmpw @stop
 	bne @fill
-
-	; active mem viewer
-	jsr view::mem
 	RETURN_OK
-
-@err:	sec
-@done:	rts
 .endproc
 
 ;******************************************************************************
+.proc goto
+.endproc
+
+;******************************************************************************
+.proc compare
+.endproc
+
+;******************************************************************************
+.proc move
+.endproc
+
+;******************************************************************************
+.proc hunt
+.endproc
+
+;******************************************************************************
+; REGISTERS
+; Displays the current contents of the registers.
+.export __dbgcmd_regs
+.proc __dbgcmd_regs
+	ldxy #strings::debug_registers
+	jsr con::puts
+	CALL FINAL_BANK_MAIN, #dbg::regs_contents
+	jsr con::puts
+	RETURN_OK
+.endproc
+
+;******************************************************************************
+; DISASM
+; Disassembles from the given expression
+.proc disasm
+@addr=rd
+@lines=rf
+	; get the address to start disassembling at
+	lda #20
+	sta @lines
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @ret
+	stxy @addr
+
+@l0:	ldxy #$100
+	stxy r0
+	ldxy @addr
+	CALL FINAL_BANK_MAIN, #asm::disassemble
+
+	jsr @drawline
+	dec @lines
+	bne @l0
+@done:	clc
+@ret:	rts
+
+@drawline:
+	tax
+	; push the disassembled string
+	lda #>$100
+	pha
+	lda #<$100
+	pha
+
+	; push the address
+	lda @addr
+	pha
+	lda @addr+1
+	pha
+
+	; update the address pointer
+	txa		; get size of instruction
+	clc
+	adc @addr
+	sta @addr
+	bcc :+
+	inc @addr+1
+
+:	ldxy #@disasm_msg
+	jmp con::puts
+
 .RODATA
+@disasm_msg:
+	.byte $fe," ", $ff,0	; <address> <instruction>
+.segment "CONSOLE"
+.endproc
+
+;******************************************************************************
+; ASSEMBLE
+; Assembles the given instruction at the address of the given expression
+; e.g.
+; >.A $1000, lda #$00
+.proc assemble
+@addr=rd
+@lines=rf
+	; get the address to assemble at
+	lda #20
+	sta @lines
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @ret		; return if address is invalid expression
+	stxy @addr
+	CALL FINAL_BANK_MAIN, #asm::setpc
+
+	ldy #$00
+	lda (zp::line),y
+	beq @nexti		; if no instruction provided, prompt for more
+	incw zp::line
+	ldxy zp::line
+	lda #FINAL_BANK_MAIN
+	CALL FINAL_BANK_MAIN, #asm::tokenize	; assemble the instruction
+	bcs @err
+@nexti:	rts
+
+@err:	CALL FINAL_BANK_MAIN, #err::get
+	CALL FINAL_BANK_MAIN, #str::uncompress
+	jsr con::puts		; print the error
+	clc
+@ret:	rts
+.endproc
+
+;******************************************************************************
+; SHOWMEM
+; Shows the contents of memory at the target of the given expression
+.proc showmem
+@addr=r6
+@lines=r8
+	; default to 8 lines (64 bytes total)
+	lda #$08
+	sta @lines
+	lda #$00
+	sta @lines+1
+
+	; get the address to start showing memory at
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @ret
+	stxy @addr
+
+	; get the (optional) end address and divide by 8 to get # of lines
+	ldy #$00
+	lda (zp::line),y
+	beq @l0
+	incw zp::line		; move past separator
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @ret		; error
+	sub16 @addr
+	stx @lines
+	tya
+	lsr
+	ror @lines
+	lsr
+	ror @lines
+	lsr
+	ror @lines
+	sta @lines+1
+
+	ldxy @lines
+	cmpw #0
+	bne @l0
+	inc @lines		; minimum of 1 line
+
+@l0:	ldxy @addr
+	CALL FINAL_BANK_MAIN, #view::memline
+	jsr @print
+
+	; move to address for next row
+	lda @addr
+	clc
+	adc #$08
+	sta @addr
+	bcc :+
+	inc @addr+1
+:	dec @lines		; (max 255 lines)
+	bne @l0
+	clc			; OK
+@ret:	rts
+
+@print:	jsr con::puts
+.endproc
+
+;******************************************************************************
+; QUIT
+; Quits the debugger, returning to the editor
+.proc quit
+	; eat the caller's return address 
+	pla
+	pla
+	rts
+.endproc
+
+;******************************************************************************
+; STEP
+; Steps to the next instruction while debugging
+.proc step
+	CALL FINAL_BANK_MAIN, #dbg::step
+	jmp quit		; let the debugger take over to comple STEP
+.endproc
+
+;******************************************************************************
+; STEP_OVER
+; Steps over the next instruction while debugging.  Subroutines (JSR) are
+; treated as one instruction
+; instruction
+.proc step_over
+.endproc
+
+;******************************************************************************
+; GO
+; Continues program execution at the current PC
+.proc go
+.endproc
+
+;******************************************************************************
+; BACKTRACE
+; Prints the call (JSR) stack (with symbols if possible).
+; This is based on the contents of the stack, so any data on the stack may
+; result in a bad rendering.
+; An optional offset from the stack pointer can be given to adjust the
+; stack's start location
+.proc backtrace
+.endproc
+
+;******************************************************************************
+; STEP_OUT
+; Continues execution til the current subroutine returns with an RTS
+.proc step_out
+.endproc
+
+;******************************************************************************
+; IS_WHITESPACE
+; Checks if the given character is a whitespace character
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if if the character in .A is whitespace
+.export is_whitespace
+.proc is_whitespace
+	cmp #$0d	; newline
+	beq :+
+	cmp #$09	; TAB
+	beq :+
+	cmp #' '
+:	rts
+.endproc
 
 ;******************************************************************************
 ; commands
@@ -253,13 +490,25 @@ commands:
 .byte "ba",0	; breakpoint add
 .byte "br",0	; breakpoint remove
 .byte "f",0	; fill memory in the given address range with the given data
-.byte "m",0	; move memory from the given address range to the target address
+.byte "move",0	; move memory from the given address range to the target address
 .byte "g",0	; goto given expression/address
 .byte "c",0	; compare the memory in the two given range
 .byte "h",0	; hunts the given address range for the given data
+.byte "r",0	; shows the contents of the registers
+.byte "d",0	; disassembles from the given address
+.byte "a",0	; assembles the given instruction given address
+.byte "m",0	; show contents of memory at the given address
+.byte "x",0	; quit the debugger
+.byte "z",0	; step to the next instruction
+.byte "n",0	; step over the next instruction
+.byte "g",0	; go (continue program execution)
+.byte "bt",0	; backgrace
+.byte "zo",0	; step out
 
 .linecont +
-.define command_vectors add_watch, remove_watch, add_break, remove_break, fill
+.define command_vectors add_watch, remove_watch, add_break, remove_break, \
+	fill, move, goto, compare, hunt, __dbgcmd_regs, disasm, assemble, \
+	showmem, quit, step, step_over, go, backtrace, step_out
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors

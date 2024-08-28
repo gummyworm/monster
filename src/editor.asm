@@ -11,6 +11,7 @@
 .include "breakpoints.inc"
 .include "codes.inc"
 .include "config.inc"
+.include "console.inc"
 .include "ctx.inc"
 .include "cursor.inc"
 .include "debug.inc"
@@ -126,8 +127,7 @@ status_row: .byte 0
 
 	jsr enter_command
 
-	ldxy #mem::copybuff
-	stxy buffptr
+	jsr buff_clear
 
 	ldx #$00
 	ldy #$00
@@ -206,6 +206,36 @@ main:	jsr key::getch
 
 @label:	ldxy @lbl
 	jmp lbl::addr
+.endproc
+
+;******************************************************************************
+; ENTER CONSOLE
+; Activates the console
+.export __edit_enter_console
+.proc __edit_enter_console
+	jsr draw::coloroff
+	JUMP FINAL_BANK_CONSOLE, #con::enter
+.endproc
+
+;******************************************************************************
+; MON
+; Activates the monitor and restores the editor when it exits
+.proc mon
+	jsr scr::reset
+	pushcur
+	jsr __edit_enter_console
+	jsr __edit_exit_console
+	popcur
+	jmp scr::restore
+.endproc
+
+;******************************************************************************
+; EXIT CONSOLE
+; Returns from the console 
+.export __edit_exit_console
+.proc __edit_exit_console
+	inc mem::coloron
+	rts
 .endproc
 
 ;******************************************************************************
@@ -714,7 +744,6 @@ main:	jsr key::getch
 ;  - .XY: 	      address of the string that was read
 ;  - .A:              length of the string that was read
 ;  - .C:              set if no input was given (e.g. <-)
-;  - mem::linebuffer: the string contents
 .export __edit_gets
 .proc __edit_gets
 @result_offset=r8
@@ -731,7 +760,7 @@ main:	jsr key::getch
 	ldx zp::curx
 	stx @result_offset	; offset to the user-input in line buffer
 
-	jsr cur::on
+	jmp @redraw
 @getloop:
 	jsr text::update
 
@@ -752,6 +781,7 @@ main:	jsr key::getch
 	jsr key::isprinting
 	bcs @getloop		; don't print if not printable
 :	jsr text::putch
+@redraw:
 	lda zp::cury
 	jsr text::drawline
 	jsr cur::on
@@ -774,16 +804,16 @@ main:	jsr key::getch
 :	stx @len		; store the length of the string
 	jsr cur::off
 
-	; get address of the result
+	; get address of the result ($1xx)
 	ldx @result_offset
 	ldy #$01
-	lda @len
 
 	plp			; get success state
 	pla
 	sta text::insertmode	; restore insert mode
 	pla
 	sta zp::editor_mode	; restore editor mode
+	lda @len
 	rts
 .endproc
 
@@ -1205,10 +1235,11 @@ force_enter_insert=*+5
 	jsr is_visual
 	bne @cont
 
-; VISUAL mode; delete the selection
+; VISUAL kode; delete the selection
 @delvis:
-@cur=zp::editortmp+1
-@end=zp::editortmp+3
+@cur=zp::editortmp+1	; set by yank
+@end=zp::editortmp+3	; set by yank
+
 	jsr yank			; yank the selection
 	bcs @notfound			; quit if error occurred
 	ldxy @end
@@ -1229,11 +1260,16 @@ force_enter_insert=*+5
 	bpl :-
 @notfound:
 	rts
+
 @found:	lda @subcmdslo,x
 	sta zp::jmpvec
 	lda @subcmdshi,x
 	sta zp::jmpvec+1
-	jmp zp::jmpaddr
+
+	jsr buff_clear		; clear the copy buffer
+	jmp zp::jmpaddr		; execute the delete command 
+
+.RODATA
 @subcmds:
 .byte $77	; w delete word
 .byte $64	; d delete line
@@ -1244,6 +1280,7 @@ force_enter_insert=*+5
 .define subcmds delete_word, delete_line, delete_to_end, delete_to_begin
 @subcmdshi: .hibytes subcmds
 @subcmdslo: .lobytes subcmds
+.CODE
 .endproc
 
 ;******************************************************************************_
@@ -1285,29 +1322,35 @@ force_enter_insert=*+5
 	bne :+			; if not, need to do more than a backspace
 	jsr on_line1		; are we on the 1st line?
 	beq :+			; if we are, need to do more than backspace
+	lda #$0d
+	jsr buff_putch		; put a newline into the copy buffer
 	jsr backspace
 	jmp @done
 
 :	jsr src::down		; go to the end of the line
 	php			; save EOF flag
 	bcs @l0			; if EOF, skip scroll up
+
 	inc zp::cury		; move cursor to row to scroll up
 	jsr bumpup		; scroll up
 
 @l0:	jsr src::backspace	; delete a character
 	bcs :+			; break if at start of source buffer
+	jsr buff_putch		; put the character that was deleted into the copy buffer
 	jsr src::atcursor	; are we on a newline?
 	cmp #$0d
 	bne @l0			; loop until we are on newline
 
 :	plp			; get EOF flag (.C)
 	bcc :+			; skip if not EOF
-	jsr on_line1		; are we on the 1st line?
+
+@eof:	jsr on_line1		; are we on the 1st line?
 	beq :+			; if so, we won't be changing lines, skip
 	lda zp::cury		; if EOF, clear the line we're on
 	jsr bm::clrline
 	dec zp::cury		; no newline was deleted yet,
 	jsr src::backspace	; so delete the newline
+	jsr buff_putch		; and add it to the copy buffer
 	jsr src::up		; and go to the start of the, now, last line
 
 :	jsr src::get
@@ -1375,11 +1418,16 @@ force_enter_insert=*+5
 .proc paste_below
 	lda selection_type
 	cmp #VISUAL
-	beq :+
+	beq @vis
+
+@visline:
+	; visual line, move to next line and paste there
 	jsr ccdown
 	jsr home
 	jmp paste_buff
-:	jsr ccright
+
+@vis:	; visual, move to next character and paste there
+	jsr append_char
 	jmp paste_buff
 .endproc
 
@@ -1411,16 +1459,17 @@ force_enter_insert=*+5
 	sta @row
 	jsr text::char_index
 	sty @splitindex
-
 	ldy visual_lines_copied
 	beq @noscroll
+
+	; multi-line pastes don't move the cursor / source position
+	jsr src::pushp
+
 	ldx height
 	lda @row
 	jsr text::scrolldownn
 
 @noscroll:
-	jsr src::pushp
-
 	ldx @splitindex	; get index of text to save
 	ldy #$00
 	; save the part of the line that we're inserting BEFORE
@@ -1485,15 +1534,32 @@ force_enter_insert=*+5
 	bne :-
 
 @lastdone:
+	txa
+	pha
+
 	lda @row
 	jsr draw_line_if_visible
+
+	jsr enter_command
+
+	lda visual_lines_copied
+	beq :+
+
+	; if we pasted multiple lines, restore source position and don't move cursor
+	jsr src::popgoto
+	pla
+	jmp @done
+
+:	pla
+	jsr text::index2cursor
+	stx zp::curx
 
 @done:	; restore the buffer pointer
 	pla
 	sta buffptr+1
 	pla
 	sta buffptr
-	jmp src::popgoto
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1518,33 +1584,8 @@ force_enter_insert=*+5
 .proc command_yank
 	jsr yank
 	bcs @done
-
-	jsr enter_command
-
-	ldxy src::line
-	cmpw visual_start_line
-	bcc :+
-	sub16 visual_start_line
-	jmp @print
-
-:	ldxy visual_start_line
-	sub16 src::line
-
-@print: cmpw #0
-	beq @ok		; don't display message if only 1 line was copied
-
-	inx
-	txa
-	pha
-	bne :+
-	iny
-:	tya
-	pha
-	ldxy #@msg
-	jsr text::info	; display # of lines yanked
-@ok:	clc
+	jmp enter_command
 @done:	rts
-@msg: .byte "copied ",ESCAPE_VALUE_DEC, " lines",0
 .endproc
 
 ;******************************************************************************
@@ -1569,23 +1610,21 @@ force_enter_insert=*+5
 ; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
 ; mode, does nothing
 ; OUT:
-;  - .XY: the number of bytes yanked
-;  - .C: set if selection was not able to be yanked
+;  - .XY:		the number of bytes yanked
+;  - .C:		set if selection was not able to be yanked
+;  - zp::editortmp+1:	address of the beginning of the selection
+;  - zp::editortmp+3:	address of the end of the selection
 .proc yank
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
 @size=zp::editortmp+5
-@start=zp::editortmp+7
+@start=zp::editortmp+7	; set by get_selection_bounds
 	jsr is_visual
-	beq :+
-	rts
-:	jsr get_selection_bounds
+	bne @ret
+	jsr get_selection_bounds
 	bcs @done
 
-	lda #$00
-	sta visual_lines_copied
-	ldxy #mem::copybuff
-	stxy buffptr
+	jsr buff_clear
 
 	; set the selection type so we know how to handle the eventual paste
 	lda #VISUAL
@@ -1615,7 +1654,7 @@ force_enter_insert=*+5
 
 @done:	jsr enter_command
 	sec
-	rts
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -1623,8 +1662,8 @@ force_enter_insert=*+5
 ; Returns the start and stop source positions for the current selection
 ; OUT:
 ;  - .C: set if nothing is selected
-;  - zp::editortmp+1: the start position
 ;  - zp::editortmp+3: the end position
+;  - zp::editortmp+7: the start position
 .proc get_selection_bounds
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
@@ -2030,6 +2069,8 @@ __edit_refresh:
 	jsr src::popgoto
 	pla
 	sta zp::cury
+	lda #CUR_OFF
+	sta cur::status
 	jmp text::restorebuff
 .endproc
 
@@ -3204,7 +3245,8 @@ goto_buffer:
 	beq @nodel
 	jsr src::before_newl
 	beq @nodel
-@del:	jmp src::delete
+@del:	jsr buff_putch
+	jmp src::delete
 @nodel:	sec
 	rts
 .endproc
@@ -3355,12 +3397,13 @@ goto_buffer:
 	bne @curr
 
 	; handle TAB (repeat the MOVE RIGHT logic til we're at the TAB next col)
-jsr text::tabr_dist
+	jsr text::tabr_dist
 	sta @tabcnt
 	ldy zp::editor_mode
 	cpy #MODE_INSERT
 	beq :+
 	dec @tabcnt
+	beq @ret
 :	jsr @curr
 	dec @tabcnt
 	bne :-
@@ -4350,6 +4393,17 @@ __edit_gotoline:
 .endproc
 
 ;******************************************************************************
+; BUFF CLEAR
+; Initializes the copy buffer by clearing it
+.proc buff_clear
+	ldx #$00
+	stx visual_lines_copied
+	ldxy #mem::copybuff
+	stxy buffptr
+	rts
+.endproc
+
+;******************************************************************************
 ; BUFF PUTCH
 ; Pushes the given character onto the copy/paste buffer
 ; IN:
@@ -4622,6 +4676,7 @@ commands:
 	.byte K_NEXT_DRIVE	; next drive
 	.byte K_PREV_DRIVE	; prev drive
 	.byte K_GETCMD		; get command
+	.byte K_CONSOLE		; enter console
 numcommands=*-commands
 
 ; command tables for COMMAND mode key commands
@@ -4633,7 +4688,7 @@ numcommands=*-commands
 	goto_start, open_line_above, open_line_below, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
-	command_find, next_drive, prev_drive, get_command
+	command_find, next_drive, prev_drive, get_command, mon
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs

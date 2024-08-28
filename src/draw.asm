@@ -144,3 +144,17 @@
 	sta mem::rowcolors	; clear top row
 	rts
 .endproc
+
+;******************************************************************************
+; COLOROFF
+; Disables color in the interrupt and sets the background to its default color
+.export __draw_coloroff
+.proc __draw_coloroff
+	sei
+	lda #$00
+	sta mem::coloron
+	lda #DEFAULT_900F
+	sta $900f
+	cli
+	rts
+.endproc

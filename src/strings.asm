@@ -84,6 +84,9 @@ __str_watches_range_line: .byte ESCAPE_CHAR, " $", ESCAPE_VALUE, "-$", ESCAPE_VA
 .export __str_errors
 __str_errors: .byte "errors",0
 
+.export __str_invalid_command
+__str_invalid_command: .byte "invalid command", 0
+
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA
 .DATA

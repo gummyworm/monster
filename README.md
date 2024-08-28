@@ -1,4 +1,4 @@
-# MONster
+# Monster
 <img width="712" alt="Screenshot 2024-07-06 at 9 15 06 PM" src="https://github.com/gummyworm/monster/assets/4626914/3b4661c9-210a-4699-9a95-e99ebbe464f8">
 
 
@@ -35,22 +35,27 @@ Table of Contents
           * [Watch Viewer](https://github.com/gummyworm/monster#watch-viewer-f7-while-debugging)
       * [Breakpoints](https://github.com/gummyworm/monster#breakpoints)
       * [Watches](https://github.com/gummyworm/monster#watches)
+  * [Monitor](https://github.com/gummyworm/monster#monitor)
 
 ---
 
 ## Overview
 
-MONster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
-The design philosophy is uncompromising maximalism.  This is the polar opposite of most
-existing Vic-20 assemblers, which, though impressive in their own right, are
-mostly designed with memory efficiency in mind.
+Monster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
+The design philosophy is uncompromising maximalism.  This is in contrast to most
+existing Vic-20 assemblers (and most native development tools on 8-bit computers), 
+which mostly designed with memory efficiency in mind.  The primary reason for this
+was (or is) to leave the majority of the RAM available to the programmer.
+
+Large RAM expansions have become ubiquitous on the platform, so the philosophy of
+this project is to choose feature richness without much concern for the memory footprint.
 Virtually any feature that I deem valuable in an editor/assembler is included. 
 
 Some of its features are:
  - 40 column bitmap-based editor
  - vi-like keybindings
- - breakpoint editor
  - interactive visual debugger
+ - breakpoint editor
  - memory viewer/editor
  - file I/O (save/load)
  - directory viewer
@@ -60,11 +65,10 @@ Some of its features are:
  - user program/source/editor isolation
  - many more...
 
-The source code is stored in a gap buffer to allow for efficient insertion/deletion.
-
 ---
+
 ## Requirements
-For now MONster requires a [Final Expansion](https://github.com/edi-z/FE3) to
+For now Monster requires a [Final Expansion](https://github.com/edi-z/FE3) to
 function.  It could easily be modified for other 512k+ carts.
 Much of this RAM is used to store the multiple source code buffers (up to 8),
 but it is also used to store debug info and some code.
@@ -794,7 +798,7 @@ respective Key in the table below.
 |   <-         | Exit            | exits the debugger and returns to the editor                                         |
 | SPACE        | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  |
 | ^ (up arrow) |  Goto Break     | navigates to the address that the debugger is currently paused at                    |
-| !            | Enter command   | prompts for a debug command (see the debug command section for more info)            |
+| C= + t       | Enter monitor   | enters the text-based debug interface (see the monitor commands section for more info|
 
 ### Register Editor (`F2`)
 Pressing F2 moves the cursor to the register contents and allows the user to enter
@@ -1007,14 +1011,17 @@ the viewer is also activated.
 
 ---
 
-## Debug Commands
-Debug commands offer a text interface for performing the actions that can
-be done within the various debug editors as well as some other ones.
+## Monitor
+The monitor is a text based interface for debugging programs and manipulating 
+program state.
 
-Pressing `!` while debugging opens the prompt.  The following commands can
-then be input
-
-|  Command | Parameters       | Name            |   Description                                                                        |
-|----------|------------------|-----------------|--------------------------------------------------------------------------------------|
-|     wa   | addr stopaddr    | Add Watch       | Adds a watch at the given start and (optional) stop address                          |
-|     wr   | id               | Remove Watch    | removes the watch with the given id                                                  |
+### Monitor Commands
+| Command  |  Name       |  Parameters                  |   Description                                                                                              |
+|----------|-------------|------------------------------|------------------------------------------------------------------------------------------------------------|
+|    a     | assemble    |  expression instruction      | assembles the given instruction at the address of the provided expression                                  |
+|    d     | disassemble |  expression (expression)     | disassembles from the given start address or, if an end address is given, up to the the given end address. |
+|    m     | show memory |  expression (expression)     | displays the contents of memory from the given start address or, if given, up to the given end address     |
+|    z     | step        |                              | runs the next instrcution and returns to the the monitor prompt                                            |
+|    s     | step over   |                              | runs the next instruction, treating JSR's as a single instruction                                          |
+|    wa    | add watch   | expression (expression)      | adds a watch at the given start and (optional) stop address                                                |
+|    wr    | remove watch| id                           | removes the watch with the given id                                                                        |

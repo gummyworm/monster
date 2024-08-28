@@ -4,6 +4,7 @@
 .import __draw_scrollcolorsu
 .import __draw_scrollcolorsd
 .import __draw_unblank
+.import __draw_coloroff
 
 .scope draw
 	blank         = __draw_blank
@@ -12,4 +13,5 @@
 	scrollcolorsu = __draw_scrollcolorsu
 	scrollcolorsd = __draw_scrollcolorsd
 	unblank       = __draw_unblank
+	coloroff      = __draw_coloroff
 .endscope
