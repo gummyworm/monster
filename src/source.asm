@@ -1102,8 +1102,25 @@ __src_atcursor:
 ;  - .C: set if the end of the buffer was reached as we were reading
 .export __src_get
 .proc __src_get
-@cnt=r1
+	ldxy #mem::linebuffer
+
+	; fall through to __src_get_at
+.endproc
+
+;******************************************************************************
+; GET_AT
+; Returns the text at the current cursor position and stores it to the given
+; target location
+; IN:
+;  - .XY: the target to store the contents of the source to
+; OUT:
+;  - (.XY): a line of text from the cursor position
+;  - .C: set if the end of the buffer was reached as we were reading
+.export __src_get_at
+.proc __src_get_at
+@target=r1
 @src=r3
+	stxy @target
 	jsr gaplen
 	add16 pre
 	add16 #data
@@ -1112,15 +1129,15 @@ __src_atcursor:
 	jsr __src_end
 	bne :+
 	lda #$00
-	sta mem::linebuffer	; init buffer
+	tay
+	sta (@target),y		; init buffer
 	sec
 	rts
 
-:	ldxy #mem::linebuffer
+:	ldxy @target
 	stxy zp::bankaddr1
 
-	ldxy line
-	cmpw lines		; on last line already?
+	jsr __src_on_last_line	; on last line already?
 	bne :+
 	ldy post		; bytes to copy
 	dey
@@ -1129,13 +1146,13 @@ __src_atcursor:
 	ldy post
 	jmp @done
 
-:	ldxy #mem::linebuffer
+:	ldxy @target
 	stxy zp::bankaddr1
 	lda bank
 	jsr fe3::copyline
 
 @done:	lda #$00
-	sta mem::linebuffer,y
+	sta (@target),y
 	RETURN_OK
 .endproc
 
@@ -1177,6 +1194,18 @@ __src_atcursor:
 	jsr __src_up
 	bcc @loop
 @done:	ldxy @cnt
+	rts
+.endproc
+
+;******************************************************************************_
+; ON_LAST_LINE
+; Checks if the cursor is on the last line of the active source buffer.
+; OUT:
+;  - .Z: set if we're on the last line of the source
+.export __src_on_last_line
+.proc __src_on_last_line
+	ldxy line
+	cmpw lines
 	rts
 .endproc
 

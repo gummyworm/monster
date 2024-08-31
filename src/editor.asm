@@ -1880,6 +1880,40 @@ force_enter_insert=*+5
 .endproc
 
 ;******************************************************************************
+.proc join_line
+	jsr is_readonly
+	bne @cont
+@quit:	rts
+
+@cont:	jsr src::on_last_line
+	beq @quit
+
+	jsr src::pushp
+
+	; go to the end of the line and scroll up
+	jsr end_of_line
+	ldx zp::cury
+	lda height
+	jsr scrollup
+
+	; delete the newline
+	jsr src::next
+	jsr src::delete
+
+	; join the next line with the current
+	jsr text::char_index
+	tya
+	tax
+	inx
+	ldy #>mem::linebuffer
+	jsr src::getat
+	lda zp::cury
+	jsr text::drawline
+
+	jmp src::popgoto
+.endproc
+
+;******************************************************************************
 .proc open_line_above
 	jsr is_readonly
 	bne :+
@@ -3250,7 +3284,6 @@ goto_buffer:
 @nodel:	sec
 	rts
 .endproc
-
 
 ;******************************************************************************
 ; CCLEFT
@@ -4667,6 +4700,7 @@ commands:
 	.byte $67		; g (goto start)
 	.byte $4f		; O (Open line above cursor)
 	.byte $6f		; o (Open line below cursor)
+	.byte $4a		; J (join line)
 	.byte $24		; $ (end of line)
 	.byte $5b		; [ (previous empty line)
 	.byte $5d		; ] (next empty line)
@@ -4689,7 +4723,7 @@ numcommands=*-commands
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, paste_below, paste_above, delete_char, \
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
-	goto_start, open_line_above, open_line_below, end_of_line, \
+	goto_start, open_line_above, open_line_below, join_line, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
 	command_find, next_drive, prev_drive, get_command, mon
