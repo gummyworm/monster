@@ -865,7 +865,6 @@ restore_regs:
 ; Navigates the editor to the file/line associated with the give address
 ; IN:
 ;  - .XY: the address to "goto"
-;  - .A:  the file ID to goto
 ; OUT:
 ;  - .C:  set on failure
 ;  - .XY: the line that was navigated to

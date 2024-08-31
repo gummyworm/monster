@@ -1874,8 +1874,10 @@ force_enter_insert=*+5
 	jsr str::toupper
 	ldxy #mem::spare
 	jsr lbl::addr		; get the address of the line
-	bcc @ret		; no address found
+	stxy @addr
+	bcs @ret		; no address found
 	jsr add_jump_point
+	ldxy @addr
 	jmp dbg::gotoaddr	; goto it
 .endproc
 
