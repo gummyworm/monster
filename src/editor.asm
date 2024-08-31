@@ -3342,10 +3342,14 @@ goto_buffer:
 	bne :+
 	dec @tabcnt
 	bne @tabl
+
 :	pla
 	ldx mode
 	cpx #MODE_INSERT
 	beq :+
+	jsr text::char_index
+	cmp #$09		; are still on a TAB char?
+	bne :+
 	sta @deselect
 	jsr @curl
 :	RETURN_OK

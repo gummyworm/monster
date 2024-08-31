@@ -2062,6 +2062,16 @@ __debug_remove_breakpoint:
 	jmp edit::enterconsole
 .endproc
 
+;******************************************************************************
+; DEACTIVATE MONITOR
+; Deactivates the text user interface debugger (monitor) and returns to the GUI
+.proc deactivate_monitor
+	lda #DEBUG_IFACE_GUI
+	sta __debug_interface
+	jsr save_debug_state
+	jmp edit::enterconsole
+.endproc
+
 .RODATA
 ;******************************************************************************
 ; COMMANDS
