@@ -2761,7 +2761,8 @@ goto_buffer:
 	jsr src::save		; save the current buffer's state
 	pla
 	jsr src::setbuff	; switch to the new buffer
-	jmp refresh
+	jsr refresh
+	RETURN_OK
 
 @replace:
 ; there too many open buffers, open a new one
@@ -2802,8 +2803,7 @@ goto_buffer:
 	jsr refresh
 	jsr text::clrinfo
 	jsr cancel
-	clc
-	rts
+	RETURN_OK
 
 @err:	jsr report_typein_error
 	sec
