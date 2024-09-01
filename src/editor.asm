@@ -81,7 +81,6 @@ buffptr:  .word 0 	; copy buffer pointer (also bytes in copy buffer)
 
 visual_start_line:	.word 0	; the line # a selection began at
 visual_start_x:		.byte 0	; the x-position a selection began at
-visual_start_x_index:	.byte 0	; the character index the selection began at
 visual_lines_copied:	.byte 0	; the number of lines copied in VISUAL modes
 selection_type:    	.byte 0 ; the type of selection (VISUAL_LINE or VISUAL)
 format:            	.byte 0	; if 0, formatting is not applied on line-end
@@ -1056,10 +1055,6 @@ force_enter_insert=*+5
 	stxy visual_start_line
 	lda zp::curx
 	sta visual_start_x
-
-	; save current character index
-	jsr text::char_index
-	sta visual_start_x_index
 
 	lda #'v'
 	sta text::statusmode
@@ -3029,7 +3024,9 @@ goto_buffer:
 
 @scrollu:
 	; if we're at the bottom, scroll whole screen up
-	jsr scrollup_whole_screen
+	ldx #EDITOR_ROW_START
+	lda height
+	jsr text::scrollup
 
 	; and clear the new line
 	jsr text::clrline

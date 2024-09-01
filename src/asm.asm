@@ -553,8 +553,8 @@ num_illegals = *-illegal_opcodes
 @macro:
 	ldxy zp::line
 	CALL FINAL_BANK_MACROS, #mac::get
-	bcs @chklabels		; if not macro, skip
 
+	bcs @chklabels		; if not macro, skip
 	pha			; save macro id
 	jsr line::process_word	; read past macro name
 	pla			; restore macro id
@@ -1338,7 +1338,6 @@ num_illegals = *-illegal_opcodes
 	jsr ctx::getline
 	bcc :+
 @err:	rts				; propagate error, exit
-
 :	streq strings::endrep, 7	; are we at .endrep?
 	beq @next			; yep, do next iteration
 
@@ -1414,12 +1413,13 @@ num_illegals = *-illegal_opcodes
 	; if verifying (ctx type == 0), don't handle context at all
 	jsr get_ctx_type
 	beq @ok		; done, context not handled
-
-:	ldxy #asmbuffer
+	ldxy #asmbuffer
 	jsr ctx::write	; copy the linebuffer to the context
 	bcs @done
-@ok:	lda #$00	; flag context handled
-	clc
+	lda #$00	; flag that the context was handled
+	skw
+@ok:	lda #$01	; flag context NOT handled
+	clc		; no error
 @done:	rts
 .endproc
 
@@ -2536,7 +2536,6 @@ __asm_include:
 	bpl :+
 	lda #$00	; stack is empty; return 0 for NO CONTEXT
 	rts
-
 :	lda contextstack,x
 	sta ctx::type
 	rts
