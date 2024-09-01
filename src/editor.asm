@@ -606,7 +606,7 @@ main:	jsr key::getch
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize_pass2
 	bcc @next		; no error, continue
-	jsr errlog::log
+	jsr errlog::log		; if error, add it to errors log
 	bcc @next		; continue if we haven't reached error threshold
 
 @next:	jsr src::end		; check if we're at the end of the source

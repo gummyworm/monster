@@ -263,6 +263,7 @@ The following keys are handled in COMMAND mode.
 |    L       | Last       | moves the cursor to the bottom left of the screen                      |
 |    dw      | Delete Word| deletes the next word                                                  |
 |    dd      | Delete Line| deletes the next line                                                  |
+|    J       | Join lines | moves the contents of the next line to the end of the current one      |
 |    0       | Column 0   | moves the cursor to the first column of the current line               |
 |    a       | append char| enters insert mode and moves to the next character                     |
 |    A       | append line| enters insert mode and moves to the last character in the current line |

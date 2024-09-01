@@ -520,10 +520,11 @@ num_illegals = *-illegal_opcodes
 	stxy zp::jmpvec
 	jmp zp::jmpaddr
 
-; after directives, handle context if any
+; after directives, handle context if any. this is used for things like an
+; active macro definition (the lines between .mac and .endmac)
 @ctx:	jsr handle_ctx
-	bcc @noctx
-	RETURN_OK
+	bcs @ret0		; error
+	beq @ret0		; context was handled
 
 @noctx:	ldy #$00
 	sty indirect
@@ -552,11 +553,11 @@ num_illegals = *-illegal_opcodes
 @macro:
 	ldxy zp::line
 	CALL FINAL_BANK_MACROS, #mac::get
+	bcs @chklabels		; if not macro, skip
 
-	bcs @chklabels
-	pha
+	pha			; save macro id
 	jsr line::process_word	; read past macro name
-	pla
+	pla			; restore macro id
 
 	jsr assemble_macro
 	bcs @ret0		; error
@@ -1404,18 +1405,22 @@ num_illegals = *-illegal_opcodes
 ; HANDLE_CTX
 ; If this is the first pass, copies the contents of the asmbuffer to the current
 ; context.
+; Note: during vierification contexts are not handled at all.
 ; OUT:
-;  - .C: set if the line was handled by this handler
+;  - .Z: set if the line was handled by this handler
+;  - .C: set on error
 .proc handle_ctx
 	; if verifying (ctx type == 0), don't handle context at all
 	jsr get_ctx_type
-	beq @done
-	ldxy #asmbuffer
+	bne :+
+	lda #$01	; context not handled
+	rts
+
+:	ldxy #asmbuffer
 	jsr ctx::write	; copy the linebuffer to the context
-	sec		; flag context handled
-	rts
-@done:	clc		; flag context NOT handled
-	rts
+	bcs @done
+	lda #$00	; flag context handled
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2522,12 +2527,16 @@ __asm_include:
 ;******************************************************************************
 ; GET_CTX_TYPE
 ; Returns the active context type
+; OUT:
+;   - .A: the type of the context (0 for NO CONTEXT)
+;   - .Z: set if no context is active
 .proc get_ctx_type
 	ldx contextstacksp
 	dex
 	bpl :+
 	lda #$00	; stack is empty; return 0 for NO CONTEXT
 	rts
+
 :	lda contextstack,x
 	sta ctx::type
 	rts
