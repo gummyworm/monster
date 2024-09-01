@@ -1413,14 +1413,13 @@ num_illegals = *-illegal_opcodes
 .proc handle_ctx
 	; if verifying (ctx type == 0), don't handle context at all
 	jsr get_ctx_type
-	bne :+
-	lda #$01	; context not handled
-	rts
+	beq @ok		; done, context not handled
 
 :	ldxy #asmbuffer
 	jsr ctx::write	; copy the linebuffer to the context
 	bcs @done
-	lda #$00	; flag context handled
+@ok:	lda #$00	; flag context handled
+	clc
 @done:	rts
 .endproc
 

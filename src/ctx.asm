@@ -221,6 +221,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 ;  - .XY: the line to write to the active context
 ; OUT:
 ;  - .XY: the address of the active context.
+;  - .C:  set on error
 .export __ctx_write
 .proc __ctx_write
 @line=r0
