@@ -81,6 +81,7 @@ buffptr:  .word 0 	; copy buffer pointer (also bytes in copy buffer)
 
 visual_start_line:	.word 0	; the line # a selection began at
 visual_start_x:		.byte 0	; the x-position a selection began at
+visual_start_x_index:	.byte 0	; the character index the selection began at
 visual_lines_copied:	.byte 0	; the number of lines copied in VISUAL modes
 selection_type:    	.byte 0 ; the type of selection (VISUAL_LINE or VISUAL)
 format:            	.byte 0	; if 0, formatting is not applied on line-end
@@ -1056,6 +1057,10 @@ force_enter_insert=*+5
 	lda zp::curx
 	sta visual_start_x
 
+	; save current character index
+	jsr text::char_index
+	sta visual_start_x_index
+
 	lda #'v'
 	sta text::statusmode
 
@@ -1237,17 +1242,17 @@ force_enter_insert=*+5
 
 ; VISUAL kode; delete the selection
 @delvis:
-@cur=zp::editortmp+1	; set by yank
+@start=zp::editortmp+1	; set by yank
 @end=zp::editortmp+3	; set by yank
-
 	jsr yank			; yank the selection
-	bcs @notfound			; quit if error occurred
-	ldxy @end
-	jsr src::goto
+	bcs @notfound			; quit if error occurred or no selection
+
+	ldxy @end			; get end address of selection
+	jsr src::goto			; navigate to it
 @delsel:
 	jsr src::backspace
 	jsr src::pos
-	cmpw @cur
+	cmpw @start
 	bne @delsel
 	jmp enter_command		; done, refresh and return to COMMAND
 
@@ -1583,9 +1588,9 @@ force_enter_insert=*+5
 ; mode, does nothing
 .proc command_yank
 	jsr yank
-	bcs @done
-	jmp enter_command
-@done:	rts
+	bcc @done
+	jsr report_typein_error
+@done:	jmp enter_command
 .endproc
 
 ;******************************************************************************
@@ -1640,16 +1645,41 @@ force_enter_insert=*+5
 
 @copy:	jsr src::atcursor
 	jsr buff_putch	; add the character to the copy buffer
-	bcs :+		; buffer is full
-	jsr src::prev
+	bcc @next
+
+	; copy selection is too large
+	jsr @restoresrc
+	RETURN_ERR ERR_COPY_TOO_BIG
+
+@next:	jsr src::prev
 	jsr src::pos
 	cmpw @cur	; are we back at the START of the selection yet?
 	bne @copy	; continue until we are
 
-:	; restore source position and return size of copy
+@restoresrc:
+	; restore source position
 	ldxy @start
 	jsr src::goto
-	ldxy @size	; return size
+
+	; move to start of the selection that was yanked (if we're not there)
+	ldxy src::line
+	cmpw visual_start_line
+	bcc :+			; already on the start line
+	beq @fixx		; already on start line, maybe not start column
+
+	ldxy visual_start_line
+	jsr gotoline
+	jmp @startx		; move to column selection began on
+
+@fixx:	lda zp::curx
+	cmp visual_start_x
+	bcc @ok
+
+@startx:
+	lda visual_start_x
+	sta zp::curx
+
+@ok:	ldxy @size	; return size
 	RETURN_OK
 
 @done:	jsr enter_command
@@ -2999,9 +3029,7 @@ goto_buffer:
 
 @scrollu:
 	; if we're at the bottom, scroll whole screen up
-	ldx #EDITOR_ROW_START
-	lda height
-	jsr text::scrollup
+	jsr scrollup_whole_screen
 
 	; and clear the new line
 	jsr text::clrline
@@ -3620,9 +3648,7 @@ goto_buffer:
 	bcc @redraw	; no need to scroll
 
 @scroll:
-	ldx #EDITOR_ROW_START
-	lda height
-	jsr scrollup	; cursor wasn't moved, scroll
+	jsr scrollup_whole_screen	; cursor wasn't moved, scroll
 	lda height
 	sta zp::cury
 @redraw:
@@ -3869,6 +3895,16 @@ goto_buffer:
 .endproc
 
 ;*****************************************************************************
+; SCROLLUP_WHOLE_SCREEN
+; Scrolls the entire editor display (EDITOR_ROW_START to height) up
+.proc scrollup_whole_screen
+	ldx #EDITOR_ROW_START
+	lda height
+
+	; fall through to scrollup
+.endproc
+
+;*****************************************************************************
 ; SCROLLUP
 ; scrolls everything in the given range of rows and highlights the row that
 ; is scrolled in (if highlight is enabled)
@@ -4103,12 +4139,10 @@ goto_buffer:
 	ldxy @target
 	jsr gotoline		; go to the new line
 
-	; update the x cursor position to the first character of the search
+	; move the cursor to the first character of the search term
 	lda @cnt
-	beq @done
-:	jsr ccright
-	dec @cnt
-	bne :-
+	jsr text::index2cursor
+	stx zp::curx
 @done:	rts
 .endproc
 

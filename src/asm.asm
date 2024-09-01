@@ -1338,6 +1338,7 @@ num_illegals = *-illegal_opcodes
 	jsr ctx::getline
 	bcc :+
 @err:	rts				; propagate error, exit
+
 :	streq strings::endrep, 7	; are we at .endrep?
 	beq @next			; yep, do next iteration
 

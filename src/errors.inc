@@ -58,10 +58,12 @@ ERR_TOO_MANY_LABELS       = 36
 
 ERR_INVALID_COMMAND = 37
 
+ERR_COPY_TOO_BIG = 38
+
 ;******************************************************************************
 ; linker errors
-ERR_SECTION_TOO_SMALL = 38
-ERR_NO_SECTIONS = 39
+ERR_SECTION_TOO_SMALL = 39
+ERR_NO_SECTIONS = 40
 
 .import __err_get
 
