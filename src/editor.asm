@@ -1890,8 +1890,6 @@ force_enter_insert=*+5
 @cont:	jsr src::on_last_line
 	beq @quit
 
-	jsr src::pushp
-
 	; go to the end of the line and scroll up
 	jsr end_of_line
 	ldx zp::cury
@@ -1909,10 +1907,21 @@ force_enter_insert=*+5
 	inx
 	ldy #>mem::linebuffer
 	jsr src::getat
-	lda zp::cury
-	jsr text::drawline
 
-	jmp src::popgoto
+	jsr src::after_cursor
+	tax
+	lda #$01
+	cpx #$09		; TAB
+	bne :+
+	jsr text::tabr_dist
+	sec
+	sbc #$01
+:	clc
+	adc zp::curx
+	sta zp::curx
+
+	lda zp::cury
+	jmp text::drawline
 .endproc
 
 ;******************************************************************************
