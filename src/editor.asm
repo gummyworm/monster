@@ -1883,6 +1883,7 @@ force_enter_insert=*+5
 
 ;******************************************************************************
 .proc join_line
+	jsr exit_visual
 	jsr is_readonly
 	bne @cont
 @quit:	rts
@@ -2059,6 +2060,23 @@ force_enter_insert=*+5
 	lda #CUR_OFF
 	sta cur::status
 	jmp bm::clr
+.endproc
+
+;******************************************************************************_
+; EXIT VISUAL
+; If in visual mode, clears highlights from visual mode (if any)
+.proc exit_visual
+	lda mode
+	cmp #MODE_VISUAL
+	beq :+
+	cmp #MODE_VISUAL_LINE
+	beq :+
+	rts
+
+:	lda #MODE_COMMAND
+	sta mode
+
+	; fall through to refresh
 .endproc
 
 ;******************************************************************************
