@@ -12,6 +12,7 @@
 .include "codes.inc"
 .include "config.inc"
 .include "console.inc"
+.include "copybuff.inc"
 .include "ctx.inc"
 .include "cursor.inc"
 .include "debug.inc"
@@ -77,11 +78,8 @@ debugging: .byte 0	; if !0, debugger is active
 jumplist: .res 8*2	; line #'s between jumps
 jumpptr:  .byte 0	; offset to jumplist
 
-buffptr:  .word 0 	; copy buffer pointer (also bytes in copy buffer)
-
 visual_start_line:	.word 0	; the line # a selection began at
 visual_start_x:		.byte 0	; the x-position a selection began at
-visual_lines_copied:	.byte 0	; the number of lines copied in VISUAL modes
 selection_type:    	.byte 0 ; the type of selection (VISUAL_LINE or VISUAL)
 format:            	.byte 0	; if 0, formatting is not applied on line-end
 
@@ -127,7 +125,7 @@ status_row: .byte 0
 
 	jsr enter_command
 
-	jsr buff_clear
+	jsr buff::clear
 
 	ldx #$00
 	ldy #$00
@@ -1266,7 +1264,7 @@ force_enter_insert=*+5
 	lda @subcmdshi,x
 	sta zp::jmpvec+1
 
-	jsr buff_clear		; clear the copy buffer
+	jsr buff::clear		; clear the copy buffer
 	jmp zp::jmpaddr		; execute the delete command 
 
 .RODATA
@@ -1323,7 +1321,7 @@ force_enter_insert=*+5
 	jsr on_line1		; are we on the 1st line?
 	beq :+			; if we are, need to do more than backspace
 	lda #$0d
-	jsr buff_putch		; put a newline into the copy buffer
+	jsr buff::putch		; put a newline into the copy buffer
 	jsr backspace
 	jmp @done
 
@@ -1336,7 +1334,7 @@ force_enter_insert=*+5
 
 @l0:	jsr src::backspace	; delete a character
 	bcs :+			; break if at start of source buffer
-	jsr buff_putch		; put the character that was deleted into the copy buffer
+	jsr buff::putch		; put the character that was deleted into the copy buffer
 	jsr src::atcursor	; are we on a newline?
 	cmp #$0d
 	bne @l0			; loop until we are on newline
@@ -1350,7 +1348,7 @@ force_enter_insert=*+5
 	jsr bm::clrline
 	dec zp::cury		; no newline was deleted yet,
 	jsr src::backspace	; so delete the newline
-	jsr buff_putch		; and add it to the copy buffer
+	jsr buff::putch		; and add it to the copy buffer
 	jsr src::up		; and go to the start of the, now, last line
 
 :	jsr src::get
@@ -1449,17 +1447,16 @@ force_enter_insert=*+5
 @splitindex=re
 @posttext=$100
 	; save the current buffer pointer
-	lda buffptr
-	pha
-	lda buffptr+1
-	pha
+	jsr buff::push
 
 ; paste between [linebuffer, char_index(curx)] with the first line from buffer
 	lda zp::cury
 	sta @row
 	jsr text::char_index
 	sty @splitindex
-	ldy visual_lines_copied
+
+	jsr buff::lines_copied
+	cmp #$00
 	beq @noscroll
 
 	; multi-line pastes don't move the cursor / source position
@@ -1489,10 +1486,10 @@ force_enter_insert=*+5
 	lda #>mem::linebuffer
 	adc #$00
 	tay
-	jsr buff_getline
+	jsr buff::getline
 	bcs @done		; buffer empty (nothing to paste)
 	pha			; save newline flag
-	ldxy r9			; dst (set in buff_getline)
+	ldxy r9			; dst (set in buff::getline)
 	jsr src::insertline	; insert the first line from the paste buffer
 	pla
 	cmp #$0d		; did line end with a newline?
@@ -1507,7 +1504,7 @@ force_enter_insert=*+5
 @middlerows:
 	; for full rows ($0d terminated), just get a line and draw it
 @l1:	ldxy #mem::linebuffer
-	jsr buff_getline
+	jsr buff::getline
 	bcs @lastline		; if the buffer is empty, we're done
 	pha			; save last char read
 	ldxy r9			; (getline leaves result in r0)
@@ -1542,7 +1539,8 @@ force_enter_insert=*+5
 
 	jsr enter_command
 
-	lda visual_lines_copied
+	jsr buff::lines_copied
+	cmp #$00
 	beq :+
 
 	; if we pasted multiple lines, restore source position and don't move cursor
@@ -1555,10 +1553,7 @@ force_enter_insert=*+5
 	stx zp::curx
 
 @done:	; restore the buffer pointer
-	pla
-	sta buffptr+1
-	pla
-	sta buffptr
+	jsr buff::pop
 	rts
 .endproc
 
@@ -1610,36 +1605,34 @@ force_enter_insert=*+5
 ; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
 ; mode, does nothing
 ; OUT:
-;  - .XY:		the number of bytes yanked
 ;  - .C:		set if selection was not able to be yanked
 ;  - zp::editortmp+1:	address of the beginning of the selection
 ;  - zp::editortmp+3:	address of the end of the selection
 .proc yank
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
-@size=zp::editortmp+5
 @start=zp::editortmp+7	; set by get_selection_bounds
 	jsr is_visual
 	bne @ret
+
+	; get the bounds of the text we're copying and move the source cursor
+	; to the end of the selection
 	jsr get_selection_bounds
 	bcs @done
 
-	jsr buff_clear
+	; clear the current contents of the copy buffer
+	jsr buff::clear
 
 	; set the selection type so we know how to handle the eventual paste
 	lda #VISUAL
 	sta selection_type
 	lda mode
 	cmp #MODE_VISUAL_LINE
-	bne :+
+	bne @copy
 	inc selection_type
 
-:	ldxy @end
-	sub16 @cur
-	stxy @size
-
 @copy:	jsr src::atcursor
-	jsr buff_putch	; add the character to the copy buffer
+	jsr buff::putch	; add the character to the copy buffer
 	bcc @next
 
 	; copy selection is too large
@@ -1659,11 +1652,12 @@ force_enter_insert=*+5
 	; move to start of the selection that was yanked (if we're not there)
 	ldxy src::line
 	cmpw visual_start_line
-	bcc :+			; already on the start line
+	bcc @startx		; already on the start line
 	beq @fixx		; already on start line, maybe not start column
 
 	ldxy visual_start_line
 	jsr gotoline
+	rts
 	jmp @startx		; move to column selection began on
 
 @fixx:	lda zp::curx
@@ -1674,21 +1668,20 @@ force_enter_insert=*+5
 	lda visual_start_x
 	sta zp::curx
 
-@ok:	ldxy @size	; return size
-	RETURN_OK
-
+@ok:	RETURN_OK
 @done:	jsr enter_command
-	sec
 @ret:	rts
 .endproc
 
 ;******************************************************************************
 ; GET SELECTION BOUNDS
 ; Returns the start and stop source positions for the current selection
+; Leaves the source buffer cursor at the end of the selection
 ; OUT:
 ;  - .C: set if nothing is selected
+;  - zp::editortmp+1: the beginning of the selection
 ;  - zp::editortmp+3: the end position
-;  - zp::editortmp+7: the start position
+;  - zp::editortmp+7: the original cursor position
 .proc get_selection_bounds
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
@@ -3333,7 +3326,7 @@ goto_buffer:
 	beq @nodel
 	jsr src::before_newl
 	beq @nodel
-@del:	jsr buff_putch
+@del:	jsr buff::putch
 	jmp src::delete
 @nodel:	sec
 	rts
@@ -4487,106 +4480,6 @@ __edit_gotoline:
 	lda jumplist,x
 	tax
 	jmp gotoline
-.endproc
-
-;******************************************************************************
-; BUFF CLEAR
-; Initializes the copy buffer by clearing it
-.proc buff_clear
-	ldx #$00
-	stx visual_lines_copied
-	ldxy #mem::copybuff
-	stxy buffptr
-	rts
-.endproc
-
-;******************************************************************************
-; BUFF PUTCH
-; Pushes the given character onto the copy/paste buffer
-; IN:
-;  - .A: the character to put into the buffer
-; OUT:
-;  - .A: the same as was passed in
-;  - .C: set if the buffer is full (couldn't add char)
-.proc buff_putch
-@buff=r0
-	ldxy buffptr
-	stxy @buff
-	cmpw #mem::copybuff+MAX_COPY_SIZE	; buffer is full
-	bcs @done
-	ldy #$00
-	sta (@buff),y
-	cmp #$0d
-	bne :+
-	inc visual_lines_copied
-:	incw buffptr
-	clc
-@done:	rts
-.endproc
-
-;******************************************************************************
-; BUFF GETCH
-; Gets the last character that was PUT to the buffer
-; OUT:
-;  - .A: the last character PUT into the buffer (0 if none)
-;  - .C: set if the buffer is empty
-.proc buff_getch
-@buff=rb
-	ldxy buffptr
-	stxy @buff
-	cmpw #mem::copybuff
-	beq @done		; buffer empty
-
-	ldy #$00
-	decw buffptr
-	decw @buff
-	lda (@buff),y
-	clc
-@done:	rts
-.endproc
-
-;******************************************************************************
-; BUFF GETLINE
-; Gets the last line that was PUT to the buffer
-; IN:
-;  - .XY: the address to store the line to
-; OUT:
-;  - (.XY): the last line PUT to the buffer
-;  - .A:    $0d if last character is a newline
-;  - .C:    set if the buffer is empty
-.proc buff_getline
-@dst=r9
-@buff=rb
-@i=r4
-	stxy @dst
-	lda #$00
-	tay
-	sta (@dst),y
-	ldxy buffptr
-	cmpw #mem::copybuff
-	beq @done		; buffer empty
-
-	lda #$00
-	sta @i
-@l0:	jsr buff_getch
-	bcs @empty
-	cmp #$0d
-	beq @ok
-	ldy @i
-	sta (@dst),y
-	inc @i
-	bne @l0
-
-@empty: lda #$00
-@ok:	pha
-	ldxy @buff
-	stxy buffptr
-	lda #$00
-	ldy @i
-	sta (@dst),y	; terminate the line
-	pla
-	clc
-@done:	rts
 .endproc
 
 ;******************************************************************************

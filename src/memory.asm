@@ -52,9 +52,6 @@ __mem_drive_err: .res 20
 .export __linesave
 __linesave: .res 40
 
-.export __mem_copybuff
-__mem_copybuff: .res MAX_COPY_SIZE
-
 .export __mem_coloron
 __mem_coloron: .byte 0
 

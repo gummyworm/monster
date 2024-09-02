@@ -22,10 +22,6 @@ CUR_BLINK_SPEED  = 250	; number of updates before blink
 TAB_WIDTH = INDENT_LEVEL
 
 ;******************************************************************************
-; editor configuration
-MAX_COPY_SIZE = 640
-
-;******************************************************************************
 ; debugger config settings
 DEBUG_MEMVIEW_COLOR = 2
 DEBUG_REGVIEW_COLOR = 0
