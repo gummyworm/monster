@@ -1684,8 +1684,14 @@ __asm_include:
 	stxy zp::virtualpc
 	lda pcset
 	bne @chkorg
+	lda pcset
+	bne :+
+
+	; if PC isn't set yet, set TOP to the new PC
 	inc pcset
-	stxy origin
+	stxy top
+
+:	stxy origin
 	jmp @done
 
 	; check if this is lower than current base origin
