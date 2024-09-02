@@ -1,3 +1,4 @@
+.include "errors.inc"
 .include "finalex.inc"
 .include "macros.inc"
 .include "zeropage.inc"
@@ -55,6 +56,9 @@ copybuff: .res $1e00		; buffer for copy data
 	cmp #$0d
 	bne :+
 	inc visual_lines_copied
+	bne :+
+	RETURN_ERR ERR_COPY_TOO_BIG	; > 255 lines, error
+
 :	incw buffptr
 	clc
 @done:	rts

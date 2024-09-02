@@ -1018,6 +1018,7 @@ force_enter_insert=*+5
 	bne @left
 @refresh:
 	jsr refresh	; unhighlight selection (if we were in VISUAL mode)
+	jmp @done	; skip INSERT position correction
 
 @left:	; if we're on a TAB, move cursor to the end of it
 	jsr src::after_cursor
@@ -1618,7 +1619,7 @@ force_enter_insert=*+5
 	; get the bounds of the text we're copying and move the source cursor
 	; to the end of the selection
 	jsr get_selection_bounds
-	bcs @done
+	bcs @restoresrc
 
 	; clear the current contents of the copy buffer
 	jsr buff::clear
@@ -1645,6 +1646,8 @@ force_enter_insert=*+5
 	bne @copy	; continue until we are
 
 @restoresrc:
+	jsr enter_command 
+
 	; restore source position
 	ldxy @start
 	jsr src::goto
@@ -1652,24 +1655,20 @@ force_enter_insert=*+5
 	; move to start of the selection that was yanked (if we're not there)
 	ldxy src::line
 	cmpw visual_start_line
-	bcc @startx		; already on the start line
+	bcc @ok			; already on the start line
 	beq @fixx		; already on start line, maybe not start column
 
 	ldxy visual_start_line
 	jsr gotoline
-	rts
-	jmp @startx		; move to column selection began on
+	jmp @startx		; move to column the selection began on
 
 @fixx:	lda zp::curx
 	cmp visual_start_x
-	bcc @ok
-
+	bcc @ret
 @startx:
 	lda visual_start_x
 	sta zp::curx
-
-@ok:	RETURN_OK
-@done:	jsr enter_command
+@ok:	clc
 @ret:	rts
 .endproc
 
@@ -2140,10 +2139,10 @@ __edit_refresh:
 	inx
 	bcs @done
 	lda #DEFAULT_900F
-	sta mem::rowcolors,x
+	sta mem::rowcolors,x	; clear the color for this row
 	stx zp::cury
 	txa
-	jsr bm::clrline
+	jsr bm::clrline		; clear the bitmap data for this row
 	jmp @clr
 
 @done:	; restore source position

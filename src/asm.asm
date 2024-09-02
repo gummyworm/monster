@@ -1679,7 +1679,7 @@ __asm_include:
 	ldxy zp::line
 	jsr expr::eval
 	bcc :+
-	rts		; error
+	rts			; error
 :	stxy zp::asmresult
 	stxy zp::virtualpc
 	lda pcset
