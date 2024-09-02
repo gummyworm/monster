@@ -3,8 +3,6 @@
 .include "finalex.inc"
 .include "labels.inc"
 .include "macros.inc"
-.include "string.inc"
-.include "strings.inc"
 .include "zeropage.inc"
 
 ;******************************************************************************
@@ -42,6 +40,8 @@ macros:          .res $1400
 .proc __mac_init
 	lda #$00
 	sta nummacros
+
+	; init address for first macro that will be created
 	ldxy #macros
 	stxy macro_addresses
 	rts
@@ -119,10 +119,10 @@ macros:          .res $1400
 	bne @next
 	ldxy @src
 	stxy zp::str0
-	ldxy #strings::endmac
+	ldxy #endmac
 	stxy zp::str2
-	lda #7
-	CALL FINAL_BANK_MAIN, #str::compare
+	lda #7			; strlen(endmac)+1
+	jsr strcmp
 	beq @done
 
 @next:	sta (@dst),y
@@ -310,14 +310,15 @@ macros:          .res $1400
 	sta @cnt
 	cmp nummacros
 	beq @notfound
-@find:
-	ldy #$00
+
+@find:	ldy #$00
 	lda (@addr),y
 	sta @name
 	iny
 	lda (@addr),y
 	sta @name+1
 	dey
+
 @compare:
 	lda (@tofind),y
 	beq :+		; end of the string we're trying to find
@@ -346,4 +347,29 @@ macros:          .res $1400
 	RETURN_OK
 .endproc
 
+;******************************************************************************
+; STRCMP
+; Compares the strings in (str0) and (str2) up to a length of .A
+; IN:
+;  zp::str0: one of the strings to compare
+;  zp::str2: the other string to compare
+;  .A:       the max length to compare
+; OUT:
+;  .Z: set if the strings are equal
+.proc strcmp
+	tay		; is length 0?
+	dey
+	bmi @match	; if 0-length comparison, it's a match by default
+
+@l0:	lda (zp::str0),y
+	cmp (zp::str2),y
+	beq :+
+	rts
+:	dey
+	bpl @l0
+@match:	lda #$00
+	rts
+.endproc
+
+endmac:	.byte ".endmac",0
 .CODE

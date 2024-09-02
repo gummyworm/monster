@@ -17,7 +17,6 @@
 .import __str_edit_file_delete_failed
 .import __str_edit_file_load_failed
 .import __str_edit_file_save_failed
-.import __str_endmac
 .import __str_memory
 .import __str_memview_title
 .import __str_loading
@@ -62,6 +61,5 @@
 	loading                 = __str_loading
 	null                    = __str_null
 	saving                  = __str_saving
-	endmac                  = __str_endmac
 	invalid_command         = __str_invalid_command
 .endscope
