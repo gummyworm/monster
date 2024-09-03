@@ -865,7 +865,6 @@ restore_regs:
 ; Navigates the editor to the file/line associated with the give address
 ; IN:
 ;  - .XY: the address to "goto"
-;  - .A:  the file ID to goto
 ; OUT:
 ;  - .C:  set on failure
 ;  - .XY: the line that was navigated to
@@ -2057,6 +2056,16 @@ __debug_remove_breakpoint:
 ; Activates the text user interface debugger (monitor)
 .proc activate_monitor
 	lda #DEBUG_IFACE_TEXT
+	sta __debug_interface
+	jsr save_debug_state
+	jmp edit::enterconsole
+.endproc
+
+;******************************************************************************
+; DEACTIVATE MONITOR
+; Deactivates the text user interface debugger (monitor) and returns to the GUI
+.proc deactivate_monitor
+	lda #DEBUG_IFACE_GUI
 	sta __debug_interface
 	jsr save_debug_state
 	jmp edit::enterconsole

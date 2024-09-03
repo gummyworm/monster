@@ -58,6 +58,10 @@
 .import __CONSOLE_RUN__
 .import __CONSOLE_SIZE__
 
+.import __COPYBUFF_LOAD__
+.import __COPYBUFF_RUN__
+.import __COPYBUFF_SIZE__
+
 .import __RODATA_LOAD__
 .import __RODATA_RUN__
 .import __RODATA_SIZE__
@@ -295,6 +299,10 @@ relocs:
 ; CONSOLE
 .word __CONSOLE_LOAD__, __CONSOLE_RUN__, __CONSOLE_SIZE__
 .byte FINAL_BANK_CONSOLE
+
+; COPYBUFF
+.word __COPYBUFF_LOAD__, __COPYBUFF_RUN__, __COPYBUFF_SIZE__
+.byte FINAL_BANK_BUFF
 
 ; RODATA
 .word __RODATA_LOAD__, __RODATA_RUN__, __RODATA_SIZE__

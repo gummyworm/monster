@@ -520,10 +520,11 @@ num_illegals = *-illegal_opcodes
 	stxy zp::jmpvec
 	jmp zp::jmpaddr
 
-; after directives, handle context if any
+; after directives, handle context if any. this is used for things like an
+; active macro definition (the lines between .mac and .endmac)
 @ctx:	jsr handle_ctx
-	bcc @noctx
-	RETURN_OK
+	bcs @ret0		; error
+	beq @ret0		; context was handled
 
 @noctx:	ldy #$00
 	sty indirect
@@ -553,10 +554,10 @@ num_illegals = *-illegal_opcodes
 	ldxy zp::line
 	CALL FINAL_BANK_MACROS, #mac::get
 
-	bcs @chklabels
-	pha
+	bcs @chklabels		; if not macro, skip
+	pha			; save macro id
 	jsr line::process_word	; read past macro name
-	pla
+	pla			; restore macro id
 
 	jsr assemble_macro
 	bcs @ret0		; error
@@ -1404,18 +1405,22 @@ num_illegals = *-illegal_opcodes
 ; HANDLE_CTX
 ; If this is the first pass, copies the contents of the asmbuffer to the current
 ; context.
+; Note: during vierification contexts are not handled at all.
 ; OUT:
-;  - .C: set if the line was handled by this handler
+;  - .Z: set if the line was handled by this handler
+;  - .C: set on error
 .proc handle_ctx
 	; if verifying (ctx type == 0), don't handle context at all
 	jsr get_ctx_type
-	beq @done
+	beq @ok		; done, context not handled
 	ldxy #asmbuffer
 	jsr ctx::write	; copy the linebuffer to the context
-	sec		; flag context handled
-	rts
-@done:	clc		; flag context NOT handled
-	rts
+	bcs @done
+	lda #$00	; flag that the context was handled
+	skw
+@ok:	lda #$01	; flag context NOT handled
+	clc		; no error
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1674,13 +1679,19 @@ __asm_include:
 	ldxy zp::line
 	jsr expr::eval
 	bcc :+
-	rts		; error
+	rts			; error
 :	stxy zp::asmresult
 	stxy zp::virtualpc
 	lda pcset
 	bne @chkorg
+	lda pcset
+	bne :+
+
+	; if PC isn't set yet, set TOP to the new PC
 	inc pcset
-	stxy origin
+	stxy top
+
+:	stxy origin
 	jmp @done
 
 	; check if this is lower than current base origin
@@ -2522,6 +2533,9 @@ __asm_include:
 ;******************************************************************************
 ; GET_CTX_TYPE
 ; Returns the active context type
+; OUT:
+;   - .A: the type of the context (0 for NO CONTEXT)
+;   - .Z: set if no context is active
 .proc get_ctx_type
 	ldx contextstacksp
 	dex

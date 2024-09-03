@@ -263,6 +263,7 @@ The following keys are handled in COMMAND mode.
 |    L       | Last       | moves the cursor to the bottom left of the screen                      |
 |    dw      | Delete Word| deletes the next word                                                  |
 |    dd      | Delete Line| deletes the next line                                                  |
+|    J       | Join lines | moves the contents of the next line to the end of the current one      |
 |    0       | Column 0   | moves the cursor to the first column of the current line               |
 |    a       | append char| enters insert mode and moves to the next character                     |
 |    A       | append line| enters insert mode and moves to the last character in the current line |
@@ -302,9 +303,8 @@ When text is deleted (delete line, delete word) or _yanked_, it is stored to a b
 it may be recalled by the paste commands (`p`, paste below and `P` paste above).
 When the paste command is executed, the buffer is cleared.
 
-The copy buffer's size can be configured per-build in `src/config.inc`.  Without
-modification it is set to 880 bytes, which is enough for a completely full
-screen of text (22 lines of 40 columns).
+The copy buffer is $1e00 bytes, which is enough for ~3.5 completely full screens
+of text (22 rows and 40 columns).
 
 ### Jump Lists
 When the user "jumps" to a different position in the source (`gg`, `G`, `goto line`,

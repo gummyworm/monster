@@ -12,6 +12,7 @@
 .import __src_end
 .import __src_end_rep
 .import __src_get
+.import __src_get_at
 .import __src_getflags
 .import __src_goto
 .import __src_get_filename
@@ -27,6 +28,7 @@
 .import __src_names
 .import __src_new
 .import __src_numbuffers
+.import __src_on_last_line
 .import __src_up
 .import __src_upn
 .import __src_popp
@@ -70,6 +72,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	end_rep        = __src_end_rep
 	filename       = __src_get_filename
 	get            = __src_get
+	getat          = __src_get_at
 	getflags       = __src_getflags
 	goto           = __src_goto
 	home           = __src_home
@@ -82,6 +85,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	name           = __src_name
 	new            = __src_new
 	next           = __src_next
+	on_last_line   = __src_on_last_line
 	replace        = __src_replace
 	popp           = __src_popp
 	popgoto        = __src_popgoto

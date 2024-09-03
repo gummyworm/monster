@@ -15,9 +15,6 @@ __str_null = *-1
 .export __str_endrep
 __str_endrep: .byte ".endrep"
 
-.export __str_endmac
-__str_endmac: .byte ".endmac"
-
 .export __str_breakpoints_title
 __str_breakpoints_title: .byte ESCAPE_SPACING,14, "breakpoints",0
 

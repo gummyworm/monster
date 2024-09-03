@@ -52,7 +52,7 @@ link         = $40	; base address of linker temp storage
 gui          = $40
 
 ;******************************************************************************
-; $50-$60 are used for labels
+; $50-$5f are used for labels
 label_value=$50	; arguments to label functions
 labels=$52
 

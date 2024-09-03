@@ -162,6 +162,9 @@ err_too_many_labels:
 err_invalid_command:
 	.byte $4b,$96,$b,$9,$26,$c3,$7b,$4d,$b,$84,$0
 
+err_copy_too_big:
+	.byte $1b,$d0,$ce,$d3,$2b,$5,$1d,$9,$7b,$9b,$a3,$cf,$d8,$89,$38,$0
+
 ;******************************************************************************
 .linecont +
 .define errors \
@@ -203,7 +206,8 @@ err_invalid_command:
 	err_no_open_scope, \
 	err_label_already_defined, \
 	err_too_many_labels, \
-	err_invalid_command
+	err_invalid_command, \
+	err_copy_too_big
 .linecont -
 errorslo: .lobytes errors
 errorshi: .hibytes errors

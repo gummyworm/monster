@@ -1,6 +1,5 @@
 .import __linesave
 .import __mem_asmctx
-.import __mem_copybuff
 .import __mem_ctxbuffer
 .import __mem_spare
 .import __mem_spareend
@@ -37,7 +36,6 @@
 	linesave        = __linesave
 	statusinfo      = __statusinfo
 	statusline	= __statusline
-	copybuff        = __mem_copybuff
 	drive_err	= __mem_drive_err
 	coloron         = __mem_coloron
 	rowcolors       = __mem_rowcolors
