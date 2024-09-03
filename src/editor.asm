@@ -3580,6 +3580,8 @@ goto_buffer:
 	ldy zp::curx
 	bcc @rvs0
 	iny
+	cpy @linelen
+	beq @viscur
 	bne @rvs0
 
 @sameline:
@@ -3594,7 +3596,7 @@ goto_buffer:
 :	ldy zp::curx		; reverse curx to end of line
 @rvs0:	lda zp::cury
 	cpx #$00
-	beq @viscur
+	beq @viscur		; if line is empty, nothing to reverse
 	jsr bm::rvsline_part
 
 	lda #$00
@@ -3622,7 +3624,9 @@ goto_buffer:
 
 	; can't move down, move cursor to end of line
 	jsr text::rendered_line_len
+	dex
 	stx zp::curx
+	jsr src::left
 	sec		; cursor could not be moved down
 	rts
 
@@ -3656,10 +3660,10 @@ goto_buffer:
 	cmp #MODE_INSERT
 	beq :+
 	jsr src::right_rep
-	bcs @end
+	bcs ccdown_highlight
 	bcc @cur
 :	jsr src::right
-	bcs @end
+	bcs ccdown_highlight
 @cur:	jsr cur::right
 @movex: lda zp::curx
 	cmp @xend
