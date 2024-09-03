@@ -3624,7 +3624,9 @@ goto_buffer:
 
 	; can't move down, move cursor to end of line
 	jsr text::rendered_line_len
+	dex
 	stx zp::curx
+	jsr src::left
 	sec		; cursor could not be moved down
 	rts
 
@@ -3658,10 +3660,10 @@ goto_buffer:
 	cmp #MODE_INSERT
 	beq :+
 	jsr src::right_rep
-	bcs @end
+	bcs ccdown_highlight
 	bcc @cur
 :	jsr src::right
-	bcs @end
+	bcs ccdown_highlight
 @cur:	jsr cur::right
 @movex: lda zp::curx
 	cmp @xend
