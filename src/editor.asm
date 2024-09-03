@@ -3580,6 +3580,8 @@ goto_buffer:
 	ldy zp::curx
 	bcc @rvs0
 	iny
+	cpy @linelen
+	beq @viscur
 	bne @rvs0
 
 @sameline:
@@ -3594,7 +3596,7 @@ goto_buffer:
 :	ldy zp::curx		; reverse curx to end of line
 @rvs0:	lda zp::cury
 	cpx #$00
-	beq @viscur
+	beq @viscur		; if line is empty, nothing to reverse
 	jsr bm::rvsline_part
 
 	lda #$00

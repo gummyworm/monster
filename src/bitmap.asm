@@ -185,7 +185,7 @@ COLMEM_ADDR = $9400
 	cpx @start
 	pha		; save character row
 
-	bcs :+
+	bcs :+		; if stop > start, swap
 	txa
 	ldx @start
 	tay
