@@ -3529,6 +3529,17 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
+; RVS CURRENT LINE
+; Reverses from column 0 to the end of the line (text::rendered_line_len) at
+; the current cursor Y position
+.proc rvs_current_line
+	jsr text::rendered_line_len
+	ldy #$00
+	lda zp::cury
+	jmp bm::rvsline_part
+.endproc
+
+;******************************************************************************
 ; CCDOWN
 ; Handles the down cursor key
 ; OUT:
@@ -3650,10 +3661,7 @@ goto_buffer:
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne @movex
-	jsr text::rendered_line_len
-	ldy #$00
-	lda zp::cury
-	jmp bm::rvsline_part
+	jsr rvs_current_line
 
 @xloop:	lda mode
 	cmp #MODE_INSERT
@@ -4191,8 +4199,7 @@ __edit_gotoline:
 	cpx #$01	; 1 line forward?
 	bne :+
 @down1:
-	jsr ccdown	; just move down if we're only going one line
-	jmp home
+	jmp ccdown	; just move down if we're only going one line
 
 :	lda zp::cury
 	clc
@@ -4203,7 +4210,11 @@ __edit_gotoline:
 
 ; get the number of lines to move backwards
 @beginbackward:
-	lda src::line
+	cpx #$01	; 1 line backwad?
+	bne :+
+@up1:	jmp ccup	; just move down if we're only going one line
+
+:	lda src::line
 	sec
 	sbc @target
 	sta @diff
@@ -4327,12 +4338,22 @@ __edit_gotoline:
 @l0: 	jsr src::get
 	lda @row
 	jsr draw_src_line
+	jsr is_visual
+	bne :+
 
-	lda @seekforward
+	lda @row
+	sta zp::cury
+	jsr rvs_current_line
+
+:	lda @seekforward
 	bne @rowdown
 
 @rowup: lda @row
-	beq @renderdone ; cmp #EDITOR_ROW_START-1; bcc @..  for non-zero starts
+	cmp #$01
+	bne :+
+	sta zp::cury
+	jmp ccup
+:	beq @renderdone ; cmp #EDITOR_ROW_START-1; bcc @..  for non-zero starts
 	dec @row
 	jsr src::up
 	bcc @l0
