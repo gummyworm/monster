@@ -29,7 +29,8 @@ test.d64: monster.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
 	$(C1541) -format test,1 d64 test.d64 -attach test.d64 -write boot.prg -write masm.prg $(addprefix -write , $(TEST_FILES))
 
 start: test.d64
-	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1541 -10 test.d64
+	# $(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -dos1541II JiffyDOS_1541-II.bin -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1542 -10 test.d64
+	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1542 -10 test.d64
 
 vstart: 
 	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc +drive10truedrive -virtualdev10

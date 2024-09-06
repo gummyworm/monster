@@ -3463,7 +3463,7 @@ goto_buffer:
 	rts		; can't move right
 
 @ins:	jsr src::right
-	bcs @done
+	bcs @done	; can't move right
 
 @ok:	; turn off the old cursor if we're unhighlighting
 	jsr src::atcursor
@@ -3486,11 +3486,11 @@ goto_buffer:
 	cpy #MODE_INSERT
 	beq :+
 	dec @tabcnt
-	beq @ret
+	beq @retok
 :	jsr @curr
 	dec @tabcnt
 	bne :-
-	clc
+@retok:	clc
 @ret:	rts
 
 @curr:	lda #$00
@@ -3592,7 +3592,6 @@ goto_buffer:
 	cpy zp::curx
 	bcs :+
 	beq @rvs0		; reverse visual_start_x to end of line
-
 :	ldy zp::curx		; reverse curx to end of line
 @rvs0:	lda zp::cury
 	cpx #$00
@@ -4225,7 +4224,6 @@ __edit_gotoline:
 ; move up and move cursor
 @shortup:
 	jsr src::up
-	bcs @shortdone
 	dec zp::cury
 	jsr src::get
 	jsr is_visual
@@ -4261,6 +4259,7 @@ __edit_gotoline:
 
 @novis:	dec @diff
 	bne @shortdown
+	jsr home
 
 @shortdone:
 	lda zp::cury
