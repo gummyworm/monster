@@ -1837,19 +1837,9 @@ force_enter_insert=*+5
 	beq @gotodef
 @ret:	rts
 
-@top:	jsr home
-	ldxy #1
-	lda mode
-	cmp #MODE_VISUAL
-	bne @gotoline
-
-	; if we're in visual mode, go up line by line to highlight
-:	jsr ccup
-	bcc :-
-	bcs @done
-@gotoline:
+@top:	ldxy #1
 	jsr gotoline
-@done:	jmp add_jump_point
+	jmp add_jump_point
 
 ;--------------------------------------
 @gotodef:
