@@ -4155,11 +4155,10 @@ goto_buffer:
 __edit_gotoline:
 .proc gotoline
 @target=r6
-@row=r8
-@seekforward=r9		; 0=backwards 1=forwards
-@diff=ra		; lines to move up or down
-@rowsave=rc
-@cnt=rd
+@seekforward=r8		; 0=backwards 1=forwards
+@diff=r9		; lines to move up or down
+@rowsave=rb
+@cnt=rc
 	cmpw src::lines	; is target < total # of lines?
 	bcc :+		; yes, move to target
 	ldxy src::lines ; no, move to the last line
@@ -4273,18 +4272,16 @@ __edit_gotoline:
 	jsr home
 
 @shortdone:
-	lda zp::cury
-	sta @row
 	jmp @renderdone
 
 @hiloop:
 	lda @seekforward
 	beq :+
-	inc @row
+	inc zp::cury
 	skw
-:	dec @row
+:	dec zp::cury
 
-	lda @row
+	lda zp::cury
 	jsr bm::rvsline
 	dec @cnt
 	bne @hiloop
@@ -4334,27 +4331,25 @@ __edit_gotoline:
 	lda height
 
 @longmove_cont:
-	sta @row
+	sta zp::cury
 @l0: 	jsr src::get
-	lda @row
+	lda zp::cury
 	jsr draw_src_line
 	jsr is_visual
 	bne :+
 
-	lda @row
-	sta zp::cury
 	jsr rvs_current_line
 
 :	lda @seekforward
 	bne @rowdown
 
-@rowup: lda @row
+@rowup: lda zp::cury
 	cmp #$01
 	bne :+
 	sta zp::cury
 	jmp ccup
 :	beq @renderdone ; cmp #EDITOR_ROW_START-1; bcc @..  for non-zero starts
-	dec @row
+	dec zp::cury
 	jsr src::up
 	bcc @l0
 
@@ -4365,29 +4360,31 @@ __edit_gotoline:
 	jmp @longdone
 
 @rowdown:
-	ldx @row
+	ldx zp::cury
 	cpx height
 	bcs @longdone
-	inc @row
+	inc zp::cury
 	jsr src::down
 	bcc @l0
 
+; if we ran out of source but we're not at the end of the screen,
+; clear whatever rows are left
 @clrextra:
 	jsr text::clrline
-	ldx @row
+	ldx zp::cury
 	stx @rowsave
 @clrloop:
 	txa
 	jsr bm::clrline
-	inc @row
+	inc zp::cury
 @clrnext:
-	ldx @row
+	ldx zp::cury
 	dex
 	cpx height
 	bcc @clrloop
 
 	lda @rowsave
-	sta @row
+	sta zp::cury
 
 @longdone:
 	lda #$00
@@ -4403,10 +4400,7 @@ __edit_gotoline:
 	bne :+
 	jsr src::right
 	ldx #TAB_WIDTH
-
-:	ldy @row
-	jsr cur::set
-	jmp highlight
+:	jmp highlight
 .endproc
 
 ;******************************************************************************
