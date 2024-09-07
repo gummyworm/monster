@@ -3547,6 +3547,7 @@ goto_buffer:
 @endins:
 	jsr src::end
 	bne :+
+	sec
 	rts		; cursor is at end of source file, return
 
 :	lda zp::curx
@@ -3742,7 +3743,7 @@ goto_buffer:
 	beq @done
 @toggle:
 	jsr cur::toggle
-@done:	rts
+@done:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -4181,7 +4182,7 @@ __edit_gotoline:
 	lda @target+1
 	sbc src::line+1
 	sta @diff+1
-	beq @maybeshort
+	beq @down1
 	jmp @long
 
 @maybeshort:
@@ -4326,11 +4327,24 @@ __edit_gotoline:
 	lda zp::cury
 	jsr draw_src_line
 	jsr is_visual
-	bne :+
+	bne @visdone
 
-	jsr rvs_current_line
+	; only reverse if we are below (forward selection) or behind (backward
+	; selection) the visual start-line
+	ldxy src::line
+	cmpw visual_start_line
+	lda @seekforward
+	beq :+
+	; are we below the start line?
+	bcc @visdone			; not below start line, don't highlight
+	bcs @rvs0
 
-:	lda @seekforward
+:	; are we above the start line?
+	bcs @visdone			; not above start line, don't highlight
+@rvs0:	jsr rvs_current_line
+
+@visdone:
+	lda @seekforward
 	bne @rowdown
 
 @rowup: lda zp::cury
