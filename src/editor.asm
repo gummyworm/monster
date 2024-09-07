@@ -4360,12 +4360,38 @@ __edit_gotoline:
 	jmp @longdone
 
 @rowdown:
-	ldx zp::cury
-	cpx height
-	bcs @longdone
 	inc zp::cury
 	jsr src::down
+	bcs @clrextra
+	ldx zp::cury
+	cpx height
 	bcc @l0
+
+	jsr src::get
+	lda zp::cury
+	jsr draw_src_line
+
+	jsr is_visual
+	bne @longdone
+
+	cmp #MODE_VISUAL
+	beq @vis
+@visline:
+	; if VISUAL LINE, reverse the entire line
+	jsr text::rendered_line_len
+	jmp @rvs
+
+@vis:	; reverse the line according to the current VISUAL mode
+	lda mem::linebuffer
+	ldx #$00
+	cmp #$09		; TAB
+	bne @rvs
+	jsr src::right
+	ldx #TAB_WIDTH
+@rvs:	ldy #$00
+	lda zp::cury
+	jsr bm::rvsline_part
+	jmp @longdone
 
 ; if we ran out of source but we're not at the end of the screen,
 ; clear whatever rows are left
@@ -4400,7 +4426,8 @@ __edit_gotoline:
 	bne :+
 	jsr src::right
 	ldx #TAB_WIDTH
-:	jmp highlight
+:	stx zp::curx
+	jmp highlight
 .endproc
 
 ;******************************************************************************
@@ -4541,6 +4568,7 @@ __edit_gotoline:
 ; IS VISUAL
 ; Returns .Z set if the current mode is VISUAL or VISUAL_LINE
 ; OUT:
+;  - .A: the current editor mode
 ;  - .Z: set if current mode is VISUAL or VISUAL_LINE
 .proc is_visual
 	lda mode
