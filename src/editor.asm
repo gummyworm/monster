@@ -3463,7 +3463,7 @@ goto_buffer:
 	rts		; can't move right
 
 @ins:	jsr src::right
-	bcs @done
+	bcs @done	; can't move right
 
 @ok:	; turn off the old cursor if we're unhighlighting
 	jsr src::atcursor
@@ -3486,11 +3486,11 @@ goto_buffer:
 	cpy #MODE_INSERT
 	beq :+
 	dec @tabcnt
-	beq @ret
+	beq @retok
 :	jsr @curr
 	dec @tabcnt
 	bne :-
-	clc
+@retok:	clc
 @ret:	rts
 
 @curr:	lda #$00
@@ -3526,6 +3526,17 @@ goto_buffer:
 	jsr cur::toggle
 :	clc
 @done:	rts
+.endproc
+
+;******************************************************************************
+; RVS CURRENT LINE
+; Reverses from column 0 to the end of the line (text::rendered_line_len) at
+; the current cursor Y position
+.proc rvs_current_line
+	jsr text::rendered_line_len
+	ldy #$00
+	lda zp::cury
+	jmp bm::rvsline_part
 .endproc
 
 ;******************************************************************************
@@ -3592,7 +3603,6 @@ goto_buffer:
 	cpy zp::curx
 	bcs :+
 	beq @rvs0		; reverse visual_start_x to end of line
-
 :	ldy zp::curx		; reverse curx to end of line
 @rvs0:	lda zp::cury
 	cpx #$00
@@ -3651,10 +3661,7 @@ goto_buffer:
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne @movex
-	jsr text::rendered_line_len
-	ldy #$00
-	lda zp::cury
-	jmp bm::rvsline_part
+	jsr rvs_current_line
 
 @xloop:	lda mode
 	cmp #MODE_INSERT
@@ -4185,22 +4192,29 @@ __edit_gotoline:
 	lda @target+1
 	sbc src::line+1
 	sta @diff+1
-	bne @long
+	beq @maybeshort
+	jmp @long
 
+@maybeshort:
 	cpx #$01	; 1 line forward?
 	bne :+
+@down1:
 	jmp ccdown	; just move down if we're only going one line
 
 :	lda zp::cury
 	clc
 	adc @diff
 	cmp height
-	bcs @long
-	jmp @short
+	bcc @short
+	jmp @long
 
 ; get the number of lines to move backwards
 @beginbackward:
-	lda src::line
+	cpx #$01	; 1 line backwad?
+	bne :+
+@up1:	jmp ccup	; just move down if we're only going one line
+
+:	lda src::line
 	sec
 	sbc @target
 	sta @diff
@@ -4216,34 +4230,52 @@ __edit_gotoline:
 
 @short: ldy #$00
 	lda @seekforward
+	bne @shortdown
+
+; move up and move cursor
+@shortup:
+	jsr src::up
+	dec zp::cury
+	jsr src::get
+	jsr is_visual
 	bne :+
 
-	; move up and move cursor
-	ldx @diff
-	jsr src::upn
-	lda #$00
-	sec
-	sbc @diff
-	ldx #$00
+	; reverse the contents of the line
+	jsr text::rendered_line_len
+	ldy #$00
+	lda zp::cury
+	jsr bm::rvsline_part
+:	dec @diff
+	bne @shortup
 	beq @shortdone
 
-:	; move down and move cursor
-	ldx @diff
-	jsr src::downn
+@shortdown:
 	lda @diff
-	ldx #$00
-@shortdone:
-	clc
-	adc zp::cury
-	sta @row
+	cmp #$01
+	beq @down1
 
-	jsr is_visual	; are we in VISUAL mode
-	bne @movecur
-	; highlight all rows between cursor and destination
-	lda @diff
-	sta @cnt
-	dec @cnt
-	beq @movecur
+	; move down and move cursor
+	jsr src::down
+	bcs @shortdone
+	inc zp::cury
+	jsr src::get
+	jsr is_visual
+	bne @novis
+
+	; reverse the contents of the line (unless last line)
+	jsr text::rendered_line_len
+	ldy #$00
+	lda zp::cury
+	jsr bm::rvsline_part
+
+@novis:	dec @diff
+	bne @shortdown
+	jsr home
+
+@shortdone:
+	lda zp::cury
+	sta @row
+	jmp @renderdone
 
 @hiloop:
 	lda @seekforward
@@ -4306,12 +4338,22 @@ __edit_gotoline:
 @l0: 	jsr src::get
 	lda @row
 	jsr draw_src_line
+	jsr is_visual
+	bne :+
 
-	lda @seekforward
+	lda @row
+	sta zp::cury
+	jsr rvs_current_line
+
+:	lda @seekforward
 	bne @rowdown
 
 @rowup: lda @row
-	beq @renderdone ; cmp #EDITOR_ROW_START-1; bcc @..  for non-zero starts
+	cmp #$01
+	bne :+
+	sta zp::cury
+	jmp ccup
+:	beq @renderdone ; cmp #EDITOR_ROW_START-1; bcc @..  for non-zero starts
 	dec @row
 	jsr src::up
 	bcc @l0
