@@ -3590,11 +3590,17 @@ goto_buffer:
 	; vis start line == current line, reverse based on cursor's column
 	; relative to the visual start column
 	ldx @linelen
-	ldy visual_start_x
-	cpy zp::curx
-	bcs :+
-	beq @rvs0		; reverse visual_start_x to end of line
-:	ldy zp::curx		; reverse curx to end of line
+	ldy zp::curx		; reverse curx to end of line
+	cpy visual_start_x
+	bcs @rvs0
+	ldx visual_start_x
+	lda zp::cury
+	jsr bm::rvsline_part	; reverse OFF the part before visual_start_x
+
+	; and reverse ON the part after visual_start_x
+	ldx visual_start_x
+	inx
+	ldy @linelen
 @rvs0:	lda zp::cury
 	cpx #$00
 	beq @viscur		; if line is empty, nothing to reverse
@@ -4182,7 +4188,7 @@ __edit_gotoline:
 	lda @target+1
 	sbc src::line+1
 	sta @diff+1
-	beq @down1
+	beq @maybeshort
 	jmp @long
 
 @maybeshort:
@@ -4329,12 +4335,33 @@ __edit_gotoline:
 	jsr is_visual
 	bne @visdone
 
-	; only reverse if we are below (forward selection) or behind (backward
-	; selection) the visual start-line
+	; if we are on the selection that the line began at, 
+	; only reverse the section of the line that is highlighted
 	ldxy src::line
 	cmpw visual_start_line
+	bne @noteq
+
+@eq:	lda @seekforward
+	beq :+
+; forward: reverse from (visual_start_x, end)
+	jsr text::rendered_line_len
+	ldy visual_start_x
+	bpl @rvspart			; branch
+; backward: reverse from (0, visual_start_x+1)
+:	ldy #$00
+	ldx visual_start_x
+	inx
+@rvspart:
+	lda zp::cury
+	jsr bm::rvsline_part
+	jmp @visdone			; continue
+
+@noteq:	; only reverse if we are below (forward selection) or behind (backward
+	; selection) the visual start-line
 	lda @seekforward
 	beq :+
+
+; highlight forward
 	; are we below the start line?
 	bcc @visdone			; not below start line, don't highlight
 	bcs @rvs0
