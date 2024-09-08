@@ -66,12 +66,15 @@ __mem_rowcolors_save: .res 24
 ; The linebuffer must live in lower RAM, which is NOT switched out with the
 ; upper RAM upon switching banks
 ; This allows the buffer to be manipulated from any bank
+.segment "LINEBUFF"
 .export __linebuffer
-__linebuffer = $0400
-
+__linebuffer:
+	.res LINESIZE
 .export __linebuffer2
 ;__linebuffer2: .res 80		; backup buffer for when the linebuffer must be saved
-__linebuffer2 = $0400+$80
+__linebuffer2:
+	.res LINESIZE
 
 .export __mem_asmbuffer
-__mem_asmbuffer  = __linebuffer2
+__mem_asmbuffer:
+	.res LINESIZE
