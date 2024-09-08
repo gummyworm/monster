@@ -235,7 +235,7 @@ COLMEM_ADDR = $9400
 
 	; check if end column is even or odd
 	lda #$00
-	adc #$00
+	rol
 	sta @odd
 
 	cpx @start
