@@ -1837,19 +1837,9 @@ force_enter_insert=*+5
 	beq @gotodef
 @ret:	rts
 
-@top:	jsr home
-	ldxy #1
-	lda mode
-	cmp #MODE_VISUAL
-	bne @gotoline
-
-	; if we're in visual mode, go up line by line to highlight
-:	jsr ccup
-	bcc :-
-	bcs @done
-@gotoline:
+@top:	ldxy #1
 	jsr gotoline
-@done:	jmp add_jump_point
+	jmp add_jump_point
 
 ;--------------------------------------
 @gotodef:
@@ -3557,6 +3547,7 @@ goto_buffer:
 @endins:
 	jsr src::end
 	bne :+
+	sec
 	rts		; cursor is at end of source file, return
 
 :	lda zp::curx
@@ -3599,11 +3590,17 @@ goto_buffer:
 	; vis start line == current line, reverse based on cursor's column
 	; relative to the visual start column
 	ldx @linelen
-	ldy visual_start_x
-	cpy zp::curx
-	bcs :+
-	beq @rvs0		; reverse visual_start_x to end of line
-:	ldy zp::curx		; reverse curx to end of line
+	ldy zp::curx		; reverse curx to end of line
+	cpy visual_start_x
+	bcs @rvs0
+	ldx visual_start_x
+	lda zp::cury
+	jsr bm::rvsline_part	; reverse OFF the part before visual_start_x
+
+	; and reverse ON the part after visual_start_x
+	ldx visual_start_x
+	inx
+	ldy @linelen
 @rvs0:	lda zp::cury
 	cpx #$00
 	beq @viscur		; if line is empty, nothing to reverse
@@ -3752,7 +3749,7 @@ goto_buffer:
 	beq @done
 @toggle:
 	jsr cur::toggle
-@done:	rts
+@done:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -4336,11 +4333,45 @@ __edit_gotoline:
 	lda zp::cury
 	jsr draw_src_line
 	jsr is_visual
-	bne :+
+	bne @visdone
 
-	jsr rvs_current_line
+	; if we are on the selection that the line began at, 
+	; only reverse the section of the line that is highlighted
+	ldxy src::line
+	cmpw visual_start_line
+	bne @noteq
 
-:	lda @seekforward
+@eq:	lda @seekforward
+	beq :+
+; forward: reverse from (visual_start_x, end)
+	jsr text::rendered_line_len
+	ldy visual_start_x
+	bpl @rvspart			; branch
+; backward: reverse from (0, visual_start_x+1)
+:	ldy #$00
+	ldx visual_start_x
+	inx
+@rvspart:
+	lda zp::cury
+	jsr bm::rvsline_part
+	jmp @visdone			; continue
+
+@noteq:	; only reverse if we are below (forward selection) or behind (backward
+	; selection) the visual start-line
+	lda @seekforward
+	beq :+
+
+; highlight forward
+	; are we below the start line?
+	bcc @visdone			; not below start line, don't highlight
+	bcs @rvs0
+
+:	; are we above the start line?
+	bcs @visdone			; not above start line, don't highlight
+@rvs0:	jsr rvs_current_line
+
+@visdone:
+	lda @seekforward
 	bne @rowdown
 
 @rowup: lda zp::cury
@@ -4360,12 +4391,38 @@ __edit_gotoline:
 	jmp @longdone
 
 @rowdown:
-	ldx zp::cury
-	cpx height
-	bcs @longdone
 	inc zp::cury
 	jsr src::down
+	bcs @clrextra
+	ldx zp::cury
+	cpx height
 	bcc @l0
+
+	jsr src::get
+	lda zp::cury
+	jsr draw_src_line
+
+	jsr is_visual
+	bne @longdone
+
+	cmp #MODE_VISUAL
+	beq @vis
+@visline:
+	; if VISUAL LINE, reverse the entire line
+	jsr text::rendered_line_len
+	jmp @rvs
+
+@vis:	; reverse the line according to the current VISUAL mode
+	lda mem::linebuffer
+	ldx #$00
+	cmp #$09		; TAB
+	bne @rvs
+	jsr src::right
+	ldx #TAB_WIDTH
+@rvs:	ldy #$00
+	lda zp::cury
+	jsr bm::rvsline_part
+	jmp @longdone
 
 ; if we ran out of source but we're not at the end of the screen,
 ; clear whatever rows are left
@@ -4400,7 +4457,8 @@ __edit_gotoline:
 	bne :+
 	jsr src::right
 	ldx #TAB_WIDTH
-:	jmp highlight
+:	stx zp::curx
+	jmp highlight
 .endproc
 
 ;******************************************************************************
@@ -4541,6 +4599,7 @@ __edit_gotoline:
 ; IS VISUAL
 ; Returns .Z set if the current mode is VISUAL or VISUAL_LINE
 ; OUT:
+;  - .A: the current editor mode
 ;  - .Z: set if current mode is VISUAL or VISUAL_LINE
 .proc is_visual
 	lda mode
