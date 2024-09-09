@@ -1,3 +1,6 @@
+;******************************************************************************
+LINESIZE        = 40    ; the size of the buffer for 1 line on the screen
+
 TEXT_COLOR	 = 6	      		; text color for the editor
 BORDER_COLOR	 = $3|8	      		; border color for the editor
 BG_COLOR	 = $1	      		; bg color for the editor
