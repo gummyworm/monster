@@ -532,33 +532,6 @@ memaddr:   .word 0
 .endproc
 
 ;******************************************************************************
-; DIRTY
-; Returns .Z set if the memory in the viewer is dirty (has changed since the
-; last render)
-; OUT:
-;  - .Z: set if the display is dirty
-.export __view_dirty
-.proc __view_dirty
-@cnt=r2
-	ldx #TOTAL_BYTES-1
-	stx @cnt
-
-:	ldxy memaddr
-	lda @cnt
-	jsr vmem::load_off
-
-	ldx @cnt
-	cmp dirtybuff,x
-	bne @dirty
-	dec @cnt
-	bpl :-
-@clean: lda #$ff
-	rts
-@dirty: lda #$00
-	rts
-.endproc
-
-;******************************************************************************
 ; GET_ADDR
 ; Gets the address of the byte under the cursor when editing memory
 ; IN:
