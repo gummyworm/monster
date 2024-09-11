@@ -1006,17 +1006,11 @@ force_enter_insert=*+5
 	cmp #MODE_COMMAND
 	beq @done
 
-	pha
 	lda #CUR_NORMAL
 	sta cur::mode
-	lda #MODE_COMMAND
-	sta mode
-	pla
-	cmp #MODE_VISUAL
-	beq @refresh
-	cmp #MODE_VISUAL_LINE
+	jsr is_visual
 	bne @left
-@refresh:
+
 	jsr refresh	; unhighlight selection (if we were in VISUAL mode)
 	jmp @done	; skip INSERT position correction
 
@@ -1031,7 +1025,9 @@ force_enter_insert=*+5
 	dec zp::curx
 :	jsr ccleft	; insert places cursor after char
 
-@done:  lda #'c'
+@done:  lda #MODE_COMMAND
+	sta mode
+	lda #'c'
 	sta text::statusmode
 	rts
 .endproc
@@ -1234,7 +1230,7 @@ force_enter_insert=*+5
 	jsr is_visual
 	bne @cont
 
-; VISUAL kode; delete the selection
+; VISUAL mode; delete the selection
 @delvis:
 @start=zp::editortmp+1	; set by yank
 @end=zp::editortmp+3	; set by yank
@@ -1248,7 +1244,9 @@ force_enter_insert=*+5
 	jsr src::pos
 	cmpw @start
 	bne @delsel
-	jmp enter_command		; done, refresh and return to COMMAND
+
+	jsr enter_command		; done, refresh and return to COMMAND
+	jmp refresh			; TODO: why do we need to refresh again?
 
 @cont:	jsr key::getch			; get a key to decide what to delete
 	beq @cont
@@ -2095,14 +2093,12 @@ __edit_refresh:
 	lda zp::cury
 	pha
 	jsr src::pushp
-	jsr text::savebuff
+	jsr text::savebuff	; save the line buffer
 
-	jsr src::atcursor
-	ldx zp::cury		; number of lines to move up
-	cmp #$0d
-	beq :+
-	inx			; if not on a newline, 1st UP is to HOME
-:	ldy #$00
+	jsr src::home
+
+	ldx zp::cury
+	ldy #$00
 	sty highlight_status
 	sty zp::cury
 	jsr src::upn
@@ -2141,7 +2137,7 @@ __edit_refresh:
 	sta zp::cury
 	lda #CUR_OFF
 	sta cur::status
-	jmp text::restorebuff
+	jmp text::restorebuff	; restore current line data
 .endproc
 
 ;******************************************************************************
