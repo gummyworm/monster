@@ -51,6 +51,10 @@ __sim_branch_taken:  .byte 0
 .export __sim_next_pc
 __sim_next_pc: .word 0
 
+; set if the CPU has encountered a JAM instruction
+.export __sim_jammed
+__sim_jammed: .byte 0
+
 ; next opcode that will be executed
 .export __sim_op
 __sim_op: .byte 0
@@ -72,6 +76,7 @@ __sim_effective_addr: .word 0
 __sim_stopwatch: .res 3
 
 .segment "DEBUGGER"
+
 ;******************************************************************************
 ; NEXT_INSTRUCTION
 ; Given the address of the current instruction, returns the address of the next
@@ -90,6 +95,7 @@ __sim_stopwatch: .res 3
 ;  - .XY:           the address of the next instruction that will be executed
 ;  - __sim_op:      the next opcode that will be executed
 ;  - __sim_next_pc: the address of the next instruction that will be executed
+;  - __sim_jammed:    set if the next opcode is a JAM
 ; TODO: handle interrupts (VIA timers)
 ; TODO: handle BRK
 .export __sim_next_instruction
@@ -110,6 +116,7 @@ __sim_stopwatch: .res 3
 
 	lda #$00
 	sta __sim_branch_taken 	; clear branch taken flag
+	sta __sim_jammed	; clear JAM'd flag
 
 	; get the opcode
 	ldxy @op
@@ -128,7 +135,14 @@ __sim_stopwatch: .res 3
 	sta @operand+1
 
 	lda @opcode
-	cmp #$20	; JSR?
+
+@chkjam:
+	jsr @isjam
+	bne :+
+	inc __sim_jammed
+	rts
+
+:	cmp #$20	; JSR?
 	beq @jmpjsr
 
 @notjsr:
@@ -259,6 +273,19 @@ __sim_stopwatch: .res 3
 	adc #$00
 	tay
 	rts
+
+; IN:  - .A: the opcode to check if JAM
+; OUT: - .Z: set if the instruction is a JAM
+@isjam:
+	ldx #@numjams-1
+:	cmp @jamops,x
+	beq @done	; if JAM, return
+	dex
+	bpl :-
+@done:	rts
+@jamops: 
+.byte $02, $12, $22, $32, $42, $52, $62, $72, $92, $B2, $D2, $F2
+@numjams=*-@jamops
 
 .endproc
 

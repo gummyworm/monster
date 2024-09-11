@@ -3,6 +3,7 @@
 .import __sim_get_side_effects
 .import __sim_next_instruction
 .import __sim_next_pc
+.import __sim_jammed
 
 .import __sim_op
 .import __sim_op_mode
@@ -22,6 +23,7 @@
 	branch_taken     = __sim_branch_taken
 	count_cycles     = __sim_count_cycles
 	get_side_effects = __sim_get_side_effects
+	jammed           = __sim_jammed
 	next_instruction = __sim_next_instruction
 	next_pc          = __sim_next_pc
 	op               = __sim_op
