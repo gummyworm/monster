@@ -1119,7 +1119,12 @@ restore_regs:
 	jsr sim::next_instruction
 	stxy brkaddr
 
-	; check if next instruction is in ROM
+	; is the next instruction a JAM?
+	lda sim::jammed
+	beq @nojam
+	jmp jam_detected
+
+@nojam:	; check if next instruction is in ROM
 	; If so, we can't step, our "step" wil actually be more like a "go".
 	; re-increment swapmem to force full RAM swap
 	cmpw #$c000
@@ -1182,6 +1187,19 @@ restore_regs:
 	lda stepsave
 	ldxy brkaddr
 	jmp vmem::store
+.endproc
+
+;******************************************************************************
+; JAM_DETECTED
+; This procedure is called when STEP (via step, trace, etc.) encounters a JAM
+; instruction
+.proc jam_detected
+	ldxy #strings::jam_detected
+	lda #REGISTERS_LINE-1
+	jsr text::print
+:	jsr key::getch
+	beq :-
+	rts
 .endproc
 
 ;******************************************************************************

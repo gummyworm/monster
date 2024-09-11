@@ -158,7 +158,7 @@ anon_addrs = $b000	; address table for each anonymous label.
 	beq :+
 	sta @buff,x
 	inx
-	cpx #$08
+	cpx #SCOPE_LEN
 	bne @l0
 
 :	ldy #$00
@@ -390,17 +390,21 @@ anon_addrs = $b000	; address table for each anonymous label.
 ;------------------
 ; open a space for the new label by shifting everything left
 @shift:
-	; src = labels + (numlabels-1)*16
+	; src = labels + (numlabels-1)*MAX_LABEL_LEN
 	lda numlabels+1
 	sta @src+1
 	lda numlabels
-	asl
+
+	; * MAX_LABEL_LEN
+	asl			; *2
 	rol @src+1
-	asl
+	asl			; *4
 	rol @src+1
-	asl
+	asl			; *8
 	rol @src+1
-	asl
+	asl			; *16
+	rol @src+1
+	asl			; *32
 	rol @src+1
 	adc #<labels
 	sta @src
@@ -426,7 +430,7 @@ anon_addrs = $b000	; address table for each anonymous label.
 	bne :+
 	jmp @storelabel
 
-	; src -= 16
+	; src -= MAX_LABEL_LEN
 :	lda @src
 	sec
 	sbc #MAX_LABEL_LEN
@@ -456,7 +460,7 @@ anon_addrs = $b000	; address table for each anonymous label.
 	jmp @storelabel
 
 @sh0:
-	; copy the label (16 bytes) to the SYMBOL bank
+	; copy the label (MAX_LABEL_LEN bytes) to the SYMBOL bank
 	ldy #MAX_LABEL_LEN-1
 :	lda (@src),y
 	sta (@dst),y
@@ -929,13 +933,13 @@ anon_addrs = $b000	; address table for each anonymous label.
 	cmpw #0
 	bne :-
 
-	; get the source (destination + 16)
+	; get the source (destination + MAX_LABEL_LEN)
 	ldxy @id
 	jsr name_by_id
 	stxy @dst
 	lda @dst
 	clc
-	adc #16
+	adc #MAX_LABEL_LEN
 	sta @src
 	lda @dst+1
 	adc #$00
@@ -951,13 +955,13 @@ anon_addrs = $b000	; address table for each anonymous label.
 
 	lda @src
 	clc
-	adc #16
+	adc #MAX_LABEL_LEN
 	sta @src
 	bcc :+
 	inc @src+1
 :	lda @dst
 	clc
-	adc #16
+	adc #MAX_LABEL_LEN
 	sta @dst
 	bcc @nextname
 	inc @dst+1
@@ -1071,13 +1075,15 @@ anon_addrs = $b000	; address table for each anonymous label.
 @addr=zp::labels
 	sty @addr+1
 	txa
-	asl
+	asl		; *2
 	rol @addr+1
-	asl
+	asl		; *4
 	rol @addr+1
-	asl
+	asl		; *8
 	rol @addr+1
-	asl
+	asl		; *16
+	rol @addr+1
+	asl		; *32
 	rol @addr+1
 	adc #<labels
 	tax
