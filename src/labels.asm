@@ -18,10 +18,8 @@
 
 ;******************************************************************************
 ; CONSTANTS
-MAX_LABELS    = 256
-MAX_ANON      = 1024
-MAX_LOCALS    = 32
-MAX_LABEL_LEN = 16	; 8 bytes for namespace + 8 for label name
+MAX_ANON      = 1024	; max number of anonymous labels
+MAX_LABEL_LEN = 32	; 8 bytes for namespace + 8 for label name
 SCOPE_LEN     = 8	; max len of namespace (scope)
 
 ;******************************************************************************
@@ -89,7 +87,7 @@ __label_get_banon: LBLJUMP get_banon
 ;******************************************************************************
 ; LABELS
 ; Table of label names. Each entry corresponds to an entry in label_addresses,
-; which contains the value for the label name.
+; which contains the value (address) for the label name.
 .segment "LABELNAMES"
 .export labels
 labels: .res $6000
@@ -115,7 +113,7 @@ scope: .res 8		; buffer containing the current scope
 .export label_addresses
 label_addresses = $a000
 
-anon_addrs = $b000
+anon_addrs = $b000	; address table for each anonymous label.
 
 .segment "LABELS"
 ;******************************************************************************
@@ -348,7 +346,7 @@ anon_addrs = $b000
 	iny
 	bne :-
 
-:	cpy #8+1
+:	cpy #(MAX_LABEL_LEN/2)+1
 	bcc :+
 	RETURN_ERR ERR_LABEL_TOO_LONG
 

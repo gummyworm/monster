@@ -381,14 +381,12 @@ Labels and directives are, by convention, not indented. The formatter will also 
 
 ## Labels
 Labels begin with either an alpha-character or, in the case of _local_
-labels, a '@' character.  They are limited to 8 characters, which is primarily
-a formatting consideration (this limitation allows all labels to coexist with
-an instruction on a single line without bumping the instruction beyond its
-normal home in column 10.
+labels, a '@' character.  They are limited to 16 characters, but it is advisable to keep them shorter (8 characters or less).
+Long labels are harder to squeeze onto a line.
 
 #### Local Labels
 Local labels are defined by prefixing the label with a '@' symbol.  This _does_
-count toward the 8-character label limit.
+count toward the 16 character label limit.
 Local labels are valid until the next non-local label is defined as shown in
 the following example.
 ```
@@ -668,7 +666,7 @@ less than the maximum number it expects as in this example:
 .ENDMAC
 ```
 
-### Limitations
+### Macro Limitations
 
 There are some limitations on the number of macros and overall size of the 
 macros per assembly.  The source for all macros must be less than $1400 bytes.
@@ -698,7 +696,12 @@ page to disk.
 Anonymous labels take up no space for the label names, only address.  Using
 them is much more efficient than labels, and so this should be done for short
 branches that don't require much description.  Using too many labels, in the
-extreme case, can push your program over the symbol limit (256).
+extreme case, can push your program over the symbol limit.
+
+#### Keep control within the debugger
+You will be warned when transferring control out of the debugger, so try to heed this.
+If the CPU encounters a JAM instruction there is no way to recover.
+When stepping or tracing, the debugger will take care to ensure that no JAMs are executed.
 
 ---
 
