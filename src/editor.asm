@@ -2568,6 +2568,10 @@ goto_buffer:
 	beq :-
 	ldy #>@cmdbuff
 
+	; clear the existing status/error/etc
+	jsr text::clrinfo
+
+	; run the command
 	jmp (zp::jmpvec)
 @done:  rts			; no input
 
@@ -2602,6 +2606,9 @@ goto_buffer:
 ; EDIT
 ; Configures the cursor/screen/etc. for editing
 .proc edit
+	ldxy #$eb15
+	stxy $0318		; install dummy handler for NMI's
+
 	lda #TEXT_INSERT
 	sta text::insertmode
 	lda #EDITOR_HEIGHT
@@ -2693,8 +2700,8 @@ goto_buffer:
 	jsr print_info
 
 	ldxy @file
-	jsr str::len
-	bne @havename		; filename was given
+	jsr str::len		; get the length of the file to save
+	bne @havename		; >0: filename was given
 	lda src::activebuff
 	jsr src::filename	; get the buffer name and use it as the file
 	bcc :+
@@ -2726,9 +2733,8 @@ goto_buffer:
 	cmp #$00
 	bne @err
 
-	jsr text::clrinfo
-	; clear flags on the source buffer and return
-	jmp src::setflags
+	jsr text::clrinfo	; erase SAVING message
+	jmp src::setflags	; clear flags on the source buffer and return
 
 @err:	pha		; push error code
 	ldxy #strings::edit_file_save_failed
@@ -2752,8 +2758,8 @@ goto_buffer:
 	ldxy @file
 	jsr file::scratch
 	bcs @err
-	jsr text::clrinfo
-@ret:	rts		; no error
+	jsr text::clrinfo	; clear SCRATCH message
+	RETURN_OK		; no error
 
 @err:	pha
 	ldxy #strings::edit_file_delete_failed
