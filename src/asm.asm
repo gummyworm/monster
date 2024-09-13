@@ -1485,6 +1485,8 @@ num_illegals = *-illegal_opcodes
 	ldy #$00
 	lda (zp::line),y
 	beq @done
+	cmp #';'		; comment?
+	beq @done
 	incw zp::line
 	cmp #','
 	beq definebyte
@@ -1758,7 +1760,7 @@ __asm_include:
 	lda zp::line+1
 	pha
 	jsr processstring	; move past label name
-	jsr line::process_ws		; eat whitespace
+	jsr line::process_ws	; eat whitespace
 	jsr expr::eval		; get constant value
 	bcc @ok
 	pla
