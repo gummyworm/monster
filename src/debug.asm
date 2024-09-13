@@ -2017,59 +2017,6 @@ __debug_remove_breakpoint:
 	jmp __debug_gotoaddr
 
 ;******************************************************************************
-; ENTER DEBUG CMD
-; Reads command input and returns it (0-terminated) in mem::linebuffer
-; used
-; IN:
-;  - .XY: a prompt to display or $0000 for no prompt
-; OUT:
-;  - .C: set if no input was read (the user pressed <-)
-.proc enter_debug_cmd
-@result_offset=r8
-	jsr cur::off
-	jsr text::savebuff
-	jsr text::clrline
-
-	pushcur			; save the cursor state
-
-	lda #$00
-	sta mem::linebuffer+1	; 0-terminate the line
-	lda #'!'
-	sta mem::linebuffer
-	lda #1
-	sta cur::minx
-	sta zp::curx
-
-	lda #DEBUG_MESSAGE_LINE
-	sta zp::cury
-	jsr text::drawline	; clear line & display prompt
-	ldxy #key::getch	; key-input callback
-	jsr __edit_gets		; read the user input
-	php			; save success state
-
-	lda #40
-	sta cur::maxx		; restore cursor x limit
-
-	jsr text::restorebuff
-	ldx @result_offset
-	ldy #$01
-
-	plp			; get success state
-	popcur			; restore cursor
-	lda #$00
-	sta cur::minx
-
-	CALL FINAL_BANK_CONSOLE, #dbgcmd::run
-	bcc @ok
-	; display the error
-	jsr err::get
-	jsr str::uncompress
-	lda #DEBUG_MESSAGE_LINE
-	jsr text::drawline
-@ok:	rts
-.endproc
-
-;******************************************************************************
 ; ACTIVATE MONITOR
 ; Activates the text user interface debugger (monitor)
 .proc activate_monitor
@@ -2110,7 +2057,6 @@ commands:
 	.byte K_RESET_STOPWATCH
 	.byte K_EDIT_STATE
 	.byte K_GOTO_BREAK
-	.byte K_ENTER_DEBUG_CMD
 	.byte K_CONSOLE
 num_commands=*-commands
 
@@ -2118,7 +2064,7 @@ num_commands=*-commands
 .define command_vectors quit, edit_source, __debug_step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
 	set_breakpoint, __debug_swap_user_mem, reset_stopwatch, edit_state, \
-	goto_break, enter_debug_cmd, activate_monitor
+	goto_break, activate_monitor
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors

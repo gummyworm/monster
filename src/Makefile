@@ -13,11 +13,10 @@ SRC=$(filter-out $BOOTSRC, $(wildcard *.asm))
 TEST_TXTS=$(wildcard tests/*.txt)
 TEST_FILES=$(TESTS) $(TEST_INCS) $(TEST_TXTS)
 
-TESTS=$(wildcard tests/*.s)
-TEST_INCS=$(wildcard tests/*.inc)
-# big test file (comment normal)
-#TESTS=$(wildcard tests/wg/*.s)
-#TEST_INCS=$(wildcard tests/wg/*.inc)
+#TESTS=$(wildcard tests/*.s)
+#TEST_INCS=$(wildcard tests/*.inc)
+TESTS=$(wildcard tests/wg/*.s)
+TEST_INCS=$(wildcard tests/wg/*.inc)
 
 all: test.d64 
 

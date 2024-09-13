@@ -1234,11 +1234,7 @@ force_enter_insert=*+5
 @delvis:
 @start=zp::editortmp+1	; set by yank
 @end=zp::editortmp+3	; set by yank
-	lda mode
-	pha				; yank enters COMMAND
 	jsr yank			; yank the selection
-	pla
-	sta mode
 	bcs @notfound			; quit if error occurred or no selection
 
 	ldxy @end			; get end address of selection
@@ -1248,8 +1244,7 @@ force_enter_insert=*+5
 	jsr src::pos
 	cmpw @start
 	bne @delsel
-
-	jmp enter_command		; done, refresh and return to COMMAND
+	jmp refresh			; done, refresh to clear deleted text
 
 @cont:	jsr key::getch			; get a key to decide what to delete
 	beq @cont
