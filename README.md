@@ -703,6 +703,14 @@ You will be warned when transferring control out of the debugger, so try to heed
 If the CPU encounters a JAM instruction there is no way to recover.
 When stepping or tracing, the debugger will take care to ensure that no JAMs are executed.
 
+For things that cannot be traced, like cycle-based effects, you will need to
+give full control to the user program to get rid of the the overhead tracing introuduces.
+In these cases, you can press RESTORE to return to the debugger (assuming the user program
+has not overwritten the NMI vector at $0318 or disabled NMIs).
+
+In the event of a JAM or an unreoverable state (NMI disabled or vector overwritten), you
+will need to reset the machine.
+
 ---
 
 ### Example program
