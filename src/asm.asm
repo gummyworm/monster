@@ -1524,6 +1524,8 @@ num_illegals = *-illegal_opcodes
 	ldy #$00
 	lda (zp::line),y
 	beq @done
+	cmp #';'
+	beq @done
 	incw zp::line
 	cmp #','
 	beq defineword
