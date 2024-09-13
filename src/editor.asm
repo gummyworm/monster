@@ -1244,9 +1244,7 @@ force_enter_insert=*+5
 	jsr src::pos
 	cmpw @start
 	bne @delsel
-
-	jsr enter_command		; done, refresh and return to COMMAND
-	jmp refresh			; TODO: why do we need to refresh again?
+	jmp refresh			; done, refresh to clear deleted text
 
 @cont:	jsr key::getch			; get a key to decide what to delete
 	beq @cont
@@ -2097,11 +2095,13 @@ __edit_refresh:
 
 	jsr src::home
 
-	ldx zp::cury
+	ldx zp::cury		; get # of rows to go up in source
+
 	ldy #$00
-	sty highlight_status
-	sty zp::cury
-	jsr src::upn
+	sty highlight_status	; disable highlight
+	sty zp::cury		; go to top row
+
+	jsr src::upn		; move source to top line on screen
 
 	; redraw the visible lines
 @l0:	jsr src::readline
