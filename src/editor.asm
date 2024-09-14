@@ -3158,8 +3158,18 @@ goto_buffer:
 	ldx visual_start_x
 	cpx zp::curx
 	bcs :+
+
+	; curx > visual_start_x
+	ldy visual_start_x
+	ldx zp::curx
+	inx			; (already toggled curx off)
+	lda zp::cury
+	jsr bm::rvsline_part	; deselect section right of visual_start_x
+
+	ldx visual_start_x
+	inx
 	ldy #$00
-	beq @rvs0		; reverse 0 to visual_start_x
+	beq @rvs0		; reverse 0 to curx
 
 :	ldy #$00
 	ldx zp::curx		; reverse 0 to curx
