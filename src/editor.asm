@@ -3806,56 +3806,23 @@ goto_buffer:
 @cnt=r6
 @line2len=r7
 @char=r8
-	lda #$00
+	lda zp::curx	; are we moving to the previous line?
+	bne :+		; if not, continue
+	jsr enter_command
+	jsr ccup
+	jsr join_line
+	jmp enter_insert
+
+:	lda #$00
 	sta @char
 	jsr src::backspace
-	bcs @done
+	bcs @done	; can't delete
 	sta @char
 	lda #$14	; delete from the text buffer
 	jsr text::putch
-	bcs @prevline
 	lda zp::cury
 	jmp print_line
-
-@prevline:
-	; get the line we're moving up to in linebuffer
-	jsr src::get
-
-	; if the current char is a newline, we're done
-	jsr src::atcursor
-	cmp #$0d
-	beq @scrollup
-
-	jsr text::linelen
-	stx @line2len
-
-	; get the new cursor position (new_line_len - (old_line2_len))
-	jsr src::up
-	jsr src::get
-	jsr text::linelen
-	txa
-	sec
-	sbc @line2len
-	sta @cnt
-	beq @scrollup
-	dec @cnt
-	bmi @scrollup
-@endofline:
-	jsr cur::right
-	jsr src::right
-	dec @cnt
-	bpl @endofline
-@scrollup:
-	ldy zp::cury
-	dey
-	tya
-	jsr print_line		; draw the line we'll move to
-	jsr text::savebuff
-	jsr bumpup		; scroll the screen up (also move cursor up)
-	jmp text::restorebuff
-
-@done:	lda @char
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
