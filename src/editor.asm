@@ -748,11 +748,6 @@ main:	jsr key::getch
 @len=r9
 	stxy zp::jmpvec
 
-	lda cur::maxx
-	pha
-	lda #39
-	sta cur::maxx
-
 	; save insert mode etc.
 	lda zp::editor_mode
 	pha
@@ -817,8 +812,6 @@ main:	jsr key::getch
 	pla
 	sta zp::editor_mode	; restore editor mode
 	lda @len
-	pla
-	sta cur::maxx		; restore max cursor x
 	rts
 .endproc
 

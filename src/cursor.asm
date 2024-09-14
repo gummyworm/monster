@@ -169,7 +169,7 @@ __cur_toggle:
 .export __cur_right
 .proc __cur_right
 	lda zp::curx
-	cmp #39
+	cmp #40
 	bcs @done
 
 	jsr text::char_index

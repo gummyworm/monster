@@ -336,21 +336,18 @@ anon_addrs = $b000	; address table for each anonymous label.
 	stxy @name
 	jsr is_valid
 	bcc @seek
-	RETURN_ERR ERR_ILLEGAL_LABEL
+	rts			; return err
 
-@seek:	; check label length
+@seek:	; get the label length
 	ldy #$00
 :	lda (@name),y
 	jsr isseparator
-	beq :+
+	beq @lenfound
 	iny
 	bne :-
 
-:	cpy #(MAX_LABEL_LEN/2)+1
-	bcc :+
-	RETURN_ERR ERR_LABEL_TOO_LONG
-
-:	ldxy @name
+@lenfound:	
+	ldxy @name
 	jsr find
 	bcs @insert
 
@@ -1104,13 +1101,14 @@ anon_addrs = $b000	; address table for each anonymous label.
 @name=r4
 	stxy @name
 	ldy #$00
+
 ; first character must be a letter or '@'
-:	lda (@name),y
+@l0:	lda (@name),y
 	iny
 	jsr iswhitespace
-	beq :-
-	cmp #'@'
 	beq @l0
+	cmp #'@'
+	beq @l1
 	cmp #'a'
 	bcc @err
 	cmp #'Z'+1
@@ -1122,15 +1120,21 @@ anon_addrs = $b000	; address table for each anonymous label.
 	;rts
 
 	; following characters must be between '0' and 'Z'
-@l0:	lda (@name),y
+	ldx #$00
+@l1:	inx
+	cpx #(MAX_LABEL_LEN/2)+1
+	bcs @toolong
+	lda (@name),y
 	jsr isseparator
 	beq @done
 	cmp #'0'
 	bcc @err
 	cmp #'Z'+1
 	iny
-	bcc @l0
+	bcc @l1
 @err:	RETURN_ERR ERR_ILLEGAL_LABEL
+@toolong: 
+	RETURN_ERR ERR_LABEL_TOO_LONG
 @done:	RETURN_OK
 .endproc
 
