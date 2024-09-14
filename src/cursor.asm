@@ -10,6 +10,9 @@
 ; CONSTANTS
 L_INSERT_MASK  = $80
 R_INSERT_MASK  = $08
+
+END_INSERT_MASK = $01	; mask for offscreen column
+
 L_REPLACE_MASK = $f0
 R_REPLACE_MASK = $0f
 
@@ -53,14 +56,24 @@ maxy: .byte 0
 	beq @replace
 @insert:
 	lda zp::curx
-	and #$01
+
+	cmp #40
+	bne :+
+; column 40 has a special mask because this column is technically offscreen
+@col40:
+	lda #END_INSERT_MASK
+	rts
+
+:	and #$01
 	beq :+
 	lda #R_INSERT_MASK
 	rts
 :	lda #L_INSERT_MASK
 	rts
+
 @replace:
 	lda zp::curx
+
 	and #$01
 	beq :+
 	lda #R_REPLACE_MASK
@@ -98,7 +111,11 @@ __cur_toggle:
 	ldx zp::curx
 	ldy zp::cury
 
-	txa
+	cpx #40
+	bne :+
+	dex
+
+:	txa
 	lsr
 	tax
 
