@@ -1456,11 +1456,14 @@ force_enter_insert=*+5
 	cmp #$00
 	beq @noscroll
 
+	tay
+
 	; multi-line pastes don't move the cursor / source position
 	jsr src::pushp
 
 	ldx height
 	lda @row
+	jmp *
 	jsr text::scrolldownn
 
 @noscroll:
