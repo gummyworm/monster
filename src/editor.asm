@@ -1326,8 +1326,10 @@ force_enter_insert=*+5
 	php			; save EOF flag
 	bcs @l0			; if EOF, skip scroll up
 
-	inc zp::cury		; move cursor to row to scroll up
-	jsr bumpup		; scroll up
+	jsr on_line1
+	beq :+			; if on line 1, scroll everything
+	inc zp::cury		; not line 1, move cursor down to row to scroll
+:	jsr bumpup		; scroll up
 
 @l0:	jsr src::backspace	; delete a character
 	bcs :+			; break if at start of source buffer
@@ -1455,6 +1457,8 @@ force_enter_insert=*+5
 	jsr buff::lines_copied
 	cmp #$00
 	beq @noscroll
+
+	tay
 
 	; multi-line pastes don't move the cursor / source position
 	jsr src::pushp
@@ -1751,7 +1755,7 @@ force_enter_insert=*+5
 	jmp newl
 
 @ban_down:
-	jsr open_line_below
+	jsr open_line_below_noindent
 	jsr comment_banner
 	jmp ccup
 
@@ -1941,7 +1945,25 @@ force_enter_insert=*+5
 .endproc
 
 ;******************************************************************************
+; OPEN_LINE_BELOW_NO_INDENT
+; See OPEN_LINE_BELOW.  This entry point will not indent regardless of the
+; contents of the current line
+.proc open_line_below_noindent
+	ldx #$00
+	skw
+
+	; fall through to open_line_below
+.endproc
+
+;******************************************************************************
+; OPEN_LINE_BELOW
+; Creates a new empty line below the current one. This entry point will indent
+; based on the contents of the current line.  If it starts with a TAB, the new
+; line will begin with a TAB.
 .proc open_line_below
+@indent=zp::editortmp
+	ldx #$01
+	stx @indent
 	jsr is_readonly
 	bne :+
 @done:	rts
@@ -1951,6 +1973,8 @@ force_enter_insert=*+5
 	jsr end_of_line
 	jsr newl
 	pla
+	ldx @indent
+	beq @done
 	cmp #$09	; TAB
 	bne @done
 	jmp insert
@@ -2568,6 +2592,10 @@ goto_buffer:
 	beq :-
 	ldy #>@cmdbuff
 
+	; clear the existing status/error/etc
+	jsr text::clrinfo
+
+	; run the command
 	jmp (zp::jmpvec)
 @done:  rts			; no input
 
@@ -2602,6 +2630,9 @@ goto_buffer:
 ; EDIT
 ; Configures the cursor/screen/etc. for editing
 .proc edit
+	ldxy #$eb15
+	stxy $0318		; install dummy handler for NMI's
+
 	lda #TEXT_INSERT
 	sta text::insertmode
 	lda #EDITOR_HEIGHT
@@ -2693,8 +2724,8 @@ goto_buffer:
 	jsr print_info
 
 	ldxy @file
-	jsr str::len
-	bne @havename		; filename was given
+	jsr str::len		; get the length of the file to save
+	bne @havename		; >0: filename was given
 	lda src::activebuff
 	jsr src::filename	; get the buffer name and use it as the file
 	bcc :+
@@ -2726,9 +2757,8 @@ goto_buffer:
 	cmp #$00
 	bne @err
 
-	jsr text::clrinfo
-	; clear flags on the source buffer and return
-	jmp src::setflags
+	jsr text::clrinfo	; erase SAVING message
+	jmp src::setflags	; clear flags on the source buffer and return
 
 @err:	pha		; push error code
 	ldxy #strings::edit_file_save_failed
@@ -2752,8 +2782,8 @@ goto_buffer:
 	ldxy @file
 	jsr file::scratch
 	bcs @err
-	jsr text::clrinfo
-@ret:	rts		; no error
+	jsr text::clrinfo	; clear SCRATCH message
+	RETURN_OK		; no error
 
 @err:	pha
 	ldxy #strings::edit_file_delete_failed
@@ -2854,6 +2884,7 @@ goto_buffer:
 .proc newl
 	jsr is_readonly
 	bne :+
+	; if in readonly mode, just go down
 	jmp begin_next_line
 
 :	; insert \n into source buffer and terminate text buffer
@@ -2989,8 +3020,7 @@ goto_buffer:
 ; The cursor is then updated and the screen scrolled.
 ; The linebuffer is also updated to contain the contents of the new line
 ; IN:
-;  zp::cury: row to draw the line
-;  indent: indent level (to place the cursor at after drawing)
+;   - zp::cury: row to draw the line at
 .proc drawline
 	lda zp::cury
 	jsr text::drawline
@@ -3043,6 +3073,7 @@ goto_buffer:
 .proc clrerror
 	lda #$00
 	sta mem::statusinfo
+	rts
 .endproc
 
 ;******************************************************************************
@@ -3128,8 +3159,17 @@ goto_buffer:
 	ldx visual_start_x
 	cpx zp::curx
 	bcs :+
+
+	; curx > visual_start_x
+	ldy visual_start_x
+	ldx zp::curx
+	inx			; (already toggled curx off)
+	lda zp::cury
+	jsr bm::rvsline_part	; deselect section right of visual_start_x
+	ldx visual_start_x
+	inx
 	ldy #$00
-	beq @rvs0		; reverse 0 to visual_start_x
+	beq @rvs0		; reverse 0 to (viusal_start_x-1)
 
 :	ldy #$00
 	ldx zp::curx		; reverse 0 to curx
@@ -3399,6 +3439,10 @@ goto_buffer:
 
 	jsr text::tabl_dist
 	sta @tabcnt
+
+	; if we are at the max TAB dist, we already deselected everything
+	cmp #TAB_WIDTH-1
+	beq :+
 @tabl:	jsr @curl
 	dec zp::curx
 	jsr text::char_index
@@ -3762,56 +3806,23 @@ goto_buffer:
 @cnt=r6
 @line2len=r7
 @char=r8
-	lda #$00
+	lda zp::curx	; are we moving to the previous line?
+	bne :+		; if not, continue
+	jsr enter_command
+	jsr ccup
+	jsr join_line
+	jmp enter_insert
+
+:	lda #$00
 	sta @char
 	jsr src::backspace
-	bcs @done
+	bcs @done	; can't delete
 	sta @char
 	lda #$14	; delete from the text buffer
 	jsr text::putch
-	bcs @prevline
 	lda zp::cury
 	jmp print_line
-
-@prevline:
-	; get the line we're moving up to in linebuffer
-	jsr src::get
-
-	; if the current char is a newline, we're done
-	jsr src::atcursor
-	cmp #$0d
-	beq @scrollup
-
-	jsr text::linelen
-	stx @line2len
-
-	; get the new cursor position (new_line_len - (old_line2_len))
-	jsr src::up
-	jsr src::get
-	jsr text::linelen
-	txa
-	sec
-	sbc @line2len
-	sta @cnt
-	beq @scrollup
-	dec @cnt
-	bmi @scrollup
-@endofline:
-	jsr cur::right
-	jsr src::right
-	dec @cnt
-	bpl @endofline
-@scrollup:
-	ldy zp::cury
-	dey
-	tya
-	jsr print_line		; draw the line we'll move to
-	jsr text::savebuff
-	jsr bumpup		; scroll the screen up (also move cursor up)
-	jmp text::restorebuff
-
-@done:	lda @char
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************

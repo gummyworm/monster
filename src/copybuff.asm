@@ -146,7 +146,7 @@ copybuff: .res $1e00		; buffer for copy data
 ; OUT:
 ;   - .A: the number of lines in the copy bufferj
 .proc lines_copied
-	lda lines_copied
+	lda visual_lines_copied
 	rts
 .endproc
 

@@ -703,6 +703,14 @@ You will be warned when transferring control out of the debugger, so try to heed
 If the CPU encounters a JAM instruction there is no way to recover.
 When stepping or tracing, the debugger will take care to ensure that no JAMs are executed.
 
+For things that cannot be traced, like cycle-based effects, you will need to
+give full control to the user program to get rid of the the overhead tracing introuduces.
+In these cases, you can press RESTORE to return to the debugger (assuming the user program
+has not overwritten the NMI vector at $0318 or disabled NMIs).
+
+In the event of a JAM or an unreoverable state (NMI disabled or vector overwritten), you
+will need to reset the machine.
+
 ---
 
 ### Example program
@@ -802,6 +810,7 @@ respective Key in the table below.
 | SPACE        | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  |
 | ^ (up arrow) |  Goto Break     | navigates to the address that the debugger is currently paused at                    |
 | C= + t       | Enter monitor   | enters the text-based debug interface (see the monitor commands section for more info|
+| C= + x       | Quit Debugger   | Prompts the user for confirmation then quits the debugger upon receiving it          |
 
 ### Register Editor (`F2`)
 Pressing F2 moves the cursor to the register contents and allows the user to enter

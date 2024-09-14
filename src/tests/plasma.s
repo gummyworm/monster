@@ -84,7 +84,7 @@ bcc :+
     lda #$7f
     sta $912e  ; disable/ack interrupts
     sta $912d
-    sta $911e  ; disable NMI's
+    ;sta $911e  ; disable NMI's
 sync:
 ; sync with screen
     ; wait until this raster (*2)

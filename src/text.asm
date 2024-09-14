@@ -46,6 +46,8 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 .export __text_status_mode
 __text_status_mode: .byte 0	; the mode to display on the status line
 
+render_off: .byte 0
+
 .CODE
 ;******************************************************************************
 ; BUFFERON
@@ -512,6 +514,21 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 .endproc
 
 ;******************************************************************************
+; RENDER
+; Renders the given string. The given format string follows the same format as
+; "text::print"
+; IN:
+;   - .XY: the format string to print
+; OUT:
+;  - mem::linebuffer2: the rendered text
+.export __text_render
+.proc __text_render
+	inc render_off
+
+	; fall through to __text_print
+.endproc
+
+;******************************************************************************
 ; PRINT
 ; displays the format string in (<X,>Y) at the row in .A.
 ; NOTE: you MUST call it with JSR (not JMP) because it manipulates the stack to
@@ -680,6 +697,8 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 
 @ch:	sta @buff,x
 	inx
+	cpx #40
+	beq @buffdone
 
 @cont:	iny
         jmp @l0
@@ -691,13 +710,22 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 	cpx #40
 	bcc :-
 
+@buffdone:
 	; restore the return address
 	lda @ret+1
 	pha
 	lda @ret
 	pha
 
-	; print the rendered string
+	; check if we want to render to screen or just return
+	lda render_off
+	beq @draw
+	dec render_off	; clear disable render flag
+	; return the buffer
+	ldxy #mem::linebuffer2
+	rts
+
+@draw:	; print the rendered string
 	ldxy #@buff
 	lda @row
 
@@ -928,12 +956,18 @@ tabs_end=*-tabs
 ;******************************************************************************
 ; INFO
 ; Copies the given message directly to the status line.
-; Format strings are not supported.
 ; ; IN:
 ;  - .XY: the string to print
 .export __text_info
 .proc __text_info
 @info=zp::text
+	; save return address
+	pla
+	sta @ret1
+	pla
+	sta @ret0
+	jsr __text_render
+
 	stxy @info
 	ldy #$00
 :	lda (@info),y
@@ -942,7 +976,16 @@ tabs_end=*-tabs
 	iny
 	cpy #20
 	bne :-
-@done:	rts
+
+@done:	
+	; restore return address
+@ret0=*+1
+	lda #$00
+	pha
+@ret1=*+1
+	lda #$00
+	pha
+	rts
 .endproc
 
 ;******************************************************************************
