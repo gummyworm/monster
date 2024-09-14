@@ -3429,6 +3429,10 @@ goto_buffer:
 
 	jsr text::tabl_dist
 	sta @tabcnt
+
+	; if we are at the max TAB dist, we already deselected everything
+	cmp #TAB_WIDTH-1
+	beq :+
 @tabl:	jsr @curl
 	dec zp::curx
 	jsr text::char_index
