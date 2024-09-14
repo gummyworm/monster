@@ -748,6 +748,11 @@ main:	jsr key::getch
 @len=r9
 	stxy zp::jmpvec
 
+	lda cur::maxx
+	pha
+	lda #39
+	sta cur::maxx
+
 	; save insert mode etc.
 	lda zp::editor_mode
 	pha
@@ -812,6 +817,8 @@ main:	jsr key::getch
 	pla
 	sta zp::editor_mode	; restore editor mode
 	lda @len
+	pla
+	sta cur::maxx		; restore max cursor x
 	rts
 .endproc
 
@@ -1751,7 +1758,7 @@ force_enter_insert=*+5
 	jmp newl
 
 @ban_down:
-	jsr open_line_below
+	jsr open_line_below_noindent
 	jsr comment_banner
 	jmp ccup
 
@@ -1941,7 +1948,25 @@ force_enter_insert=*+5
 .endproc
 
 ;******************************************************************************
+; OPEN_LINE_BELOW_NO_INDENT
+; See OPEN_LINE_BELOW.  This entry point will not indent regardless of the
+; contents of the current line
+.proc open_line_below_noindent
+	ldx #$00
+	skw
+
+	; fall through to open_line_below
+.endproc
+
+;******************************************************************************
+; OPEN_LINE_BELOW
+; Creates a new empty line below the current one. This entry point will indent
+; based on the contents of the current line.  If it starts with a TAB, the new
+; line will begin with a TAB.
 .proc open_line_below
+@indent=zp::editortmp
+	ldx #$01
+	stx @indent
 	jsr is_readonly
 	bne :+
 @done:	rts
@@ -1951,6 +1976,8 @@ force_enter_insert=*+5
 	jsr end_of_line
 	jsr newl
 	pla
+	ldx @indent
+	beq @done
 	cmp #$09	; TAB
 	bne @done
 	jmp insert
@@ -2860,6 +2887,7 @@ goto_buffer:
 .proc newl
 	jsr is_readonly
 	bne :+
+	; if in readonly mode, just go down
 	jmp begin_next_line
 
 :	; insert \n into source buffer and terminate text buffer
@@ -2995,8 +3023,7 @@ goto_buffer:
 ; The cursor is then updated and the screen scrolled.
 ; The linebuffer is also updated to contain the contents of the new line
 ; IN:
-;  zp::cury: row to draw the line
-;  indent: indent level (to place the cursor at after drawing)
+;   - zp::cury: row to draw the line at
 .proc drawline
 	lda zp::cury
 	jsr text::drawline
@@ -3049,6 +3076,7 @@ goto_buffer:
 .proc clrerror
 	lda #$00
 	sta mem::statusinfo
+	rts
 .endproc
 
 ;******************************************************************************

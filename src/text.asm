@@ -697,6 +697,8 @@ render_off: .byte 0
 
 @ch:	sta @buff,x
 	inx
+	cpx #40
+	beq @buffdone
 
 @cont:	iny
         jmp @l0
@@ -708,6 +710,7 @@ render_off: .byte 0
 	cpx #40
 	bcc :-
 
+@buffdone:
 	; restore the return address
 	lda @ret+1
 	pha
