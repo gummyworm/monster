@@ -934,7 +934,8 @@ restore_regs:
 
 ;******************************************************************************
 ; QUIT
-; Exits the debugger
+; Prompts the user for confirmation to quit then exits the debugger upon
+; receiving it
 .proc quit
 	ldxy #strings::debug_stop_debugging
 	lda #DEBUG_MESSAGE_LINE

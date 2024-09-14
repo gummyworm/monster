@@ -1326,8 +1326,10 @@ force_enter_insert=*+5
 	php			; save EOF flag
 	bcs @l0			; if EOF, skip scroll up
 
-	inc zp::cury		; move cursor to row to scroll up
-	jsr bumpup		; scroll up
+	jsr on_line1
+	beq :+			; if on line 1, scroll everything
+	inc zp::cury		; not line 1, move cursor down to row to scroll
+:	jsr bumpup		; scroll up
 
 @l0:	jsr src::backspace	; delete a character
 	bcs :+			; break if at start of source buffer
@@ -1463,7 +1465,6 @@ force_enter_insert=*+5
 
 	ldx height
 	lda @row
-	jmp *
 	jsr text::scrolldownn
 
 @noscroll:
@@ -3165,11 +3166,10 @@ goto_buffer:
 	inx			; (already toggled curx off)
 	lda zp::cury
 	jsr bm::rvsline_part	; deselect section right of visual_start_x
-
 	ldx visual_start_x
 	inx
 	ldy #$00
-	beq @rvs0		; reverse 0 to curx
+	beq @rvs0		; reverse 0 to (viusal_start_x-1)
 
 :	ldy #$00
 	ldx zp::curx		; reverse 0 to curx
