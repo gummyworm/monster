@@ -1512,12 +1512,13 @@ __debug_remove_breakpoint:
 	bne @next
 	lda __debug_breakpoint_lineshi,x
 	cmp @line+1
-	beq :+
 	bcc @next
-:	lda __debug_breakpoint_lineslo,x
+	lda __debug_breakpoint_lineslo,x
+	adc #$00
 	cmp @line
 	bcc @next
-:	clc
+	sbc #$01
+	clc
 	adc @offset
 	sta __debug_breakpoint_lineslo,x
 	bcc @next
@@ -1550,13 +1551,12 @@ __debug_remove_breakpoint:
 	bne @next
 	lda __debug_breakpoint_lineshi,x
 	cmp @line+1
-	beq :+
 	bcc @next
-:	lda __debug_breakpoint_lineslo,x
+	lda __debug_breakpoint_lineslo,x
 	cmp @line
-	beq :+
+	beq @next
 	bcc @next
-:	sec
+	sec
 	sbc @offset
 	sta __debug_breakpoint_lineslo,x
 	bcs @next

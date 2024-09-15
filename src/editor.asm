@@ -3045,6 +3045,11 @@ goto_buffer:
 	lda #$01
 	jsr draw::scrollcolorsd
 
+	; and clear the color of the newly opened line
+	ldx zp::cury
+	lda #DEFAULT_900F
+	sta mem::rowcolors,x
+
 @setcur:
 	jsr src::get
 	lda mem::linebuffer
