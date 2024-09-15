@@ -1492,8 +1492,7 @@ __debug_remove_breakpoint:
 
 ;******************************************************************************
 ; SHIFT BREAKPOINTS D
-; Shifts DOWN the line numbers for all breakpoints on lines greater than the one
-; given by the given offset.
+; Shifts the line numbers for all breakpoints on lines below the current one
 ; IN:
 ;  - .XY: the line number to shift
 ;  - .A:  the offset to shift
@@ -1502,30 +1501,35 @@ __debug_remove_breakpoint:
 .proc __debug_shift_breakpointsd
 @fileid=r0
 @line=r1
-@offset=r2
+@offset=r3
 	stxy @line
 	sta @offset
 	ldx numbreakpoints
+	beq @done
+	dex
 @l0:	lda @fileid
 	cmp __debug_breakpoint_fileids,x
 	bne @next
 	lda __debug_breakpoint_lineshi,x
 	cmp @line+1
+	beq :+
 	bcc @next
-	lda __debug_breakpoint_lineslo,x
+:	lda __debug_breakpoint_lineslo,x
 	cmp @line
 	bcc @next
-	clc
+:	clc
 	adc @offset
+	sta __debug_breakpoint_lineslo,x
 	bcc @next
 	inc __debug_breakpoint_lineshi,x
 @next:	dex
 	bpl @l0
+@done:	rts
 .endproc
 
 ;******************************************************************************
 ; SHIFT BREAKPOINTS U
-; Shifts UP the line numbers for all breakpoints on lines less than the one
+; Shifts UP the line numbers for all breakpoints on lines below the current one
 ; given by the given offset.
 ; IN:
 ;  - .XY: the line number to shift
@@ -1539,23 +1543,28 @@ __debug_remove_breakpoint:
 	stxy @line
 	sta @offset
 	ldx numbreakpoints
+	beq @done
+	dex
 @l0:	lda @fileid
 	cmp __debug_breakpoint_fileids,x
 	bne @next
 	lda __debug_breakpoint_lineshi,x
 	cmp @line+1
-	bcs @next
-	lda __debug_breakpoint_lineslo,x
-	cmp @line
-	bcs @next
-	clc
-	adc @offset
+	beq :+
 	bcc @next
-	inc __debug_breakpoint_lineshi,x
+:	lda __debug_breakpoint_lineslo,x
+	cmp @line
+	beq :+
+	bcc @next
+:	sec
+	sbc @offset
+	sta __debug_breakpoint_lineslo,x
+	bcs @next
+	dec __debug_breakpoint_lineshi,x
 @next:	dex
 	bpl @l0
+@done:	rts
 .endproc
-
 
 ;******************************************************************************
 ; GET BREAKPOINT

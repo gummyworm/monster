@@ -546,8 +546,8 @@ main:	jsr key::getch
 	; set the initial file for debugging
 	ldxy #$01
 	stxy dbgi::srcline
-	lda src::activebuff
-	jsr src::filename
+	; get active filename (r0 = name)
+	jsr src::current_filename
 	bcc :+
 	jsr errlog::log
 :	jsr dbgi::setfile
@@ -2720,8 +2720,8 @@ goto_buffer:
 	ldxy @file
 	jsr str::len		; get the length of the file to save
 	bne @havename		; >0: filename was given
-	lda src::activebuff
-	jsr src::filename	; get the buffer name and use it as the file
+	; get active filename (r0 = name)
+	jsr src::current_filename
 	bcc :+
 
 	; err no filename
@@ -2887,11 +2887,6 @@ goto_buffer:
 	lda #$00
 	jsr text::putch
 
-	; shift breakpoints by 1
-	ldxy src::line
-	lda #$01
-	jsr dbg::shift_breakpointsd
-
 @nextline:
 	jsr drawline
 	; redraw everything from <cursor> to EOL on next line
@@ -3028,7 +3023,7 @@ goto_buffer:
 	; if we're at the bottom, scroll whole screen up
 	ldx #EDITOR_ROW_START
 	lda height
-	jsr text::scrollup
+	jsr scrollup
 
 	; and clear the new line
 	jsr text::clrline
@@ -3043,6 +3038,12 @@ goto_buffer:
 	tya
 	ldx height
 	jsr text::scrolldown
+
+	; shift colors below cursor down by 1
+	ldx zp::cury
+	ldy height
+	lda #$01
+	jsr draw::scrollcolorsd
 
 @setcur:
 	jsr src::get
@@ -3796,16 +3797,12 @@ goto_buffer:
 ;  - mem::linebuffer: the new rendering of the line
 ;  - zp::curx: updated
 ;  - zp::cury: updated
-;  - .A: the character that was deleted (0 if none)
 .proc backspace
 @cnt=r6
 @line2len=r7
-@char=r8
 	lda #$00
-	sta @char
 	jsr src::backspace
 	bcs @done
-	sta @char
 	lda #$14	; delete from the text buffer
 	jsr text::putch
 	bcs @prevline
@@ -3842,15 +3839,15 @@ goto_buffer:
 	bpl @endofline
 @scrollup:
 	ldy zp::cury
+	beq :+
 	dey
-	tya
+:	tya
 	jsr print_line		; draw the line we'll move to
 	jsr text::savebuff
 	jsr bumpup		; scroll the screen up (also move cursor up)
 	jmp text::restorebuff
 
-@done:	lda @char
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -3873,17 +3870,6 @@ goto_buffer:
 	beq @noscroll	; if cursor is at end of screen, nothing to scroll
 	lda height
 	jsr scrollup
-
-	; shift breakpoints up by 1
-	ldxy src::line
-	lda #$01
-	jsr dbg::shift_breakpointsu
-
-	; shift colors up by 1
-	ldx #$00
-	ldy height
-	lda #$01
-	jsr draw::scrollcolorsu
 
 @noscroll:
 	; go to the bottom row and read the line that was moved up
@@ -4674,7 +4660,8 @@ __edit_gotoline:
 	lda __edit_highlight_en
 	beq @done		; highlight disabled
 
-	jsr src::filename	; get filename (r0 = name)
+	; get filename (r0 = id)
+	lda src::activebuff
 	ldxy __edit_highlight_line
 	jsr __edit_src2screen
 	bcs @done		; off screen
@@ -4705,7 +4692,8 @@ __edit_gotoline:
 	sta @was_visible
 
 	; update the status (check if the highlight was scrolled out)
-	jsr src::filename	; get filename (r0 = name)
+	; get filename (r0 = id)
+	lda src::activebuff
 	lda #$00
 	sta highlight_status
 	ldxy __edit_highlight_line
