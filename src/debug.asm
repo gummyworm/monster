@@ -1421,22 +1421,6 @@ restore_regs:
 	rts
 .endproc
 
-;******************************************************************************
-; SET_BREAKPOINT
-; Sets a breakpoint at the current line selection
-.proc set_breakpoint
-	jsr edit::setbreakpoint
-
-	; map the address to the breakpoint
-	jsr edit::currentfile
-	pha
-	jsr dbgi::line2addr
-	stxy r0
-	ldxy src::line
-	pla
-
-	; fall through to __debug_brksetaddr
-.endproc
 
 ;******************************************************************************
 ; BRKSETADDR
@@ -2053,7 +2037,6 @@ commands:
 	.byte K_MEMVIEW
 	.byte K_BRKVIEW
 	.byte K_WATCHVIEW
-	.byte K_SET_BREAKPOINT
 	.byte K_SWAP_USERMEM
 	.byte K_RESET_STOPWATCH
 	.byte K_EDIT_STATE
@@ -2064,7 +2047,7 @@ num_commands=*-commands
 .linecont +
 .define command_vectors quit, edit_source, __debug_step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
-	set_breakpoint, __debug_swap_user_mem, reset_stopwatch, edit_state, \
+	__debug_swap_user_mem, reset_stopwatch, edit_state, \
 	goto_break, activate_monitor
 .linecont -
 command_vectorslo: .lobytes command_vectors

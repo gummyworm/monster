@@ -1896,40 +1896,23 @@ force_enter_insert=*+5
 @quit:	rts
 
 @cont:	jsr src::on_last_line
-	beq @quit
+	beq @quit			; no next line to join
 
-	; go to the end of the line and scroll up
-	jsr end_of_line
-	ldx zp::cury
-	lda height
+	ldx zp::cury			; scroll from cury
+	lda height			; to bottom of editor display
 	jsr scrollup
 
-	; delete the newline
-	jsr src::next
-	jsr src::delete
-
-	; join the next line with the current
-	jsr text::char_index
-	tya
-	tax
-	inx
-	ldy #>mem::linebuffer
-	jsr src::getat
-
-	jsr src::after_cursor
-	tax
-	lda #$01
-	cpx #$09		; TAB
-	bne :+
-	jsr text::tabr_dist
-	sec
-	sbc #$01
-:	clc
-	adc zp::curx
-	sta zp::curx
-
+	jsr enter_insert		; enter INSERT to get correct x-pos
+	jsr end_of_line			; set curx to the correct index
+	jsr src::down			; go to the next line
+	jsr src::backspace		; delete the newline
+	jsr src::pushp
+	jsr src::home			; go to the start of the new joined line
+	jsr src::get			; refresh the linebuffer
+	jsr src::popgoto
 	lda zp::cury
-	jmp text::drawline
+	jsr text::drawline
+	jmp enter_command
 .endproc
 
 ;******************************************************************************
@@ -2312,7 +2295,18 @@ __edit_set_breakpoint:
 
 @done:	ldx zp::cury
 	jsr draw::hline
-	jmp gui::refresh
+	jsr gui::refresh
+
+	; get the file and line we are setting the breakpint at
+	jsr __edit_current_file
+	pha
+	jsr dbgi::line2addr
+	stxy r0
+	ldxy src::line
+	pla
+
+	; map the address to the breakpoint
+	jmp dbg::brksetaddr
 .endproc
 
 ;******************************************************************************
@@ -3435,14 +3429,14 @@ goto_buffer:
 @cont:	lda @deselect
 	pha
 	lda #$00
-	sta @deselect
+	sta @deselect		; temporarily disable deselect
 
 	jsr text::tabl_dist
 	sta @tabcnt
 
 	; if we are at the max TAB dist, we already deselected everything
-	cmp #TAB_WIDTH-1
-	beq :+
+	;cmp #TAB_WIDTH-1
+	;beq :+
 @tabl:	jsr @curl
 	dec zp::curx
 	jsr text::char_index
@@ -3456,10 +3450,11 @@ goto_buffer:
 	ldx mode
 	cpx #MODE_INSERT
 	beq :+
+	; if in REPLACE, move left of the TAB character
 	jsr text::char_index
 	cmp #$09		; are still on a TAB char?
 	bne :+
-	sta @deselect
+	sta @deselect		; restore deselect flag
 	jsr @curl
 :	RETURN_OK
 
@@ -3806,23 +3801,56 @@ goto_buffer:
 @cnt=r6
 @line2len=r7
 @char=r8
-	lda zp::curx	; are we moving to the previous line?
-	bne :+		; if not, continue
-	jsr enter_command
-	jsr ccup
-	jsr join_line
-	jmp enter_insert
-
-:	lda #$00
+	lda #$00
 	sta @char
 	jsr src::backspace
-	bcs @done	; can't delete
+	bcs @done
 	sta @char
 	lda #$14	; delete from the text buffer
 	jsr text::putch
+	bcs @prevline
 	lda zp::cury
 	jmp print_line
-@done:	rts
+
+@prevline:
+	; get the line we're moving up to in linebuffer
+	jsr src::get
+
+	; if the current char is a newline, we're done
+	jsr src::atcursor
+	cmp #$0d
+	beq @scrollup
+
+	jsr text::linelen
+	stx @line2len
+
+	; get the new cursor position (new_line_len - (old_line2_len))
+	jsr src::up
+	jsr src::get
+	jsr text::linelen
+	txa
+	sec
+	sbc @line2len
+	sta @cnt
+	beq @scrollup
+	dec @cnt
+	bmi @scrollup
+@endofline:
+	jsr cur::right
+	jsr src::right
+	dec @cnt
+	bpl @endofline
+@scrollup:
+	ldy zp::cury
+	dey
+	tya
+	jsr print_line		; draw the line we'll move to
+	jsr text::savebuff
+	jsr bumpup		; scroll the screen up (also move cursor up)
+	jmp text::restorebuff
+
+@done:	lda @char
+	rts
 .endproc
 
 ;******************************************************************************

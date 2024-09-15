@@ -693,6 +693,17 @@ __src_pos = __src_start	 ; start implements the same behavior
 .endproc
 
 ;******************************************************************************
+; LINE_END
+; Moves right until at the end of the source buffer or the end of the line
+.export __src_line_end
+.proc __src_line_end
+:	jsr __src_right
+	bcc :-
+	rts
+.endproc
+
+
+;******************************************************************************
 ; LEFT
 ; Moves left to the previous character unless it is a newline
 ; OUT:
@@ -1119,7 +1130,6 @@ __src_atcursor:
 .export __src_get_at
 .proc __src_get_at
 @target=r1
-@src=r3
 	stxy @target
 	jsr gaplen
 	add16 pre
