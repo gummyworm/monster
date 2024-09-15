@@ -20,6 +20,8 @@
 BITMAP_ADDR = $1100
 PIXEL_SIZE = 4		; size of each pixel in the editor
 
+CUR_DELAY = $2000
+
 CANVAS_Y      = 64		; start row (in pixels)
 CANVAS_X      = 8*8		; start column (in pixels)
 CANVAS_HEIGHT = 8*PIXEL_SIZE
@@ -27,7 +29,7 @@ CANVAS_WIDTH  = 8*PIXEL_SIZE
 
 color   = zp::editortmp
 cur_on  = zp::editortmp+1	; cursor on flag
-cur_tmr = zp::editortmp+2	; cursor blink timer
+cur_tmr = zp::editortmp+2	; cursor blink timer (2 bytes)
 udg     = r8
 
 linebuffer = $0400
@@ -80,9 +82,16 @@ linebuffer = $0400
 	sta zp::curx
 	sta zp::cury
 
-@main:	dec cur_tmr
+	ldxy #CUR_DELAY
+	stxy cur_tmr
+
+@main:	decw cur_tmr
+	bne :+
+	lda cur_tmr+1
 	bne :+
 	jsr curtoggle
+	ldxy #CUR_DELAY
+	stxy cur_tmr
 
 :	jsr $f1f9		; get key
 	cmp #$00
