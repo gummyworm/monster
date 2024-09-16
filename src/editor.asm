@@ -546,8 +546,8 @@ main:	jsr key::getch
 	; set the initial file for debugging
 	ldxy #$01
 	stxy dbgi::srcline
-	lda src::activebuff
-	jsr src::filename
+	; get active filename (r0 = name)
+	jsr src::current_filename
 	bcc :+
 	jsr errlog::log
 :	jsr dbgi::setfile
@@ -1896,40 +1896,23 @@ force_enter_insert=*+5
 @quit:	rts
 
 @cont:	jsr src::on_last_line
-	beq @quit
+	beq @quit			; no next line to join
 
-	; go to the end of the line and scroll up
-	jsr end_of_line
-	ldx zp::cury
-	lda height
+	ldx zp::cury			; scroll from cury
+	lda height			; to bottom of editor display
 	jsr scrollup
 
-	; delete the newline
-	jsr src::next
-	jsr src::delete
-
-	; join the next line with the current
-	jsr text::char_index
-	tya
-	tax
-	inx
-	ldy #>mem::linebuffer
-	jsr src::getat
-
-	jsr src::after_cursor
-	tax
-	lda #$01
-	cpx #$09		; TAB
-	bne :+
-	jsr text::tabr_dist
-	sec
-	sbc #$01
-:	clc
-	adc zp::curx
-	sta zp::curx
-
+	jsr enter_insert		; enter INSERT to get correct x-pos
+	jsr end_of_line			; set curx to the correct index
+	jsr src::down			; go to the next line
+	jsr src::backspace		; delete the newline
+	jsr src::pushp
+	jsr src::home			; go to the start of the new joined line
+	jsr src::get			; refresh the linebuffer
+	jsr src::popgoto
 	lda zp::cury
-	jmp text::drawline
+	jsr text::drawline
+	jmp enter_command
 .endproc
 
 ;******************************************************************************
@@ -2312,7 +2295,18 @@ __edit_set_breakpoint:
 
 @done:	ldx zp::cury
 	jsr draw::hline
-	jmp gui::refresh
+	jsr gui::refresh
+
+	; get the file and line we are setting the breakpint at
+	jsr __edit_current_file
+	pha
+	jsr dbgi::line2addr
+	stxy r0
+	ldxy src::line
+	pla
+
+	; map the address to the breakpoint
+	jmp dbg::brksetaddr
 .endproc
 
 ;******************************************************************************
@@ -2726,8 +2720,8 @@ goto_buffer:
 	ldxy @file
 	jsr str::len		; get the length of the file to save
 	bne @havename		; >0: filename was given
-	lda src::activebuff
-	jsr src::filename	; get the buffer name and use it as the file
+	; get active filename (r0 = name)
+	jsr src::current_filename
 	bcc :+
 
 	; err no filename
@@ -2893,11 +2887,6 @@ goto_buffer:
 	lda #$00
 	jsr text::putch
 
-	; shift breakpoints by 1
-	ldxy src::line
-	lda #$01
-	jsr dbg::shift_breakpointsd
-
 @nextline:
 	jsr drawline
 	; redraw everything from <cursor> to EOL on next line
@@ -3034,7 +3023,7 @@ goto_buffer:
 	; if we're at the bottom, scroll whole screen up
 	ldx #EDITOR_ROW_START
 	lda height
-	jsr text::scrollup
+	jsr scrollup
 
 	; and clear the new line
 	jsr text::clrline
@@ -3049,6 +3038,17 @@ goto_buffer:
 	tya
 	ldx height
 	jsr text::scrolldown
+
+	; shift colors below cursor down by 1
+	ldx zp::cury
+	ldy height
+	lda #$01
+	jsr draw::scrollcolorsd
+
+	; and clear the color of the newly opened line
+	ldx zp::cury
+	lda #DEFAULT_900F
+	sta mem::rowcolors,x
 
 @setcur:
 	jsr src::get
@@ -3435,14 +3435,14 @@ goto_buffer:
 @cont:	lda @deselect
 	pha
 	lda #$00
-	sta @deselect
+	sta @deselect		; temporarily disable deselect
 
 	jsr text::tabl_dist
 	sta @tabcnt
 
 	; if we are at the max TAB dist, we already deselected everything
-	cmp #TAB_WIDTH-1
-	beq :+
+	;cmp #TAB_WIDTH-1
+	;beq :+
 @tabl:	jsr @curl
 	dec zp::curx
 	jsr text::char_index
@@ -3456,10 +3456,11 @@ goto_buffer:
 	ldx mode
 	cpx #MODE_INSERT
 	beq :+
+	; if in REPLACE, move left of the TAB character
 	jsr text::char_index
 	cmp #$09		; are still on a TAB char?
 	bne :+
-	sta @deselect
+	sta @deselect		; restore deselect flag
 	jsr @curl
 :	RETURN_OK
 
@@ -3801,27 +3802,56 @@ goto_buffer:
 ;  - mem::linebuffer: the new rendering of the line
 ;  - zp::curx: updated
 ;  - zp::cury: updated
-;  - .A: the character that was deleted (0 if none)
 .proc backspace
 @cnt=r6
 @line2len=r7
-@char=r8
-	lda zp::curx	; are we moving to the previous line?
-	bne :+		; if not, continue
-	jsr enter_command
-	jsr ccup
-	jsr join_line
-	jmp enter_insert
-
-:	lda #$00
-	sta @char
+	lda #$00
 	jsr src::backspace
-	bcs @done	; can't delete
-	sta @char
+	bcs @done
 	lda #$14	; delete from the text buffer
 	jsr text::putch
+	bcs @prevline
 	lda zp::cury
 	jmp print_line
+
+@prevline:
+	; get the line we're moving up to in linebuffer
+	jsr src::get
+
+	; if the current char is a newline, we're done
+	jsr src::atcursor
+	cmp #$0d
+	beq @scrollup
+
+	jsr text::linelen
+	stx @line2len
+
+	; get the new cursor position (new_line_len - (old_line2_len))
+	jsr src::up
+	jsr src::get
+	jsr text::linelen
+	txa
+	sec
+	sbc @line2len
+	sta @cnt
+	beq @scrollup
+	dec @cnt
+	bmi @scrollup
+@endofline:
+	jsr cur::right
+	jsr src::right
+	dec @cnt
+	bpl @endofline
+@scrollup:
+	ldy zp::cury
+	beq :+
+	dey
+:	tya
+	jsr print_line		; draw the line we'll move to
+	jsr text::savebuff
+	jsr bumpup		; scroll the screen up (also move cursor up)
+	jmp text::restorebuff
+
 @done:	rts
 .endproc
 
@@ -3845,17 +3875,6 @@ goto_buffer:
 	beq @noscroll	; if cursor is at end of screen, nothing to scroll
 	lda height
 	jsr scrollup
-
-	; shift breakpoints up by 1
-	ldxy src::line
-	lda #$01
-	jsr dbg::shift_breakpointsu
-
-	; shift colors up by 1
-	ldx #$00
-	ldy height
-	lda #$01
-	jsr draw::scrollcolorsu
 
 @noscroll:
 	; go to the bottom row and read the line that was moved up
@@ -4646,7 +4665,8 @@ __edit_gotoline:
 	lda __edit_highlight_en
 	beq @done		; highlight disabled
 
-	jsr src::filename	; get filename (r0 = name)
+	; get filename (r0 = id)
+	lda src::activebuff
 	ldxy __edit_highlight_line
 	jsr __edit_src2screen
 	bcs @done		; off screen
@@ -4677,7 +4697,8 @@ __edit_gotoline:
 	sta @was_visible
 
 	; update the status (check if the highlight was scrolled out)
-	jsr src::filename	; get filename (r0 = name)
+	; get filename (r0 = id)
+	lda src::activebuff
 	lda #$00
 	sta highlight_status
 	ldxy __edit_highlight_line

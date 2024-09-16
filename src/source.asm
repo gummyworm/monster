@@ -1,5 +1,7 @@
 .include "cursor.inc"
 .include "debug.inc"
+.include "draw.inc"
+.include "edit.inc"
 .include "errors.inc"
 .include "finalex.inc"
 .include "irq.inc"
@@ -294,17 +296,34 @@ data: .res $6000
 .endproc
 
 ;******************************************************************************
-; GET_FILENAME
+; CURRENT_FILENAME
 ; Returns the filename for the active buffer
-; IN:
-;  - .A: the id of the buffer to get the name of
 ; OUT:
 ;  - .XY: the filename of the buffer or [NO NAME] if it has no name
 ;  - .C:  set if the file has no name ([NO NAME])
 ; CLOBBERS:
 ;  - r0-r1
+.export __src_current_filename
+.proc __src_current_filename
+	lda __src_activebuff
+
+	; fall through to __src_get_filename
+.endproc
+
+;******************************************************************************
+; GET_FILENAME
+; Returns the filename for the given buffer
+; IN:
+;  - .A: the id of the buffer to get the name of
+; OUT:
+;  - .XY: the filename of the buffer or [NO NAME] if it has no name
+;  - r0:  the filename (same as .XY)
+;  - .C:  set if the file has no name ([NO NAME])
+; CLOBBERS:
+;  - r0-r1
 .export __src_get_filename
 .proc __src_get_filename
+@out=r0
 	asl			; * 16
 	asl
 	asl
@@ -619,13 +638,41 @@ __src_pos = __src_start	 ; start implements the same behavior
 	cmp #$0d
 	bne :+
 	decw line
-	decw lines
+	jsr on_line_deleted
 :	decw pre
 	pla
 	clc
 	rts
 @skip:	sec
 	rts
+.endproc
+
+;******************************************************************************
+; ON LINE INSERTED
+; Callback to handle a line insertion. Various state needs to be shifted when
+; this occurs (breakpoints, etc.)
+.proc on_line_inserted
+	incw lines
+
+	; shift breakpoints 
+	jsr edit::currentfile
+	sta r0
+	lda #$01
+	jmp dbg::shift_breakpointsd
+.endproc
+
+;******************************************************************************
+; ON LINE DELETED
+; Callback to handle a line deletion. Various state needs to be shifted when
+; this occurs (breakpoints for now, TODO: symbols)
+.proc on_line_deleted
+	decw lines
+
+	; shift breakpoints
+	jsr edit::currentfile
+	sta r0
+	lda #$01
+	jmp dbg::shift_breakpointsu
 .endproc
 
 ;******************************************************************************
@@ -642,7 +689,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 	jsr __src_after_cursor
 	cmp #$0d
 	bne :+
-	decw lines
+	jsr on_line_deleted
 :	decw post
 	clc
 	rts
@@ -691,6 +738,17 @@ __src_pos = __src_start	 ; start implements the same behavior
 	bcc :-
 	rts
 .endproc
+
+;******************************************************************************
+; LINE_END
+; Moves right until at the end of the source buffer or the end of the line
+.export __src_line_end
+.proc __src_line_end
+:	jsr __src_right
+	bcc :-
+	rts
+.endproc
+
 
 ;******************************************************************************
 ; LEFT
@@ -887,7 +945,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 	cmp #$0d
 	bne :+
 	incw line
-	incw lines
+	jsr on_line_inserted
 :	incw pre
 @done:	rts
 .endproc
@@ -1119,7 +1177,6 @@ __src_atcursor:
 .export __src_get_at
 .proc __src_get_at
 @target=r1
-@src=r3
 	stxy @target
 	jsr gaplen
 	add16 pre

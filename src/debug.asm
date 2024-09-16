@@ -1421,22 +1421,6 @@ restore_regs:
 	rts
 .endproc
 
-;******************************************************************************
-; SET_BREAKPOINT
-; Sets a breakpoint at the current line selection
-.proc set_breakpoint
-	jsr edit::setbreakpoint
-
-	; map the address to the breakpoint
-	jsr edit::currentfile
-	pha
-	jsr dbgi::line2addr
-	stxy r0
-	ldxy src::line
-	pla
-
-	; fall through to __debug_brksetaddr
-.endproc
 
 ;******************************************************************************
 ; BRKSETADDR
@@ -1508,8 +1492,7 @@ __debug_remove_breakpoint:
 
 ;******************************************************************************
 ; SHIFT BREAKPOINTS D
-; Shifts DOWN the line numbers for all breakpoints on lines greater than the one
-; given by the given offset.
+; Shifts the line numbers for all breakpoints on lines below the current one
 ; IN:
 ;  - .XY: the line number to shift
 ;  - .A:  the offset to shift
@@ -1518,10 +1501,12 @@ __debug_remove_breakpoint:
 .proc __debug_shift_breakpointsd
 @fileid=r0
 @line=r1
-@offset=r2
+@offset=r3
 	stxy @line
 	sta @offset
 	ldx numbreakpoints
+	beq @done
+	dex
 @l0:	lda @fileid
 	cmp __debug_breakpoint_fileids,x
 	bne @next
@@ -1529,19 +1514,23 @@ __debug_remove_breakpoint:
 	cmp @line+1
 	bcc @next
 	lda __debug_breakpoint_lineslo,x
+	adc #$00
 	cmp @line
 	bcc @next
+	sbc #$01
 	clc
 	adc @offset
+	sta __debug_breakpoint_lineslo,x
 	bcc @next
 	inc __debug_breakpoint_lineshi,x
 @next:	dex
 	bpl @l0
+@done:	rts
 .endproc
 
 ;******************************************************************************
 ; SHIFT BREAKPOINTS U
-; Shifts UP the line numbers for all breakpoints on lines less than the one
+; Shifts UP the line numbers for all breakpoints on lines below the current one
 ; given by the given offset.
 ; IN:
 ;  - .XY: the line number to shift
@@ -1555,23 +1544,27 @@ __debug_remove_breakpoint:
 	stxy @line
 	sta @offset
 	ldx numbreakpoints
+	beq @done
+	dex
 @l0:	lda @fileid
 	cmp __debug_breakpoint_fileids,x
 	bne @next
 	lda __debug_breakpoint_lineshi,x
 	cmp @line+1
-	bcs @next
+	bcc @next
 	lda __debug_breakpoint_lineslo,x
 	cmp @line
-	bcs @next
-	clc
-	adc @offset
+	beq @next
 	bcc @next
-	inc __debug_breakpoint_lineshi,x
+	sec
+	sbc @offset
+	sta __debug_breakpoint_lineslo,x
+	bcs @next
+	dec __debug_breakpoint_lineshi,x
 @next:	dex
 	bpl @l0
+@done:	rts
 .endproc
-
 
 ;******************************************************************************
 ; GET BREAKPOINT
@@ -2053,7 +2046,6 @@ commands:
 	.byte K_MEMVIEW
 	.byte K_BRKVIEW
 	.byte K_WATCHVIEW
-	.byte K_SET_BREAKPOINT
 	.byte K_SWAP_USERMEM
 	.byte K_RESET_STOPWATCH
 	.byte K_EDIT_STATE
@@ -2064,7 +2056,7 @@ num_commands=*-commands
 .linecont +
 .define command_vectors quit, edit_source, __debug_step, step_over, go, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
-	set_breakpoint, __debug_swap_user_mem, reset_stopwatch, edit_state, \
+	__debug_swap_user_mem, reset_stopwatch, edit_state, \
 	goto_break, activate_monitor
 .linecont -
 command_vectorslo: .lobytes command_vectors

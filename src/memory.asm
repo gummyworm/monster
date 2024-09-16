@@ -69,6 +69,7 @@ __mem_rowcolors_save: .res 24
 .segment "LINEBUFF"
 .export __linebuffer
 __linebuffer:
+.assert * & $ff = $00, error, "line buffer not page-aligned"
 	.res LINESIZE
 .export __linebuffer2
 ;__linebuffer2: .res 80		; backup buffer for when the linebuffer must be saved

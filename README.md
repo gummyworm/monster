@@ -384,6 +384,8 @@ Labels begin with either an alpha-character or, in the case of _local_
 labels, a '@' character.  They are limited to 16 characters, but it is advisable to keep them shorter (8 characters or less).
 Long labels are harder to squeeze onto a line.
 
+Labels are case-insensitive (`a` and `A` refer to the same label).
+
 #### Local Labels
 Local labels are defined by prefixing the label with a '@' symbol.  This _does_
 count toward the 16 character label limit.
