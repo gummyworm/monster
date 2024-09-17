@@ -173,12 +173,11 @@ BREAKPOINT_ENABLED = 1
 
 	; find the matching line #
 	ldx dbgi::numbreakpoints
-	beq @done
+	beq @notfound
 	dex
 @l0:	lda @file
 	cmp dbg::breakpoint_fileids,x
 	bne @next
-	jmp *
 	lda @line
 	cmp dbg::breakpoint_lineslo,x
 	bne @next
@@ -190,6 +189,7 @@ BREAKPOINT_ENABLED = 1
 
 @next:	dex
 	bpl @l0
+@notfound:
 	sec		; not found
 @done:	rts
 .endproc

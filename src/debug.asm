@@ -1405,7 +1405,6 @@ restore_regs:
 ;  - .A:  the file ID to set the breakpoint in
 .export __debug_setbrkatline
 .proc __debug_setbrkatline
-	jmp *
 	pha				; save file ID
 
 	; store the line #

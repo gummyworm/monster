@@ -2833,10 +2833,6 @@ goto_buffer:
 	pla
 	jsr src::setbuff	; switch to the new buffer
 
-	; we've successfully loaded the file, give it a debuginfo ID
-	jsr src::current_filename
-	jsr dbgi::setfile
-
 	jsr refresh
 	RETURN_OK
 
@@ -2871,11 +2867,17 @@ goto_buffer:
 	ldxy @file
 	jsr src::name
 
-	jsr src::setflags	; clear flags on the source buffer
-	jsr src::rewind		; rewind the source
+	; give the filename a debuginfo ID
+	jsr src::current_filename
+	jsr dbgi::setfile
+
 	lda #$00
 	sta zp::curx
 	sta zp::cury		; reset cursor
+	jsr src::setflags	; clear flags on the source buffer
+
+	jsr src::rewind		; rewind the source
+
 	jsr refresh
 	jsr text::clrinfo
 	jsr cancel
@@ -4744,9 +4746,10 @@ __edit_gotoline:
 .proc __edit_current_file
 	lda src::activebuff
 	jsr src::filename
+	bcs :+
 	jsr dbgi::getfileid	; .A = id of the file
 	ldxy src::line
-	rts
+:	rts
 .endproc
 
 ;******************************************************************************
