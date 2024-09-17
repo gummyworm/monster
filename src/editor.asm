@@ -3944,6 +3944,7 @@ goto_buffer:
 
 	; shift colors up by 1
 	ldx @start
+	dex
 	ldy @stop
 	lda #$01
 	jsr draw::scrollcolorsu
