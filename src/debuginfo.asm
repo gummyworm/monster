@@ -905,7 +905,8 @@ __debuginfo_get_fileid:
 	jsr get_fileid	; get the file ID (if the file is already stored)
 	bcc :+
 	jsr storefile	; copy the filename and get its new ID
-:	sta file	; store the ID
+	jmp *
+:	sta file	; store the ID as the active file ID
 	rts
 .endproc
 

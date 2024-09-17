@@ -462,8 +462,10 @@ main:	jsr key::getch
 	jsr src::rewind
 	jmp refresh
 
+.RODATA
 @db:   .byte ".db $"
 @db_len=*-@db
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -548,8 +550,9 @@ main:	jsr key::getch
 	stxy dbgi::srcline
 	; get active filename (r0 = name)
 	jsr src::current_filename
-	bcc :+
+	bcc :+			
 	jsr errlog::log
+	jmp @done		; can't get buffer name is fatal, go to end
 :	jsr dbgi::setfile
 ;--------------------------------------
 ; Pass 1
@@ -610,8 +613,7 @@ main:	jsr key::getch
 @next:	jsr src::end		; check if we're at the end of the source
 	bne @pass2loop		; repeat if not
 
-@done:
-	jsr src::popgoto
+@done:	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer
 
 	; fall through to display_result
@@ -677,8 +679,10 @@ main:	jsr key::getch
 	jsr draw::hline
 	RETURN_OK
 
+.RODATA
 @success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0
 @success0:    .byte "done.",0
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -2117,12 +2121,17 @@ __edit_refresh:
 	jsr src::upn		; move source to top line on screen
 
 	; redraw the visible lines
-@l0:	jsr src::readline
+@l0:	jsr src::readline	; read line into text buffer
 	php
 	bcs :+
 	jsr src::prev	; print_line expects source and zp::cury to be synced
-:	lda zp::cury
-	jsr print_line
+
+:	ldx zp::cury
+	lda #DEFAULT_900F
+	jsr draw::hline		; reset color for the row
+
+	lda zp::cury
+	jsr print_line		; draw the line of text
 	plp
 	bcs @clr
 	jsr src::next	; move past the $0d again
@@ -2249,8 +2258,10 @@ __edit_refresh:
 	ldx #$00
 	jmp @l0
 
+.RODATA
 @sym_line:
 	.byte "$",ESCAPE_VALUE,": ", ESCAPE_STRING, 0
+.CODE
 .endproc
 
 ;******************************************************************************
@@ -2284,18 +2295,18 @@ __edit_refresh:
 __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
-	jsr __edit_current_file
-	pha
-	jsr brkpt::getbyline
-	pla
-	bcs @set
+	jsr __edit_current_file	; get the debug file ID and line #
+	pha			; save the file ID
+	jsr brkpt::getbyline	; is there already a breakpoint?
+	pla			; restore the file ID
+	bcs @set		; if not, add one
 
 @remove:
 	jsr dbg::removebreakpointbyid
 	lda #DEFAULT_900F
 	bne @done
-@set:
-	ldxy src::line
+
+@set:	ldxy src::line
 	jsr dbg::setbrkatline
 	lda #BREAKPOINT_ON_COLOR
 
@@ -2821,6 +2832,11 @@ goto_buffer:
 	jsr src::save		; save the current buffer's state
 	pla
 	jsr src::setbuff	; switch to the new buffer
+
+	; we've successfully loaded the file, give it a debuginfo ID
+	jsr src::current_filename
+	jsr dbgi::setfile
+
 	jsr refresh
 	RETURN_OK
 
@@ -3048,8 +3064,7 @@ goto_buffer:
 	; shift colors below cursor down by 1
 	ldx zp::cury
 	ldy height
-	lda #$01
-	jsr draw::scrollcolorsd
+	jsr draw::scrollcolorsd1
 
 	; and clear the color of the newly opened line
 	ldx zp::cury
@@ -3975,8 +3990,7 @@ goto_buffer:
 	; shift colors down by 1
 	ldx @start
 	ldy @stop
-	lda #$01
-	jsr draw::scrollcolorsd
+	jsr draw::scrollcolorsd1
 
 	ldxy __edit_highlight_line
 	cmpw src::line
@@ -4725,6 +4739,7 @@ __edit_gotoline:
 ; OUT:
 ;  - .A:  the debug file ID of the current file
 ;  - .XY: the current line in the file
+;  - .C: set if there is no debug file ID for the active buffer
 .export __edit_current_file
 .proc __edit_current_file
 	lda src::activebuff
