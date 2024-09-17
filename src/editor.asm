@@ -1458,6 +1458,7 @@ force_enter_insert=*+5
 	cmp #$00
 	beq @noscroll
 
+	pha			; save scroll amount
 	tay
 
 	; multi-line pastes don't move the cursor / source position
@@ -1466,6 +1467,11 @@ force_enter_insert=*+5
 	ldx height
 	lda @row
 	jsr text::scrolldownn
+
+	ldx @row
+	ldy height
+	pla
+	jsr draw::scrollcolorsd
 
 @noscroll:
 	ldx @splitindex	; get index of text to save
@@ -3944,6 +3950,7 @@ goto_buffer:
 
 	; shift colors up by 1
 	ldx @start
+	dex
 	ldy @stop
 	lda #$01
 	jsr draw::scrollcolorsu

@@ -711,11 +711,9 @@ __src_pos = __src_start	 ; start implements the same behavior
 
 	; move char from start of gap to the end of the gap
 	jsr cursor
-	stx @dst
-	sty @dst+1
+	stxy @dst
 	jsr poststart
-	stx @src
-	sty @src+1
+	stxy @src
 
 	lda24 bank, @src
 	sta24 bank, @dst
