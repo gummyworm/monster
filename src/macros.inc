@@ -9,6 +9,7 @@
 
 ; decrements the 16-bit value at the address w.
 ; clobbers .A
+; .Z is set if LSB of w is 0 after decrementing
 .macro decw w
 .local @skip
 	lda w

@@ -306,6 +306,8 @@ __gui_refresh:
 ; end with a `jmp gui::return` instead of `rts`
 ; This is done because these handlers often push values to be printed and this
 ; saves them from having to do stack management
+; IN:
+;   - .XY: address of the text to render for the current line
 .export __gui_return
 __gui_return = @guireturn
 .endproc
