@@ -60,10 +60,12 @@ ERR_INVALID_COMMAND = 37
 
 ERR_COPY_TOO_BIG = 38
 
+ERR_BUFFER_NAME_EXISTS = 39
+
 ;******************************************************************************
 ; linker errors
-ERR_SECTION_TOO_SMALL = 39
-ERR_NO_SECTIONS = 40
+ERR_SECTION_TOO_SMALL = 40
+ERR_NO_SECTIONS = 41
 
 .import __err_get
 

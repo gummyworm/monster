@@ -2489,12 +2489,14 @@ goto_buffer:
 
 	; we don't need to keep this window open, close it
 	jmp cancel
+.RODATA
 @menu:
 .byte 8			; max height
 .word @getkey		; key handler
 .word @getdata		; get line handler
 .word src::numbuffers	; num ptr
 .word strings::buffers	; title
+.CODE
 
 ;--------------------------------------
 @getdata:
@@ -2525,7 +2527,10 @@ goto_buffer:
 	; print the buffer name at its corresponding row
 	ldxy #@buffer_line
 	jmp gui::ret
+
+.RODATA
 @buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
+.CODE
 
 ;--------------------------------------
 @getkey:
@@ -2535,7 +2540,7 @@ goto_buffer:
 	bpl @gotobuff
 
 :	cmp #'1'
-	bcc :+
+	bcc @done
 	cmp #'8'+1
 	bcs :+
 	sec
@@ -2545,7 +2550,7 @@ goto_buffer:
 	sec		; flag to exit GUI
 	rts
 :	clc		; flag to get more keys
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2553,11 +2558,28 @@ goto_buffer:
 ; :r <filename>
 ; Renames the current source buffer to the given name. Does NOT save the
 ; file, only the buffer.
+; IN:
+;  - .XY: the command parameter (the name to give to the buffer)
 .proc command_rename
+@file=r4
+	stxy @file
+	jsr dbgi::getfileid	; .A = id of the file
+	bcs @ok
+	RETURN_ERR ERR_BUFFER_NAME_EXISTS	; the chosen name is taken
+
+@ok:	jsr src::filename	; check if there is already a name
+	bcs @new		; no debug ID for current file, create one
+@rename:
+	; ID exists for the current buffer, rename it
+	jsr dbgi::getfileid	; get the ID from the existing name
+	ldxy @file		; restore new file name
+	jsr dbgi::setfile	; replace existing name for this ID
+
+@new:	ldxy @file		; restore new file name
 	jmp src::name		; rename to the name in .XY
 .endproc
 
-;******************************************************************************=
+;*******************************************************************************
 ; GET COMMAND
 ; Prompts the user for a command and executes it (if valid).
 .proc get_command

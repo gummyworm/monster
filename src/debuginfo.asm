@@ -910,6 +910,23 @@ __debuginfo_get_fileid:
 .endproc
 
 ;******************************************************************************
+; SETNAME
+; Sets the name for the given file-id
+; IN:
+;  - .A: the debug file ID of the handle to (re)name
+;  - .XY: the filename to set for the handle
+.export __debug_set_name
+.proc __debug_set_name
+@filename=r2
+@dst=r0
+	stxy @filename
+	jsr __debug_get_filename	; get the destination address for ID
+	stxy @dst			; r0 = dest address
+	ldxy @filename			; restore filename
+	jmp str::copy			; copy @filename to r0 (@filename)
+.endproc
+
+;******************************************************************************
 ; STOREFILE
 ; Copies the given filename thereby creating an ID for that file
 ; IN:
@@ -935,6 +952,7 @@ __debuginfo_get_fileid:
 
 	ldxy @src
 	jsr str::copy		; copy @src to r0 (@filename)
+	jsr __debug_set_name	; copy @filename to the file's ID
 
 	lda numfiles
 	inc numfiles
