@@ -903,9 +903,9 @@ __debuginfo_get_fileid:
 .export __debug_set_file
 .proc __debug_set_file
 	jsr get_fileid	; get the file ID (if the file is already stored)
-	bcc :+
+	bcc :+		; if an ID was found, no need to copy filename
 	jsr storefile	; copy the filename and get its new ID
-:	sta file	; store the ID
+:	sta file	; store the ID as the active file ID
 	rts
 .endproc
 
@@ -1006,10 +1006,9 @@ __debuginfo_get_fileid:
 	bcc :+
 	inc line+1
 :	decw numlines
-	lda numlines
-	bne @ok
+	bne @ok		; if LSB is !0, there are lines left
 	lda numlines+1
-	bne @ok
+	bne @ok		; if MSB is !0, there are lines left
 	sec
 	rts
 @ok:	RETURN_OK

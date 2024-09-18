@@ -89,9 +89,23 @@
 .endproc
 
 ;******************************************************************************
+; SCROLLCOLORSD1
+; Scrolls all colors in the given range down by 1. See __draw_scrollcolorsd1
+; IN:
+;  - .X: the first row to scroll
+;  - .Y: the last row to scroll
+.export __draw_scrollcolorsd1
+.proc __draw_scrollcolorsd1
+	lda #$01
+
+	; fall through to __draw_scrollcolorsd
+.endproc
+
+;******************************************************************************
 ; SCROLLCOLORSD
 ; Scrolls all colors from the given start row to the given stop row down by the
 ; given amount
+; IN:
 ;  - .X: the first row to scroll
 ;  - .Y: the last row to scroll
 ;  - .A: the amount to scroll

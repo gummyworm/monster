@@ -33,12 +33,14 @@ BREAKPOINT_ENABLED = 1
 	ldxy #@menu
 	lda #BRKVIEW_STOP
 	jmp gui::listmenu
+.RODATA
 @menu:
 .byte HEIGHT				; max height
 .word @getkey				; key handler
 .word @getdata				; get line handler
 .word dbg::numbreakpoints		; # of breakpoints pointer
 .word strings::breakpoints_title	; title
+.CODE
 
 ;--------------------------------------
 @getkey:
@@ -168,8 +170,10 @@ BREAKPOINT_ENABLED = 1
 @file=r4
 	stxy @line
 	sta @file
+
 	; find the matching line #
 	ldx dbgi::numbreakpoints
+	beq @notfound
 	dex
 @l0:	lda @file
 	cmp dbg::breakpoint_fileids,x
@@ -185,6 +189,7 @@ BREAKPOINT_ENABLED = 1
 
 @next:	dex
 	bpl @l0
+@notfound:
 	sec		; not found
-	rts
+@done:	rts
 .endproc

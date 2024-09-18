@@ -9,22 +9,13 @@
 
 ; decrements the 16-bit value at the address w.
 ; clobbers .A
+; .Z is set if LSB of w is 0 after decrementing
 .macro decw w
 .local @skip
 	lda w
 	bne @skip
 	dec w+1
 @skip:	dec w
-.endmacro
-
-; loads the 16-bit value at the address w into .XY and decrements it
-; .X is the LSB, .Y is the MSB
-.macro ldecxy w
-	ldy w+1
-	ldx w
-	beq :+
-	dey
-:	dex
 .endmacro
 
 ; cmpw compares .XY to the 16-bit argument. The flags are set as they would be

@@ -1405,14 +1405,16 @@ restore_regs:
 ;  - .A:  the file ID to set the breakpoint in
 .export __debug_setbrkatline
 .proc __debug_setbrkatline
-	; store line #
-	pha
+	pha				; save file ID
+
+	; store the line #
 	txa
 	ldx numbreakpoints
 	sta __debug_breakpoint_lineslo,x
 	tya
 	sta __debug_breakpoint_lineshi,x
-	pla
+
+	pla				; restore file ID
 	sta __debug_breakpoint_fileids,x
 	lda #BREAKPOINT_ENABLED
 	sta breakpoint_flags,x
@@ -1705,9 +1707,11 @@ __debug_remove_breakpoint:
 @exit:	popcur
 	rts
 
+.RODATA
 @offsets:
 .byte REG_PC_OFFSET, REG_PC_OFFSET+2, REG_A_OFFSET, REG_X_OFFSET, REG_Y_OFFSET
 .byte REG_SP_OFFSET
+.CODE
 .endproc
 
 ;******************************************************************************
