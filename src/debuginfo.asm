@@ -948,10 +948,7 @@ __debuginfo_get_fileid:
 	; find the location to store the filename to
 	lda numfiles
 	jsr __debug_get_filename ; get the address where the new file will be
-	stxy @filename		 ; store as filename dest
-
 	ldxy @src
-	jsr str::copy		; copy @src to r0 (@filename)
 	jsr __debug_set_name	; copy @filename to the file's ID
 
 	lda numfiles

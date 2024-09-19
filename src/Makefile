@@ -36,7 +36,7 @@ start: test.d64
 	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1542 -10 test.d64
 
 vstart: 
-	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc +drive10truedrive -virtualdev10
+	# $(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -cartfe $(FE3BIN) -memory all -ntsc +drive10truedrive -virtualdev10 -10 test.d64
 
 clean:
 	rm -f *.prg *.o test.d64
