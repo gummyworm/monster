@@ -552,17 +552,6 @@ data: .res $6000
 .endproc
 
 ;******************************************************************************
-; POPGOTO
-; Navigates to the the most recent source position pushed in .YX
-.export __src_popgoto
-.proc __src_popgoto
-	jsr __src_popp
-	bcc :+
-	rts
-:	jmp __src_goto
-.endproc
-
-;******************************************************************************
 ; POS
 ; Returns the current source position.  You may go to this position with the
 ; src::goto routine.  Note that if the source changes since this procedure is
@@ -579,9 +568,10 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .Z: set if the cursor is at the end of the buffer
 .export __src_end
 .proc __src_end
-	ldxy post
-	cmpw #$0000
-	rts
+	ldx post
+	bne @done	; if LSB is !0, not the end
+	ldy post+1	; set .Z to MSB
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -592,10 +582,12 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .Z: set if the cursor is at the end of the buffer
 .export __src_end_rep
 .proc __src_end_rep
-	ldxy post
-	cmpw #$0001
-	bne __src_end
-	rts
+	ldy post
+	bne @done	; if MSB is !0, not the end
+	ldx post
+	beq @done
+	cpx #1		; set .Z if LSB is 1
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -617,9 +609,10 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .Z: set if the cursor is at the start of the buffer
 .export __src_start
 .proc __src_start
-	ldxy pre
-	cmpw #$0000
-	rts
+	ldx pre
+	bne @done	; if LSB is !0, not the start
+	ldx pre+1	; set .Z if MSB is also 0
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1117,6 +1110,16 @@ __src_atcursor:
 	rts
 @done:	txa
 	clc
+	rts
+.endproc
+
+;******************************************************************************
+; POPGOTO
+; Navigates to the the most recent source position pushed in .YX
+.export __src_popgoto
+.proc __src_popgoto
+	jsr __src_popp
+	bcc __src_goto
 	rts
 .endproc
 

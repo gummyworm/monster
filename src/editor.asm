@@ -870,14 +870,13 @@ main:	jsr key::getch
 	sta cur::maxx		; restore cursor x limit
 
 	jsr text::restorebuff
-	ldx @result_offset
-	ldy #$01
+	ldx @result_offset	; set .X to LSB of buffer
+	ldy #$00
+	sty cur::minx		; reset minx
+	iny			; set .Y to 1 (MSB of result)
 
 	plp			; get success state
 	popcur			; restore cursor
-
-	lda #$00
-	sta cur::minx
 
 	rts
 .endproc
@@ -3687,19 +3686,14 @@ goto_buffer:
 	ldx visual_start_x
 	inx
 	ldy @linelen
+
 @rvs0:	lda zp::cury
-	cpx #$00
+	cpx #$00		; is line empty?
 	beq @viscur		; if line is empty, nothing to reverse
 	jsr bm::rvsline_part
 
-	lda #$00
 	lda zp::curx
 	sta @xend
-
-	; if we are in VISUAL mode, highlight to the end of the line
-	lda mode
-	cmp #MODE_VISUAL
-	bne @cont
 
 @viscur:
 	; handle cursor state for VISUAL mode
