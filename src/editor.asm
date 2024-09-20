@@ -870,14 +870,13 @@ main:	jsr key::getch
 	sta cur::maxx		; restore cursor x limit
 
 	jsr text::restorebuff
-	ldx @result_offset
-	ldy #$01
+	ldx @result_offset	; set .X to LSB of buffer
+	ldy #$00
+	sty cur::minx		; reset minx
+	iny			; set .Y to 1 (MSB of result)
 
 	plp			; get success state
 	popcur			; restore cursor
-
-	lda #$00
-	sta cur::minx
 
 	rts
 .endproc
