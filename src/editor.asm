@@ -3687,19 +3687,14 @@ goto_buffer:
 	ldx visual_start_x
 	inx
 	ldy @linelen
+
 @rvs0:	lda zp::cury
-	cpx #$00
+	cpx #$00		; is line empty?
 	beq @viscur		; if line is empty, nothing to reverse
 	jsr bm::rvsline_part
 
-	lda #$00
 	lda zp::curx
 	sta @xend
-
-	; if we are in VISUAL mode, highlight to the end of the line
-	lda mode
-	cmp #MODE_VISUAL
-	bne @cont
 
 @viscur:
 	; handle cursor state for VISUAL mode
