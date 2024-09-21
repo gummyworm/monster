@@ -74,7 +74,7 @@
 .import __RODATA_RUN__
 .import __RODATA_SIZE__
 
-TOTAL_SIZE = __BANKCODE_SIZE__+__DATA_SIZE__+__FASTTEXT_SIZE__+__MACROCODE_SIZE__+__SAVESCR_SIZE__+__IRQ_SIZE__+__LINKER_SIZE__+__LABELS_SIZE__+__UDGEDIT_SIZE__+__CONSOLE_SIZE__+__COPYBUFF_SIZE__+__RODATA_SIZE__
+TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__DATA_SIZE__+__FASTTEXT_SIZE__+__MACROCODE_SIZE__+__SAVESCR_SIZE__+__IRQ_SIZE__+__LINKER_SIZE__+__LABELS_SIZE__+__UDGEDIT_SIZE__+__CONSOLE_SIZE__+__COPYBUFF_SIZE__+__RODATA_SIZE__
 
 ;******************************************************************************
 ; RELOC
@@ -161,19 +161,17 @@ RESTORE:
 	stxy r0
 	ldxy #__SETUP_RUN__
 	stxy r2
-	ldxy #TOTAL_SIZE
-	stxy r4
 
-@reloc:	ldy #$00
+	ldx #>TOTAL_SIZE+1	; # of pages to copy
+	ldy #$00
+@reloc:
 	lda (r0),y
 	sta (r2),y
-
-	incw r0
-	incw r2
-	
-	decw r4
-	ldxy r4
-	cmpw #0
+	iny
+	bne @reloc
+	inc r0+1
+	inc r2+1
+	dex			; next page
 	bne @reloc
 
 	; set default device number
@@ -313,8 +311,10 @@ start:
 	; bank
 	iny
 	lda (@relocs),y
-
-	reloc
+	cmp #$ad
+	bne :+
+	
+:	reloc
 
 	lda @relocs
 	clc

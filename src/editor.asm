@@ -2973,9 +2973,7 @@ goto_buffer:
 	; tokenize (1st pass) to check if the current line is valid
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
-	jmp *
 	jsr asm::tokenize
-	jmp *
 	bcs @err
 
 ; format the line based on the line's contents (in .A from tokenize)
@@ -3005,9 +3003,7 @@ goto_buffer:
 	lda zp::cury
 	jmp text::drawline
 
-@err:	jmp *
-	jsr report_typein_error
-	jmp *
+@err:	jsr report_typein_error
 	jmp @nextline
 .endproc
 
