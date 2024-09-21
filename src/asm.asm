@@ -2361,11 +2361,14 @@ __asm_include:
 
 :	; evaluate the condition for the .IF
 	jsr expr::eval
-	cmpw #$00
-	beq :+
-	ldx #$01
+	txa
+	bne @true
+	tya
+	beq @false
 
-:	; store the TRUE/FALSE value to the if stack
+@true:	ldx #$01
+
+@false:	; store the TRUE/FALSE value to the if stack
 	txa
 	inc ifstacksp
 	ldx ifstacksp

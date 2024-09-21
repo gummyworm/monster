@@ -1707,11 +1707,13 @@ __debug_remove_breakpoint:
 @exit:	popcur
 	rts
 
+.PUSHSEG
 .RODATA
 @offsets:
 .byte REG_PC_OFFSET, REG_PC_OFFSET+2, REG_A_OFFSET, REG_X_OFFSET, REG_Y_OFFSET
 .byte REG_SP_OFFSET
-.CODE
+.POPSEG
+
 .endproc
 
 ;******************************************************************************
