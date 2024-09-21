@@ -172,7 +172,7 @@ RESTORE:
 	bne @reloc
 
 	; set default device number
-	lda #$0a
+	lda #DEFAULT_DEVICE
 	sta zp::device
 
 	jmp start
