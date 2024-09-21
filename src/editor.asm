@@ -4023,9 +4023,11 @@ goto_buffer:
 .proc command_gotoline
 	jsr atoi		; convert (YX) to line #
 	bcs @done
-	cmpw #$0000
+	txa			; LSB 0?
 	bne :+
-	ldxy #$0001
+	tya			; MSB 0?
+	bne :+
+	inx			; set .XY to 1
 :	jsr gotoline		; go to the target line
 	jmp add_jump_point	; save the current position as a jump point
 @done:	rts
@@ -4327,8 +4329,13 @@ __edit_gotoline:
 	ldxy src::line
 	cmpw visual_start_line	; deselecting?
 	bcc @shortdownloop	; skip if so
+	php
 	jsr text::rendered_line_len
-	ldy zp::curx
+	plp
+	beq :+
+	ldy #$00
+	skw
+:	ldy zp::curx
 	lda zp::cury
 	jsr bm::rvsline_part
 

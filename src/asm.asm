@@ -2365,7 +2365,7 @@ __asm_include:
 	beq :+
 	ldx #$01
 
-	; store the TRUE/FALSE value to the if stack
+:	; store the TRUE/FALSE value to the if stack
 	txa
 	inc ifstacksp
 	ldx ifstacksp

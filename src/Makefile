@@ -24,6 +24,9 @@ TEST_INCS=$(wildcard tests/*.inc)
 
 all: test.d81
 
+installer: install.asm
+	$(CL65) -t $(TARGET) -o $@ -C link-installer.config $^
+
 monster-disk.prg: $(BOOTSRC) $(SRC) 
 	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) --asm-define $(REGION) -C link-$(TARGET)-disk.config $^ -Ln labels.txt -v -m map.txt
 
