@@ -432,6 +432,7 @@ enter:
 	sta $0319		; NMI
 	cli
 
+	; initialize the status row reverse
 	lda #DEFAULT_900F^$08
 	ldx #23
 	jsr draw::hline

@@ -978,7 +978,7 @@ tabs_end=*-tabs
 	bne :-
 
 @done:	
-	; restore return address
+; restore return address
 @ret0=*+1
 	lda #$00
 	pha

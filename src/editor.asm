@@ -4677,11 +4677,8 @@ __edit_gotoline:
 ;   - .Z: set if the editor is currently in readonly mode
 .proc is_readonly
 	ldx readonly
-	bne @ro
-	ldx mode
-	cpx #MODE_VISUAL
-	rts
-@ro:	ldx #$00
+	beq is_visual	; not in readonly mode, check VISUAL (treat as RO)
+@ro:	ldx #$00	; set .Z
 	rts
 .endproc
 
@@ -4797,9 +4794,7 @@ __edit_gotoline:
 ; SWAPWIN
 ; Swaps to the current GUI (if one is active), this is the last gui created
 ; via gui::activate.
-.proc swapwin
-	jmp gui::reenter
-.endproc
+swapwin = gui::reenter
 
 .RODATA
 ;******************************************************************************

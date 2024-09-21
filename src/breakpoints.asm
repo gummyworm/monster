@@ -33,6 +33,7 @@ BREAKPOINT_ENABLED = 1
 	ldxy #@menu
 	lda #BRKVIEW_STOP
 	jmp gui::listmenu
+
 .PUSHSEG
 .RODATA
 @menu:
