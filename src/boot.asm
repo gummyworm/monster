@@ -15,6 +15,10 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
+.import __SETUP_LOAD__
+.import __SETUP_RUN__
+.import __SETUP_SIZE__
+
 .import __BANKCODE_LOAD__
 .import __BANKCODE_RUN__
 .import __BANKCODE_SIZE__
@@ -42,6 +46,10 @@
 .import __IRQ_RUN__
 .import __IRQ_SIZE__
 
+.import __CART_LOAD__
+.import __CART_RUN__
+.import __CART_SIZE__
+
 .import __LINKER_LOAD__
 .import __LINKER_RUN__
 .import __LINKER_SIZE__
@@ -65,6 +73,8 @@
 .import __RODATA_LOAD__
 .import __RODATA_RUN__
 .import __RODATA_SIZE__
+
+TOTAL_SIZE = __BANKCODE_SIZE__+__DATA_SIZE__+__FASTTEXT_SIZE__+__MACROCODE_SIZE__+__SAVESCR_SIZE__+__IRQ_SIZE__+__LINKER_SIZE__+__LABELS_SIZE__+__UDGEDIT_SIZE__+__CONSOLE_SIZE__+__COPYBUFF_SIZE__+__RODATA_SIZE__
 
 ;******************************************************************************
 ; RELOC
@@ -98,6 +108,9 @@
 .endmacro
 
 .segment "SETUP"
+
+CART = 1
+.ifndef CART
 ;******************************************************************************
 ; BASIC header: SYS 4621
 .word @head
@@ -107,6 +120,71 @@
 .asciiz "4621"
 @next: .word 0
 	jmp start
+.else
+
+.segment "CART"
+.word START   ; Entry point for power up
+.word RESTORE ; Entry point for warm start (RESTORE)
+
+; cartridge header
+.byte "a0",$C3,$C2,$CD	; "A0CBM"
+
+; copy cart binary ($0000-$6000) to RAM
+START:
+RESTORE:
+@copy0:
+	jsr $fd8d	; RAMTAS
+	jsr $fd52	; init vectors
+	jsr $fdf9	; init I/O
+	jsr $e518	; init I/O 2
+
+	ldx #@end-@unlock-1
+:	lda @unlock,x
+	sta $200,x
+	dex
+	bpl :-
+
+	jmp $200
+
+@unlock:
+	ldx $a000
+	stx $a000
+	sta $9c02
+	cmp $9c02
+
+	; activate ROM bank 0
+	lda #$40
+	sta $9c02
+
+	; copy SETUP
+	ldxy #$2000
+	stxy r0
+	ldxy #__SETUP_RUN__
+	stxy r2
+	ldxy #TOTAL_SIZE
+	stxy r4
+
+@reloc:	ldy #$00
+	lda (r0),y
+	sta (r2),y
+
+	incw r0
+	incw r2
+	
+	decw r4
+	ldxy r4
+	cmpw #0
+	bne @reloc
+
+	; set default device number
+	lda #$0a
+	sta zp::device
+
+	jmp start
+@end:
+
+.segment "SETUP"
+.endif
 
 ;******************************************************************************
 ; LOWINIT
@@ -118,10 +196,32 @@
 	lda #FINAL_BANK_FASTCOPY2
 	jsr fcpy::init
 
+
+.ifdef CART
+	; copy the app and enter it
+	lda #$41	; ROM 32k page #1
+	sta $9c02
+	
+	; copy everything from $2000-$8000
+	ldxy #$2000
+	stxy r0
+	ldx #$60	; 96 pages
+	ldy #$00
+@l0:	lda (r0),y	; reads from ROM in ROM bank 1
+	sta (r0),y	; writes go to RAM in RAM bank 1
+	iny
+	bne @l0
+	inc r0+1
+	dex
+	bne @l0
+
 	lda #FINAL_BANK_MAIN
 	sta $9c02
-
-; load the app and enter it
+	jmp enter
+.else
+	; load the app and enter it
+	lda #FINAL_BANK_MAIN
+	sta $9c02
 	ldxy #@mainprg
 	lda #@mainprg_len
 	jsr $ffbd	; SETNAM
@@ -137,6 +237,7 @@
 	jmp enter
 @mainprg:    .byte "masm.prg"
 @mainprg_len=*-@mainprg
+.endif
 .endproc
 
 ;******************************************************************************
@@ -146,7 +247,7 @@ start:
 	sei
 
 	; enable all memory
-	lda #$a1
+	lda #FINAL_BANK_MAIN
 	sta $9c02
 
 	; restore default KERNAL vectors

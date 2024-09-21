@@ -2973,7 +2973,9 @@ goto_buffer:
 	; tokenize (1st pass) to check if the current line is valid
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
+	jmp *
 	jsr asm::tokenize
+	jmp *
 	bcs @err
 
 ; format the line based on the line's contents (in .A from tokenize)
@@ -3003,7 +3005,9 @@ goto_buffer:
 	lda zp::cury
 	jmp text::drawline
 
-@err:	jsr report_typein_error
+@err:	jmp *
+	jsr report_typein_error
+	jmp *
 	jmp @nextline
 .endproc
 
@@ -4295,6 +4299,13 @@ __edit_gotoline:
 
 ; move up and move cursor
 @shortup:
+	ldy #$00
+	ldx zp::curx
+	inx
+	lda zp::cury
+	jsr bm::rvsline_part
+
+@lshortup:
 	jsr src::up
 	dec zp::cury
 	jsr src::get
@@ -4307,7 +4318,7 @@ __edit_gotoline:
 	lda zp::cury
 	jsr bm::rvsline_part
 :	dec @diff
-	bne @shortup
+	bne @lshortup
 	beq @shortdone
 
 @shortdown:

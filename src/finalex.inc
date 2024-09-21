@@ -25,6 +25,8 @@
 ; These definitions describe which banks store the code/data for their
 ; corresponding item.
 
+FINAL_BANK_ROM0	= $00		; ROM address $000000
+
 ;******************************************************************************
 ; This is the default bank while the editor has control of the CPU
 ; MAIN bank ($01) 
