@@ -4283,11 +4283,13 @@ __edit_gotoline:
 	sbc @target+1
 	sta @diff+1
 
-	bne @long
-	lda zp::cury	; is (cury - diff) > 0? (is the line on screen?)
+	beq :+
+@golong:
+	jmp @long
+:	lda zp::cury	; is (cury - diff) > 0? (is the line on screen?)
 	sec
 	sbc @diff
-	bcc @long
+	bcc @golong
 
 @short: ldy #$00
 	lda @seekforward
@@ -4295,13 +4297,15 @@ __edit_gotoline:
 
 ; move up and move cursor
 @shortup:
+	jsr is_visual
+	bne @shortuploop
 	ldy #$00
 	ldx zp::curx
 	inx
 	lda zp::cury
 	jsr bm::rvsline_part
 
-@lshortup:
+@shortuploop:
 	jsr src::up
 	dec zp::cury
 	jsr src::get
@@ -4314,14 +4318,21 @@ __edit_gotoline:
 	lda zp::cury
 	jsr bm::rvsline_part
 :	dec @diff
-	bne @lshortup
+	bne @shortuploop
 	beq @shortdone
 
 @shortdown:
-	lda @diff
-	cmp #$01
-	beq @down1
+	lda zp::cury
+	jsr text::drawline	; redraw current line
+	ldxy src::line
+	cmpw visual_start_line	; deselecting?
+	bcc @shortdownloop	; skip if so
+	jsr text::rendered_line_len
+	ldy zp::curx
+	lda zp::cury
+	jsr bm::rvsline_part
 
+@shortdownloop:
 	; move down and move cursor
 	jsr src::down
 	bcs @shortdone
@@ -4330,6 +4341,7 @@ __edit_gotoline:
 	jsr is_visual
 	bne @novis
 
+@rvsdown:
 	; reverse the contents of the line (unless last line)
 	jsr text::rendered_line_len
 	ldy #$00
@@ -4337,8 +4349,7 @@ __edit_gotoline:
 	jsr bm::rvsline_part
 
 @novis:	dec @diff
-	bne @shortdown
-	jsr home
+	bne @shortdownloop	; loop until on 1st line
 
 @shortdone:
 	jmp @renderdone
