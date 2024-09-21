@@ -46,10 +46,6 @@
 .import __IRQ_RUN__
 .import __IRQ_SIZE__
 
-.import __CART_LOAD__
-.import __CART_RUN__
-.import __CART_SIZE__
-
 .import __LINKER_LOAD__
 .import __LINKER_RUN__
 .import __LINKER_SIZE__
@@ -109,7 +105,6 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__DATA_SIZE__+__FASTTEXT_SIZE__+__
 
 .segment "SETUP"
 
-CART = 1
 .ifndef CART
 ;******************************************************************************
 ; BASIC header: SYS 4621
@@ -120,8 +115,10 @@ CART = 1
 .asciiz "4621"
 @next: .word 0
 	jmp start
-.else
 
+;******************************************************************************
+; CART header and boot code
+.else ; CART
 .segment "CART"
 .word START   ; Entry point for power up
 .word RESTORE ; Entry point for warm start (RESTORE)
@@ -180,14 +177,14 @@ RESTORE:
 
 	jmp start
 @end:
-
 .segment "SETUP"
-.endif
+.endif	; CART
 
 ;******************************************************************************
 ; LOWINIT
 ; Code that is sensitive to initialization order
-; This code loads the app and sets up various banked code
+; This code loads the app and sets up various banked code.
+; Once the initialization in complete, jumps to enter to begin the app
 .proc lowinit
 	lda #FINAL_BANK_FASTCOPY
 	jsr fcpy::init
@@ -196,6 +193,7 @@ RESTORE:
 
 
 .ifdef CART
+; CART init code; copy the application from ROM bank 1
 	; copy the app and enter it
 	lda #$41	; ROM 32k page #1
 	sta $9c02
@@ -216,7 +214,9 @@ RESTORE:
 	lda #FINAL_BANK_MAIN
 	sta $9c02
 	jmp enter
+
 .else
+; DISK init code; load the application from file
 	; load the app and enter it
 	lda #FINAL_BANK_MAIN
 	sta $9c02
