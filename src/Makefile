@@ -24,6 +24,10 @@ TEST_INCS=$(wildcard tests/*.inc)
 
 all: test.d81
 
+disk: monster-disk.prg test.d81
+
+cart: $(CART_IMAGE)
+
 installer: install.asm
 	$(CL65) -t $(TARGET) -o $@ -C link-installer.config $^
 
@@ -53,4 +57,4 @@ vstart:
 	# $(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -cartfe $(FE3BIN) -memory all -ntsc +drive10truedrive -virtualdev10 -10 test.d81
 
 clean:
-	rm -f *.prg *.o test.d81
+	rm -f *.prg *.o test.d81 $(CART_IMAGE)

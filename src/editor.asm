@@ -3646,9 +3646,8 @@ goto_buffer:
 	jmp @cont
 
 @chkvis:
-	lda mode
-	cmp #MODE_VISUAL
-	bne @cont
+	cmp #MODE_VISUAL	; in VISUAL mode?
+	bne @cont		; if not, no need to deal with (de)highlighting
 
 	jsr text::rendered_line_len
 	stx @linelen
@@ -3659,29 +3658,28 @@ goto_buffer:
 @diffline:
 	ldx @linelen
 	ldy zp::curx
-	bcc @rvs0
+	bcc @rvs0	; if we're above the start line, continue
 	iny
 	cpy @linelen
-	beq @viscur
-	bne @rvs0
+	beq @viscur	; if at end of the line, nothing to reverse
+	bne @rvs0	; else reverse [curx, linelen]
 
 @sameline:
 	; vis start line == current line, reverse based on cursor's column
 	; relative to the visual start column
 	ldx @linelen
-	dex
 	ldy zp::curx		; reverse curx to end of line
 	cpy visual_start_x
-	bcs @rvs0
+	bcs @rvs0		; if cursor is to the right of start-x, skip
 
 	ldx visual_start_x
 	lda zp::cury
 	jsr bm::rvsline_part	; reverse OFF the part before visual_start_x
 
 	; and reverse ON the part after visual_start_x
-	ldx visual_start_x
-	inx
-	ldy @linelen
+	ldy visual_start_x
+	iny
+	ldx @linelen
 
 @rvs0:	lda zp::cury
 	cpx #$00		; is line empty?
@@ -4217,27 +4215,20 @@ __edit_gotoline:
 @diff=r9		; lines to move up or down
 @rowsave=rb
 @cnt=rc
-	cmpw src::lines	; is target < total # of lines?
-	bcc :+		; yes, move to target
-	ldxy src::lines	; no, move to the last line
+	; clamp target to the total # of lines
+	cmpw src::lines
+	bcc :+
+	ldxy src::lines
 :	stxy @target
+
 	cmpw src::line	; is the target forward or backward?
 	bne :+
-	jmp home	; already on target line, just go to home col
+	rts		; already on target line
 
-:	php		; save comparison result
-
-	; if we're not already, move to 1st char of line
-	jsr src::atcursor
-	cmp #$0d
-	beq :+
-	jsr src::up
-:	ldx #$00
-	stx @seekforward
-
-	plp			; get target-src::line comparison
-	bcc @beginbackward	; backwards
-	inc @seekforward
+:	lda #$00
+	rol
+	sta @seekforward
+	beq @beginbackward
 
 ; get the number of lines to move forwards
 @beginforward:
@@ -4253,12 +4244,7 @@ __edit_gotoline:
 	jmp @long
 
 @maybeshort:
-	cpx #$01	; 1 line forward?
-	bne :+
-@down1:
-	jmp ccdown	; just move down if we're only going one line
-
-:	lda zp::cury
+	lda zp::cury
 	clc
 	adc @diff
 	cmp height
@@ -4267,115 +4253,39 @@ __edit_gotoline:
 
 ; get the number of lines to move backwards
 @beginbackward:
-	cpx #$01	; 1 line backwad?
-	bne :+
-@up1:	jmp ccup	; just move down if we're only going one line
-
-:	lda src::line
+	lda src::line
 	sec
 	sbc @target
 	sta @diff
 	lda src::line+1
 	sbc @target+1
 	sta @diff+1
+	bne @long
 
-	beq :+
-@golong:
-	jmp @long
-:	lda zp::cury	; is (cury - diff) > 0? (is the line on screen?)
+	lda zp::cury	; is (cury - diff) > 0? (is the line on screen?)
 	sec
 	sbc @diff
-	bcc @golong
+	bcc @long
 
-@short: ldy #$00
-	lda @seekforward
+@short:	lda @seekforward
 	bne @shortdown
 
 ; move up and move cursor
 @shortup:
-	jsr is_visual
-	bne @shortuploop
-
-	ldy #$00
-	ldx zp::curx
-	inx
-	lda zp::cury
-	jsr bm::rvsline_part
-
-@shortuploop:
-	jsr src::up
-	dec zp::cury
-	jsr src::get
-	jsr is_visual
-	bne :+
-
-	; reverse the contents of the line
-	jsr text::rendered_line_len
-	ldy #$00
-	lda zp::cury
-	jsr bm::rvsline_part
-:	dec @diff
-	bne @shortuploop
-	beq @shortdone
-
+	jsr ccup
+	dec @diff
+	bne @shortup
+	rts
 @shortdown:
-	jsr is_visual
-	bne @shortdownloop
-
-	lda zp::cury
-	jsr text::drawline	; redraw current line
-	jsr cmp_vis_start	; deselecting
-	bcc @shortdownloop	; skip if so
-	php
-	jsr text::rendered_line_len
-	plp
-	beq :+
-	ldy #$00
-	skw
-:	ldy zp::curx
-	lda zp::cury
-	jsr bm::rvsline_part
-
-@shortdownloop:
-	; move down and move cursor
-	jsr src::down
-	bcs @shortdone
-	inc zp::cury
-	jsr src::get
-	jsr is_visual
-	bne @novis
-
-@rvsdown:
-	; reverse the contents of the line (unless last line)
-	jsr text::rendered_line_len
-	ldy #$00
-	lda zp::cury
-	jsr bm::rvsline_part
-
-@novis:	dec @diff
-	bne @shortdownloop	; loop until on 1st line
-
-@shortdone:
-	jmp @renderdone
-
-@hiloop:
-	lda @seekforward
-	beq :+
-	inc zp::cury
-	skw
-:	dec zp::cury
-
-	lda zp::cury
-	jsr bm::rvsline
-	dec @cnt
-	bne @hiloop
-	ldy @diff
-@movecur:
-	jsr src::get
-	jmp @renderdone
+	jsr ccdown
+	dec @diff
+	bne @shortdown
+	rts
 
 @long:  ; get first line of source buffer to render
 	; (target +/- (EDITOR_HEIGHT - cury))
+	jsr src::home
+
 	lda @diff
 	sec
 	sbc height
