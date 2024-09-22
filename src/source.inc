@@ -7,6 +7,7 @@
 .import __src_buffer_by_name
 .import __src_close
 .import __src_current_filename
+.import __src_currline
 .import __src_delete
 .import __src_down
 .import __src_downn
@@ -65,6 +66,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	buffer_by_name = __src_buffer_by_name
 	close          = __src_close
 	current_filename = __src_current_filename
+	currline         = __src_currline
 	delete         = __src_delete
 	down           = __src_down
 	downn          = __src_downn

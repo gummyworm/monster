@@ -143,14 +143,13 @@ status_row: .byte 0
 main:	jsr key::getch
 	beq @done
 
-	pha
 	jsr is_visual
 	beq :+ 		; leave cursor on if in VISUAL/VISUAL_LINE mode
+	pha
 	jsr cur::off
+	pla
 
-:	pla
-
-	jsr __edit_handle_key
+:	jsr __edit_handle_key
 @done:	jsr text::update
 	jmp main	; we've used enough time, go straight to getting a key
 .endproc
@@ -164,11 +163,9 @@ main:	jsr key::getch
 ;  - .C: set if the key resulted in no action in the editor
 .export __edit_handle_key
 .proc __edit_handle_key
-	ldx mode
-	cpx #MODE_VISUAL	; handle keys in VISUAL mode like COMMAND
-	beq @cmd
-	cpx #MODE_VISUAL_LINE	; handle VISUAL_LINE mode like COMMAND
-	beq @cmd
+	jsr is_visual
+	beq @cmd		; handle keys in VISUAL mode like COMMAND
+
 	cpx #MODE_COMMAND
 	bne @ins
 @cmd:	jsr onkey_cmd
@@ -563,7 +560,7 @@ main:	jsr key::getch
 	jsr asm::startpass
 
 @pass1loop:
-	ldxy src::line
+	jsr src::currline
 	stxy dbgi::srcline
 	jsr src::readline
 	ldxy #mem::linebuffer
@@ -600,7 +597,7 @@ main:	jsr key::getch
 	jsr asm::startpass
 
 @pass2loop:
-	ldxy src::line
+	jsr src::currline
 	jsr dbgi::setline
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
@@ -993,8 +990,7 @@ force_enter_insert=*+5
 	lda #TEXT_REPLACE
 	sta text::insertmode
 
-	; jsr clrerror
-
+	; restore editor size
 	lda #EDITOR_HEIGHT
 	jmp __edit_resize
 
@@ -1005,7 +1001,11 @@ force_enter_insert=*+5
 ; ENTER_COMMAND
 ; Enters COMMAND mode
 .proc enter_command
-	lda mode
+	jsr is_visual
+	bne :+
+	jsr src::popp		; VIS pushes source pos, clean it off stack
+
+:	lda mode
 	cmp #MODE_COMMAND
 	beq @done
 
@@ -1049,7 +1049,7 @@ force_enter_insert=*+5
 	sta text::insertmode
 
 	; save current editor position
-	ldxy src::line
+	jsr src::currline
 	stxy visual_start_line
 	lda zp::curx
 	sta visual_start_x
@@ -1191,7 +1191,7 @@ force_enter_insert=*+5
 ; OUT:
 ;  - .Z: set if we're on the 1st line of the source
 .proc on_line1
-	ldxy src::line
+	jsr src::currline
 	cmpw #1
 	rts
 .endproc
@@ -1662,7 +1662,7 @@ force_enter_insert=*+5
 	jsr src::goto
 
 	; move to start of the selection that was yanked (if we're not there)
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bcc @ok			; already on the start line
 	beq @fixx		; already on start line, maybe not start column
@@ -2105,7 +2105,8 @@ force_enter_insert=*+5
 __edit_refresh:
 .proc refresh
 	lda zp::cury
-	pha
+	pha			; save cursor Y-coord
+
 	jsr src::pushp
 	jsr text::savebuff	; save the line buffer
 
@@ -2123,6 +2124,7 @@ __edit_refresh:
 @l0:	jsr src::readline	; read line into text buffer
 	php
 	bcs :+
+
 	jsr src::prev	; print_line expects source and zp::cury to be synced
 
 :	ldx zp::cury
@@ -2131,9 +2133,10 @@ __edit_refresh:
 
 	lda zp::cury
 	jsr print_line		; draw the line of text
-	plp
-	bcs @clr
-	jsr src::next	; move past the $0d again
+	plp			; restore EOF flag
+	bcs @clr		; if EOF, clear rest of lines
+
+	jsr src::next		; move past the $0d again
 	inc zp::cury
 	lda zp::cury
 	cmp height
@@ -2155,7 +2158,7 @@ __edit_refresh:
 @done:	; restore source position
 	jsr src::popgoto
 	pla
-	sta zp::cury
+	sta zp::cury		; restore .Y position
 	lda #CUR_OFF
 	sta cur::status
 	jmp text::restorebuff	; restore current line data
@@ -2276,7 +2279,7 @@ __edit_refresh:
 	beq @done
 
 	; check if the current line is the highlighted one
-	ldxy src::line
+	jsr src::currline
 	cmpw __edit_highlight_line
 	bne @done
 	lda #$01
@@ -2305,7 +2308,7 @@ __edit_set_breakpoint:
 	lda #DEFAULT_900F
 	bne @done
 
-@set:	ldxy src::line
+@set:	jsr src::currline
 	jsr dbg::setbrkatline
 	lda #BREAKPOINT_ON_COLOR
 
@@ -2318,7 +2321,7 @@ __edit_set_breakpoint:
 	pha
 	jsr dbgi::line2addr
 	stxy r0
-	ldxy src::line
+	jsr src::currline
 	pla
 
 	; map the address to the breakpoint
@@ -3175,7 +3178,7 @@ goto_buffer:
 	cmp #MODE_VISUAL_LINE
 	bne @chkvis
 	; if we're below the start line, redraw the current line (deselect)
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @up
 	bcc @up
@@ -3189,7 +3192,7 @@ goto_buffer:
 	cmp #MODE_VISUAL
 	bne @up
 
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @sameline
 @diffline:
@@ -3224,7 +3227,7 @@ goto_buffer:
 
 @viscur:
 	; handle cursor state for VISUAL mode
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bcc @up
 	beq @up
@@ -3330,7 +3333,7 @@ goto_buffer:
 	lda #$00
 	sta @togglecur
 
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bcc @sel
 	beq @eq
@@ -3436,7 +3439,7 @@ goto_buffer:
 	sta @deselect
 
 	; if (cur-line > visual_start_line) we are DESELECTING: unhighlight
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @eq
 	bcc @movecur		; not deselecting, continue
@@ -3575,7 +3578,7 @@ goto_buffer:
 	cmp #MODE_VISUAL
 	bne @movecur
 
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @eq
 	bcs @movecur
@@ -3643,7 +3646,7 @@ goto_buffer:
 	bne @chkvis
 
 	; if we're above the start line, redraw the current line (deselect)
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bcs @cont
 	lda zp::cury
@@ -3658,7 +3661,7 @@ goto_buffer:
 	jsr text::rendered_line_len
 	stx @linelen
 
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @sameline
 
@@ -3697,7 +3700,7 @@ goto_buffer:
 
 @viscur:
 	; handle cursor state for VISUAL mode
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bne @cont
 	lda zp::curx
@@ -3791,7 +3794,7 @@ goto_buffer:
 	lda #$00
 	sta @togglecur
 
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @eq
 	bcs @sel
@@ -4023,9 +4026,11 @@ goto_buffer:
 .proc command_gotoline
 	jsr atoi		; convert (YX) to line #
 	bcs @done
-	cmpw #$0000
+	txa			; LSB 0?
 	bne :+
-	ldxy #$0001
+	tya			; MSB 0?
+	bne :+
+	inx			; set .XY to 1
 :	jsr gotoline		; go to the target line
 	jmp add_jump_point	; save the current position as a jump point
 @done:	rts
@@ -4157,7 +4162,7 @@ goto_buffer:
 @notfound:
 	jmp src::popgoto
 
-@found:	ldxy src::line	; get the line we're moving to
+@found:	jsr src::currline	; get the line we're moving to
 	stxy @target
 
 ; for every newline in the buffer AFTER the text we're looking for
@@ -4223,7 +4228,7 @@ __edit_gotoline:
 @cnt=rc
 	cmpw src::lines	; is target < total # of lines?
 	bcc :+		; yes, move to target
-	ldxy src::lines ; no, move to the last line
+	ldxy src::lines	; no, move to the last line
 :	stxy @target
 	cmpw src::line	; is the target forward or backward?
 	bne :+
@@ -4283,11 +4288,13 @@ __edit_gotoline:
 	sbc @target+1
 	sta @diff+1
 
-	bne @long
-	lda zp::cury	; is (cury - diff) > 0? (is the line on screen?)
+	beq :+
+@golong:
+	jmp @long
+:	lda zp::cury	; is (cury - diff) > 0? (is the line on screen?)
 	sec
 	sbc @diff
-	bcc @long
+	bcc @golong
 
 @short: ldy #$00
 	lda @seekforward
@@ -4295,6 +4302,15 @@ __edit_gotoline:
 
 ; move up and move cursor
 @shortup:
+	jsr is_visual
+	bne @shortuploop
+	ldy #$00
+	ldx zp::curx
+	inx
+	lda zp::cury
+	jsr bm::rvsline_part
+
+@shortuploop:
 	jsr src::up
 	dec zp::cury
 	jsr src::get
@@ -4307,14 +4323,26 @@ __edit_gotoline:
 	lda zp::cury
 	jsr bm::rvsline_part
 :	dec @diff
-	bne @shortup
+	bne @shortuploop
 	beq @shortdone
 
 @shortdown:
-	lda @diff
-	cmp #$01
-	beq @down1
+	lda zp::cury
+	jsr text::drawline	; redraw current line
+	jsr src::currline
+	cmpw visual_start_line	; deselecting?
+	bcc @shortdownloop	; skip if so
+	php
+	jsr text::rendered_line_len
+	plp
+	beq :+
+	ldy #$00
+	skw
+:	ldy zp::curx
+	lda zp::cury
+	jsr bm::rvsline_part
 
+@shortdownloop:
 	; move down and move cursor
 	jsr src::down
 	bcs @shortdone
@@ -4323,6 +4351,7 @@ __edit_gotoline:
 	jsr is_visual
 	bne @novis
 
+@rvsdown:
 	; reverse the contents of the line (unless last line)
 	jsr text::rendered_line_len
 	ldy #$00
@@ -4330,8 +4359,7 @@ __edit_gotoline:
 	jsr bm::rvsline_part
 
 @novis:	dec @diff
-	bne @shortdown
-	jsr home
+	bne @shortdownloop	; loop until on 1st line
 
 @shortdone:
 	jmp @renderdone
@@ -4402,7 +4430,7 @@ __edit_gotoline:
 
 	; if we are on the selection that the line began at, 
 	; only reverse the section of the line that is highlighted
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bne @noteq
 
@@ -4470,7 +4498,7 @@ __edit_gotoline:
 	jsr is_visual
 	bne @longdone
 
-	cmp #MODE_VISUAL
+	cpx #MODE_VISUAL
 	beq @vis
 @visline:
 	; if VISUAL LINE, reverse the entire line
@@ -4635,11 +4663,12 @@ __edit_gotoline:
 	rts		; jumplist is empty
 
 :	dec jumpptr
-	lda jumpptr
 	asl
 	tax
-	ldy jumplist+1,x
-	lda jumplist,x
+
+	; use -2 offset because we loaded jumpptr before DEC'ing
+	ldy jumplist+1-2,x
+	lda jumplist-2,x
 	tax
 	jmp gotoline
 .endproc
@@ -4652,11 +4681,8 @@ __edit_gotoline:
 ;   - .Z: set if the editor is currently in readonly mode
 .proc is_readonly
 	ldx readonly
-	bne @ro
-	ldx mode
-	cpx #MODE_VISUAL
-	rts
-@ro:	ldx #$00
+	beq is_visual	; not in readonly mode, check VISUAL (treat as RO)
+@ro:	ldx #$00	; set .Z
 	rts
 .endproc
 
@@ -4664,13 +4690,13 @@ __edit_gotoline:
 ; IS VISUAL
 ; Returns .Z set if the current mode is VISUAL or VISUAL_LINE
 ; OUT:
-;  - .A: the current editor mode
+;  - .X: the current editor mode
 ;  - .Z: set if current mode is VISUAL or VISUAL_LINE
 .proc is_visual
-	lda mode
-	cmp #MODE_VISUAL
+	ldx mode
+	cpx #MODE_VISUAL
 	beq :+
-	cmp #MODE_VISUAL_LINE
+	cpx #MODE_VISUAL_LINE
 :	rts
 .endproc
 
@@ -4764,7 +4790,7 @@ __edit_gotoline:
 	jsr src::filename
 	bcs :+
 	jsr dbgi::getfileid	; .A = id of the file
-	ldxy src::line
+	jmp src::currline
 :	rts
 .endproc
 
@@ -4772,9 +4798,7 @@ __edit_gotoline:
 ; SWAPWIN
 ; Swaps to the current GUI (if one is active), this is the last gui created
 ; via gui::activate.
-.proc swapwin
-	jmp gui::reenter
-.endproc
+swapwin = gui::reenter
 
 .RODATA
 ;******************************************************************************

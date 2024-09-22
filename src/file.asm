@@ -432,7 +432,6 @@ __file_load_src:
 @done:	rts
 .endproc
 
-
 ;******************************************************************************
 ; CLOSE
 ; Closes the file with the given handle.
@@ -461,7 +460,11 @@ __file_load_src:
 	jsr $ffc0	; OPEN
 	lda #15
 	jmp $ffc3	; CLOSE
+
+.PUSHSEG
+.RODATA
 @i:	.byte "I"
+.POPSEG
 .endproc
 
 ;******************************************************************************

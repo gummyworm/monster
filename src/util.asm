@@ -57,9 +57,10 @@
 @src=r2
 @dst=r4
 @len=r0
-	ldxy @len
-	cmpw #$0000
-	beq @done
+	ldx @len
+	bne @l0
+	ldy @len+1
+	beq @done	; if len is 0, nothing to copy
 
 @l0:	ldy #$00
 	lda (@src),y
@@ -67,8 +68,10 @@
 	incw @src
 	incw @dst
 	decw @len
-	ldxy @len
-	cmpw #$0000
+
+	; loop until @len is 0
+	bne @l0
+	ldy @len+1
 	bne @l0
 @done:  rts
 .endproc

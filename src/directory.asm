@@ -261,7 +261,11 @@ SCREEN_H = 23
 	jmp edit::load		; load the file
 
 @exit:  jmp scr::restore
+
+.PUSHSEG
+.RODATA
 @dirmsg: .byte "disk:",0
 @dirmsglen=*-@dirmsg
+.POPSEG
 .endproc
 

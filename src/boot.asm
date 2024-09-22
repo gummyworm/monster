@@ -15,6 +15,10 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
+.import __SETUP_LOAD__
+.import __SETUP_RUN__
+.import __SETUP_SIZE__
+
 .import __BANKCODE_LOAD__
 .import __BANKCODE_RUN__
 .import __BANKCODE_SIZE__
@@ -66,6 +70,8 @@
 .import __RODATA_RUN__
 .import __RODATA_SIZE__
 
+TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__DATA_SIZE__+__FASTTEXT_SIZE__+__MACROCODE_SIZE__+__SAVESCR_SIZE__+__IRQ_SIZE__+__LINKER_SIZE__+__LABELS_SIZE__+__UDGEDIT_SIZE__+__CONSOLE_SIZE__+__COPYBUFF_SIZE__+__RODATA_SIZE__
+
 ;******************************************************************************
 ; RELOC
 ; relocates code from 1 address to another
@@ -98,6 +104,8 @@
 .endmacro
 
 .segment "SETUP"
+
+.ifndef CART
 ;******************************************************************************
 ; BASIC header: SYS 4621
 .word @head
@@ -109,19 +117,109 @@
 	jmp start
 
 ;******************************************************************************
+; CART header and boot code
+.else ; CART
+.segment "CART"
+.word START   ; Entry point for power up
+.word RESTORE ; Entry point for warm start (RESTORE)
+
+; cartridge header
+.byte "a0",$C3,$C2,$CD	; "A0CBM"
+
+; copy cart binary ($0000-$6000) to RAM
+START:
+RESTORE:
+@copy0:
+	jsr $fd8d	; RAMTAS
+	jsr $fd52	; init vectors
+	jsr $fdf9	; init I/O
+	jsr $e518	; init I/O 2
+
+	ldx #@end-@unlock-1
+:	lda @unlock,x
+	sta $200,x
+	dex
+	bpl :-
+
+	jmp $200
+
+@unlock:
+	ldx $a000
+	stx $a000
+	sta $9c02
+	cmp $9c02
+
+	; activate ROM bank 0
+	lda #$40
+	sta $9c02
+
+	; copy SETUP
+	ldxy #$2000
+	stxy r0
+	ldxy #__SETUP_RUN__
+	stxy r2
+
+	ldx #>TOTAL_SIZE+1	; # of pages to copy
+	ldy #$00
+@reloc:
+	lda (r0),y
+	sta (r2),y
+	iny
+	bne @reloc
+	inc r0+1
+	inc r2+1
+	dex			; next page
+	bne @reloc
+
+	; set default device number
+	lda #DEFAULT_DEVICE
+	sta zp::device
+
+	jmp start
+@end:
+.segment "SETUP"
+.endif	; CART
+
+;******************************************************************************
 ; LOWINIT
 ; Code that is sensitive to initialization order
-; This code loads the app and sets up various banked code
+; This code loads the app and sets up various banked code.
+; Once the initialization in complete, jumps to enter to begin the app
 .proc lowinit
 	lda #FINAL_BANK_FASTCOPY
 	jsr fcpy::init
 	lda #FINAL_BANK_FASTCOPY2
 	jsr fcpy::init
 
+
+.ifdef CART
+; CART init code; copy the application from ROM bank 1
+	; copy the app and enter it
+	lda #$41	; ROM 32k page #1
+	sta $9c02
+	
+	; copy everything from $2000-$8000
+	ldxy #$2000
+	stxy r0
+	ldx #$60	; 96 pages
+	ldy #$00
+@l0:	lda (r0),y	; reads from ROM in ROM bank 1
+	sta (r0),y	; writes go to RAM in RAM bank 1
+	iny
+	bne @l0
+	inc r0+1
+	dex
+	bne @l0
+
 	lda #FINAL_BANK_MAIN
 	sta $9c02
+	jmp enter
 
-; load the app and enter it
+.else
+; DISK init code; load the application from file
+	; load the app and enter it
+	lda #FINAL_BANK_MAIN
+	sta $9c02
 	ldxy #@mainprg
 	lda #@mainprg_len
 	jsr $ffbd	; SETNAM
@@ -137,6 +235,7 @@
 	jmp enter
 @mainprg:    .byte "masm.prg"
 @mainprg_len=*-@mainprg
+.endif
 .endproc
 
 ;******************************************************************************
@@ -146,7 +245,7 @@ start:
 	sei
 
 	; enable all memory
-	lda #$a1
+	lda #FINAL_BANK_MAIN
 	sta $9c02
 
 	; restore default KERNAL vectors
@@ -212,8 +311,10 @@ start:
 	; bank
 	iny
 	lda (@relocs),y
-
-	reloc
+	cmp #$ad
+	bne :+
+	
+:	reloc
 
 	lda @relocs
 	clc
@@ -331,6 +432,7 @@ enter:
 	sta $0319		; NMI
 	cli
 
+	; initialize the status row reverse
 	lda #DEFAULT_900F^$08
 	ldx #23
 	jsr draw::hline

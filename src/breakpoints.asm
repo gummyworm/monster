@@ -33,6 +33,8 @@ BREAKPOINT_ENABLED = 1
 	ldxy #@menu
 	lda #BRKVIEW_STOP
 	jmp gui::listmenu
+
+.PUSHSEG
 .RODATA
 @menu:
 .byte HEIGHT				; max height
@@ -40,7 +42,7 @@ BREAKPOINT_ENABLED = 1
 .word @getdata				; get line handler
 .word dbg::numbreakpoints		; # of breakpoints pointer
 .word strings::breakpoints_title	; title
-.CODE
+.POPSEG
 
 ;--------------------------------------
 @getkey:
