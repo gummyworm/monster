@@ -70,8 +70,8 @@ for s in cartsegments.values():
 # get the total size of the boot segments and cart-boot segments
 size = stop_addr - start_addr
 
-print(f'writing cart header ${cart_header_size:02x} bytes');
-print(f'writing cartridge from ${start_addr:02x} to ${stop_addr:02x} (${size:02x}) bytes')
+print(f'  setup block | $0000-${size:02x} | ${size:02x} bytes')
+print(f'  boot block  | $6000-${0x6000+cart_header_size:02x} | ${cart_header_size:02x} bytes')
 
 with open(infile, 'rb') as file:
     # read the entire mega-file
@@ -82,6 +82,8 @@ with open(infile, 'rb') as file:
     cart = buf[:cart_header_size]
     buf = buf[cart_header_size:]
     end_padding = 0x80000 - 0x8000 - len(buf)+size
+
+    print(f'  app block   | $8000-${0x8000+len(buf[size:]):02x} | ${len(buf[size:]):02x} bytes')
 
     # [ boot code |   padding  | cart header  |  padding  ]
     image = (
