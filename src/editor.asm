@@ -990,8 +990,7 @@ force_enter_insert=*+5
 	lda #TEXT_REPLACE
 	sta text::insertmode
 
-	; jsr clrerror
-
+	; restore editor size
 	lda #EDITOR_HEIGHT
 	jmp __edit_resize
 
@@ -1002,7 +1001,11 @@ force_enter_insert=*+5
 ; ENTER_COMMAND
 ; Enters COMMAND mode
 .proc enter_command
-	lda mode
+	jsr is_visual
+	bne :+
+	jsr src::popp		; VIS pushes source pos, clean it off stack
+
+:	lda mode
 	cmp #MODE_COMMAND
 	beq @done
 
@@ -2102,7 +2105,8 @@ force_enter_insert=*+5
 __edit_refresh:
 .proc refresh
 	lda zp::cury
-	pha
+	pha			; save cursor Y-coord
+
 	jsr src::pushp
 	jsr text::savebuff	; save the line buffer
 
@@ -2120,6 +2124,7 @@ __edit_refresh:
 @l0:	jsr src::readline	; read line into text buffer
 	php
 	bcs :+
+
 	jsr src::prev	; print_line expects source and zp::cury to be synced
 
 :	ldx zp::cury
@@ -2128,9 +2133,10 @@ __edit_refresh:
 
 	lda zp::cury
 	jsr print_line		; draw the line of text
-	plp
-	bcs @clr
-	jsr src::next	; move past the $0d again
+	plp			; restore EOF flag
+	bcs @clr		; if EOF, clear rest of lines
+
+	jsr src::next		; move past the $0d again
 	inc zp::cury
 	lda zp::cury
 	cmp height
@@ -2152,7 +2158,7 @@ __edit_refresh:
 @done:	; restore source position
 	jsr src::popgoto
 	pla
-	sta zp::cury
+	sta zp::cury		; restore .Y position
 	lda #CUR_OFF
 	sta cur::status
 	jmp text::restorebuff	; restore current line data
