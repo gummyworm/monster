@@ -4211,8 +4211,8 @@ goto_buffer:
 __edit_gotoline:
 .proc gotoline
 @target=r6
+@diff=r6		; lines to move up or down
 @seekforward=r8		; 0=backwards 1=forwards
-@diff=r9		; lines to move up or down
 @rowsave=rb
 @cnt=rc
 	; clamp target to the total # of lines
