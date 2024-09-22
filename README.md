@@ -84,21 +84,50 @@ the program itself is virtually unaware of the resident tooling.
 Building the source requires `ca65`. The easiest way to install this is to 
 install the latest release of [cc65](https://github.com/cc65/cc65). I've tested 
 with v2.18.
-The build process also requires `python3` (any version should do), which is
-used to break apart the large binary produced by ca65 into separate bootloader and 
-application binaries.
+
+The build process also requires `python3` (any version should do).
+
+Monster can be built for two targets: disk and cartridge.  The disk format
+is useful if you want to test on your Final Expansion 3 without erasing its firmware.
+
+The cartridge is a better choice for emulators or power users on real hardware.
+It loads significantly faster
 
 #### Build Steps
- 1. Clone this repo `git clone https://github.com/gummyworm/monster.git`
- 2. `cd` to the directory you cloned to and run `make`
+Clone this repo `git clone https://github.com/gummyworm/monster.git`
+
+`cd` to the directory you cloned to and run `make` for the appropriate target
+
+To build the disk version, run
+`make disk`
+
+To build the cart version, run
+`make cart`
 
 ## Running
-The Makefile will generate two PRG's: BOOT.PRG and MASM.PRG.
-You may write these to your disk of choice and load it as you would any other program on your Vic-20: 
-`LOAD "BOOT.PRG",8,1` (or `LOAD "*",8,1` if `BOOT.PRG` is the first file on the disk).
 
-If you wish to run it in an emulator (VICE), ensure that VICE is installed on your 
-machine and run `make start` from the root of the project.
+The _Disk_ Makefile generates two PRG's: BOOT.PRG and MASM.PRG.
+You may write these to your disk of choice and load Monster as you would any other program on your Vic-20: 
+
+```
+LOAD "BOOT.PRG",8,1
+RUN
+```
+
+The _Cart_ Makefile produces a single binary file, which is the cartridge image
+for the Final Expansion 3. To flash this to your FE3 for use on real hardware, copy it to
+your IEC storage device along with the installer (`install.prg`).
+
+```
+LOAD "INSTALLER.PRG",8,1
+RUN
+```
+
+This will flash Monster to the Final Expansion.
+
+If you wish to run Monster in an emulator (VICE), ensure that VICE is installed on your 
+machine and run `make start-disk` or `make start-cart` from the root of the project to attach the
+corresponding disk or cartridge image.
 
 ---
 ## Editor Overview

@@ -28,8 +28,8 @@ disk: monster-disk.prg test.d81
 
 cart: $(CART_IMAGE)
 
-installer: install.asm
-	$(CL65) -t $(TARGET) -o $@ -C link-installer.config $^
+installer.prg: installer/install.asm
+	$(CL65) -t $(TARGET) -o $@ -C installer/link-installer.config $^
 
 monster-disk.prg: $(BOOTSRC) $(SRC) 
 	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) --asm-define $(REGION) -C link-$(TARGET)-disk.config $^ -Ln labels.txt -v -m map.txt
