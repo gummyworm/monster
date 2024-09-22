@@ -552,6 +552,17 @@ data: .res $6000
 .endproc
 
 ;******************************************************************************
+; CURR LINE
+; Returns the line number that the cursor is on
+; OUT:
+;   - .XY: the current line
+.export __src_currline
+.proc __src_currline
+	ldxy line
+	rts
+.endproc
+
+;******************************************************************************
 ; POS
 ; Returns the current source position.  You may go to this position with the
 ; src::goto routine.  Note that if the source changes since this procedure is

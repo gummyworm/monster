@@ -563,7 +563,7 @@ main:	jsr key::getch
 	jsr asm::startpass
 
 @pass1loop:
-	ldxy src::line
+	jsr src::currline
 	stxy dbgi::srcline
 	jsr src::readline
 	ldxy #mem::linebuffer
@@ -600,7 +600,7 @@ main:	jsr key::getch
 	jsr asm::startpass
 
 @pass2loop:
-	ldxy src::line
+	jsr src::currline
 	jsr dbgi::setline
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
@@ -1049,7 +1049,7 @@ force_enter_insert=*+5
 	sta text::insertmode
 
 	; save current editor position
-	ldxy src::line
+	jsr src::currline
 	stxy visual_start_line
 	lda zp::curx
 	sta visual_start_x
@@ -1191,7 +1191,7 @@ force_enter_insert=*+5
 ; OUT:
 ;  - .Z: set if we're on the 1st line of the source
 .proc on_line1
-	ldxy src::line
+	jsr src::currline
 	cmpw #1
 	rts
 .endproc
@@ -1662,7 +1662,7 @@ force_enter_insert=*+5
 	jsr src::goto
 
 	; move to start of the selection that was yanked (if we're not there)
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bcc @ok			; already on the start line
 	beq @fixx		; already on start line, maybe not start column
@@ -2276,7 +2276,7 @@ __edit_refresh:
 	beq @done
 
 	; check if the current line is the highlighted one
-	ldxy src::line
+	jsr src::currline
 	cmpw __edit_highlight_line
 	bne @done
 	lda #$01
@@ -2305,7 +2305,7 @@ __edit_set_breakpoint:
 	lda #DEFAULT_900F
 	bne @done
 
-@set:	ldxy src::line
+@set:	jsr src::currline
 	jsr dbg::setbrkatline
 	lda #BREAKPOINT_ON_COLOR
 
@@ -2318,7 +2318,7 @@ __edit_set_breakpoint:
 	pha
 	jsr dbgi::line2addr
 	stxy r0
-	ldxy src::line
+	jsr src::currline
 	pla
 
 	; map the address to the breakpoint
@@ -3175,7 +3175,7 @@ goto_buffer:
 	cmp #MODE_VISUAL_LINE
 	bne @chkvis
 	; if we're below the start line, redraw the current line (deselect)
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @up
 	bcc @up
@@ -3189,7 +3189,7 @@ goto_buffer:
 	cmp #MODE_VISUAL
 	bne @up
 
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @sameline
 @diffline:
@@ -3224,7 +3224,7 @@ goto_buffer:
 
 @viscur:
 	; handle cursor state for VISUAL mode
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bcc @up
 	beq @up
@@ -3330,7 +3330,7 @@ goto_buffer:
 	lda #$00
 	sta @togglecur
 
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bcc @sel
 	beq @eq
@@ -3436,7 +3436,7 @@ goto_buffer:
 	sta @deselect
 
 	; if (cur-line > visual_start_line) we are DESELECTING: unhighlight
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @eq
 	bcc @movecur		; not deselecting, continue
@@ -3575,7 +3575,7 @@ goto_buffer:
 	cmp #MODE_VISUAL
 	bne @movecur
 
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @eq
 	bcs @movecur
@@ -3643,7 +3643,7 @@ goto_buffer:
 	bne @chkvis
 
 	; if we're above the start line, redraw the current line (deselect)
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bcs @cont
 	lda zp::cury
@@ -3658,7 +3658,7 @@ goto_buffer:
 	jsr text::rendered_line_len
 	stx @linelen
 
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @sameline
 
@@ -3697,7 +3697,7 @@ goto_buffer:
 
 @viscur:
 	; handle cursor state for VISUAL mode
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bne @cont
 	lda zp::curx
@@ -3791,7 +3791,7 @@ goto_buffer:
 	lda #$00
 	sta @togglecur
 
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	beq @eq
 	bcs @sel
@@ -4159,7 +4159,7 @@ goto_buffer:
 @notfound:
 	jmp src::popgoto
 
-@found:	ldxy src::line	; get the line we're moving to
+@found:	jsr src::currline	; get the line we're moving to
 	stxy @target
 
 ; for every newline in the buffer AFTER the text we're looking for
@@ -4225,7 +4225,7 @@ __edit_gotoline:
 @cnt=rc
 	cmpw src::lines	; is target < total # of lines?
 	bcc :+		; yes, move to target
-	ldxy src::lines ; no, move to the last line
+	ldxy src::lines	; no, move to the last line
 :	stxy @target
 	cmpw src::line	; is the target forward or backward?
 	bne :+
@@ -4326,7 +4326,7 @@ __edit_gotoline:
 @shortdown:
 	lda zp::cury
 	jsr text::drawline	; redraw current line
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line	; deselecting?
 	bcc @shortdownloop	; skip if so
 	php
@@ -4427,7 +4427,7 @@ __edit_gotoline:
 
 	; if we are on the selection that the line began at, 
 	; only reverse the section of the line that is highlighted
-	ldxy src::line
+	jsr src::currline
 	cmpw visual_start_line
 	bne @noteq
 
@@ -4660,11 +4660,12 @@ __edit_gotoline:
 	rts		; jumplist is empty
 
 :	dec jumpptr
-	lda jumpptr
 	asl
 	tax
-	ldy jumplist+1,x
-	lda jumplist,x
+
+	; use -2 offset because we loaded jumpptr before DEC'ing
+	ldy jumplist+1-2,x
+	lda jumplist-2,x
 	tax
 	jmp gotoline
 .endproc
@@ -4786,7 +4787,7 @@ __edit_gotoline:
 	jsr src::filename
 	bcs :+
 	jsr dbgi::getfileid	; .A = id of the file
-	ldxy src::line
+	jsr src::currline
 :	rts
 .endproc
 
