@@ -513,6 +513,8 @@ data: .res $6000
 ;******************************************************************************
 ; PUSHP
 ; Pushes the current source position to an internal stack.
+; OUT:
+;   - .C: set on error (the stack is full)
 .export __src_pushp
 .proc __src_pushp
 	lda sp
@@ -534,7 +536,8 @@ data: .res $6000
 ; POPP
 ; Returns the most recent source position pushed in .YX
 ; OUT:
-;  - .XY: the most recently pushed source position
+;   - .XY: the most recently pushed source position
+;   - .C: set on error (the stack is empty)
 .export __src_popp
 .proc __src_popp
 	lda sp
@@ -553,7 +556,7 @@ data: .res $6000
 
 ;******************************************************************************
 ; CURR LINE
-; Returns the line number that the cursor is on
+; Returns the line number that the source cursor is on
 ; OUT:
 ;   - .XY: the current line
 .export __src_currline
