@@ -1662,8 +1662,7 @@ force_enter_insert=*+5
 	jsr src::goto
 
 	; move to start of the selection that was yanked (if we're not there)
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	bcc @ok			; already on the start line
 	beq @fixx		; already on start line, maybe not start column
 
@@ -3178,8 +3177,7 @@ goto_buffer:
 	cmp #MODE_VISUAL_LINE
 	bne @chkvis
 	; if we're below the start line, redraw the current line (deselect)
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	beq @up
 	bcc @up
 	lda zp::cury
@@ -3192,8 +3190,7 @@ goto_buffer:
 	cmp #MODE_VISUAL
 	bne @up
 
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	beq @sameline
 @diffline:
 	ldx zp::curx
@@ -3227,8 +3224,7 @@ goto_buffer:
 
 @viscur:
 	; handle cursor state for VISUAL mode
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	bcc @up
 	beq @up
 @toggle:
@@ -3333,8 +3329,7 @@ goto_buffer:
 	lda #$00
 	sta @togglecur
 
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	bcc @sel
 	beq @eq
 
@@ -3439,8 +3434,7 @@ goto_buffer:
 	sta @deselect
 
 	; if (cur-line > visual_start_line) we are DESELECTING: unhighlight
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	beq @eq
 	bcc @movecur		; not deselecting, continue
 @desel: lda #$01		; set deselect flag
@@ -3578,8 +3572,7 @@ goto_buffer:
 	cmp #MODE_VISUAL
 	bne @movecur
 
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	beq @eq
 	bcs @movecur
 @desel:	lda #$01
@@ -3646,8 +3639,7 @@ goto_buffer:
 	bne @chkvis
 
 	; if we're above the start line, redraw the current line (deselect)
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	bcs @cont
 	lda zp::cury
 	jsr print_line
@@ -3661,8 +3653,7 @@ goto_buffer:
 	jsr text::rendered_line_len
 	stx @linelen
 
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	beq @sameline
 
 @diffline:
@@ -3678,9 +3669,11 @@ goto_buffer:
 	; vis start line == current line, reverse based on cursor's column
 	; relative to the visual start column
 	ldx @linelen
+	dex
 	ldy zp::curx		; reverse curx to end of line
 	cpy visual_start_x
 	bcs @rvs0
+
 	ldx visual_start_x
 	lda zp::cury
 	jsr bm::rvsline_part	; reverse OFF the part before visual_start_x
@@ -3700,8 +3693,7 @@ goto_buffer:
 
 @viscur:
 	; handle cursor state for VISUAL mode
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	bne @cont
 	lda zp::curx
 	cmp visual_start_x
@@ -3794,8 +3786,7 @@ goto_buffer:
 	lda #$00
 	sta @togglecur
 
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	beq @eq
 	bcs @sel
 
@@ -4304,6 +4295,7 @@ __edit_gotoline:
 @shortup:
 	jsr is_visual
 	bne @shortuploop
+
 	ldy #$00
 	ldx zp::curx
 	inx
@@ -4327,10 +4319,12 @@ __edit_gotoline:
 	beq @shortdone
 
 @shortdown:
+	jsr is_visual
+	bne @shortdownloop
+
 	lda zp::cury
 	jsr text::drawline	; redraw current line
-	jsr src::currline
-	cmpw visual_start_line	; deselecting?
+	jsr cmp_vis_start	; deselecting
 	bcc @shortdownloop	; skip if so
 	php
 	jsr text::rendered_line_len
@@ -4430,8 +4424,7 @@ __edit_gotoline:
 
 	; if we are on the selection that the line began at, 
 	; only reverse the section of the line that is highlighted
-	jsr src::currline
-	cmpw visual_start_line
+	jsr cmp_vis_start
 	bne @noteq
 
 @eq:	lda @seekforward
@@ -4683,6 +4676,17 @@ __edit_gotoline:
 	ldx readonly
 	beq is_visual	; not in readonly mode, check VISUAL (treat as RO)
 @ro:	ldx #$00	; set .Z
+	rts
+.endproc
+
+;******************************************************************************
+; CMP VIS START
+; Checks if the source cursor is on the line that the visual selection began
+; on.  Assumes that we are in VISUAL/(LINE) mode
+; OUT:
+.proc cmp_vis_start
+	jsr src::currline
+	cmpw visual_start_line
 	rts
 .endproc
 
