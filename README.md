@@ -123,7 +123,7 @@ LOAD "INSTALLER.PRG",8,1
 RUN
 ```
 
-This will flash Monster to the Final Expansion.
+This will flash Monster to the Final Expansion.  Reset the computer to enter Monster.
 
 If you wish to run Monster in an emulator (VICE), ensure that VICE is installed on your 
 machine and run `make start-disk` or `make start-cart` from the root of the project to attach the
