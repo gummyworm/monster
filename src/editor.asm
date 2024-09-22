@@ -143,14 +143,13 @@ status_row: .byte 0
 main:	jsr key::getch
 	beq @done
 
-	pha
 	jsr is_visual
 	beq :+ 		; leave cursor on if in VISUAL/VISUAL_LINE mode
+	pha
 	jsr cur::off
+	pla
 
-:	pla
-
-	jsr __edit_handle_key
+:	jsr __edit_handle_key
 @done:	jsr text::update
 	jmp main	; we've used enough time, go straight to getting a key
 .endproc
@@ -164,11 +163,9 @@ main:	jsr key::getch
 ;  - .C: set if the key resulted in no action in the editor
 .export __edit_handle_key
 .proc __edit_handle_key
-	ldx mode
-	cpx #MODE_VISUAL	; handle keys in VISUAL mode like COMMAND
-	beq @cmd
-	cpx #MODE_VISUAL_LINE	; handle VISUAL_LINE mode like COMMAND
-	beq @cmd
+	jsr is_visual
+	beq @cmd		; handle keys in VISUAL mode like COMMAND
+
 	cpx #MODE_COMMAND
 	bne @ins
 @cmd:	jsr onkey_cmd
@@ -4495,7 +4492,7 @@ __edit_gotoline:
 	jsr is_visual
 	bne @longdone
 
-	cmp #MODE_VISUAL
+	cpx #MODE_VISUAL
 	beq @vis
 @visline:
 	; if VISUAL LINE, reverse the entire line
@@ -4687,13 +4684,13 @@ __edit_gotoline:
 ; IS VISUAL
 ; Returns .Z set if the current mode is VISUAL or VISUAL_LINE
 ; OUT:
-;  - .A: the current editor mode
+;  - .X: the current editor mode
 ;  - .Z: set if current mode is VISUAL or VISUAL_LINE
 .proc is_visual
-	lda mode
-	cmp #MODE_VISUAL
+	ldx mode
+	cpx #MODE_VISUAL
 	beq :+
-	cmp #MODE_VISUAL_LINE
+	cpx #MODE_VISUAL_LINE
 :	rts
 .endproc
 
@@ -4787,7 +4784,7 @@ __edit_gotoline:
 	jsr src::filename
 	bcs :+
 	jsr dbgi::getfileid	; .A = id of the file
-	jsr src::currline
+	jmp src::currline
 :	rts
 .endproc
 

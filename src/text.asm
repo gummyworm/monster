@@ -117,7 +117,7 @@ render_off: .byte 0
 	sta mem::statusline+@columnstart+1,y
 
 	; display current line
-	jsr src::line
+	ldxy src::line
 	jsr util::todec
 	ldx #$00
 @l0:	lda mem::spare,x
