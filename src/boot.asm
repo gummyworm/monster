@@ -86,19 +86,47 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__DATA_SIZE__+__FASTTEXT_SIZE__+__
 @size=r4
 @bank=r6
 	sta @bank
-@copy:	ldy #$00
+	lda @size+1
+	beq @lastpage
+
+	ldy #$00
+@pageloop:
+	lda #$a1
+	sta $9c02	; source bank
+
+	lda (@src),y
+
+	ldx @bank
+	stx $9c02	; dest bank
+
+	sta (@dst),y
+	dey
+	bne @pageloop
+	inc @src+1
+	inc @dst+1
+	dec @size+1
+	bne @pageloop
+
+@lastpage:
+	ldy @size
+	dey
+:	lda #$a1
+	sta $9c02	; source bank
+	lda (@src),y
+	ldx @bank
+	stx $9c02	; dest bank
+	sta (@dst),y
+	dey
+	bne :-
+
+@lastbyte:
 	lda #$a1
 	sta $9c02
 	lda (@src),y
 	ldx @bank
 	stx $9c02
 	sta (@dst),y
-	incw @src
-	incw @dst
-	decw @size
-	ldxy @size
-	cmpw #$00
-	bne @copy
+
 	lda #$a1
 	sta $9c02
 .endmacro

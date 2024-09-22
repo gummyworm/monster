@@ -3321,7 +3321,7 @@ goto_buffer:
 ;
 ; If the editor is not in visual mode, this routine does nothing
 .proc ccup_highlight
-@togglecur=r6
+@togglecur=r7
 	lda mode
 	cmp #MODE_VISUAL
 	bne @done
@@ -3775,8 +3775,8 @@ goto_buffer:
 ;
 ; If the editor is not in visual mode, this routine does nothing
 .proc ccdown_highlight
-@togglecur=r6
-@tmp=r7
+@togglecur=r7
+@tmp=r8
 	lda mode
 	cmp #MODE_VISUAL
 	bne @done
