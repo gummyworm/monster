@@ -18,9 +18,10 @@
 
 ;******************************************************************************
 ; CONSTANTS
-MAX_ANON      = 1024	; max number of anonymous labels
+MAX_ANON      = 750	; max number of anonymous labels
 MAX_LABEL_LEN = 32	; 8 bytes for namespace + 8 for label name
 SCOPE_LEN     = 8	; max len of namespace (scope)
+MAX_LABELS    = 750
 
 ;******************************************************************************
 ; ZEROPAGE
@@ -30,6 +31,8 @@ allow_overwrite = zp::labels+4
 __label_clr:
 	LBLJUMP clr
 
+;******************************************************************************
+; Label JUMP table
 .CODE
 .export __label_add
 __label_add:
@@ -84,6 +87,9 @@ __label_get_fanon: LBLJUMP get_fanon
 .export __label_get_banon
 __label_get_banon: LBLJUMP get_banon
 
+.export __label_index
+__label_index: LBLJUMP index
+
 ;******************************************************************************
 ; LABELS
 ; Table of label names. Each entry corresponds to an entry in label_addresses,
@@ -103,17 +109,39 @@ __label_numanon:
 numanon: .word 0	; total number of anonymous labels
 
 .segment "LABEL_BSS"
-scope: .res 8		; buffer containing the current scope
-
 
 ;******************************************************************************
 ; LABEL_ADDRESSES
 ; Table of addresses for each label
 ; The address of a given label id is label_addresses + (id * 2)
+; Labels are also stored sorted by address in label_addresses_sorted.
+; A corresponding array maps the sorted addresses to their ID.
+;
+; e.g. for the following labels:
+;    | label |  id   |  address |
+;    |-------|-------|----------|
+;    |   A   |   1   |  $1003   |
+;    |   B   |   2   |  $1009   |
+;    |   C   |   3   |  $1000   |
+;
+; the sorted addresses will look like this:
+;    | addres_sorted | sorted_id |
+;    |---------------|-----------|
+;    |    $1000      |    3      |
+;    |    $1003      |    1      |
+;    |    $1009      |    2      |
 .export label_addresses
-label_addresses = $a000
+label_addresses: .res MAX_LABELS*2
 
-anon_addrs = $b000	; address table for each anonymous label.
+.assert * & $01 = $00, error, "label_addresses_sorted must be word aligned"
+.export label_addresses_sorted
+label_addresses_sorted:     .res MAX_LABELS*2
+label_addresses_sorted_ids: .res MAX_LABELS*2
+
+scope: .res 8 ; buffer containing the current scope
+
+; address table for each anonymous label
+anon_addrs: .res MAX_ANON*2
 
 .segment "LABELS"
 ;******************************************************************************
@@ -1023,7 +1051,12 @@ anon_addrs = $b000	; address table for each anonymous label.
 
 ;******************************************************************************
 ; BY_ADDR
-; Returns the label for a given address
+; Returns the label for a given address by performing a binary search on the
+; cache of sorted label addresses
+; NOTE: Labels must be indexed (lbl::index) in order for this function to return
+; the correct ID. If you've added a label since the last index, it is necessary
+; to re-index.
+;
 ; IN:
 ;  - .XY: the label address to get the name of
 ; OUT:
@@ -1033,31 +1066,99 @@ anon_addrs = $b000	; address table for each anonymous label.
 @other=rc
 @addr=re
 @cnt=zp::tmp10
+@lb=rc
+@ub=re
+@m=zp::tmp10
 	stxy @addr
-	ldxy #$ffff
-	stxy @cnt
-@l0:	incw @cnt
-	ldxy @cnt
-	cmpw numlabels
-	beq @notfound
-	jsr by_id
-	stxy @other
+
+	lda numlabels
+	asl
+	sta @ub
+	lda numlabels+1
+	rol
+	sta @ub+1
+
+	; @lb = label_addresses_sorted
+	; @ub = label_addresses_sorted + (numlabels*2)
+	lda #<label_addresses_sorted
+	sta @lb
+	adc @ub
+	sta @ub
+	lda #>label_addresses_sorted
+	sta @lb+1
+	adc @ub+1
+	sta @ub+1
+
+@loop:	lda @ub
+	sec
+	sbc @lb
+	tax
+	lda @ub+1
+	sbc @lb+1
+	bcc @done	; if low > high, not found
+	lsr		; calculate (high - low) / 2
+	tay
+	txa
+	ror			; carry cleared because multiple of 2
+	and #$02		; align to element size
+	adc @lb			; mid = low + ((high - low) / 2)
+	sta @m
+	tya
+	adc @lb+1
+	sta @m+1
+	lda @addr+1	; load target value MSB
+	ldy #1		; load index to MSB
+	cmp (@m),Y	; compare MSB
+	beq @chklsb
+	bcc @modhigh	; A[mid] > value
+
+@modlow:
+	; A[mid] < value
+	lda @m		; low = mid + element size
+	adc #2-1	; carry always set
+	sta @lb
+	lda @m+1
+	adc #0
+	sta @lb+1
+	jmp @loop
+
+@chklsb:
+	lda @addr	; load target value LSB
+	dey		; set index to LSB
+	cmp (@m),Y	; compare LSB
+	beq @done
+	bcs @modlow	; A[mid] < value
+
+@modhigh:		; A[mid] > value
+	lda @m		; high = mid - element size
+	sbc #2-1	; carry always clear
+	sta @ub
+	lda @m+1
+	sbc #0
+	sta @ub+1
+	jmp @loop
+
+@done:	bcc @err
+
+	; look up the ID for the address
+	lda @lb
+	clc
+	adc #<(label_addresses_sorted_ids - label_addresses_sorted)
+	sta @lb
+
+	lda @lb+1
+	adc #>(label_addresses_sorted_ids - label_addresses_sorted)
+	sta @lb+1
 
 	ldy #$00
-	lda (@other),y
-	cmp @addr
-	bne @l0
-
+	lda (@lb),y
+	tax
 	iny
-	lda (@other),y
-	cmp @addr+1
-	bne @l0
-
-@found:	ldxy @cnt
+	lda (@lb),y
+	tay
 	RETURN_OK
 
-@notfound:
-	sec
+@err:	sec
 	rts
 .endproc
 
@@ -1184,7 +1285,6 @@ anon_addrs = $b000	; address table for each anonymous label.
 	rts
 .endproc
 
-
 ;******************************************************************************
 ; ISWHITESPACE
 ; Checks if the given character is a whitespace character
@@ -1253,4 +1353,296 @@ anon_addrs = $b000	; address table for each anonymous label.
 	bne :+
 @yes:	rts
 :	jmp isoperator
+.endproc
+
+;******************************************************************************
+; MACROS
+; These macros are used by sort_by_addr
+
+;******************************************************************************
+; update @idi and @idj based on the values of @i and @j
+; these pointers are offset by a fixed amount from @i and @j
+.macro setptrs
+	lda @i
+	clc
+	adc #<(label_addresses_sorted_ids-label_addresses_sorted)
+	sta @idi
+	lda @i+1
+	adc #>(label_addresses_sorted_ids-label_addresses_sorted)
+	sta @idi+1
+
+	lda @j
+	clc
+	adc #<(label_addresses_sorted_ids-label_addresses_sorted)
+	sta @idj
+	lda @j+1
+	adc #>(label_addresses_sorted_ids-label_addresses_sorted)
+	sta @idj+1
+.endmacro
+
+;******************************************************************************
+; copies the unsorted addresses to the sorted addresses array and initializes
+; the unsorted ids array
+.macro setup
+@cnt=r0
+@src=r2
+@dst=r4
+@id=r0
+	; @cnt = numlabels*2
+	lda numlabels
+	sta @cnt
+	lda numlabels+1
+	sta @cnt+1
+
+	ldxy #label_addresses
+	stxy @src
+	ldxy #label_addresses_sorted
+	stxy @dst
+
+	; copy the addresses
+	ldy #$00
+@l0:	lda (@src),y
+	sta (@dst),y
+	iny
+	lda (@src),y
+	sta (@dst),y
+	iny
+	bne :+
+	inc @src+1	; next page
+	inc @dst+1
+
+:	decw @cnt
+	bne @l0
+	lda @cnt+1
+	bne @l0
+	jmp *
+
+	; init the unsorted ids array
+	ldxy #label_addresses_sorted_ids
+	stxy @dst
+
+	lda #$00
+	sta @id
+	sta @id+1
+	tay
+
+@idloop:
+	lda @id
+	sta (@dst),y	; store LSB
+	iny
+	lda @id+1
+	sta (@dst),y	; store MSB
+	iny
+	bne :+
+	inc @dst+1	; next page
+
+:	incw @id
+	lda @id
+	cmp numlabels
+	bne @idloop
+	lda @id+1
+	cmp numlabels+1
+	bne @idloop
+.endmacro
+
+;******************************************************************************
+; INDEX
+; Updates the by-address sorting of the labels. This allows labels to be looked
+; up by their address (see lbl::by_addr).
+;
+; Code adapted from code by Vladimir Lidovski aka litwr (with help of BigEd)
+; via codebase64.org
+.proc index
+@i   = r0
+@j   = r2
+@x   = r4
+@ub  = r6
+@lb  = r8
+@tmp = ra
+@num = rc
+@idi = zp::tmp10
+@idj = zp::tmp12
+	setup
+
+	; @num = 2*(numlabels-1)
+	lda numlabels
+	sec
+	sbc #$01
+	sta @num
+	lda numlabels+1
+	sbc #$00
+	sta @num+1
+	asl @num
+	rol @num+1
+	jmp @quicksort		; enter the sort routine
+
+@quicksort0:
+	tsx
+	cpx #16		; stack limit
+	bcs @qsok
+
+@qs_csp=*+1
+	ldx #$00
+	txs
+
+@quicksort:
+	lda #<label_addresses_sorted
+	clc
+	adc @num
+	sta @ub
+	lda #>label_addresses_sorted
+	adc @num+1
+	sta @ub+1
+
+	lda #>label_addresses_sorted
+	sta @lb+1
+	lda #<label_addresses_sorted
+	sta @lb
+
+	tsx
+	stx @qs_csp
+
+@qsok:	; set 
+	lda @lb
+	sta @i
+
+	lda @lb+1
+	sta @i+1
+	ldy @ub+1
+	sty @j+1
+	lda @ub
+	sta @j
+	clc		; this code works only for the evenly aligned arrays
+	adc @i
+	and #$fc
+	sta @tmp
+	tya
+	adc @i+1
+	ror
+	sta @tmp+1
+	ror @tmp
+
+	ldy #0
+	lda (@tmp),y
+	sta @x
+	iny
+	lda (@tmp),y
+	sta @x+1
+@qsloop1:
+	ldy #$00		; compare array[i] and x
+	lda (@i),y
+	cmp @x
+	iny
+	lda (@i),y
+	sbc @x+1
+	bcs @qs_l1
+
+	lda #$02
+	adc @i
+	sta @i
+	bcc @qsloop1
+	inc @i+1
+	bne @qsloop1	; branch always
+
+@qs_l1:	ldy #$00	; compare array[j] and x
+	lda @x
+	cmp (@j),y
+	iny
+	lda @x+1
+	sbc (@j),y
+	bcs @qs_l3
+
+	lda @j
+	sbc #$01
+	sta @j
+	bcs @qs_l1
+
+	dec @j+1
+	bne @qs_l1	; branch always
+
+@qs_l3:
+	lda @j		; compare i and j
+	cmp @i
+	lda @j+1
+	sbc @i+1
+	bcc @qs_l8
+
+@qs_l6:	setptrs
+	lda (@j),y	; swap addresses[i] and addresses[j]
+	tax
+	lda (@i),y
+	sta (@j),y
+	txa
+	sta (@i),y
+
+	lda (@idj),y	; swap ids[i] and ids[j]
+	tax
+	lda (@idi),y
+	sta (@idj),y
+	txa
+	sta (@idi),y
+
+	dey
+	bpl @qs_l6
+
+	;sec
+	lda #$01	; CY=1
+	adc @i
+	sta @i
+	bcc :+
+	inc @i+1
+:	sec
+	lda @j
+	sbc #$02
+	sta @j
+	bcs :+
+	dec @j+1
+	;lda @j
+:	cmp @i
+	lda @j+1
+	sbc @i+1
+	;bcc *+5
+	jmp @qsloop1
+
+@qs_l8:	lda @lb
+	cmp @j
+	lda @lb+1
+	sbc @j+1
+	bcs @qs_l5
+
+	lda @i+1
+	pha
+	lda @i
+	pha
+	lda @ub+1
+	pha
+	lda @ub
+	pha
+	lda @j+1
+	sta @ub+1
+	lda @j
+	sta @ub
+	jsr @quicksort0
+
+	pla
+	sta @ub
+	pla
+	sta @ub+1
+	pla
+	sta @i
+	pla
+	sta @i+1
+
+@qs_l5:	lda @i
+	cmp @ub
+	lda @i+1
+	sbc @ub+1
+	bcs @qs_l7
+
+	lda @i+1
+	sta @lb+1
+	lda @i
+	sta @lb
+	jmp @qsok
+@qs_l7: rts
 .endproc
