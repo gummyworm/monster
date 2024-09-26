@@ -76,7 +76,7 @@ but it is also used to store debug info and some code.
 The banked memory allows the user program to execute in almost complete
 isolation.  This means that, although this environment consumes a vast amount of
 memory itself, everything except address $9c02 (the bank select register) and 
-a couply tiny interrupt handlers is preserved when control moves between the 
+a couple tiny interrupt handlers is preserved when control moves between the 
 editor and the user program.  Moreso even than small monitor cartridges, 
 the program itself is virtually unaware of the resident tooling.
 
@@ -143,7 +143,7 @@ below for more info on modes).
 |  Key   | Name          |   Description                                                         |
 |--------|---------------|-----------------------------------------------------------------------|
 | C= + b | Set Breakpoint| sets a breakpoint at the current line                                 |
-| C= + c | Refresh       | refrehshes the screen by redrawing the source buffer                  |
+| C= + c | Refresh       | refreshes the screen by redrawing the source buffer                  |
 | C= + h | Help          | displays the help menu                                                |
 | C= + l | List          | list directory, shows the files on the current disk                   |
 | C= + n | New buffer    | creates a new source buffer and sets it as the active buffer          |
@@ -206,7 +206,7 @@ Example:
 #### Disassemble :D <start address>, <end address>
 Disassembles the contents of the _virtual_ memory between the given range.
 e.g. `:D $1001, $1040`.
-Expressions may be used in addtion to literal addresses when defining the disassembly range. 
+Expressions may be used in addition to literal addresses when defining the disassembly range. 
 
 This could be useful, for example, if your program generates code and you want to view
 the results.
@@ -296,7 +296,7 @@ The following keys are handled in COMMAND mode.
 |    0       | Column 0   | moves the cursor to the first column of the current line               |
 |    a       | append char| enters insert mode and moves to the next character                     |
 |    A       | append line| enters insert mode and moves to the last character in the current line |
-|    o       | open line  | opens a new line below the cursror and moves to it                     |
+|    o       | open line  | opens a new line below the cursor and moves to it                     |
 |    O       | open line ^| opens a new line above the cursor and moves to it                      |
 |    p       | paste below| pastes the contents of the copy-buffer to the line below the cursor    |
 |    P       | paste above| pastes the contents of the copy-buffer to the line above the cursor    |
@@ -312,7 +312,7 @@ commands accessed via them.
 ### Visual Mode (v)
 In _VISUAL_ mode (accessed via `v` in _COMMAND_ mode), the user can select
 a block of text which may then be deleted or copied.  Below is the table of supported commands 
-while in visual mode. The `<-` key will return the user to to _COMMAND_ mode.
+while in visual mode. The `<-` key will return the user to _COMMAND_ mode.
 
 |  Key       | Name       | Description                                                            |
 |------------|------------|------------------------------------------------------------------------|
@@ -433,7 +433,7 @@ PROC1:
     RTS
 ```
 Note that the scope of the `@L0` defined under `PROC0` is valid until the next
-non-local label (`PROC1`) at which point the name is recylced and may be used
+non-local label (`PROC1`) at which point the name is recycled and may be used
 again.
 
 Because of the way local labels are implemented they are not totally 
@@ -512,7 +512,7 @@ Examples:
  | .DB "HI",0	     | $48 $49 $00          |
 
 #### .DW _expression_, ..., _expression_
-deines a sequence of words from the comma-separated list that      |
+defines a sequence of words from the comma-separated list that      |
 
 Examples:
  |       code        |    generated binary     |
@@ -549,7 +549,7 @@ Conditionally assembles the lines between this directive and its matching
 #### .IFDEF _label_
 Evaluates to TRUE if _label_ is defined.  This is different from .IF because
 _label_ may be defined to be 0 and this will still evaluate to TRUE.
-This can be useful inside macros to determine if a paramter was provided or not.
+This can be useful inside macros to determine if a parameter was provided or not.
 
 #### .INC _filename_
 Includes a file at the line of the directive. The file is loaded line-by-line
@@ -657,7 +657,7 @@ Becomes
 
 ---
 ### Macros
-Macros offer a conveinient way to abstract patterns that you find yourself
+Macros offer a convenient way to abstract patterns that you find yourself
 frequently writing.
 
 They may be recursive as in this example:
@@ -856,7 +856,7 @@ Next to the registers, under the CLK label, is a 24-bit counter that displays th
 number of cycles executed by the instructions that have been STEP'd into.
 The stopwatch can be reset to 0 with the `C= + r` key combination.
 
-Note that the number of cylces is displayed in decimal unlike the rest of the
+Note that the number of cycles is displayed in decimal unlike the rest of the
 information in the debug view, which is displayed in hexadecimal.
 
 ---

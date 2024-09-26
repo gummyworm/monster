@@ -69,7 +69,7 @@ sections_flags:   .res MAX_SECTIONS
 ;******************************************************************************
 ; IMPORT TABLES
 ; Each object file has its own table of imports. This allows the object code to
-; store refrences to external labels in a more efficient manner: by storing the
+; store references to external labels in a more efficient manner: by storing the
 ; index to the label in the IMPORT table instead of the label itself.
 import_tabslo: .res MAX_OBJS
 import_tabshi: .res MAX_OBJS
@@ -391,7 +391,7 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 
 ;******************************************************************************
 ; LINK OBJECT
-; Handles the main block of the object code defintion using the data extracted
+; Handles the main block of the object code definition using the data extracted
 ; from the OBJ headers.
 .proc link_object
 	ldx activeobj
@@ -452,7 +452,7 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ;******************************************************************************
 ; OBJ_REL_WORD
 ; Handles the OBJ_REL_WORD command
-; Inserts a WORD with the value of the symobl that follows + an offset to
+; Inserts a WORD with the value of the symbol that follows + an offset to
 ; the current address of the segment pointer
 ; A textual representation of this command looks like this:
 ;  `RW LABEL 12`

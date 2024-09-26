@@ -106,7 +106,7 @@ __debug_interface: .byte DEBUG_IFACE_GUI
 ;  2. restore 3 bytes of debug memory at (prev_pc)
 startsave:
 stepsave:  .byte 0	; opcode to save under BRK
-brkaddr:   .word 0 	; address where our brakpoint is set
+brkaddr:   .word 0 	; address where our breakpoint is set
 
 ;******************************************************************************
 ; Debug state values for internal RAM locations
@@ -1103,7 +1103,7 @@ restore_regs:
 
 	ldxy sim::effective_addr	; if so, mark the watch if there is one
 	jsr watch::mark			; if there's a watch at this addr, mark it
-	bcc @setbrk			; if there's no watch, contiue
+	bcc @setbrk			; if there's no watch, continue
 
 	; activate the watch window so user sees change
 	lda #(DEBUG_INFO_START_ROW+1)*8
@@ -1140,7 +1140,7 @@ restore_regs:
 	cmp action		; are we stepping over
 	bne @countcycles	; skip if not
 
-; if stepping over a JSR, set breatpoint at current PC + 3
+; if stepping over a JSR, set breakpoint at current PC + 3
 ; also flag that we need to save all RAM
 @stepover:
 	lda #$00
@@ -1655,7 +1655,7 @@ __debug_remove_breakpoint:
 	bcs @refresh		; if already at last column, don't advance
 	inc zp::curx		; bump up curx
 	ldx #$00
-; align x-position to either a value in @offsets or a value in @offests+1
+; align x-position to either a value in @offsets or a value in @offsets+1
 @nextx:	cmp @offsets,x		; was X at the start of the offset?
 	beq @refresh		; if so, incrementing it by 1 was sufficient
 	bcs @next		; if X
