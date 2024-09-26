@@ -9,6 +9,7 @@
 .import __label_get_fanon
 .import __label_get_name
 .import __label_get_addr
+.import __label_index
 .import __label_is_local
 .import __label_isvalid
 .import __label_address
@@ -32,6 +33,7 @@
 	get_fanon  = __label_get_fanon
 	getname    = __label_get_name
 	getaddr    = __label_get_addr
+	index      = __label_index
 	islocal    = __label_is_local
 	isvalid    = __label_isvalid
 	name_by_id = __label_name_by_id

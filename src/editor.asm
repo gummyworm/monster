@@ -38,6 +38,7 @@
 .include "state.inc"
 .include "string.inc"
 .include "strings.inc"
+.include "symview.inc"
 .include "text.inc"
 .include "udgedit.inc"
 .include "util.inc"
@@ -53,8 +54,6 @@ MODE_VISUAL      = 3
 MODE_VISUAL_LINE = 4
 
 START_MODE = MODE_COMMAND
-
-SCREEN_H = 23
 
 MAX_JUMPS = 8
 
@@ -108,7 +107,7 @@ status_row: .byte 0
 .export __edit_init
 .proc __edit_init
 	jsr bm::init
-	jsr clear
+	jsr __edit_clear
 	jsr edit
 	jsr cancel
 
@@ -617,9 +616,9 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
-; DISPLAY_RESULT
+; ASM DONE
 ; Displays the result of the assembly. Prints an error if one occurred or
-; the size of the assembled program if not
+; the size of the assembled program if not.
 ; IN:
 ;  - .C: set if there was an assembly error
 ;  - .A: the error code (if error occurred)
@@ -674,6 +673,7 @@ main:	jsr key::getch
 	lda #DEFAULT_RVS
 	ldx #STATUS_ROW
 	jsr draw::hline
+	jsr lbl::index		; index labels for debugging, etc.
 	RETURN_OK
 
 .RODATA
@@ -2052,7 +2052,7 @@ force_enter_insert=*+5
 @num_special_keys=*-@specialkeys
 .linecont +
 .define specialvecs home, command_asm, command_asmdbg, show_buffers, refresh, \
-	dir::view, list_symbols, \
+	dir::view, symview::enter, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
 	next_buffer, prev_buffer, udgedit, cancel
@@ -2074,7 +2074,8 @@ force_enter_insert=*+5
 ;******************************************************************************
 ; CLEAR
 ; Clears the screen as well as any relevant state
-.proc clear
+.export __edit_clear
+.proc __edit_clear
 	lda #CUR_OFF
 	sta cur::status
 	jmp bm::clr
@@ -2184,85 +2185,6 @@ __edit_refresh:
 @done:	rts
 @bigger:
 	jmp refresh
-.endproc
-
-;******************************************************************************
-; LIST_SYMBOLS
-; Lists the symbols in the program
-.proc list_symbols
-@cnt=r7
-@addr=r9
-@row=rb
-	jsr scr::reset
-
-	ldxy lbl::num
-	cmpw #0
-	beq @done
-
-	ldxy #$00
-	stxy @cnt
-
-@l0:	stx @row
-	jsr clear
-@l1:	ldxy #$100
-	stxy r0			; destination buffer for getname
-	ldxy @cnt
-	jsr lbl::getname	; get the symbol name
-	lda #$01
-	pha
-	lda #$00
-	pha
-
-	ldxy @cnt
-	jsr lbl::getaddr	; get the symbol address
-	txa
-	pha
-	tya
-	pha
-
-	lda @row
-	ldxy #@sym_line
-	jsr text::print
-
-	inc @row
-	lda @row
-	cmp #SCREEN_H
-	beq @done		; end of screen
-	incw @cnt
-	ldxy @cnt
-	cmpw lbl::num
-	bne @l1
-
-@done:	; wait for a key
-	jsr key::getch
-	beq @done
-	cmp #$11		; down
-	beq @pgdown
-	cmp #$91		; up
-	beq @pgup
-	cmp #K_QUIT		; <-
-	bne @done
-	jmp scr::restore
-
-@pgdown:
-	ldxy @cnt		; @cnt is already +SCREEN_H
-	cmpw lbl::num		; are we at the end of the symbols?
-	bcs @done		; yes, don't switch pages
-	bcc @cont
-
-@pgup:	ldxy @cnt
-	sub16 #(SCREEN_H*2)-1
-	bpl @cont
-	ldxy #$00
-
-@cont:	stxy @cnt
-	ldx #$00
-	jmp @l0
-
-.RODATA
-@sym_line:
-	.byte "$",ESCAPE_VALUE,": ", ESCAPE_STRING, 0
-.CODE
 .endproc
 
 ;******************************************************************************
