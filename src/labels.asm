@@ -1016,9 +1016,9 @@ anon_addrs: .res MAX_ANON*2
 	lda (@l),y
 	cmp #'@'
 	bne :+
-	lda #$01
+	lda #$01	; flag that label IS local
 	rts
-:	lda #$00
+:	lda #$00	; flag that label is NOT local
 	rts
 .endproc
 
@@ -1099,9 +1099,9 @@ anon_addrs: .res MAX_ANON*2
 	lsr		; calculate (high - low) / 2
 	tay
 	txa
-	ror			; carry cleared because multiple of 2
-	and #$02		; align to element size
-	adc @lb			; mid = low + ((high - low) / 2)
+	ror		; carry cleared because multiple of 2
+	and #$02	; align to element size
+	adc @lb		; mid = low + ((high - low) / 2)
 	sta @m
 	tya
 	adc @lb+1
@@ -1209,7 +1209,7 @@ anon_addrs: .res MAX_ANON*2
 	jsr iswhitespace
 	beq @l0
 	cmp #'@'
-	beq @l1
+	beq @cont
 	cmp #'a'
 	bcc @err
 	cmp #'Z'+1
@@ -1221,7 +1221,7 @@ anon_addrs: .res MAX_ANON*2
 	;rts
 
 	; following characters must be between '0' and 'Z'
-	ldx #$00
+@cont:	ldx #$00
 @l1:	inx
 	cpx #(MAX_LABEL_LEN/2)+1
 	bcs @toolong
