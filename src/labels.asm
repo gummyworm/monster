@@ -1461,7 +1461,12 @@ anon_addrs: .res MAX_ANON*2
 @num = rc
 @idi = zp::tmp10
 @idj = zp::tmp12
-	setup
+	lda numlabels
+	ora numlabels+1
+	bne @setup
+	rts			; nothing to index
+
+@setup:	setup
 
 	; @num = 2*(numlabels-1)
 	lda numlabels
