@@ -1,6 +1,9 @@
 ### TODO
-- [ ] Disassemble file command
+- [x] Disassemble file command
 - [ ] Goto Definition for local labels
+  - [ ] Track current scope in editor
+  - [ ] Show current scope in status bar (why not)
+- [ ] Startup animation
 - [ ] Allow setting breakpoints in ROM
   - [ ] Copy ROM to spare 16k of FE3 bank RAM
   - [ ] Update vmem to handle the 16k ROM range

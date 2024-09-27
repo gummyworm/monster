@@ -1016,9 +1016,9 @@ anon_addrs: .res MAX_ANON*2
 	lda (@l),y
 	cmp #'@'
 	bne :+
-	lda #$01
+	lda #$01	; flag that label IS local
 	rts
-:	lda #$00
+:	lda #$00	; flag that label is NOT local
 	rts
 .endproc
 
@@ -1099,9 +1099,9 @@ anon_addrs: .res MAX_ANON*2
 	lsr		; calculate (high - low) / 2
 	tay
 	txa
-	ror			; carry cleared because multiple of 2
-	and #$02		; align to element size
-	adc @lb			; mid = low + ((high - low) / 2)
+	ror		; carry cleared because multiple of 2
+	and #$02	; align to element size
+	adc @lb		; mid = low + ((high - low) / 2)
 	sta @m
 	tya
 	adc @lb+1
@@ -1209,7 +1209,7 @@ anon_addrs: .res MAX_ANON*2
 	jsr iswhitespace
 	beq @l0
 	cmp #'@'
-	beq @l1
+	beq @cont
 	cmp #'a'
 	bcc @err
 	cmp #'Z'+1
@@ -1221,7 +1221,7 @@ anon_addrs: .res MAX_ANON*2
 	;rts
 
 	; following characters must be between '0' and 'Z'
-	ldx #$00
+@cont:	ldx #$00
 @l1:	inx
 	cpx #(MAX_LABEL_LEN/2)+1
 	bcs @toolong
@@ -1415,7 +1415,6 @@ anon_addrs: .res MAX_ANON*2
 	bne @l0
 	lda @cnt+1
 	bne @l0
-	jmp *
 
 	; init the unsorted ids array
 	ldxy #label_addresses_sorted_ids
@@ -1462,7 +1461,12 @@ anon_addrs: .res MAX_ANON*2
 @num = rc
 @idi = zp::tmp10
 @idj = zp::tmp12
-	setup
+	lda numlabels
+	ora numlabels+1
+	bne @setup
+	rts			; nothing to index
+
+@setup:	setup
 
 	; @num = 2*(numlabels-1)
 	lda numlabels
@@ -1502,16 +1506,19 @@ anon_addrs: .res MAX_ANON*2
 	tsx
 	stx @qs_csp
 
-@qsok:	; set 
+@qsok:	; @i = @lb
 	lda @lb
 	sta @i
-
 	lda @lb+1
 	sta @i+1
+
+	; @j = @ub
 	ldy @ub+1
 	sty @j+1
 	lda @ub
 	sta @j
+
+	; @tmp = (@j + @i) / 2
 	clc		; this code works only for the evenly aligned arrays
 	adc @i
 	and #$fc
@@ -1522,13 +1529,16 @@ anon_addrs: .res MAX_ANON*2
 	sta @tmp+1
 	ror @tmp
 
-	ldy #0
+	; @x = array[(@j+@i) / 2]
+	ldy #$00
 	lda (@tmp),y
 	sta @x
 	iny
 	lda (@tmp),y
 	sta @x+1
+
 @qsloop1:
+	; while (array[i] > @x) { inc @i }
 	ldy #$00		; compare array[i] and x
 	lda (@i),y
 	cmp @x
@@ -1536,8 +1546,7 @@ anon_addrs: .res MAX_ANON*2
 	lda (@i),y
 	sbc @x+1
 	bcs @qs_l1
-
-	lda #$02
+	lda #$02	; move @i to next element
 	adc @i
 	sta @i
 	bcc @qsloop1
@@ -1553,10 +1562,10 @@ anon_addrs: .res MAX_ANON*2
 	bcs @qs_l3
 
 	lda @j
-	sbc #$01
+	sec
+	sbc #$02	; move @j to prev element
 	sta @j
 	bcs @qs_l1
-
 	dec @j+1
 	bne @qs_l1	; branch always
 
@@ -1568,14 +1577,14 @@ anon_addrs: .res MAX_ANON*2
 	bcc @qs_l8
 
 @qs_l6:	setptrs
-	lda (@j),y	; swap addresses[i] and addresses[j]
+	lda (@j),y	; swap array[@i] and array[@j]
 	tax
 	lda (@i),y
 	sta (@j),y
 	txa
 	sta (@i),y
 
-	lda (@idj),y	; swap ids[i] and ids[j]
+	lda (@idj),y	; swap ids[@i] and ids[@j]
 	tax
 	lda (@idi),y
 	sta (@idj),y
@@ -1585,8 +1594,8 @@ anon_addrs: .res MAX_ANON*2
 	dey
 	bpl @qs_l6
 
-	;sec
-	lda #$01	; CY=1
+	clc
+	lda #$02
 	adc @i
 	sta @i
 	bcc :+

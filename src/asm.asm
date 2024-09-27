@@ -927,17 +927,21 @@ num_illegals = *-illegal_opcodes
 	sta zp::label_value
 	lda zp::virtualpc+1
 	sta zp::label_value+1
-	lda zp::pass
+
+	jsr lbl::islocal
+	cmp #$00		; check flag
+	bne :+
+	ldxy zp::line
+	jsr lbl::setscope	; set the non-local label as the new scope
+
+:	lda zp::pass
 	cmp #$01
-	bne @done		; if not pass 1, don't add the label
+	bne @ok			; if not pass 1, don't add the label
+	ldxy zp::line
 	jsr lbl::add
 	bcs @ret		; return error
 
 @ok:	ldxy zp::line
-	jsr lbl::islocal
-	bne @done
-	ldxy zp::line
-	jsr lbl::setscope	; set the non-local label as the new scope
 @done:	clc
 @ret:	rts
 .endproc
