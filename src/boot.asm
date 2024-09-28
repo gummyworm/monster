@@ -23,6 +23,10 @@
 .import __BANKCODE_RUN__
 .import __BANKCODE_SIZE__
 
+.import __BANKCODE2_LOAD__
+.import __BANKCODE2_RUN__
+.import __BANKCODE2_SIZE__
+
 .import __BSS_LOAD__
 .import __BSS_SIZE__
 
@@ -393,6 +397,10 @@ relocs:
 .word __BANKCODE_LOAD__, __BANKCODE_RUN__, __BANKCODE_SIZE__
 .byte FINAL_BANK_MAIN
 
+; BANK CODE 2
+.word __BANKCODE2_LOAD__, __BANKCODE2_RUN__, __BANKCODE2_SIZE__
+.byte FINAL_BANK_MAIN
+
 ; DATA
 .word __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__
 .byte FINAL_BANK_MAIN
@@ -465,8 +473,6 @@ enter:
 	ldx #23
 	jsr draw::hline
 
-	ldx #$ff
-	txs
 	jsr asm::reset
 	jsr src::new
 	jsr edit::init

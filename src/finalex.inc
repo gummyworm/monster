@@ -1,16 +1,5 @@
 .include "zeropage.inc"
 
-;******************************************************************************
-; Final Expansion overview
-;  The final expansion enables a full 32k of RAM to be usable for a source file
-;  With the final expansion, the 16 available 32k blocks are divided as follows:
-;    block 0: Monster (editor/assembler)
-;    block 1: assembled program
-;    block 2-15: source files (1 per block)
-;  Monster installs an NMI prior to executing the user's program that allows 
-;  them to return to the editor (and it's bank) via the RESTORE key
-;******************************************************************************
-
 .import __final_call
 .import __final_store_byte
 .import __final_load_byte
@@ -113,7 +102,7 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 .endscope
 
 ;******************************************************************************
-
+; CALL
 ; calls the banked routine
 ; params:
 ;  bank: the bank of the procedure to call
@@ -138,6 +127,8 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 	jsr __final_call
 .endmacro
 
+;******************************************************************************
+; JUMP
 ; jumps to the banked routine
 ; params:
 ;  bank: the bank of the procedure to jump to

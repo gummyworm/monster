@@ -35,8 +35,8 @@ SEGMENT_DEFINE = $02
 ; OBJPTR is the cursor in the object code (where we are reading in the current
 ; object file)
 ; SEGPTR is the cursor to the .PRG or .D file (where we are WRITIING)
-objptr=zp::asm
-segptr=zp::asm+2
+objptr=zp::link
+segptr=zp::link+2
 
 ;******************************************************************************
 .BSS

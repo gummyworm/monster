@@ -1747,8 +1747,8 @@ __debug_remove_breakpoint:
 ;      matches the format: PC  A  X  Y  SP NV-BDIZC ADDR
 .export __debug_regs_contents
 .proc __debug_regs_contents
-@tmp=zp::asm+6
-@flag=zp::asm+7
+@tmp=zp::disasm+6
+@flag=zp::disasm+7
 @buff=mem::linebuffer2
 	ldy #39
 	lda #' '

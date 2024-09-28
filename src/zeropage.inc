@@ -3,53 +3,35 @@ ZEROPAGE_INC = 1
 
 .scope zp
 
-;******************************************************************************
-; $00-$03 is the JMP vector
-jmpaddr = $00
-jmpvec  = $01 ; $00 stores a JMP instruction, this is its address
+jmpaddr = $00		; JMP instruction
+jmpvec  = $01 		; JMP vector for calling vectors
 
-;******************************************************************************
-; $04-$07 is used for final expansion temp
-final   = $04
-banksp  = $05	; bank stack pointer
-bankval = $07	; the value written by store_byte
-bankjmpaddr = $08
-bankjmpvec  = $09
+final       = $04	; final expansion utility space
+banksp      = $05	; bank stack pointer
+bankval     = $07	; the value written by store_byte
+bankjmpaddr = $08	; JMP in struction for banked calls
+bankjmpvec  = $09	; JMP vector
 
-;******************************************************************************
-; $0b-$0f are reserved for math
-math =  $0b
+math = $0b	; $0b-$0f math routine scratchpad
 
-;******************************************************************************
-; $10-$30 is reserved for debug info generation
-debug    = $10
+debug = $10	; $10-$30 debug info generation
 
-;******************************************************************************
-; $30-$40 reserved for string manipulation routines
-; which require a fair amount of zeropage space.
-; You may use these if you don't need to use any 
-; string functions
-str0 = $30
+str0 = $30	; $30-$31 string pointer 1
 str1 = $31
-str2 = $32
+str2 = $32	; $32-$33 string pointer 2
 str3 = $33
-str4 = $34
-str5 = $35
-str6 = $36
-str7 = $37
-str8 = $38
-str9 = $39
-stra = $3a
 
-;******************************************************************************
-; $40-$50 are used during assembly, disassembly, linking, and GUI routines
-asm          = $40	; base address of assembly tmp vars
+asmresult = $34 ; pointer where code is assembled
+virtualpc = $36 ; pointer to address address code will live at during runtime (.RORG)
+verify 	  = $38 ; flag for verifying (vs. assembling)
+asmtmp    = $39 ; scratchpad for assembly
+
 disasm       = $40	; base address of disassembly tmp vars
 pass         = $4c	; the pass of assembly being done (1 or 2)
 line         = $4d	; ptr to text being processed
 gendebuginfo = $4f 	; flag to generate debug info
 link         = $40	; base address of linker temp storage
-gui          = $40
+gui          = $40	; base address for GUI routines
 
 ;******************************************************************************
 ; $50-$5f are used for labels
@@ -100,10 +82,9 @@ key    = $cb	; current keypress
 keytab = $f5	; key decode table
 
 ;******************************************************************************
-; $d0-$d5 assembly state
-asmresult = $d0	; pointer where code is assembled
-virtualpc = $d2 ; pointer to address address code will live at during runtime (.RORG)
-verify 	  = $d5
+; $d0-$d3 SOURCE pointers
+srccur  = $d0
+srccur2 = $d2
 
 ;******************************************************************************
 ; $d6-$d7 cursor state
