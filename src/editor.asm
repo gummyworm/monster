@@ -1177,13 +1177,23 @@ force_enter_insert=*+5
 
 ;******************************************************************************_
 .proc prev_empty_line
-	jsr home	; move back to column zero
-:	jsr on_line1
-	beq @done
-	jsr ccup
-	jsr src::before_newl
-	bne :-
-@done:	rts
+@target=zp::editortmp
+	jsr src::currline
+	stxy @target
+
+	; locate the previous empty line
+	jsr src::pushp
+
+@l0:	jsr src::up
+	bcs @move
+	decw @target
+	jsr src::after_cursor
+	cmp #$0d
+	bne @l0
+
+@move:	jsr src::popgoto
+	ldxy @target
+	jmp gotoline
 .endproc
 
 ;******************************************************************************_
@@ -1198,14 +1208,23 @@ force_enter_insert=*+5
 
 ;******************************************************************************_
 .proc next_empty_line
-	jsr home	; move back to column zero
-:	jsr src::end
-	beq @done
-	jsr ccdown
+@target=zp::editortmp
+	jsr src::currline
+	stxy @target
+
+	; locate the next empty line
+	jsr src::pushp
+
+@l0:	jsr src::down
+	bcs @move
+	incw @target
 	jsr src::after_cursor
 	cmp #$0d
-	bne :-
-@done:	rts
+	bne @l0
+
+@move:	jsr src::popgoto
+	ldxy @target
+	jmp gotoline
 .endproc
 
 ;******************************************************************************_
@@ -1906,9 +1925,8 @@ force_enter_insert=*+5
 @cont:	jsr src::on_last_line
 	beq @quit			; no next line to join
 
-	ldx zp::cury			; scroll from cury
-	lda height			; to bottom of editor display
-	jsr scrollup
+	jsr bumpup
+	inc zp::cury			; bumpup DEC's cury, INC it back
 
 	jsr enter_insert		; enter INSERT to get correct x-pos
 	jsr end_of_line			; set curx to the correct index
@@ -2859,9 +2877,8 @@ goto_buffer:
 @nextline:
 	jsr drawline
 	; redraw everything from <cursor> to EOL on next line
-	ldxy #mem::linebuffer
 	lda zp::cury
-	jsr text::print
+	jsr text::drawline
 
 @done:	lda zp::curx
 	beq @ret
@@ -3817,11 +3834,9 @@ goto_buffer:
 	beq @noscroll	; if cursor is at row 0, nothing to scroll
 
 	; move the cursor
-	ldy #$ff
-	ldx #0
-	jsr cur::move
+	dec zp::cury
 
-	; scroll everything up from below the line we deleted
+	; scroll everything up from below the line we are bumping up to
 	ldx zp::cury
 	inx
 	cpx height

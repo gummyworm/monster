@@ -13,13 +13,12 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-MAX_SOURCES=8
-
 ;******************************************************************************
 ; CONSTANTS
+MAX_SOURCES=8		; number of source buffers that can be loaded at once
 GAPSIZE = $100		; size of gap in gap buffer
 POS_STACK_SIZE = 32 	; size of source position stack
-MAX_BUFFER_NAME_LEN=16  ; max name for each buffer
+MAX_BUFFER_NAME_LEN=16  ; max length of names for each buffer
 
 ;******************************************************************************
 ; FLAGS
@@ -29,25 +28,32 @@ FLAG_DIRTY = 1
 
 ;******************************************************************************
 data_start:
-sp: 	   .byte 0
-stack:     .res POS_STACK_SIZE
+sp: 	   .byte 0		; stack pointer for source position stack
+stack:     .res POS_STACK_SIZE	; stack for source positions
 
-.export buffstate
-buffstate:
-curl:     .word 0		; pointer to start of gap
-curr:     .word 0		; pointer to end of gap
-.export __src_line
-__src_line:
-line:     .word 0       	; the current line # for the cursor
-.export __src_lines
-__src_lines:
-lines:    .word 0		; number of lines in the source
-end:  	  .word 0		; pointer to end of buffer 
-SAVESTATE_SIZE = *-buffstate
-
+;******************************************************************************
+; BUFFSTATE
+; This block of zeropage variables are stored in the order they are 
+; enumerated below.  When a source buffer is activated, the state for that
+; buffer is copied to these zeropage locations.
+; The values for the buffer that is being deactivated are copied to the
+; "savestate" array
+buffstate   = zp::srccur
 cursorzp    = zp::srccur
 poststartzp = zp::srccur2
+line        = zp::srcline
+lines       = zp::srclines
+end         = zp::srcend
+SAVESTATE_SIZE = 10		; space used by above zeropage addresses
 
+.export __src_line
+__src_line = line
+.export __src_lines
+__src_lines = lines
+
+;******************************************************************************
+; SAVESTATE
+; This buffer holds the "buffer state" for each source buffer. See BUFFSTATE
 savestate:  .res MAX_SOURCES*10	; 10 bytes: curl, curr, line, lines, end
 
 .export __src_names
@@ -72,6 +78,7 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 
 ;******************************************************************************
 ; DATA
+; This buffer holds the text data.  It is a large contiguous chunk of memory
 .segment "SOURCE"
 .assert * & $ff = 0, error, "source buffers must be page aligned"
 data: .res $6000
@@ -84,11 +91,6 @@ data: .res $6000
 .export __src_save
 .proc __src_save
 @save=r0
-	ldxy cursorzp
-	stxy curl
-	ldxy poststartzp
-	stxy curr
-
 	; save the cursor position in the current buffer
 	ldx activesrc
 
@@ -163,11 +165,6 @@ data: .res $6000
 	inx
 	cpx #SAVESTATE_SIZE
 	bne @l0
-	
-	ldxy curl
-	stxy cursorzp
-	ldxy curr
-	stxy poststartzp
 
 	RETURN_OK
 .endproc
@@ -229,19 +226,15 @@ data: .res $6000
 
 	lda #<data
 	sta cursorzp
-	sta curl
 	lda #>data
 	sta cursorzp+1
-	sta curl+1
 
 	lda #<(data+GAPSIZE)
 	sta end
 	sta poststartzp
-	sta curr
 	lda #>(data+GAPSIZE)
 	sta end+1
 	sta poststartzp+1
-	sta curr+1
 
 	; init line and lines to 1
 	inc line
@@ -592,16 +585,6 @@ data: .res $6000
 .endproc
 
 ;******************************************************************************
-; POS
-; Returns the current source position.  You may go to this position with the
-; src::goto routine.  Note that if the source changes since this procedure is
-; called, this may not be the same (or expected) position
-; OUT:
-;  - .XY: the current source position
-.export __src_pos
-__src_pos = __src_start	 ; start implements the same behavior
-
-;******************************************************************************
 ; END
 ; Returns .Z set if the cursor is at the end of the buffer.
 ; OUT:
@@ -644,6 +627,19 @@ __src_pos = __src_start	 ; start implements the same behavior
 	ldxy end
 	sub16 poststartzp
 	cmpw #1
+	rts
+.endproc
+
+;******************************************************************************
+; POS
+; Returns the current source position.  You may go to this position with the
+; src::goto routine.  Note that if the source changes since this procedure is
+; called, this may not be the same (or expected) position
+; OUT:
+;  - .XY: the current source position
+.export __src_pos
+.proc __src_pos
+	ldxy cursorzp
 	rts
 .endproc
 
@@ -741,6 +737,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;******************************************************************************
 ; NEXT
 ; Moves the cursor up one character in the gap buffer
+; OUT:
+;  - .A: the character at the new cursor position in .A
 .export __src_next
 .proc __src_next
 	jsr __src_end
@@ -772,7 +770,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 ; PREV
 ; Moves the cursor back one character in the gap buffer.
 ; OUT:
-;  - .A: the character at the new position
+;  - .A: the character at the new cursor position (if not at the start of buff)
 ;  - .C: set if we're at the start of the buffer and couldn't move back
 .export __src_prev
 .proc __src_prev
@@ -795,18 +793,20 @@ __src_pos = __src_start	 ; start implements the same behavior
 	lda (cursorzp),y
 	sta (poststartzp),y
 
-	; switch back to main bank
-	ldx #FINAL_BANK_MAIN
-	stx $9c02
-
 	cmp #$0d
 	bne :+
 	decw line
 
-:	jsr atcursor
+:	; get the character at the new cursor position
+	decw cursorzp
+	lda (cursorzp),y
+	incw cursorzp
+
+	; switch back to main bank
+	ldx #FINAL_BANK_MAIN
+	stx $9c02
 	RETURN_OK
 .endproc
-
 .POPSEG;
 
 ;******************************************************************************
@@ -913,15 +913,16 @@ __src_pos = __src_start	 ; start implements the same behavior
 .export __src_up
 .proc __src_up
 	jsr __src_start
-	beq @beginning
+	bne @l0
+	sec
+@beginning:
+	rts
 
 @l0:	jsr __src_prev
 	bcs @beginning
 	cmp #$0d
 	bne @l0
-	clc
-@beginning:
-	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -1169,7 +1170,7 @@ __src_atcursor:
 	jsr __src_next
 	lda cursorzp
 	cmp @dest
-	bne @backwards
+	bne @forwards
 	lda cursorzp+1
 	cmp @dest+1
 	bne @forwards
@@ -1297,7 +1298,7 @@ __src_atcursor:
 ; ON_LAST_LINE
 ; Checks if the cursor is on the last line of the active source buffer.
 ; OUT:
-;  - .Z: set if we're on the last line of the source
+;  - .Z: set if the cursor is on the last line of the active source
 .export __src_on_last_line
 .proc __src_on_last_line
 	ldxy line

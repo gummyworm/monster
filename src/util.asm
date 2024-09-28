@@ -120,11 +120,19 @@
 ;  - .C: set if the character is not a valid hex digit
 .export __util_chtohex
 .proc __util_chtohex
-	cmp #'f'+1
+	cmp #$66+1
 	bcs @done
-	cmp #'a'
+	cmp #$61
+	bcc @upper
+	sbc #($61-$0a)
+	RETURN_OK
+
+@upper:
+	cmp #$46+1
+	bcs @done
+	cmp #$41
 	bcc @numeric
-	sbc #'a'-$a
+	sbc #($41-$0a)
 	RETURN_OK
 
 @numeric:
