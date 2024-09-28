@@ -32,21 +32,18 @@ data_start:
 sp: 	   .byte 0
 stack:     .res POS_STACK_SIZE
 
-.export buffstate
-buffstate:
-curl:     .word 0		; pointer to start of gap
-curr:     .word 0		; pointer to end of gap
 .export __src_line
-__src_line:
-line:     .word 0       	; the current line # for the cursor
+__src_line = zp::srcline
 .export __src_lines
-__src_lines:
-lines:    .word 0		; number of lines in the source
-end:  	  .word 0		; pointer to end of buffer 
-SAVESTATE_SIZE = *-buffstate
+__src_lines = zp::srclines
 
+buffstate=zp::srccur
 cursorzp    = zp::srccur
 poststartzp = zp::srccur2
+line        = zp::srcline
+lines       = zp::srclines
+end         = zp::srcend
+SAVESTATE_SIZE = 10		; space used by above zeropage addresses
 
 savestate:  .res MAX_SOURCES*10	; 10 bytes: curl, curr, line, lines, end
 
@@ -84,11 +81,6 @@ data: .res $6000
 .export __src_save
 .proc __src_save
 @save=r0
-	ldxy cursorzp
-	stxy curl
-	ldxy poststartzp
-	stxy curr
-
 	; save the cursor position in the current buffer
 	ldx activesrc
 
@@ -163,11 +155,6 @@ data: .res $6000
 	inx
 	cpx #SAVESTATE_SIZE
 	bne @l0
-	
-	ldxy curl
-	stxy cursorzp
-	ldxy curr
-	stxy poststartzp
 
 	RETURN_OK
 .endproc
@@ -229,19 +216,15 @@ data: .res $6000
 
 	lda #<data
 	sta cursorzp
-	sta curl
 	lda #>data
 	sta cursorzp+1
-	sta curl+1
 
 	lda #<(data+GAPSIZE)
 	sta end
 	sta poststartzp
-	sta curr
 	lda #>(data+GAPSIZE)
 	sta end+1
 	sta poststartzp+1
-	sta curr+1
 
 	; init line and lines to 1
 	inc line
@@ -741,6 +724,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;******************************************************************************
 ; NEXT
 ; Moves the cursor up one character in the gap buffer
+; OUT:
+;  - .A: the character at the new cursor position in .A
 .export __src_next
 .proc __src_next
 	jsr __src_end
@@ -772,7 +757,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 ; PREV
 ; Moves the cursor back one character in the gap buffer.
 ; OUT:
-;  - .A: the character at the new position
+;  - .A: the character at the new cursor position (if not at the start of buff)
 ;  - .C: set if we're at the start of the buffer and couldn't move back
 .export __src_prev
 .proc __src_prev
@@ -795,18 +780,20 @@ __src_pos = __src_start	 ; start implements the same behavior
 	lda (cursorzp),y
 	sta (poststartzp),y
 
-	; switch back to main bank
-	ldx #FINAL_BANK_MAIN
-	stx $9c02
-
 	cmp #$0d
 	bne :+
 	decw line
 
-:	jsr atcursor
+:	; get the character at the new cursor position
+	decw cursorzp
+	lda (cursorzp),y
+	incw cursorzp
+
+	; switch back to main bank
+	ldx #FINAL_BANK_MAIN
+	stx $9c02
 	RETURN_OK
 .endproc
-
 .POPSEG;
 
 ;******************************************************************************

@@ -21,17 +21,22 @@ str1 = $31
 str2 = $32	; $32-$33 string pointer 2
 str3 = $33
 
-asmresult = $34 ; pointer where code is assembled
-virtualpc = $36 ; pointer to address address code will live at during runtime (.RORG)
-verify 	  = $38 ; flag for verifying (vs. assembling)
-asmtmp    = $39 ; scratchpad for assembly
+curx   = $34	; column of the cursor on screen
+cury   = $35	; row of the cursor
+curtmr = $36	; timer until next cursor blink
+
+asmresult = $37 ; pointer where code is assembled
+virtualpc = $39 ; pointer to address address code will live at during runtime (.RORG)
+verify 	  = $3b ; flag for verifying (vs. assembling)
+asmtmp    = $3c ; scratchpad for assembly
 
 disasm       = $40	; base address of disassembly tmp vars
+link         = $40	; base address of linker temp storage
+gui          = $40	; base address for GUI routines
+
 pass         = $4c	; the pass of assembly being done (1 or 2)
 line         = $4d	; ptr to text being processed
 gendebuginfo = $4f 	; flag to generate debug info
-link         = $40	; base address of linker temp storage
-gui          = $40	; base address for GUI routines
 
 ;******************************************************************************
 ; $50-$5f are used for labels
@@ -82,15 +87,12 @@ key    = $cb	; current keypress
 keytab = $f5	; key decode table
 
 ;******************************************************************************
-; $d0-$d3 SOURCE pointers
-srccur  = $d0
-srccur2 = $d2
-
-;******************************************************************************
-; $d6-$d7 cursor state
-curx   = $d6
-cury   = $d7
-curtmr = $d8
+; $d0-$d9 SOURCE pointers
+srccur   = $cf	; left pointer of gap in active source buffer
+srccur2  = $d1	; right pointer of gap in active source buffer
+srcline  = $d3	; current line number in active source buffer
+srclines = $d5	; current number of lines in active source buffer
+srcend   = $d7	; pointer to end of buffer in active source buffer
 
 ;******************************************************************************
 ; $d9-$e0 editor
