@@ -900,15 +900,16 @@ __src_pos = __src_start	 ; start implements the same behavior
 .export __src_up
 .proc __src_up
 	jsr __src_start
-	beq @beginning
+	bne @l0
+	sec
+@beginning:
+	rts
 
 @l0:	jsr __src_prev
 	bcs @beginning
 	cmp #$0d
 	bne @l0
-	clc
-@beginning:
-	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -1156,7 +1157,7 @@ __src_atcursor:
 	jsr __src_next
 	lda cursorzp
 	cmp @dest
-	bne @backwards
+	bne @forwards
 	lda cursorzp+1
 	cmp @dest+1
 	bne @forwards

@@ -1177,13 +1177,24 @@ force_enter_insert=*+5
 
 ;******************************************************************************_
 .proc prev_empty_line
-	jsr home	; move back to column zero
-:	jsr on_line1
-	beq @done
-	jsr ccup
-	jsr src::before_newl
-	bne :-
-@done:	rts
+@target=zp::editortmp
+	jsr src::currline
+	stxy @target
+
+	; locate the previous empty line
+	jsr src::pushp
+
+@l0:	jsr src::up
+	bcs @move
+	decw @target
+	jsr src::after_cursor
+	cmp #$0d
+	bne @l0
+
+@move:	jsr src::popgoto
+	ldxy @target
+	jmp *
+	jmp gotoline
 .endproc
 
 ;******************************************************************************_
@@ -1198,14 +1209,23 @@ force_enter_insert=*+5
 
 ;******************************************************************************_
 .proc next_empty_line
-	jsr home	; move back to column zero
-:	jsr src::end
-	beq @done
-	jsr ccdown
+@target=zp::editortmp
+	jsr src::currline
+	stxy @target
+
+	; locate the next empty line
+	jsr src::pushp
+
+@l0:	jsr src::down
+	bcs @move
+	incw @target
 	jsr src::after_cursor
 	cmp #$0d
-	bne :-
-@done:	rts
+	bne @l0
+
+@move:	jsr src::popgoto
+	ldxy @target
+	jmp gotoline
 .endproc
 
 ;******************************************************************************_
