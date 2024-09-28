@@ -739,19 +739,21 @@ __src_pos = __src_start	 ; start implements the same behavior
 .PUSHSEG
 .segment "BANKCODE2"
 ;******************************************************************************
-; NEXT_FAST
+; NEXT
 ; Moves the cursor up one character in the gap buffer
-.export __src_next_Fast
-.proc __src_next_Fast
-cursorzp=r0
-poststartzp=r0
-	; TODO: check if we're at the end of buffer
+.export __src_next
+.proc __src_next
+	jsr __src_end
+	beq @done
+
+	; switch to the bank that contains the source buffer's data
 	lda bank
 	sta $9c02
 
+	; move one byte from the end of the gap to the start
 	ldy #$00
-	lda (cursorzp),y
-	sta (poststartzp),y
+	lda (poststartzp),y
+	sta (cursorzp),y
 
 	incw cursorzp
 	incw poststartzp
@@ -761,36 +763,51 @@ poststartzp=r0
 	stx $9c02
 
 	cmp #$0d
-	bne :+
+	bne @done
 	incw line
-:	RETURN_OK
+@done:	RETURN_OK
 .endproc
-.POPSEG;
 
 ;******************************************************************************
-; NEXT
-; Moves the cursor up one character in the gap buffer.
+; PREV
+; Moves the cursor back one character in the gap buffer.
 ; OUT:
-;  - .A: the character at the new cursor position in .A
-.export __src_next
-.proc __src_next
-@src=r0
-@dst=r2
-	jsr __src_end
-	beq @skip
+;  - .A: the character at the new position
+;  - .C: set if we're at the start of the buffer and couldn't move back
+.export __src_prev
+.proc __src_prev
+	jsr __src_start
+	bne :+
+	jsr atcursor
+	sec
+	rts
 
-	; move char from after the gap to the start of the gap
-	lda24 bank, poststartzp
-	sta24 bank, cursorzp
+:	; move char from start of gap to the end of the gap
+	decw cursorzp
+	decw poststartzp
+
+	; switch to the bank that contains the source buffer's data
+	lda bank
+	sta $9c02
+
+	; move one byte from the start of the gap to the end
+	ldy #$00
+	lda (cursorzp),y
+	sta (poststartzp),y
+
+	; switch back to main bank
+	ldx #FINAL_BANK_MAIN
+	stx $9c02
 
 	cmp #$0d
 	bne :+
-	incw line
+	decw line
 
-:	incw cursorzp
-	incw poststartzp
- @skip:	jmp atcursor
+:	jsr atcursor
+	RETURN_OK
 .endproc
+
+.POPSEG;
 
 ;******************************************************************************
 ; HOME
@@ -883,38 +900,6 @@ poststartzp=r0
 @done:	clc
 	rts
 .endproc
-
-;******************************************************************************
-; PREV
-; Moves the cursor back one character in the gap buffer.
-; OUT:
-;  - .A: the character at the new position
-;  - .C: set if we're at the start of the buffer and couldn't move back
-.export __src_prev
-.proc __src_prev
-@src=r0
-@dst=r2
-	jsr __src_start
-	bne :+
-	jsr atcursor
-	sec
-	rts
-
-:	; move char from start of gap to the end of the gap
-	decw cursorzp
-	decw poststartzp
-
-	lda24 bank, cursorzp
-	sta24 bank, poststartzp
-
-	cmp #$0d
-	bne :+
-	decw line
-
-:	jsr atcursor
-	RETURN_OK
-.endproc
-
 
 ;******************************************************************************
 ; UP
