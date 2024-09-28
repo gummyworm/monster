@@ -1193,7 +1193,6 @@ force_enter_insert=*+5
 
 @move:	jsr src::popgoto
 	ldxy @target
-	jmp *
 	jmp gotoline
 .endproc
 
@@ -1926,9 +1925,8 @@ force_enter_insert=*+5
 @cont:	jsr src::on_last_line
 	beq @quit			; no next line to join
 
-	ldx zp::cury			; scroll from cury
-	lda height			; to bottom of editor display
-	jsr scrollup
+	jsr bumpup
+	inc zp::cury			; bumpup DEC's cury, INC it back
 
 	jsr enter_insert		; enter INSERT to get correct x-pos
 	jsr end_of_line			; set curx to the correct index
@@ -3837,11 +3835,9 @@ goto_buffer:
 	beq @noscroll	; if cursor is at row 0, nothing to scroll
 
 	; move the cursor
-	ldy #$ff
-	ldx #0
-	jsr cur::move
+	dec zp::cury
 
-	; scroll everything up from below the line we deleted
+	; scroll everything up from below the line we are bumping up to
 	ldx zp::cury
 	inx
 	cpx height
