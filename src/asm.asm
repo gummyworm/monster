@@ -122,15 +122,16 @@ MAX_IFS      = 4 ; max nesting depth for .if/.endif
 MAX_CONTEXTS = 3 ; max nesting depth for contexts (activated by .MAC, .REP, etc)
 
 ;******************************************************************************
-indirect   = zp::asm    ; 1=indirect, 0=absolute
-indexed    = zp::asm+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
-immediate  = zp::asm+2 ; 1=immediate, 0=not immediate
-operandsz  = zp::asm+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
-cc         = zp::asm+4
-resulttype = zp::asm+5
-opcode     = zp::asm+8
-lsb        = zp::asm+$9
-msb        = zp::asm+$a
+indirect   = zp::asmtmp    ; 1=indirect, 0=absolute
+indexed    = zp::asmtmp+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
+immediate  = zp::asmtmp+2 ; 1=immediate, 0=not immediate
+operandsz  = zp::asmtmp+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
+cc         = zp::asmtmp+4
+resulttype = zp::asmtmp+5
+opcode     = zp::asmtmp+8
+lsb        = zp::asmtmp+$9
+msb        = zp::asmtmp+$a
+scratchpad = zp::asmtmp+$b
 
 SEG_CODE = 1	; flag for CODE segment
 SEG_BSS  = 2	; flag for BSS segment (all data must be 0, PC not updated)
@@ -2456,7 +2457,7 @@ __asm_include:
 ;  - .XY: the line to assemble
 .export __asm_tokenize_pass1
 .proc __asm_tokenize_pass1
-@startpc=zp::str8
+@startpc=scratchpad
 	; save current PC to end segment if needed
 	pha
 

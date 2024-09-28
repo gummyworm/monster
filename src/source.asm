@@ -34,18 +34,21 @@ stack:     .res POS_STACK_SIZE
 
 .export buffstate
 buffstate:
-pre:      .word 0		; # of bytes before the gap
-post:     .word 0		; # of bytes after the gap
+curl:     .word 0		; pointer to start of gap
+curr:     .word 0		; pointer to end of gap
 .export __src_line
 __src_line:
 line:     .word 0       	; the current line # for the cursor
 .export __src_lines
 __src_lines:
 lines:    .word 0		; number of lines in the source
-len:  	  .word 0		; size of the buffer (pre+post+gap)
+end:  	  .word 0		; pointer to end of buffer 
 SAVESTATE_SIZE = *-buffstate
 
-savestate:  .res MAX_SOURCES*10	; 10 bytes: pre, post, line, lines, len
+cursorzp    = zp::srccur
+poststartzp = zp::srccur2
+
+savestate:  .res MAX_SOURCES*10	; 10 bytes: curl, curr, line, lines, end
 
 .export __src_names
 __src_names:
@@ -70,6 +73,7 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 ;******************************************************************************
 ; DATA
 .segment "SOURCE"
+.assert * & $ff = 0, error, "source buffers must be page aligned"
 data: .res $6000
 
 .CODE
@@ -80,6 +84,11 @@ data: .res $6000
 .export __src_save
 .proc __src_save
 @save=r0
+	ldxy cursorzp
+	stxy curl
+	ldxy poststartzp
+	stxy curr
+
 	; save the cursor position in the current buffer
 	ldx activesrc
 
@@ -154,6 +163,11 @@ data: .res $6000
 	inx
 	cpx #SAVESTATE_SIZE
 	bne @l0
+	
+	ldxy curl
+	stxy cursorzp
+	ldxy curr
+	stxy poststartzp
 
 	RETURN_OK
 .endproc
@@ -212,10 +226,22 @@ data: .res $6000
 :	sta buffstate-1,x
 	dex
 	bne :-
-	lda #<GAPSIZE
-	sta len
-	lda #>GAPSIZE
-	sta len+1
+
+	lda #<data
+	sta cursorzp
+	sta curl
+	lda #>data
+	sta cursorzp+1
+	sta curl+1
+
+	lda #<(data+GAPSIZE)
+	sta end
+	sta poststartzp
+	sta curr
+	lda #>(data+GAPSIZE)
+	sta end+1
+	sta poststartzp+1
+	sta curr+1
 
 	; init line and lines to 1
 	inc line
@@ -525,9 +551,9 @@ data: .res $6000
 :	asl
 	tax
 	inc sp
-	lda pre
+	lda cursorzp
 	sta stack,x
-	lda pre+1
+	lda cursorzp+1
 	sta stack+1,x
 	RETURN_OK
 .endproc
@@ -582,9 +608,11 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .Z: set if the cursor is at the end of the buffer
 .export __src_end
 .proc __src_end
-	ldx post
-	bne @done	; if LSB is !0, not the end
-	ldy post+1	; set .Z to MSB
+	ldx poststartzp	
+	cpx end
+	bne @done
+	ldx poststartzp+1
+	cpx end+1
 @done:	rts
 .endproc
 
@@ -596,9 +624,11 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .Z: set if the cursor is at the end of the buffer
 .export __src_end_rep
 .proc __src_end_rep
-	ldy post
-	bne @done	; if MSB is !0, not the end
-	ldx post
+	ldxy end
+	sub16 poststartzp
+	cpy #$00
+	bne @done
+	cpx #$00
 	beq @done
 	cpx #1		; set .Z if LSB is 1
 @done:	rts
@@ -611,7 +641,8 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .Z: set if the cursor is before the end of the buffer
 .export __src_before_end
 .proc __src_before_end
-	ldxy post
+	ldxy end
+	sub16 poststartzp
 	cmpw #1
 	rts
 .endproc
@@ -623,9 +654,10 @@ __src_pos = __src_start	 ; start implements the same behavior
 ;  - .Z: set if the cursor is at the start of the buffer
 .export __src_start
 .proc __src_start
-	ldx pre
+	ldx cursorzp
 	bne @done	; if LSB is !0, not the start
-	ldx pre+1	; set .Z if MSB is also 0
+	ldx cursorzp+1
+	cpx #>data
 @done:	rts
 .endproc
 
@@ -646,7 +678,7 @@ __src_pos = __src_start	 ; start implements the same behavior
 	bne :+
 	decw line
 	jsr on_line_deleted
-:	decw pre
+:	decw cursorzp
 	pla
 	clc
 	rts
@@ -697,42 +729,85 @@ __src_pos = __src_start	 ; start implements the same behavior
 	cmp #$0d
 	bne :+
 	jsr on_line_deleted
-:	decw post
+:	incw poststartzp
 	clc
 	rts
 @skip:	sec
 	rts
 .endproc
 
+.PUSHSEG
+.segment "BANKCODE2"
 ;******************************************************************************
 ; NEXT
-; Moves the cursor up one character in the gap buffer.
-; OUT:
-;  - .A: the character at the new cursor position in .A
+; Moves the cursor up one character in the gap buffer
 .export __src_next
 .proc __src_next
-@src=r0
-@dst=r2
 	jsr __src_end
-	beq @skip
+	beq @done
 
-	; move char from start of gap to the end of the gap
-	jsr cursor
-	stxy @dst
-	jsr poststart
-	stxy @src
+	; switch to the bank that contains the source buffer's data
+	lda bank
+	sta $9c02
 
-	lda24 bank, @src
-	sta24 bank, @dst
+	; move one byte from the end of the gap to the start
+	ldy #$00
+	lda (poststartzp),y
+	sta (cursorzp),y
+
+	incw cursorzp
+	incw poststartzp
+
+	; switch back to main bank
+	ldx #FINAL_BANK_MAIN
+	stx $9c02
+
+	cmp #$0d
+	bne @done
+	incw line
+@done:	RETURN_OK
+.endproc
+
+;******************************************************************************
+; PREV
+; Moves the cursor back one character in the gap buffer.
+; OUT:
+;  - .A: the character at the new position
+;  - .C: set if we're at the start of the buffer and couldn't move back
+.export __src_prev
+.proc __src_prev
+	jsr __src_start
+	bne :+
+	jsr atcursor
+	sec
+	rts
+
+:	; move char from start of gap to the end of the gap
+	decw cursorzp
+	decw poststartzp
+
+	; switch to the bank that contains the source buffer's data
+	lda bank
+	sta $9c02
+
+	; move one byte from the start of the gap to the end
+	ldy #$00
+	lda (cursorzp),y
+	sta (poststartzp),y
+
+	; switch back to main bank
+	ldx #FINAL_BANK_MAIN
+	stx $9c02
 
 	cmp #$0d
 	bne :+
-	incw line
+	decw line
 
-:	incw pre
-	decw post
- @skip:	jmp atcursor
+:	jsr atcursor
+	RETURN_OK
 .endproc
+
+.POPSEG;
 
 ;******************************************************************************
 ; HOME
@@ -827,45 +902,6 @@ __src_pos = __src_start	 ; start implements the same behavior
 .endproc
 
 ;******************************************************************************
-; PREV
-; Moves the cursor back one character in the gap buffer.
-; OUT:
-;  - .A: the character at the new position
-;  - .C: set if we're at the start of the buffer and couldn't move back
-.export __src_prev
-.proc __src_prev
-@src=r0
-@dst=r2
-	jsr __src_start
-	bne :+
-	jsr atcursor
-	sec
-	rts
-
-:	; move char from start of gap to the end of the gap
-	jsr cursor
-	stxy @src
-	jsr poststart
-	stxy @dst
-
-	decw @src
-	decw @dst
-
-	lda24 bank, @src
-	sta24 bank, @dst
-
-	cmp #$0d
-	bne :+
-	decw line
-
-:	decw pre
-	incw post
- 	jsr atcursor
-	RETURN_OK
-.endproc
-
-
-;******************************************************************************
 ; UP
 ; Moves the cursor back one line or to the start of the buffer if it is
 ; already on the first line
@@ -927,31 +963,32 @@ __src_pos = __src_start	 ; start implements the same behavior
 
 	; gap is closed, create a new one
 	; copy data[poststart] to data[poststart + GAPSIZE]
-	jsr poststart
+	ldxy cursorzp
 	stxy @src
-	stx @dst
-	iny
-	sty @dst+1
 
-	ldxy post
+	inc poststartzp+1
+	inc end+1	; increase size by $100
+	ldxy poststartzp
+	stxy @dst
+
+	; get number of bytes to copy
+	ldxy end
+	sub16 poststartzp
+
 	lda bank
 	jsr fe3::copy
 
-	inc len+1	; increase size by $100
+@ins:	pla
+	ldy cursorzp+1
+	bmi @done	; out of range
 
-@ins:	jsr cursor
-	pla
-	cpy #$80
-	bcs @done	; out of range
-	stxy @dst
-
-	sta24 bank, @dst
+	sta24 bank, cursorzp
 
 	cmp #$0d
 	bne :+
 	incw line
 	jsr on_line_inserted
-:	incw pre
+:	incw cursorzp
 @done:	rts
 .endproc
 
@@ -1001,22 +1038,10 @@ __src_pos = __src_start	 ; start implements the same behavior
 ; GAPLEN
 ; Returns the length of the gap
 ; OUT:
-;  - .XY: the length of the gap (len-post-pre)
+;  - .XY: the length of the gap
 .proc gaplen
-	ldxy len
-	sub16 post
-	sub16 pre
-	rts
-.endproc
-
-;******************************************************************************
-; CURSOR
-; Returns the address of the current cursor position within (data).
-; OUT:
-;  - .XY: the address of the cursor position
-.proc cursor
-	ldxy #data
-	add16 pre
+	ldxy poststartzp
+	sub16 cursorzp
 	rts
 .endproc
 
@@ -1028,10 +1053,10 @@ __src_pos = __src_start	 ; start implements the same behavior
 .export __src_atcursor
 __src_atcursor:
 .proc atcursor
-	jsr cursor
-	sub16 #1
-	lda bank
-	jmp fe3::load
+	decw cursorzp
+	lda24 bank, cursorzp
+	incw cursorzp
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1062,18 +1087,6 @@ __src_atcursor:
 	pla
 	RETURN_OK
 @end:	sec		; end of buffer
-	rts
-.endproc
-
-;******************************************************************************
-; POSTSTART
-; Returns the address of the post-start section of the gap buffer
-; OUT:
-;  - .XY: the address of the post-start section
-.proc poststart
-	ldxy #data
-	add16 len
-	sub16 post
 	rts
 .endproc
 
@@ -1145,24 +1158,32 @@ __src_atcursor:
 .export __src_goto
 .proc __src_goto
 @dest=r4
-	stxy @dest
-	cmpw pre
+	cmpw cursorzp
 	beq @done
+	stxy @dest
 	bcc @backwards
+
 @forwards:
 	jsr __src_end
 	beq @done
 	jsr __src_next
-	ldxy pre
-	cmpw @dest
+	lda cursorzp
+	cmp @dest
+	bne @backwards
+	lda cursorzp+1
+	cmp @dest+1
 	bne @forwards
 	rts
+
 @backwards:
 	jsr __src_start
 	beq @done
 	jsr __src_prev
-	ldxy pre
-	cmpw @dest
+	lda cursorzp
+	cmp @dest
+	bne @backwards
+	lda cursorzp+1
+	cmp @dest+1
 	bne @backwards
 @done:  rts
 .endproc
@@ -1193,9 +1214,7 @@ __src_atcursor:
 .proc __src_get_at
 @target=r1
 	stxy @target
-	jsr gaplen
-	add16 pre
-	add16 #data
+	ldxy poststartzp
 	stxy zp::bankaddr0
 
 	jsr __src_end
@@ -1211,12 +1230,17 @@ __src_atcursor:
 
 	jsr __src_on_last_line	; on last line already?
 	bne :+
-	ldy post		; bytes to copy
+	ldxy end
+	sub16 poststartzp	; bytes to copy
+	txa
+	pha
+	tay			; .Y = bytes to copy
 	dey
 	lda bank
 	jsr fe3::fcopy
-	ldy post
-	jmp @done
+	pla
+	tay
+	bne @done		; branch always
 
 :	ldxy @target
 	stxy zp::bankaddr1

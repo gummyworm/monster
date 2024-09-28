@@ -1,5 +1,5 @@
 ### TODO
-- [x] Disassemble file command
+- [ ] Finish installer
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor
   - [ ] Show current scope in status bar (why not)
@@ -11,6 +11,7 @@
 - [ ] Fix disassembly
 - [ ] Implement linker (WIP on linkage branch)
 - [ ] Add settings / module configuration file
+- [x] Disassemble file command
 - [x] Fix visual mode
 - [x] Optimize source up/down/goto
   - [x] Do one copy instead of repeated moves (next/prev)
