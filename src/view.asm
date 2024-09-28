@@ -325,7 +325,8 @@ memaddr:   .word 0
 	bcs @done
 	dec memaddr+1
 @done:	sta memaddr
-	jmp __view_mem	; refresh the display
+	jsr __view_mem	; refresh the display
+	jmp cur::on
 
 :	ldy #$ff
 	ldx #0
@@ -351,7 +352,8 @@ memaddr:   .word 0
 	bcc @done
 	inc memaddr+1
 @done:	sta memaddr
-	jmp __view_mem	; refresh the display
+	jsr __view_mem	; refresh the display
+	jmp cur::on
 
 :	ldy #1
 	ldx #0

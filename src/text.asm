@@ -518,9 +518,9 @@ render_off: .byte 0
 ; Renders the given string. The given format string follows the same format as
 ; "text::print"
 ; IN:
-;   - .XY: the format string to print
+;   - .XY: the format string to render
 ; OUT:
-;  - mem::linebuffer2: the rendered text
+;  - mem::linebuffer2: the rendered format string
 .export __text_render
 .proc __text_render
 	inc render_off

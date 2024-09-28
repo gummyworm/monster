@@ -2877,9 +2877,8 @@ goto_buffer:
 @nextline:
 	jsr drawline
 	; redraw everything from <cursor> to EOL on next line
-	ldxy #mem::linebuffer
 	lda zp::cury
-	jsr text::print
+	jsr text::drawline
 
 @done:	lda zp::curx
 	beq @ret

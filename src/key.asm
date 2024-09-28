@@ -100,11 +100,11 @@ __key_num_processed: .byte 0
 	bcc @done
 	cmp #$66+1	; 'f'+1
 	bcs @nothex
-	cmp #$60	; 'a'
+	cmp #$61	; 'a'
 	bcs @done
 	cmp #$46+1	; 'F' + 1
 	bcs @nothex
-	cmp #$40	; 'A'
+	cmp #$41	; 'A'
 	bcs @done
 	cmp #'9'+1
 	bcs @nothex

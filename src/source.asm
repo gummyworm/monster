@@ -13,13 +13,12 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-MAX_SOURCES=8
-
 ;******************************************************************************
 ; CONSTANTS
+MAX_SOURCES=8		; number of source buffers that can be loaded at once
 GAPSIZE = $100		; size of gap in gap buffer
 POS_STACK_SIZE = 32 	; size of source position stack
-MAX_BUFFER_NAME_LEN=16  ; max name for each buffer
+MAX_BUFFER_NAME_LEN=16  ; max length of names for each buffer
 
 ;******************************************************************************
 ; FLAGS
@@ -29,15 +28,17 @@ FLAG_DIRTY = 1
 
 ;******************************************************************************
 data_start:
-sp: 	   .byte 0
-stack:     .res POS_STACK_SIZE
+sp: 	   .byte 0		; stack pointer for source position stack
+stack:     .res POS_STACK_SIZE	; stack for source positions
 
-.export __src_line
-__src_line = zp::srcline
-.export __src_lines
-__src_lines = zp::srclines
-
-buffstate=zp::srccur
+;******************************************************************************
+; BUFFSTATE
+; This block of zeropage variables are stored in the order they are 
+; enumerated below.  When a source buffer is activated, the state for that
+; buffer is copied to these zeropage locations.
+; The values for the buffer that is being deactivated are copied to the
+; "savestate" array
+buffstate   = zp::srccur
 cursorzp    = zp::srccur
 poststartzp = zp::srccur2
 line        = zp::srcline
@@ -45,6 +46,14 @@ lines       = zp::srclines
 end         = zp::srcend
 SAVESTATE_SIZE = 10		; space used by above zeropage addresses
 
+.export __src_line
+__src_line = line
+.export __src_lines
+__src_lines = lines
+
+;******************************************************************************
+; SAVESTATE
+; This buffer holds the "buffer state" for each source buffer. See BUFFSTATE
 savestate:  .res MAX_SOURCES*10	; 10 bytes: curl, curr, line, lines, end
 
 .export __src_names
@@ -69,6 +78,7 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 
 ;******************************************************************************
 ; DATA
+; This buffer holds the text data.  It is a large contiguous chunk of memory
 .segment "SOURCE"
 .assert * & $ff = 0, error, "source buffers must be page aligned"
 data: .res $6000
@@ -575,16 +585,6 @@ data: .res $6000
 .endproc
 
 ;******************************************************************************
-; POS
-; Returns the current source position.  You may go to this position with the
-; src::goto routine.  Note that if the source changes since this procedure is
-; called, this may not be the same (or expected) position
-; OUT:
-;  - .XY: the current source position
-.export __src_pos
-__src_pos = __src_start	 ; start implements the same behavior
-
-;******************************************************************************
 ; END
 ; Returns .Z set if the cursor is at the end of the buffer.
 ; OUT:
@@ -627,6 +627,19 @@ __src_pos = __src_start	 ; start implements the same behavior
 	ldxy end
 	sub16 poststartzp
 	cmpw #1
+	rts
+.endproc
+
+;******************************************************************************
+; POS
+; Returns the current source position.  You may go to this position with the
+; src::goto routine.  Note that if the source changes since this procedure is
+; called, this may not be the same (or expected) position
+; OUT:
+;  - .XY: the current source position
+.export __src_pos
+.proc __src_pos
+	ldxy cursorzp
 	rts
 .endproc
 
@@ -1285,7 +1298,7 @@ __src_atcursor:
 ; ON_LAST_LINE
 ; Checks if the cursor is on the last line of the active source buffer.
 ; OUT:
-;  - .Z: set if we're on the last line of the source
+;  - .Z: set if the cursor is on the last line of the active source
 .export __src_on_last_line
 .proc __src_on_last_line
 	ldxy line
