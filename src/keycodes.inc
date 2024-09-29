@@ -64,6 +64,8 @@ K_GO       = $a5	; C= + g
 K_STEPOVER = $73	; s
 K_TRACE    = $74	; t
 K_STEP     = $7a	; z
+; K_STEPOUT  = $5e	; up-arrow
+K_STEPOUT  = $79	; y
 
 K_SET_WATCH = $b3	; C= + w (for use in MEMORY editor)
 K_ADD_WATCH = $b3	; C= + w (for use in WATCH editor)

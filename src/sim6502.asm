@@ -175,11 +175,11 @@ __sim_stopwatch: .res 3
 
 ; next instruction is stack address + 1
 @rts:   ldy __sim_reg_sp
-	lda $100+1,y
+	lda mem::prog00+$100+1,y
 	clc
 	adc #$01
 	tax
-	lda $100+2,y
+	lda mem::prog00+$100+2,y
 	adc #$00
 	tay
 	rts
@@ -189,8 +189,8 @@ __sim_stopwatch: .res 3
 	bne @notrti
 
 @rti:	ldy __sim_reg_sp
-	ldx $100,y
-	lda $100+1,y
+	ldx mem::prog00+$100,y
+	lda mem::prog00+$100+1,y
 	tay
 
 @notrti:
