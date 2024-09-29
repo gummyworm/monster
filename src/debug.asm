@@ -43,7 +43,8 @@
 .import __DEBUGGER_SIZE__
 
 ; address in user program where the BRK handler will reside
-BRK_HANDLER_ADDR = $8000-(brkhandler1_size+brkhandler2_size-2)
+NMI_HANDLER_ADDR = $8000-brkhandler1_size-2
+BRK_HANDLER_ADDR = $8000-brkhandler1_size+5-2 	; 5 is sizeof NMI portion
 RTI_ADDR         = BRK_HANDLER_ADDR + 3
 
 ;******************************************************************************
@@ -380,8 +381,9 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 @cnt=r2
 	sei
 	ldxy #BRK_HANDLER_ADDR
-	stxy @dst
 	stxy $0316		; BRK
+	ldxy #NMI_HANDLER_ADDR
+	stxy @dst
 	stxy $0318		; NMI
 	cli
 
@@ -389,7 +391,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	sta @cnt
 ; copy part 1 of the BRK handler to the user program
 @l0:	ldy @cnt
-	lda brkhandler1,y
+	lda brkhandlers,y
 	sta zp::bankval
 	sty zp::bankoffset
 	ldxy @dst
@@ -425,6 +427,11 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; This is the layout of the code in each bank:
 ; | User         |  Debugger                     |
 ; |--------------|-------------------------------|
+; | PHA          |	                         |
+; | PHA          |	                         |
+; | TXA          |	                         |
+; | PHA          |	                         |
+; | TYA          |	                         |
 ; | PHA          |	PHA                      |
 ; | LDA #$80     |	LDA #$80                 |
 ; | STA $9C02    |	STA $9C02                |
@@ -432,9 +439,17 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; | RTI          | 	JMP DEBUG_BRK            |
 ; | -- (2 bytes) |  -- (0 bytes)                 |
 ;
-; handler1 (the User handler) has 2 empty bytes at the end
-;
+; handler1 (the User handler) has 1 empty bytes at the end
+; handler2 (the Debug handler) has 5 empty bytes at the start
+brkhandlers:
+brkhandlernmi:
 brkhandler1:
+	pha
+	pha
+	txa
+	pha
+	tya
+
 	pha
 	lda #$80
 	sta $9c02
@@ -615,16 +630,11 @@ brkhandler2_size=*-brkhandler2
 	; clear decimal in case user set it
 	cld
 
-	; BRK pushes PC + 2, subtract 2 from PC
-	lda sim::pc
-	sec
-	sbc #$02
-	sta sim::pc
-	lda sim::pc+1
-	sbc #$00
-	sta sim::pc+1
-
-	sei
+	lda $911d	; VIA 1 IFR
+	bmi :+		; if interrupt wasn't cause by NMI skip PC adjustment
+	decw sim::pc	; BRK pushes PC + 2, subtract 2 from PC
+	decw sim::pc
+:	sei
 
 	; restore the debugger's SP
 	ldx debugger_sp
