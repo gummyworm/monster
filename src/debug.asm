@@ -609,7 +609,13 @@ brkhandler2_size=*-brkhandler2
 ; needed by the debugger for display etc, then it restores the debugger's state
 ; and finally transfers control to the debugger
 .proc debug_brk
+@nmi=mem::spare
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
+	ldx $911d		; check if NMI occurred
+	lda #$7f
+	sta $911e	; disable all NMI's
+	stx @nmi
+
 	pla
 	sta sim::reg_y
 	pla
@@ -630,7 +636,7 @@ brkhandler2_size=*-brkhandler2
 	; clear decimal in case user set it
 	cld
 
-	lda $911d	; VIA 1 IFR
+	lda @nmi
 	bmi :+		; if interrupt wasn't cause by NMI skip PC adjustment
 	decw sim::pc	; BRK pushes PC + 2, subtract 2 from PC
 	decw sim::pc
@@ -842,6 +848,11 @@ restore_regs:
 	sty prev_reg_y
 
 	; TODO: restore timer values
+
+	lda #$7f
+	sta $911d	; ack all interrupts
+	lda #$82	; enable RESTORE key (CA1) interrupts only
+	sta $911e
 
 	; return from the BRK
 	pha
