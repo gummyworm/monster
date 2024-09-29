@@ -611,7 +611,7 @@ brkhandler2_size=*-brkhandler2
 .proc debug_brk
 @nmi=mem::spare
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
-	ldx $911d		; check if NMI occurred
+	ldx $911d	; check if NMI occurred (bit 7)
 	lda #$7f
 	sta $911e	; disable all NMI's
 	stx @nmi
@@ -840,6 +840,11 @@ restore_regs:
 	lda sim::reg_p	; restore processor status
 	pha
 
+	lda #$7f
+	sta $911d	; ack all interrupts
+	lda #$82	; enable RESTORE key (CA1) interrupts only
+	sta $911e
+
 	lda sim::reg_a
 	sta prev_reg_a
 	ldx sim::reg_x
@@ -848,11 +853,6 @@ restore_regs:
 	sty prev_reg_y
 
 	; TODO: restore timer values
-
-	lda #$7f
-	sta $911d	; ack all interrupts
-	lda #$82	; enable RESTORE key (CA1) interrupts only
-	sta $911e
 
 	; return from the BRK
 	pha

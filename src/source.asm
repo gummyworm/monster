@@ -46,9 +46,9 @@ lines       = zp::srclines
 end         = zp::srcend
 SAVESTATE_SIZE = 10		; space used by above zeropage addresses
 
-.export __src_line
+.exportzp __src_line
 __src_line = line
-.export __src_lines
+.exportzp __src_lines
 __src_lines = lines
 
 ;******************************************************************************
@@ -741,10 +741,15 @@ data: .res $6000
 ;  - .A: the character at the new cursor position in .A
 .export __src_next
 .proc __src_next
-	jsr __src_end
+	; do __src_end inline to save the cycles from JSR and RTS
+	ldx poststartzp	
+	cpx end
+	bne @cont
+	ldx poststartzp+1
+	cpx end+1
 	beq @done
 
-	; switch to the bank that contains the source buffer's data
+@cont:	; switch to the bank that contains the source buffer's data
 	lda bank
 	sta $9c02
 

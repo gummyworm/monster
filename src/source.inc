@@ -1,3 +1,6 @@
+.importzp __src_line
+.importzp __src_lines
+
 .import __src_activebuff
 .import __src_after_cursor
 .import __src_atcursor
@@ -23,8 +26,6 @@
 .import __src_insertline
 .import __src_isdirty
 .import __src_left
-.import __src_line
-.import __src_lines
 .import __src_next
 .import __src_name
 .import __src_names
