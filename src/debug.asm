@@ -611,7 +611,7 @@ brkhandler2_size=*-brkhandler2
 .proc debug_brk
 @nmi=mem::spare
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
-	ldx $911d		; check if NMI occurred
+	ldx $911d	; check if NMI occurred (bit 7)
 	lda #$7f
 	sta $911e	; disable all NMI's
 	stx @nmi
