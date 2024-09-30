@@ -1,4 +1,6 @@
 ### TODO
+- [ ] Add "Return" command in debugger (trace until RTS)
+- [ ] Add "Go" at cursor command in debugger
 - [ ] Finish installer
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor
@@ -11,6 +13,8 @@
 - [ ] Fix disassembly
 - [ ] Implement linker (WIP on linkage branch)
 - [ ] Add settings / module configuration file
+- [x] Support break via NMI in debugger 
+- [x] Create cartridge target
 - [x] Disassemble file command
 - [x] Fix visual mode
 - [x] Optimize source up/down/goto

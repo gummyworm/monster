@@ -72,6 +72,7 @@ ACTION_START     = 3	; action for initial debug entry
 ACTION_GO_START  = 4	; action for first instruction of GO command
 ACTION_GO        = 5	; action for subsequent GO instructions
 ACTION_TRACE     = 6	; action for TRACE command
+ACTION_STEP_OUT  = 7	; action for STEP OUT command
 
 ;******************************************************************************
 ; IFACE (interface) constants
@@ -706,6 +707,7 @@ brkhandler2_size=*-brkhandler2
 	ldxy sim::pc
 	jsr vmem::store
 	jmp @reset_state
+
 :	jsr stepping		; are we stepping?
 	bne @reset_state
 @restore_step:
@@ -713,8 +715,16 @@ brkhandler2_size=*-brkhandler2
 
 	; if we are doing a TRACE, install breakpoints and continue
 	lda action
-	cmp #ACTION_TRACE
-	bne @reset_state
+	cmp #ACTION_STEP_OUT
+	bne :+
+@stepout:
+	lda stepsave		; get the opcode we BRK'd on
+	cmp #$60		; RTS opcode
+	bne @trace		; if not RTS, continue tracing
+	beq @reset_state	; if RTS, return to debugger
+
+:	cmp #ACTION_TRACE
+	bne @reset_state	; if not TRACE/STEP_OUT, return to debugger
 @trace:
 	; check if the BRK that was triggered is a breakpoint or just the
 	; step point. If the latter, continue tracing
@@ -939,6 +949,18 @@ restore_regs:
 	lda #ACTION_GO_START
 	sta action
 	inc advance		; continue program execution
+	rts
+.endproc
+
+;******************************************************************************
+; STEP OUT
+; Runs the user program until the next RTS is executed
+.proc step_out
+	; for the first instruction, just STEP, this lets us keep the breakpoint
+	; we are on (if there is one) intact
+	jsr __debug_step
+	lda #ACTION_STEP_OUT
+	sta action
 	rts
 .endproc
 
@@ -1997,22 +2019,25 @@ __debug_remove_breakpoint:
 
 ;******************************************************************************
 ; Stepping
-; Returns with the .Z flag set if we are currently "stepping"
-; This means that we are executing in a step-by-step fashion as with
-;  STEP
-;  TRACE
-;  STEP-OVER
-;  GO-START
+; Checks if we are currently "stepping"
+; This means that we are inserting a BRK after each instruction during
+; execution so that the debugger can control how to proceed based on various
+; circumstances
+; OUT:
+;   - .Z: set if the active action is one which executes by stepping
 .proc stepping
-	lda action
-	cmp #ACTION_GO_START
-	beq @yes
-	cmp #ACTION_STEP
-	beq @yes
-	cmp #ACTION_STEP_OVER
-	beq @yes
-	cmp #ACTION_TRACE
-@yes:	rts
+	ldx #@num_stepcmds-1
+:	cmp @stepcmds,x
+	beq @done
+	dex
+	bpl :-
+@done:	rts
+.PUSHSEG
+.RODATA
+@stepcmds:
+	.byte ACTION_GO_START, ACTION_STEP, ACTION_STEP_OVER, ACTION_TRACE
+@num_stepcmds=*-@stepcmds
+.POPSEG
 .endproc
 
 ;******************************************************************************
@@ -2068,6 +2093,7 @@ commands:
 	.byte K_STEP
 	.byte K_STEPOVER
 	.byte K_GO
+	.byte K_STEPOUT
 	.byte K_TRACE
 	.byte K_SRCVIEW
 	.byte K_MEMVIEW
@@ -2081,7 +2107,7 @@ commands:
 num_commands=*-commands
 
 .linecont +
-.define command_vectors quit, edit_source, __debug_step, step_over, go, \
+.define command_vectors quit, edit_source, __debug_step, step_over, go, step_out, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
 	__debug_swap_user_mem, reset_stopwatch, edit_state, \
 	goto_break, activate_monitor
