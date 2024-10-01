@@ -61,6 +61,7 @@ K_GOTO_BREAK		= $5e	; up-arrow
 K_ENTER_DEBUG_CMD	= $21	; !
 
 K_GO       = $a5	; C= + g
+K_JUMP     = $b5	; C= + j
 K_STEPOVER = $73	; s
 K_TRACE    = $74	; t
 K_STEP     = $7a	; z
