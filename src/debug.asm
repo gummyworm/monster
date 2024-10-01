@@ -43,9 +43,10 @@
 .import __DEBUGGER_SIZE__
 
 ; address in user program where the BRK handler will reside
-NMI_HANDLER_ADDR = $8000-brkhandler1_size-2
-BRK_HANDLER_ADDR = $8000-brkhandler1_size+5-2 	; 5 is sizeof NMI portion
-RTI_ADDR         = BRK_HANDLER_ADDR + 3
+BRK_HANDLER_TOP  = $8000
+NMI_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size
+BRK_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size+5-1 	; 5 is sizeof NMI portion
+RTI_ADDR         = BRK_HANDLER_ADDR+3
 
 ;******************************************************************************
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
@@ -359,17 +360,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 .endproc
 
 ;******************************************************************************
-; DUMMY IRQ
-; Replaces the IRQ with a dummy (NOP) one
-.proc dummy_irq
-	sei
-	ldxy #$eb15
-	stxy $0314
-	cli
-	rts
-.endproc
-
-;******************************************************************************
 ; INSTALL BRK
 ; Installs the debugger BRK handler to the BRK and NMI vectors and copies the
 ; code to enter the handler to the user program's RAM at BRK_HANDLER_ADDR.
@@ -381,7 +371,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 @dst=r0
 @cnt=r2
 	sei
-	ldxy #BRK_HANDLER_ADDR
+	ldxy #BRK_HANDLER_ADDR+1
 	stxy $0316		; BRK
 	ldxy #NMI_HANDLER_ADDR
 	stxy @dst
@@ -428,40 +418,48 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; This is the layout of the code in each bank:
 ; | User         |  Debugger                     |
 ; |--------------|-------------------------------|
-; | PHA          |	                         |
-; | PHA          |	                         |
-; | TXA          |	                         |
-; | PHA          |	                         |
-; | TYA          |	                         |
-; | PHA          |	PHA                      |
+; | PHA          |	--                       |
+; | TXA          |	--                       |
+; | PHA          |	--                       |
+; | TYA          |	--                       |
+; | PHA          |      PHA                      |
 ; | LDA #$80     |	LDA #$80                 |
 ; | STA $9C02    |	STA $9C02                |
-; | PLA          |	PLA                      |
-; | RTI          | 	JMP DEBUG_BRK            |
-; | -- (2 bytes) |  -- (0 bytes)                 |
+; | LDA #$82     |      PLA                      |
+; | STA $911e    |      JMP DEBUG_BRK            |
+; | PLA          |	                         |
+; | RTI          | 	                         |
+; | -- (0 bytes) |  -- (3 bytes)                 |
 ;
 ; handler1 (the User handler) has 1 empty bytes at the end
 ; handler2 (the Debug handler) has 5 empty bytes at the start
 brkhandlers:
 brkhandlernmi:
 brkhandler1:
-	pha
-	pha
+; this portion runs in the DEBUGGER bank
+	pha		; NMI handler
 	txa
 	pha
 	tya
+	pha
 
-	pha
-	lda #$80
-	sta $9c02
+	lda #$80	; start of BRK handler
+	sta $9c02	; switch to DEBUGGER bank
+;--------------------------------------
+; this portion runs in the USER bank
+	lda #$82
+	sta $911e	; enable CA1 (RESTORE key) interrupts
 	pla
-	rti
+	rti		; return from BRK/NMI
 brkhandler1_size=*-brkhandler1
+
 brkhandler2:
-	pha
+; this portion runs in the user bank
+	pha		; TODO: delete?
 	lda #$80
-	sta $9c02
-	pla
+	sta $9c02	; switch to DEBUGGER bank
+;--------------------------------------
+; this portion runs in the debugger bank
 	jmp debug_brk
 brkhandler2_size=*-brkhandler2
 
@@ -610,12 +608,10 @@ brkhandler2_size=*-brkhandler2
 ; needed by the debugger for display etc, then it restores the debugger's state
 ; and finally transfers control to the debugger
 .proc debug_brk
-@nmi=mem::spare
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
-	ldx $911d	; check if NMI occurred (bit 7)
+	ldy $911d	; check if NMI occurred (bit 7)
 	lda #$7f
 	sta $911e	; disable all NMI's
-	stx @nmi
 
 	pla
 	sta sim::reg_y
@@ -637,11 +633,38 @@ brkhandler2_size=*-brkhandler2
 	; clear decimal in case user set it
 	cld
 
-	lda @nmi
-	bmi :+		; if interrupt wasn't cause by NMI skip PC adjustment
+	tya		; get IFR
+	and #$02	; was the interrupt from RESTORE (CA1)?
+	beq @notnmi
+
+; check if an interrupt (NMI) occurred while we were returning to the user
+; program (while we were still in the NMI ISR).
+; Most commonly this will occur during tracing.  When tracing, we don't
+; acknowledge NMI's because that is how the user breaks from the trace.
+; If there is a pending NMI (there was a rising edge on CA1 while the debugger
+; was running the next step of the TRACE) when we reenable interrupts,
+; it will trigger.
+; There are also a few cycles when a user could theoretically trigger an
+; NMI by pressing RESTORE immediately after executing a STEP or similar
+; instruction.  We acknowledge NMI's right before running the user
+; program, but it is possible to trigger one while we are still in the process.
+@nmi:	lda #ACTION_STEP
+	sta action
+	ldxy sim::pc
+	cmpw #NMI_HANDLER_ADDR
+	bcc @restore_debugger
+	cmpw #BRK_HANDLER_TOP+1
+	bcs @restore_debugger
+	lda #$7f
+	sta $911d	; ack all interrupts
+	jmp debug_rti	; finish the ISR that was interrupted by the NMI
+
+@notnmi:
 	decw sim::pc	; BRK pushes PC + 2, subtract 2 from PC
 	decw sim::pc
-:	sei
+
+@restore_debugger:
+	sei
 
 	; restore the debugger's SP
 	ldx debugger_sp
@@ -833,7 +856,6 @@ brkhandler2_size=*-brkhandler2
 	jsr save_debug_zp
 	sei
 	restore_user_zp
-	;jsr dummy_irq
 
 restore_regs:
 	ldx sim::reg_sp	; restore SP
@@ -850,11 +872,14 @@ restore_regs:
 	lda sim::reg_p	; restore processor status
 	pha
 
+	lda action
+	cmp #ACTION_TRACE
+	beq debug_rti	; if we are tracing, don't ack interrupts
 	lda #$7f
 	sta $911d	; ack all interrupts
-	lda #$82	; enable RESTORE key (CA1) interrupts only
-	sta $911e
+.endproc
 
+.proc debug_rti
 	lda sim::reg_a
 	sta prev_reg_a
 	ldx sim::reg_x
@@ -867,7 +892,9 @@ restore_regs:
 	; return from the BRK
 	pha
 	lda #FINAL_BANK_USER
-	jmp RTI_ADDR
+	jmp RTI_ADDR	; sta $9c02
+			; pla
+			; rti
 .endproc
 
 ;******************************************************************************
