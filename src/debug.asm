@@ -42,7 +42,10 @@
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
 
+;******************************************************************************
+; BRK/NMI HANDLER ADDRESSES
 ; address in user program where the BRK handler will reside
+; NOTE: the user program cannot use the space occupied by these handlers
 BRK_HANDLER_TOP  = $8000
 NMI_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size
 BRK_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size+5-1 	; 5 is sizeof NMI portion
@@ -433,6 +436,8 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ;
 ; handler1 (the User handler) has 1 empty bytes at the end
 ; handler2 (the Debug handler) has 5 empty bytes at the start
+.PUSHSEG
+.RODATA
 brkhandlers:
 brkhandlernmi:
 brkhandler1:
@@ -462,6 +467,7 @@ brkhandler2:
 ; this portion runs in the debugger bank
 	jmp debug_brk
 brkhandler2_size=*-brkhandler2
+.POPSEG
 
 ;******************************************************************************
 ; INSTALL_BREAKPOINTS
@@ -1721,7 +1727,7 @@ __debug_remove_breakpoint:
 @back:	lda zp::curx
 	beq @edit		; can't move LEFT
 	dec zp::curx
-	ldx #6
+	ldx #@numoffsets-1
 @prevx:	cmp @offsets,x		; was cursor at start of offset?
 	bcc @prev		; if cursor is < offset, check prev offset
 	bne @ok			; if it was NOT at offset start, it is now
@@ -1759,7 +1765,7 @@ __debug_remove_breakpoint:
 	sta zp::curx
 	jmp @refresh
 @next:	inx
-	cpx #6
+	cpx #@numoffsets
 	bne @nextx
 
 @refresh:
@@ -1775,7 +1781,7 @@ __debug_remove_breakpoint:
 	ldxy #mem::linebuffer2
 	stxy @val
 
-	ldx #6-1
+	ldx #@numoffsets-1
 @l0:	ldy @offsets,x
 	lda (@val),y
 	jsr util::chtohex	; get MSB
@@ -1808,8 +1814,8 @@ __debug_remove_breakpoint:
 @offsets:
 .byte REG_PC_OFFSET, REG_PC_OFFSET+2, REG_A_OFFSET, REG_X_OFFSET, REG_Y_OFFSET
 .byte REG_SP_OFFSET
+@numoffsets=*-@offsets
 .POPSEG
-
 .endproc
 
 ;******************************************************************************
