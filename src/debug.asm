@@ -637,8 +637,8 @@ brkhandler2_size=*-brkhandler2
 	and #$02	; was the interrupt from RESTORE (CA1)?
 	beq @notnmi
 
-; check if an interrupt (NMI) occurred while we were returning to the user
-; program (while we were still in the NMI ISR).
+; An NMI interrupt occurred while we were returning to the user
+; program (while we were still in the NMI/BRK ISR).
 ; Most commonly this will occur during tracing.  When tracing, we don't
 ; acknowledge NMI's because that is how the user breaks from the trace.
 ; If there is a pending NMI (there was a rising edge on CA1 while the debugger
@@ -648,9 +648,15 @@ brkhandler2_size=*-brkhandler2
 ; NMI by pressing RESTORE immediately after executing a STEP or similar
 ; instruction.  We acknowledge NMI's right before running the user
 ; program, but it is possible to trigger one while we are still in the process.
-@nmi:	lda #ACTION_STEP
+; In either case, when this is detected (by the PC being in the NMI/BRK handler
+; range), we return from the interrupt to allow the ISR (debugger) to finish
+; returning to the user program.
+; If we were tracing, we also set the action to STEP so that tracing halts.
+@nmi:	jsr tracing
+	bne :+
+	lda #ACTION_STEP
 	sta action
-	ldxy sim::pc
+:	ldxy sim::pc
 	cmpw #NMI_HANDLER_ADDR
 	bcc @restore_debugger
 	cmpw #BRK_HANDLER_TOP+1
@@ -742,9 +748,14 @@ brkhandler2_size=*-brkhandler2
 	bne :+
 @stepout:
 	lda stepsave		; get the opcode we BRK'd on
+	pha
+	jsr step_out		; run one more STEP to get out of subroutine
+	pla			; get previous opcode
 	cmp #$60		; RTS opcode
-	bne @trace		; if not RTS, continue tracing
-	beq @reset_state	; if RTS, return to debugger
+	bne @continue_debug
+	lda #ACTION_STEP
+	sta action		; flag that we're done stepping out
+	bne @continue_debug
 
 :	cmp #ACTION_TRACE
 	bne @reset_state	; if not TRACE/STEP_OUT, return to debugger
@@ -755,7 +766,7 @@ brkhandler2_size=*-brkhandler2
 	jsr get_breakpoint
 	bcs :+			; not a breakpoint, continue tracing
 	bcc @reset_state	; return control to debugger
-:	jsr trace
+:	jsr trace		; run the next step of the trace
 	jmp @continue_debug
 
 @reset_state:
@@ -2045,7 +2056,29 @@ __debug_remove_breakpoint:
 .endproc
 
 ;******************************************************************************
-; Stepping
+; TRACING
+; Checks if the debugger is currently "tracing"
+; The definition of tracing is any command that automatically STEPs
+; OUT:
+;   - .Z: set if the active action is a "tracing" command
+.proc tracing
+	ldx #@num_tracecmds-1
+	lda action
+:	cmp @tracecmds,x
+	beq @done
+	dex
+	bpl :-
+@done:	rts
+.PUSHSEG
+.RODATA
+@tracecmds:
+	.byte ACTION_TRACE, ACTION_STEP_OUT
+@num_tracecmds=*-@tracecmds
+.POPSEG
+.endproc
+
+;******************************************************************************
+; STEPPING
 ; Checks if we are currently "stepping"
 ; This means that we are inserting a BRK after each instruction during
 ; execution so that the debugger can control how to proceed based on various
@@ -2054,6 +2087,7 @@ __debug_remove_breakpoint:
 ;   - .Z: set if the active action is one which executes by stepping
 .proc stepping
 	ldx #@num_stepcmds-1
+	lda action
 :	cmp @stepcmds,x
 	beq @done
 	dex
@@ -2062,7 +2096,7 @@ __debug_remove_breakpoint:
 .PUSHSEG
 .RODATA
 @stepcmds:
-	.byte ACTION_GO_START, ACTION_STEP, ACTION_STEP_OVER, ACTION_TRACE
+	.byte ACTION_GO_START, ACTION_STEP, ACTION_STEP_OVER, ACTION_STEP_OUT, ACTION_TRACE
 @num_stepcmds=*-@stepcmds
 .POPSEG
 .endproc
