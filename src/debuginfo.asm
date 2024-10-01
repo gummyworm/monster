@@ -767,6 +767,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 ;  - .A:  the file ID of the file containing the line
 ; OUT:
 ;  - .XY: the address of the given line
+;  - .C:  set if no address is mapped to the current line
 .export  __debug_line2addr
 .proc __debug_line2addr
 @line=r2
@@ -804,7 +805,7 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	iny
 	jsr read_from_line
 	tay
-	clc
+	clc			; success
 @ret:	rts
 
 @next:	jsr nextline

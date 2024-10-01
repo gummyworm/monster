@@ -832,10 +832,12 @@ respective Key in the table below.
 |  F2          | Register Editor | enters the register editor                                                           |
 |  F3          | Mem View        | activates the memory window, which takes control until `<-` is pressed               |
 |  F5          | Break View      | displays the breakpoints that have been set and allows them to be enabled/disabled   |
-|  s           | StepOver        | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
+|  s           | Step Over      | steps to the next instruction. If it is a JSR, continues AFTER the target subroutine |
+|  y           | Step Out        | steps until the next RTS instruction                                                 |
 |  z           | Step            | steps to the next instruction.                                                       |
 |  t           | Trace           | like GO but the debugger takes control between each instruction                      |
 |  C=-g        | Go              | begins execution at the cursor                                                       |
+|  C=-j        | Jump to         | sets the PC to the address corresponding to the line the cursor is on                |
 |  C=-r        | Reset Stopwatch | resets the value of the stopwatch to 0                                               |
 |   <-         | Exit            | exits the debugger and returns to the editor                                         |
 | SPACE        | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  |
@@ -885,6 +887,11 @@ Step _over_ behaves the same as step _into_, but if the next
 instruction is a subroutine call (`JSR`), execution continues until the
 instruction _after_ the `JSR` (after the subroutine returns).
 
+#### Step Out (`y`)
+Step _out_ is different from the other STEP commands in that it runs by tracing.
+The step out command traces the program until the next RTS instruction.
+The RTS instruction is run and control then returns to the debug session.
+
 #### Go (`C= + g`)
 The go command begins execution and returns to the debugger only when a
 breakpoint is encountered or when RUN/STOP is pressed.
@@ -893,7 +900,7 @@ breakpoint is encountered or when RUN/STOP is pressed.
 Trace is similar to `GO`, but the debugger executes the program as a series 
 of STEPs instead of running the program binary directly.
 This is useful because it allows the debugger to break if any watched memory
-location is accessed.
+location is accessed or if a JAM would occur.
 
 
 #### Notes on memory swapping

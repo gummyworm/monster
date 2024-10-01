@@ -991,6 +991,21 @@ restore_regs:
 .endproc
 
 ;******************************************************************************
+; JUMP
+; Runs the user program at the line the cursor is currently on
+.proc jump
+	ldxy sim::pc
+	stxy prev_pc
+
+	jsr edit::currentfile	; get current line # (.XY) and file ID (.A)
+	jsr dbgi::line2addr
+	bcs @done		; couldn't resolve address
+	stxy sim::pc
+@done:	rts
+.endproc
+
+
+;******************************************************************************
 ; STEP OUT
 ; Runs the user program until the next RTS is executed
 .proc step_out
@@ -2154,6 +2169,7 @@ commands:
 	.byte K_STEP
 	.byte K_STEPOVER
 	.byte K_GO
+	.byte K_JUMP
 	.byte K_STEPOUT
 	.byte K_TRACE
 	.byte K_SRCVIEW
@@ -2168,7 +2184,7 @@ commands:
 num_commands=*-commands
 
 .linecont +
-.define command_vectors quit, edit_source, __debug_step, step_over, go, step_out, \
+.define command_vectors quit, edit_source, __debug_step, step_over, go, jump, step_out, \
 	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
 	__debug_swap_user_mem, reset_stopwatch, edit_state, \
 	goto_break, activate_monitor
