@@ -1,4 +1,11 @@
 ### TODO
+- [ ] symbol viewer improvements
+  - [x] sort by address
+  - [x] show filename / line
+  - [ ] navigate to symbol
+- [ ] debug information rework
+  - [ ] store relative line #'s (label + x)
+  - [ ] update debug line #'s in realtime (upon line insertion/delete)
 - [ ] Finish installer
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor

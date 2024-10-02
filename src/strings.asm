@@ -108,3 +108,6 @@ __str_watch_added:
 
 .export __str_memview_title
 __str_memview_title: .byte "          memory[$1000]",0
+
+.export __str_symview_title
+__str_symview_title: .byte "symbols",0

@@ -279,11 +279,11 @@ __gui_refresh:
 
 	jmp (getdata)			; get the next line of data
 
-@guireturn:				; getdata will jump back here
+@guireturn:			; getdata will jump back here
 	lda @row
 	jsr text::print
 
-	lda #DEFAULT_900F		; unhighlight
+	lda #DEFAULT_900F	; unhighlight
 	ldx @row
 	jsr draw::hline
 
@@ -366,9 +366,9 @@ __gui_return = @guireturn
 	lda (numptr),y
 	sta num
 
-	cmp height
+	cmpw height
 	bcs @done	; if # of items is > max height, use full height
 	sta height	; else, only resize to the size needed to fit all items
-	clc
+	clc		; ok
 @done:	rts
 .endproc

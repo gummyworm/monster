@@ -90,6 +90,9 @@ __label_get_banon: LBLJUMP get_banon
 .export __label_index
 __label_index: LBLJUMP index
 
+.export __label_id_by_addr_index
+__label_id_by_addr_index: LBLJUMP id_by_addr_index
+
 ;******************************************************************************
 ; LABELS
 ; Table of label names. Each entry corresponds to an entry in label_addresses,
@@ -125,7 +128,7 @@ numanon: .word 0	; total number of anonymous labels
 ;    |   C   |   3   |  $1000   |
 ;
 ; the sorted addresses will look like this:
-;    | addres_sorted | sorted_id |
+;    | address_sorted| sorted_id |
 ;    |---------------|-----------|
 ;    |    $1000      |    3      |
 ;    |    $1003      |    1      |
@@ -1159,6 +1162,36 @@ anon_addrs: .res MAX_ANON*2
 	RETURN_OK
 
 @err:	sec
+	rts
+.endproc
+
+;******************************************************************************
+; ID BY ADDR INDEX
+; Returns the ID of the nth label sorted by address.
+; IN:
+;   - .XY: the index of the label to get from the sorted addresses
+; OUT:
+;   - .XY: the id of the nth label (in sorted order)
+.proc id_by_addr_index
+@tmp=rc
+	txa
+	asl
+	sta @tmp
+	tya
+	rol
+	sta @tmp+1
+	lda @tmp
+	adc #<label_addresses_sorted_ids
+	sta @tmp
+	lda @tmp+1
+	adc #>label_addresses_sorted_ids
+	sta @tmp+1
+	ldy #$00
+	lda (@tmp),y
+	tax
+	iny
+	lda (@tmp),y
+	tay
 	rts
 .endproc
 
