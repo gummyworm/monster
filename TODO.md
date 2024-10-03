@@ -1,8 +1,4 @@
 ### TODO
-- [ ] symbol viewer improvements
-  - [x] sort by address
-  - [x] show filename / line
-  - [ ] navigate to symbol
 - [ ] debug information rework
   - [ ] store relative line #'s (label + x)
   - [ ] update debug line #'s in realtime (upon line insertion/delete)
@@ -17,7 +13,11 @@
 - [ ] Support variable width characters (8x8 UDG's)
 - [ ] Fix disassembly
 - [ ] Implement linker (WIP on linkage branch)
-- [ ] Add settings / module configuration file
+- [ ] Add settings / project configuration file
+- [x] symbol viewer improvements
+  - [x] sort by address
+  - [x] show filename / line
+  - [x] navigate to symbol
 - [x] Add "Go" at cursor command in debugger
 - [x] Add "Return" command in debugger (trace until RTS)
 - [x] Support break via NMI in debugger 

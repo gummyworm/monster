@@ -27,10 +27,12 @@ ESCAPE_SPACING   = $fc
 ESCAPE_BYTE      = $fb
 ESCAPE_CHAR      = $fa
 ESCAPE_8x8UDG    = $f9
-ESCAPE_RVS_ON    = $12
-ESCAPE_RVS_OFF   = $92
+ESCAPE_GOTO_COL  = $f8
+NUM_ESCAPE_CODES = 8
+
 STATUS_LINE      = 23
 STATUS_COL       = 0
+
 
 .BSS
 ;******************************************************************************
@@ -559,12 +561,11 @@ render_off: .byte 0
         ldy #$00
 ;copy the string (substituting escaped characters)
 @l0:    lda (@str),y
-	bne :+
-	jmp @disp
-
-:	cmp #$09		; TAB
+	beq @gotodisp
+	cmp #$09		; TAB
 	bne :+
 
+	; insert as many spaces as needed to get to next tab column
 	sty @savey
 	txa
 	jsr __text_tabr_dist_a
@@ -577,29 +578,38 @@ render_off: .byte 0
 	ldy @savey
 	jmp @cont
 
-:	cmp #ESCAPE_CHAR
-	bne :+
-	pla			; get the character
-	jmp @ch			; and continue to printing it
+:	cmp #$100-NUM_ESCAPE_CODES
+	bcc @putch
 
-:	cmp #ESCAPE_STRING
-	bne :+
-	jmp @string
-:	cmp #ESCAPE_BYTE
-	beq @value_byte
-	cmp #ESCAPE_VALUE
-	beq @value
-	cmp #ESCAPE_VALUE_DEC
-	beq @value_dec
-	cmp #ESCAPE_SPACING
-	beq @spacing
-	jmp @ch
+	sbc #($100-NUM_ESCAPE_CODES)
+	stx @savex
+	tax
+	lda @escvecs_lo,x
+	sta zp::jmpvec
+	lda @escvecs_hi,x
+	sta zp::jmpvec+1
+	ldx @savex
+	jmp (zp::jmpvec)
 
-@spacing:
-;substitute escape character with number of spaces from stack
+@esc_ch:
+	pla			; get character from stack
+@putch:	sta @buff,x
+	inx
+
+@cont:	; escape-code handlers JMP back here when they are done
+	iny
+	cpx #40
+	bcc @l0
+@gotodisp:
+        jmp @disp
+
+;--------------------------------------
+@esc_spacing:
+;substitute escape character with number of spaces from next byte
 	iny
 	sty @savey
-	lda (@str),y
+	lda (@str),y	; get next byte (number of spaces to insert)
+@insert_spaces:
 	tay
 	bne :+
 	jmp @cont
@@ -611,7 +621,8 @@ render_off: .byte 0
 	ldy @savey
 	jmp @cont
 
-@value_byte:
+;--------------------------------------
+@esc_byte:
 	stx @savex
 	sty @savey
 
@@ -624,8 +635,8 @@ render_off: .byte 0
 	sta @buff,x
 	jmp @value_1byte_done
 
-;substitute escape character with value from stack formatted in base-10
-@value_dec:
+;--------------------------------------
+@esc_value_dec:
 	stx @savex
 	sty @savey
 
@@ -646,8 +657,8 @@ render_off: .byte 0
 	ldy @savey
 	jmp @cont
 
-;substitute escape character with value from stack
-@value:
+;--------------------------------------
+@esc_value:
 	stx @savex
 	sty @savey
 
@@ -667,7 +678,6 @@ render_off: .byte 0
 	tya
 	sta @buff+2,x
 
-@value_2byte_done:
 	inx
 	inx
 @value_1byte_done:
@@ -676,8 +686,9 @@ render_off: .byte 0
 	ldy @savey
 	jmp @cont
 
+;--------------------------------------
+@esc_string:
 ;substitute escape character with string from stack
-@string:
 	pla
 	sta @sub
 	pla
@@ -687,22 +698,34 @@ render_off: .byte 0
 @l1:	lda (@sub),y
 	bne :+
 	ldy @savey
-	bpl @cont	; branch always
+	bpl @esc_string_done	; branch always
 :	sta @buff,x
 	iny
 	inx
 	cpx #40
-	bcs @disp
-	bne @l1
+	bcc @l1
+@esc_string_done:
+	jmp @cont
 
-@ch:	sta @buff,x
-	inx
-	cpx #40
-	beq @buffdone
+;--------------------------------------
+@esc_goto_col:
+@tmp=@savey
+	iny
+	lda (@str),y	; get next byte (column to go to)
+	stx @tmp
+	; get number of spaces we need to insert (target_col - current_col)
+	sec
+	sbc @tmp
+	bmi @esc_string_done
+	sty @savey
+	jmp @insert_spaces
 
-@cont:	iny
-        jmp @l0
+;--------------------------------------
+.define escape_vectors @esc_goto_col, $0000,  @esc_ch,  @esc_byte, @esc_spacing,  @esc_value_dec, @esc_value, @esc_string
+@escvecs_lo: .lobytes escape_vectors
+@escvecs_hi: .hibytes escape_vectors
 
+;--------------------------------------
 @disp:	; fill the rest of the line buffer with spaces
 	lda #' '
 :	sta @buff,x

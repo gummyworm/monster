@@ -36,7 +36,7 @@ name     = $100
 ;******************************************************************************
 .RODATA
 sym_line:
-.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, " ", ESCAPE_STRING, " ", "l:", ESCAPE_VALUE_DEC, 0
+.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, " ", ESCAPE_GOTO, 22, ESCAPE_STRING, " ", "l:", ESCAPE_VALUE_DEC, 0
 
 sym_line_no_file:
 .byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, 0

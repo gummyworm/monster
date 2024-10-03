@@ -836,14 +836,14 @@ respective Key in the table below.
 |  y           | Step Out        | steps until the next RTS instruction                                                 |
 |  z           | Step            | steps to the next instruction.                                                       |
 |  t           | Trace           | like GO but the debugger takes control between each instruction                      |
-|  C=-g        | Go              | begins execution at the cursor                                                       |
-|  C=-j        | Jump to         | sets the PC to the address corresponding to the line the cursor is on                |
-|  C=-r        | Reset Stopwatch | resets the value of the stopwatch to 0                                               |
+|  C= + g      | Go              | begins execution at the cursor                                                       |
+|  C= + j      | Jump to         | sets the PC to the address corresponding to the line the cursor is on                |
+|  C= + r      | Reset Stopwatch | resets the value of the stopwatch to 0                                               |
+| C= + t       | Enter monitor   | enters the text-based debug interface (see the monitor commands section for more info|
+| C= + x       | Quit Debugger   | Prompts the user for confirmation then quits the debugger upon receiving it          |
 |   <-         | Exit            | exits the debugger and returns to the editor                                         |
 | SPACE        | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  |
 | ^ (up arrow) |  Goto Break     | navigates to the address that the debugger is currently paused at                    |
-| C= + t       | Enter monitor   | enters the text-based debug interface (see the monitor commands section for more info|
-| C= + x       | Quit Debugger   | Prompts the user for confirmation then quits the debugger upon receiving it          |
 
 ### Register Editor (`F2`)
 Pressing F2 moves the cursor to the register contents and allows the user to enter

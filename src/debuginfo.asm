@@ -140,8 +140,6 @@ segaddresses: .res MAX_SEGMENTS * 2
 ; TODO: store more compactly? e.g. store offsets for line/addr from previous
 ;******************************************************************************
 
-.CODE
-
 ;******************************************************************************
 ; pointers used when building the debug info
 ; may be used for other purposes after debug info is generated
