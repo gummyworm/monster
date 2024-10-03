@@ -58,17 +58,26 @@ name     = $100
 	beq @sortalpha
 @sortaddr:
 	jsr lbl::idbyaddrindex	; lookup via sorted addresses
+
 @sortalpha:
 	stxy lbl		; store the ID for the label
-	jsr lbl::getname	; read the symbol name into buffer ($100)
+	jsr lbl::getname	; read the symbolname into buffer ($100)
 	ldxy lbl
 	jsr lbl::getaddr	; get the symbol address
 	stxy addr
+
+	; default filename to nothing
+	lda #<strings::null
+	sta filename
+	lda #>strings::null
+	sta filename+1
+
 	jsr dbgi::addr2line	; get file and line #
 	bcs @done		; if no mapping, skip 
 				; (this will filter out constants)
 	stxy line
 	jsr dbgi::get_filename
+	bcs @done
 	stxy filename
 @done:	rts
 .endproc
@@ -104,16 +113,16 @@ name     = $100
 	sta @row
 
 @l1:	ldxy @scroll
-	jsr get_item		; get the item for this row (@scroll)
+	jsr get_item	; get the item for this row (@scroll)
 
-	lda line		; push line #
+	lda line	; push line #
 	pha
 	lda line+1
 	pha
 
-	tya			; push filename
+	lda filename+1	; push filename
 	pha
-	txa
+	lda filename
 	pha
 
 @linedone:
@@ -140,6 +149,7 @@ name     = $100
 	ldxy @scroll
 	cmpw lbl::num
 	bne @l1
+	decw @scroll
 
 ; the screen has been drawn, enter the main user loop
 @done:  ; @scroll is now set to the index of the item at the bottom
@@ -158,28 +168,18 @@ name     = $100
 	jsr draw::hline
 	pla
 
-	cmp #$85		; F1 (change sort order)
-	beq @changesort
 	cmp #$11		; down
 	beq @down
 	cmp #$91		; up
 	beq @up
 	cmp #K_RETURN		; RETURN
 	beq @select
+	cmp #$85		; F1 (change sort order)
+	beq @changesort
 	cmp #K_QUIT		; <-
-	bne @done
+	bne @menu
 	jmp scr::restore
 
-@select:
-	; TODO: fix
-	lda @scroll
-	sec
-	sbc @row
-	sta @scroll
-	lda @scroll+1
-	sbc #$00
-	sta @scroll+1
-	jmp dbg::gotoaddr	; go to the line of the symbol definition
 @down:	inc @selection
 	lda @selection
 	cmp @row
@@ -187,7 +187,7 @@ name     = $100
 
 	lda @scroll
 	; sec
-	adc #$01	; +2
+	adc #$00	; +1
 	tax
 	lda @scroll+1
 	adc #$00
@@ -221,7 +221,7 @@ name     = $100
 	sbc @row
 	bcs :+
 	dec @scroll+1
-:	sbc #HEIGHT
+:	sbc #HEIGHT-1
 	sta @scroll
 	bcs :+
 	dec @scroll+1
@@ -229,6 +229,26 @@ name     = $100
 :	lda #HEIGHT-1
 	sta @selection
 	jmp @l0
+
+@select:
+	jsr scr::restore
+
+	; TODO: fix
+	lda @row
+	clc			; subtract an extra 1
+	sbc @selection
+	sta @selection
+
+	lda @scroll
+	sec
+	sbc @selection
+	tax
+	lda @scroll+1
+	sbc #$00
+	tay
+	jsr get_item
+	ldxy addr
+@exit:	jmp dbg::gotoaddr	; go to the line of the symbol definition
 
 @changesort:
 	lda sortby
