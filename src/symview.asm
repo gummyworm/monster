@@ -4,99 +4,285 @@
 ; see all (non-local/anonymous) symbols in their program.
 ; Using debug information, the user can navigate to the location of the symbol
 
+.include "config.inc"
+.include "debuginfo.inc"
+.include "debug.inc"
 .include "draw.inc"
 .include "edit.inc"
+.include "errors.inc"
 .include "key.inc"
 .include "finalex.inc"
 .include "keycodes.inc"
 .include "labels.inc"
 .include "macros.inc"
 .include "screen.inc"
+.include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"
 
-SCREEN_H = 23
+HEIGHT     = 23
 MAX_LABELS = 768
 
+SORT_ALPHA = 0	; sort by label name alphabetically
+SORT_ADDR  = 1	; sort by label address
+
+lbl      = r5		; the ID of the current line's label
+addr     = r9		; the address corresponding to the current line's label
+filename = zp::tmp10	; the filename for the current line
+line     = zp::tmp12	; the line number for the current line
+sortby   = zp::tmp14	; the sort order (ALPHA, ADDR)
+name     = $100
+
+;******************************************************************************
+.RODATA
+sym_line:
+.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, " ", ESCAPE_STRING, " ", "l:", ESCAPE_VALUE_DEC, 0
+
+sym_line_no_file:
+.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, 0
+
+title: .byte "a",0
+
 .CODE
+
+;******************************************************************************
+; GET ITEM
+; Returns the label ID at the given index based on the current sortby value.
+; IN:
+;   - .XY: the item index
+; OUT:
+;   - lbl: the ID of the label at a given index
+;   - addr: the address of the label at the requested index
+;   - name: the name of the symbol
+;   - filename: the name of the file containing the symbol
+;   - line: the line number that contains the symbol
+;   - .XY: the ID of the label at the given index (determined by sortby)
+.proc get_item
+	; destination buffer for getname
+	lda #<$100
+	sta r0
+	lda #>$100
+	sta r0+1
+
+	lda sortby
+	beq @sortalpha
+@sortaddr:
+	jsr lbl::idbyaddrindex	; lookup via sorted addresses
+
+@sortalpha:
+	stxy lbl		; store the ID for the label
+	jsr lbl::getname	; read the symbolname into buffer ($100)
+	ldxy lbl
+	jsr lbl::getaddr	; get the symbol address
+	stxy addr
+
+	; default filename to nothing
+	lda #$00
+	sta filename
+	sta filename+1
+
+	jsr dbgi::addr2line	; get file and line #
+	bcs @done		; if no mapping, skip 
+				; (this will filter out constants)
+	stxy line
+	jsr dbgi::get_filename
+	bcs @done
+	stxy filename
+@done:	rts
+.endproc
+
+;******************************************************************************
+; PRINT ITEM
+; Prints the item at the given line.  The pointers are set by the most recent
+; call to get_item
+; IN:
+;   - .A: the line to draw the item at
+.proc print_item
+	sta @row
+
+	ldxy #sym_line_no_file
+
+	lda filename
+	bne :+
+	lda filename+1
+	beq :++
+
+:	ldxy #sym_line
+
+	lda line	; push line #
+	pha
+	lda line+1
+	pha
+
+	lda filename+1	; push filename
+	pha
+	lda filename
+	pha
+
+:	lda #>name	; push the symbol name (written by getname)
+	pha
+	lda #<name
+	pha
+
+	lda addr
+	pha
+	lda addr+1
+	pha
+
+@print:	
+@row=*+1
+	lda #$00
+	jsr text::print
+	rts
+.endproc
 
 ;******************************************************************************
 ; ENTER
 ; Enters the symbol viewer.
 .export __symview_enter
 .proc __symview_enter
-@cnt=r7
-@addr=r9
+@tmp=r5
+@scroll=r7
 @row=rb
+@selection=zp::tmp15
 	jsr scr::reset
-
-	ldxy lbl::num
-	cmpw #0
-	beq @done
-
-	ldxy #$00
-	stxy @cnt
-
-@l0:	stx @row
-	jsr edit::clear
-@l1:	ldxy #$100
-	stxy r0			; destination buffer for getname
-	ldxy @cnt
-	jsr lbl::getname	; get the symbol name
-	lda #$01
-	pha
 	lda #$00
-	pha
+	sta sortby
+	sta @selection
 
-	ldxy @cnt
-	jsr lbl::getaddr	; get the symbol address
-	txa
-	pha
-	tya
-	pha
+@start:	ldxy lbl::num
+	cmpw #0
+	bne :+
+	jmp @done
 
-	lda @row
-	ldxy #@sym_line
+:	ldxy #$00
+	stxy @scroll
+
+@l0:	jsr edit::clear
+	ldxy #title
+	lda #23
 	jsr text::print
+	lda #$00
+	sta @row
+
+@l1:	ldxy @scroll
+	jsr get_item	; get the item for this row (@scroll)
+	lda @row
+	jsr print_item
 
 	inc @row
 	lda @row
-	cmp #SCREEN_H
+	cmp #HEIGHT
 	beq @done		; end of screen
-	incw @cnt
-	ldxy @cnt
+@nextitem:
+	incw @scroll
+	ldxy @scroll
 	cmpw lbl::num
 	bne @l1
+	decw @scroll
 
-@done:	; wait for a key
+; the screen has been drawn, enter the main user loop
+@done:  ; @scroll is now set to the index of the item at the bottom
+@menu:	ldx @selection
+	lda #DEFAULT_RVS
+	jsr draw::hline		; unhighlight the current selection
+
+@menuloop:
+	; wait for a key
 	jsr key::getch
-	beq @done
+	beq @menuloop
+
+	pha
+	ldx @selection
+	lda #DEFAULT_900F
+	jsr draw::hline
+	pla
+
 	cmp #$11		; down
-	beq @pgdown
+	beq @down
 	cmp #$91		; up
-	beq @pgup
+	beq @up
+	cmp #K_RETURN		; RETURN
+	beq @select
+	cmp #$85		; F1 (change sort order)
+	beq @changesort
 	cmp #K_QUIT		; <-
-	bne @done
+	bne @menu
 	jmp scr::restore
 
-@pgdown:
-	ldxy @cnt		; @cnt is already +SCREEN_H
-	cmpw lbl::num		; are we at the end of the symbols?
-	bcs @done		; yes, don't switch pages
-	bcc @cont
+@down:	inc @selection
+	lda @selection
+	cmp @row
+	bcc @menu
 
-@pgup:	ldxy @cnt
-	sub16 #(SCREEN_H*2)-1
-	bpl @cont
-	ldxy #$00
+	lda @scroll
+	; sec
+	adc #$00	; +1
+	tax
+	lda @scroll+1
+	adc #$00
+	tay
+	cmpw lbl::num
+	bcc @scrolldown
 
-@cont:	stxy @cnt
-	ldx #$00
+	; can't scroll, we're at the end of labels
+	dec @selection
+	jmp @menu
+
+@scrolldown:
+	stxy @scroll
+	lda #$00
+	sta @selection
 	jmp @l0
 
-.PUSHSEG
-.RODATA
-@sym_line:
-	.byte "$",ESCAPE_VALUE,": ", ESCAPE_STRING, 0
-.POPSEG
+@up:	dec @selection
+	bpl @menu
+	inc @selection
+	lda @scroll+1
+	bne @scrollup
+	lda @scroll
+	cmp #HEIGHT
+	bcc @menu
+
+@scrollup:
+	; @scroll -= (@row + HEIGHT-1)
+	lda @scroll
+	sec
+	sbc @row
+	bcs :+
+	dec @scroll+1
+:	sbc #HEIGHT-1
+	sta @scroll
+	bcs :+
+	dec @scroll+1
+
+:	lda #HEIGHT-1
+	sta @selection
+	jmp @l0
+
+@select:
+	jsr scr::restore
+
+	; TODO: fix
+	lda @row
+	clc			; subtract an extra 1
+	sbc @selection
+	sta @selection
+
+	lda @scroll
+	sec
+	sbc @selection
+	tax
+	lda @scroll+1
+	sbc #$00
+	tay
+	jsr get_item
+	ldxy addr
+@exit:	jmp dbg::gotoaddr	; go to the line of the symbol definition
+
+@changesort:
+	lda sortby
+	eor #$01
+	sta sortby
+	jmp @start
 .endproc

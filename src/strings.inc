@@ -23,6 +23,7 @@
 .import __str_run
 .import __str_saving
 .import __str_segments
+.import __str_symview_title
 .import __str_null
 .import __str_watch_added
 .import __str_watches_line
@@ -62,6 +63,7 @@
 	loading                 = __str_loading
 	null                    = __str_null
 	saving                  = __str_saving
+	symview_title           = __str_symview_title
 	invalid_command         = __str_invalid_command
 	jam_detected            = __str_jam_detected
 .endscope
