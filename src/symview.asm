@@ -26,12 +26,22 @@ MAX_LABELS = 768
 SORT_ALPHA = 0	; sort by label name alphabetically
 SORT_ADDR  = 1	; sort by label address
 
-lbl      = r5
-addr     = r9
-filename = zp::tmp10
-line     = zp::tmp12
-sortby   = zp::tmp14
+lbl      = r5		; the ID of the current line's label
+addr     = r9		; the address corresponding to the current line's label
+filename = zp::tmp10	; the filename for the current line
+line     = zp::tmp12	; the line number for the current line
+sortby   = zp::tmp14	; the sort order (ALPHA, ADDR)
 name     = $100
+
+;******************************************************************************
+.RODATA
+sym_line:
+.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, " ", ESCAPE_STRING, " ", "l:", ESCAPE_VALUE_DEC, 0
+
+sym_line_no_file:
+.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, 0
+
+title: .byte "a",0
 
 .CODE
 
@@ -67,9 +77,8 @@ name     = $100
 	stxy addr
 
 	; default filename to nothing
-	lda #<strings::null
+	lda #$00
 	sta filename
-	lda #>strings::null
 	sta filename+1
 
 	jsr dbgi::addr2line	; get file and line #
@@ -83,6 +92,51 @@ name     = $100
 .endproc
 
 ;******************************************************************************
+; PRINT ITEM
+; Prints the item at the given line.  The pointers are set by the most recent
+; call to get_item
+; IN:
+;   - .A: the line to draw the item at
+.proc print_item
+	sta @row
+
+	ldxy #sym_line_no_file
+
+	lda filename
+	bne :+
+	lda filename+1
+	beq :++
+
+:	ldxy #sym_line
+
+	lda line	; push line #
+	pha
+	lda line+1
+	pha
+
+	lda filename+1	; push filename
+	pha
+	lda filename
+	pha
+
+:	lda #>name	; push the symbol name (written by getname)
+	pha
+	lda #<name
+	pha
+
+	lda addr
+	pha
+	lda addr+1
+	pha
+
+@print:	
+@row=*+1
+	lda #$00
+	jsr text::print
+	rts
+.endproc
+
+;******************************************************************************
 ; ENTER
 ; Enters the symbol viewer.
 .export __symview_enter
@@ -91,7 +145,6 @@ name     = $100
 @scroll=r7
 @row=rb
 @selection=zp::tmp15
-@prevscroll=zp::tmp16
 	jsr scr::reset
 	lda #$00
 	sta sortby
@@ -106,7 +159,7 @@ name     = $100
 	stxy @scroll
 
 @l0:	jsr edit::clear
-	ldxy #@info
+	ldxy #title
 	lda #23
 	jsr text::print
 	lda #$00
@@ -114,31 +167,8 @@ name     = $100
 
 @l1:	ldxy @scroll
 	jsr get_item	; get the item for this row (@scroll)
-
-	lda line	; push line #
-	pha
-	lda line+1
-	pha
-
-	lda filename+1	; push filename
-	pha
-	lda filename
-	pha
-
-@linedone:
-	lda #>name		; push the symbol name (written by getname)
-	pha
-	lda #<name
-	pha
-
-	lda addr
-	pha
-	lda addr+1
-	pha
-
-	ldxy #@sym_line
 	lda @row
-	jsr text::print
+	jsr print_item
 
 	inc @row
 	lda @row
@@ -255,10 +285,4 @@ name     = $100
 	eor #$01
 	sta sortby
 	jmp @start
-
-.PUSHSEG
-.RODATA
-	@sym_line: .byte "$", ESCAPE_VALUE, ": ", ESCAPE_STRING, " ", ESCAPE_STRING, " ", "l:", ESCAPE_VALUE_DEC, 0
-@info:     .byte "f1 sort",0
-.POPSEG
 .endproc
