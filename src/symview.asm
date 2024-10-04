@@ -41,7 +41,7 @@ sym_line:
 sym_line_no_file:
 .byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, 0
 
-title: .byte "a",0
+title: .byte "sort by (f1)",0
 
 .CODE
 

@@ -74,7 +74,7 @@
 .import __RODATA_RUN__
 .import __RODATA_SIZE__
 
-TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__DATA_SIZE__+__FASTTEXT_SIZE__+__MACROCODE_SIZE__+__SAVESCR_SIZE__+__IRQ_SIZE__+__LINKER_SIZE__+__LABELS_SIZE__+__UDGEDIT_SIZE__+__CONSOLE_SIZE__+__COPYBUFF_SIZE__+__RODATA_SIZE__
+TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+__FASTTEXT_SIZE__+__MACROCODE_SIZE__+__SAVESCR_SIZE__+__IRQ_SIZE__+__LINKER_SIZE__+__LABELS_SIZE__+__UDGEDIT_SIZE__+__CONSOLE_SIZE__+__COPYBUFF_SIZE__+__RODATA_SIZE__
 
 ;******************************************************************************
 ; RELOC
@@ -104,7 +104,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__DATA_SIZE__+__FASTTEXT_SIZE__+__
 	stx $9c02	; dest bank
 
 	sta (@dst),y
-	dey
+	iny
 	bne @pageloop
 	inc @src+1
 	inc @dst+1
@@ -173,6 +173,7 @@ RESTORE:
 	dex
 	bpl :-
 
+	; run the unlock code
 	jmp $200
 
 @unlock:
@@ -218,11 +219,11 @@ RESTORE:
 ; This code loads the app and sets up various banked code.
 ; Once the initialization in complete, jumps to enter to begin the app
 .proc lowinit
+	sei
 	lda #FINAL_BANK_FASTCOPY
 	jsr fcpy::init
 	lda #FINAL_BANK_FASTCOPY2
 	jsr fcpy::init
-
 
 .ifdef CART
 ; CART init code; copy the application from ROM bank 1
@@ -239,7 +240,7 @@ RESTORE:
 	sta (r0),y	; writes go to RAM in RAM bank 1
 	iny
 	bne @l0
-	inc r0+1
+	inc r0+1	; next page
 	dex
 	bne @l0
 
@@ -282,14 +283,6 @@ start:
 
 	; restore default KERNAL vectors
 	jsr $fd52
-
-	; print loading message
-	ldx #$00
-:	lda @loading,x
-	jsr $ffd2
-	inx
-	cpx #@loadinglen
-	bne :-
 
 	; install dummmy IRQ
 	ldxy #$eb15
@@ -362,17 +355,17 @@ start:
 	sta $9c02
 	jsr ftxt::init
 
+	; TODO: enable write-protection for the $2000-$8000 blocks when
+	; all SMC is removed from the segments in that range
+	lda #$a1
+	sta $9c02	; enable 35K of RAM for final expansion
+
 	; initialize the JMP vector
 	lda #$4c		; JMP
 	sta zp::jmpaddr
 
 	; clean up files
 	jsr $ffe7		; CLALL (close all files)
-
-	; TODO: enable write-protection for the $2000-$8000 blocks when
-	; all SMC is removed from the segments in that range
-	lda #$a1
-	sta $9c02	; enable 35K of RAM for final expansion
 
 	sta $028a	; repeat all characters
 	sta $0291	; don't swap charset on C= + SHIFT
@@ -385,9 +378,6 @@ start:
 	bpl :-
 
 	jmp lowinit
-
-@loading: .byte "initializing.."
-@loadinglen=*-@loading
 
 ;******************************************************************************
 ; RELOCS
@@ -447,17 +437,13 @@ relocs:
 
 num_relocs=(*-relocs)/7
 
-.export get_crunched_byte
-.proc get_crunched_byte
-.endproc
-
 .CODE
 ;******************************************************************************
 ; ENTER
 ; Entrypoint after initialization, from here on we're safe to use the bitmap
 ; address space ($1000-$2000) as a bitmap
 .export enter
-enter:
+.proc enter
         jsr irq::raster
 	sei
 	lda #<start
@@ -477,3 +463,4 @@ enter:
 	jsr src::new
 	jsr edit::init
 	jmp edit::run
+.endproc

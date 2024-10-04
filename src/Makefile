@@ -47,7 +47,7 @@ test.d81: monster-disk.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
 	$(C1541) -format test,1 d81 test.d81 -attach test.d81 -write boot.prg -write masm.prg $(addprefix -write , $(TEST_FILES)) -write fe3firmware
 
 start-cart: $(CART_IMAGE) test.d81
-	$(XVIC) +warp -cartfe $(CART_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81
+	$(XVIC) +warp -cartfe $(CART_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -moncommands moncommands
 
 start-disk: test.d81
 	# $(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -dos1541II JiffyDOS_1541-II.bin -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1542 -10 test.d81
