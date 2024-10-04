@@ -41,7 +41,8 @@ sym_line:
 sym_line_no_file:
 .byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, 0
 
-title: .byte "sort by (f1)",0
+sort_by_name_msg: .byte "f1 sort by name",0
+sort_by_addr_msg: .byte "f1 sort by addr",0
 
 .CODE
 
@@ -159,8 +160,15 @@ title: .byte "sort by (f1)",0
 	stxy @scroll
 
 @l0:	jsr edit::clear
-	ldxy #title
-	lda #23
+
+	; if we are sorting by name, use the sort by addr msg
+	; elif we are sorting by addr, use the sort by name msg
+	ldxy #sort_by_addr_msg
+	lda sortby
+	cmp #SORT_ALPHA	
+	beq :+
+	ldxy #sort_by_name_msg
+:	lda #23
 	jsr text::print
 	lda #$00
 	sta @row
