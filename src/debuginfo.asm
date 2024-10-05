@@ -13,7 +13,6 @@
 
 ; Debug info constants
 MAX_FILES       = 24	; max files that debug info may be generated for
-MAX_SEGMENTS    = 8	; max segments that debug info may be generated for
 MAX_LINES       = 8000	; max number of lines across all segments
 
 SEG_START_ADDR = 0      ; offset in segment header for start address
@@ -69,14 +68,14 @@ filenames: .res MAX_FILES * 16
 numsegments: .byte 0
 
 ; 0-terminated names for each segment, can be 0-length for unnamed segments
-segmentnames: .res MAX_SEGMENTS * 8
+segmentnames: .res MAX_FILES * 8
 
 ; table of start addresses for each segment
 .export segaddresses
-segaddresses: .res MAX_SEGMENTS * 2
+segaddresses: .res MAX_FILES * 2
 
 ;******************************************************************************
-; # DEBUG INFO
+; ### DEBUG INFO
 ; The structure of this info is somewhat optimized for generating while the
 ; source is being assembled.  It is generated in 2 passes, which nicely
 ; matches the way that the source is assembled.
@@ -95,34 +94,50 @@ segaddresses: .res MAX_SEGMENTS * 2
 ; Each address must be mapped to a line in the debug info in order to
 ; meaningfully debug these directives.
 ;
+; The file IDs table maps filenames (implicitly) to an ID.  The ID is simply
+; the index of the filename in this table
+;	 ---------------------------------------------
+;	 |  size    | description                     |
+;	 -----------|---------------------------------|
+;	 |   16     | filename 0                      |
+;	 |   16     | filename 1                      |
+;	 |   16     | ...                             |
+;	 ---------------------------------------------
+;
 ; The format for a file's debug info is stored in the following format:
 ;	 ---------------------------------------------
 ;	 | size     | description                    |
 ;	 |----------|--------------------------------|
-;	 |    2     | segment 1 start addr           |
-;	 |    2     | segment 1 stop addr            |
+;	 |    2     | segment 1 base addr            |
+;	 |    2     | segment 1 top addr             |
 ;	 |    2     | segment 1 number of lines      |
+;	 |    1     | segment 1 file ID              |
+;	 |    1     | unused                         |
 ;	 |   ...    |         ...                    |
-;	 |    2     | segment n start addr           |
-;	 |    2     | segment n stop addr            |
+;	 |    2     | segment n base addr            |
+;	 |    2     | segment n top addr             |
 ;	 |    2     | segment n number of lines      |
-;	 |##########|################################|
-;	 |    1     | segment 1 instruction 1 file id|
-;	 |    2     | segment 1 instruction 1 line # |
-;	 |    2     | segment 1 instruction 1 addr   |
+;	 |    1     | segment 2 file ID              |
+;	 |    1     | unused                         |
+;	 ---------------------------------------------
+;
+; Following the header is the following table that maps lines-to-addresses
+;	 ---------------------------------------------
+;	 | size     | description                    |
+;	 |----------|--------------------------------|
+;	 |    2     | segment 1 relative line # 1    |
+;	 |    2     | segment 1 relative addr 1      |
 ;	 |   ...    |         ...                    |
-;	 |    1     | segment 1 instruction n file id|
-;	 |    2     | segment 1 instruction n line # |
-;	 |    2     | segment 1 instruction n addr   |
+;	 |    2     | segment 1 relative line # n    |
+;	 |    2     | segment 1 relative addr n      |
 ;	 |   ...    |         ...                    |
-;	 |    1     | segment n instruction 1 file id|
-;	 |    2     | segment n instruction 1 line # |
-;	 |    2     | segment n instruction 1 addr   |
+;	 |    2     | segment n relative line # 1    |
+;	 |    2     | segment n relative addr 1      |
 ;	 |   ...    |         ...                    |
-;	 |    1     | segment n instruction m file id|
-;	 |    2     | segment n instruction m line # |
-;	 |    2     | segment n instruction m addr   |
+;	 |    2     | segment n relative line # n    |
+;	 |    2     | segment n relative addr n      |
 ;	 |-------------------------------------------|
+;
 ; In words: a file's debug info is organized as the filename, followed by the
 ; number of segments, followed by a _list_ of those segments (as start and stop
 ; addresses), and lastly a list of pairs of lines/addresses for each segment
@@ -136,11 +151,10 @@ segaddresses: .res MAX_SEGMENTS * 2
 ; NOTE: the term "segment" in the debugger refers to a contiguous block of
 ; lines. That is, lines that all reside within the segment's start and stop
 ; addresses.
-;
-; TODO: store more compactly? e.g. store offsets for line/addr from previous
 ;******************************************************************************
 
 ;******************************************************************************
+; NEXTSEGMENT
 ; pointers used when building the debug info
 ; may be used for other purposes after debug info is generated
 nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
@@ -483,54 +497,6 @@ nextsegment: .res MAX_FILES ; offset to next free segment start/end addr in file
 	tax
 	lda zp::bankval
 	rts
-.endproc
-
-;******************************************************************************
-; STARTSEGMENT_BYNAME
-; Activates the initialized segment (see dbg::initseg) from the given name
-; This is for use with the .SEG directive
-; IN:
-;  - .XY: name of the segment (as 0-terminated string)
-; OUT:
-;  - .C: set on error
-.export __debug_startsegment_byname
-.proc __debug_startsegment_byname
-@name=zp::str0
-@other=zp::str2
-@cnt=r0
-	stxy @name
-	ldxy #segmentnames
-	stxy @other
-	lda #$00
-	sta @cnt
-@l0:	jsr str::comparez
-	beq @found
-	lda @other
-	clc
-	adc #$08
-	sta @other
-	bcc :+
-	inc @other+1
-:	inc @cnt
-	lda @cnt
-	cmp numsegments
-	bne @l0
-
-	sec		; segment not found
-	rts
-
-@found:
-	; load pointers for this segment and return
-	; TODO: verify stop address is within designated memory section)
-	lda @cnt
-	jsr get_segment_by_id
-
-	; set addr to the current STOP address
-	lda segstop
-	sta addr
-	lda segstop+1
-	sta addr+1
-	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -1009,7 +975,7 @@ __debuginfo_get_fileid:
 
 ;******************************************************************************
 ; NEXT_LINE
-; Updates the line pointer to point to the next line
+; Updates the line pointer to point to the next line in the active file.
 ; OUT:
 ;  - .C: set if there are no lines left in the active segment (seg)
 .proc nextline
