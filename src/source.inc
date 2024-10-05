@@ -26,6 +26,7 @@
 .import __src_insertline
 .import __src_isdirty
 .import __src_left
+.import __src_line_end
 .import __src_next
 .import __src_name
 .import __src_names
@@ -86,6 +87,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	isdirty        = __src_isdirty
 	left           = __src_left
 	line           = __src_line
+	lineend        = __src_line_end
 	lines          = __src_lines
 	name           = __src_name
 	new            = __src_new

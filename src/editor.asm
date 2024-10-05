@@ -1642,8 +1642,32 @@ force_enter_insert=*+5
 @end=zp::editortmp+3
 @start=zp::editortmp+7	; set by get_selection_bounds
 	jsr is_visual
+	beq @yank_selection
+
+@prompt:
+	jsr key::getch
+	beq @prompt
+	cmp #$79	; if yy was entered, yank current line
 	bne @ret
 
+	; clear the current contents of the copy buffer
+	jsr buff::clear
+	jsr src::pushp
+
+	lda #$0d
+	jsr buff::putch
+
+	; go to the end of the line and copy everything to the start of it
+	jsr src::lineend
+:	jsr src::left
+	cmp #$0d
+	beq @yydone
+	jsr buff::putch
+	jmp :-
+@yydone:
+	jmp src::popgoto
+
+@yank_selection:
 	; get the bounds of the text we're copying and move the source cursor
 	; to the end of the selection
 	jsr get_selection_bounds

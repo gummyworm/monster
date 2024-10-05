@@ -834,7 +834,6 @@ data: .res $6000
 	rts
 .endproc
 
-
 ;******************************************************************************
 ; LEFT
 ; Moves left to the previous character unless it is a newline
