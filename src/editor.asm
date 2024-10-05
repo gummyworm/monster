@@ -1441,8 +1441,7 @@ force_enter_insert=*+5
 
 @visline:
 	; visual line, move to next line and paste there
-	jsr ccdown
-	jsr home
+	jsr open_line_below_noindent
 	jmp paste_buff
 
 @vis:	; visual, move to next character and paste there
@@ -1481,15 +1480,17 @@ force_enter_insert=*+5
 	beq @noscroll
 
 	pha			; save scroll amount
-	tay
+	tay			; .Y = number of rolls to scroll
 
 	; multi-line pastes don't move the cursor / source position
 	jsr src::pushp
 
+	; scroll down by the number of lines we're pasting
 	ldx height
 	lda @row
 	jsr text::scrolldownn
 
+	; scroll colors down by number of lines we're pasting
 	ldx @row
 	ldy height
 	pla
@@ -1574,6 +1575,9 @@ force_enter_insert=*+5
 
 	; if we pasted multiple lines, restore source position and don't move cursor
 	jsr src::popgoto
+	lda #$00
+	jsr text::index2cursor
+	stx zp::curx
 	pla
 	jmp @done
 
@@ -1642,8 +1646,31 @@ force_enter_insert=*+5
 @end=zp::editortmp+3
 @start=zp::editortmp+7	; set by get_selection_bounds
 	jsr is_visual
+	beq @yank_selection
+
+@prompt:
+	jsr key::getch
+	beq @prompt
+	cmp #$79	; if yy was entered, yank current line
 	bne @ret
 
+	; clear the current contents of the copy buffer
+	jsr buff::clear
+	jsr src::pushp
+
+	; go to the end of the line and copy everything to the start of it
+	jsr src::lineend
+@yankline:
+	jsr src::left
+	bcs @yydone
+	cmp #$0d
+	beq @yydone
+	jsr buff::putch
+	bcc @yankline
+@yydone:
+	jmp src::popgoto
+
+@yank_selection:
 	; get the bounds of the text we're copying and move the source cursor
 	; to the end of the selection
 	jsr get_selection_bounds
@@ -1751,7 +1778,7 @@ force_enter_insert=*+5
 
 :	ldxy @end
 	jsr src::goto
-	jsr src::down	; if we're selecting the whole line, go to end of it
+	jsr src::lineend	; if selecting the whole line, go to end of it
 	jsr src::pos
 	stxy @end
 	RETURN_OK
