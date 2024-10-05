@@ -857,6 +857,7 @@ render_off: .byte 0
 ;******************************************************************************
 ; INDEX2CURSOR
 ; Returns the x cursor position for the given offset in linebuffer
+; Assumes that the editor is NOT in INSERT mode.
 ; IN:
 ;  - .A: the index in linebuffer to get the cursor position for
 ; OUT:
@@ -871,25 +872,27 @@ render_off: .byte 0
 	sta @i
 	sta @x
 	lda mem::linebuffer
-	beq @done
+	beq @done		; if line is empty, cursor is on column 0
 
 @l0:	ldx @i
 	lda mem::linebuffer,x
 	beq @end	; end of buffer
-	cpx @seek
-	beq @done
-	inc @i
 	cmp #$09	; TAB
 	bne :+
 
+	; tabs need to be handled if we end on them
 	lda @x
 	jsr __text_tabr_dist_a
 	clc
 	adc @x
 	sta @x
-	bne @l0
+	dec @x
 
-:	inc @x
+:	ldx @i
+	inc @i
+	cpx @seek
+	bcs @done
+	inc @x
 	bne @l0
 
 @end:	dec @x
@@ -899,7 +902,7 @@ render_off: .byte 0
 
 ;******************************************************************************
 ; TABR_DIST
-; Returns the # of columns to the next tab
+; Returns the # of columns to the next tab from the current cursor position
 ; OUT:
 ;  - .A: the number of characters to the next tab
 .export __text_tabr_dist
