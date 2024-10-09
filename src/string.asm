@@ -142,14 +142,15 @@ SLASH = SPECIAL_CHARS_START+2
 
 ;******************************************************************************
 ; COPY
-; copies one 0-terminated string to another
+; Copies one 0-terminated string to another. A maximum of 255 chars are copied
 ; IN:
 ;  - .XY: the source string to copy
-;  - zp::tmp0: the destination string to copy to
+;  - r0:  the destination string to copy to
+;  - .C:  set on error (in practice always clear)
 .export __str_copy
 .proc __str_copy
 @src=zp::str0
-@dst=zp::tmp0
+@dst=r0
 	stxy @src
 	ldy #$00
 :	lda (@src),y

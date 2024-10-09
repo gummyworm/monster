@@ -1392,7 +1392,7 @@ num_illegals = *-illegal_opcodes
 .proc rewind_ctx_dbg
 @tmp=r0
 	; before rewinding, move debug line back to line we're repeating
-	jsr ctx::numlines
+	jsr ctx::numlines	; get # of lines we're rewinding
 	sta @tmp
 	lda dbgi::srcline
 	sec
@@ -2454,31 +2454,36 @@ __asm_include:
 ; Calls tokenize and updates debug info (if enabled) as appropriate for the
 ; first pass.  This involves ending initializing segments on .ORG directives
 ; IN:
+;  - .A:  the bank that the line to assemble resides in
 ;  - .XY: the line to assemble
 .export __asm_tokenize_pass1
 .proc __asm_tokenize_pass1
 @startpc=scratchpad
-	; save current PC to end segment if needed
 	pha
 
+	; save current PC to end segment if needed
 	lda zp::asmresult
 	sta @startpc
 	lda zp::asmresult+1
 	sta @startpc+1
 
 	pla
-	jsr __asm_tokenize
-	bcc @ok
-	rts		   ; return err
+	jsr __asm_tokenize	; assemble the line
+	bcs @done		; return err
+
 @ok:	ldx zp::gendebuginfo
-	beq @done          ; if debug info off, we're done
-	cmp #ASM_ORG
-	bne @done
-	ldxy @startpc	   ; get PC to end segment at
-	jsr dbgi::endseg	   ; end previous segment (if any)
-	ldxy zp::virtualpc ; start address of segment
-	jsr dbgi::initseg   ; init a new segment
-@done:	RETURN_OK
+	beq @ok			; if debug info off, we're done
+	cmp #ASM_ORG		; was line an .ORG directive?
+	bne @ok			; if not, we're done
+
+; if line was an .ORG, need to end previous block and make new one
+	ldxy @startpc	   	; get PC to end block at
+	jsr dbgi::endseg   	; end previous block (if any)
+	ldxy zp::virtualpc	; start address of block
+	jsr dbgi::initseg	; init a new block
+
+@ok:	clc
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2486,6 +2491,7 @@ __asm_include:
 ; Calls tokenize and updates debug info (if enabled) as appropriate for the
 ; second pass.  This involves switching segments on .ORG directives
 ; IN:
+;  - .A:  the bank that the line to assemble resides in
 ;  - .XY: the line to assemble
 .export __asm_tokenize_pass2
 .proc __asm_tokenize_pass2

@@ -24,11 +24,8 @@ FINAL_BANK_MAIN    = $a0|1	; where the editor/assembler/etc code is stored
 ;******************************************************************************
 ; DEBUG bank ($02)
 ; This bank stores debug information (file ID's, line numbers and addresses
-; for the user program (which is stored in the USER bank). This is stored in
-; the address range $2000-$8000. 
-;
-; $a000-$c000 is free
-FINAL_BANK_DEBUG   = $a0|2	; where debug symbols are stored
+; as well as the code to access them
+FINAL_BANK_DEBUG = $a0|2	; where debug symbols are stored
 
 ;******************************************************************************
 ; USER bank ($03)

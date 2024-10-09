@@ -34,6 +34,10 @@
 .import __DATA_RUN__
 .import __DATA_SIZE__
 
+.import __DEBUGINFO_CODE_LOAD__
+.import __DEBUGINFO_CODE_RUN__
+.import __DEBUGINFO_CODE_SIZE__
+
 .import __FASTTEXT_LOAD__
 .import __FASTTEXT_SIZE__
 .import __FASTTEXT_RUN__
@@ -395,6 +399,10 @@ relocs:
 ; DATA
 .word __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__
 .byte FINAL_BANK_MAIN
+
+; DEBUGINFO_CODE
+.word __DEBUGINFO_CODE_LOAD__, __DEBUGINFO_CODE_RUN__, __DEBUGINFO_CODE_SIZE__
+.byte FINAL_BANK_DEBUG
 
 ; FASTTEXT
 .word __FASTTEXT_LOAD__, __FASTTEXT_RUN__, __FASTTEXT_SIZE__

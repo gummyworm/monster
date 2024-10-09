@@ -14,6 +14,7 @@
 - [ ] Fix disassembly
 - [ ] Implement linker (WIP on linkage branch)
 - [ ] Add settings / project configuration file
+- [x] yank line (yy)
 - [x] symbol viewer improvements
   - [x] sort by address
   - [x] show filename / line

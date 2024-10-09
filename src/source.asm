@@ -686,6 +686,9 @@ data: .res $6000
 ; ON LINE INSERTED
 ; Callback to handle a line insertion. Various state needs to be shifted when
 ; this occurs (breakpoints, etc.)
+; TODO:
+;   - update label addresses after PC
+;   - update line program (insert new instruction to inc line)
 .proc on_line_inserted
 	incw lines
 
