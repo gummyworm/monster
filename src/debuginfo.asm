@@ -1,4 +1,4 @@
-;******************************************************************************
+	;******************************************************************************
 ; DEBUGINFO.ASM
 ; This file contains definitions for procedures to store debug info for
 ; assembled programs.  This info is the map of file and line-number to address.
@@ -16,12 +16,13 @@
 MAX_FILES  = 24		; max files debug info may be generated for
 MAX_BLOCKS = 32
 
-BLOCK_START_ADDR = 0    ; offset in block header for address of line program
-BLOCK_STOP_ADDR  = 2    ; offset in block header for stop address
-BLOCK_LINE_BASE  = 4	; offset in block header for line count
-BLOCK_LINE_COUNT = 6	; offset in block header for line count
-BLOCK_FILE_ID    = 8	; offset in block header to file id
-BLOCK_LINE_PROG  = 9	; offset to address of the line program data
+BLOCK_START_ADDR = 0    	; offset in block header for base address
+BLOCK_STOP_ADDR  = 2    	; offset in block header for stop address
+BLOCK_LINE_BASE  = 4		; offset in block header for line count
+BLOCK_LINE_COUNT = 6		; offset in block header for line count
+BLOCK_FILE_ID    = 8		; offset in block header to file id
+BLOCK_LINE_PROG  = 9		; offset to address of the line program data
+BLOCK_PROG_STOP_ADDR = 11	; offset to address of end of line program
 
 DATA_FILE = 0	; offset of FILE ID in debug info
 DATA_LINE = 1	; offset of line number in debug info
@@ -33,6 +34,8 @@ OP_SET_LINE     = $03
 OP_ADVANCE_LINE = $04
 OP_ADVANCE_ADDR = $05
 OP_SET_PC       = $06
+
+SIZEOF_BLOCK_HEADER = 13
 
 ;******************************************************************************
 .macro BANKJUMP proc
@@ -57,16 +60,17 @@ block   = zp::debug+4	; address of current block pointer
 
 ; the offsets of these state variables correspond to the offsets
 ; of the BLOCK_ constants. e.g. BLOCK_START_ADDR -> blockstart
-blockstate    = block+2
+blockstate    = block+2		; base of block state
 blockstart    = block+2		; base of active block's address range
 blockstop     = block+4		; top of active block's address range
 blocklinebase = block+6 	; base of active block's line range
-numlines      = block+8		; number of lines in active block
+linestop      = block+8		; number of lines in active block
 file          = block+10 	; current file id being worked on
 line          = block+11	; address of PC in line program 
+progstop      = block+13	; address of end of line program
 
 ; scratchpad
-debugtmp = block+13
+debugtmp = block+15
 
 .export __debug_file
 .export __debug_src_line
@@ -150,7 +154,7 @@ freeptr: .word 0	; pointer to next available address in debuginfo
 
 ; table of headers for each block
 .export blockheaders
-blockheaders: .res MAX_BLOCKS * 11
+blockheaders: .res MAX_BLOCKS * SIZEOF_BLOCK_HEADER
 
 ; table of line program's start addresses for each block.
 ; these will map to somewhere in the debuginfo buffer
@@ -197,16 +201,17 @@ blockaddresseshi: .res MAX_FILES
 ;   - line: the address of the line program for the new block
 ;   - .C: set if an error occurred
 .proc new_block
+@tmp=r0
 	stxy addr		; init addr pointer
 
-	; get offset to block header (each header is 11 bytes)
+	; get offset to block header ((BLOCK_HEADER_SIZE * numblocks)
 	lda numblocks
 	asl			; *2
 	asl			; *4
+	sta @tmp
 	asl			; *8
-	adc numblocks		; *9
-	adc numblocks		; *10
-	adc numblocks		; *11
+	adc @tmp		; *12
+	adc numblocks		; *13
 	adc #<blockheaders
 	sta block
 	lda #>blockheaders
@@ -215,8 +220,13 @@ blockaddresseshi: .res MAX_FILES
 
 	lda freeptr
 	sta line
+	adc #$02
+	sta progstop
+
 	lda freeptr+1
 	sta line+1
+	adc #$00
+	sta progstop+1
 
 	lda addr
 	sta blockstart
@@ -232,11 +242,11 @@ blockaddresseshi: .res MAX_FILES
 	sta (block),y
 
 	; store the base address the block maps to
-	ldy #BLOCK_START_ADDR+1
-	lda addr+1
-	sta (block),y
-	dey
+	ldy #BLOCK_START_ADDR
 	lda addr
+	sta (block),y
+	iny
+	lda addr+1
 	sta (block),y
 
 	; initialize the base line to the value of srcline
@@ -247,6 +257,11 @@ blockaddresseshi: .res MAX_FILES
 	lda srcline+1
 	sta (block),y
 
+	; store the file ID 
+	ldy #BLOCK_FILE_ID
+	lda file
+	sta (block),y
+
 	; initialize the line count to 0
 	ldy #BLOCK_LINE_COUNT
 	lda #$00
@@ -254,10 +269,11 @@ blockaddresseshi: .res MAX_FILES
 	iny
 	sta (block),y
 
-	; store the file ID 
-	ldy #BLOCK_FILE_ID
-	lda file
-	sta (block),y
+	; initialize program to empty (2 $00 bytes)
+	tay
+	sta (line),y
+	iny
+	sta (line),y
 
 	inc numblocks
 	RETURN_OK
@@ -269,6 +285,7 @@ blockaddresseshi: .res MAX_FILES
 ; This includes the end address and number of lines in the block
 ; This is called when we are done working on a given block.
 .proc end_block
+@numlines=debugtmp
 	lda numblocks
 	beq @done	; no blocks exist, nothing to "end"
 
@@ -280,13 +297,34 @@ blockaddresseshi: .res MAX_FILES
 	lda addr+1
 	sta (block),y
 
-	; write updated number of lines
+	; compute number of lines and write updated value
+	; numlines = (linestop - linebase) + 1
+	lda linestop
+	sec
+	sbc blocklinebase
+	sta @numlines
+	lda linestop+1
+	sbc blocklinebase+1
+	sta @numlines+1
+	incw @numlines
+
 	ldy #BLOCK_LINE_COUNT
-	lda numlines
+	lda @numlines
 	sta (block),y
 	iny
-	lda numlines+1
+	lda @numlines+1
 	sta (block),y
+
+	; store new end of line program
+	; TODO: store new freeptr if progstop > freeptr
+	ldy #BLOCK_PROG_STOP_ADDR
+	lda progstop
+	sta (block),y
+	sta freeptr
+	iny
+	lda progstop+1
+	sta (block),y
+	sta freeptr+1
 
 @done:	rts
 .endproc
@@ -327,7 +365,7 @@ blockaddresseshi: .res MAX_FILES
 
 @next:	lda block
 	clc
-	adc #11		; sizeof(block header)
+	adc #SIZEOF_BLOCK_HEADER
 	sta block
 	bcc :+
 	inc block+1
@@ -364,22 +402,22 @@ blockaddresseshi: .res MAX_FILES
 	ldy #$00
 
 	; get the line and address delta for our new line
-	lda line
+	lda @line
 	sec
-	sbc @line
+	sbc srcline
 	sta @dline
-	lda line+1
-	sbc @line+1
+	lda @line+1
+	sbc srcline+1
 	sta @dline+1
 
 	; get the relative address from the block's base address
-	lda addr
+	lda @addr
 	sec
-	sbc @addr
+	sbc addr
 	sta @daddr
-	lda addr+1
-	sbc @addr+1
-	sta @daddr
+	lda @addr+1
+	sbc addr+1
+	sta @daddr+1
 
 	; check if address is encodable in basic instruction
 	; in order to use a basic instruction, both must be in range [$01, $0f]
@@ -387,7 +425,9 @@ blockaddresseshi: .res MAX_FILES
 	bne @extended	; if either delta's MSB is !0, need extended
 	lda @dline
 	ora @daddr
-	cmp #$10	; if either's LSB is >= $10, need extended
+	bne :+
+	rts		; no line/addr change, no instruction needed
+:	cmp #$10	; if either's LSB is >= $10, need extended
 	bcs @extended
 
 @basic:
@@ -404,39 +444,85 @@ blockaddresseshi: .res MAX_FILES
 
 @extended:
 @advanceline:
-	; get 16 bit signed offset for target line
-	ldy #$02
-	sta (line),y	; write LSB
+	lda @dline
+	ora @dline+1
+	beq @advanceaddr	; skip if line delta is 0
+
 	lda #$00
-	sbc @line+1
-	iny
-	sta (line),y	; write MSB
-	ldy #$00
+	tay
+	sta (line),y
+
+	; get 16 bit signed offset for target line
+	ldy #$01
 	lda #OP_ADVANCE_LINE
 	sta (line),y
-	lda #$04	; advance 4 bytes (opcode + operand)
-	bne @done
+	iny
+	lda @dline
+	sta (line),y	; write LSB
+	iny
+	lda @dline+1
+	sta (line),y	; write MSB
+
+	lda #$04
+	jsr @done
 
 @advanceaddr:
+	lda @daddr
+	ora @daddr+1
+	beq @done	; skip if addr delta is 0
+
+	lda #$00
+	tay
+	sta (line),y
+
+	iny
+	lda #OP_ADVANCE_ADDR
+	sta (line),y
+
+	iny
 	; get 16 bit signed offset for target address
-	ldy #$02
 	lda @daddr
 	sta (line),y	; write LSB
-	lda #$00
-	sbc @line+1
 	iny
+	lda @daddr+1
 	sta (line),y	; write MSB
-	ldy #$00
-	lda #OP_ADVANCE_LINE
-	sta (line),y
-	lda #$04	; advance 4 bytes (opcode + operand)
 
-@done:	clc
+	lda #$04	; advance 4 bytes
+
+@done:	; add instruction size to program pointer and program-stop pointer
+	pha
+	clc
+	adc progstop
+	sta progstop
+	bcc :+
+	inc progstop+1
+:	pla
+	clc
 	adc line
 	sta line
 	bcc :+
 	inc line+1
-:	incw numlines
+:	; write new program terminator ($00 $00)
+	lda #$00
+	tay
+	sta (line),y
+	iny
+	sta (line),y
+
+	; if this line is > line top, set as new top
+	ldxy srcline
+	cmpw linestop
+	bcc :+
+	stxy linestop
+
+:	; udpate addr
+	lda addr
+	clc
+	adc @daddr
+	sta addr
+	lda addr+1
+	adc @daddr+1
+	sta addr+1
 	rts
 .endproc
 
@@ -506,6 +592,7 @@ blockaddresseshi: .res MAX_FILES
 @nextline:
 	jsr advance
 	bcc @findline
+	jmp *
 @done:	rts
 .endproc
 
@@ -522,7 +609,6 @@ blockaddresseshi: .res MAX_FILES
 @line=r2
 @cnt=r4
 @file=r5
-@linestop=debugtmp
 	sta @file
 	stxy @line
 	lda #$00
@@ -541,23 +627,13 @@ blockaddresseshi: .res MAX_FILES
 
 ; is the line we're looking for in the range [blockstart, blockstop]?
 @checkstop:
-	; calculate top line in block (linebase + numlines - 1)
-	lda blocklinebase
-	clc
-	adc numlines
-	sta @linestop
-	lda blocklinebase+1
-	adc #$00
-	sta @linestop+1
-	decw @linestop
-
 	lda @line+1
-	cmp @linestop+1
+	cmp linestop+1
 	bcc @checkstart
 	beq :+
 	bcs @next	; line > (linebase+numlines), skip to next block
 :	lda @line
-	cmp @linestop
+	cmp linestop
 	beq @findaddr	; line == (linebase+numlines), find the line #
 	bcs @next
 
@@ -755,19 +831,19 @@ blockaddresseshi: .res MAX_FILES
 ;  srcline:    initialized to the first line in the block
 ;  .C:         set if the block doesn't exist, clear on success
 .proc get_block_by_id
-@tmp=r0
+@tmp0=r0
+@tmp1=r1
 	cmp numblocks
 	bcs @done	; return error
 
-	; multiply block number by 11 (sizeof(blockdata))
-	sta @tmp
-	asl		; *2
-	asl		; *4
-	asl		; *8
-	adc @tmp	; *9
-	adc @tmp	; *10
-	adc @tmp	; *11
-
+	; multiply block number by sizeof(blockdata)
+	sta @tmp0
+	asl			; *2
+	asl			; *4
+	sta @tmp1
+	asl			; *8
+	adc @tmp1		; *12
+	adc @tmp0		; *13
 	adc #<blockheaders
 	sta block
 	lda #>blockheaders
@@ -776,7 +852,7 @@ blockaddresseshi: .res MAX_FILES
 
 ; copy the header state for the block:
 ; start addr, stop addr, base line, # lines, file id, program addr
-	ldy #BLOCK_START_ADDR+11-1
+	ldy #(BLOCK_START_ADDR+SIZEOF_BLOCK_HEADER) - 1
 @copy:	lda (block),y
 	sta blockstate,y
 	dey
@@ -793,6 +869,16 @@ blockaddresseshi: .res MAX_FILES
 	lda blocklinebase+1
 	sta srcline+1
 
+	; compute linestop by adding numlines to linebase and subtracting 1
+	lda linestop		; numlines
+	clc
+	adc blocklinebase
+	sta linestop
+	lda linestop+1		; numlines+1
+	adc blocklinebase+1
+	sta linestop+1
+	decw linestop
+	
 	clc	; OK
 @done:	rts
 .endproc
@@ -808,7 +894,7 @@ blockaddresseshi: .res MAX_FILES
 .proc advance
 	ldy #$00
 	lda (line),y
-	bne @extended_i	; if opcode is !0, this is an extended instruction
+	beq @extended_i	; if opcode is 0, this is an extended instruction
 @basic_i:
 	; decode the opcode; top 4 bits contain PC offset and bottom 4 line
 	pha
@@ -848,7 +934,7 @@ blockaddresseshi: .res MAX_FILES
 	sta addr+1
 	jmp @ok
 	
-:	cmp #OP_SET_FILE
+:	cmp #OP_SET_FILE	; TODO: remove support for SET_FILE
 	bne :+
 @setfile:
 	lda (line),y
@@ -876,7 +962,7 @@ blockaddresseshi: .res MAX_FILES
 	adc (line),y
 	sta addr
 	incw line
-	lda line+1
+	lda addr+1
 	adc (line),y
 	sta addr+1
 	jmp @ok
