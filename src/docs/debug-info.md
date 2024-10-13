@@ -16,13 +16,11 @@ the index of the filename in this table
 |   16     | ...                             |
 ----------------------------------------------
 
-### Line Blocks
-To simplify the storage of lines in cases like noncontiguous addresses and 
-multi-file programs (although these _can_ be handled with the line program), mappings
-are broken down into "blocks"
+### Blocks
+To simplify the storage of lines in cases like noncontiguous addresses (although these can be handled in a single block) and 
+multi-file programs, mappings are broken down into "blocks".
 
-Each block defines a file id (blocks will reference one file only), and a range of 
-lines and addresses.
+Each block defines a file id (blocks will always reference one file only), and a range of lines and addresses.
 
 ---------------------------------------------------------------------------
 |  field       | size  | description                                     |
@@ -32,6 +30,7 @@ lines and addresses.
 | base line    |  2    | the lowest line number represented by the block |
 | # of lines   |  2    | the highest line number represented by the block|
 | file id      |  1    | filename 0                                      |
+| program      |  2    | address of the line mapping program             |
 --------------------------------------------------------------------------
 
 In the assembler, the two psuedo-ops that force the creation of a block are:
@@ -40,24 +39,25 @@ In the assembler, the two psuedo-ops that force the creation of a block are:
 
 ### Line Program
 The line program facilitates compact mapping of line numbers to addresses.
-The line program exists as a state machine with the following state:
+The line program is a state machine with the following state:
  - filename (as file id)
  - line number
  - PC (program counter)
 
-The line program commands modify this state in order to produce the address <-> line mapping.
+Commands modify this state in order to produce the address <-> line mapping.
+There are two types of instructions to handle this process: "basic" and "extended".
+Each type is detailed below.
 
 ### Basic Instructions
 
-The most basic instruction, which is so common that it requires no special opcode, adds a small
-offset to the current line number AND program counter
+The most basic operation, which is so common that it requires no special opcode, adds a small
+offset to the current line number AND program counter.
 Bits 0-3 contain the line offset to add and bits 3-7 contain the PC offset.
-
-For cases when this is not enough (e.g. a macro that expands to more than 16 bytes), the special
-extended commands listed below can be used.
 
 ### Extended Instructions
 
+For cases when a small offset to either the line or address is not enough (e.g. a macro 
+that expands to more than 16 bytes), these instructions are required.
 The extended instrutions begin with a $00 value prefix, which is not a valid basic instruction
 because a line (if not PC) must be advanced for each entry in the line table.
 
@@ -95,20 +95,14 @@ The block header for this file sets up the file ID, line number, and PC (base ad
 -------------------------------------
 | value     | description           |
 |-----------|-----------------------|
-| $01       | file ID               |
-| $00 $10   | base address (symbol) |
+| $00 $10   | base address          |
+| $09 $10   | top address           |
 | $00 02    | base line             |
+| $00 04    | number of lines       |
+| $01       | file ID               |
+| $00 $20   | line program address  |
 -------------------------------------
  
- Important for this example is also the state of the label table, which maps the label our block is based at to its physical address
- 
-Symbol mapping is out of the scope of this document, but for this example, suppose hello is defined to be address $1000 in the label table:
-------------------------
-|    name   | address  |
-|-----------|----------|
-|  "hello"  | $1000    |
-------------------------
-
 The state machine is initialized with values from the block header, so we enter the program with:
   - line number: 2
   - file ID: 1

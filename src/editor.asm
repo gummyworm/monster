@@ -502,18 +502,12 @@ main:	jsr key::getch
 	lda zp::gendebuginfo
 	beq @done
 	ldxy zp::asmresult
-	jsr dbgi::endseg
-
-	lda #$02
-	jsr asm::startpass	; get ready for pass 2
-
-; store the debug segment info (if debug info is enabled)
-	ldx zp::gendebuginfo
-	beq @pass2
-	jsr dbgi::setup
+	jsr dbgi::endblock
 
 ; do the second assembly pass
 @pass2:	ldxy #@filename
+	lda #$02
+	jsr asm::startpass
 	jsr asm::include	; assemble the file (pass 2)
 
 @done:	jmp display_result
@@ -581,17 +575,14 @@ main:	jsr key::getch
 	lda zp::gendebuginfo
 	beq @pass2
 	ldxy zp::asmresult
-	jsr dbgi::endseg
+	jsr dbgi::endblock
 
 ;--------------------------------------
 ; Pass 2
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
 @pass2: inc zp::pass		; pass 2
-	ldx zp::gendebuginfo
-	beq :+
-	jsr dbgi::setup  ; we have enough info to init debug now
-:	jsr src::rewind
+	jsr src::rewind
 	lda #$02
 	jsr asm::startpass
 

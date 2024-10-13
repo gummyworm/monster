@@ -185,8 +185,8 @@ __debug_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 .export __debug_breakpoint_lineshi
 .export __debug_breakpoint_fileids
 
-numbreakpoints = dbgi::numbreakpoints
-
+.export __debug_numbreakpoints
+__debug_numbreakpoints:     .byte 0
 __debug_breakpointslo:
 breakpointslo:      .res MAX_BREAKPOINTS	; LSB's of the break points
 __debug_breakpointshi:
@@ -478,7 +478,7 @@ brkhandler2_size=*-brkhandler2
 .proc install_breakpoints
 @brkaddr=r0
 @cnt=r2
-	ldx numbreakpoints
+	ldx __debug_numbreakpoints
 	beq @done
 	dex
 	stx @cnt
@@ -520,7 +520,7 @@ brkhandler2_size=*-brkhandler2
 .proc uninstall_breakpoints
 @addr=r0
 @cnt=r2
-	ldx numbreakpoints
+	ldx __debug_numbreakpoints
 	beq @done
 	dex
 	stx @cnt
@@ -1511,7 +1511,7 @@ restore_regs:
 
 	; store the line #
 	txa
-	ldx numbreakpoints
+	ldx __debug_numbreakpoints
 	sta __debug_breakpoint_lineslo,x
 	tya
 	sta __debug_breakpoint_lineshi,x
@@ -1521,7 +1521,7 @@ restore_regs:
 	lda #BREAKPOINT_ENABLED
 	sta breakpoint_flags,x
 
-	inc numbreakpoints
+	inc __debug_numbreakpoints
 	rts
 .endproc
 
@@ -1574,7 +1574,7 @@ __debug_remove_breakpoint:
 @addr=debugtmp
 @end=debugtmp+2
 	; shift breakpoints down
-	lda numbreakpoints
+	lda __debug_numbreakpoints
 	sta @end
 	dex
 	cpx @end
@@ -1589,7 +1589,7 @@ __debug_remove_breakpoint:
 	cpx @end
 	bcc @l0
 @removed:
-	dec numbreakpoints
+	dec __debug_numbreakpoints
 @done:	clc
 :	rts
 .endproc
@@ -1608,7 +1608,7 @@ __debug_remove_breakpoint:
 @offset=r3
 	stxy @line
 	sta @offset
-	ldx numbreakpoints
+	ldx __debug_numbreakpoints
 	beq @done
 	dex
 @l0:	lda @fileid
@@ -1647,7 +1647,7 @@ __debug_remove_breakpoint:
 @offset=r3
 	stxy @line
 	sta @offset
-	ldx numbreakpoints
+	ldx __debug_numbreakpoints
 	beq @done
 	dex
 @l0:	lda @fileid
@@ -1681,7 +1681,7 @@ __debug_remove_breakpoint:
 .proc get_breakpoint
 @addr=debugtmp
 	stxy @addr
-	ldx numbreakpoints
+	ldx __debug_numbreakpoints
 	beq @notfound
 @l0:	lda @addr
 	cmp breakpointslo,x

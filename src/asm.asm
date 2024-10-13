@@ -2471,16 +2471,16 @@ __asm_include:
 	jsr __asm_tokenize	; assemble the line
 	bcs @done		; return err
 
-@ok:	ldx zp::gendebuginfo
+	ldx zp::gendebuginfo
 	beq @ok			; if debug info off, we're done
 	cmp #ASM_ORG		; was line an .ORG directive?
 	bne @ok			; if not, we're done
 
 ; if line was an .ORG, need to end previous block and make new one
 	ldxy @startpc	   	; get PC to end block at
-	jsr dbgi::endseg   	; end previous block (if any)
+	jsr dbgi::endblock   	; end previous block (if any)
 	ldxy zp::virtualpc	; start address of block
-	jsr dbgi::initseg	; init a new block
+	jsr dbgi::newblock	; init a new block
 
 @ok:	clc
 @done:	rts

@@ -113,10 +113,28 @@
 	pha
 .endmacro
 
+.macro pushregss
+	php
+	pha
+	txa
+	pha
+	tya
+	pha
+.endmacro
+
 .macro popregs
 	pla
 	tay
 	pla
 	tax
 	pla
+.endmacro
+
+.macro popregss
+	pla
+	tay
+	pla
+	tax
+	pla
+	plp
 .endmacro

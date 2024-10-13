@@ -471,5 +471,12 @@ num_relocs=(*-relocs)/7
 	jsr asm::reset
 	jsr src::new
 	jsr edit::init
+
+.ifndef TEST
 	jmp edit::run
+.else
+	.import testsuite
+	jmp testsuite
+.endif
+
 .endproc

@@ -3,7 +3,7 @@
 
 .CODE
 
-;******************************************************************************_
+;*******************************************************************************
 ; SHL
 ; Shifts the linebuffer characters at the given index
 ; to the left by the given number of characters

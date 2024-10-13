@@ -174,7 +174,7 @@ BREAKPOINT_ENABLED = 1
 	sta @file
 
 	; find the matching line #
-	ldx dbgi::numbreakpoints
+	ldx dbg::numbreakpoints
 	beq @notfound
 	dex
 @l0:	lda @file
