@@ -12,7 +12,7 @@
 .import __debug_set_file
 .import __debug_setline
 .import __debug_store_line
-.import __debug_startblock_byaddr
+.import __debug_set_addr
 
 .scope dbgi
 	addr2line         = __debug_addr2line
@@ -27,6 +27,6 @@
 	setfile           = __debug_set_file
 	setline           = __debug_setline
 	srcline           = __debug_src_line
-	startseg_addr     = __debug_startblock_byaddr
+	setaddr           = __debug_set_addr
 	storeline         = __debug_store_line
 .endscope

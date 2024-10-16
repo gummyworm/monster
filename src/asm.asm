@@ -117,13 +117,12 @@
 ;******************************************************************************
 
 ;******************************************************************************
-; TRUE/FALSE values for the active IF blocks
 MAX_IFS      = 4 ; max nesting depth for .if/.endif
 MAX_CONTEXTS = 3 ; max nesting depth for contexts (activated by .MAC, .REP, etc)
 
 ;******************************************************************************
-indirect   = zp::asmtmp    ; 1=indirect, 0=absolute
-indexed    = zp::asmtmp+1   ; 1=x-indexed, 2=y-indexed, 0=not indexed
+indirect   = zp::asmtmp   ; 1=indirect, 0=absolute
+indexed    = zp::asmtmp+1 ; 1=x-indexed, 2=y-indexed, 0=not indexed
 immediate  = zp::asmtmp+2 ; 1=immediate, 0=not immediate
 operandsz  = zp::asmtmp+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
 cc         = zp::asmtmp+4
@@ -139,8 +138,8 @@ SEG_BSS  = 2	; flag for BSS segment (all data must be 0, PC not updated)
 .BSS
 ;******************************************************************************
 .export ifstack
-ifstack:   .res MAX_IFS
-ifstacksp: .byte 0
+ifstack:   .res MAX_IFS	; contains TRUE/FALSE values for the active IF blocks
+ifstacksp: .byte 0	; stack pointer to "if" stack
 
 .export __asm_pcset
 __asm_pcset:
@@ -1035,10 +1034,15 @@ num_illegals = *-illegal_opcodes
 ; Stores the current VPC to the current source line
 ; If debug info generation is disabled, does nothing
 .proc storedebuginfo
+	lda zp::pass
+	cmp #$01		; are we on pass 1?
+	beq @skip		; if so, don't generate debug info
+
 	lda zp::gendebuginfo
-	bne :+
-	rts
-:	ldxy zp::virtualpc	; current PC (address)
+	bne @gen
+@skip:	rts
+
+@gen:	ldxy zp::virtualpc	; current PC (address)
 	stxy r0
 	ldxy dbgi::srcline
 	jmp dbgi::storeline	; map them
@@ -1625,12 +1629,14 @@ __asm_include:
 	; save the current debug-info file
 	pushdebugline
 
-	; add the filename to debug info (if it isn't yet) and reset line no.
+	; add the filename to debug info (if it isn't yet), reset line number
+	; and finally create a new block of debug information
 	ldxy @fname
 	jsr dbgi::setfile
-
 	ldxy #1
 	stxy dbgi::srcline
+	ldxy zp::asmresult	; current address
+	jsr dbgi::newblock
 
 ; read a line from file
 @doline:
@@ -1663,6 +1669,11 @@ __asm_include:
 @close:
 	; restore debug line and file info
 	popdebugline
+
+	; create a new block back in the original file
+	ldxy zp::asmresult
+	jsr dbgi::newblock
+
 	pla		; get the file ID for the include file to close
 	jsr file::close	; close the file
 	lda file::eof	; were we at the EOF?
@@ -2451,64 +2462,40 @@ __asm_include:
 
 ;******************************************************************************
 ; TOKENIZE_PASS1
-; Calls tokenize and updates debug info (if enabled) as appropriate for the
-; first pass.  This involves ending initializing segments on .ORG directives
+; Calls tokenize on the given line
 ; IN:
 ;  - .A:  the bank that the line to assemble resides in
 ;  - .XY: the line to assemble
+;  - .C:  set if an error occurred
 .export __asm_tokenize_pass1
 .proc __asm_tokenize_pass1
-@startpc=scratchpad
-	pha
-
-	; save current PC to end segment if needed
-	lda zp::asmresult
-	sta @startpc
-	lda zp::asmresult+1
-	sta @startpc+1
-
-	pla
-	jsr __asm_tokenize	; assemble the line
-	bcs @done		; return err
-
-	ldx zp::gendebuginfo
-	beq @ok			; if debug info off, we're done
-	cmp #ASM_ORG		; was line an .ORG directive?
-	bne @ok			; if not, we're done
-
-; if line was an .ORG, need to end previous block and make new one
-	ldxy @startpc	   	; get PC to end block at
-	jsr dbgi::endblock   	; end previous block (if any)
-	ldxy zp::virtualpc	; start address of block
-	jsr dbgi::newblock	; init a new block
-
-@ok:	clc
-@done:	rts
+	jmp __asm_tokenize	; assemble the line
 .endproc
 
 ;******************************************************************************
 ; TOKENIZE_PASS2
-; Calls tokenize and updates debug info (if enabled) as appropriate for the
-; second pass.  This involves switching segments on .ORG directives
+; Calls tokenize and generated debug info (if enabled)
 ; IN:
 ;  - .A:  the bank that the line to assemble resides in
 ;  - .XY: the line to assemble
+;  - .C:  set if an error occurred
 .export __asm_tokenize_pass2
 .proc __asm_tokenize_pass2
 	jsr __asm_tokenize
-	bcc @ok
-@err:	rts		; return err
+	bcs @done	; return err
 
-@ok:	; store debug info (if enabled)
+	; store debug info (if enabled)
 	ldx zp::gendebuginfo
-	beq @done
+	beq @retok
 	cmp #ASM_ORG
-	bne @done
-	ldxy zp::virtualpc	; address of segment
-	jmp dbgi::startseg_addr	; set segment
-	bcs @err
-@done:	lda #$00
-	RETURN_OK
+	bne @ok
+
+	ldxy zp::virtualpc	; address of new block
+	jmp dbgi::newblock	; create a block
+	bcs @done
+@retok:	lda #$00
+@ok:	clc
+@done:	rts
 .endproc
 
 ;******************************************************************************

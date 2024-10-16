@@ -486,10 +486,10 @@ main:	jsr key::getch
 	jsr asm::startpass
 
 	sta dbgi::srcline
-	sta zp::gendebuginfo
 	sta zp::pass
 
 	lda #$00
+	sta zp::gendebuginfo	; disable debug info generation in pass 1
 	sta dbgi::srcline+1
 
 ; do the first pass of assembly
@@ -498,17 +498,15 @@ main:	jsr key::getch
 	jsr asm::include	; assemble the file (pass 1)
 	bcs @done		; error, we're done
 
-	; end the last segment (if debug info generation enabled)
-	lda zp::gendebuginfo
-	beq @done
-	ldxy zp::asmresult
-	jsr dbgi::endblock
-
 ; do the second assembly pass
-@pass2:	ldxy #@filename
+@pass2:	inc zp::gendebuginfo	; enable debug info generation
+	ldxy #@filename
 	lda #$02
 	jsr asm::startpass
 	jsr asm::include	; assemble the file (pass 2)
+
+	ldxy zp::asmresult
+	jsr dbgi::endblock	; end the final block
 
 @done:	jmp display_result
 .endproc
@@ -535,15 +533,6 @@ main:	jsr key::getch
 	lda zp::gendebuginfo
 	beq @pass1
 
-	; set the initial file for debugging
-	ldxy #$01
-	stxy dbgi::srcline
-	; get active filename (r0 = name)
-	jsr src::current_filename
-	bcc :+			
-	jsr errlog::log
-	jmp @done		; can't get buffer name is fatal, go to end
-:	jsr dbgi::setfile
 ;--------------------------------------
 ; Pass 1
 ; do a pass on the source to simply get labels and basic debug info
@@ -553,8 +542,6 @@ main:	jsr key::getch
 	jsr asm::startpass
 
 @pass1loop:
-	jsr src::currline
-	stxy dbgi::srcline
 	jsr src::readline
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
@@ -574,21 +561,30 @@ main:	jsr key::getch
 	; end the last segment (if debug info generation enabled)
 	lda zp::gendebuginfo
 	beq @pass2
-	ldxy zp::asmresult
-	jsr dbgi::endblock
 
 ;--------------------------------------
 ; Pass 2
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
-@pass2: inc zp::pass		; pass 2
+@pass2: ; set the initial file for debugging
+	ldxy #$01
+	stxy dbgi::srcline
+
+	; get active filename (r0 = name)
+	jsr src::current_filename
+	bcc :+			
+	jsr errlog::log
+	jmp @done		; can't get buffer name is fatal, go to end
+:	jsr dbgi::setfile
+
+	inc zp::pass		; pass 2
 	jsr src::rewind
 	lda #$02
 	jsr asm::startpass
 
 @pass2loop:
 	jsr src::currline
-	jsr dbgi::setline
+	stxy dbgi::srcline
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
@@ -600,7 +596,10 @@ main:	jsr key::getch
 @next:	jsr src::end		; check if we're at the end of the source
 	bne @pass2loop		; repeat if not
 
-@done:	jsr src::popgoto
+@done:	ldxy zp::asmresult
+	jsr dbgi::endblock	; end the final debug info block
+
+	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer
 
 	; fall through to display_result

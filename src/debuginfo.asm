@@ -18,7 +18,7 @@ MAX_BLOCKS = 32
 
 BLOCK_START_ADDR = 0    	; offset in block header for base address
 BLOCK_STOP_ADDR  = 2    	; offset in block header for stop address
-BLOCK_LINE_BASE  = 4		; offset in block header for line count
+BLOCK_LINE_BASE  = 4		; offset in block header for base line
 BLOCK_LINE_COUNT = 6		; offset in block header for line count
 BLOCK_FILE_ID    = 8		; offset in block header to file id
 BLOCK_LINE_PROG  = 9		; offset to address of the line program data
@@ -99,7 +99,7 @@ debuginfo: .res $6000
 .export __debug_set_name
 .export __debug_setline
 .export __debug_store_line
-.export __debug_startblock_byaddr
+.export __debug_set_addr
 
 .export __debuginfo_get_fileid
 
@@ -114,7 +114,7 @@ debuginfo: .res $6000
 	__debug_set_file          = set_file
 	__debug_set_name          = set_name
 	__debug_setline           = setline
-	__debug_startblock_byaddr = startblock_byaddr
+	__debug_set_addr          = set_addr
 	__debug_store_line        = store_line
 
 	__debuginfo_get_fileid   = get_fileid
@@ -122,19 +122,19 @@ debuginfo: .res $6000
 .PUSHSEG
 .CODE
 
-__debug_addr2line:         BANKJUMP addr2line
-__debug_line2addr:         BANKJUMP line2addr
-__debug_end_block:         BANKJUMP end_block
-__debug_init:              BANKJUMP init
-__debug_get_filename:      BANKJUMP get_filename
-__debug_new_block:         BANKJUMP new_block
-__debug_set_file:          BANKJUMP set_file
-__debug_set_name:          BANKJUMP set_name
-__debug_setline:           BANKJUMP setline
-__debug_startblock_byaddr: BANKJUMP startblock_byaddr
-__debug_store_line:        BANKJUMP store_line
+__debug_addr2line:     BANKJUMP addr2line
+__debug_line2addr:     BANKJUMP line2addr
+__debug_end_block:     BANKJUMP end_block
+__debug_init:          BANKJUMP init
+__debug_get_filename:  BANKJUMP get_filename
+__debug_new_block:     BANKJUMP new_block
+__debug_set_file:      BANKJUMP set_file
+__debug_set_name:      BANKJUMP set_name
+__debug_setline:       BANKJUMP setline
+__debug_set_addr:      BANKJUMP set_addr
+__debug_store_line:    BANKJUMP store_line
 
-__debuginfo_get_fileid:   BANKJUMP get_fileid
+__debuginfo_get_fileid: BANKJUMP get_fileid
 
 .POPSEG
 .endif
@@ -149,6 +149,9 @@ __debug_filenames:
 filenames: .res MAX_FILES * 16
 
 numblocks: .byte 0	; number of blocks that we have debug info for
+
+block_open: .byte 0	; if !0, we are creating a block, when this is set
+			; creating a new block will first close the open one
 
 freeptr: .word 0	; pointer to next available address in debuginfo
 
@@ -175,6 +178,7 @@ blockaddresseshi: .res MAX_FILES
 	lda #$00
 	sta numblocks
 	sta numfiles
+	sta block_open
 	rts
 .endproc
 
@@ -204,7 +208,11 @@ blockaddresseshi: .res MAX_FILES
 @tmp=r0
 	stxy addr		; init addr pointer
 
-	; get offset to block header ((BLOCK_HEADER_SIZE * numblocks)
+	lda block_open		; is there a block already open?
+	beq @cont		; continue to create new block if not
+	jsr end_block		; end the open block if there is
+
+@cont:	; get offset to block header ((BLOCK_HEADER_SIZE * numblocks)
 	lda numblocks
 	asl			; *2
 	asl			; *4
@@ -276,6 +284,7 @@ blockaddresseshi: .res MAX_FILES
 	sta (line),y
 
 	inc numblocks
+	inc block_open	; flag that we are creating a new block
 	RETURN_OK
 .endproc
 
@@ -284,10 +293,17 @@ blockaddresseshi: .res MAX_FILES
 ; Updates values that may have changed with calls to storeline
 ; This includes the end address and number of lines in the block
 ; This is called when we are done working on a given block.
+; IN:
+;   - .XY: the address to end the block at
 .proc end_block
 @numlines=debugtmp
 	lda numblocks
 	beq @done	; no blocks exist, nothing to "end"
+
+	lda block_open	; is there an open block?
+	beq @done	; if not, nothing to "end"
+
+	stxy addr
 
 	; write updated address end
 	ldy #BLOCK_STOP_ADDR
@@ -325,64 +341,45 @@ blockaddresseshi: .res MAX_FILES
 	lda progstop+1
 	sta (block),y
 	sta freeptr+1
+	
+	dec block_open	; flag that there is no open block
 
 @done:	rts
 .endproc
 
 ;******************************************************************************
-; START BLOCK BY ADDR
-; Activates the initialized block (see dbg::initblock) from the given address
-; Lines stored after the call to this routine will be stored in the debug info
-; for this block.
+; SET ADDR
+; Writes an instruction to set the address to the given value
 ; This is for use with the .ORG directive
 ; IN:
-;  - .XY: address of the block
+;  - .XY: address to force PC to
 ; OUT:
 ;  - line: the address to store subsequent line program data to
 ;  - .C:   set on error
-.proc startblock_byaddr
+.proc set_addr
 @addr=r0
-@cnt=r2
-	stxy @addr
-	lda numblocks
-	beq @done	; no blocks
-
+	sty @addr
 	lda #$00
-	sta @cnt
+	sta (line),y
 
-	; find the block with this start address
-	ldxy #debuginfo
-	stxy block
-
-@l0:	ldy #BLOCK_START_ADDR
-	lda (block),y 
-	cmp @addr
-	bne @next
+	lda #OP_SET_ADDR
 	iny
-	lda (block),y
-	cmp @addr+1
-	beq @found
+	sta (line),y
 
-@next:	lda block
+	iny
+	txa
+	sta (line),y
+
+	lda @addr
+	sta (line),y
+
+	lda line
 	clc
-	adc #SIZEOF_BLOCK_HEADER
-	sta block
-	bcc :+
-	inc block+1
-
-:	inc @cnt
-	lda @cnt
-	cmp numblocks
-	bcc @l0
-	RETURN_ERR ERR_UNKNOWN_SEGMENT
-
-@found: lda (block),y
-	lda blockaddresseslo,x
+	adc #$04
 	sta line
-	lda blockaddresseshi,x
-	sta line+1
-
-@done:	RETURN_OK
+	bcc :+
+	inc line+1
+:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -755,7 +752,9 @@ blockaddresseshi: .res MAX_FILES
 ; Sets the active file-id to the the ID for given filename.
 ; If no file-id exists for the provided filename, one is first created.
 ; IN:
-;  - .XY: the 0-terminated file to set as the current file
+;   - .XY: the 0-terminated file to set as the current file
+; OUT:
+;   - .A: the ID of the file that was activated
 .proc set_file
 	jsr get_fileid	; get the file ID (if the file is already stored)
 	bcc :+		; if an ID was found, no need to copy filename
