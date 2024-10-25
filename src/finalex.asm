@@ -16,8 +16,8 @@ bankcode:
 ; STORE_BYTE
 ; stores the byte given in zp::bankval to address .YX in bank .A
 ; IN:
-;  - .XY: the address to store to
-;  - .A: the bank to store to
+;  - .XY:         the address to store to
+;  - .A:          the bank to store to
 ;  - zp::bankval: the byte to write
 ; CLOBBERS:
 ;  - .A
@@ -34,10 +34,10 @@ bankcode:
 ; STORE_BYTE_REL
 ; stores the byte given in zp::bankval to the address in .XA in bank .A
 ; IN:
-;  - .XY: the base address
-;  - .A: the bank to store to
+;  - .XY:            the base address
+;  - .A:             the bank to store to
 ;  - zp::bankoffset: the offset from the base address
-;  - zp::bankval: the byte to write
+;  - zp::bankval:    the byte to write
 .export __final_bank_store_rel
 .proc __final_bank_store_rel
 @dst=zp::banktmp
@@ -60,7 +60,7 @@ final_store_size=*-__final_store_byte
 ; Returns the byte in bank .A at address .YX
 ; IN:
 ;  - .XY: the address to read from
-;  - .A: the bank to read from
+;  - .A:  the bank to read from
 ; OUT:
 ;  - .A: the byte that was read
 .export __final_load_byte
@@ -130,6 +130,7 @@ final_store_size=*-__final_store_byte
 ;   - .A: the last byte copied
 .export __final_copy_line
 .proc __final_copy_line
+	ldx $9c02	; get current bank
 	sta $9c02
 	ldy #$00
 :	lda (zp::bankaddr0),y
@@ -139,8 +140,7 @@ final_store_size=*-__final_store_byte
 	beq @done
 	iny
 	bne :-
-@done:	ldx #$80
-	stx $9c02	; restore bank
+@done:	stx $9c02	; restore bank
 	rts
 .endproc
 
@@ -151,7 +151,7 @@ final_store_size=*-__final_store_byte
 ; IN:
 ;  - zp::bank:        the bank of the procedure to call
 ;  - zp::bankjmpaddr: the procedure address
-;  - zp::banktmp: the destination bank address
+;  - zp::banktmp:     the destination bank address
 .export __final_call
 .proc __final_call
 @a=zp::banktmp+1
@@ -190,27 +190,42 @@ banksp:    .byte 0
 .CODE
 
 ;******************************************************************************
+; COPY BANK 2 BANK
+; Entrypoint to copy from one bank to another
+; IN: 
+;  - .A:  the source bank
+;  - .XY: the number of bytes to copy
+;  - r2:  the source address
+;  - r4:  the destination address
+;  - r7:  the destination bank
+.export __final_memcpy_bank
+__final_memcpy_bank:
+	skw	; don't overwrite destination bank
+
+;******************************************************************************
 ; COPY
 ; Writes the memory from (tmp0) to (tmp2)
 ; The number of bytes is given in .YX and the block # to write to is given in .A
 ; This routine assumes that IF the memory overlaps, that it will do so from
 ; the TOP. (dst > src)
 ; IN:
-;  - .A: the source/destination block
+;  - .A:  the source/destination bank
 ;  - .XY: the number of bytes to copy
-;  - r2: the source address
-;  - r4: the destination address
+;  - r2:  the source address
+;  - r4:  the destination address
 .export __final_memcpy
 .proc __final_memcpy
+@size=r0
 @src=r2
 @dst=r4
 @bank=r6
-@size=r0
+@bankdst=r7
+	sta @bankdst	; use source bank as dest as well
+	sta @bank
+
 	cmpw #$00
 	beq @done
-
 	stxy @size
-	sta @bank
 
 	decw @size
 
@@ -233,7 +248,7 @@ banksp:    .byte 0
 	; write the byte to the dest bank/addr
 	sta zp::bankval
 	ldxy @dst
-	lda @bank
+	lda @bankdst
 	jsr __final_store_byte
 
 	; move to the next location

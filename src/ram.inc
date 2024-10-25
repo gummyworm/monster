@@ -32,8 +32,11 @@
 	lda offset
 	sta zp::bankval
 .endif
+.ifnblank addr
 	ldxy addr
+.endif
 	lda bank
+
 .ifblank offset
 	jsr __final_load_byte
 .else

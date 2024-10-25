@@ -923,15 +923,7 @@ restore_regs:
 ;  - .C: set if the file couldn't be opened
 .export __debug_load_file
 .proc __debug_load_file
-	asl
-	asl
-	asl
-	asl
-	adc #<dbgi::filenames
-	tax
-	lda #>dbgi::filenames
-	adc #$00
-	tay
+	jsr dbgi::get_filename
 	jmp edit::load
 .endproc
 
@@ -941,7 +933,7 @@ restore_regs:
 ; IN:
 ;  - .XY: the address to "goto"
 ; OUT:
-;  - .C:  set on failure
+;  - .C:  set on failure (no line/file could be matched with given address)
 ;  - .XY: the line that was navigated to
 .export __debug_gotoaddr
 .proc __debug_gotoaddr

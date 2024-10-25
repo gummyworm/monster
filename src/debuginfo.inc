@@ -3,7 +3,6 @@
 
 .import __debug_addr2line
 .import __debug_end_block
-.import __debug_filenames
 .import __debug_get_filename
 .import __debuginfo_get_fileid
 .import __debug_line2addr
@@ -18,7 +17,6 @@
 	addr2line         = __debug_addr2line
 	endblock          = __debug_end_block
 	file              = __debug_file
-	filenames         = __debug_filenames
 	get_filename      = __debug_get_filename
 	getfileid         = __debuginfo_get_fileid
 	line2addr         = __debug_line2addr

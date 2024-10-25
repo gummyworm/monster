@@ -8,13 +8,14 @@ Debug information is stored in a few tables as described below. At a high level,
 ### File Table
 The file IDs table maps filenames (implicitly) to an ID.  The ID is simply
 the index of the filename in this table
----------------------------------------------
+
+|--------------------------------------------|
 |  size    | description                     |
------------|---------------------------------|
+|----------|---------------------------------|
 |   16     | filename 0                      |
 |   16     | filename 1                      |
 |   16     | ...                             |
-----------------------------------------------
+|--------------------------------------------|
 
 ### Blocks
 To simplify the storage of lines in cases like noncontiguous addresses (although these can be handled in a single block) and 
@@ -22,16 +23,16 @@ multi-file programs, mappings are broken down into "blocks".
 
 Each block defines a file id (blocks will always reference one file only), and a range of lines and addresses.
 
----------------------------------------------------------------------------
+|------------------------------------------------------------------------|
 |  field       | size  | description                                     |
----------------|-------|-------------------------------------------------|
+|--------------|-------|-------------------------------------------------|
 | base         |  2    | the address that this block begins at           |
 | top address  |  2    | the highest address represented by the block    |
 | base line    |  2    | the lowest line number represented by the block |
 | # of lines   |  2    | the highest line number represented by the block|
 | file id      |  1    | filename 0                                      |
 | program      |  2    | address of the line mapping program             |
---------------------------------------------------------------------------
+|------------------------------------------------------------------------|
 
 In the assembler, the two psuedo-ops that force the creation of a block are:
   - including a file (`.INC`)

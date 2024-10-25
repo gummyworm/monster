@@ -8,6 +8,7 @@
 .import __final_copy
 .import __final_copy_line
 .import __final_bank_store_rel
+.import __final_memcpy_bank
 
 ;******************************************************************************
 ; BANK LAYOUT 
@@ -88,14 +89,15 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 
 ;******************************************************************************
 .scope fe3
-	call     = __final_call
-	fcopy    = __final_copy
-	copy     = __final_memcpy
-	copyline = __final_copy_line
-	store    = __final_store_byte
-	store_off= __final_bank_store_rel
-	load     = __final_load_byte
-	load_off = __final_load_byte_off
+	call       = __final_call
+	fcopy      = __final_copy
+	copy       = __final_memcpy
+	copybanked = __final_memcpy_bank
+	copyline   = __final_copy_line
+	store      = __final_store_byte
+	store_off  = __final_bank_store_rel
+	load       = __final_load_byte
+	load_off   = __final_load_byte_off
 .endscope
 
 ;******************************************************************************

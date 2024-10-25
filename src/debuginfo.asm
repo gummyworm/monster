@@ -9,6 +9,7 @@
 .include "errors.inc"
 .include "finalex.inc"
 .include "macros.inc"
+.include "string.inc"
 .include "ram.inc"
 .include "zeropage.inc"
 
@@ -589,7 +590,6 @@ blockaddresseshi: .res MAX_FILES
 @nextline:
 	jsr advance
 	bcc @findline
-	jmp *
 @done:	rts
 .endproc
 
@@ -681,37 +681,27 @@ blockaddresseshi: .res MAX_FILES
 @other=zp::str0
 @filename=zp::str2
 @cnt=debugtmp
-@len=debugtmp+1
 	stxy @filename
-	jsr strlen
-	sta @len
-	bne :+
-	sec		; if string is 0-length, return with "not found" flag
-	rts
-
-:	lda numfiles
-	beq @notfound
+	CALL FINAL_BANK_MAIN, #str::len
+	cmp #$00
+	beq @notfound	; if string is 0-length, return with "not found" flag
+	lda numfiles
+	beq @notfound	; if no files are stored, return with not found
 
 	lda #$00
 	sta @cnt
-	lda #<filenames
-	sta @other
-	lda #>filenames
-	sta @other+1
 
-@l0:	lda @len
-	jsr strcompare
-	bne @next
+@l0:	lda @cnt
+	jsr get_filename	; get the filename to compare
+	stxy @other
+	jsr strcompare		; @filename == @other?
+	bne @next		; if not, try the next filename
 
 @found: ldxy @filename	; restore .XY
 	lda @cnt	; get the file ID
 	RETURN_OK	; file found
 
-@next:	lda @other
-	clc
-	adc #$10
-	sta @other
-	inc @cnt
+@next:	inc @cnt
 	lda @cnt
 	cmp numfiles
 	bne @l0
@@ -723,15 +713,15 @@ blockaddresseshi: .res MAX_FILES
 .endproc
 
 ;******************************************************************************
-; GET FILENAME
-; Returns the file name for the file from its ID
+; GET FILENAME ADDR
+; Returns the address of the filename for the given file ID
 ; IN:
 ;  - .A: the file ID to get the filename of
 ; OUT:
-;  - .XY: the filename for the given file ID
-;  - .C: set if there is no filename for the given file (XY will STILL
-;        point to the address the filename WOULD exist at)
-.proc get_filename
+;  - .XY: address of filename for the given file ID
+;  - .C:  set if there is no filename for the given file (XY will STILL
+;         point to the address the filename WOULD exist at)
+.proc get_filename_addr
 	pha
 	asl
 	asl
@@ -748,9 +738,52 @@ blockaddresseshi: .res MAX_FILES
 .endproc
 
 ;******************************************************************************
+; GET FILENAME
+; Copies the filename for the given ID to a scratch buffer and returns the
+; address to it
+; IN:
+;  - .A: the file ID to get the filename of
+; OUT:
+;  - .XY: address of filename for the given file ID
+;  - .C:  set if there is no filename for the given file (XY will STILL
+;         point to the address the filename WOULD exist at)
+.if FINAL_BANK_MAIN=FINAL_BANK_DEBUG
+.proc get_filename
+	pha
+	asl
+	asl
+	asl
+	asl
+	adc #<filenames
+	tax
+	lda #>filenames
+	adc #$00
+	tay
+	pla
+	cmp numfiles		; set .C if file ID is >= numfiles
+	rts
+.else
+.proc get_filename
+@buff=$120
+	cmp numfiles		; set .C if file ID is >= numfiles
+	bcs @done
+	jsr get_filename_addr
+	stxy zp::bankaddr0
+	ldxy #@buff
+	stxy zp::bankaddr1
+	lda #FINAL_BANK_DEBUG	; copy from DEBUG bank
+	jsr fe3::copyline	; copy the filename to a buffer in shared RAM
+	ldxy #@buff
+	clc
+@done:	rts
+.endproc
+.endif
+
+;******************************************************************************
 ; SET FILE
 ; Sets the active file-id to the the ID for given filename.
 ; If no file-id exists for the provided filename, one is first created.
+; The filename given is assumed to be in the main bank
 ; IN:
 ;   - .XY: the 0-terminated file to set as the current file
 ; OUT:
@@ -758,7 +791,7 @@ blockaddresseshi: .res MAX_FILES
 .proc set_file
 	jsr get_fileid	; get the file ID (if the file is already stored)
 	bcc :+		; if an ID was found, no need to copy filename
-	jsr storefile	; copy the filename and get its new ID
+	jsr set_name	; copy the filename and get its new ID
 :	sta file	; store the ID as the active file ID
 	rts
 .endproc
@@ -772,44 +805,24 @@ blockaddresseshi: .res MAX_FILES
 ;   - .C:  set if there is no file for the given ID
 .proc set_name
 @filename=r2
-@dst=r0
+@dst=r4
 	stxy @filename
-	jsr get_filename	; get the destination address for ID
-	bcc @ok
-	rts				; return err
+	jsr get_filename_addr	; get the destination address for ID
+	stxy @dst
+	ldxy @filename		; restore filename
+	CALL FINAL_BANK_MAIN, #str::len
 
-@ok:	stxy @dst			; r0 = dest address
-	ldxy @filename			; restore filename
-	jmp strcopy			; copy @filename to r0 (@filename)
-.endproc
-
-;******************************************************************************
-; STORE FILE
-; Copies the given filename to the file table thereby creating an ID for that
-; file.
-; IN:
-;   -.XY: address of 0-terminated filename
-; OUT:
-;   - .A: the file ID for the newly copied file
-;   - .C: clear on success, set on error
-.proc storefile
-@filename=r0
-@src=r2
-	stxy @src
-
-	; if filename is empty, return an error
+	; bytes to copy = strlen(@filename)+1
+	tax
+	inx
 	ldy #$00
-	lda (@src),y
-	bne @getfiledst
-	RETURN_ERR ERR_UNNAMED_BUFFER
-@getfiledst:
-	; find the location to store the filename to
-	lda numfiles
-	jsr get_filename 	; get the address where the new file will be
-	ldxy @src
-	jsr set_name		; copy @filename to the file's ID
+	lda #FINAL_BANK_DEBUG		; dest bank
+	sta r7
+	lda #FINAL_BANK_MAIN		; source bank
+	CALL FINAL_BANK_MAIN, #fe3::copybanked
+	lda filenames
 
-	lda numfiles
+	lda numfiles	; get ID of new file
 	inc numfiles
 	RETURN_OK
 .endproc
@@ -982,50 +995,26 @@ blockaddresseshi: .res MAX_FILES
 .endproc
 
 ;******************************************************************************
-; LEN
-; Returns the length of the string in
-; IN:
-;  - .YX: the string to get the length of
-; OUT:
-;  - .A: the length of the string
-;  - .Z: set if the string is empty (length 0)
-.proc strlen
-@str=zp::str0
-	stx @str
-	sty @str+1
-	ldy #$00
-@l0:	lda (@str),y
-	beq @done
-	cmp #$0d
-	beq @done
-	iny
-	bne @l0
-@done:	tya
-	rts
-.endproc
-
-;******************************************************************************
 ; COMPARE
-; Compares the strings in (str0) and (str2) up to a length of .A
+; Compares the strings in (str0) and (str2)
 ; IN:
-;  zp::str0: one of the strings to compare
-;  zp::str2: the other string to compare
-;  .A:       the max length to compare
+;  zp::str0: one of the strings to compare (in this bank)
+;  zp::str2: the other string to compare (in MAIN bank)
 ; OUT:
 ;  .Z: set if the strings are equal
 .proc strcompare
-	tay		; is length 0?
-	dey
-	bmi @match	; if 0-length comparison, it's a match by default
+@cnt=zp::bankval
+	ldy #$00
+@l0:	lda (zp::str2),y
+	cmp (zp::str0),y	; compare it with the string in this bank
+	bne @done		; not equal
 
-@l0:	lda (zp::str0),y
-	cmp (zp::str2),y
-	beq :+
-	rts
-:	dey
-	bpl @l0
-@match:	lda #$00
-	rts
+@next:	cmp #$00		; are we at the terminating 0?
+	beq @done		; if so, return
+	iny			; next char
+	bne @l0
+	lda #$ff		; not equal
+@done:	rts
 .endproc
 
 ;******************************************************************************

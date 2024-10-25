@@ -984,6 +984,7 @@ data: .res $6000
 	sub16 poststartzp
 
 	lda bank
+	sta r7		; destination bank
 	jsr fe3::copy
 
 @ins:	pla

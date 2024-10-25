@@ -50,7 +50,7 @@ SLASH = SPECIAL_CHARS_START+2
 ;  .Z: set if the strings are equal
 .export __str_compare
 .proc __str_compare
-	tay		; is length 0?
+	tay		; is length to compare 0?
 	dey
 	bmi @match	; if 0-length comparison, it's a match by default
 
