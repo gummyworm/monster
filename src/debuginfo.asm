@@ -199,8 +199,8 @@ blockaddresseshi: .res MAX_FILES
 .proc push_block
 	ldx #$00
 	ldy blocksp
-@l0:	lda zp::debug-1,x
-	sta blockstack-1,y
+@l0:	lda zp::debug,x
+	sta blockstack,y
 	iny
 	beq @overflow
 	inx
@@ -592,7 +592,7 @@ blockaddresseshi: .res MAX_FILES
 	bcc @checkstop
 	RETURN_ERR ERR_LINE_NOT_FOUND
 
-; is the address we're looking for in the range [blockstart, blockstop]?
+; is the address we're looking for in the range [blockstart, blockstop)?
 @checkstop:
 	lda @addr+1
 	cmp blockstop+1
@@ -601,18 +601,17 @@ blockaddresseshi: .res MAX_FILES
 	bcs @next	; addr > blockstop, skip to next block
 :	lda @addr
 	cmp blockstop
-	beq @findline	; addr == blockstop, find the line #
-	bcs @next
+	bcs @next	; if addr >= blockstop, skip to next block
 
 @checkstart:
 	lda @addr+1
 	cmp blockstart+1
 	bcc @next	; addr < blockstart, skip to the next block
 	beq :+
-	bcs @findline	; blockstart <= addr < blockstop, find the line #
+	bcs @findline 	; blockstart <= addr < blockstop, find the line #
 :	lda @addr
 	cmp blockstart
-	bcs @findline	; blockstart <= addr < blockstop, find the line #
+	bcs @findline   ; blockstart <= addr < blockstop, find the line #
 
 @next:	inc @cnt
 	lda @cnt
@@ -726,10 +725,17 @@ blockaddresseshi: .res MAX_FILES
 .proc get_fileid
 @other=zp::str0
 @filename=zp::str2
+@buff=$120
 @cnt=debugtmp
 	stxy @filename
-	CALL FINAL_BANK_MAIN, #str::len
-	cmp #$00
+
+	; copy the filename to compare to a temp buffer
+	lda #FINAL_BANK_MAIN	; copy from MAIN bank
+	stxy zp::bankaddr0	; copy from given address
+	ldxy #@buff
+	stxy zp::bankaddr1	; copy to temp buffer
+	jsr fe3::copyline	; copy the filename to a buffer in shared RAM
+	lda @buff
 	beq @notfound	; if string is 0-length, return with "not found" flag
 	lda numfiles
 	beq @notfound	; if no files are stored, return with not found
@@ -737,8 +743,9 @@ blockaddresseshi: .res MAX_FILES
 	lda #$00
 	sta @cnt
 
+; foreach file in the filetable, check if the name matches the one requested
 @l0:	lda @cnt
-	jsr get_filename	; get the filename to compare
+	jsr get_filename_addr	; get the filename to compare
 	stxy @other
 	jsr strcompare		; @filename == @other?
 	bne @next		; if not, try the next filename
@@ -794,20 +801,7 @@ blockaddresseshi: .res MAX_FILES
 ;  - .C:  set if there is no filename for the given file (XY will STILL
 ;         point to the address the filename WOULD exist at)
 .if FINAL_BANK_MAIN=FINAL_BANK_DEBUG
-.proc get_filename
-	pha
-	asl
-	asl
-	asl
-	asl
-	adc #<filenames
-	tax
-	lda #>filenames
-	adc #$00
-	tay
-	pla
-	cmp numfiles		; set .C if file ID is >= numfiles
-	rts
+get_filename = get_filename_addr
 .else
 .proc get_filename
 @buff=$120
@@ -1043,17 +1037,18 @@ blockaddresseshi: .res MAX_FILES
 
 ;******************************************************************************
 ; COMPARE
-; Compares the strings in (str0) and (str2)
+; Compares the strings in (str0) to the buffer @ $120
 ; IN:
-;  zp::str0: one of the strings to compare (in this bank)
-;  zp::str2: the other string to compare (in MAIN bank)
+;  zp::str0: one of the strings to compare 
+;  $120:     the string to compare to
 ; OUT:
 ;  .Z: set if the strings are equal
 .proc strcompare
 @cnt=zp::bankval
+@buff=$120
 	ldy #$00
-@l0:	lda (zp::str2),y
-	cmp (zp::str0),y	; compare it with the string in this bank
+@l0:	lda (zp::str0),y
+	cmp @buff,y		; compare it with the string in this bank
 	bne @done		; not equal
 
 @next:	cmp #$00		; are we at the terminating 0?

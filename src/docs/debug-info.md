@@ -25,12 +25,16 @@ The table below describes the layout of a block
 |  Field       | Size  | Description                                     |
 |--------------|-------|-------------------------------------------------|
 | base         |  2    | the address that this block begins at           |
-| top address  |  2    | the highest address represented by the block    |
+| top address  |  2    | the highest address represented by the block + 1|
 | base line    |  2    | the lowest line number represented by the block |
 | # of lines   |  2    | the highest line number represented by the block|
 | file id      |  1    | filename 0                                      |
 | program      |  2    | address of the line mapping program             |
 | program end  |  2    | address of the end of the line program          |
+
+Note that _top address_ is the last address in the block + 1.
+In other words, the range represented starts at the base address (inclusive)
+and ends at the top address (exclusive): `[base, top)`.
 
 In the assembler, the two psuedo-ops that force the creation of a block are:
   - including a file (`.INC`)

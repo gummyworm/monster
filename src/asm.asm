@@ -1623,6 +1623,11 @@ __asm_include:
 	ldxy #1
 	stxy dbgi::srcline
 	stxy __asm_linenum
+
+	lda zp::pass
+	cmp #$02
+	bne @doline		; only create new block in pass 2
+
 	ldxy zp::asmresult	; current address
 	jsr dbgi::newblock
 
@@ -1655,12 +1660,11 @@ __asm_include:
 	beq @doline		; repeat til we are
 
 @close:
+	ldxy zp::asmresult
+	jsr dbgi::endblock	; end the block for the included file
+
 	; restore debug info state
 	jsr dbgi::pop_block
-
-	; create a new block back in the original file
-	ldxy zp::asmresult
-	jsr dbgi::newblock
 
 	pla		; get the file ID for the include file to close
 	jsr file::close	; close the file
