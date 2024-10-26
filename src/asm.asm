@@ -23,24 +23,6 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-.macro pushdebugline
-	lda dbgi::file
-	pha
-	lda dbgi::srcline
-	pha
-	lda dbgi::srcline+1
-	pha
-.endmacro
-
-.macro popdebugline
-	pla
-	sta dbgi::srcline+1
-	pla
-	sta dbgi::srcline
-	pla
-	sta dbgi::file
-.endmacro
-
 .CODE
 
 ;******************************************************************************
@@ -1321,8 +1303,8 @@ num_illegals = *-illegal_opcodes
 	lda #$00
 	jsr set_ctx_type
 
-	; save the debug line
-	pushdebugline
+	; save the debug state
+	jsr dbgi::push_block
 
 	; before rewinding, move debug line back to line we're repeating
 	jsr rewind_ctx_dbg
@@ -1389,8 +1371,8 @@ num_illegals = *-illegal_opcodes
 	ldxy zp::ctx+repctx::params
 	jsr lbl::del	; delete the iterator label
 
-@done:	; restore the debug line
-	popdebugline
+@done:	; restore the debug info state
+	jsr dbgi::pop_block
 	jmp ctx::pop	; pop the context
 .endproc
 
@@ -1631,8 +1613,8 @@ __asm_include:
 :	pha		; save the id of the file we're working on
 	sta zp::file
 
-	; save the current debug-info file
-	pushdebugline
+	; save the current debug-info state
+	jsr dbgi::push_block
 
 	; add the filename to debug info (if it isn't yet), reset line number
 	; and finally create a new block of debug information
@@ -1640,6 +1622,7 @@ __asm_include:
 	jsr dbgi::setfile
 	ldxy #1
 	stxy dbgi::srcline
+	stxy __asm_linenum
 	ldxy zp::asmresult	; current address
 	jsr dbgi::newblock
 
@@ -1667,13 +1650,13 @@ __asm_include:
 	sta zp::file
 	bcs @close
 
-@next:	incw dbgi::srcline	; next line
+@next:	incw __asm_linenum	; next line
 	lda file::eof		; EOF?
 	beq @doline		; repeat til we are
 
 @close:
-	; restore debug line and file info
-	popdebugline
+	; restore debug info state
+	jsr dbgi::pop_block
 
 	; create a new block back in the original file
 	ldxy zp::asmresult

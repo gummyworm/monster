@@ -1,4 +1,4 @@
-	;******************************************************************************
+;******************************************************************************
 ; DEBUGINFO.ASM
 ; This file contains definitions for procedures to store debug info for
 ; assembled programs.  This info is the map of file and line-number to address.
@@ -100,6 +100,8 @@ debuginfo: .res $6000
 .export __debug_set_name
 .export __debug_store_line
 .export __debug_set_addr
+.export __debug_push_block
+.export __debug_pop_block
 
 .export __debuginfo_get_fileid
 
@@ -115,6 +117,8 @@ debuginfo: .res $6000
 	__debug_set_name          = set_name
 	__debug_set_addr          = set_addr
 	__debug_store_line        = store_line
+	__debug_push_block        = push_block
+	__debug_pop_block         = pop_block
 
 	__debuginfo_get_fileid   = get_fileid
 .else
@@ -131,6 +135,8 @@ __debug_set_file:      BANKJUMP set_file
 __debug_set_name:      BANKJUMP set_name
 __debug_set_addr:      BANKJUMP set_addr
 __debug_store_line:    BANKJUMP store_line
+__debug_push_block:    BANKJUMP push_block
+__debug_pop_block:     BANKJUMP pop_block
 
 __debuginfo_get_fileid: BANKJUMP get_fileid
 
@@ -153,6 +159,9 @@ block_open: .byte 0	; if !0, we are creating a block, when this is set
 
 freeptr: .word 0	; pointer to next available address in debuginfo
 
+blocksp:    .byte 0	; stack pointer for block stack
+blockstack: .res $100	; stack for line program state machine
+
 ; table of headers for each block
 .export blockheaders
 blockheaders: .res MAX_BLOCKS * SIZEOF_BLOCK_HEADER
@@ -174,9 +183,57 @@ blockaddresseshi: .res MAX_FILES
 
 	; init debugger state variables
 	lda #$00
+	sta blocksp
 	sta numblocks
 	sta numfiles
 	sta block_open
+	rts
+.endproc
+
+;******************************************************************************
+; PUSH BLOCK
+; Pushes the current state machine values for the line program
+; This allows a new block to be created and then the current block restored
+; OUT:
+;   - .C: set on stack overflow
+.proc push_block
+	ldx #$00
+	ldy blocksp
+@l0:	lda zp::debug-1,x
+	sta blockstack-1,y
+	iny
+	beq @overflow
+	inx
+	cpx #$06
+	bne @l0
+	sty blocksp	; save new stack pointer
+	RETURN_OK	; success
+
+@overflow:
+	sec		; stack overflow
+	rts
+.endproc
+
+;******************************************************************************
+; POP BLOCK
+; Pops the last pushed values (push_block) for the line program state machine
+; OUT:
+;   - .C: set on stack underflow
+.proc pop_block
+	ldx #$06
+	ldy blocksp
+@l0:	lda zp::debug-1,x
+	sta blockstack-1,y
+	dey
+	cpy #$ff
+	beq @underflow
+	dex
+	bne @l0
+	sty blocksp	; save new stack pointer
+	RETURN_OK	; success
+
+@underflow:
+	sec		; stack underflow
 	rts
 .endproc
 
