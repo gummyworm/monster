@@ -9,7 +9,6 @@
 .import __debug_init
 .import __debug_new_block
 .import __debug_set_file
-.import __debug_setline
 .import __debug_store_line
 .import __debug_set_addr
 
@@ -23,7 +22,6 @@
 	init              = __debug_init
 	newblock          = __debug_new_block
 	setfile           = __debug_set_file
-	setline           = __debug_setline
 	srcline           = __debug_src_line
 	setaddr           = __debug_set_addr
 	storeline         = __debug_store_line

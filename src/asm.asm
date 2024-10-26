@@ -156,6 +156,11 @@ origin: .word 0	; the lowest address in the program
 __asm_top:
 top: .word 0	; the highest address in the program
 
+; TOKENIZE uses this as the line number to map the address of the assembled
+; instruction to
+.export __asm_linenum
+__asm_linenum: .byte 0
+
 ; the type of the segment being stored e.g. SEG_BSS or SEG_CODE
 segment_type: .byte 0
 
@@ -1044,7 +1049,7 @@ num_illegals = *-illegal_opcodes
 
 @gen:	ldxy zp::virtualpc	; current PC (address)
 	stxy r0
-	ldxy dbgi::srcline
+	ldxy __asm_linenum	; get line # to map to address
 	jmp dbgi::storeline	; map them
 .endproc
 
@@ -1343,7 +1348,7 @@ num_illegals = *-illegal_opcodes
 :	bcs @err
 
 @l1:	; assemble the lines until .endrep
-	incw dbgi::srcline
+	incw __asm_linenum
 	jsr ctx::getline
 	bcc :+
 @err:	rts				; propagate error, exit

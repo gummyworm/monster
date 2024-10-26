@@ -486,11 +486,13 @@ main:	jsr key::getch
 	jsr asm::startpass
 
 	sta dbgi::srcline
+	sta asm::linenum
 	sta zp::pass
 
 	lda #$00
 	sta zp::gendebuginfo	; disable debug info generation in pass 1
 	sta dbgi::srcline+1
+	sta asm::linenum+1
 
 ; do the first pass of assembly
 @pass1:
@@ -569,6 +571,7 @@ main:	jsr key::getch
 @pass2: ; set the initial file for debugging
 	ldxy #$01
 	stxy dbgi::srcline
+	stxy asm::linenum
 
 	; get active filename (r0 = name)
 	jsr src::current_filename
@@ -584,7 +587,7 @@ main:	jsr key::getch
 
 @pass2loop:
 	jsr src::currline
-	stxy dbgi::srcline
+	stxy asm::linenum
 @asm:	jsr src::readline
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN

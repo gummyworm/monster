@@ -12,10 +12,12 @@
 .import __asm_tokenize_pass1
 .import __asm_tokenize_pass2
 .import __asm_top
+.import __asm_linenum
 
 .scope asm
 	disassemble    = __asm_disassemble
 	include        = __asm_include
+	linenum        = __asm_linenum
 	origin         = __asm_origin
 	org_string     = __asm_org_string
 	pcset          = __asm_pcset

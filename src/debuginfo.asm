@@ -98,7 +98,6 @@ debuginfo: .res $6000
 .export __debug_new_block
 .export __debug_set_file
 .export __debug_set_name
-.export __debug_setline
 .export __debug_store_line
 .export __debug_set_addr
 
@@ -114,7 +113,6 @@ debuginfo: .res $6000
 	__debug_new_block         = new_block
 	__debug_set_file          = set_file
 	__debug_set_name          = set_name
-	__debug_setline           = setline
 	__debug_set_addr          = set_addr
 	__debug_store_line        = store_line
 
@@ -131,7 +129,6 @@ __debug_get_filename:  BANKJUMP get_filename
 __debug_new_block:     BANKJUMP new_block
 __debug_set_file:      BANKJUMP set_file
 __debug_set_name:      BANKJUMP set_name
-__debug_setline:       BANKJUMP setline
 __debug_set_addr:      BANKJUMP set_addr
 __debug_store_line:    BANKJUMP store_line
 
@@ -180,17 +177,6 @@ blockaddresseshi: .res MAX_FILES
 	sta numblocks
 	sta numfiles
 	sta block_open
-	rts
-.endproc
-
-;******************************************************************************
-; SETLINE
-; Sets the current line number.  When calling dbgi::storeline this is the line
-; that will be mapped to its corresponding address
-; IN:
-;  - .XY: the line number to set the internal line to
-.proc setline
-	stxy srcline
 	rts
 .endproc
 
@@ -407,6 +393,9 @@ blockaddresseshi: .res MAX_FILES
 	lda @line+1
 	sbc srcline+1
 	sta @dline+1
+
+	; set new srcline value to the line we're moving to
+	stxy srcline
 
 	; get the relative address from the block's base address
 	lda @addr
@@ -990,6 +979,7 @@ blockaddresseshi: .res MAX_FILES
 	skw		; fall through to @ok
 @end:	sec
 	rts
+
 @ok:	incw line
 	RETURN_OK
 .endproc
