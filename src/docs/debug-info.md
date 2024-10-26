@@ -9,13 +9,11 @@ Debug information is stored in a few tables as described below. At a high level,
 The file IDs table maps filenames (implicitly) to an ID.  The ID is simply
 the index of the filename in this table
 
-|--------------------------------------------|
 |  size    | description                     |
 |----------|---------------------------------|
 |   16     | filename 0                      |
 |   16     | filename 1                      |
 |   16     | ...                             |
-|--------------------------------------------|
 
 ### Blocks
 To simplify the storage of lines in cases like noncontiguous addresses (although these can be handled in a single block) and 
@@ -24,7 +22,6 @@ multi-file programs, mappings are broken down into "blocks".
 Each block defines a file id (blocks will always reference one file only), and a range of lines and addresses.
 The table below describes the layout of a block
 
-|------------------------------------------------------------------------|
 |  Field       | Size  | Description                                     |
 |--------------|-------|-------------------------------------------------|
 | base         |  2    | the address that this block begins at           |
@@ -34,7 +31,6 @@ The table below describes the layout of a block
 | file id      |  1    | filename 0                                      |
 | program      |  2    | address of the line mapping program             |
 | program end  |  2    | address of the end of the line program          |
-|------------------------------------------------------------------------|
 
 In the assembler, the two psuedo-ops that force the creation of a block are:
   - including a file (`.INC`)
@@ -66,7 +62,6 @@ because a line (if not PC) must be advanced for each entry in the line table.
 
 Below is the list of extended commands and their effects.
 
-|----------------------------------------------------------------------------------------------------|
 | Command Name  |  Operand  | Code | Operand Size| Effect                                            |
 |---------------|-----------|------|-------------|---------------------------------------------------|
 | `SET_ADDRESS` | address   |  $01 | 2           | Sets the address to the given absolute address    |
@@ -76,7 +71,6 @@ Below is the list of extended commands and their effects.
 | `ADVANCE_PC`  | offset    |  $05 | 2           | Moves the address by the given signed offset      |
 | `SET_PC`      | offset    |  $06 | 2           | Moves the address by the given signed offset      |
 | `END`         |  -        |  $00 | 0           | Marks the end of the program (block)              |
-|----------------------------------------------------------------------------------------------------|
 
 `ADVANCE_LINE` and `ADVANCE_PC` can be used to handle bigger "jumps" in the line mapping, but they're
 also useful when adding a line to the existing mapping without fully recompiling the line program.
@@ -96,7 +90,6 @@ loop:
 The block header for this file sets up the file ID, line number, and (base) address
 This program begins at line 1, starts at address $1000, and has 5 lines.
 
-|-------------------------------------|
 | Instruction | Description           |
 |-------------|-----------------------|
 | $00 $10     | base address          |
@@ -105,7 +98,6 @@ This program begins at line 1, starts at address $1000, and has 5 lines.
 | $00 05      | number of lines       |
 | $01         | file ID               |
 | $00 $20     | line program address  |
-|-------------------------------------|
  
 The state machine is initialized with values from the block header, so we enter the program with:
   - line number: 2
@@ -118,12 +110,10 @@ already landed us on our target.
 
 Our program is defined as:
 
-|---------------------------------------------------------------------|
 | Value | Description                                                 |
 |-------|-------------------------------------------------------------|
 | $22   | move line by 2 and address by 2 (we are now at `sta $900f`) |
 | $32   | move line by 2 and address by 3 (we are now at `jmp loop`)  |
-|---------------------------------------------------------------------|
 
 ## Generation
 
