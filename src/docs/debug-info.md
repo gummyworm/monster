@@ -1,9 +1,9 @@
 ## DEBUG INFORMATION
 
 Debug information is stored in a few tables as described below. At a high level, these are:
-  - a "file table" for mapping file id's to file. 
+  - a "file table" for mapping file id's to file name 
   - a series of "blocks" that store ranges of addresses and lines for blocks of code
-  - a series of "line programs", state machines that resolve to addresses and line numbers when executed
+  - a series of _line programs_, state machines that resolve to addresses and line numbers when executed
 
 ### File Table
 The file IDs table maps filenames (implicitly) to an ID.  The ID is simply
@@ -22,9 +22,10 @@ To simplify the storage of lines in cases like noncontiguous addresses (although
 multi-file programs, mappings are broken down into "blocks".
 
 Each block defines a file id (blocks will always reference one file only), and a range of lines and addresses.
+The table below describes the layout of a block
 
 |------------------------------------------------------------------------|
-|  field       | size  | description                                     |
+|  Field       | Size  | Description                                     |
 |--------------|-------|-------------------------------------------------|
 | base         |  2    | the address that this block begins at           |
 | top address  |  2    | the highest address represented by the block    |
@@ -32,6 +33,7 @@ Each block defines a file id (blocks will always reference one file only), and a
 | # of lines   |  2    | the highest line number represented by the block|
 | file id      |  1    | filename 0                                      |
 | program      |  2    | address of the line mapping program             |
+| program end  |  2    | address of the end of the line program          |
 |------------------------------------------------------------------------|
 
 In the assembler, the two psuedo-ops that force the creation of a block are:
@@ -40,10 +42,10 @@ In the assembler, the two psuedo-ops that force the creation of a block are:
 
 ### Line Program
 The line program facilitates compact mapping of line numbers to addresses.
-The line program is a state machine with the following state:
- - filename (as file id)
+It is a state machine with the following state:
  - line number
- - PC (program counter)
+ - address (or program counter)
+ - filename (as file id)
 
 Commands modify this state in order to produce the address <-> line mapping.
 There are two types of instructions to handle this process: "basic" and "extended".
@@ -64,20 +66,20 @@ because a line (if not PC) must be advanced for each entry in the line table.
 
 Below is the list of extended commands and their effects.
 
-------------------------------------------------------------------------------------------------------
+|----------------------------------------------------------------------------------------------------|
 | Command Name  |  Operand  | Code | Operand Size| Effect                                            |
-|---------------|-----------|--------------------|---------------------------------------------------|
+|---------------|-----------|------|-------------|---------------------------------------------------|
 | `SET_ADDRESS` | address   |  $01 | 2           | Sets the address to the given absolute address    |
 | `SET_FILE`    | file id   |  $02 | 1           | Sets the file to the given file                   |
 | `SET_LINE`    | offset    |  $03 | 2           | Sets the line to the given line number            |
 | `ADVANCE_LINE`| offset    |  $04 | 2           | Moves the line by the given signed offset         |
-| `ADVANCE_PC`  | offset    |  $05 | 2           | Moves the PC by the given signed offset           |
-| `SET_PC`      | offset    |  $06 | 2           | Moves the PC by the given signed offset           |
-| `END`         |  -        |  $00 | 0           | Marks the end of the program                      |
-------------------------------------------------------------------------------------------------------
+| `ADVANCE_PC`  | offset    |  $05 | 2           | Moves the address by the given signed offset      |
+| `SET_PC`      | offset    |  $06 | 2           | Moves the address by the given signed offset      |
+| `END`         |  -        |  $00 | 0           | Marks the end of the program (block)              |
+|----------------------------------------------------------------------------------------------------|
 
 `ADVANCE_LINE` and `ADVANCE_PC` can be used to handle bigger "jumps" in the line mapping, but they're
-also useful in adding a line to the existing mapping without fully recompiling the line program.
+also useful when adding a line to the existing mapping without fully recompiling the line program.
 This is the case when editing a file, which produces realtime updates to the debug info.
 When the program is assembled, the line-program is recompiled into a more optimal format.
 
@@ -91,23 +93,24 @@ loop:
     jmp loop
 ```
 
-The block header for this file sets up the file ID, line number, and PC (base address)
+The block header for this file sets up the file ID, line number, and (base) address
+This program begins at line 1, starts at address $1000, and has 5 lines.
 
--------------------------------------
-| value     | description           |
-|-----------|-----------------------|
-| $00 $10   | base address          |
-| $09 $10   | top address           |
-| $00 02    | base line             |
-| $00 04    | number of lines       |
-| $01       | file ID               |
-| $00 $20   | line program address  |
--------------------------------------
+|-------------------------------------|
+| Instruction | Description           |
+|-------------|-----------------------|
+| $00 $10     | base address          |
+| $09 $10     | top address           |
+| $00 02      | base line             |
+| $00 05      | number of lines       |
+| $01         | file ID               |
+| $00 $20     | line program address  |
+|-------------------------------------|
  
 The state machine is initialized with values from the block header, so we enter the program with:
   - line number: 2
   - file ID: 1
-  - PC: $1000
+  - address: $1000
 
 Note that this corresponds to `lda #$00` in our code.  If we are looking for the address $1000 or line
 number 2, we never actually execute any instructions in the line program as the initialization has 
@@ -115,17 +118,17 @@ already landed us on our target.
 
 Our program is defined as:
 
-|-----------------------------------------------------------------
-| value | description                                            |
-|-------|--------------------------------------------------------|
-| $21   | move line by 1 and PC by 2 (we are now at `sta $900f`) |
-| $32   | move line by 2 and PC by 3 (we are now at `jmp loop`)  |
-|-----------------------------------------------------------------
+|---------------------------------------------------------------------|
+| Value | Description                                                 |
+|-------|-------------------------------------------------------------|
+| $22   | move line by 2 and address by 2 (we are now at `sta $900f`) |
+| $32   | move line by 2 and address by 3 (we are now at `jmp loop`)  |
+|---------------------------------------------------------------------|
 
 ## Generation
 
 The flow for generating debug information is:
- 1. begin a block
+ 1. begin block
  2. add lines
  3. end block
 
