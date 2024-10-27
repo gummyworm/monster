@@ -170,60 +170,50 @@
 
 ;******************************************************************************
 ; FILL
-; /f <start>, <stop> a [, b, c, ...]
+; f <start> <stop> a [, b, c, ...]
 ; Fills the range between the two addresses/expressions with the given fill
 ; list.  The given list is repeated in memory from the start address until the
 ; stop address is reached
 ; IN:
 ;  - .XY: the parameters for the command
 .proc fill
-@start=r4
-@stop=r6
-@listlen=r8
-@i=r0
-@list=ra
-	; get the start address
-	ldxy zp::line
-	CALL FINAL_BANK_MAIN, #expr::eval
-	stxy @start
-	bcc :+
-@err:	sec
-@done:	rts
-
-:	; move past separator
-	CALL FINAL_BANK_MAIN, #line::nextch
-	beq @err
-
-	; get the stop address
-	CALL FINAL_BANK_MAIN, #expr::eval
-	stxy @stop
-	bcs @done
-
-	; move past separator
-	CALL FINAL_BANK_MAIN, #line::nextch
-	beq @err
-
+@start   = zp::debuggertmp
+@stop    = zp::debuggertmp+2
+@listlen = zp::debuggertmp+4
+@i       = r0
+@list    = zp::debuggertmp+6
 	lda #$00
 	sta @listlen
 
+	; get the start address
+	CALL FINAL_BANK_MAIN, #expr::eval
+	stxy @start
+	incw zp::line		; move past separator
+	bcc @getstop
+	rts
+
+@getstop:
+	; get the stop address
+	CALL FINAL_BANK_MAIN, #expr::eval
+	stxy @stop
+	bcs @ret
+
+@l0:	incw zp::line		; move past separator
 	; get the fill values
-@l0:	CALL FINAL_BANK_MAIN, #expr::eval
-	bcs @err
-	cmp #$02		; 2 bytes?
-	bcc :+
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @ret
+	cmp #$02		; was expression 2 bytes?
 	tya
 	ldy @listlen
+	bcc :+			; if < 2 bytes, only store LSB
 	sta @list+1,y		; store MSB of the expression as a fill val
 	inc @listlen
 	skw			; don't reload listlen
-:	ldy @listlen
-	stx @list,y		; store LSB of expression as fill val
+:	stx @list,y		; store LSB of expression as fill val
 	inc @listlen
-	CALL FINAL_BANK_MAIN, #line::nextch
+	ldy #$00
+	lda (zp::line),y	; are we at the end?
 	bne @l0
-
-	ldxy @start
-	stxy view::addr
 
 	lda #$00
 	sta @i
@@ -232,18 +222,18 @@
 	lda @list,x
 	ldxy @start
 	CALL FINAL_BANK_MAIN, #vmem::store
-	ldxy @start
-	inc @i
-	lda @i
-	cmp @listlen
+	ldx @i
+	inx
+	cpx @listlen
 	bcc :+
-	lda #$00
-	sta @i
-:	incw @start
+	ldx #$00
+:	stx @i
+	incw @start
 @chk:	ldxy @start
 	cmpw @stop
 	bne @fill
-	RETURN_OK
+	clc		; OK
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -366,8 +356,8 @@
 ; SHOWMEM
 ; Shows the contents of memory at the target of the given expression
 .proc showmem
-@addr=r6
-@lines=r8
+@addr=zp::debuggertmp
+@lines=zp::debuggertmp+2
 	; default to 8 lines (64 bytes total)
 	lda #$08
 	sta @lines

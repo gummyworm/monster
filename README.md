@@ -1075,3 +1075,4 @@ program state.
 |    s     | step over   |                              | runs the next instruction, treating JSR's as a single instruction                                          |
 |    wa    | add watch   | expression (expression)      | adds a watch at the given start and (optional) stop address                                                |
 |    wr    | remove watch| id                           | removes the watch with the given id                                                                        |
+|    F1    | view screen |      N/A                     | toggles the view of the user-memory (swaps the the  $1000-$2000 range monitor <-> program                  |

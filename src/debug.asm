@@ -87,7 +87,8 @@ DEBUG_IFACE_TEXT = 1
 
 ;******************************************************************************
 swapmem        = zp::debugger	; not zero if we need to swap in user RAM
-debugtmp       = zp::debugger+1	; scratchpad
+
+debugtmp       = zp::debuggertmp	; scratchpad
 
 ;******************************************************************************
 ; Program state variables

@@ -14,8 +14,10 @@ bankjmpvec  = $09	; JMP vector
 
 math = $0b	; $0b-$0f math routine scratchpad
 
-debug    = $10	; $10-$28 debug info generation
-debugger = $28	; $28-$30 debugger misc storage
+debug    = $10		; $10-$28 debug info generation
+
+debugger    = $28	; $28-$29 used by debugger
+debuggertmp = $29	; $29-$30 debugger temp storage
 
 str0 = $30	; $30-$31 string pointer 1
 str1 = $31
