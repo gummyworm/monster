@@ -92,7 +92,7 @@
 
 ;******************************************************************************
 ; ADD WATCH
-; !wa <expression> [, expression]
+; wa <expression> [, expression]
 ; Prompts for a start address and (optional) stop address and adds a watch
 ; at that location
 ; IN:
@@ -121,7 +121,7 @@
 
 ;******************************************************************************
 ; LIST WATCHES
-; !w
+; w
 ; Lists all active watches
 .proc list_watches
 	; TODO
@@ -129,7 +129,7 @@
 
 ;******************************************************************************
 ; REMOVE WATCH
-; !wr <id>
+; wr <id>
 ; Deletes the watch with the given ID. The ID's can be found by listing watches
 ; with the w command or going to the watch viewer.
 ; IN:
@@ -151,7 +151,7 @@
 
 ;******************************************************************************
 ; ADD BREAK
-; !br <expr>
+; br <expr>
 ; Adds a breakpoint at the given address/expression
 ; IN:
 ;  - .XY: the parameters for the command
@@ -160,7 +160,7 @@
 
 ;******************************************************************************
 ; REMOVE BREAK
-; /br <id>
+; br <id>
 ; Deletes the breakpoint with the given ID. The IDs can be found by listing
 ; breakpoints (bl) or going to the breakpoint viewer
 ; IN:
@@ -182,15 +182,11 @@
 @listlen = zp::debuggertmp+4
 @i       = r0
 @list    = zp::debuggertmp+6
-	lda #$00
-	sta @listlen
-
 	; get the start address
 	CALL FINAL_BANK_MAIN, #expr::eval
 	stxy @start
 	incw zp::line		; move past separator
-	bcc @getstop
-	rts
+	bcs @ret
 
 @getstop:
 	; get the stop address
@@ -198,22 +194,8 @@
 	stxy @stop
 	bcs @ret
 
-@l0:	incw zp::line		; move past separator
-	; get the fill values
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr parse_exprs		; parse the list of values to fill
 	bcs @ret
-	cmp #$02		; was expression 2 bytes?
-	tya
-	ldy @listlen
-	bcc :+			; if < 2 bytes, only store LSB
-	sta @list+1,y		; store MSB of the expression as a fill val
-	inc @listlen
-	skw			; don't reload listlen
-:	stx @list,y		; store LSB of expression as fill val
-	inc @listlen
-	ldy #$00
-	lda (zp::line),y	; are we at the end?
-	bne @l0
 
 	lda #$00
 	sta @i
@@ -237,6 +219,74 @@
 .endproc
 
 ;******************************************************************************
+; PARSE EXPRS
+; Parses as many expressions as the contents of the line contain and joins them
+; into a list of bytes.
+; Returns the list
+; IN:
+;  - zp::line: the line to parse
+; OUT:
+;  - .A:               the number of values extracted
+;  - .C:               set if an error occurred during parsing
+;  - zp::debuggertmp+4 the length of the byte array created
+;  - zp::debuggertmp+6 the list of values that were read
+.proc parse_exprs
+@listlen = zp::debuggertmp+4
+@list    = zp::debuggertmp+6
+	lda #$00
+	sta @listlen
+
+@l0:	incw zp::line		; move past separator
+
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @ret
+
+	cmp #$02		; was expression 2 bytes?
+	tya
+	ldy @listlen
+	bcc :+			; if < 2 bytes, only store LSB
+	sta @list+1,y		; store MSB of the expression as a fill val
+	inc @listlen
+	skw			; don't reload listlen
+:	stx @list,y		; store LSB of expression as fill val
+	inc @listlen
+	ldy #$00
+	lda (zp::line),y	; are we at the end?
+	bne @l0
+	clc			; OK
+@ret:	rts
+.endproc
+
+;******************************************************************************
+; PRINT WORD
+; Prints the given 16 bit value to the console in hex
+; IN:
+;  - .XY: the value to print
+.proc print_word
+@buff=zp::debuggertmp
+	tya
+	pha
+	txa
+	jsr hextostr
+	stx @buff+4
+	sty @buff+3
+	pla
+	jsr hextostr
+	stx @buff+2
+	sty @buff+1
+	lda #'$'
+	sta @buff
+	lda #$00
+	sta @buff+5		; 0 terminate the buffer
+	ldxy #@buff
+	jmp con::puts
+.endproc
+
+;******************************************************************************
+; GOTO
+; Sets the program counter to the given value
+; Example:
+;  `g $1234`
 .proc goto
 .endproc
 
@@ -249,7 +299,63 @@
 .endproc
 
 ;******************************************************************************
+; HUNT
+; h <addr> <val1> <val2> ...
+; Hunts for the given value(s) starting at the given address.  Does not wrap
+; past $FFFF.
+; Example:
+;  `h $1000 1 2 3`
 .proc hunt
+@start   = zp::debuggertmp
+@i       = zp::debuggertmp+2
+@listlen = zp::debuggertmp+4
+@list    = zp::debuggertmp+6
+	; get the start address
+	CALL FINAL_BANK_MAIN, #expr::eval
+	stxy @start
+	bcs @ret
+
+	jsr parse_exprs		; get the values to hunt for
+
+	lda #$00
+	sta @i
+@l0:	ldxy @start
+	CALL FINAL_BANK_MAIN, #vmem::load
+	ldx @i
+	inc @i
+	cmp @list,x
+	beq :+
+	lda #$00
+	sta @i			; reset i to 0
+
+:	; if i >= listlen, we found all the values we were looking for
+	lda @i
+	cmp @listlen
+	bcs @found
+
+	; start++
+	inc @start
+	bne @l0
+	inc @start+1
+	bne @l0
+	sec			; we wrapped back to $0000, value(s) not found
+@ret:	rts
+
+@found:	; subtract @listlen-1 to get HUNT address
+	lda @start
+	; sec
+	sbc @listlen
+	tax
+	lda @start+1
+	sbc #$00
+	tay
+	inx
+	bne :+
+	iny
+:	jsr print_word	; print the address where we found the value
+
+	clc
+	rts
 .endproc
 
 ;******************************************************************************
@@ -347,7 +453,7 @@
 
 @err:	CALL FINAL_BANK_MAIN, #err::get
 	CALL FINAL_BANK_MAIN, #str::uncompress
-	jsr con::puts		; print the error
+	jsr con::puts				; print the error
 	clc
 @ret:	rts
 .endproc
@@ -474,6 +580,38 @@
 	beq :+
 	cmp #' '
 :	rts
+.endproc
+
+;******************************************************************************
+; HEXTOSTR
+; Returns the string representation of the value in .A
+; IN:
+;  - .A: the value to get the string representation of
+; OUT:
+;  - .X: the character representation of the low nybble
+;  - .Y: the character representation of the  high nybble
+.proc hextostr
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	cmp #$0a
+	bcs :+
+	adc #'0'
+	bcc :++
+:	adc #'a'-$a-1
+:	tay
+
+	pla
+	and #$0f
+	cmp #$0a
+	bcs :+
+	adc #'0'
+	bcc :++
+:	adc #'a'-$a-1
+:	tax
+	rts
 .endproc
 
 ;******************************************************************************
