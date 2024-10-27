@@ -1303,9 +1303,6 @@ num_illegals = *-illegal_opcodes
 	lda #$00
 	jsr set_ctx_type
 
-	; save the debug state
-	jsr dbgi::push_block
-
 	; before rewinding, move debug line back to line we're repeating
 	jsr rewind_ctx_dbg
 
@@ -1371,9 +1368,7 @@ num_illegals = *-illegal_opcodes
 	ldxy zp::ctx+repctx::params
 	jsr lbl::del	; delete the iterator label
 
-@done:	; restore the debug info state
-	jsr dbgi::pop_block
-	jmp ctx::pop	; pop the context
+@done:	jmp ctx::pop	; pop the context
 .endproc
 
 ;******************************************************************************
@@ -1385,14 +1380,14 @@ num_illegals = *-illegal_opcodes
 	; before rewinding, move debug line back to line we're repeating
 	jsr ctx::numlines	; get # of lines we're rewinding
 	sta @tmp
-	lda dbgi::srcline
+	lda __asm_linenum
 	sec
 	sbc @tmp
-	sta dbgi::srcline
-	lda dbgi::srcline+1
+	sta __asm_linenum
+	lda __asm_linenum+1
 	sec
 	sbc #$00
-	sta dbgi::srcline+1
+	sta __asm_linenum+1
 
 	jmp ctx::rewind
 .endproc
@@ -1613,9 +1608,6 @@ __asm_include:
 :	pha		; save the id of the file we're working on
 	sta zp::file
 
-	; save the current debug-info state
-	jsr dbgi::push_block
-
 	; add the filename to debug info (if it isn't yet), reset line number
 	; and finally create a new block of debug information
 	ldxy @fname
@@ -1628,8 +1620,11 @@ __asm_include:
 	cmp #$02
 	bne @doline		; only create new block in pass 2
 
+	; end current file's block and start a new one at the current address
 	ldxy zp::asmresult	; current address
-	jsr dbgi::newblock
+	jsr dbgi::endblock	; end the current block
+	ldxy zp::asmresult	; current address
+	jsr dbgi::newblock	; start new block for included file
 
 ; read a line from file
 @doline:
@@ -1660,13 +1655,17 @@ __asm_include:
 	beq @doline		; repeat til we are
 
 @close:
+	lda zp::pass
+	cmp #$02
+	bne :+			; if not pass 2, don't mess with debug info
 	ldxy zp::asmresult
 	jsr dbgi::endblock	; end the block for the included file
+	lda zp::file
+	sta dbgi::file
+	ldxy zp::asmresult
+	jsr dbgi::newblock	; start a new block in original file
 
-	; restore debug info state
-	jsr dbgi::pop_block
-
-	pla		; get the file ID for the include file to close
+:	pla		; get the file ID for the include file to close
 	jsr file::close	; close the file
 	lda file::eof	; were we at the EOF?
 	bne :+		; if so, continue

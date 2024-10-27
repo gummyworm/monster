@@ -206,6 +206,9 @@ blockaddresseshi: .res MAX_FILES
 	inx
 	cpx #$06
 	bne @l0
+	lda file
+	sta blockstack,y
+	iny
 	sty blocksp	; save new stack pointer
 	RETURN_OK	; success
 
@@ -222,8 +225,11 @@ blockaddresseshi: .res MAX_FILES
 .proc pop_block
 	ldx #$06
 	ldy blocksp
-@l0:	lda zp::debug-1,x
-	sta blockstack-1,y
+	lda blockstack-1,y	; file
+	sta file
+	dey
+@l0:	lda blockstack-1,x
+	sta zp::debug-1,y
 	dey
 	cpy #$ff
 	beq @underflow

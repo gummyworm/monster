@@ -1,6 +1,6 @@
 ### TODO
 - [ ] debug information rework
-  - [ ] store relative line #'s (label + x)
+  - [x] store relative line #'s (label + x)
   - [ ] update debug line #'s in realtime (upon line insertion/delete)
 - [ ] Finish installer
 - [ ] Goto Definition for local labels
@@ -11,9 +11,9 @@
   - [ ] Copy ROM to spare 16k of FE3 bank RAM
   - [ ] Update vmem to handle the 16k ROM range
 - [ ] Support variable width characters (8x8 UDG's)
-- [ ] Fix disassembly
 - [ ] Implement linker (WIP on linkage branch)
 - [ ] Add settings / project configuration file
+- [ ] Symbolic disassembly
 - [x] yank line (yy)
 - [x] symbol viewer improvements
   - [x] sort by address
@@ -21,6 +21,7 @@
   - [x] navigate to symbol
 - [x] Add "Go" at cursor command in debugger
 - [x] Add "Return" command in debugger (trace until RTS)
+- [x] Fix disassembly
 - [x] Support break via NMI in debugger 
 - [x] Create cartridge target
 - [x] Disassemble file command
