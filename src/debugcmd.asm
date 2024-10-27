@@ -7,6 +7,7 @@
 
 .include "asm.inc"
 .include "console.inc"
+.include "cursor.inc"
 .include "debug.inc"
 .include "errors.inc"
 .include "expr.inc"
@@ -35,25 +36,28 @@
 .export __dbgcmd_run
 .proc __dbgcmd_run
 @cnt=r0
-	CALL FINAL_BANK_MAIN, #str::toupper
+	CALL FINAL_BANK_MAIN, #str::toupper	; commands are case insensitive
 	stxy zp::line
 
 	ldy #$00
 	ldx #$00
 	sty @cnt
 
+	; eat whitespace to get to the command
 @l0:	lda (zp::line),y
 	beq @cmdfound
 	jsr is_whitespace
 	beq @cmdfound
 
+	; check if command matches one in the command list
 @l1:	cmp commands,x
 	bne @next
 	iny
 	inx
 	bne @l0
 
-@next:	ldy #$00
+@next:	; command didn't match, move .X to index of next one to check
+	ldy #$00
 :	lda commands,x
 	inx
 	cmp #$00
@@ -378,10 +382,10 @@
 	; get the (optional) end address and divide by 8 to get # of lines
 	ldy #$00
 	lda (zp::line),y
-	beq @l0
-	incw zp::line		; move past separator
+	beq @l0					; no end address
+	incw zp::line				; move past separator
 	CALL FINAL_BANK_MAIN, #expr::eval
-	bcs @ret		; error
+	bcs @ret				; error
 	sub16 @addr
 	stx @lines
 	tya
@@ -400,7 +404,7 @@
 
 @l0:	ldxy @addr
 	CALL FINAL_BANK_MAIN, #view::memline
-	jsr @print
+	jsr con::puts
 
 	; move to address for next row
 	lda @addr
@@ -413,17 +417,15 @@
 	bne @l0
 	clc			; OK
 @ret:	rts
-
-@print:	jsr con::puts
 .endproc
 
 ;******************************************************************************
 ; QUIT
 ; Quits the debugger, returning to the editor
 .proc quit
-	; eat the caller's return address 
-	pla
-	pla
+	lda #$00
+	sta dbg::interface
+	inc con::quit		; send QUIT signal
 	rts
 .endproc
 
@@ -432,7 +434,9 @@
 ; Steps to the next instruction while debugging
 .proc step
 	CALL FINAL_BANK_MAIN, #dbg::step
-	jmp quit		; let the debugger take over to comple STEP
+
+	inc con::quit		; send QUIT signal
+	rts
 .endproc
 
 ;******************************************************************************

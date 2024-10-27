@@ -19,7 +19,7 @@
 ;******************************************************************************
 ; CONSTANTS
 MAX_ANON      = 750	; max number of anonymous labels
-MAX_LABEL_LEN = 32	; 8 bytes for namespace + 8 for label name
+MAX_LABEL_LEN = 32	; 8 bytes for namespace + 16 for label name
 SCOPE_LEN     = 8	; max len of namespace (scope)
 MAX_LABELS    = 750
 

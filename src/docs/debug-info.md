@@ -62,7 +62,7 @@ Bits 0-3 contain the line offset to add and bits 3-7 contain the PC offset.
 For cases when a small offset to either the line or address is not enough (e.g. a macro 
 that expands to more than 16 bytes), these instructions are required.
 The extended instrutions begin with a $00 value prefix, which is not a valid basic instruction
-because a line (if not PC) must be advanced for each entry in the line table.
+because at least one of the line or address states must be advanced for each entry in the line table.
 
 Below is the list of extended commands and their effects.
 

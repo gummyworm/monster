@@ -91,10 +91,13 @@ debugtmp       = zp::debugger+1	; scratchpad
 
 ;******************************************************************************
 ; Program state variables
-.BSS
+
+.segment "SHAREBSS"
 
 .export __debug_interface
 __debug_interface: .byte DEBUG_IFACE_GUI
+
+.BSS
 
 ;******************************************************************************
 ; Up to 4 bytes need to be saved in a given STEP.
@@ -791,7 +794,7 @@ brkhandler2_size=*-brkhandler2
 	CALL FINAL_BANK_CONSOLE, #dbgcmd::regs
 @debugloop_tui:
 	CALL FINAL_BANK_CONSOLE, #con::reenter
-	jmp @finishloopiter
+	jmp @finishlooptui
 
 @iface_gui:
 	jsr show_aux		; display the auxiliary mode
@@ -833,13 +836,13 @@ brkhandler2_size=*-brkhandler2
 	ldx #num_disabled_commands-1
 @chkdisabled:
 	cmp disabled_commands,x
-	beq @finishloopiter	; if key is marked as disabled, ignore it
+	beq @loopdone		; if key is marked as disabled, ignore it
 	dex
 	bpl @chkdisabled
 
 ; propagate the key to the editor
 @nocmd:	jsr edit::handlekey
-	jmp @finishloopiter
+	jmp @loopdone
 
 @runcmd:
 	lda command_vectorslo,x	 ; vector LSB
@@ -848,14 +851,16 @@ brkhandler2_size=*-brkhandler2
 	sta zp::jmpvec+1
 
 	jsr zp::jmpaddr		; call the command
-	jsr cur::on
 
+@finishlooptui:
+	jsr cur::on
 	lda __debug_interface
-	bne @finishloopiter
+	bne @loopdone
+
 @finishloopgui:
 	jsr showstate		; restore the register display (may be changed)
 
-@finishloopiter:
+@loopdone:
 	lda advance		; are we ready to execute program? (GO, STEP)
 	beq @debugloop		; not yet, loop and get another command
 .endproc
@@ -1815,7 +1820,8 @@ __debug_remove_breakpoint:
 ; Shows the current debug state (registers and BRK line)
 .proc showstate
 	jsr showbrk
-	jmp showregs
+
+	; fall through to showregs
 .endproc
 
 ;******************************************************************************

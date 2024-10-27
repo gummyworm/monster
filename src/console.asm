@@ -20,6 +20,14 @@ HEIGHT = 24
 line: .byte 0		; the line that the console is on
 repeatcmd: .byte 0	; if set, empty line repeats last command
 
+cursave_x: .byte 0
+cursave_y: .byte 0
+
+;******************************************************************************
+; SIGNALS
+.export __console_quit
+__console_quit: .byte 0	; if !0, console will quit when command returns to it
+
 .CODE
 ;******************************************************************************
 ; GETCH
@@ -42,8 +50,8 @@ repeatcmd: .byte 0	; if set, empty line repeats last command
 ; Prints the given line to the console
 ; IN:
 ;   - .XY: the address of the line to print
-.export __con_puts
-.proc __con_puts
+.export __console_puts
+.proc __console_puts
 @msg=r0
 	stxy @msg
 
@@ -95,6 +103,12 @@ repeatcmd: .byte 0	; if set, empty line repeats last command
 	lda #$00
 	sta line
 
+	; save cursor state of caller
+	lda zp::curx
+	sta cursave_x
+	lda zp::cury
+	sta cursave_y
+
 	; fall through to __console_reenter
 .endproc
 
@@ -103,6 +117,10 @@ repeatcmd: .byte 0	; if set, empty line repeats last command
 ; Activates the console without clearing the screen
 .export __console_reenter
 .proc __console_reenter
+	; initialize QUIT signal state
+	lda #$00
+	sta __console_quit
+
 	; treat whitespace as separator for expressions in the console
 	lda #$01
 	CALL FINAL_BANK_MAIN, #expr::end_on_ws
@@ -152,6 +170,19 @@ repeatcmd: .byte 0	; if set, empty line repeats last command
 	bcc @ok			; if it succeeded, continue
 
 @err:	ldxy #strings::invalid_command
-	jsr __con_puts
-@ok:	jmp @prompt
+	jsr __console_puts
+
+@ok:	lda __console_quit	; was QUIT signal sent?
+	bne @done
+	jmp @prompt
+@done:	lda cursave_x
+	sta zp::curx
+	lda cursave_y
+	sta zp::cury
+
+	lda dbg::interface
+	bne :+
+	; if debug interface changed back to GUI, refresh editor
+	CALL FINAL_BANK_MAIN, #edit::refresh
+:	rts
 .endproc
