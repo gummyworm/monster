@@ -261,7 +261,6 @@ data: .res $6000
 	sta flags,x
 
 	jsr find_bank
-	ldx activesrc
 	sta bank
 
 	rts

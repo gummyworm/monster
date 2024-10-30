@@ -73,11 +73,11 @@ bankaddr0    = $a7
 bankaddr1    = $a9
 
 ;******************************************************************************
-; $ac-$b8 is reserved for text displaying/bitmap stuff
+; $ac-$b4 is reserved for text displaying/bitmap stuff
 text = $ac
 
 ;******************************************************************************
-; $b8-$c0 reserved for file stuff
+; $b7-$c0 reserved for file stuff
 lfs    = $b8	; active logical file (SETLFS)
 sa     = $b9	; active secondary address (SETLFS)
 		; NOTE: secondary addresses must be unique for each open file

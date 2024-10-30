@@ -128,8 +128,9 @@ __file_load_src:
 
 @l0: 	jsr $ffb7	; call READST (read status byte)
 	cmp #$00
-	bne @eof	; either EOF or read error
+	bne @err_or_eof	; either EOF or read error
 	jsr $ffcf	; call CHRIN (get a byte from file)
+
 	ldy isbin	; skip conversions for binary LOAD
 	bne @put
 	cmp #$0a	; convert LF to CR
@@ -138,11 +139,11 @@ __file_load_src:
 @put:	jsr putb	; write the byte to source/memory
 	jmp @l0		; and continue
 
-@eof:	eor #$40
-	beq @noerr	; if EOF, return
+@err_or_eof:
+	;eor #$40
+	;beq @eof	; if EOF, return
 @error:	jmp geterr
-@noerr: clc
-	rts
+@eof:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -502,10 +503,11 @@ __file_load_src:
 ;  - .A: the error code to map e.g. #$3e (62)
 ; OUT:
 ;  - .A: the internal error code e.g. ERR_FILE_NOT_FOUND
+;  - .C: set if the drive returns an error
 .proc geterr
 	jsr io::readerr
 	cpx #$01
-	bcs :+
+	bcs :+				; err >= 1, error
 @ok:	rts
 
 :	cpx #$3e

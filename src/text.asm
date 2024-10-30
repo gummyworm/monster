@@ -150,7 +150,15 @@ render_off: .byte 0
 	lda __text_status_mode
 	sta mem::statusline+@modestart
 
-	stx @leftend	; save end of left-side data
+	ldy #$00
+@copyinfo:
+	lda mem::statusinfo,y
+	beq @copy_filename
+	sta mem::statusline+@linestart+2,x
+	iny
+	inx
+	cpx #38
+	bcc @copyinfo
 
 @copy_filename:
 	; filename
@@ -190,18 +198,6 @@ render_off: .byte 0
 	sta mem::statusline-2,y
 :	lda #'#'
 	sta mem::statusline-3,y
-	sty @tmp
-
-	ldx #$00
-	ldy @leftend
-	; copy as much info as we can between the left-side and right-side stuff
-:	lda mem::statusinfo,x
-	beq @done
-	sta mem::statusline+@linestart+2,y
-	inx
-	cpy @tmp
-	bcc :-
-
 @done:	rts
 .endproc
 

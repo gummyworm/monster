@@ -2866,7 +2866,7 @@ goto_buffer:
 	jsr cancel
 	RETURN_OK
 
-@err:	jsr report_typein_error
+@err:	jsr report_drive_error
 	sec
 	rts
 .endproc
@@ -4415,6 +4415,14 @@ __edit_gotoline:
 .endproc
 
 ;******************************************************************************
+; REPORT DRIVE ERROR
+; Reports the error that was last read from the drive (iec::readerr)
+.proc report_drive_error
+	ldxy #mem::drive_err
+	jmp text::info
+.endproc
+
+;******************************************************************************
 ; REPORT TYPEIN ERROR
 ; Reports just the error message for the given error.
 ; This is used for giving the user realtime errors as they are typing in their
@@ -4426,7 +4434,7 @@ __edit_gotoline:
 	beq @done	; no error
 	jsr err::get
 	jsr str::uncompress
-	jsr text::info
+	jmp text::info
 @done:	rts
 .endproc
 

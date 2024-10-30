@@ -30,10 +30,14 @@
 	ldx #$0f	; filenumber 15
 	jsr $ffc6	; CHKIN (file 15 now used as input)
 
-@loop:
-	jsr $ffb7	; READST (read status byte)
+	; read the error message to mem::drive_err
+@loop:	jsr $ffb7	; READST (read status byte)
+	cmp #$00
 	bne @eof	; either EOF or read error
+
 	jsr $ffcf	; CHRIN (get a byte from file)
+	cmp #$0d
+	beq @eof
 	ldx @ch
 	cpx #20		; cap size of string
 	bcs @done
@@ -41,7 +45,9 @@
 	inc @ch
 	bne @loop	; next byte
 
-@eof:
+@eof:	ldx @ch
+	lda #$00
+	sta mem::drive_err,x
 @done:	ldxy #mem::drive_err
 	jmp atoi
 .endproc

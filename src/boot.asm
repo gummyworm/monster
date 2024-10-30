@@ -265,7 +265,7 @@ RESTORE:
 	bne :+
 	ldx #$0a	; default to #10
 :	ldy #$01	; load to address stored in file
-	jsr $ffba	; SETFLS
+	jsr $ffba	; SETLFS
 
 	lda #$00	; load (not verify)
 	jsr $ffd5	; LOAD
