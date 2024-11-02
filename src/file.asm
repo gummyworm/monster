@@ -140,8 +140,8 @@ __file_load_src:
 	jmp @l0		; and continue
 
 @err_or_eof:
-	;eor #$40
-	;beq @eof	; if EOF, return
+	eor #$40
+	beq @eof	; if EOF, return
 @error:	jmp geterr
 @eof:	RETURN_OK
 .endproc

@@ -26,6 +26,7 @@
 .include "finalex.inc"
 .include "format.inc"
 .include "gui.inc"
+.include "irq.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "layout.inc"
@@ -1028,7 +1029,7 @@ force_enter_insert=*+5
 	rts
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; ENTER VISUAL
 ; Enters VISUAL mode
 .proc enter_visual
@@ -1054,7 +1055,7 @@ force_enter_insert=*+5
 	jmp src::pushp
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; ENTER VISUAL LINE
 ; Enters VISUAL_LINE mode
 .proc enter_visual_line
@@ -1075,7 +1076,7 @@ force_enter_insert=*+5
 	jmp bm::rvsline_part
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; REPLACE
 .proc replace
 	lda #MODE_INSERT
@@ -1089,7 +1090,7 @@ force_enter_insert=*+5
 	rts
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; REPLACE_CHAR
 .proc replace_char
 	jsr is_readonly
@@ -1111,7 +1112,7 @@ force_enter_insert=*+5
 @done:	rts
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; INSERT_START
 ; moves cursor to start of line and enters INSERT mode
 .proc insert_start
@@ -1119,7 +1120,7 @@ force_enter_insert=*+5
 	jmp home
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; APPEND_TO_LINE
 .proc append_to_line
 	jsr enter_insert
@@ -1130,7 +1131,7 @@ force_enter_insert=*+5
 @done:  rts
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; APPEND_CHAR
 .proc append_char
 	jsr enter_insert
@@ -1143,7 +1144,7 @@ force_enter_insert=*+5
 @done:	rts
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; END_OF_WORD
 .proc endofword
 	jsr ccright
@@ -1160,7 +1161,7 @@ force_enter_insert=*+5
 @done:	rts
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; END_OF_LINE
 .proc end_of_line
 @l0:	jsr ccright
@@ -1168,7 +1169,7 @@ force_enter_insert=*+5
 @done:	rts
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 .proc prev_empty_line
 @target=zp::editortmp
 	jsr src::currline
@@ -1189,7 +1190,7 @@ force_enter_insert=*+5
 	jmp gotoline
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; ON_LINE_1
 ; OUT:
 ;  - .Z: set if we're on the 1st line of the source
@@ -1199,7 +1200,7 @@ force_enter_insert=*+5
 	rts
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 .proc next_empty_line
 @target=zp::editortmp
 	jsr src::currline
@@ -1220,7 +1221,7 @@ force_enter_insert=*+5
 	jmp gotoline
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; BEGINWORD
 .proc beginword
 @l0:	jsr ccleft
@@ -1232,15 +1233,19 @@ force_enter_insert=*+5
 @done:	rts
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; BEGIN_NEXT_LINE
 .proc begin_next_line
 	jsr ccdown
 	jmp home
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; DELETE
+; Handles the delete key.
+; In VISUAL mode, this deletes the selection
+; In COMMAND mode, prompts for another key and deletes characters depending on
+; the following command ('w' for word, 'd' for line, etc.)
 .proc delete
 	jsr is_visual
 	bne @cont
@@ -2839,11 +2844,14 @@ goto_buffer:
 	bcs @err		; failed to load file
 	pha			; save file handle
 	jsr src::new
+	jsr irq::disable
 	pla			; get the file handle
 	pha
 	jsr file::loadsrc	; load to SOURCE buff
 	pla
 	php
+
+	jsr irq::raster
 	jsr file::close		; close the file
 	plp
 	bcs @err

@@ -56,11 +56,23 @@ rowcnt: .byte 0
 .CODE
 
 ;******************************************************************************
+; IRQ DISABLE
+.export __irq_disable
+.proc __irq_disable
+	sei
+	ldxy #$eb15		; bit $9124; pla; tay; pla; tax; pla; rti
+	stxy $0314
+	lda #DEFAULT_900F
+	sta $900f
+	cli
+	rts
+.endproc
+
+;*******************************************************************************
 ; IRQ RASTER
-; Syncs to the given scanline and sets up an IRQ that will trigger whenever
+; Syncs to the configured scanline and sets up an IRQ that will trigger whenever
 ; that location is reached.
 ; IN:
-;  - .A:  the scanline to sync to
 ;  - .XY: the address of the IRQ handler
 .export __irq_raster
 .proc __irq_raster

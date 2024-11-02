@@ -12,98 +12,95 @@ bankval     = $07	; the value written by store_byte
 bankjmpaddr = $08	; JMP in struction for banked calls
 bankjmpvec  = $09	; JMP vector
 
-math = $0b	; $0b-$0f math routine scratchpad
-
-debug    = $10		; $10-$28 debug info generation
+math = $0b		; $0b-$0f math routine scratchpad
+debug = $10		; $10-$28 debug info generation
 
 debugger    = $28	; $28-$29 used by debugger
 debuggertmp = $29	; $29-$30 debugger temp storage
 
-str0 = $30	; $30-$31 string pointer 1
+str0 = $30		; $30-$31 string pointer 1
 str1 = $31
-str2 = $32	; $32-$33 string pointer 2
+str2 = $32		; $32-$33 string pointer 2
 str3 = $33
 
-curx   = $34	; column of the cursor on screen
-cury   = $35	; row of the cursor
-curtmr = $36	; timer until next cursor blink
+curx   = $34		; column of the cursor on screen
+cury   = $35		; row of the cursor
+curtmr = $36		; timer until next cursor blink
 
-asmresult = $37 ; pointer where code is assembled
-virtualpc = $39 ; pointer to address address code will live at during runtime (.RORG)
-verify 	  = $3b ; flag for verifying (vs. assembling)
-asmtmp    = $3c ; scratchpad for assembly
+asmresult = $37 	; pointer where code is assembled
+virtualpc = $39 	; pointer to address address code will live at during
+			; runtime (.RORG)
+verify = $3b 		; flag for verifying (vs. assembling)
+asmtmp = $3c 		; scratchpad for assembly
 
-disasm       = $40	; base address of disassembly tmp vars
-link         = $40	; base address of linker temp storage
-gui          = $40	; base address for GUI routines
+disasm = $40		; base address of disassembly tmp vars
+link   = $40		; base address of linker temp storage
+gui    = $40		; base address for GUI routines
 
 pass         = $4c	; the pass of assembly being done (1 or 2)
 line         = $4d	; ptr to text being processed
 gendebuginfo = $4f 	; flag to generate debug info
 
-;******************************************************************************
-; $50-$5f are used for labels
-label_value=$50	; arguments to label functions
-labels=$52
+label_value = $50	; label function arguments
+labels      = $52	; label temp usage
 
-;******************************************************************************
-; $60-$70 are used by the "context" during assembly
-ctx=$60
+ctx    = $60		; context util usage during assembly
+macros = $7f		; macro related things during assembly
 
-;******************************************************************************
-; $7f-$90 are used for macro related things during assembly
-macros = $7f
+; * $90-9C are used by KERNAL I/O and should be avoided *
+io_status       = $90	; status byte (READST)
+io_keyrow       = $91	; row of keyscan
+;io_tapetm      = $92	; time constant for tape
+io_loadflag     = $93	; 0 = load, 1 = verify
+io_iecwaiting   = $94	; 0 = no char waiting, !0 = char waiting
+;io_cass_sync   = $96	; cassete synchronization #
+;io_regsave     = $97
+numfiles        = $98	; # of OPEN files
+io_input_dev    = $99	; input device #
+io_output_dev   = $9a	; output device #
+;io_tape_parity = $9b
+;io_tape_buff   = $9e	; tape pass 1 error log/character buffer
+;io_tape_fix    = $9f	; tape pass 2 error log corrected
 
-;******************************************************************************
-; $90-$97 used for expression evaluation
-expr = $90
+bank      = $9d 	; bank to operate on for some fe3:: routines
+banktmp   = $9e		; bank temp/arg storage for fe3:: routines
+bankstack = $9e+3	; small call stack for fe3::call (bank bytes only)
 
-;******************************************************************************
-; $98-9C are used by KERNAL I/O and should be avoided
-numfiles = $98
+bankoffset = $a6	; offset for relative reads/writes
+bankaddr0  = $a7
+bankaddr1  = $a9
 
-;******************************************************************************
-; $9d-$a0 used for bank switching storage
-bank         = $9d 	; the current bank in the final expansion being worked on
-banktmp      = $9e
-bankstack    = $9e+3	; small call stack for fe3::call (bank bytes only)
-
-bankoffset   = $a6	; offset for relative reads/writes
-bankaddr0    = $a7
-bankaddr1    = $a9
-
-;******************************************************************************
-; $ac-$b4 is reserved for text displaying/bitmap stuff
+; * $ac-$b4 is reserved for miscellaneous isolated routines *
+; These routines should not call any of the other routines that share these
+; zeropage allocations
+;  - text
+;  - expressions
 text = $ac
+expr = $ac
 
-;******************************************************************************
-; $b7-$c0 reserved for file stuff
-lfs    = $b8	; active logical file (SETLFS)
-sa     = $b9	; active secondary address (SETLFS)
+; * $b7-$c0 reserved for file stuff *
+;namelen = $b7	; filename length (SETLFS)
+lfs      = $b8	; active logical file (SETLFS)
+sa       = $b9	; active secondary address (SETLFS)
 		; NOTE: secondary addresses must be unique for each open file
-device = $ba	; the last used drive #
-file   = $bb	; the most recently accessed file
+device   = $ba	; the last used drive #
+file     = $bb	; the most recently accessed file
+keycnt   = $cb	; # of keys in key buffer
+key      = $cb	; current keypress 
 
-keycnt = $cb	; # of keys in key buffer
-key    = $cb	; current keypress 
+keytab   = $f5	; key decode table
 
-keytab = $f5	; key decode table
-
-;******************************************************************************
-; $d0-$d9 SOURCE pointers
+; * $cf-$d9 stores source *
 srccur   = $cf	; left pointer of gap in active source buffer
 srccur2  = $d1	; right pointer of gap in active source buffer
 srcline  = $d3	; current line number in active source buffer
 srclines = $d5	; current number of lines in active source buffer
 srcend   = $d7	; pointer to end of buffer in active source buffer
 
-;******************************************************************************
-; $d9-$e0 editor
 editor 	  	= $d9
 editor_mode	= $db	; editor mode (MODE_COMMAND or MODE_INSERT)
 editortmp 	= $dc
 
-;******************************************************************************
 ; $e0-$ff temporary storage
 ; this is the primary scratchpad for routines. 
 ; Be cautious when relying on this data to be in tact
@@ -134,8 +131,7 @@ tmp15 = $e5
 tmp16 = $e6
 tmp17 = $e7
 
-;******************************************************************************
-; $e8-$ef used for utility 
+; $e8-$ef is utility storage
 util = $e8
 .endscope
 
