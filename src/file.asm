@@ -129,7 +129,9 @@ __file_load_src:
 @l0: 	jsr $ffb7	; call READST (read status byte)
 	cmp #$00
 	bne @err_or_eof	; either EOF or read error
+	inc $900f
 	jsr $ffcf	; call CHRIN (get a byte from file)
+	dec $900f
 
 	ldy isbin	; skip conversions for binary LOAD
 	bne @put

@@ -1012,6 +1012,7 @@ data: .res $6000
 	stxy @str
 	lda #$00
 	sta @offset
+
 @l0:	ldy @offset
 	lda (@str),y
 	beq @done

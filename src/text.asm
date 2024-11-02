@@ -924,6 +924,7 @@ __text_tabr_dist_a=*+2
 .export __text_tabl_dist
 .proc __text_tabl_dist
 	lda zp::curx
+	beq @done
 	ldy #tabs_end
 :	dey
 	cmp tabs,y
@@ -934,7 +935,7 @@ __text_tabr_dist_a=*+2
 	lda zp::curx
 	sec
 	sbc zp::util
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
