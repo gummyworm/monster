@@ -64,6 +64,11 @@ rowcnt: .byte 0
 	stxy $0314
 	lda #DEFAULT_900F
 	sta $900f
+
+	; disable all interrupts
+	lda #$00|$7f
+	sta $911e
+	sta $912e
 	cli
 	rts
 .endproc
@@ -117,6 +122,11 @@ rowcnt: .byte 0
 .endif
 	lda #>TIMER_VALUE
 	sta $9125
+
+	; enable T2 interrupts
+	lda #$80|$c0
+	sta $912e
+
 	cli
 	rts
 
@@ -160,7 +170,7 @@ rowcnt: .byte 0
 	; average case (no color)
 	lda mem::coloron
 	beq @cont
-	lda #$80|$20
+	lda #$80|$20|$c0
 	sta $912e		; enable T2 interrupts
 	ldxy #row_interrupt
 	stxy $0314

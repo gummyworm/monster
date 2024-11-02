@@ -101,7 +101,7 @@ copybuff: .res $1e00		; buffer for copy data
 	stxy @dst
 	lda #$00
 	tay
-	sta (@dst),y
+	sta (@dst),y		; init buffer
 	ldxy buffptr
 	cmpw #copybuff
 	beq @done		; buffer empty

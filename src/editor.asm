@@ -1476,6 +1476,8 @@ force_enter_insert=*+5
 	jsr buff::lines_copied
 	cmp #$00
 	beq @noscroll
+	cmp #$00
+	beq @noscroll
 
 	pha			; save scroll amount
 	tay			; .Y = number of rolls to scroll
@@ -1654,7 +1656,6 @@ force_enter_insert=*+5
 
 	; clear the current contents of the copy buffer
 	jsr buff::clear
-	jsr src::pushp
 
 	; go to the end of the line and copy everything to the start of it
 	jsr src::lineend
@@ -1693,34 +1694,15 @@ force_enter_insert=*+5
 	jsr @restoresrc
 	RETURN_ERR ERR_COPY_TOO_BIG
 
-@next:	jsr src::prev
-	jsr src::pos
+@next:	jsr src::pos
 	cmpw @cur	; are we back at the START of the selection yet?
-	bne @copy	; continue until we are
+	beq @restoresrc
+	jsr src::prev
+	bcc @copy
 
 @restoresrc:
-	jsr enter_command 
-
-	; restore source position
-	ldxy @start
-	jsr src::goto
-
-	; move to start of the selection that was yanked (if we're not there)
-	jsr cmp_vis_start
-	bcc @ok			; already on the start line
-	beq @fixx		; already on start line, maybe not start column
-
-	ldxy visual_start_line
-	jsr gotoline
-	jmp @startx		; move to column the selection began on
-
-@fixx:	lda zp::curx
-	cmp visual_start_x
-	bcc @ret
-@startx:
-	lda visual_start_x
-	sta zp::curx
-@ok:	clc
+	jsr src::popgoto	; restore source position
+	jmp enter_command 
 @ret:	rts
 .endproc
 
@@ -1744,17 +1726,20 @@ force_enter_insert=*+5
 	jsr src::popp	; get the source position we started at
 	stxy @end
 
+	jsr src::pushp	; push current source pos
+
 	lda mode
 	cmp #MODE_VISUAL_LINE
 	beq :+		; if in VISUAL LINE mode, allow start line == stop line
 
+	ldxy @end
 	cmpw @cur
 	beq @done	; nothing copied
 
 :	cmpw @cur
-	bcs @cont	; end > cur, don't swap
+	bcs @cont	; end >= cur, don't swap
 
-	; end > cur; swap them
+	; end < cur; swap them
 	lda @cur
 	sta @end
 	lda @cur+1
@@ -1784,9 +1769,9 @@ force_enter_insert=*+5
 @ok:	; Update end pointer:
 	;  the source pos ends on the character BEFORE the one we want to copy
 	incw @end
-	ldxy @end	; starting from the END, copy to copy buffer
-	jsr src::goto	; go to the start position
-	clc
+	ldxy @end
+	jsr src::goto	; go to the end of the selection to copy
+	clc		; ok
 @done:	rts
 .endproc
 
