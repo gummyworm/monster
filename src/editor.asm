@@ -1476,8 +1476,6 @@ force_enter_insert=*+5
 	jsr buff::lines_copied
 	cmp #$00
 	beq @noscroll
-	cmp #$00
-	beq @noscroll
 
 	pha			; save scroll amount
 	tay			; .Y = number of rolls to scroll
@@ -1587,7 +1585,7 @@ force_enter_insert=*+5
 
 @done:	; restore the buffer pointer
 	jsr buff::pop
-	rts
+	jmp enter_command
 .endproc
 
 ;******************************************************************************
@@ -1644,10 +1642,10 @@ force_enter_insert=*+5
 .proc yank
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
-@start=zp::editortmp+7	; set by get_selection_bounds
 	jsr is_visual
 	beq @yank_selection
 
+; if not in visual mode, prompt for another key
 @prompt:
 	jsr key::getch
 	beq @prompt
@@ -1667,8 +1665,10 @@ force_enter_insert=*+5
 	jsr buff::putch
 	bcc @yankline
 @yydone:
-	jmp src::popgoto
+	jsr src::popgoto
+	RETURN_OK
 
+; visual mode, copy the selected text
 @yank_selection:
 	; get the bounds of the text we're copying and move the source cursor
 	; to the end of the selection
@@ -1679,15 +1679,11 @@ force_enter_insert=*+5
 	jsr buff::clear
 
 	; set the selection type so we know how to handle the eventual paste
-	lda #VISUAL
-	sta selection_type
 	lda mode
-	cmp #MODE_VISUAL_LINE
-	bne @copy
-	inc selection_type
+	sta selection_type
 
 @copy:	jsr src::atcursor
-	jsr buff::putch	; add the character to the copy buffer
+	jsr buff::putch		; add the character to the copy buffer
 	bcc @next
 
 	; copy selection is too large
@@ -1695,7 +1691,7 @@ force_enter_insert=*+5
 	RETURN_ERR ERR_COPY_TOO_BIG
 
 @next:	jsr src::pos
-	cmpw @cur	; are we back at the START of the selection yet?
+	cmpw @cur		; are we back at the START of the selection yet?
 	beq @restoresrc
 	jsr src::prev
 	bcc @copy
@@ -1718,9 +1714,7 @@ force_enter_insert=*+5
 .proc get_selection_bounds
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
-@start=zp::editortmp+7
 	jsr src::pos	; get the current source position
-	stxy @start
 	stxy @cur
 
 	jsr src::popp	; get the source position we started at
@@ -1728,11 +1722,11 @@ force_enter_insert=*+5
 
 	jsr src::pushp	; push current source pos
 
+	ldxy @end
 	lda mode
 	cmp #MODE_VISUAL_LINE
-	beq :+		; if in VISUAL LINE mode, allow start line == stop line
+	beq :+		; if in VISUAL LINE mode, allow start == stop 
 
-	ldxy @end
 	cmpw @cur
 	beq @done	; nothing copied
 

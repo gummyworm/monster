@@ -30,10 +30,10 @@ __buff_push: JUMP FINAL_BANK_BUFF, #push
 __buff_pop: JUMP FINAL_BANK_BUFF, #pop
 
 .segment "COPYBUFF_BSS"
-buffptr:  .word 0 		; copy buffer pointer
-buffsave: .word 0		; backup buffer pointer (see buff::push)
-visual_lines_copied:	.byte 0	; the number of lines copied in VISUAL modes
-copybuff: .res $1e00		; buffer for copy data
+buffptr:  		.word 0 	; buffer pointer
+buffsave: 		.word 0		; backup buffer pointer (see buff::push)
+visual_lines_copied:	.byte 0		; number of lines copied in VISUAL modes
+copybuff: 		.res $1e00	; buffer for copy data
 
 .segment "COPYBUFF"
 
@@ -77,9 +77,9 @@ copybuff: .res $1e00		; buffer for copy data
 	cmpw #copybuff
 	beq @done		; buffer empty
 
-	ldy #$00
 	decw buffptr
 	decw @buff
+	ldy #$00
 	lda (@buff),y
 	clc
 @done:	rts
