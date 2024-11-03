@@ -1434,7 +1434,7 @@ force_enter_insert=*+5
 ; Pastes the contents of the copy buffer to the line below the cursor
 .proc paste_below
 	lda selection_type
-	cmp #VISUAL
+	cmp #MODE_VISUAL
 	beq @vis
 
 @visline:

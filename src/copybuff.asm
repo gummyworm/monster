@@ -118,17 +118,14 @@ copybuff: 		.res $1e00	; buffer for copy data
 	bne @l0
 
 @empty: lda #$00
-	skb
-@ok:	clc
-	php
-	pha
+@ok:	pha
 	ldxy @buff
 	stxy buffptr
 	lda #$00
 	ldy @i
 	sta (@dst),y	; terminate the line
 	pla
-	plp
+	clc
 @done:	rts
 .endproc
 
