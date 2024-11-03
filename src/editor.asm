@@ -1533,11 +1533,13 @@ force_enter_insert=*+5
 	; for full rows ($0d terminated), just get a line and draw it
 @l1:	ldxy #mem::linebuffer
 	jsr buff::getline
-	bcs @lastline		; if the buffer is empty, we're done
+	php
 	pha			; save last char read
 	ldxy r9			; (getline leaves result in r0)
 	jsr src::insertline	; insert the line read
 	pla			; restore last char read
+	plp
+	bcs @lastline		; if the buffer is empty, we're done
 	cmp #$0d		; was this line a newline?
 	bne @lastline		; if not continue to merge it with last line
 
@@ -1740,7 +1742,9 @@ force_enter_insert=*+5
 	sta @end+1
 	stxy @cur
 
-@cont:	lda mode
+@cont:	incw @cur
+
+	lda mode
 	cmp #MODE_VISUAL_LINE	; are we selecting in LINE mode?
 	bne @ok
 

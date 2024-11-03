@@ -1007,8 +1007,8 @@ data: .res $6000
 ;  - .XY: the string to insert
 .export __src_insertline
 .proc __src_insertline
-@str=r6
-@offset=r8
+@str=zp::tmp12
+@offset=zp::tmp14
 	stxy @str
 	lda #$00
 	sta @offset
