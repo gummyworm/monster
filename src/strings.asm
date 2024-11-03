@@ -22,7 +22,7 @@ __str_breakpoints_title: .byte ESCAPE_SPACING,14, "breakpoints",0
 __str_question_marks: .byte "???",0
 
 .export __str_debug_brk_line
-__str_debug_brk_line: .byte "brk in line ",ESCAPE_VALUE_DEC,0
+__str_debug_brk_line: .byte "brk in ", ESCAPE_STRING, " line ",ESCAPE_VALUE_DEC,0
 
 .export __str_debug_brk_addr
 __str_debug_brk_addr: .byte "brk @ ", ESCAPE_VALUE,0

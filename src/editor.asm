@@ -267,8 +267,9 @@ main:	jsr key::getch
 @ret:	rts		; address not found
 
 :	jsr enter_command
-	lda #DEBUG_MESSAGE_LINE-1
-	sta height
+
+	inc debugging
+	jsr reset_size
 	inc readonly	; enable read-only mode
 
 	lda #$00
@@ -280,7 +281,6 @@ main:	jsr key::getch
 	jsr home_line	; avoid problems with cursor-y being below new height
 	ldxy @addr
 
-	inc debugging
 	jsr dbg::start	; start debugging at address in .XY
 	dec debugging
 
@@ -984,11 +984,26 @@ force_enter_insert=*+5
 	lda #TEXT_REPLACE
 	sta text::insertmode
 
+	rts
 	; restore editor size
-	lda #EDITOR_HEIGHT
-	jmp __edit_resize
+	; lda #EDITOR_HEIGHT
+	; jmp __edit_resize
 
 	; fall through to enter_command
+.endproc
+
+;******************************************************************************
+; RESET SIZE
+; Resets the display to the largest size
+.proc reset_size
+	lda debugging
+	beq :+
+	lda #DEBUG_MESSAGE_LINE-1
+	sta height
+	rts
+:	lda #EDITOR_HEIGHT
+	sta height
+	rts
 .endproc
 
 ;******************************************************************************_
@@ -1026,7 +1041,7 @@ force_enter_insert=*+5
 	sta mode
 	lda #'c'
 	sta text::statusmode
-	rts
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -1257,13 +1272,12 @@ force_enter_insert=*+5
 	jsr yank			; yank the selection
 	bcs @notfound			; quit if error occurred or no selection
 
-	ldxy @end			; get end address of selection
-	jsr src::goto			; navigate to it
 @delsel:
-	jsr src::backspace
+	jsr backspace
 	jsr src::pos
 	cmpw @start
 	bne @delsel
+	RETURN_OK
 	jmp refresh			; done, refresh to clear deleted text
 
 @cont:	jsr key::getch			; get a key to decide what to delete
@@ -1652,9 +1666,10 @@ force_enter_insert=*+5
 	jsr key::getch
 	beq @prompt
 	cmp #$79	; if yy was entered, yank current line
-	bne @ret
+	beq :+
+	RETURN_OK
 
-	; clear the current contents of the copy buffer
+:	; clear the current contents of the copy buffer
 	jsr buff::clear
 
 	; go to the end of the line and copy everything to the start of it
@@ -1701,7 +1716,6 @@ force_enter_insert=*+5
 @restoresrc:
 	jsr src::popgoto	; restore source position
 	jmp enter_command 
-@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -2617,8 +2631,9 @@ goto_buffer:
 
 	lda #TEXT_INSERT
 	sta text::insertmode
-	lda #EDITOR_HEIGHT
-	sta height
+
+	jsr reset_size
+
 	ldx #$00
 	stx readonly
 	ldy #EDITOR_ROW_START

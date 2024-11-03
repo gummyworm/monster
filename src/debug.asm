@@ -2027,10 +2027,18 @@ __debug_remove_breakpoint:
 
 @showline:
 	; display the BRK message
-	lda edit::highlight_line
+	lda edit::highlight_line	; push line #
 	pha
 	lda edit::highlight_line+1
 	pha
+		
+	lda dbgi::file
+	jsr dbgi::get_filename
+	tya
+	pha
+	txa
+	pha
+
 	ldxy #strings::debug_brk_line
 @print:	lda #DEBUG_MESSAGE_LINE
 	jsr text::print		; break in line <line #>

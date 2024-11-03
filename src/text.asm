@@ -438,7 +438,7 @@ render_off: .byte 0
 ; IN:
 ;  - .A: the first row to scroll down
 ;  - .X: the last row to scroll down
-;  - .Y: the number of pixels to scroll each row by
+;  - .Y: the number of characters to scroll each row by
 .export __text_scrolldownn
 .proc __text_scrolldownn
 @rowstart=zp::text
@@ -451,12 +451,10 @@ render_off: .byte 0
 	dec @offset
 
 	cpx @rowstart
-	beq @noscroll
-	bcs :+
-@noscroll:
-	rts		; nothing to scroll
+	beq @done	; if first and last rows are equal, no scroll
 
-:	txa
+	; calculate number of pixel rows: (last_row - first_row - offset) * 8
+	txa
 	sec
 	sbc @rowstart
 	sbc @offset
@@ -466,16 +464,20 @@ render_off: .byte 0
 	sta @rows
 	dec @rows	; -1 because we will do the last row separately
 
+	; get pixel offset (char_offset * 8)
 	tya
 	asl
 	asl
 	asl
 	sta @offset
 
+	; get pixel source (first_row * 8)
+	; and dest (first_row * 8 + pixel_offset)
 	lda @rowstart
 	asl
 	asl
 	asl
+	sta @rowstart
 	sta @src
 	adc @offset
 	sta @dst
@@ -508,7 +510,7 @@ render_off: .byte 0
 	sta @dst+1
 	cmp #$20
 	bcc @l0
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
