@@ -445,6 +445,7 @@ render_off: .byte 0
 @rows=zp::text+1
 @src=zp::text+2
 @dst=zp::text+4
+@cnt=zp::text+6
 @offset=r0
 	sta @rowstart
 	sty @offset
@@ -462,6 +463,7 @@ render_off: .byte 0
 	asl
 	asl
 	sta @rows
+	beq @done	; if all rows are off screen, no scroll
 	dec @rows	; -1 because we will do the last row separately
 
 	; get pixel offset (char_offset * 8)
@@ -485,6 +487,9 @@ render_off: .byte 0
 	lda #>BITMAP_ADDR
 	sta @src+1
 	sta @dst+1
+	
+	lda #19-1
+	sta @cnt
 
 @l0:	ldy @rows
 @l1:	lda (@src),y
@@ -505,11 +510,11 @@ render_off: .byte 0
 	clc
 	adc #$c0
 	sta @dst
-	lda @dst+1
-	adc #$00
-	sta @dst+1
-	cmp #$20
-	bcc @l0
+	bcc :+
+	inc @dst+1
+
+:	dec @cnt
+	bne @l0
 @done:	rts
 .endproc
 
