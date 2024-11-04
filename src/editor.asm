@@ -226,7 +226,7 @@ main:	jsr key::getch
 
 ;******************************************************************************
 ; EXIT CONSOLE
-; Returns from the console 
+; Returns from the console
 .export __edit_exit_console
 .proc __edit_exit_console
 	inc mem::coloron
@@ -576,7 +576,7 @@ main:	jsr key::getch
 
 	; get active filename (r0 = name)
 	jsr src::current_filename
-	bcc :+			
+	bcc :+
 	jsr errlog::log
 	jmp @done		; can't get buffer name is fatal, go to end
 :	jsr dbgi::setfile
@@ -1296,7 +1296,7 @@ force_enter_insert=*+5
 	sta zp::jmpvec+1
 
 	jsr buff::clear		; clear the copy buffer
-	jmp zp::jmpaddr		; execute the delete command 
+	jmp zp::jmpaddr		; execute the delete command
 
 .RODATA
 @subcmds:
@@ -1715,7 +1715,7 @@ force_enter_insert=*+5
 
 @restoresrc:
 	jsr src::popgoto	; restore source position
-	jmp enter_command 
+	jmp enter_command
 .endproc
 
 ;******************************************************************************
@@ -1741,7 +1741,7 @@ force_enter_insert=*+5
 	ldxy @end
 	lda mode
 	cmp #MODE_VISUAL_LINE
-	beq :+		; if in VISUAL LINE mode, allow start == stop 
+	beq :+		; if in VISUAL LINE mode, allow start == stop
 
 	cmpw @cur
 	beq @done	; nothing copied
@@ -4295,7 +4295,7 @@ __edit_gotoline:
 	jsr is_visual
 	bne @visdone
 
-	; if we are on the selection that the line began at, 
+	; if we are on the selection that the line began at,
 	; only reverse the section of the line that is highlighted
 	jsr cmp_vis_start
 	bne @noteq
