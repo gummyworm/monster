@@ -57,11 +57,11 @@ end_on_whitespace: .byte 0
 	lda #$00
 	sta @num_operators
 	sta @num_operands
+	tay
 
 	lda #$01
 	sta @may_be_unary
 
-	ldy #$00
 	lda (zp::line),y
 	bne @l0
 	sec
@@ -76,7 +76,7 @@ end_on_whitespace: .byte 0
 	lda end_on_whitespace
 	bne @end
 	incw zp::line
-	jmp @l0
+	bne @l0		; branch always
 
 :	lda (zp::line),y
 	jsr @isterminator
@@ -89,7 +89,7 @@ end_on_whitespace: .byte 0
 	inc @may_be_unary
 	jsr @pushop
 	incw zp::line
-	jmp @l0
+	bne @l0		; branch always
 
 @lparen:
 	cmp #')'

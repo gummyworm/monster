@@ -1272,12 +1272,13 @@ force_enter_insert=*+5
 	jsr yank			; yank the selection
 	bcs @notfound			; quit if error occurred or no selection
 
+	ldxy @end			; get end address of selection
+	jsr src::goto			; navigate to it
 @delsel:
-	jsr backspace
+	jsr src::backspace
 	jsr src::pos
 	cmpw @start
 	bne @delsel
-	RETURN_OK
 	jmp refresh			; done, refresh to clear deleted text
 
 @cont:	jsr key::getch			; get a key to decide what to delete
@@ -1658,6 +1659,7 @@ force_enter_insert=*+5
 .proc yank
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
+@moveback=zp::editortmp+5	; flag to move to beginning of selection
 	jsr is_visual
 	beq @yank_selection
 
@@ -1714,25 +1716,43 @@ force_enter_insert=*+5
 	bcc @copy
 
 @restoresrc:
-	jsr src::popgoto	; restore source position
-	jmp enter_command
+	jsr src::popgoto	; restore source position to copy's origin
+	lda @moveback		; do we need to move to top of selection?
+	beq @done		; if end was also the top, no
+	ldxy visual_start_line
+	jsr gotoline
+
+	; move right until we're back at the start of the selection
+	jmp :++
+:	jsr ccright
+	bcs @done
+:	lda zp::curx
+	cmp visual_start_x
+	bcc :--
+
+@done:	jmp enter_command
 .endproc
 
 ;******************************************************************************
 ; GET SELECTION BOUNDS
 ; Returns the start and stop source positions for the current selection
 ; Leaves the source buffer cursor at the end of the selection
+;
 ; OUT:
 ;  - .C: set if nothing is selected
 ;  - zp::editortmp+1: the beginning of the selection
 ;  - zp::editortmp+3: the end position
-;  - zp::editortmp+7: the original cursor position
+;  - zp::editortmp+5: flag to move back to start of selection (if start was
+;                     above current location)
 .proc get_selection_bounds
 @cur=zp::editortmp+1
 @end=zp::editortmp+3
+@moveback=zp::editortmp+5	; flag to move to beginning of selection
+	lda #$00
+	sta @moveback
+
 	jsr src::pos	; get the current source position
 	stxy @cur
-
 	jsr src::popp	; get the source position we started at
 	stxy @end
 
@@ -1755,6 +1775,7 @@ force_enter_insert=*+5
 	lda @cur+1
 	sta @end+1
 	stxy @cur
+	inc @moveback	; flag that we don't need to move source cursor
 
 @cont:	incw @cur
 
@@ -1764,6 +1785,7 @@ force_enter_insert=*+5
 
 	ldxy @cur
 	jsr src::goto
+
 	jsr src::atcursor
 	cmp #$0d
 	beq :+
@@ -1779,7 +1801,7 @@ force_enter_insert=*+5
 	RETURN_OK
 
 @ok:	; Update end pointer:
-	;  the source pos ends on the character BEFORE the one we want to copy
+	; the source pos ends on the character BEFORE the one we want to copy
 	incw @end
 	ldxy @end
 	jsr src::goto	; go to the end of the selection to copy
@@ -1787,7 +1809,7 @@ force_enter_insert=*+5
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 .proc comment_out
 :	jsr key::getch	; get a key to decide what to comment out
 	beq :-
@@ -1818,7 +1840,7 @@ force_enter_insert=*+5
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 .proc comment_banner
 @cnt=zp::editortmp+2
 	jsr text::bufferon
@@ -1833,7 +1855,7 @@ force_enter_insert=*+5
 	jmp text::bufferoff
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 .proc word_advance
 	jsr src::end
 	beq @done
@@ -1846,7 +1868,7 @@ force_enter_insert=*+5
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 .proc last_line
 @l0:	jsr ccdown
 	bcs @done
@@ -1856,7 +1878,7 @@ force_enter_insert=*+5
 @done:	jmp home
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 .proc home_line
 	jsr src::start	; at start of file?
 	beq @done	; if so, we're done
@@ -1867,14 +1889,14 @@ force_enter_insert=*+5
 @done:	jmp home
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 .proc goto_end
 	jsr add_jump_point
 	ldxy #$ffff
 	jmp gotoline
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GOTO_START
 ; Accepts another key and, if it is 'g', moves to the start of the buffer.
 .proc goto_start
@@ -1937,7 +1959,7 @@ force_enter_insert=*+5
 	jmp dbg::gotoaddr	; goto it
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 .proc join_line
 	jsr exit_visual
 	jsr is_readonly
