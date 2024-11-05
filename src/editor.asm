@@ -2170,9 +2170,10 @@ __edit_refresh:
 	pha			; save cursor Y-coord
 
 	jsr src::pushp
-	jsr text::savebuff	; save the line buffer
 
 	jsr src::home
+	jsr src::get		; get the contents of current line
+	jsr text::savebuff	; save the line buffer
 
 	ldx zp::cury		; get # of rows to go up in source
 
@@ -2323,7 +2324,10 @@ __edit_set_breakpoint:
 	jsr src::new
 	ldxy #strings::null
 	jsr src::name	; rename buffer to empty name
-	jmp __edit_init
+	lda #$00
+	sta zp::curx
+	sta zp::cury
+	jmp refresh ; __edit_init
 .endproc
 
 ;******************************************************************************
