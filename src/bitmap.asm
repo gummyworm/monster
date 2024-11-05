@@ -176,6 +176,8 @@ COLMEM_ADDR = $9400
 @dst=r0
 @odd=r2		; !0 if the character to end at is odd
 @start=r3
+@stop2=r4
+@start2=r5
 	asl
 	asl
 	asl
@@ -190,7 +192,9 @@ COLMEM_ADDR = $9400
 	ldx @start
 	tay
 
-:	lda #$00
+:	sty @start2
+	stx @stop2
+	lda #$00
 	sta @odd
 
 	; check whether the start column is even/odd
@@ -211,7 +215,7 @@ COLMEM_ADDR = $9400
 	lda @odd
 	beq @cont
 
-	; reverse half of the first column
+@odd0:	; reverse right half of the first column
 	ldy #$07
 @col0:	lda (@dst),y
 	eor #$0f
@@ -227,6 +231,11 @@ COLMEM_ADDR = $9400
 	bcc :+
 	inc @dst+1
 :	inc @start	; first column is done
+	inc @start2
+
+	lda @start2
+	cmp @stop2
+	beq @done
 
 @cont:	; divide character # by 2 to get bitmap column
 	txa
