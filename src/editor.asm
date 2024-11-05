@@ -3471,10 +3471,6 @@ goto_buffer:
 
 	jsr text::tabl_dist
 	sta @tabcnt
-
-	; if we are at the max TAB dist, we already deselected everything
-	;cmp #TAB_WIDTH-1
-	;beq :+
 @tabl:	jsr @curl
 	dec zp::curx
 	jsr text::char_index
@@ -3485,14 +3481,14 @@ goto_buffer:
 	bne @tabl
 
 :	pla
+	sta @deselect		; restore deselect flag
 	ldx mode
 	cpx #MODE_INSERT
 	beq :+
 	; if in REPLACE, move left of the TAB character
 	jsr text::char_index
 	cmp #$09		; are still on a TAB char?
-	bne :+
-	sta @deselect		; restore deselect flag
+	bne @togg		; if not, we're done
 	jsr @curl
 :	RETURN_OK
 
@@ -3502,7 +3498,7 @@ goto_buffer:
 	bne :+
 	lda @deselect
 	bne :+
-	jsr cur::toggle		; toggle cursor
+@togg:	jsr cur::toggle		; toggle cursor
 :	RETURN_OK
 .endproc
 
