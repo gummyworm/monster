@@ -56,12 +56,18 @@ test.d81: monster-disk.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
 	$(EXOMIZER) sfx basic -t55 -n -o boot.prg bootloader.prg
 	$(C1541) -format test,1 d81 test.d81 -attach test.d81 -write boot.prg -write masm.prg $(addprefix -write , $(TEST_FILES)) -write fe3firmware
 
+install.d81: installer.prg $(CART_IMAGE)
+	$(C1541) -format install,1 d81 install.d81 -attach install.d81 -write installer.prg -write $(CART_IMAGE)
+
 start-cart: $(CART_IMAGE) test.d81
-	$(XVIC) +warp -cartfe $(CART_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -moncommands moncommands
+	$(XVIC) +warp -cartfe $(CART_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -moncommands moncommands 
 
 start-disk: test.d81
-	# $(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -dos1541II JiffyDOS_1541-II.bin -cartfe $(FE3BIN) -memory all -ntsc -drive10type 1542 -10 test.d81
 	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive8type 1581 -8 test.d81
+
+start-install: install.d81
+	cp fe3vice.bin fw-test.bin
+	$(XVIC) +warp -cartfe fw-test.bin -fewriteback -memory all -ntsc -drive8type 1581 -8 install.d81
 
 start-test: $(TEST_IMAGE) test.d81
 	$(XVIC) +warp -cartfe $(TEST_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -moncommands moncommands
