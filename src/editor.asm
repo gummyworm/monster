@@ -2327,7 +2327,7 @@ __edit_set_breakpoint:
 	lda #$00
 	sta zp::curx
 	sta zp::cury
-	jmp refresh ; __edit_init
+	jmp refresh
 .endproc
 
 ;******************************************************************************
@@ -2652,8 +2652,8 @@ goto_buffer:
 ; EDIT
 ; Configures the cursor/screen/etc. for editing
 .proc edit
-	ldxy #$eb15
-	stxy $0318		; install dummy handler for NMI's
+	lda #$02
+	sta $911e		; disable CA1 (RESTORE key) interrupts
 
 	lda #TEXT_INSERT
 	sta text::insertmode
@@ -3487,9 +3487,8 @@ goto_buffer:
 	beq :+
 	; if in REPLACE, move left of the TAB character
 	jsr text::char_index
-	cmp #$09		; are still on a TAB char?
-	bne @togg		; if not, we're done
-	jsr @curl
+	cmp #$09		; are we still on a TAB char?
+	jsr @curl		; move off it if so
 :	RETURN_OK
 
 @curl:  dec zp::curx
@@ -3498,7 +3497,7 @@ goto_buffer:
 	bne :+
 	lda @deselect
 	bne :+
-@togg:	jsr cur::toggle		; toggle cursor
+	jsr cur::toggle		; toggle cursor
 :	RETURN_OK
 .endproc
 

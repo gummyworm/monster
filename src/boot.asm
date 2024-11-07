@@ -234,7 +234,7 @@ RESTORE:
 	; copy the app and enter it
 	lda #$41	; ROM 32k page #1
 	sta $9c02
-	
+
 	; copy everything from $2000-$8000
 	ldxy #$2000
 	stxy r0
@@ -270,7 +270,7 @@ RESTORE:
 	lda #$00	; load (not verify)
 	jsr $ffd5	; LOAD
 	jmp enter
-@mainprg:    .byte "masm.prg"
+@mainprg: .byte "masm.prg"
 @mainprg_len=*-@mainprg
 .endif
 .endproc
@@ -342,7 +342,7 @@ start:
 	lda (@relocs),y
 	cmp #$ad
 	bne :+
-	
+
 :	reloc
 
 	lda @relocs
@@ -455,12 +455,11 @@ num_relocs=(*-relocs)/7
 .proc enter
         jsr irq::raster
 	sei
+
 	lda #<start
 	sta $0316		; BRK
-	sta $0318		; NMI
 	lda #>start
 	sta $0317		; BRK
-	sta $0319		; NMI
 	cli
 
 	; initialize the status row reverse
