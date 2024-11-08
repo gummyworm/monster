@@ -67,14 +67,14 @@
 ; LINE
 ; Formats the linebuffer according to the given content type.
 ; IN:
-;  - .X: the "type" to format see (codes.inc) e.g. ASM_OPCODE, etc.
+;  - .A: the "type" to format see (codes.inc) e.g. ASM_OPCODE, etc.
 .export __fmt_line
 .proc __fmt_line
 @linecontent=r6
 @tmp=r4
-	cpx #$00
+	cmp #$00
 	beq @done
-	stx @linecontent	; save the types to format
+	sta @linecontent	; save the types to format
 
 	; remove spaces from start of line
 	jsr src::up
