@@ -62,6 +62,7 @@ rowcnt: .byte 0
 	sei
 	ldxy #$eb15		; bit $9124; pla; tay; pla; tax; pla; rti
 	stxy $0314
+
 	lda #DEFAULT_900F
 	sta $900f
 

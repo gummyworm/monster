@@ -484,10 +484,16 @@ main:	jsr key::getch
 	sta zp::gendebuginfo	; enable debug info
 	jsr asm::startpass
 
+	jsr irq::disable
+
 	; do the first pass of assembly
 	ldxy @filename
 	jsr asm::include	; assemble the file (pass 1)
 	bcs @done		; error, we're done
+
+	; if there were any errors after pass 1, abort
+	lda errlog::numerrs
+	bne @done
 
 	; do the second assembly pass
 	lda #$02
@@ -508,6 +514,8 @@ main:	jsr key::getch
 .proc command_asm
 	ldxy #strings::assembling
 	jsr print_info
+
+	jsr irq::disable
 
 	jsr cancel		; close errlog (if open)
 	jsr dbgi::init
@@ -595,10 +603,10 @@ main:	jsr key::getch
 ; Displays the result of the assembly. Prints an error if one occurred or
 ; the size of the assembled program if not.
 ; IN:
-;  - .C: set if there was an assembly error
-;  - .A: the error code (if error occurred)
 ;  - zp::asmresult: pointer to the end of the program
 .proc display_result
+	jsr irq::raster
+
 	jsr clrerror
 	lda #$01
 	sta state::verify	; re-enable verify
