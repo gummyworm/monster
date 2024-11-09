@@ -29,6 +29,9 @@ __buff_push: JUMP FINAL_BANK_BUFF, #push
 .export __buff_pop
 __buff_pop: JUMP FINAL_BANK_BUFF, #pop
 
+.export __buff_len
+__buff_len: JUMP FINAL_BANK_BUFF, #len
+
 .segment "COPYBUFF_BSS"
 buffptr:  		.word 0 	; buffer pointer
 buffsave: 		.word 0		; backup buffer pointer (see buff::push)
@@ -154,7 +157,7 @@ copybuff: 		.res $1e00	; buffer for copy data
 ; PUSH
 ; Saves the current location of the buffer pointer. Call buff::pop to restore
 ; it
-.proc push 
+.proc push
 	lda buffptr
 	sta buffsave
 	lda buffptr+1
@@ -170,5 +173,17 @@ copybuff: 		.res $1e00	; buffer for copy data
 	sta buffptr+1
 	lda buffsave
 	sta buffptr
+	rts
+.endproc
+
+;******************************************************************************
+; LEN
+; Returns the length of the buffer
+; OUT:
+;   - .XY: the number of characters in the buffer
+.export len
+.proc len
+	ldxy buffptr
+	sub16 #copybuff
 	rts
 .endproc

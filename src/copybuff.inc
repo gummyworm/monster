@@ -1,4 +1,5 @@
 .import __buff_clear
+.import __buff_len
 .import __buff_lines_copied
 .import __buff_putch
 .import __buff_getch
@@ -14,4 +15,5 @@
 	getch        = __buff_getch
 	pop          = __buff_pop
 	push         = __buff_push
+	len          = __buff_len
 .endscope

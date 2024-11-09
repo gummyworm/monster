@@ -1245,17 +1245,20 @@ force_enter_insert=*+5
 ; VISUAL mode; delete the selection
 @delvis:
 @start=zp::editortmp+1	; set by yank
-@end=zp::editortmp+3	; set by yank
+@cnt=zp::editortmp+3
 	jsr yank			; yank the selection
 	bcs @notfound			; quit if error occurred or no selection
 
-	ldxy @end			; get end address of selection
-	jsr src::goto			; navigate to it
+	jsr buff::len
+	stxy @cnt
 @delsel:
-	jsr src::backspace
-	jsr src::pos
-	cmpw @start
+	jsr src::delete
+	dec @cnt
+	lda @cnt
+	cmp #$ff
 	bne @delsel
+	dec @cnt+1
+	bpl @delsel
 	jmp refresh			; done, refresh to clear deleted text
 
 @cont:	jsr key::getch			; get a key to decide what to delete
