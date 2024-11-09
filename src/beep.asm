@@ -44,9 +44,8 @@ beep_tmr: .byte 0
 	dec beep_tmr
 	bne @done
 
-	; turn off volume
-	lda $900e
-	and #$f0
+	; turn off volume / clear aux color (not used by editor)
+	lda #$00
 	sta $900e
 
 @done:	rts

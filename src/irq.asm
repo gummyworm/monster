@@ -190,8 +190,6 @@ rowcnt: .byte 0
         lda $f6
 	sta @savef6
 
-	jsr beep::update	; update any sound effects that are playing
-
 	jsr $eb1e               ; scan keyboard
 
 	; inject TAB ($09) into keyboard buffer if the CTRL key is pressed
@@ -210,7 +208,8 @@ rowcnt: .byte 0
 @savef6=*+1
 	lda #$00
         sta $f6
-	rts
+
+	jmp beep::update
 .endproc
 
 ;******************************************************************************

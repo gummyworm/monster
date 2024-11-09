@@ -4,6 +4,7 @@
 .include "debug.inc"
 .include "debuginfo.inc"
 .include "errors.inc"
+.include "errlog.inc"
 .include "expr.inc"
 .include "file.inc"
 .include "finalex.inc"
@@ -33,12 +34,16 @@
 .export __asm_startpass
 .proc __asm_startpass
 	pha
+
+	; disable VERIFY (assemble)
+	lda #$00
+	sta state::verify
+
 	jsr ctx::init		; init the context
 	pla
 	sta zp::pass		; set pass #
 	cmp #$01
 	bne @pass2
-	sta state::verify	; verify for 1st pass
 
 	lda #$00
 	sta top			; set top of program to 0
@@ -48,8 +53,6 @@
 @pass2:
 	jsr __asm_resetpc	; reset PC
 	jsr ctx::init		; re-init the context
-	lda #$00
-	sta state::verify	; don't verify (assemble)
 	rts
 .endproc
 
@@ -1598,10 +1601,15 @@ num_illegals = *-illegal_opcodes
 ; entry point for assembling a given file
 .export __asm_include
 __asm_include:
-@err=ra
 @fname=rc
 @readfile:
 	stxy @fname
+
+	lda state::verify
+	beq :+
+	RETURN_OK	; don't include a file when verifying
+
+:	sta @err
 	jsr file::open
 	bcc :+
 	rts		; return err
@@ -1642,11 +1650,14 @@ __asm_include:
 
 	lda #FINAL_BANK_MAIN	; any bank that is valid (low mem is used)
 	jsr __asm_tokenize_pass
-	ldx #$00
 	bcc :+
-	tax
-:	stx @err
-	pla
+	jsr errlog::log
+	bcc :+
+	pla			; clean stack
+	inc @err		; too many errors or fatal error
+	bne @close		; close and return
+
+:	pla
 	sta zp::file
 	bcs @close
 
@@ -1667,15 +1678,10 @@ __asm_include:
 
 :	pla		; get the file ID for the include file to close
 	jsr file::close	; close the file
-	lda file::eof	; were we at the EOF?
-	bne :+		; if so, continue
 
-	; reading the file failed (failed to read all lines)
-	lda #ERR_IO_ERROR
-	skw
-
-:	lda @err	; get err code
-	cmp #$01	; set carry if > 0
+@err=*+1
+	lda #$00	; get err code
+	cmp #$01	; set carry if >= 1
 	rts
 .endproc
 
@@ -1721,7 +1727,7 @@ __asm_include:
 ;******************************************************************************
 ; SET PC
 ; Sets the address to assemble at next time tokenize is called.
-; This is only useful in the context of assembling a line directly to 
+; This is only useful in the context of assembling a line directly to
 ; memory.  It should not be used when assembling a file/buffer
 ; IN:
 ;   - .XY: the address to assemble the next instruction to

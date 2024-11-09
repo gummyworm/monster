@@ -374,10 +374,11 @@ end_on_whitespace: .byte 0
 	jsr lbl::addr
 	bcc @updateline
 
-	; if we failed to get the address, but we're just verifying,
+	; if we failed to get the address, but we're on pass 1 / verifying
 	; proceed with a dummy value
-	lda state::verify
-	beq @done		; not verifying, return with error
+	lda zp::pass
+	cmp #$02
+	bcs @done		; not verifying, return with error
 
 	lda #$ff		; flag that we don't know the size of the label
 	ldxy zp::virtualpc	; TODO: assume smallest possible value
@@ -387,6 +388,7 @@ end_on_whitespace: .byte 0
 	tya
 	pha
 
+	; move the line pointer to the separator
 	ldy #$00
 @l0:	lda (zp::line),y
 	jsr util::isseparator

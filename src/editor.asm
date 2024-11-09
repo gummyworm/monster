@@ -272,9 +272,6 @@ main:	jsr key::getch
 	jsr reset_size
 	inc readonly	; enable read-only mode
 
-	lda #$00
-	sta state::verify
-
 	lda #DEBUG_MESSAGE_LINE
 	sta status_row
 
@@ -473,36 +470,23 @@ main:	jsr key::getch
 ;  - .XY: the filename of the file to assemble
 .proc command_assemble_file
 @filename=mem::backbuff
+	ldxy #strings::assembling
+	jsr print_info
+
 	jsr cancel		; close errlog (if open)
-
-	lda #<@filename
-	sta r0
-	lda #>@filename
-	sta r0+1
-	jsr str::copy		; copy .XY to (r0)
-
 	jsr dbgi::init
+	jsr errlog::clear
+	jsr asm::reset
 
 	lda #$01
 	jsr asm::startpass
 
-	sta dbgi::srcline
-	sta asm::linenum
-	sta zp::pass
-
-	lda #$00
-	sta zp::gendebuginfo	; disable debug info generation in pass 1
-	sta dbgi::srcline+1
-	sta asm::linenum+1
-
-; do the first pass of assembly
-@pass1:
+	; do the first pass of assembly
 	ldxy #@filename
 	jsr asm::include	; assemble the file (pass 1)
 	bcs @done		; error, we're done
 
-; do the second assembly pass
-@pass2:	inc zp::gendebuginfo	; enable debug info generation
+	; do the second assembly pass
 	ldxy #@filename
 	lda #$02
 	jsr asm::startpass
@@ -523,18 +507,14 @@ main:	jsr key::getch
 	jsr print_info
 
 	jsr cancel		; close errlog (if open)
-
 	jsr dbgi::init
+	jsr errlog::clear
 
 	; save the current source position and rewind it for assembly
 	jsr text::savebuff
 	jsr src::pushp
 	jsr src::rewind
 	jsr asm::reset
-	jsr errlog::clear
-
-	lda zp::gendebuginfo
-	beq @pass1
 
 ;--------------------------------------
 ; Pass 1
@@ -562,10 +542,6 @@ main:	jsr key::getch
 	; if there were any errors after pass 1, abort
 	lda errlog::numerrs
 	bne @done
-
-	; end the last segment (if debug info generation enabled)
-	lda zp::gendebuginfo
-	beq @pass2
 
 ;--------------------------------------
 ; Pass 2
@@ -634,7 +610,7 @@ main:	jsr key::getch
 @printresult:
 	; get the size of the assembled program and print it
 	ldxy #@success0
-	lda asm::pcset		; did this program actually assemble > 0 bytes?
+	lda asm::pcset		; did this program assemble > 0 bytes?
 	beq @print 		; if not, print a simple "done"
 
 	; get the size of the assembled program (top - origin)
