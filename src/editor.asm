@@ -1719,7 +1719,7 @@ force_enter_insert=*+5
 ; Leaves the source buffer cursor at the end of the selection
 ;
 ; OUT:
-;  - .C: set if nothing is selected
+;  - .C:              set if nothing is selected
 ;  - zp::editortmp+1: the beginning of the selection
 ;  - zp::editortmp+3: the end position
 ;  - zp::editortmp+5: flag to move back to start of selection (if start was
@@ -2022,33 +2022,12 @@ force_enter_insert=*+5
 ;  - .C: set if the key was handled or clear if the caller must handle it
 .proc handle_universal_keys
 	ldx #@num_special_keys-1
-
 @l0:	cmp @specialkeys,x
 	beq @special
 	dex
 	bpl @l0
-
-@check_ccodes:
-	cmp #$80
-	bcs @controlcodes
-	cmp #' '
-	bcs @not_ccode
-
-@controlcodes:
-	ldx #numccodes-1
-:	cmp controlcodes,x
-	beq @cc
-	dex
-	bpl :-
-	clc
-	rts
-
-@cc:	lda ccvectorslo,x
-	sta zp::jmpvec
-	lda ccvectorshi,x
-	sta zp::jmpvec+1
-	jsr zp::jmpaddr
-	sec
+@normal:
+	clc		; not a universal key code; return to be handled
 	rts
 
 @special:
@@ -2060,12 +2039,12 @@ force_enter_insert=*+5
 	sec
 	rts
 
-@not_ccode:
-	clc		; not a universal key code; return to be handled
-	rts
-
 .RODATA
 @specialkeys:
+	.byte K_LEFT		; left
+	.byte K_RIGHT		; right
+	.byte K_UP		; up arrow
+	.byte K_DOWN		; down
 	.byte K_HOME		; HOME
 	.byte K_ASM 		; assemble
 	.byte K_ASM_DEBUG	; debug
@@ -2093,7 +2072,8 @@ force_enter_insert=*+5
 	.byte K_QUIT		; <- (return to COMMAND mode)
 @num_special_keys=*-@specialkeys
 .linecont +
-.define specialvecs home, command_asm, command_asmdbg, show_buffers, refresh, \
+.define specialvecs ccleft, ccright, ccup, ccdown, \
+	home, command_asm, command_asmdbg, show_buffers, refresh, \
 	dir::view, symview::enter, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
@@ -4699,17 +4679,7 @@ swapwin = gui::reenter
 .RODATA
 ;******************************************************************************
 controlcodes:
-.byte K_LEFT	; left
-.byte K_RIGHT	; right
-.byte K_UP	; up arrow
-.byte K_DOWN	; down
 numccodes=*-controlcodes
-
-;******************************************************************************
-ccvectors:
-.define ccvectors ccleft, ccright, ccup, ccdown
-ccvectorslo: .lobytes ccvectors
-ccvectorshi: .hibytes ccvectors
 
 ;******************************************************************************
 commands:
