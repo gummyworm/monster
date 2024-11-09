@@ -6,6 +6,7 @@
 ; user closes it.
 ;******************************************************************************
 
+.include "asm.inc"
 .include "bitmap.inc"
 .include "debuginfo.inc"
 .include "edit.inc"
@@ -126,9 +127,9 @@ numerrs: .byte 0
 	sta errcodes,x
 
 	; map the line # and file ID
-	lda dbgi::srcline
+	lda asm::linenum
 	sta errlineslo,x
-	lda dbgi::srcline+1
+	lda asm::linenum+1
 	sta errlineshi,x
 	lda dbgi::file
 	sta errfileids,x

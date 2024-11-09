@@ -46,7 +46,7 @@ K_OPEN           = $b1	; C= + e
 K_NEXT_DRIVE     = $a6  ; C= + +
 K_PREV_DRIVE     = $dc  ; C= + -
 K_EDIT_STATE     = $89	; F2
-K_SWAP_WINS      = $b3	; C= + s
+K_SWAP_WINS      = $b3	; C= + w
 
 ; DEBUGGER KEYS
 K_SRCVIEW		= $85	; F1

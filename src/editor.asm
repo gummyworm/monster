@@ -545,6 +545,8 @@ main:	jsr key::getch
 	jsr asm::startpass
 
 @pass1loop:
+	jsr src::currline
+	stxy asm::linenum
 	jsr src::readline
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
@@ -984,12 +986,7 @@ force_enter_insert=*+5
 	lda #TEXT_REPLACE
 	sta text::insertmode
 
-	rts
-	; restore editor size
-	; lda #EDITOR_HEIGHT
-	; jmp __edit_resize
-
-	; fall through to enter_command
+	; fall through to reset_size
 .endproc
 
 ;******************************************************************************
@@ -1003,6 +1000,7 @@ force_enter_insert=*+5
 	rts
 :	lda #EDITOR_HEIGHT
 	sta height
+	jmp refresh
 	rts
 .endproc
 
@@ -4723,7 +4721,7 @@ ccvectorshi: .hibytes ccvectors
 
 ;******************************************************************************
 commands:
-	.byte K_SWAP_WINS	; C= + s (swap windows)
+	.byte K_SWAP_WINS	; C= + w (swap windows)
 	.byte $68		; h (left)
 	.byte $6c		; l (right)
 	.byte $6b		; k (up)
