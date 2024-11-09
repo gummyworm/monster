@@ -487,7 +487,7 @@ render_off: .byte 0
 	lda #>BITMAP_ADDR
 	sta @src+1
 	sta @dst+1
-	
+
 	lda #19-1
 	sta @cnt
 
@@ -526,6 +526,7 @@ render_off: .byte 0
 ;   - .XY: the format string to render
 ; OUT:
 ;  - mem::linebuffer2: the rendered format string
+;  - .XY:              address of rendered string (mem::linebuffer2)
 .export __text_render
 .proc __text_render
 	inc render_off
@@ -1007,7 +1008,7 @@ tabs_end=*-tabs
 	cpy #20
 	bne :-
 
-@done:	
+@done:
 ; restore return address
 @ret0=*+1
 	lda #$00

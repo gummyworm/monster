@@ -67,6 +67,7 @@ numerrs: .byte 0
 :	lda errcodes,x
 	jsr err::get
 	jsr str::uncompress
+
 	; push error string
 	tya
 	pha
@@ -81,6 +82,7 @@ numerrs: .byte 0
 	pha
 
 	ldxy #strings::edit_line_err
+	jsr text::render
 	jmp gui::ret
 
 ;--------------------------------------

@@ -1,8 +1,4 @@
 ### TODO
-- [ ] debug information rework
-  - [x] store relative line #'s (label + x)
-  - [ ] update debug line #'s in realtime (upon line insertion/delete)
-- [ ] Finish installer
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor
   - [ ] Show current scope in status bar (why not)
@@ -14,6 +10,11 @@
 - [ ] Implement linker (WIP on linkage branch)
 - [ ] Add settings / project configuration file
 - [ ] Symbolic disassembly
+- [ ] Cleanup hack that requires "jmp gui::ret" in GUI (call text::render instead of pushing format strings)
+- [x] debug information rework
+  - [x] store relative line #'s (label + x)
+  - [x] update debug line #'s in realtime (upon line insertion/delete)
+- [x] Finish installer
 - [x] yank line (yy)
 - [x] symbol viewer improvements
   - [x] sort by address
@@ -22,7 +23,7 @@
 - [x] Add "Go" at cursor command in debugger
 - [x] Add "Return" command in debugger (trace until RTS)
 - [x] Fix disassembly
-- [x] Support break via NMI in debugger 
+- [x] Support break via NMI in debugger
 - [x] Create cartridge target
 - [x] Disassemble file command
 - [x] Fix visual mode
