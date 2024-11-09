@@ -469,7 +469,9 @@ main:	jsr key::getch
 ; IN:
 ;  - .XY: the filename of the file to assemble
 .proc command_assemble_file
-@filename=mem::backbuff
+@filename=zp::editortmp
+	stxy @filename
+
 	ldxy #strings::assembling
 	jsr print_info
 
@@ -479,17 +481,18 @@ main:	jsr key::getch
 	jsr asm::reset
 
 	lda #$01
+	sta zp::gendebuginfo	; enable debug info
 	jsr asm::startpass
 
 	; do the first pass of assembly
-	ldxy #@filename
+	ldxy @filename
 	jsr asm::include	; assemble the file (pass 1)
 	bcs @done		; error, we're done
 
 	; do the second assembly pass
-	ldxy #@filename
 	lda #$02
 	jsr asm::startpass
+	ldxy @filename
 	jsr asm::include	; assemble the file (pass 2)
 
 	ldxy zp::asmresult
