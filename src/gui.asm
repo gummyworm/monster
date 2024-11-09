@@ -147,6 +147,17 @@ guisp:		.word guistack
 @loop:	inc height
 	jsr redraw_state
 	dec height
+
+	; highlight the current line
+	lda num
+	beq :+
+	lda baserow
+	sec
+	sbc select
+	tax
+	lda #DEFAULT_RVS
+	jsr draw::hline
+
 :	jsr key::getch
 	beq :-
 	pha		; save the key
