@@ -4185,6 +4185,16 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
+; NEXT_ERR
+; Navigates the cursor to the next error from the error log
+.proc next_err
+	jsr errlog::next
+	beq @done
+	jmp gotoline
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; GOTOLINE
 ; Sets the editor to the line in .YX and refreshes the screen.
 ; IN:
@@ -4763,6 +4773,7 @@ commands:
 	.byte K_PREV_DRIVE	; prev drive
 	.byte K_GETCMD		; get command
 	.byte K_CONSOLE		; enter console
+	.byte K_NEXT_ERR	; go to next error from error log
 numcommands=*-commands
 
 ; command tables for COMMAND mode key commands
@@ -4774,7 +4785,7 @@ numcommands=*-commands
 	goto_start, open_line_above, open_line_below, join_line, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
-	command_find, next_drive, prev_drive, get_command, mon
+	command_find, next_drive, prev_drive, get_command, mon, next_err
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs

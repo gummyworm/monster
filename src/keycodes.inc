@@ -42,11 +42,11 @@ K_GOTO_BUFF7     = $9a  ; C= + 7
 K_GOTO_BUFF8     = $9b  ; C= + 8
 K_JUMPBACK       = $b9	; C= + o
 K_JUMPFORWARD    = $a2	; C= + i
-K_OPEN           = $b1	; C= + e
 K_NEXT_DRIVE     = $a6  ; C= + +
 K_PREV_DRIVE     = $dc  ; C= + -
 K_EDIT_STATE     = $89	; F2
-K_SWAP_WINS      = $b3	; C= + w
+K_SWAP_WINS      = $b3	; C= + s
+K_NEXT_ERR       = $b1  ; C= + e
 
 ; DEBUGGER KEYS
 K_SRCVIEW		= $85	; F1

@@ -1,3 +1,4 @@
+.import __errlog_next
 .import __errlog_numerrs
 .import __errlog_activate
 .import __errlog_clear
@@ -8,4 +9,5 @@
 	clear    = __errlog_clear
 	log      = __errlog_log
 	numerrs  = __errlog_numerrs
+	next     = __errlog_next
 .endscope

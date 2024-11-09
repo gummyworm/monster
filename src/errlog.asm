@@ -138,3 +138,75 @@ numerrs: .byte 0
 	clc
 @done:	rts
 .endproc
+
+;******************************************************************************
+; NEXT
+; Returns the line number of the next error after the current source line
+; OUT:
+;   - .XY: the line number of the next errror
+;   - .Z:  set if no next error
+.export __errlog_next
+.proc __errlog_next
+@min=r0
+@found=r2
+@matchfile=r3
+@fileid=r4
+	ldxy #$ffff
+	stxy @min
+	stx @matchfile
+
+	jsr edit::currentfile
+	sta @fileid
+
+	ldx #$00
+	stx @found
+
+@l0:	; prioritize lines in the same file
+	lda @matchfile
+	beq :+
+	lda errfileids,x
+	cmp @fileid
+	bne @next		; file doesn't match
+
+:	lda src::line+1
+	cmp errlineshi,x
+	beq @chklsb
+	bcc @chkmin
+	bcs @next
+
+@chklsb:
+	lda src::line
+	cmp errlineslo,x
+	bcs @next
+
+@chkmin:
+	; check if this line is < our current min
+	ldy errlineshi,x
+	cpy @min+1
+	beq :+
+	bcs @next
+:	lda errlineslo,x
+	cmp @min
+	bcs @next
+	; set min = errlines,x
+	sta @min
+	sty @min+1
+	inc @found
+
+@next:	inx
+	cpx numerrs
+	bcc @l0
+
+	lda @found		; was a next line found?
+	bne @done
+	lda @matchfile		; did we already search without matching file?
+	beq @done		; if so, we're done
+
+	inc @matchfile		; try again but don't match file
+	ldx #$00
+	beq @l0
+
+@done:	ldxy @min
+	lda @found		; clear .Z if found
+	rts
+.endproc
