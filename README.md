@@ -43,13 +43,13 @@ Table of Contents
 
 Monster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
 The design philosophy is uncompromising maximalism.  This is in contrast to most
-existing Vic-20 assemblers (and most native development tools on 8-bit computers), 
+existing Vic-20 assemblers (and most native development tools on 8-bit computers),
 which mostly designed with memory efficiency in mind.  The primary reason for this
 was (or is) to leave the majority of the RAM available to the programmer.
 
 Large RAM expansions have become ubiquitous on the platform, so the philosophy of
 this project is to choose feature richness without much concern for the memory footprint.
-Virtually any feature that I deem valuable in an editor/assembler is included. 
+Virtually any feature that I deem valuable in an editor/assembler is included.
 
 Some of its features are:
  - 40 column bitmap-based editor
@@ -75,14 +75,14 @@ but it is also used to store debug info and some code.
 
 The banked memory allows the user program to execute in almost complete
 isolation.  This means that, although this environment consumes a vast amount of
-memory itself, everything except address $9c02 (the bank select register) and 
-a couply tiny interrupt handlers is preserved when control moves between the 
-editor and the user program.  Moreso even than small monitor cartridges, 
+memory itself, everything except address $9c02 (the bank select register) and
+a couply tiny interrupt handlers is preserved when control moves between the
+editor and the user program.  Moreso even than small monitor cartridges,
 the program itself is virtually unaware of the resident tooling.
 
 ## Building
-Building the source requires `ca65`. The easiest way to install this is to 
-install the latest release of [cc65](https://github.com/cc65/cc65). I've tested 
+Building the source requires `ca65`. The easiest way to install this is to
+install the latest release of [cc65](https://github.com/cc65/cc65). I've tested
 with v2.18.
 
 The build process also requires `python3` (any version should do).
@@ -107,7 +107,7 @@ To build the cart version, run
 ## Running
 
 The _Disk_ Makefile generates two PRG's: BOOT.PRG and MASM.PRG.
-You may write these to your disk of choice and load Monster as you would any other program on your Vic-20: 
+You may write these to your disk of choice and load Monster as you would any other program on your Vic-20:
 
 ```
 LOAD "BOOT.PRG",8,1
@@ -125,14 +125,14 @@ RUN
 
 This will flash Monster to the Final Expansion.  Reset the computer to enter Monster.
 
-If you wish to run Monster in an emulator (VICE), ensure that VICE is installed on your 
+If you wish to run Monster in an emulator (VICE), ensure that VICE is installed on your
 machine and run `make start-disk` or `make start-cart` from the root of the project to attach the
 corresponding disk or cartridge image.
 
 ---
 ## Editor Overview
 The editor is a substantial part of this assembler.  In addition to offering
-a high-density 40-column display, it has, by 8-bit editor standards, advanced navigation 
+a high-density 40-column display, it has, by 8-bit editor standards, advanced navigation
 functionality.
 
 ### Command shortcuts
@@ -150,6 +150,7 @@ below for more info on modes).
 | C= + q | Close buffer  | closes the current buffer and opens the next one that is open         |
 | C= + v | MemView       | enters the memory viewer/editor (press <- to exit)                    |
 | C= + y | Show Symbols  | lists the symbol table for the assembled program                      |
+| C= + e | Next Error    | if there are errors from the last assembly, navigatest to the next one|
 |   F3   | Assemble      | assembles the code in the buffer to memory                            |
 |   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
 |   F5   | Show buffers  | displays a list of the currently open buffers                         |
@@ -206,7 +207,7 @@ Example:
 #### Disassemble :D <start address>, <end address>
 Disassembles the contents of the _virtual_ memory between the given range.
 e.g. `:D $1001, $1040`.
-Expressions may be used in addtion to literal addresses when defining the disassembly range. 
+Expressions may be used in addtion to literal addresses when defining the disassembly range.
 
 This could be useful, for example, if your program generates code and you want to view
 the results.
@@ -265,10 +266,10 @@ to _COMMAND_ mode when the `<-` key is pressed.  Below is a list of the modes al
 the key that enters that mode, and the editor behavior while in that mode.
 
 ### Command Mode (<-)
-Command mode is the default mode.  The primary function of command mode is to navigate around the 
+Command mode is the default mode.  The primary function of command mode is to navigate around the
 source code and to enter other modes.
 Navigation behaves similar to `vi` and many basic `vi` commands are supported.
-The following keys are handled in COMMAND mode.  
+The following keys are handled in COMMAND mode.
 
 |  Key       | Name       | Description                                                            |
 |------------|------------|------------------------------------------------------------------------|
@@ -311,7 +312,7 @@ commands accessed via them.
 
 ### Visual Mode (v)
 In _VISUAL_ mode (accessed via `v` in _COMMAND_ mode), the user can select
-a block of text which may then be deleted or copied.  Below is the table of supported commands 
+a block of text which may then be deleted or copied.  Below is the table of supported commands
 while in visual mode. The `<-` key will return the user to to _COMMAND_ mode.
 
 |  Key       | Name       | Description                                                            |
@@ -321,7 +322,7 @@ while in visual mode. The `<-` key will return the user to to _COMMAND_ mode.
 
 ### Visual Line Mode (V)
 _VISUAL LINE_, which is entered with the `SHIFT - v` key combination from _COMMAND_ mode is similar to _VISUAL_ mode,
-but selections include only entire lines.  Upon entering _VISUAL LINE_ mode, the current row is selected. 
+but selections include only entire lines.  Upon entering _VISUAL LINE_ mode, the current row is selected.
 Navigating to rows above or below will select additional lines.  The delete and yank keys behave the same as they do
 in _VISUAL_ mode.
 
@@ -342,7 +343,7 @@ that were "jumped" from are two commands: _jump-forward_ (`C= + i`) and _jump-ba
 
 ### Syntax Checking
 Lines are checked and formatted according to their contents each time they
-are completed (RETURN is pressed).  
+are completed (RETURN is pressed).
 While this should reduce the number of errors you encounter when assembling,
 it does not guarantee it.  The following assumptions are made when checking
 the syntax of a line:
@@ -354,7 +355,7 @@ the label does not exist at assembly time, of course this will result in an
 error.
 Macros, however, are expected to be defined.
 
-Although labels aren't _required_ to be defined, they are internally tracked 
+Although labels aren't _required_ to be defined, they are internally tracked
 while editing.  Because their addresses aren't valid til assembly, you cannot
 access them (e.g. in the symbol viewer) until then.
 
@@ -376,8 +377,8 @@ The supproted operators are: '+', '-', '*', and '/'. Multiplication and division
 have higher precedence than addition and subtraction.
 
 Expressions may also contain parentheses, which are evaluated as you would expect,
-but note that if the entire expression is enclosed in parentheses, the 
-assembler will interpret this as indirect addressing. For example: 
+but note that if the entire expression is enclosed in parentheses, the
+assembler will interpret this as indirect addressing. For example:
 ```
 JMP (1+3)	; jump-indirect to the address in memory address (4)
 JMP 1+3 	; jump-absolute to address 4
@@ -405,7 +406,7 @@ Character literals must contain exactly one character and always resolve to
 a 1 byte value.
 
 ## Formatting
-Spacing is not important, but instructions are auto-formatted so that they are TAB indented.  
+Spacing is not important, but instructions are auto-formatted so that they are TAB indented.
 Labels and directives are, by convention, not indented. The formatter will also take care of this.
 
 ## Labels
@@ -436,7 +437,7 @@ Note that the scope of the `@L0` defined under `PROC0` is valid until the next
 non-local label (`PROC1`) at which point the name is recylced and may be used
 again.
 
-Because of the way local labels are implemented they are not totally 
+Because of the way local labels are implemented they are not totally
 inaccessible. They _can_ be accessed by
 prepending the global label that encapsulates them.  This can be used to
 emulate structural data types e.g.
@@ -482,7 +483,7 @@ as with an instruction, tell the assembler to generate some special code or data
 based on the operands.
 
 Some directives (`.MAC` and `.REP`) generate a variable amount of code or data based on the value
-of their operands. 
+of their operands.
 For these directives, the expressions used as arguments must be resolvable
 in pass 1 of the assembler.  This means any labels used in the expression
 must be declared before the directive.
@@ -497,7 +498,7 @@ The following example illustrates why this is necessary:
 Note that `NUM` is not declared until after the `.REP` directive. Because of this
 the assembler does not know how many times to repeat the `ASL`. We could assume
 the label is an arbitrary 16-bit value as we do with labels that are undefined
-in pass 1, but any subsequent labels would have the wrong address if we guessed 
+in pass 1, but any subsequent labels would have the wrong address if we guessed
 any number other than 5.
 
 ---
@@ -519,7 +520,7 @@ Examples:
  |-------------------|-------------------------|
  | .DW $00, $01, $02 | $00 $00 $01 $00 $02 $00 |
 
-#### .ENDIF 
+#### .ENDIF
 Ends a .IF block
 
 See [.IF](#if-expression)
@@ -533,9 +534,9 @@ Defines a constant which may be used in expressions
 ```
 
 #### .IF _expression_
-Evaluates the expression 
+Evaluates the expression
 Conditionally assembles the lines between this directive and its matching
-`.ENDIF`. 
+`.ENDIF`.
 ```
 .IF NTSC
 .EQU CYCLES_PER_LINE 65
@@ -591,7 +592,7 @@ Will generate the following code:
   LDX #$34
   LDY #$12
 ```
-Macro definitions begin with the `.MAC` directive followed by the name of the 
+Macro definitions begin with the `.MAC` directive followed by the name of the
 macro and a comma-separated list of the parameters for the macro.
 
 Macros are invoked with the name of the macro followed by a comma-separated
@@ -599,7 +600,7 @@ list of the parameters.
 
 
 #### .ORG _expression_
-Sets the address to assemble code to 
+Sets the address to assemble code to
 ```
 .ORG $1000
 ; start up code
@@ -622,10 +623,10 @@ This is useful for code that will be relocated prior to execution.
 ```
 Note that the `.RORG` directive must follow the `.ORG` directive in order to
 avoid the virtual PC being overwritten.
-`.ORG` will set the virtual PC to the same location as the physical PC. 
+`.ORG` will set the virtual PC to the same location as the physical PC.
 
 #### .REP _expression_ [, _iterator name_]
-Assembles the code between this directive and `.ENDREP` for the given number of 
+Assembles the code between this directive and `.ENDREP` for the given number of
 times.
 ```
 .REP 3
@@ -678,7 +679,7 @@ They may be recursive as in this example:
 .ENDMAC
 ```
 
-You may omit arguments to a macro if your macro knows how to deal with 
+You may omit arguments to a macro if your macro knows how to deal with
 less than the maximum number it expects as in this example:
 ```
 .MAC SAVEBYTES A, B, C
@@ -699,7 +700,7 @@ less than the maximum number it expects as in this example:
 
 ### Macro Limitations
 
-There are some limitations on the number of macros and overall size of the 
+There are some limitations on the number of macros and overall size of the
 macros per assembly.  The source for all macros must be less than $1400 bytes.
 There is also a 128 macro limit.
 
@@ -709,7 +710,7 @@ Comments are excluded from the internal context buffer, so using them will not c
 
 ---
 
-### Best Practices 
+### Best Practices
 Although Monster strives to feel like unbothered by the physical limits of the
 Vic-20, certain usage patterns can cause issues. By following these practices,
 you should have a smooth experience without running into some of the
@@ -719,7 +720,7 @@ limitations that you may hit if you are unconcious about them.
 When possible, try to stick to 8 or fewer files for your project.  This will
 allow all of them to be stored in memory during assembly, which will greatly
 speed up your edit/debug loop.  When debugging, this practice will also allow
-all files to be available in RAM when you are stepping through the program, 
+all files to be available in RAM when you are stepping through the program,
 which will be a much smoother experience than programs that continuously must
 page to disk.
 
@@ -804,7 +805,7 @@ key returns to the debugger.
 https://github.com/gummyworm/monster/assets/4626914/840f5d66-03cb-4daf-9ed2-41a4d37d4c2d
 
 The debugger allows you to step through code, set breakpoints, and watch
-data as you execute your program.  
+data as you execute your program.
 
 Upon entering the debugger, a view of the system state is displayed at the
 current step or breakpoint.
@@ -897,7 +898,7 @@ The go command begins execution and returns to the debugger only when a
 breakpoint is encountered or when RUN/STOP is pressed.
 
 #### Trace (`t`)
-Trace is similar to `GO`, but the debugger executes the program as a series 
+Trace is similar to `GO`, but the debugger executes the program as a series
 of STEPs instead of running the program binary directly.
 This is useful because it allows the debugger to break if any watched memory
 location is accessed or if a JAM would occur.
@@ -937,7 +938,7 @@ screen will briefly flash with the state of the user program.
 ## Auxiliary Views
 Within the debugger, there are 3 auxiliary views that may be activated with the
 function keys.  Each shows information about the machine or debug state.
-Each viewer also contains an editor, which is activated with the keys enumerated 
+Each viewer also contains an editor, which is activated with the keys enumerated
 below next to their corresponding editor.
 
 Pressing the `<-` key will return the user from the auxiliary editor to the
@@ -979,7 +980,7 @@ the first occurrence of the byte value `$34` followed by `$12`.
 #### Set Address (`^`/`up-arrow`)
 Moves the cursor to the address of the viewer, then prompts the user for a new
 value to set the memory viewer to.  Pressing `RETURN` confirms the new address
-and `<-` cancels and returns the user to the editor without changing the address 
+and `<-` cancels and returns the user to the editor without changing the address
 
 ### Breakpoint Viewer (`F5` while debugging)
 The breakpoint viewer displays all the breakpoints that have been set by the
@@ -987,7 +988,7 @@ user.  A circle is displayed next to those that are currently active.
 The user simply navigates the list with the cursor keys and presses RETURN to
 toggle those which he/she wishes to enable/disable.
 
-Note that breakpoints correspond to the debug information generated with 
+Note that breakpoints correspond to the debug information generated with
 the F4 command.  If the line numbers change after this information is generated,
 breakpoints are unlikely to behave in expected ways.
 
@@ -1024,8 +1025,8 @@ back to the watch editor.
 
 ## Breakpoints
 Breakpoints may be set/removed during both normal editing and while debugging.
-Setting a breakpoint inserts a special character into the source buffer, which 
-tells the assembler to generate a breakpoint for the line that this character 
+Setting a breakpoint inserts a special character into the source buffer, which
+tells the assembler to generate a breakpoint for the line that this character
 resides on.
 
 Because the breakpoint is represented as a character within the source code itself,
@@ -1048,11 +1049,11 @@ if it is pressed while on a line that already has one.
 
 ## Watches
 Watches are set within the memory editor (`F3`). When the cursor is over the
-desired byte to watch, the press `C= + w` to add a watch to the address of the 
+desired byte to watch, the press `C= + w` to add a watch to the address of the
 byte under the cursor.  A beep will confirm that the watch
 was added.
 
-The watch editor (`F7`) shows all active watches. This window displays the old 
+The watch editor (`F7`) shows all active watches. This window displays the old
 value of a watch and what it was changed to when it is updated.
 
 When a value is changed the watch view is activated to alert the user to the
@@ -1062,7 +1063,7 @@ the viewer is also activated.
 ---
 
 ## Monitor
-The monitor is a text based interface for debugging programs and manipulating 
+The monitor is a text based interface for debugging programs and manipulating
 program state.
 
 ### Monitor Commands

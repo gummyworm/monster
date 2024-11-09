@@ -190,14 +190,15 @@ rowcnt: .byte 0
         lda $f6
 	sta @savef6
 
+	jsr beep::update	; update any sound effects that are playing
+
 	jsr $eb1e               ; scan keyboard
-	;jsr beep::update
 
 	; inject TAB ($09) into keyboard buffer if the CTRL key is pressed
 	lda $028d		; get CTRL flag reg
 	cmp $028e		; debounce
 	beq @keydone
-	and #$02		; is CTRL (TAB) pressed?
+	and #$04		; is bit 2 (CTRL) pressed?
 	beq @keydone		; if 0, no
 	ldx #$09		; TAB
 	jsr $ebba		; store to keyboard table

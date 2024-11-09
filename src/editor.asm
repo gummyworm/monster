@@ -2621,17 +2621,17 @@ goto_buffer:
 
 .RODATA
 @ex_commands:
-	.byte $67		; g - go
-	.byte $64		; d - debug
-	.byte $65		; e - open file
-	.byte $72		; r - rename
-	.byte $73		; s - save file
-	.byte $78		; x - scratch file
-	.byte $61		; a - assemble file
-	.byte $44		; D - disassemble
-	.byte $46		; F - disassemble file
-	.byte $42		; B - create .BIN
-	.byte $50		; P - create .PRG
+	.byte $67	; g - go
+	.byte $64	; d - debug
+	.byte $65	; e - open file
+	.byte $72	; r - rename
+	.byte $73	; s - save file
+	.byte $78	; x - scratch file
+	.byte $61	; a - assemble file
+	.byte $44	; D - disassemble
+	.byte $46	; F - disassemble file
+	.byte $42	; B - create .BIN
+	.byte $50	; P - create .PRG
 @num_ex_commands=*-@ex_commands
 
 .linecont +
