@@ -869,7 +869,7 @@ brkhandler2_size=*-brkhandler2
 ;******************************************************************************
 ; DONE
 ; Returns from the debug BRK interrupt.
-; The text debugger also returns here to restore the program state and 
+; The text debugger also returns here to restore the program state and
 ; continue execution of the program.
 .export __debug_done
 .proc __debug_done
@@ -878,6 +878,13 @@ brkhandler2_size=*-brkhandler2
 
 	jsr save_debug_zp
 	sei
+	lda #<$eb15
+	sta $0314
+	lda #>$eb15
+	sta $0314+1
+	lda #DEFAULT_900F
+	sta $900f
+
 	restore_user_zp
 
 restore_regs:
@@ -2031,7 +2038,7 @@ __debug_remove_breakpoint:
 	pha
 	lda edit::highlight_line+1
 	pha
-		
+
 	lda dbgi::file
 	jsr dbgi::get_filename
 	tya
