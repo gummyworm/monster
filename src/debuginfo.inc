@@ -7,6 +7,7 @@
 .import __debuginfo_get_fileid
 .import __debug_line2addr
 .import __debug_init
+.import __debug_initonce
 .import __debug_new_block
 .import __debug_set_file
 .import __debug_store_line
@@ -22,6 +23,7 @@
 	getfileid    = __debuginfo_get_fileid
 	line2addr    = __debug_line2addr
 	init         = __debug_init
+	initonce     = __debug_initonce
 	newblock     = __debug_new_block
 	setfile      = __debug_set_file
 	srcline      = __debug_src_line

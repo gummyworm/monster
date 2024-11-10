@@ -2,6 +2,7 @@
 .include "bitmap.inc"
 .include "config.inc"
 .include "debug.inc"
+.include "debuginfo.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "fastcopy.inc"
@@ -470,6 +471,7 @@ num_relocs=(*-relocs)/7
 	jsr asm::reset
 	jsr src::new
 	jsr edit::init
+	jsr dbgi::initonce
 
 .ifndef TEST
 	jmp edit::run

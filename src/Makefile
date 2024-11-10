@@ -13,7 +13,7 @@ CL65=cl65
 C1541=c1541
 EXOMIZER=exomizer
 
-BOOTSRC=boot.asm 
+BOOTSRC=boot.asm
 SRC=$(filter-out $BOOTSRC, $(wildcard *.asm))
 TEST_TXTS=$(wildcard tests/*.txt)
 TEST_FILES=$(TESTS) $(TEST_INCS) $(TEST_TXTS)
@@ -35,10 +35,10 @@ suite: $(TEST_IMAGE)
 installer.prg: installer/install.asm
 	$(CL65) -t $(TARGET) -o $@ -C installer/link-installer.config $^
 
-monster-disk.prg: $(BOOTSRC) $(SRC) 
+monster-disk.prg: $(BOOTSRC) $(SRC)
 	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) --asm-define $(REGION) -C link-$(TARGET)-disk.config $^ -Ln labels.txt -v -m map.txt
 
-monster-cart.prg: $(BOOTSRC) $(SRC) 
+monster-cart.prg: $(BOOTSRC) $(SRC)
 	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) --asm-define $(REGION) --asm-define CART --asm-define DEFAULT_DEVICE=$(DEFAULT_DEVICE) -C link-$(TARGET)-cart.config $^ -Ln labels.txt -v -m map.txt
 
 monster-cart-test.prg: $(BOOTSRC) $(SRC) $(UNIT)
@@ -60,7 +60,8 @@ install.d81: installer.prg $(CART_IMAGE)
 	$(C1541) -format install,1 d81 install.d81 -attach install.d81 -write installer.prg -write $(CART_IMAGE)
 
 start-cart: $(CART_IMAGE) test.d81
-	$(XVIC) +warp -cartfe $(CART_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -moncommands moncommands 
+	$(C1541) -format disk,1 d81 empty.d81
+	$(XVIC) +warp -cartfe $(CART_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -drive8type 1581 -8 empty.d81 -moncommands moncommands
 
 start-disk: test.d81
 	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive8type 1581 -8 test.d81
@@ -72,7 +73,7 @@ start-install: install.d81
 start-test: $(TEST_IMAGE) test.d81
 	$(XVIC) +warp -cartfe $(TEST_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -moncommands moncommands
 
-vstart: 
+vstart:
 	# $(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -cartfe $(FE3BIN) -memory all -ntsc +drive10truedrive -virtualdev10 -10 test.d81
 
 clean:

@@ -2732,10 +2732,9 @@ goto_buffer:
 	lda #ERR_NO_FILENAME
 	jmp report_typein_error
 
-:	jsr irq::disable
-
-	stxy @file
+:	stxy @file
 @havename:
+	jsr irq::disable
 	lda overwrite
 	beq @open		; if overwrite flag isn't set, continue
 @scratch:

@@ -451,7 +451,7 @@ num_illegals = *-illegal_opcodes
 	ldxy zp::virtualpc	; current PC (address)
 	stxy r0
 	lda dbgi::file
-	ldxy dbgi::srcline
+	ldxy __asm_linenum
 	jsr dbg::brksetaddr	; if there is a breakpoint, set its address
 
 :	jsr line::process_ws
@@ -2241,6 +2241,7 @@ __asm_include:
 
 @absolute:
 	lda #'$'
+	ldy #$00
 	sta (@dst),y
 
 	incw @dst

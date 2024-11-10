@@ -14,8 +14,8 @@
 .include "zeropage.inc"
 
 ; Debug info constants
-MAX_FILES  = 24		; max files debug info may be generated for
-MAX_BLOCKS = 32
+MAX_FILES  = 64		; max files debug info may be generated for
+MAX_BLOCKS = 256
 
 BLOCK_START_ADDR = 0    	; offset in block header for base address
 BLOCK_STOP_ADDR  = 2    	; offset in block header for stop address
@@ -67,7 +67,7 @@ blockstop     = block+4		; top of active block's address range
 blocklinebase = block+6 	; base of active block's line range
 linestop      = block+8		; number of lines in active block
 file          = block+10 	; current file id being worked on
-line          = block+11	; address of PC in line program 
+line          = block+11	; address of PC in line program
 progstop      = block+13	; address of end of line program
 
 ; scratchpad
@@ -94,6 +94,7 @@ debuginfo: .res $6000
 .export __debug_end_block
 .export __debug_line2addr
 .export __debug_init
+.export __debug_initonce
 .export __debug_get_filename
 .export __debug_new_block
 .export __debug_set_file
@@ -111,6 +112,7 @@ debuginfo: .res $6000
 	__debug_end_block         = end_block
 	__debug_line2addr         = line2addr
 	__debug_init              = init
+	__debug_initonce          = initonce
 	__debug_get_filename      = get_filename
 	__debug_new_block         = new_block
 	__debug_set_file          = set_file
@@ -129,6 +131,7 @@ __debug_addr2line:     BANKJUMP addr2line
 __debug_line2addr:     BANKJUMP line2addr
 __debug_end_block:     BANKJUMP end_block
 __debug_init:          BANKJUMP init
+__debug_initonce:      BANKJUMP initonce
 __debug_get_filename:  BANKJUMP get_filename
 __debug_new_block:     BANKJUMP new_block
 __debug_set_file:      BANKJUMP set_file
@@ -172,8 +175,20 @@ blockaddresseslo: .res MAX_FILES
 blockaddresseshi: .res MAX_FILES
 
 ;******************************************************************************
+; INITONCE
+; Clears state that should only be cleared on boot (file table)
+.proc initonce
+	lda #$00
+	sta numfiles
+
+	; fall through to init
+.endproc
+
+;******************************************************************************
 ; INIT
-; Clears any debug info state that exists
+; Clears the debug info state that is valid for a single assembled program
+; This is the line table and line program information, which is regenerated
+; from scratch each time a program is assembled
 .proc init
 	; init the address for the next free line program location
 	lda #<debuginfo
@@ -185,7 +200,6 @@ blockaddresseshi: .res MAX_FILES
 	lda #$00
 	sta blocksp
 	sta numblocks
-	sta numfiles
 	sta block_open
 	rts
 .endproc
@@ -315,7 +329,7 @@ blockaddresseshi: .res MAX_FILES
 	lda srcline+1
 	sta (block),y
 
-	; store the file ID 
+	; store the file ID
 	ldy #BLOCK_FILE_ID
 	lda file
 	sta (block),y
@@ -391,7 +405,7 @@ blockaddresseshi: .res MAX_FILES
 	lda progstop+1
 	sta (block),y
 	sta freeptr+1
-	
+
 	dec block_open	; flag that there is no open block
 
 @done:	rts
@@ -936,7 +950,7 @@ get_filename = get_filename_addr
 	adc blocklinebase+1
 	sta linestop+1
 	decw linestop
-	
+
 	clc	; OK
 @done:	rts
 .endproc
@@ -991,7 +1005,7 @@ get_filename = get_filename_addr
 	lda (line),y
 	sta addr+1
 	jmp @ok
-	
+
 :	cmp #OP_SET_FILE	; TODO: remove support for SET_FILE
 	bne :+
 @setfile:
@@ -1045,7 +1059,7 @@ get_filename = get_filename_addr
 ; COMPARE
 ; Compares the strings in (str0) to the buffer @ $120
 ; IN:
-;  zp::str0: one of the strings to compare 
+;  zp::str0: one of the strings to compare
 ;  $120:     the string to compare to
 ; OUT:
 ;  .Z: set if the strings are equal

@@ -488,9 +488,8 @@ render_off: .byte 0
 	sta @src+1
 	sta @dst+1
 
-	lda #19-1
+	lda #20
 	sta @cnt
-
 @l0:	ldy @rows
 @l1:	lda (@src),y
 	sta (@dst),y
@@ -510,10 +509,10 @@ render_off: .byte 0
 	clc
 	adc #$c0
 	sta @dst
-	bcc :+
-	inc @dst+1
-
-:	dec @cnt
+	lda @dst+1
+	adc #$00
+	sta @dst+1
+	cmp #$20
 	bne @l0
 @done:	rts
 .endproc
