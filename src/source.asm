@@ -33,7 +33,7 @@ stack:     .res POS_STACK_SIZE	; stack for source positions
 
 ;******************************************************************************
 ; BUFFSTATE
-; This block of zeropage variables are stored in the order they are 
+; This block of zeropage variables are stored in the order they are
 ; enumerated below.  When a source buffer is activated, the state for that
 ; buffer is copied to these zeropage locations.
 ; The values for the buffer that is being deactivated are copied to the
@@ -483,6 +483,7 @@ data: .res $6000
 	bne @l2
 
 	; decrement any breakpoint file IDs greater than the active buffer's
+	; TODO: delete this?
 	ldx dbg::numbreakpoints
 	beq @cont
 @l3:	lda activesrc
@@ -590,7 +591,7 @@ data: .res $6000
 ;  - .Z: set if the cursor is at the end of the buffer
 .export __src_end
 .proc __src_end
-	ldx poststartzp	
+	ldx poststartzp
 	cpx end
 	bne @done
 	ldx poststartzp+1
@@ -691,7 +692,7 @@ data: .res $6000
 .proc on_line_inserted
 	incw lines
 
-	; shift breakpoints 
+	; shift breakpoints
 	jsr edit::currentfile
 	sta r0
 	lda #$01
@@ -744,7 +745,7 @@ data: .res $6000
 .export __src_next
 .proc __src_next
 	; do __src_end inline to save the cycles from JSR and RTS
-	ldx poststartzp	
+	ldx poststartzp
 	cpx end
 	bne @cont
 	ldx poststartzp+1
