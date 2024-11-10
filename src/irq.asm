@@ -57,11 +57,16 @@ rowcnt: .byte 0
 
 ;******************************************************************************
 ; IRQ DISABLE
+; Preserves .X, .Y, and the .C flag
 .export __irq_disable
 .proc __irq_disable
 	sei
-	ldxy #$eb15		; bit $9124; pla; tay; pla; tax; pla; rti
-	stxy $0314
+
+	; bit $9124; pla; tay; pla; tax; pla; rti
+	lda #<$eb15
+	sta $0314
+	lda #>$eb15
+	sta $0314+1
 
 	lda #DEFAULT_900F
 	sta $900f

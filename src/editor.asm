@@ -302,9 +302,9 @@ main:	jsr key::getch
 @filename=zp::editortmp+1
 @start=zp::editortmp+3
 	stxy @filename
+	jsr irq::disable
 	jsr file::open_r_prg
-	bcc @ok
-	rts			; failed to open file
+	bcs @done		; failed to open file
 
 @ok:	sta @file
 	tax
@@ -325,7 +325,8 @@ main:	jsr key::getch
 	ldxy file::loadaddr	; disassembly stop address
 	stxy r0
 	ldxy @start
-	jmp disassemble
+	jsr disassemble
+@done:	jmp irq::raster
 .endproc
 
 ;******************************************************************************
@@ -691,6 +692,8 @@ main:	jsr key::getch
 	lda src::activebuff
 	pha			; save active buffer
 
+	jsr irq::disable
+
 	lda #$00
 	sta @cnt
 
@@ -711,7 +714,8 @@ main:	jsr key::getch
 	jsr src::setbuff
 	jsr file::savesrc
 
-@done:	pla
+@done:	jsr irq::raster
+	pla
 	jsr src::setbuff	; restore buffer
 	jmp src::popgoto	; restore source pos
 .endproc
@@ -2648,9 +2652,11 @@ goto_buffer:
 ;  - .XY: the argument to the command (filename)
 .proc command_saveprg
 @file=r4
+	jsr irq::disable
 	jsr file::open_w	; open the output filename
 	bcc :+
-	rts			; failed to open file
+	jmp irq::raster		; failed to open file
+
 :	sta @file
 
 	; write the .PRG header
@@ -2661,8 +2667,7 @@ goto_buffer:
 	lda asm::origin+1
 	jsr $ffd2
 
-	; write the assembled program
-	jmp write_asm
+	jmp write_asm		; write the assembled program
 .endproc
 
 ;******************************************************************************
@@ -2674,9 +2679,10 @@ goto_buffer:
 ;  - .XY: the argument to the command (filename)
 .proc command_savebin
 @file=r4
+	jsr irq::disable
 	jsr file::open_w	; open the output filename
 	bcc :+
-	rts			; failed to open file
+	jmp irq::raster		; failed to open file
 :	sta @file
 	; fall through
 .endproc
@@ -2696,8 +2702,9 @@ goto_buffer:
 	jsr file::savebin	; write the binary to file
 	bcs @done		; error
 	lda @file
-	jmp file::close
-@done:	rts
+	jsr file::close
+
+@done:	jmp irq::raster
 .endproc
 
 ;******************************************************************************
@@ -2725,7 +2732,9 @@ goto_buffer:
 	lda #ERR_NO_FILENAME
 	jmp report_typein_error
 
-:	stxy @file
+:	jsr irq::disable
+
+	stxy @file
 @havename:
 	lda overwrite
 	beq @open		; if overwrite flag isn't set, continue
@@ -2749,12 +2758,13 @@ goto_buffer:
 	bne @err
 
 	jsr text::clrinfo	; erase SAVING message
-	jmp src::setflags	; clear flags on the source buffer and return
+	jsr src::setflags	; clear flags on the source buffer and return
+	jmp irq::raster
 
 @err:	pha		; push error code
 	ldxy #strings::edit_file_save_failed
 	jsr text::info
-@ret:	rts
+@ret:	jmp irq::raster
 .endproc
 
 ;******************************************************************************
@@ -2808,6 +2818,7 @@ goto_buffer:
 	cmp src::activebuff
 	bne :+
 	RETURN_OK		; buffer already active; quit
+
 :	pha
 	jsr src::save		; save the current buffer's state
 	pla
@@ -2822,6 +2833,8 @@ goto_buffer:
 
 @notfound:
 ; buffer doesn't exist in any RAM bank, load from disk
+	jsr irq::disable
+
 	ldxy @file
 	jsr file::exists
 	bne @err		; if file doesn't exist, we're done
@@ -2836,7 +2849,6 @@ goto_buffer:
 	bcs @err		; failed to load file
 	pha			; save file handle
 	jsr src::new
-	jsr irq::disable
 	pla			; get the file handle
 	pha
 	jsr file::loadsrc	; load to SOURCE buff
@@ -2867,6 +2879,7 @@ goto_buffer:
 	RETURN_OK
 
 @err:	jsr report_drive_error
+	jsr irq::raster
 	sec
 	rts
 .endproc

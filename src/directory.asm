@@ -9,6 +9,7 @@
 .include "draw.inc"
 .include "edit.inc"
 .include "file.inc"
+.include "irq.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "macros.inc"
@@ -41,19 +42,24 @@ SCREEN_H = 23
 				; 40-41 is load address
 @namebuff=mem::spareend-40	; buffer for the file name
 @fptrs=mem::spareend-(128*2)	; room for 128 files
+	jsr irq::disable
+
 	ldxy #strings::dir
 	jsr file::open_r_prg
 	sta @file
 	bcc :+
-@err:	rts			; error
+@err:	jmp irq::raster		; error
 
 	; load the directory into dirbuff
 :	ldxy #@dirbuff-2
 	stxy __file_load_address
 	jsr file::loadbin
 	bcs @err
+
 	lda @file
 	jsr file::close
+
+	jsr irq::raster
 
 	; reset the screen so that we can print the file names normally
 	jsr scr::reset
@@ -261,7 +267,6 @@ SCREEN_H = 23
 	jmp edit::load		; load the file
 
 @exit:  jmp scr::restore
-
 .PUSHSEG
 .RODATA
 @dirmsg: .byte "disk:",0
