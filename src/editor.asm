@@ -1961,9 +1961,6 @@ force_enter_insert=*+5
 @cont:	jsr src::on_last_line
 	beq @quit			; no next line to join
 
-	jsr bumpup
-	inc zp::cury			; bumpup DEC's cury, INC it back
-
 	jsr enter_insert		; enter INSERT to get correct x-pos
 	jsr end_of_line			; set curx to the correct index
 	jsr src::down			; go to the next line
@@ -1971,7 +1968,22 @@ force_enter_insert=*+5
 	jsr src::pushp
 	jsr src::home			; go to the start of the new joined line
 	jsr src::get			; refresh the linebuffer
+	jsr text::rendered_line_len
+	cpx #40
+	bcc :+
 	jsr src::popgoto
+	lda #$0d
+	jsr src::insert			; re-add the newline
+	jsr src::prev
+	jsr src::pushp
+	jsr src::home
+	jsr src::get			; restore the line
+	jmp :++
+:	jsr text::savebuff
+	jsr bumpup
+	inc zp::cury			; bumpup DEC's cury, INC it back
+	jsr text::restorebuff
+:	jsr src::popgoto
 	lda zp::cury
 	jsr text::drawline
 	jmp enter_command
@@ -3873,7 +3885,7 @@ goto_buffer:
 
 @noscroll:
 	; go to the bottom row and read the line that was moved up
-	jsr src::pushp	; save current source pos
+	jsr src::pushp		; save current source pos
 	lda height
 	sec
 	sbc zp::cury
