@@ -1,4 +1,5 @@
 ### TODO
+- [ ] Don't paste when it would create line > 40 columns
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor
   - [ ] Show current scope in status bar (why not)

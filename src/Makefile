@@ -61,17 +61,17 @@ install.d81: installer.prg $(CART_IMAGE)
 
 start-cart: $(CART_IMAGE) test.d81
 	$(C1541) -format disk,1 d81 empty.d81
-	$(XVIC) +warp -cartfe $(CART_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -drive8type 1581 -8 empty.d81 -moncommands moncommands
+	$(XVIC) +warp -sound -cartfe $(CART_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -drive8type 1581 -8 empty.d81 -moncommands moncommands
 
 start-disk: test.d81
-	$(XVIC) +warp -cartfe $(FE3BIN) -memory all -ntsc -drive8type 1581 -8 test.d81
+	$(XVIC) +warp -sound -cartfe $(FE3BIN) -memory all -ntsc -drive8type 1581 -8 test.d81
 
 start-install: install.d81
 	cp fe3vice.bin fw-test.bin
-	$(XVIC) +warp -cartfe fw-test.bin -fewriteback -memory all -ntsc -drive8type 1581 -8 install.d81
+	$(XVIC) +warp -sound -cartfe fw-test.bin -fewriteback -memory all -ntsc -drive8type 1581 -8 install.d81
 
 start-test: $(TEST_IMAGE) test.d81
-	$(XVIC) +warp -cartfe $(TEST_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -moncommands moncommands
+	$(XVIC) +warp -sound -cartfe $(TEST_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -moncommands moncommands
 
 vstart:
 	# $(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -cartfe $(FE3BIN) -memory all -ntsc +drive10truedrive -virtualdev10 -10 test.d81

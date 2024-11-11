@@ -7,6 +7,7 @@
 ;******************************************************************************
 
 .include "asm.inc"
+.include "beep.inc"
 .include "bitmap.inc"
 .include "breakpoints.inc"
 .include "codes.inc"
@@ -1482,7 +1483,7 @@ force_enter_insert=*+5
 
 	jsr buff::lines_copied
 	cmp #$00
-	beq @noscroll
+	beq @scrolldone
 
 	pha			; save scroll amount
 	tay			; .Y = number of rolls to scroll
@@ -1501,7 +1502,7 @@ force_enter_insert=*+5
 	pla
 	jsr draw::scrollcolorsd
 
-@noscroll:
+@scrolldone:
 	ldx @splitindex	; get index of text to save
 	ldy #$00
 	; save the part of the line that we're inserting BEFORE
@@ -1970,7 +1971,10 @@ force_enter_insert=*+5
 	jsr src::get			; refresh the linebuffer
 	jsr text::rendered_line_len
 	cpx #40
-	bcc :+
+	bcc @bump
+
+	; the join would have made the line too long, undo the newline deletion
+	jsr beep::short
 	jsr src::popgoto
 	lda #$0d
 	jsr src::insert			; re-add the newline
@@ -1978,12 +1982,13 @@ force_enter_insert=*+5
 	jsr src::pushp
 	jsr src::home
 	jsr src::get			; restore the line
-	jmp :++
-:	jsr text::savebuff
+	jmp @done
+
+@bump:	jsr text::savebuff
 	jsr bumpup
 	inc zp::cury			; bumpup DEC's cury, INC it back
 	jsr text::restorebuff
-:	jsr src::popgoto
+@done:	jsr src::popgoto
 	lda zp::cury
 	jsr text::drawline
 	jmp enter_command

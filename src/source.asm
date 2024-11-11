@@ -482,17 +482,6 @@ data: .res $6000
 	dec @cnt
 	bne @l2
 
-	; decrement any breakpoint file IDs greater than the active buffer's
-	; TODO: delete this?
-	ldx dbg::numbreakpoints
-	beq @cont
-@l3:	lda activesrc
-	cmp dbg::breakpoint_fileids,x
-	bcs :+
-	dec dbg::breakpoint_fileids,x
-:	dex
-	bpl @l3
-
 @cont:	; if there is no next buffer, open the previous
 	dec numsrcs
 	lda activesrc
