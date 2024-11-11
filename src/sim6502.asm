@@ -140,6 +140,7 @@ __sim_stopwatch: .res 3
 	jsr @isjam
 	bne :+
 	inc __sim_jammed
+	ldxy __sim_pc	; return same PC
 	rts
 
 :	cmp #$20	; JSR?
@@ -283,9 +284,13 @@ __sim_stopwatch: .res 3
 	dex
 	bpl :-
 @done:	rts
-@jamops: 
+
+.PUSHSEG
+.RODATA
+@jamops:
 .byte $02, $12, $22, $32, $42, $52, $62, $72, $92, $B2, $D2, $F2
 @numjams=*-@jamops
+.POPSEG
 
 .endproc
 

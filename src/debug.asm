@@ -1185,9 +1185,10 @@ restore_regs:
 	jsr asm::disassemble	; disassemble it to get its size (BRK offset)
 	stx sim::op_mode
 	bcc @ok
-	rts		; return error
+	lda #$01		; unrecognized op, treat next opcode as 1 byte
+				; TODO: give warning?
 
-@ok:	pha		; save instruction size
+@ok:	pha			; save instruction size
 
 	; preemptively disable mem swapping
 	; unless we encounter ROM for the next target (in which case we will
