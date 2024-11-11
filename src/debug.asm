@@ -857,9 +857,9 @@ brkhandler2_size=*-brkhandler2
 	sta zp::jmpvec+1
 
 	jsr zp::jmpaddr		; call the command
+	jsr cur::on
 
 @finishlooptui:
-	jsr cur::on
 	lda __debug_interface
 	bne @loopdone
 
@@ -1318,6 +1318,7 @@ restore_regs:
 
 @tui:	lda #REGISTERS_LINE-1
 	CALL FINAL_BANK_CONSOLE, #con::puts
+	clc
 	rts
 
 @gui:	lda #REGISTERS_LINE-1
@@ -2222,11 +2223,9 @@ num_commands=*-commands
 
 .linecont +
 .define command_vectors quit, edit_source, __debug_step, __debug_step_over, \
-	__debug_go, jump, \
-	__debug_step_out, \
-	__debug_trace, edit_source, edit_mem, edit_breakpoints, \
-	__debug_edit_watches, __debug_swap_user_mem, reset_stopwatch, \
-	edit_state, \
+	__debug_go, jump, __debug_step_out, __debug_trace, edit_source, \
+	edit_mem, edit_breakpoints, __debug_edit_watches, \
+	__debug_swap_user_mem, reset_stopwatch, edit_state, \
 	goto_break, activate_monitor
 .linecont -
 command_vectorslo: .lobytes command_vectors
