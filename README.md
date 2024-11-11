@@ -174,6 +174,7 @@ Most accept an argument (as described in each commands description below)
 | P | export .PRG       | Filename                        | exports the active assembly to a .PRG file                   |
 | r | Rename            | Name                            | renames the buffer to the given name                         |
 | s | Save              | Filename                        | saves the buffer to the given filename                       |
+| S | Save All          |   N/A                           | saves all modified buffers that are open currently           |
 | x | Scratch           | Filename                        | scratches (deletes) the given filename                       |
 
 #### Assemble File :a <filename>
@@ -245,12 +246,20 @@ Example:
 Saves the active buffer to a file with the given name.  If no name is given,
 the active buffer's name is used.
 
-Adding an `@` to this command (`S@`) will delete the file before saving. This
+Adding an `@` to this command (`s@`) will delete the file before saving. This
 allows you to overwrite the existing file if it exists.
 
 Examples:
 `:s NEW.S`
 `:s@ OLD.S`
+
+#### Save All :S
+Saves all buffers that have been modified since they were last saved.
+As with the _Save_ command, adding `@` to the command (`S@`) will overwrite
+existing files if they exist.
+
+Example:
+`:S@`
 
 #### Scratch :x <filename>
 Deletes the file of the given name.
