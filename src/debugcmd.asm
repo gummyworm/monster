@@ -531,7 +531,7 @@
 .proc step
 	CALL FINAL_BANK_MAIN, #dbg::step
 
-	inc con::quit		; send QUIT signal
+	inc con::quit	; send QUIT signal
 	rts
 .endproc
 
@@ -541,12 +541,30 @@
 ; treated as one instruction
 ; instruction
 .proc step_over
+	CALL FINAL_BANK_MAIN, #dbg::step_over
+
+	inc con::quit	; send QUIT signal
+	rts
+.endproc
+
+;******************************************************************************
+; TRACE
+; Starts TRACE'ing the program.
+.proc trace
+	CALL FINAL_BANK_MAIN, #dbg::trace
+
+	inc con::quit	; send QUIT signal
+	rts
 .endproc
 
 ;******************************************************************************
 ; GO
 ; Continues program execution at the current PC
 .proc go
+	CALL FINAL_BANK_MAIN, #dbg::go
+
+	inc con::quit	; send QUIT signal
+	rts
 .endproc
 
 ;******************************************************************************
@@ -557,12 +575,20 @@
 ; An optional offset from the stack pointer can be given to adjust the
 ; stack's start location
 .proc backtrace
+	CALL FINAL_BANK_MAIN, #dbg::step_out
+
+	inc con::quit	; send QUIT signal
+	rts
 .endproc
 
 ;******************************************************************************
 ; STEP_OUT
 ; Continues execution til the current subroutine returns with an RTS
 .proc step_out
+	CALL FINAL_BANK_MAIN, #dbg::step_out
+
+	inc con::quit	; send QUIT signal
+	rts
 .endproc
 
 ;******************************************************************************
@@ -630,6 +656,7 @@ commands:
 .byte "d",0	; disassembles from the given address
 .byte "a",0	; assembles the given instruction given address
 .byte "m",0	; show contents of memory at the given address
+.byte "t",0	; start TRACE'ing
 .byte "x",0	; quit the debugger
 .byte "z",0	; step to the next instruction
 .byte "n",0	; step over the next instruction

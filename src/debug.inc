@@ -10,6 +10,7 @@
 .import __debug_edit_watches
 .import __debug_gotoaddr
 .import __debug_load_file
+.import __debug_go
 .import __debug_init
 .import __debug_interface
 .import __debug_numbreakpoints
@@ -23,6 +24,9 @@
 .import __debug_shift_breakpointsu
 .import __debug_start
 .import __debug_step
+.import __debug_step_out
+.import __debug_step_over
+.import __debug_trace
 .import __debug_swap_user_mem
 .import __debug_watcheslo
 .import __debug_watcheshi
@@ -45,6 +49,7 @@
 	edit_watches       = __debug_edit_watches
 	gotoaddr           = __debug_gotoaddr
 	loadfile           = __debug_load_file
+	go                 = __debug_go
 	init               = __debug_init
 	interface          = __debug_interface
 	numbreakpoints     = __debug_numbreakpoints
@@ -57,7 +62,10 @@
 	shift_breakpointsu = __debug_shift_breakpointsu
 	start              = __debug_start
 	step               = __debug_step
+	step_out           = __debug_step_out
+	step_over          = __debug_step_over
 	swapusermem        = __debug_swap_user_mem
+	trace              = __debug_trace
 	watcheslo          = __debug_watcheslo
 	watcheshi          = __debug_watcheshi
 	watches_stoplo	   = __debug_watches_stoplo

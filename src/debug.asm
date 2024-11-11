@@ -152,6 +152,8 @@ highlight_file:   .word 0	; filename of line we are highlighting
 
 action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
+brkcond: .word 0	; if !0, address to handler to break TRACE on
+
 .export debugger_sp
 debugger_sp: .byte 0	; stack pointer (SP) for debugger
 
@@ -647,8 +649,8 @@ brkhandler2_size=*-brkhandler2
 	and #$02	; was the interrupt from RESTORE (CA1)?
 	beq @notnmi
 
-; An NMI interrupt occurred while we were returning to the user
-; program (while we were still in the NMI/BRK ISR).
+; An NMI interrupt occurred while we were returning to the user program (while
+; we were still in the NMI/BRK ISR).
 ; Most commonly this will occur during tracing.  When tracing, we don't
 ; acknowledge NMI's because that is how the user breaks from the trace.
 ; If there is a pending NMI (there was a rising edge on CA1 while the debugger
@@ -759,7 +761,7 @@ brkhandler2_size=*-brkhandler2
 @stepout:
 	lda stepsave		; get the opcode we BRK'd on
 	pha
-	jsr step_out		; run one more STEP to get out of subroutine
+	jsr __debug_step_out	; run one more STEP to get out of subroutine
 	pla			; get previous opcode
 	cmp #$60		; RTS opcode
 	bne @continue_debug
@@ -776,7 +778,7 @@ brkhandler2_size=*-brkhandler2
 	jsr get_breakpoint
 	bcs :+			; not a breakpoint, continue tracing
 	bcc @reset_state	; return control to debugger
-:	jsr trace		; run the next step of the trace
+:	jsr __debug_trace	; run the next step of the trace
 	jmp @continue_debug
 
 @reset_state:
@@ -989,7 +991,8 @@ restore_regs:
 ;******************************************************************************
 ; GO
 ; Runs the user program until the next breakpoint or an NMI occurs
-.proc go
+.export __debug_go
+.proc __debug_go
 	; for the first instruction, just STEP, this lets us keep the breakpoint
 	; we are on (if there is one) intact
 	jsr __debug_step
@@ -1019,7 +1022,8 @@ restore_regs:
 ;******************************************************************************
 ; STEP OUT
 ; Runs the user program until the next RTS is executed
-.proc step_out
+.export __debug_step_out
+.proc __debug_step_out
 	; for the first instruction, just STEP, this lets us keep the breakpoint
 	; we are on (if there is one) intact
 	jsr __debug_step
@@ -1032,7 +1036,8 @@ restore_regs:
 ; TRACE
 ; Puts the debugger into TRACE mode and steps to the next instruction to
 ; begin the trace
-.proc trace
+.export __debug_trace
+.proc __debug_trace
 	jsr __debug_step
 	lda #ACTION_TRACE
 	sta action
@@ -1155,7 +1160,8 @@ restore_regs:
 ; the current instruction and RUNning.
 ; Unlike STEP, if the next procedure is a JSR, execution will continue
 ; at the line after the subroutine (after the subroutine has run)
-.proc step_over
+.export __debug_step_over
+.proc __debug_step_over
 	lda #$00
 	sta sw_valid		; invalidate stopwatch
 
@@ -1303,9 +1309,16 @@ restore_regs:
 ; instruction
 .proc jam_detected
 	ldxy #strings::jam_detected
-	lda #REGISTERS_LINE-1
+	lda __debug_interface
+	beq @gui
+
+@tui:	lda #REGISTERS_LINE-1
+	CALL FINAL_BANK_CONSOLE, #con::puts
+	rts
+
+@gui:	lda #REGISTERS_LINE-1
 	jsr text::print
-:	jsr key::getch
+:	jsr key::getch		; wait for keypress
 	beq :-
 	rts
 .endproc
@@ -2204,9 +2217,12 @@ commands:
 num_commands=*-commands
 
 .linecont +
-.define command_vectors quit, edit_source, __debug_step, step_over, go, jump, step_out, \
-	trace, edit_source, edit_mem, edit_breakpoints, __debug_edit_watches, \
-	__debug_swap_user_mem, reset_stopwatch, edit_state, \
+.define command_vectors quit, edit_source, __debug_step, __debug_step_over, \
+	__debug_go, jump, \
+	__debug_step_out, \
+	__debug_trace, edit_source, edit_mem, edit_breakpoints, \
+	__debug_edit_watches, __debug_swap_user_mem, reset_stopwatch, \
+	edit_state, \
 	goto_break, activate_monitor
 .linecont -
 command_vectorslo: .lobytes command_vectors
