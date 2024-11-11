@@ -2539,14 +2539,15 @@ goto_buffer:
 ; IN:
 ;  - .XY: the command parameter (the name to give to the buffer)
 .proc command_rename
-@file=r4
+@file=zp::editortmp
 	stxy @file
-	jsr dbgi::getfileid	; .A = id of the file
+	jsr dbgi::getfileid			; .A = id of the file
 	bcs @ok
 	RETURN_ERR ERR_BUFFER_NAME_EXISTS	; the chosen name is taken
 
 @ok:	jsr src::filename	; check if there is already a name
 	bcs @new		; no debug ID for current file, create one
+
 @rename:
 	; ID exists for the current buffer, rename it
 	jsr dbgi::getfileid	; get the ID from the existing name
