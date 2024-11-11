@@ -21,6 +21,7 @@
 .import __str_memview_title
 .import __str_loading
 .import __str_run
+.import __str_saveall
 .import __str_saving
 .import __str_segments
 .import __str_symview_title
@@ -63,6 +64,7 @@
 	loading                 = __str_loading
 	null                    = __str_null
 	saving                  = __str_saving
+	saveall			= __str_saveall
 	symview_title           = __str_symview_title
 	invalid_command         = __str_invalid_command
 	jam_detected            = __str_jam_detected

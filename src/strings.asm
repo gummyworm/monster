@@ -87,6 +87,9 @@ __str_invalid_command: .byte "invalid command", 0
 .export __str_jam_detected
 __str_jam_detected: .byte "jam detected",0
 
+.export __str_saveall
+__str_saveall: .byte "save all buffers? (y/n)",0
+
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA
 .DATA

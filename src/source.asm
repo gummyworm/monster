@@ -378,6 +378,23 @@ data: .res $6000
 .endproc
 
 ;******************************************************************************
+; ANYDIRTY
+; Returns .Z clear if ANY buffer is dirty (has changed since it was last
+; marked !DIRTY)
+; OUT:
+;  - .Z: clear if any buffer has changed since last flagged clean
+.export __src_anydirty
+.proc __src_anydirty
+	ldy numsrcs
+:	lda flags-1,y
+	and #FLAG_DIRTY
+	bne @done
+	dey
+	bne :-
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; GET_FLAGS
 ; Returns the flags for the requested buffer
 ; IN:

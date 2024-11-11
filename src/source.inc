@@ -3,6 +3,7 @@
 
 .import __src_activebuff
 .import __src_after_cursor
+.import __src_anydirty
 .import __src_atcursor
 .import __src_backspace
 .import __src_before_end
@@ -61,6 +62,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 .scope src
 	activebuff     = __src_activebuff
 	after_cursor   = __src_after_cursor
+	anydirty       = __src_anydirty
 	atcursor       = __src_atcursor
 	backspace      = __src_backspace
 	before_end     = __src_before_end

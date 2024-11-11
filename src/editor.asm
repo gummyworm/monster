@@ -668,10 +668,32 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; PROMPT SAVE ALL
+; Asks the user if they would like to save all modified buffers and does so
+; if they confirm
+.proc prompt_saveall
+	jsr src::anydirty
+	beq @done		; no dirty buffers
+
+	; ask the user if they want to save any modified buffers
+	ldxy #strings::saveall
+	lda #STATUS_ROW
+	jsr text::print
+
+@getch:	jsr key::getch
+	cmp #$79		; 'y'?
+	bne :+
+	jmp command_saveall	; save all dirty buffers
+:	cmp #$6e		; 'n'?
+	bne @getch
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; COMMAND_ASMDBG
 ; assembles the source and generates debug information for it
 .proc command_asmdbg
-	jsr command_saveall	; save all dirty buffers
+	jsr prompt_saveall
 
 	lda #$01
 	sta zp::gendebuginfo	; enable debug info
