@@ -671,8 +671,7 @@ main:	jsr key::getch
 ; COMMAND_ASMDBG
 ; assembles the source and generates debug information for it
 .proc command_asmdbg
-	; TODO: save all dirty buffers
-	; jsr saveall
+	jsr command_saveall	; save all dirty buffers
 
 	lda #$01
 	sta zp::gendebuginfo	; enable debug info
@@ -685,40 +684,48 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
-; SAVEALL
-; Saves all "dirty" named buffers that are open
+; COMMAND SAVE ALL
+; Save all open buffers that have been modified since they were last saved.
+; OUT
+;   - .C: set on error
+.proc command_saveall
+.endproc
 .proc saveall
-@cnt=r0
+@cnt=zp::editortmp
+	lda #$00
+	sta @cnt
+	cmp src::numbuffers
+	beq @retok		; if there are 0 buffers, we're done
+
 	jsr src::pushp		; save current source pos
+	jsr src::save
 	lda src::activebuff
 	pha			; save active buffer
 
-	jsr irq::disable
-
-	lda #$00
-	sta @cnt
-
-@l0:	lda @cnt
-	cmp src::numbuffers
-	beq @done
-
+@l0:	; check if this buffer needs to be saved (is "dirty")
+	lda @cnt
 	jsr src::getflags
-	inc @cnt
 	and #FLAG_DIRTY
-	beq @l0
+	beq @next
 
 	; save the "dirty" buffer to a file of its name
 	lda @cnt
-	jsr src::filename
-	bcs @l0			; buffer has no name
-	lda @cnt
 	jsr src::setbuff
-	jsr file::savesrc
+	jsr src::current_filename
+	bcs @next		; buffer has no name, don't save
+	jsr command_save	; save the buffer's changes
 
-@done:	jsr irq::raster
-	pla
+@next:	inc @cnt		; next buffer
+	lda @cnt
+	cmp src::numbuffers	; have we checked all buffers?
+	bcc @l0			; repeate til we have
+
+@done:	pla			; restore original buffer
 	jsr src::setbuff	; restore buffer
-	jmp src::popgoto	; restore source pos
+	jsr src::popgoto	; restore source pos
+@retok:
+	clc			; ok
+	rts
 .endproc
 
 ;******************************************************************************
@@ -2312,7 +2319,7 @@ __edit_set_breakpoint:
 	ldy zp::cury
 	jsr src::new
 	ldxy #strings::null
-	jsr src::name	; rename buffer to empty name
+	jsr src::name		; rename buffer to empty name
 	lda #$00
 	sta zp::curx
 	sta zp::cury
@@ -2618,6 +2625,7 @@ goto_buffer:
 	.byte $65	; e - open file
 	.byte $72	; r - rename
 	.byte $73	; s - save file
+	.byte $53	; S - save all files
 	.byte $78	; x - scratch file
 	.byte $61	; a - assemble file
 	.byte $44	; D - disassemble
@@ -2628,9 +2636,9 @@ goto_buffer:
 
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
-	command_load, command_rename, command_save, command_scratch, \
-	command_assemble_file, command_disasm, command_disasm_file, \
-	command_savebin, command_saveprg
+	command_load, command_rename, command_save, command_saveall, \
+	command_scratch, command_assemble_file, command_disasm, \
+	command_disasm_file, command_savebin, command_saveprg
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
@@ -2732,6 +2740,8 @@ goto_buffer:
 ; flag ('@') is given, e.g. "s@ file.txt", then the existing file is
 ; overwritten if it exists
 ; If no filename is given, then the buffer name is used as the filename
+; IN:
+;   - .XY: the filename of the file to save
 .proc command_save
 @file=r8
 	stxy @file
