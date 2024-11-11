@@ -667,7 +667,7 @@ commands:
 .linecont +
 .define command_vectors add_watch, remove_watch, add_break, remove_break, \
 	fill, move, goto, compare, hunt, __dbgcmd_regs, disasm, assemble, \
-	showmem, quit, step, step_over, go, backtrace, step_out
+	showmem, trace, quit, step, step_over, go, backtrace, step_out
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors

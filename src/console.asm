@@ -150,7 +150,7 @@ __console_quit: .byte 0	; if !0, console will quit when command returns to it
 	CALL FINAL_BANK_MAIN, #edit::gets
 	bcs @clrline
 	pha
-	
+
 	lda line
 	cmp #HEIGHT-1
 	bcc :+
@@ -175,6 +175,7 @@ __console_quit: .byte 0	; if !0, console will quit when command returns to it
 @ok:	lda __console_quit	; was QUIT signal sent?
 	bne @done
 	jmp @prompt
+
 @done:	lda cursave_x
 	sta zp::curx
 	lda cursave_y

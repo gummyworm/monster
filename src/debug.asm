@@ -755,6 +755,9 @@ brkhandler2_size=*-brkhandler2
 	jsr step_restore
 
 	; if we are doing a TRACE, install breakpoints and continue
+	; TODO: replace below with more flexbile condition based BRK (brkcond)
+	; TODO: when we encounter JSR inc counter, on RTS decrement,
+	;       wait for it to be negative to stop stepping
 	lda action
 	cmp #ACTION_STEP_OUT
 	bne :+
@@ -764,8 +767,8 @@ brkhandler2_size=*-brkhandler2
 	jsr __debug_step_out	; run one more STEP to get out of subroutine
 	pla			; get previous opcode
 	cmp #$60		; RTS opcode
-	bne @continue_debug
-	lda #ACTION_STEP
+	bne @continue_debug	; if not RTS, keep stepping out
+	lda #ACTION_STEP	; if we found the RTS, quit
 	sta action		; flag that we're done stepping out
 	bne @continue_debug
 
@@ -818,12 +821,12 @@ brkhandler2_size=*-brkhandler2
 	lda __debug_interface
 	bne @debugloop_tui
 
+@debugloop_gui:
 	jsr text::update
 	jsr key::getch
-	beq @debugloop
+	beq @debugloop_gui
 
 	pha
-
 	jsr cur::off
 	pla
 
@@ -1239,7 +1242,7 @@ restore_regs:
 	jmp jam_detected
 
 @nojam:	; check if next instruction is in ROM
-	; If so, we can't step, our "step" wil actually be more like a "go".
+	; If so, we can't step IN, we must step OVER
 	; re-increment swapmem to force full RAM swap
 	cmpw #$c000
 	bcc @notrom
