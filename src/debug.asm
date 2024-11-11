@@ -1018,6 +1018,8 @@ restore_regs:
 	jsr dbgi::line2addr
 	bcs @done		; couldn't resolve address
 	stxy sim::pc
+	jsr __debug_gotoaddr
+	jmp edit::sethighlight
 @done:	rts
 .endproc
 
