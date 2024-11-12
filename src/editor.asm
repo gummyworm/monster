@@ -260,9 +260,14 @@ main:	jsr key::getch
 .proc command_debug
 @addr=zp::editortmp
 	lda debugging
-	bne @ret	; if already debugging, don't do anything
+	bne @ret		; if already debugging, don't do anything
 
-	jsr label_addr_or_org
+	jsr src::anydirty
+	beq :+
+	jsr prompt_saveall	; ask user if they want to save buffers
+	jsr prompt_assemble	; prompt to re-assemble
+
+:	jsr label_addr_or_org
 	stxy @addr
 	bcc :+
 @ret:	rts		; address not found
@@ -671,6 +676,8 @@ main:	jsr key::getch
 ; PROMPT SAVE ALL
 ; Asks the user if they would like to save all modified buffers and does so
 ; if they confirm
+; OUT:
+;   - .C: set on error
 .proc prompt_saveall
 	jsr src::anydirty
 	beq @done		; no dirty buffers
@@ -686,7 +693,27 @@ main:	jsr key::getch
 	jmp command_saveall	; save all dirty buffers
 :	cmp #$6e		; 'n'?
 	bne @getch
-@done:	rts
+@done:	RETURN_OK
+.endproc
+
+;******************************************************************************
+; PROMPT ASSEMBLE
+; Asks the user if they would like to reassemble their program and does so
+; if they confirm
+; OUT:
+;   - .C: set on error
+.proc prompt_assemble
+	; ask the user if they want to save any modified buffers
+	ldxy #strings::assemble_prompt
+	lda #STATUS_ROW
+	jsr text::print
+
+@getch:	jsr key::getch
+	cmp #$79		; 'y'?
+	beq :+			; reassemble (in command_asmdbg)
+	cmp #$6e		; 'n'?
+	bne @getch
+@done:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -695,7 +722,7 @@ main:	jsr key::getch
 .proc command_asmdbg
 	jsr prompt_saveall
 
-	lda #$01
+:	lda #$01
 	sta zp::gendebuginfo	; enable debug info
 	jsr command_asm
 	bcs @done		; error

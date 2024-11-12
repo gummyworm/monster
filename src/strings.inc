@@ -1,3 +1,4 @@
+.import __str_assemble_prompt
 .import __str_assembling
 .import __str_buffers
 .import __str_noname
@@ -35,6 +36,7 @@
 .import __str_jam_detected
 
 .scope strings
+	assemble_prompt       = __str_assemble_prompt
 	assembling            = __str_assembling
 	buffers               = __str_buffers
 	noname                = __str_noname

@@ -90,6 +90,9 @@ __str_jam_detected: .byte "jam detected",0
 .export __str_saveall
 __str_saveall: .byte "save all buffers? (y/n)",0
 
+.export __str_assemble_prompt
+__str_assemble_prompt: .byte "program out of date, reassemble? (y/n)",0
+
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA
 .DATA
