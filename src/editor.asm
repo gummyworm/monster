@@ -262,15 +262,15 @@ main:	jsr key::getch
 	lda debugging
 	bne @ret		; if already debugging, don't do anything
 
-	jsr src::anydirty
-	beq :+
-	jsr prompt_saveall	; ask user if they want to save buffers
-	jsr prompt_assemble	; prompt to re-assemble
-
-:	jsr label_addr_or_org
+	jsr label_addr_or_org	; get address to begin debugging at
 	stxy @addr
 	bcc :+
-@ret:	rts		; address not found
+@ret:	rts			; address not found
+
+	jsr src::anydirty
+	beq :+			; if no dirty buffers, continue
+	jsr prompt_saveall	; ask user if they want to save buffers
+	jsr prompt_assemble	; prompt to re-assemble
 
 :	jsr enter_command
 
@@ -1081,7 +1081,19 @@ force_enter_insert=*+5
 	adc zp::curx
 	sta zp::curx
 	dec zp::curx
-:	jsr ccleft	; insert places cursor after char
+:	lda #MODE_COMMAND
+	sta mode
+	jsr ccleft	; insert places cursor after char
+
+	; if we're on a TAB after moving left, move to the end of it
+	jsr src::after_cursor
+	cmp #$09
+	bne @done
+	jsr text::tabr_dist
+	clc
+	adc zp::curx
+	sta zp::curx
+	dec zp::curx
 
 @done:  lda #MODE_COMMAND
 	sta mode
