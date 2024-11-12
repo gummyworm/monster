@@ -4279,6 +4279,14 @@ goto_buffer:
 	lda @cnt
 	jsr text::index2cursor
 	stx zp::curx
+
+	; move source cursor to the correct offset
+	lda @cnt
+	beq @done
+:	jsr src::next
+	dec @cnt
+	bne :-
+
 @done:	rts
 .endproc
 
