@@ -20,6 +20,8 @@ DEBUG_REG_CHANGED_COLOR = 2  ; color for register that was changed during STEP
 
 CUR_BLINK_SPEED = 250	; number of updates before blink
 
+MAX_SEARCH_LEN = 16	; max size of search term in "find"
+
 ;******************************************************************************
 ; SOURCE FORMATTING
 TAB_WIDTH = 10

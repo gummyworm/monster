@@ -868,6 +868,7 @@ main:	jsr key::getch
 ; IN:
 ;  - .XY: a prompt to display or $0000 for no prompt
 ; OUT:
+;  - .XY: address to the buffer that was read
 ;  - .C: set if no input was read (the user pressed <-)
 .proc readinput
 @prompt=r2
@@ -1948,6 +1949,14 @@ force_enter_insert=*+5
 	jsr ccup	; move UP until cursor is at top row
 	bcc @l0
 @done:	jmp home
+.endproc
+
+;*******************************************************************************
+; FIND NEXT
+; Navigates to the next match for the last FIND command
+.proc find_next
+	ldxy #mem::findbuff
+	jmp __edit_find
 .endproc
 
 ;*******************************************************************************
@@ -4123,8 +4132,16 @@ goto_buffer:
 .proc command_find
 	ldxy #$0000
 	jsr readinput
+
+	; copy (.XY) to the find buffer
+	lda #<mem::findbuff
+	sta r0
+	lda #>mem::findbuff
+	sta r0+1
+	jsr str::copy
+
+	ldy #$01		; MSB of the readinput buffer
 	jmp __edit_find
-@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -4156,7 +4173,6 @@ goto_buffer:
 .proc __edit_find
 @string=zp::str0
 @seekptr=zp::str2
-@tofind=r2
 @target=r8
 @len=ra
 @cnt=rd
@@ -4171,7 +4187,9 @@ goto_buffer:
 	lda #$00
 	sta @cnt
 
-; fill the search buffer (16 bytes)
+	jsr src::next	; start search AFTER character we're on
+
+; fill the search buffer (MAX_SEARCH_LEN bytes)
 @l0:	jsr src::next
 	jsr src::end
 	bne :+
@@ -4179,10 +4197,10 @@ goto_buffer:
 :	ldy @cnt
 	sta @searchbuff,y
 	inc @cnt
-	cpy #15
+	cpy #MAX_SEARCH_LEN-1
 	bne @l0
 
-	ldxy #@searchbuff
+:	ldxy #@searchbuff
 	stxy @seekptr
 
 ; see if the text we're looking for is in the buffer
@@ -4197,7 +4215,7 @@ goto_buffer:
 @l1:	lda @searchbuff+1,x
 	sta @searchbuff,x
 	inx
-	cpx #15
+	cpx #MAX_SEARCH_LEN-1
 	bcc @l1
 
 	; get a new byte (use 0 if EOF)
@@ -4205,7 +4223,7 @@ goto_buffer:
 	jsr src::end
 	beq :+
 	jsr src::next
-:	ldy #15
+:	ldy #MAX_SEARCH_LEN-1
 	sta (@seekptr),y
 	jmp @seekloop		; if not EOF, keep seeking
 
@@ -4224,16 +4242,17 @@ goto_buffer:
 	bne :+
 	decw @target
 :	iny
-	cpy #16
+	cpy #MAX_SEARCH_LEN
 	bne @l2
 
-	; move source back to 1st matching character by retreating 16 bytes
-	lda #15
+	; move source back to 1st matching character by retreating
+	; MAX_SEARCH_LEN bytes
+	lda #MAX_SEARCH_LEN-1
 	sta @cnt
 @l3:	ldx @cnt
 	lda @searchbuff,x
 	beq :+
-	jsr src::prev	; go back 16 bytes (to get to start of buffer)
+	jsr src::prev	; go back MAX_SEARCH_LEN bytes (back to start of buffer)
 :	dec @cnt
 	bpl @l3
 
@@ -4318,6 +4337,7 @@ __edit_gotoline:
 	lda zp::cury
 	clc
 	adc @diff
+	bcs @long	; if carry is set, must be long
 	cmp height
 	bcc @short
 	jmp @long
@@ -4825,6 +4845,7 @@ commands:
 	.byte $20		; SPACE (right)
 	.byte $47		; G (goto end)
 	.byte $67		; g (goto start)
+	.byte $6e		; n (go to next search result)
 	.byte $4f		; O (Open line above cursor)
 	.byte $6f		; o (Open line below cursor)
 	.byte $4a		; J (join line)
@@ -4851,7 +4872,7 @@ numcommands=*-commands
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, paste_below, paste_above, delete_char, \
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
-	goto_start, open_line_above, open_line_below, join_line, end_of_line, \
+	goto_start, find_next, open_line_above, open_line_below, join_line, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
 	command_find, next_drive, prev_drive, get_command, mon, next_err
