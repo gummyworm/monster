@@ -377,7 +377,7 @@ anon_addrs: .res MAX_ANON*2
 	iny
 	bne :-
 
-@lenfound:	
+@lenfound:
 	ldxy @name
 	jsr find
 	bcs @insert
@@ -871,7 +871,8 @@ anon_addrs: .res MAX_ANON*2
 @table=r0
 	jsr find	; get the id in YX
 	bcc :+
-	RETURN_ERR ERR_LABEL_UNDEFINED
+	lda #ERR_LABEL_UNDEFINED
+	rts
 
 :	txa
 	asl
@@ -1267,7 +1268,7 @@ anon_addrs: .res MAX_ANON*2
 	iny
 	bcc @l1
 @err:	RETURN_ERR ERR_ILLEGAL_LABEL
-@toolong: 
+@toolong:
 	RETURN_ERR ERR_LABEL_TOO_LONG
 @done:	RETURN_OK
 .endproc

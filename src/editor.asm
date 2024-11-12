@@ -2006,18 +2006,26 @@ force_enter_insert=*+5
 
 :	jsr src::popgoto
 	ldy @len
-	beq @ret		; no symbol under cursor, exit
+	beq @err		; no symbol under cursor, exit
 	lda #$00
 	sta (@word),y
 	ldxy #mem::spare
 	jsr str::toupper
 	ldxy #mem::spare
 	jsr lbl::addr		; get the address of the line
+	bcs @err
 	stxy @addr
-	bcs @ret		; no address found
-	jsr add_jump_point
+	bcc @ok
+
+@err:	jsr beep::short
+	sec
+	rts
+
+@ok:	jsr add_jump_point
 	ldxy @addr
-	jmp dbg::gotoaddr	; goto it
+	jsr dbg::gotoaddr	; goto it
+	bcs @err
+	rts
 .endproc
 
 ;*******************************************************************************
