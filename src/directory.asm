@@ -74,6 +74,11 @@ SCREEN_H = 23
 	lda #$01
 	sta @select
 
+	; highlight disk name row
+	ldx #$00
+	lda #DEFAULT_RVS
+	jsr draw::hline
+
 @getdiskname:
 	ldx #@dirmsglen
 :	lda @dirmsg-1,x
@@ -147,8 +152,9 @@ SCREEN_H = 23
 :	stx @scrollmax
 
 	; highlight the first item
-	lda @select
-	jsr bm::rvsline
+	ldx @select
+	lda #DEFAULT_RVS
+	jsr draw::hline
 
 ; at the end of the screen, get user input for page up/down
 @key:	jsr key::getch
@@ -162,8 +168,9 @@ SCREEN_H = 23
 	jsr key::isdown
 	bne @checkup
 @rowdown:
-	lda @select
-	jsr bm::rvsline		; deselect the current selection
+	ldx @select
+	lda #DEFAULT_900F
+	jsr draw::hline		; deselect the current selection
 	inc @select
 	lda @select
 	cmp @row
@@ -203,8 +210,9 @@ SCREEN_H = 23
 	bne @checkret
 
 @rowup:
-	lda @select
-	jsr bm::rvsline		; deselect the current selection
+	ldx @select
+	lda #DEFAULT_900F
+	jsr draw::hline		; deselect the current selection
 	dec @select
 	bne @hiselection
 	inc @select		; lowest selectable row is 1
@@ -235,7 +243,9 @@ SCREEN_H = 23
 @hiselection:
 	lda @select
 @hiline:
-	jsr bm::rvsline
+	tax
+	lda #DEFAULT_RVS
+	jsr draw::hline
 	jmp @key
 
 ; check the RETURN key (to open a file)
