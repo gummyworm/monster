@@ -1107,7 +1107,10 @@ force_enter_insert=*+5
 ; ENTER VISUAL
 ; Enters VISUAL mode
 .proc enter_visual
-	jsr cur::on
+	jsr is_visual
+	bne :+
+	rts		; already in VISUAL mode
+:	jsr cur::on
 
 	lda #MODE_VISUAL
 	sta mode
@@ -1133,7 +1136,11 @@ force_enter_insert=*+5
 ; ENTER VISUAL LINE
 ; Enters VISUAL_LINE mode
 .proc enter_visual_line
-	jsr enter_visual
+	jsr is_visual
+	bne :+
+	rts		; already in VISUAL mode
+
+:	jsr enter_visual
 	jsr cur::off
 	lda #MODE_VISUAL_LINE
 	sta mode
