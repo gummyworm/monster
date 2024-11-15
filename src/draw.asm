@@ -77,6 +77,8 @@
 	clc
 	adc @n
 	tay
+	cmp @last
+	bcs @done		; if first row + n >= last row, don't scroll
 @l0:	lda mem::rowcolors,y	; start+.X
 	sta mem::rowcolors,x	; start+.A+.X
 	inx
@@ -85,7 +87,7 @@
 	bne @l0
 	lda #DEFAULT_900F
 	sta mem::rowcolors,x	; clear last row
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
