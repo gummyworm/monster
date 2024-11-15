@@ -2057,8 +2057,7 @@ force_enter_insert=*+5
 
 	jsr enter_insert		; enter INSERT to get correct x-pos
 	jsr end_of_line			; set curx to the correct index
-	jsr src::down			; go to the next line
-	jsr src::backspace		; delete the newline
+	jsr src::delete
 	jsr src::pushp
 	jsr src::home			; go to the start of the new joined line
 	jsr src::get			; refresh the linebuffer
@@ -2078,8 +2077,8 @@ force_enter_insert=*+5
 	jmp @done
 
 @bump:	jsr text::savebuff
+	inc zp::cury
 	jsr bumpup
-	inc zp::cury			; bumpup DEC's cury, INC it back
 	jsr text::restorebuff
 @done:	jsr src::popgoto
 	lda zp::cury
