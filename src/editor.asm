@@ -1960,6 +1960,14 @@ force_enter_insert=*+5
 .endproc
 
 ;*******************************************************************************
+; FIND PREV
+; Navigates to the previous match for the last FIND command
+.proc find_prev
+	ldxy #mem::findbuff
+	jmp __edit_find_prev
+.endproc
+
+;*******************************************************************************
 .proc goto_end
 	jsr add_jump_point
 	ldxy #$ffff
@@ -4165,6 +4173,19 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
+; FIND_PREV
+; Searches for the text given in .YX and moves the cursor to it if it's
+; found.  Unlike "FIND", the search is performed backwards
+; IN:
+;  - .YX: the text to find (0-terminated)
+.proc __edit_find_prev
+	lda #$00
+	skw
+
+	; fall through to FIND
+.endproc
+
+;******************************************************************************
 ; FIND
 ; Searches for the text given in .YX and moves the cursor to it if it's
 ; found
@@ -4176,7 +4197,11 @@ goto_buffer:
 @target=r8
 @len=ra
 @cnt=rd
+@forward=re
 @searchbuff=$120	; buffer of bytes to search
+	lda #$01
+	sta @forward
+
 	stxy @string
 	jsr str::len
 	sta @len
@@ -4184,23 +4209,58 @@ goto_buffer:
 	rts		; if 0-length string, don't search
 
 :	jsr src::pushp	; save source position
-	lda #$00
+
+	; set the index to begin storing characters at:
+	; 0 if searching forward, MAX_SEARCH_LEN-1 if searching backward
+	lda @forward
+	bne :+
+	lda #MAX_SEARCH_LEN-1
+	skw
+:	lda #$00
 	sta @cnt
 
 	jsr src::next	; start search AFTER character we're on
 
 ; fill the search buffer (MAX_SEARCH_LEN bytes)
-@l0:	jsr src::next
-	jsr src::end
+@l0:	lda @forward
 	bne :+
-	lda #$00
+	jsr src::prev	; backward
+	jsr src::start	; are we at start of source?
+	jmp @l0next
+
+:	jsr src::next	; forward
+	jsr src::end	; are we at end of source?
+
+@l0next:
+	bne :+			; if not at start/end of source, continue
+	lda #$00		; at start/end of source, terminate buffer
 :	ldy @cnt
-	sta @searchbuff,y
+	sta @searchbuff,y	; copy char to search buffer
+
+	lda @forward
+	bne @searchfwd
+
+@searchbwd:
+	dec @cnt		; have we filled buffer?
+	bpl @l0			; repeat til we have
+
+	; seekptr = searchbuff + MAX_SEARCH_LEN - len
+	lda #<(@searchbuff+MAX_SEARCH_LEN-1)
+	sec
+	sbc @len
+	tax
+	sta @seekptr
+	ldy #>(@searchbuff+MAX_SEARCH_LEN-1)
+	sty @seekptr+1
+	bne @seekloop		; enter the main seek loop (branch always)
+
+@searchfwd:
 	inc @cnt
 	cpy #MAX_SEARCH_LEN-1
 	bne @l0
 
-:	ldxy #@searchbuff
+	; seekptr = searchbuff
+	ldxy #@searchbuff
 	stxy @seekptr
 
 ; see if the text we're looking for is in the buffer
@@ -4209,30 +4269,85 @@ goto_buffer:
 	beq @found
 
 ; if no match, shift the buffer, load a new byte, and try again
-@next:	lda @searchbuff+1
+@next:	lda @forward
+	bne @shiftleft
+
+@shiftright:
+	ldx #MAX_SEARCH_LEN-2
+:	lda @searchbuff,x
+	beq @notfound
+	sta @searchbuff+1,x
+	dex
+	bpl :-
+
+	; read a new byte to the left of the buffer
+	lda #$00
+	jsr src::start		; are we out of chars?
+	beq :+			; if so, just store a 0 to the buffer
+	jsr src::prev
+:	sta @searchbuff
+	jmp @seekloop		; not start of buff, continue (branch always)
+
+@shiftleft:
+	lda @searchbuff+1
 	beq @notfound	  ; if buffer starts with 0 (EOF), we're done
 	ldx #$00
-@l1:	lda @searchbuff+1,x
+:	lda @searchbuff+1,x
 	sta @searchbuff,x
 	inx
 	cpx #MAX_SEARCH_LEN-1
-	bcc @l1
+	bcc :-
 
 	; get a new byte (use 0 if EOF)
 	lda #$00
 	jsr src::end
 	beq :+
 	jsr src::next
-:	ldy #MAX_SEARCH_LEN-1
-	sta (@seekptr),y
-	jmp @seekloop		; if not EOF, keep seeking
+:	sta @searchbuff+MAX_SEARCH_LEN-1
+	jmp @seekloop		; not EOF, keep seeking (branch always)
 
 @notfound:
+	jsr beep::short
 	jmp src::popgoto
 
 @found:	jsr src::currline	; get the line we're moving to
 	stxy @target
 
+	lda @forward
+	bne @fixforward
+
+@fixbackward:
+; for every newline in the buffer BEFORE the text we're looking for
+; increment our target line
+	lda #MAX_SEARCH_LEN-1
+	sec
+	sbc @len
+	tay
+:	lda @searchbuff,y
+	beq :+
+	cmp #$0d
+	bne :+
+	incw @target
+:	dey
+	bne :--
+
+	; move source up to 1st matching character by advancing
+	; (MAX_SEARCH_LEN-len) bytes
+	lda #MAX_SEARCH_LEN-1
+	sec
+	sbc @len
+	sta @cnt
+:	ldx @cnt
+	lda @searchbuff,x
+	beq :+
+	jsr src::next	; go up to word
+:	dec @cnt
+	bpl :--
+	jsr src::prev	; TODO: why is this needed
+	jsr src::prev
+	jmp @srcfixed
+
+@fixforward:
 ; for every newline in the buffer AFTER the text we're looking for
 ; decrement 1 from our target line
 	ldy @len
@@ -4249,20 +4364,23 @@ goto_buffer:
 	; MAX_SEARCH_LEN bytes
 	lda #MAX_SEARCH_LEN-1
 	sta @cnt
-@l3:	ldx @cnt
+:	ldx @cnt
 	lda @searchbuff,x
 	beq :+
 	jsr src::prev	; go back MAX_SEARCH_LEN bytes (back to start of buffer)
 :	dec @cnt
-	bpl @l3
+	bpl :--
 
-	inc @cnt
+@srcfixed:
+	inc @cnt	; set @cnt back to 0
 
+	; source cursor is now at the start of the matched word
 	; find the x-offset in the line by retreating til newline
 	jsr src::atcursor
 	cmp #$0d
 	beq @move
 
+	; count the number of characters we are from the previous newline
 :	jsr src::prev
 	bcs @move
 	inc @cnt
@@ -4275,8 +4393,15 @@ goto_buffer:
 	ldxy @target
 	jsr gotoline		; go to the new line
 
-	; move the cursor to the first character of the search term
-	lda @cnt
+	; go back to the start of the line if needed
+:	jsr src::atcursor
+	cmp #$0d
+	beq :+
+	jsr src::prev
+	bcc :-
+
+:	; move the cursor to the first character of the search term
+	lda @cnt		; # of chars from prev newline
 	jsr text::index2cursor
 	stx zp::curx
 
@@ -4854,6 +4979,7 @@ commands:
 	.byte $47		; G (goto end)
 	.byte $67		; g (goto start)
 	.byte $6e		; n (go to next search result)
+	.byte $4e		; N (go to previous search result)
 	.byte $4f		; O (Open line above cursor)
 	.byte $6f		; o (Open line below cursor)
 	.byte $4a		; J (join line)
@@ -4866,7 +4992,7 @@ commands:
 	.byte $56		; V (enter visual line mode)
 	.byte $79		; y (yank)
 	.byte $7a		; z (move screen prefix)
-	.byte K_FIND		; find
+	.byte K_FIND		; / (find)
 	.byte K_NEXT_DRIVE	; next drive
 	.byte K_PREV_DRIVE	; prev drive
 	.byte K_GETCMD		; get command
@@ -4880,7 +5006,7 @@ numcommands=*-commands
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, paste_below, paste_above, delete_char, \
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
-	goto_start, find_next, open_line_above, open_line_below, join_line, end_of_line, \
+	goto_start, find_next, find_prev, open_line_above, open_line_below, join_line, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
 	command_find, next_drive, prev_drive, get_command, mon, next_err

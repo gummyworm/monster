@@ -31,6 +31,7 @@ K_RENAME         = $b2  ; C= + r
 K_DIR            = $b6  ; C= + l
 K_LIST_SYMBOLS   = $b7  ; C= + y
 K_FIND           = $2f	; /
+K_FIND_PREV      = $2f	; /
 K_GETCMD         = ':'  ; :
 K_GOTO_BUFF1     = $81  ; C= + 1
 K_GOTO_BUFF2     = $95  ; C= + 2
