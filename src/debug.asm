@@ -927,6 +927,7 @@ restore_regs:
 
 	pha			; save .A (to be pulled after bank select)
 
+	TIMER_VAL = (2+3+4+4+6)+5
 	; if we are executing in ROM, we couldn't set a breakpoint
 	; use an alternate means of breking: set timer 2 on VIA 1 to immediately
 	; expire. This will generate an NMI which will return us to the debugger
@@ -934,6 +935,9 @@ restore_regs:
 	; The timer value is the sum of all the instructions executed up to
 	; (and including) the RTI
 	; When the user program starts executing, the timer value will be 1
+	jsr stepping
+	bne @rti
+
 	lda #$00	; enable Timer 2 (one-shot mode) on VIA #1
 	sta $911b
 	lda #$7f
@@ -948,8 +952,8 @@ restore_regs:
 	lda #>TIMER_VAL
 	sta $9119		; start the timer
 
-	TIMER_VAL = (2+3+4+4+6)+5
 
+@rti:
 	; return from the BRK/NMI
 	lda #FINAL_BANK_USER	; 2
 	jmp RTI_ADDR		; 3
