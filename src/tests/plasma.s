@@ -34,7 +34,7 @@
 ;.db $9e
 ;.db "4109",0
 ;.dw 0
-    
+
 start
 plasma
     ; init
@@ -50,7 +50,7 @@ plasma
     sta $900e       ; auxiliary color
     lda #$eb
     sta $900f       ; screen/border
-    lda #SCREEN_W.$80  
+    lda #SCREEN_W.$80
     sta $9002
 
     lda #$00
@@ -88,7 +88,7 @@ bcc :+
 sync:
 ; sync with screen
     ; wait until this raster (*2)
-    ldx #START_LINE 
+    ldx #START_LINE
 :   cpx $9004
     bne :-
 
@@ -108,7 +108,7 @@ sync:
     dey
     bne :-
 
-; 6 cycles have passed since last 
+; 6 cycles have passed since last
 ; $9004 change we are now on line
 ; 2*(START_LINE+9)
 
@@ -126,11 +126,11 @@ timers:
     sta $9126
 
     ; delay to get effect @ right spot
-    ldy #$06        
+    ldy #$06
     dey
     bne *-1
     bit $24
-    
+
     stx $9125       ; start IRQ timer A
                     ; NTSC: 65 cycles
                     ; PAL: 77 cycles
@@ -168,7 +168,7 @@ irq:
                 ; ---
 ; 38 to 45 cycles delay at this stage
     lda $9114   ; get the NMI timer A
-    
+
     cmp #$08    ; > 7 cycles ahead?
     bcc :+
     pha         ; spend 8 extra cycles
@@ -182,7 +182,7 @@ irq:
     bcs *+2
     bcs *+2
     lsr
-    bcs *+2     
+    bcs *+2
     ; 82 cycles from start of IRQ
 
 mainLoop
@@ -340,15 +340,15 @@ colors
 
 chars:
 .db 2  ; char (solid) - white
-.db 9  ; char (grid)- white on aux 
+.db 9  ; char (grid)- white on aux
 .db 3  ; aux (solid) - l blue
 .db 8  ; aux (grid) l blue on cyan
 .db 1  ; border (solid) cyan
 .db 4  ; border (grid) cyan on l purple
 .db 0  ; screen (solid) l purple
 .db 5  ; char (grid) purple on l purple
-.db 2  ; char (solid) purple 
-; reverse 
+.db 2  ; char (solid) purple
+; reverse
 .db 5  ; char (grid) purple on l purple
 .db 0  ; screen (solid) l purple
 .db 4  ; border (grid) cyan on l purple

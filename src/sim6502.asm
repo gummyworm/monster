@@ -405,6 +405,7 @@ __sim_stopwatch: .res 3
 	; get the value of the ZP location in the *user* ZP
 	ldy @target
 	lda mem::prog00,y
+	sta @target
 	iny
 	lda mem::prog00,y
 	sta @target+1

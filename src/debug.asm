@@ -51,10 +51,6 @@ NMI_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size
 BRK_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size+5-1 ; 5 = sizeof NMI portion
 RTI_ADDR         = BRK_HANDLER_ADDR+3
 
-; 4 byte buffer in the user program
-; TODO: find a good place for this
-ROM_BUFF = $030c
-
 ;******************************************************************************
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
 MAX_WATCHPOINTS = 8	; max number of watchpoints that may be set
@@ -250,9 +246,8 @@ in_rom: .byte 0
 ; RESTORE USER ZP
 ; Restores the state of the user's zeropage
 .macro restore_user_zp
-@zp=mem::prog00
 	ldx #$00
-:	lda @zp,x
+:	lda mem::prog00,x
 	sta $00,x
 	lda mem::prog00+$100,x
 	sta $100,x
@@ -585,7 +580,7 @@ brkhandler2_size=*-brkhandler2
 
 ;******************************************************************************
 ; SAVE_PROG_STATE
-; saves memory clobbered by the debugger (screen, ZP, etc.)
+; saves memory clobbered by the debugger (screen, VIC registers and color)
 .export __debug_save_prog_state
 .proc __debug_save_prog_state
 @losave=mem::prog00+$100
@@ -1331,68 +1326,6 @@ restore_regs:
 .endproc
 
 ;******************************************************************************
-; STEP ROM
-; Handles a STEP for an instruction in ROM
-; If the instruction is a branch, the instruction is fully emulated: the PC is
-; set to the branch target and, in the case of RTS or JSR, the simulated
-; stack pointer is updated.
-; For all non-branch instructions, the instruction is copied to a 4 byte buffer
-; where it is executed.
-; OUT:
-;   - .XY: address of next relocated ROM instruction to execute
-;   - .C:  set if NO instruction should be executed
-.proc step_rom
-	lda sim::branch_taken	; was a branch taken
-	beq @nobranch		; if not, skip to execute the instruction
-
-@branch:
-	lda sim::op
-	cmp #$20		; was instruction a JSR?
-	bne :+
-	; "push" PC + 2
-	inc sim::pc
-	inc sim::pc
-
-	ldx sim::reg_sp
-	lda sim::pc
-	sta mem::prog00,x	; "push" LSB
-	dec sim::reg_sp
-	dex
-	lda sim::pc+1
-	sta mem::prog00,x	; "push" MSB
-	dec sim::reg_sp
-	jmp @branchdone
-
-:	cmp #$60		; RTS?
-	bne :+
-	inc sim::reg_sp		; increment SP by 2
-	inc sim::reg_sp
-
-@branchdone:
-	ldxy sim::next_pc
-	stxy sim::pc
-	sec
-	rts
-
-@nobranch:
-	; copy the instruction to a tiny buffer
-	lda sim::op
-	sta ROM_BUFF
-	lda sim::operand+1
-	sta ROM_BUFF+1
-	lda sim::operand+2
-	sta ROM_BUFF+2
-	lda #$00		; BRK
-	sta ROM_BUFF+3
-
-	ldxy #ROM_BUFF
-	stxy sim::pc
-
-	inc advance
-	RETURN_OK
-.endproc
-
-;******************************************************************************
 ; STEP RESTORE
 ; Restores the opcode destroyed by the last STEP.
 .proc step_restore
@@ -1475,6 +1408,7 @@ restore_regs:
 	lda @tosave,y
 	sta @addr
 	lda @tosave+1,y
+	beq :+			; skip zeropage (saved elsewhere)
 	sta @addr+1
 	jsr is_internal_address
 	bne :+
@@ -1494,6 +1428,7 @@ restore_regs:
 	lda @tosave,x
 	sta @addr
 	ldy @tosave+1,x
+	beq @next
 	sty @addr+1
 	tax
 	jsr is_internal_address
@@ -1565,6 +1500,7 @@ restore_regs:
 	lda @tosave,x
 	sta @addr
 	ldy @tosave+1,x
+	beq :+			; skip ZP (saved elsewhere)
 	sty @addr+1
 	tax
 	jsr is_internal_address
@@ -1586,6 +1522,7 @@ restore_regs:
 	sta @ysave
 
 	ldy @tosave+1,x
+	beq @next
 	sty @addr+1
 	lda @tosave,x
 	sta @addr
@@ -2200,11 +2137,15 @@ __debug_remove_breakpoint:
 	bcc @internal
 	cmpw #$8000
 	bcc @external
-	cmpw #$a000
-	bcc @internal 	; VIC or I/O- internal
-
+	cmpw #$94f0	; $8000-$94f0 is VIC/color/etc.
+	bcc @internal
+	; $94f0 - $9600 is unused by debugger, we can pretend it's external
+	cmpw #$c000
+	bcs @external	; ROM is untouchable, consider external
+	cmpw #$9801
+	bcs @internal
 @external:
-	lda #$ff	; banked RAM or ROM, no need to back up
+	lda #$ff
 	rts
 @internal:
 	lda #$00
