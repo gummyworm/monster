@@ -6,6 +6,7 @@
 .import __sim_jammed
 
 .import __sim_op
+.import __sim_operand
 .import __sim_op_mode
 .import __sim_register_state
 .import __sim_branch_taken
@@ -27,6 +28,7 @@
 	next_instruction = __sim_next_instruction
 	next_pc          = __sim_next_pc
 	op               = __sim_op
+	operand          = __sim_operand
 	op_mode          = __sim_op_mode
 
 	stopwatch      = __sim_stopwatch

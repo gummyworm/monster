@@ -25,7 +25,7 @@ __str_question_marks: .byte "???",0
 __str_debug_brk_line: .byte "brk in ", ESCAPE_STRING, " line ",ESCAPE_VALUE_DEC,0
 
 .export __str_debug_brk_addr
-__str_debug_brk_addr: .byte "brk @ ", ESCAPE_VALUE,0
+__str_debug_brk_addr: .byte "brk @ ", ESCAPE_VALUE, "  ", ESCAPE_STRING,0
 
 .export __str_debug_registers
 __str_debug_registers: .byte " pc  a  x  y  sp nv-bdizc  addr      clk",0

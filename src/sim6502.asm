@@ -59,6 +59,10 @@ __sim_jammed: .byte 0
 .export __sim_op
 __sim_op: .byte 0
 
+; operand of next instruction that will be executed
+.export __sim_operand
+__sim_operand: .byte 0
+
 ; address modes used by current instruction
 .export __sim_op_mode
 __sim_op_mode: .byte 0
@@ -128,11 +132,13 @@ __sim_stopwatch: .res 3
 	lda #$01
 	jsr vmem::load_off
 	sta @operand
+	sta __sim_operand
 
 	ldxy @op
 	lda #$02
 	jsr vmem::load_off
 	sta @operand+1
+	sta __sim_operand+1
 
 	lda @opcode
 

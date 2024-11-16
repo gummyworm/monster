@@ -48,8 +48,12 @@
 ; NOTE: the user program cannot use the space occupied by these handlers
 BRK_HANDLER_TOP  = $8000
 NMI_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size
-BRK_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size+5-1 	; 5 is sizeof NMI portion
+BRK_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size+5-1 ; 5 = sizeof NMI portion
 RTI_ADDR         = BRK_HANDLER_ADDR+3
+
+; 4 byte buffer in the user program
+; TODO: find a good place for this
+ROM_BUFF = $030c
 
 ;******************************************************************************
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
@@ -205,6 +209,8 @@ __debug_breakpoint_fileids: .res MAX_BREAKPOINTS	; breakpoint file ID's
 __debug_breakpoint_flags:
 breakpoint_flags: .res MAX_BREAKPOINTS ; active state of breakpoints
 breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
+
+in_rom: .byte 0
 
 ;******************************************************************************
 ; RESTORE DEBUG ZP
@@ -646,7 +652,7 @@ brkhandler2_size=*-brkhandler2
 	cld
 
 	tya		; get IFR
-	and #$02	; was the interrupt from RESTORE (CA1)?
+	and #$22	; was the interrupt from RESTORE (CA1) or TIMER 2?
 	beq @notnmi
 
 ; An NMI interrupt occurred while we were returning to the user program (while
@@ -924,12 +930,37 @@ restore_regs:
 
 	; TODO: restore timer values
 
-	; return from the BRK
-	pha
-	lda #FINAL_BANK_USER
-	jmp RTI_ADDR	; sta $9c02
-			; pla
-			; rti
+	pha			; save .A (to be pulled after bank select)
+
+	; if we are executing in ROM, we couldn't set a breakpoint
+	; use an alternate means of breking: set timer 2 on VIA 1 to immediately
+	; expire. This will generate an NMI which will return us to the debugger
+	; after one instruction runs
+	; The timer value is the sum of all the instructions executed up to
+	; (and including) the RTI
+	; When the user program starts executing, the timer value will be 1
+	lda #$00	; enable Timer 2 (one-shot mode) on VIA #1
+	sta $911b
+	lda #$7f
+	sta $911e
+	sta $912e
+	lda #$80|$20
+	sta $911e	; enable timer 2 interrupts
+
+	sei
+	lda #<TIMER_VAL
+	sta $9118		; set low-order latch for the timer
+	lda #>TIMER_VAL
+	sta $9119		; start the timer
+
+	TIMER_VAL = (2+3+4+4+6)+5
+
+	; return from the BRK/NMI
+	lda #FINAL_BANK_USER	; 2
+	jmp RTI_ADDR		; 3
+	; sta $9c02		; 4
+	; pla			; 4
+	; rti			; 6
 .endproc
 
 ;******************************************************************************
@@ -1249,14 +1280,13 @@ restore_regs:
 	; re-increment swapmem to force full RAM swap
 	cmpw #$c000
 	bcc @notrom
-	lda #ACTION_STEP_OVER
-	sta action
+	inc in_rom
 @notrom:
 	lda sim::op
 	cmp #$20		; JSR?
 	bne @countcycles
 	lda #ACTION_STEP_OVER
-	cmp action		; are we stepping over
+	cmp action		; are we stepping over?
 	bne @countcycles	; skip if not
 
 ; if stepping over a JSR, set breatpoint at current PC + 3
@@ -1294,14 +1324,76 @@ restore_regs:
 	sta stepsave
 	lda #$00		; BRK
 	ldxy brkaddr
-	jsr vmem::store
+	; jsr vmem::store
 
 	inc advance		; continue program execution
 	RETURN_OK		; return to the debugger
 .endproc
 
 ;******************************************************************************
-; STEP_RESTORE
+; STEP ROM
+; Handles a STEP for an instruction in ROM
+; If the instruction is a branch, the instruction is fully emulated: the PC is
+; set to the branch target and, in the case of RTS or JSR, the simulated
+; stack pointer is updated.
+; For all non-branch instructions, the instruction is copied to a 4 byte buffer
+; where it is executed.
+; OUT:
+;   - .XY: address of next relocated ROM instruction to execute
+;   - .C:  set if NO instruction should be executed
+.proc step_rom
+	lda sim::branch_taken	; was a branch taken
+	beq @nobranch		; if not, skip to execute the instruction
+
+@branch:
+	lda sim::op
+	cmp #$20		; was instruction a JSR?
+	bne :+
+	; "push" PC + 2
+	inc sim::pc
+	inc sim::pc
+
+	ldx sim::reg_sp
+	lda sim::pc
+	sta mem::prog00,x	; "push" LSB
+	dec sim::reg_sp
+	dex
+	lda sim::pc+1
+	sta mem::prog00,x	; "push" MSB
+	dec sim::reg_sp
+	jmp @branchdone
+
+:	cmp #$60		; RTS?
+	bne :+
+	inc sim::reg_sp		; increment SP by 2
+	inc sim::reg_sp
+
+@branchdone:
+	ldxy sim::next_pc
+	stxy sim::pc
+	sec
+	rts
+
+@nobranch:
+	; copy the instruction to a tiny buffer
+	lda sim::op
+	sta ROM_BUFF
+	lda sim::operand+1
+	sta ROM_BUFF+1
+	lda sim::operand+2
+	sta ROM_BUFF+2
+	lda #$00		; BRK
+	sta ROM_BUFF+3
+
+	ldxy #ROM_BUFF
+	stxy sim::pc
+
+	inc advance
+	RETURN_OK
+.endproc
+
+;******************************************************************************
+; STEP RESTORE
 ; Restores the opcode destroyed by the last STEP.
 .proc step_restore
 	lda stepsave
@@ -2045,6 +2137,15 @@ __debug_remove_breakpoint:
 
 @showaddr:
 	; we couldn't find the line #; display the address of the BRK
+	ldxy #$100
+	stxy r0
+	ldxy sim::pc
+	jsr asm::disassemble
+	lda #>$100
+	pha
+	lda #<$100
+	pha
+
 	lda sim::pc
 	pha
 	lda sim::pc+1
