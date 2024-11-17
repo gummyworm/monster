@@ -1,7 +1,7 @@
 ## DEBUG INFORMATION
 
 Debug information is stored in a few tables as described below. At a high level, these are:
-  - a "file table" for mapping file id's to file name 
+  - a "file table" for mapping file id's to file name
   - a series of "blocks" that store ranges of addresses and lines for blocks of code
   - a series of _line programs_, state machines that resolve to addresses and line numbers when executed
 
@@ -16,7 +16,7 @@ the index of the filename in this table
 |   16     | ...                             |
 
 ### Blocks
-To simplify the storage of lines in cases like noncontiguous addresses (although these can be handled in a single block) and 
+To simplify the storage of lines in cases like noncontiguous addresses (although these can be handled in a single block) and
 multi-file programs, mappings are broken down into "blocks".
 
 Each block defines a file id (blocks will always reference one file only), and a range of lines and addresses.
@@ -59,7 +59,7 @@ Bits 0-3 contain the line offset to add and bits 3-7 contain the PC offset.
 
 ### Extended Instructions
 
-For cases when a small offset to either the line or address is not enough (e.g. a macro 
+For cases when a small offset to either the line or address is not enough (e.g. a macro
 that expands to more than 16 bytes), these instructions are required.
 The extended instrutions begin with a $00 value prefix, which is not a valid basic instruction
 because at least one of the line or address states must be advanced for each entry in the line table.
@@ -102,14 +102,14 @@ This program begins at line 1, starts at address $1000, and has 5 lines.
 | $00 05      | number of lines       |
 | $01         | file ID               |
 | $00 $20     | line program address  |
- 
+
 The state machine is initialized with values from the block header, so we enter the program with:
   - line number: 2
   - file ID: 1
   - address: $1000
 
 Note that this corresponds to `lda #$00` in our code.  If we are looking for the address $1000 or line
-number 2, we never actually execute any instructions in the line program as the initialization has 
+number 2, we never actually execute any instructions in the line program as the initialization has
 already landed us on our target.
 
 Our program is defined as:

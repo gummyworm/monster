@@ -3009,7 +3009,8 @@ goto_buffer:
 .proc command_load
 	jsr __edit_load
 	bcs @err
-	jmp asm::reset	; reinitialize
+	jsr asm::reset		; reinitialize
+	jmp command_asmdbg	; assemble the loaded file
 @err:	rts
 .endproc
 
@@ -3044,6 +3045,8 @@ goto_buffer:
 ;******************************************************************************
 ; LINEDONE
 ; Attempts to compile the line entered in (mem::linebuffer)
+; If successful, formats the source according to the type of the assembled line
+; (instruction, label, etc.) and creates a line/address mapping.
 .proc linedone
 @indent=ra	; indent boolean (!0 = indent)
 @i=ra		; loop counter for indentation loop

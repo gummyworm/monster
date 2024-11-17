@@ -206,7 +206,9 @@ __debug_breakpoint_flags:
 breakpoint_flags: .res MAX_BREAKPOINTS ; active state of breakpoints
 breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
-in_rom: .byte 0
+in_rom:   .byte 0	; !0: the next instruction is in $c000-$ffff
+is_trace: .byte 0	; !0: we are running a TRACE instruction
+is_step:  .byte 0	; !0: we are running a STEP instruction
 
 ;******************************************************************************
 ; RESTORE DEBUG ZP
@@ -882,6 +884,17 @@ brkhandler2_size=*-brkhandler2
 	jsr cur::off
 	jsr swapin
 
+	; can't call anything after restoring stack/sp
+	; get state variables for "tracing" and "stepping"
+	jsr tracing
+	lda #$00
+	rol
+	sta is_trace
+	jsr stepping
+	lda #$00
+	rol
+	sta is_step
+
 	jsr save_debug_zp
 	sei
 	lda #<$eb15
@@ -908,9 +921,8 @@ restore_regs:
 	lda sim::reg_p	; restore processor status
 	pha
 
-	lda action
-	cmp #ACTION_TRACE
-	beq debug_rti	; if we are tracing, don't ack interrupts
+	lda is_trace
+	bne debug_rti	; if we are tracing, don't ack interrupts
 	lda #$7f
 	sta $911d	; ack all interrupts
 .endproc
@@ -935,8 +947,10 @@ restore_regs:
 	; The timer value is the sum of all the instructions executed up to
 	; (and including) the RTI
 	; When the user program starts executing, the timer value will be 1
-	jsr stepping
-	bne @rti
+	lda is_step
+	beq @rti
+	lda in_rom
+	beq @rti	; if not in ROM, we added a BRK
 
 	lda #$00	; enable Timer 2 (one-shot mode) on VIA #1
 	sta $911b
@@ -951,7 +965,6 @@ restore_regs:
 	sta $9118		; set low-order latch for the timer
 	lda #>TIMER_VAL
 	sta $9119		; start the timer
-
 
 @rti:
 	; return from the BRK/NMI
@@ -1193,14 +1206,12 @@ restore_regs:
 ; Runs the next instruction from the .PC and returns to the debug prompt.
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
-; Unlike STEP, if the next procedure is a JSR, execution will continue
+; Unlike STEP, if the next instruction is a JSR, execution will continue
 ; at the line after the subroutine (after the subroutine has run)
 .export __debug_step_over
 .proc __debug_step_over
-	lda #$00
-	sta sw_valid		; invalidate stopwatch
-
-	; fall through to __debug_step
+	lda #ACTION_STEP_OVER
+	skw			; fall through to __debug_step
 .endproc
 
 ;******************************************************************************
@@ -1211,6 +1222,9 @@ restore_regs:
 .export __debug_step
 .proc __debug_step
 @mode=r0
+	lda #ACTION_STEP
+	sta action		; flag that we are STEPing
+
 	ldxy #$100		; TODO: use ROM addr? (we don't need the string)
 	stxy r0			; TODO: make way to not disassemble to string
 	ldxy sim::pc		; get address of next instruction
@@ -1230,9 +1244,6 @@ restore_regs:
 	stx @mode			; address mode (set by asm::disassemble)
 	ldxy sim::pc			; address of instruction
 	jsr sim::get_side_effects	; get state that will be clobbered/used
-
-	lda #ACTION_STEP
-	sta action		; flag that we are STEPing
 
 ; for updating watches and just general info for the user, save the current
 ; state of memory that will be altered
@@ -1274,19 +1285,12 @@ restore_regs:
 	beq @nojam
 	jmp jam_detected
 
-@nojam:	; check if next instruction is in ROM
-	; If so, we can't step IN, we must step OVER
-	; re-increment swapmem to force full RAM swap
-	cmpw #$c000
-	bcc @notrom
-	inc in_rom
-@notrom:
-	lda sim::op
+@nojam:	lda sim::op
 	cmp #$20		; JSR?
 	bne @countcycles
 	lda #ACTION_STEP_OVER
 	cmp action		; are we stepping over?
-	bne @countcycles	; skip if not
+	bne @chkrom		; skip if not
 
 ; if stepping over a JSR, set breatpoint at current PC + 3
 ; also flag that we need to save all RAM
@@ -1294,6 +1298,7 @@ restore_regs:
 	lda #$00
 	sta sw_valid	; invalidate stopwatch
 	inc swapmem
+
 	lda sim::pc
 	clc
 	adc #$03
@@ -1301,6 +1306,15 @@ restore_regs:
 	lda sim::pc+1
 	adc #$00
 	sta brkaddr+1
+
+; check if next instruction is in ROM. If so, we can't step IN, we must step
+; OVER. Re-increment swapmem to force full RAM swap
+@chkrom:
+	ldxy brkaddr
+	cmpw #$c000
+	lda #$00
+	rol
+	sta in_rom
 
 ; count the number of cycles that the next instruction will take
 @countcycles:
@@ -1321,11 +1335,14 @@ restore_regs:
 	ldxy brkaddr
 	jsr vmem::load
 	sta stepsave
+	lda in_rom		; can we add a breakpoint?
+	bne :+			; if not, continue
+
 	lda #$00		; BRK
 	ldxy brkaddr
-	; jsr vmem::store
+	jsr vmem::store
 
-	inc advance		; continue program execution
+:	inc advance		; continue program execution
 	RETURN_OK		; return to the debugger
 .endproc
 
@@ -2162,6 +2179,7 @@ __debug_remove_breakpoint:
 ; The definition of tracing is any command that automatically STEPs
 ; OUT:
 ;   - .Z: set if the active action is a "tracing" command
+;   - .C: set if the active action is a "tracing" command
 .proc tracing
 	ldx #@num_tracecmds-1
 	lda action
@@ -2169,6 +2187,7 @@ __debug_remove_breakpoint:
 	beq @done
 	dex
 	bpl :-
+	clc		; not trace
 @done:	rts
 .PUSHSEG
 .RODATA
@@ -2186,6 +2205,7 @@ __debug_remove_breakpoint:
 ; circumstances
 ; OUT:
 ;   - .Z: set if the active action is one which executes by stepping
+;   - .C: set if the active action is one which executes by stepping
 .proc stepping
 	ldx #@num_stepcmds-1
 	lda action
@@ -2193,6 +2213,7 @@ __debug_remove_breakpoint:
 	beq @done
 	dex
 	bpl :-
+	clc		; not step
 @done:	rts
 .PUSHSEG
 .RODATA
