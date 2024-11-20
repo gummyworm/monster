@@ -85,6 +85,13 @@ ACTION_STEP_OUT  = 7	; action for STEP OUT command
 DEBUG_IFACE_GUI  = 0
 DEBUG_IFACE_TEXT = 1
 
+; The number of cycles to load into the VIA timer for the timer "step"
+; interrupt.  This value is exactly enough to countdown to 1 by the time the
+; next user instruction is executed
+NMI_TIMER_VAL = (2+3+4+4+6)+5
+NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
+					; before the
+
 ;******************************************************************************
 swapmem        = zp::debugger	; not zero if we need to swap in user RAM
 
@@ -157,6 +164,10 @@ brkcond: .word 0	; if !0, address to handler to break TRACE on
 .export debugger_sp
 debugger_sp: .byte 0	; stack pointer (SP) for debugger
 
+step_out_depth: .byte 0 ; # of RTS's to wait for when "stepping out"
+
+stop_tracing: .byte 0	; if !0, debugger will stop a TRACE at the next STEP
+
 ;******************************************************************************
 ; WATCHES
 ;******************************************************************************
@@ -221,10 +232,20 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	sta $100,x
 	lda mem::dbg00+$200,x
 	sta $200,x
-	lda mem::dbg00+$300,x
-	sta $300,x
 	dex
 	bne :-
+
+	; copy around the NMI vector
+:	lda mem::dbg00+$31a,x
+	sta $31a,x
+	dex
+	bne :-
+
+	ldx #$18-1
+:	lda mem::dbg00+$300,x
+	sta $300,x
+	dex
+	bpl :-
 .endmacro
 
 ;******************************************************************************
@@ -617,6 +638,14 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
+; DEBUG_RESTORE
+; Handles the RESTORE NMI while the debugger is active
+.proc debug_restore
+	inc stop_tracing
+	rti
+.endproc
+
+;******************************************************************************
 ; DEBUG_BRK
 ; This is the BRK handler for the debugger.
 ; It saves the user program's state and other sensitive memory areas that are
@@ -628,6 +657,7 @@ brkhandler2_size=*-brkhandler2
 	lda #$7f
 	sta $911e	; disable all NMI's
 
+	; save the registers pushed by the KERNAL interrupt handler ($FF72)
 	pla
 	sta sim::reg_y
 	pla
@@ -667,11 +697,7 @@ brkhandler2_size=*-brkhandler2
 ; range), we return from the interrupt to allow the ISR (debugger) to finish
 ; returning to the user program.
 ; If we were tracing, we also set the action to STEP so that tracing halts.
-@nmi:	jsr tracing
-	bne :+
-	lda #ACTION_STEP
-	sta action
-:	ldxy sim::pc
+@nmi:	ldxy sim::pc
 	cmpw #NMI_HANDLER_ADDR
 	bcc @restore_debugger
 	cmpw #BRK_HANDLER_TOP+1
@@ -691,7 +717,17 @@ brkhandler2_size=*-brkhandler2
 	ldx debugger_sp
 	txs
 
-	; save the user's zeropage and restore the debugger's
+	jsr tracing
+	bne :+
+	; if tracing, for the duration the debugger is active, enable an NMI to
+	; catch the user's signal to stop the trace (RESTORE)
+	ldxy #debug_restore
+	stxy $0318
+
+	lda #$82
+	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
+
+:	; save the user's zeropage and restore the debugger's
 	save_user_zp
 	restore_debug_zp
 
@@ -763,28 +799,39 @@ brkhandler2_size=*-brkhandler2
 	;       wait for it to be negative to stop stepping
 	lda action
 	cmp #ACTION_STEP_OUT
-	bne :+
+	bne @chktrace
 @stepout:
+	lda stop_tracing	; should we stop the trace?
+	bne @reset_state	; if so, return to debugger
 	lda stepsave		; get the opcode we BRK'd on
 	pha
-	jsr __debug_step_out	; run one more STEP to get out of subroutine
-	pla			; get previous opcode
-	cmp #$60		; RTS opcode
-	bne @continue_debug	; if not RTS, keep stepping out
+	jsr __debug_step_out_next	; run one more STEP to get out of subroutine
+	pla				; get previous opcode
+	cmp #$20		; did we run a JSR?
+	bne :+
+	inc step_out_depth	; if we called another subroutine, inc depth
+:	cmp #$60		; did we RTS?
+	bne @continue_debug
+	dec step_out_depth
+	bpl @continue_debug	; continue trace
+
+@stepout_done:
 	lda #ACTION_STEP	; if we found the RTS, quit
 	sta action		; flag that we're done stepping out
 	bne @continue_debug
 
-:	cmp #ACTION_TRACE
+@chktrace:
+	cmp #ACTION_TRACE
 	bne @reset_state	; if not TRACE/STEP_OUT, return to debugger
 @trace:
 	; check if the BRK that was triggered is a breakpoint or just the
 	; step point. If the latter, continue tracing
 	ldxy sim::pc
 	jsr get_breakpoint
-	bcs :+			; not a breakpoint, continue tracing
-	bcc @reset_state	; return control to debugger
-:	jsr __debug_trace	; run the next step of the trace
+	bcc @reset_state	; breakpoint, return control to debugger
+	lda stop_tracing	; should we stop the trace?
+	bne @reset_state	; if so, return to debugger
+	jsr __debug_trace_next	; run the next step of the trace
 	jmp @continue_debug
 
 @reset_state:
@@ -921,8 +968,6 @@ restore_regs:
 	lda sim::reg_p	; restore processor status
 	pha
 
-	lda is_trace
-	bne debug_rti	; if we are tracing, don't ack interrupts
 	lda #$7f
 	sta $911d	; ack all interrupts
 .endproc
@@ -939,7 +984,27 @@ restore_regs:
 
 	pha			; save .A (to be pulled after bank select)
 
-	TIMER_VAL = (2+3+4+4+6)+5
+	lda #$7f
+	sta $911e	; disable NMI's
+	sta $912e
+
+	lda action
+	cmp #ACTION_GO
+	bne @dummynmi
+
+	; install the GO NMI handler for the user program
+	lda #<NMI_HANDLER_ADDR
+	sta $0318
+	lda #>NMI_HANDLER_ADDR
+	sta $0319
+	bne @rti
+
+@dummynmi:
+	lda #<$fead
+	sta $0318
+	lda #>$fead
+	sta $0319
+
 	; if we are executing in ROM, we couldn't set a breakpoint
 	; use an alternate means of breking: set timer 2 on VIA 1 to immediately
 	; expire. This will generate an NMI which will return us to the debugger
@@ -952,22 +1017,31 @@ restore_regs:
 	lda in_rom
 	beq @rti	; if not in ROM, we added a BRK
 
+@go_rom_nmi:
+	; install the GO NMI handler for the user program
+	lda #<NMI_HANDLER_ADDR
+	sta $0318
+	lda #>NMI_HANDLER_ADDR
+	sta $0319
+
+@nmidone:
+	;sei
+	lda #<$eb15
+	sta $0314
+	lda #>$eb15
+	sta $0314+1
+
 	lda #$00	; enable Timer 2 (one-shot mode) on VIA #1
 	sta $911b
-	lda #$7f
-	sta $911e
-	sta $912e
 	lda #$80|$20
 	sta $911e	; enable timer 2 interrupts
 
-	sei
-	lda #<TIMER_VAL
+	lda #<NMI_TIMER_VAL
 	sta $9118		; set low-order latch for the timer
-	lda #>TIMER_VAL
+	lda #>NMI_TIMER_VAL
 	sta $9119		; start the timer
 
-@rti:
-	; return from the BRK/NMI
+@rti:	; return from the BRK/NMI
 	lda #FINAL_BANK_USER	; 2
 	jmp RTI_ADDR		; 3
 	; sta $9c02		; 4
@@ -1047,6 +1121,11 @@ restore_regs:
 	lda #ACTION_GO_START
 	sta action
 	inc advance		; continue program execution
+
+	ldxy #NMI_IER
+	lda #$80|$02		; enable RESTORE interrupts only
+	jsr vmem::store
+
 	rts
 .endproc
 
@@ -1072,6 +1151,18 @@ restore_regs:
 ; Runs the user program until the next RTS is executed
 .export __debug_step_out
 .proc __debug_step_out
+	lda #$00
+	sta step_out_depth
+	sta stop_tracing
+
+	; fall through to STEP OUT NEXT
+.endproc
+
+;******************************************************************************
+; STEP OUT NEXT
+; Runs the next step of a "STEP OUT" command.  This is called each step after
+; executing a "STEP OUT" until the RTS we're looking for is executed
+.proc __debug_step_out_next
 	; for the first instruction, just STEP, this lets us keep the breakpoint
 	; we are on (if there is one) intact
 	jsr __debug_step
@@ -1086,9 +1177,20 @@ restore_regs:
 ; begin the trace
 .export __debug_trace
 .proc __debug_trace
+	lda #$00
+	sta stop_tracing
+	; fall through to __debug_trace_next
+.endproc
+
+;******************************************************************************
+; TRACE NEXT
+; Runs the next step of a TRACE
+.proc __debug_trace_next
 	jsr __debug_step
+	lda stop_tracing
+	bne :+
 	lda #ACTION_TRACE
-	sta action
+:	sta action
 	rts
 .endproc
 
@@ -1222,6 +1324,10 @@ restore_regs:
 .export __debug_step
 .proc __debug_step
 @mode=r0
+	ldxy #NMI_IER
+	lda #$80|$20	; enable TIMER interrupts only
+	jsr vmem::store
+
 	lda #ACTION_STEP
 	sta action		; flag that we are STEPing
 
@@ -1336,13 +1442,14 @@ restore_regs:
 	jsr vmem::load
 	sta stepsave
 	lda in_rom		; can we add a breakpoint?
-	bne :+			; if not, continue
+	bne @brkdone		; if not, continue
 
 	lda #$00		; BRK
 	ldxy brkaddr
 	jsr vmem::store
 
-:	inc advance		; continue program execution
+@brkdone:
+	inc advance		; continue program execution
 	RETURN_OK		; return to the debugger
 .endproc
 
