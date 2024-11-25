@@ -1324,12 +1324,12 @@ restore_regs:
 .export __debug_step
 .proc __debug_step
 @mode=r0
+	lda #ACTION_STEP
+	sta action		; flag that we are STEPing
+
 	ldxy #NMI_IER
 	lda #$80|$20	; enable TIMER interrupts only
 	jsr vmem::store
-
-	lda #ACTION_STEP
-	sta action		; flag that we are STEPing
 
 	ldxy #$100		; TODO: use ROM addr? (we don't need the string)
 	stxy r0			; TODO: make way to not disassemble to string
