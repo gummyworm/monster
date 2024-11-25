@@ -90,7 +90,9 @@ DEBUG_IFACE_TEXT = 1
 ; next user instruction is executed
 NMI_TIMER_VAL = (2+3+4+4+6)+5
 NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
-					; before the
+					; before returning from debugger
+
+TRACE_STACK_DEPTH = 20	; max stack depth per step of a TRACE command
 
 ;******************************************************************************
 swapmem        = zp::debugger	; not zero if we need to swap in user RAM
@@ -249,6 +251,40 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 .endmacro
 
 ;******************************************************************************
+; RESTORE DEBUG ZP TRACE
+; Restores the state of the debugger's zeropage for traces
+.macro restore_debug_zp_trace
+	ldx #$00
+:	lda mem::dbg00,x
+	sta $00,x
+	dex
+	bne :-
+
+	ldx #TRACE_STACK_DEPTH-1
+:	lda mem::dbg00+$200-TRACE_STACK_DEPTH,x
+	sta $200-TRACE_STACK_DEPTH,x
+	dex
+	bpl :-
+.endmacro
+
+;******************************************************************************
+; SAVE USER ZP TRACE
+; Saves just the state of the user's zeropage that is clobbered while tracing
+.macro save_user_zp_trace
+	ldx #$00
+:	lda $00,x
+	sta mem::prog00,x
+	dex
+	bne :-
+
+	ldx #TRACE_STACK_DEPTH-1
+:	lda $200-TRACE_STACK_DEPTH,x
+	sta mem::prog00+$200-TRACE_STACK_DEPTH,x
+	dex
+	bpl :-
+.endmacro
+
+;******************************************************************************
 ; SAVE USER ZP
 ; Saves the state of the user's zeropage
 .macro save_user_zp
@@ -264,6 +300,24 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	dex
 	bne :-
 .endmacro
+
+;******************************************************************************
+; RESTORE USER ZP TRACE
+; Restores the state of the user's zeropage that is clobbered during a trace
+.macro restore_user_zp_trace
+	ldx #$00
+:	lda mem::prog00,x
+	sta $00,x
+	dex
+	bne :-
+
+	ldx #TRACE_STACK_DEPTH-1
+:	lda mem::prog00+$200-TRACE_STACK_DEPTH,x
+	sta $200-TRACE_STACK_DEPTH,x
+	dex
+	bpl :-
+.endmacro
+
 
 ;******************************************************************************
 ; RESTORE USER ZP
@@ -386,8 +440,9 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	; the zeropage is sensitive, when we're done with all other setup,
 	; swap the user and debug zeropages
 	jsr save_debug_zp
+
+	ldx #$ff
 	tsx
-	stx debugger_sp
 
 	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK
 .endproc
@@ -714,11 +769,11 @@ brkhandler2_size=*-brkhandler2
 	sei
 
 	; restore the debugger's SP
-	ldx debugger_sp
+	ldx #$ff
 	txs
 
 	jsr tracing
-	bne :+
+	bne @notrace
 	; if tracing, for the duration the debugger is active, enable an NMI to
 	; catch the user's signal to stop the trace (RESTORE)
 	ldxy #debug_restore
@@ -727,10 +782,16 @@ brkhandler2_size=*-brkhandler2
 	lda #$82
 	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
 
-:	; save the user's zeropage and restore the debugger's
+	save_user_zp_trace
+	restore_debug_zp_trace
+	jmp @swapout
+
+	; save the user's zeropage and restore the debugger's
+@notrace:
 	save_user_zp
 	restore_debug_zp
 
+@swapout:
 	; swap the debugger state in
 	jsr swapout
 
@@ -931,18 +992,7 @@ brkhandler2_size=*-brkhandler2
 	jsr cur::off
 	jsr swapin
 
-	; can't call anything after restoring stack/sp
-	; get state variables for "tracing" and "stepping"
-	jsr tracing
-	lda #$00
-	rol
-	sta is_trace
-	jsr stepping
-	lda #$00
-	rol
-	sta is_step
-
-	jsr save_debug_zp
+@dummyirq:
 	sei
 	lda #<$eb15
 	sta $0314
@@ -951,6 +1001,23 @@ brkhandler2_size=*-brkhandler2
 	lda #DEFAULT_900F
 	sta $900f
 
+	; can't call anything after restoring stack/sp
+	; get state variables for "tracing" and "stepping"
+	jsr stepping
+	lda #$00
+	rol
+	sta is_step
+	jsr tracing
+	lda #$00
+	rol
+	sta is_trace
+	beq @notrace
+	jsr save_debug_zp_trace
+	restore_user_zp_trace
+	jmp restore_regs
+
+@notrace:
+	jsr save_debug_zp
 	restore_user_zp
 
 restore_regs:
@@ -1109,6 +1176,27 @@ restore_regs:
 .endproc
 
 ;******************************************************************************
+; SAVE DEBUG ZP TRACE
+; Saves the state of the debugger's zeropage
+; TODO: only save/restore the ZP locations clobbered by the debugger
+; (will require some overall restructure of ZP usage)
+.proc save_debug_zp_trace
+@zp=mem::dbg00
+	ldx #$00
+:	lda $00,x
+	sta @zp,x
+	dex
+	bne :-
+
+	ldx #TRACE_STACK_DEPTH-1
+:	lda $200-TRACE_STACK_DEPTH,x
+	sta @zp+$200-TRACE_STACK_DEPTH,x
+	dex
+	bpl :-
+	rts
+.endproc
+
+;******************************************************************************
 ; GO
 ; Runs the user program until the next breakpoint or an NMI occurs
 .export __debug_go
@@ -1218,8 +1306,10 @@ restore_regs:
 	sta edit::highlight_en	; disable highlighting
 	pha			; push 0 status
 	plp			; clear flags (.P)
-	ldx debugger_sp
-	txs
+	sei
+	ldx #$ff
+	txs			; reset stack
+	cli
 @done:	rts
 .endproc
 
