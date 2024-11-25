@@ -1421,6 +1421,13 @@ restore_regs:
 	lda #$00
 	rol
 	sta in_rom
+	beq @countcycles
+
+	; if next STEP is in ROM, we won't be able to set a BRK
+	; enable a timer NMI to return to debugger
+	ldxy #NMI_IER
+	lda #$80|$20		; enable TIMER interrupts only
+	jsr vmem::store
 
 ; count the number of cycles that the next instruction will take
 @countcycles:
@@ -1579,6 +1586,44 @@ restore_regs:
 	rts			; done
 .endproc
 
+;******************************************************************************
+; RESTORE FOR STEP
+; Restores only the state that was clobbered when stepping to the next
+; instruction. This is used when tracing to keep the trace a little quicker
+.proc restore_for_step
+@buff=mem::dbg00
+	ldx #step_save_locs_size-1
+:	lda @buff,x
+	sta $00,x
+	dex
+	bpl :-
+	rts
+.endproc
+
+;******************************************************************************
+; SAVE FOR STEP
+; Saves only the state that will be clobbered in stepping to the next
+; instruction. This is used when tracing to keep the trace a little quicker
+.proc save_for_step
+@buff=mem::dbg00
+	ldx #step_save_locs_size-1
+:	lda $00,x
+	sta @buff,x
+	dex
+	bpl :-
+	rts
+.endproc
+
+;******************************************************************************
+.PUSHSEG
+.RODATA
+step_save_locs:
+.byte zp::bankval, zp::banktmp, zp::banktmp+1, zp::bankoffset
+.byte r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, ra, rb
+step_save_locs_size=*-step_save_locs
+.POPSEG
+
+;******************************************************************************
 ;******************************************************************************
 ; SWAPOUT
 ; Swaps *out* the user memory that needs to be saved in order to restore the

@@ -9,11 +9,15 @@
 	lda #<proc
 	sta zp::bankjmpvec
 	lda #>proc
-	sta zp::bankjmpvec+1
-	lda #FINAL_BANK_SYMBOLS
-	sta zp::banktmp
-	pla
-	jmp __final_call
+	bne do_label_proc
+.endmacro
+
+.macro LBLJUMP_LONG proc
+	pha
+	lda #<proc
+	sta zp::bankjmpvec
+	lda #>proc
+	jmp do_label_proc
 .endmacro
 
 ;******************************************************************************
@@ -27,25 +31,25 @@ MAX_LABELS    = 750
 ; ZEROPAGE
 allow_overwrite = zp::labels+4
 
-.export __label_clr
-__label_clr:
-	LBLJUMP clr
-
 ;******************************************************************************
 ; Label JUMP table
 .CODE
+.export __label_clr
+__label_clr:
+	LBLJUMP_LONG clr
+
 .export __label_add
 __label_add:
-	LBLJUMP add
+	LBLJUMP_LONG add
 
 .export __label_find
-__label_find: LBLJUMP find
+__label_find: LBLJUMP_LONG find
 
 .export __label_by_addr
-__label_by_addr: LBLJUMP by_addr
+__label_by_addr: LBLJUMP_LONG by_addr
 
 .export __label_by_id
-__label_by_id: LBLJUMP by_id
+__label_by_id: LBLJUMP_LONG by_id
 
 .export __label_name_by_id
 __label_name_by_id: LBLJUMP name_by_id
@@ -92,6 +96,16 @@ __label_index: LBLJUMP index
 
 .export __label_id_by_addr_index
 __label_id_by_addr_index: LBLJUMP id_by_addr_index
+
+;******************************************************************************
+; Entrypoint for label routines
+.proc do_label_proc
+	sta zp::bankjmpvec+1
+	lda #FINAL_BANK_SYMBOLS
+	sta zp::banktmp
+	pla
+	jmp __final_call
+.endproc
 
 ;******************************************************************************
 ; LABELS
