@@ -254,7 +254,8 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ; RESTORE DEBUG ZP TRACE
 ; Restores the state of the debugger's zeropage for traces
 .macro restore_debug_zp_trace
-	ldx #$0f
+	ldx #$0a
+	; TODO: figure out what exactly must be saved
 :	lda mem::dbg00,x
 	sta $00,x
 	lda mem::dbg00+$d0,x
@@ -273,9 +274,8 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ; SAVE USER ZP TRACE
 ; Saves just the state of the user's zeropage that is clobbered while tracing
 .macro save_user_zp_trace
-	ldx #$0f
-
 	; TODO: what is clobbering this?
+	ldx #$0a
 :	lda $d0,x
 	sta mem::prog00+$d0,x
 	dex
@@ -884,25 +884,27 @@ brkhandler2_size=*-brkhandler2
 	sta lineset		; flag that line # is (yet) unknown
 
 @uninstall_brks:
-	; uninstall breakpoints (will reinstall the ones we want later)
+	jsr tracing
+	beq :+
+	; unless tracing, uninstall breakpoints (will reinstall again later)
 	jsr uninstall_breakpoints
 
-	; update TRACE_START, STEP_OUT_START, and GO to their subsequent actions
+:	; update TRACE_START, STEP_OUT_START, and GO to their subsequent actions
 	lda action
 	cmp #ACTION_TRACE_START
+	beq @update_trace_action
+	cmp #ACTION_STEP_OUT_START
 	bne :+
 
+@update_trace_action:
+	inc action
 	ldxy #strings::tracing
 	lda #REGISTERS_LINE-1
 	jsr text::print
-	lda #ACTION_TRACE
-	sta action
+	jmp @continue_debug
 
-:	cmp #ACTION_STEP_OUT_START
-	bne :+
-	inc action
-	; if we're beginning a GO, get on with it
-:	cmp #ACTION_GO_START
+:	; if we're beginning a GO, get on with it
+	cmp #ACTION_GO_START
 	bne @update_watches
 
 	; continue the GO command
@@ -961,14 +963,14 @@ brkhandler2_size=*-brkhandler2
 	bne :+
 	inc step_out_depth	; if we called another subroutine, inc depth
 :	cmp #$60		; did we RTS?
-	bne @continue_debug
+	bne @continue_trace
 	dec step_out_depth
-	bpl @continue_debug	; continue trace
+	bpl @continue_trace	; continue trace
 
 @stepout_done:
 	lda #ACTION_STEP	; if we found the RTS, quit
 	sta action		; flag that we're done stepping out
-	bne @continue_debug
+	bne @continue_trace
 
 @chktrace:
 	cmp #ACTION_TRACE
@@ -982,7 +984,8 @@ brkhandler2_size=*-brkhandler2
 	lda stop_tracing	; should we stop the trace?
 	bne @exit_trace		; if so, return to debugger
 	jsr __debug_trace_next	; run the next step of the trace
-	jmp @continue_debug
+@continue_trace:
+	jmp __debug_done
 
 @exit_trace:
 	jsr restore_debug_zp
