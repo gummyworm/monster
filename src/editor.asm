@@ -108,29 +108,32 @@ status_row: .byte 0
 ; Initializes the editor state
 .export __edit_init
 .proc __edit_init
-	jsr bm::init
-	jsr __edit_clear
-	jsr edit
-	jsr cancel
+	ldx #$ff
+	txs
 
-	jsr asm::reset
-	jsr text::clrline
-
-	; don't assemble code, just verify it
-	lda #$01
-	sta state::verify
-	sta format
-
-	lda #CUR_BLINK_SPEED
-	sta zp::curtmr
+	jsr edit		; initialize size/mode/etc.
 
 	jsr enter_command
 
-	jsr buff::clear
+	jsr asm::reset
 
-	ldx #$00
-	ldy #$00
-	jmp cur::forceset
+	lda #$01
+	sta state::verify	; don't assemble code (just check syntax)
+	sta format		; enable formatting
+
+	jsr buff::clear		; clear copy buffer
+
+	; rewind source and get the first line's contents in textbuffer
+	jsr src::rewind
+	jsr src::get
+
+	; move cursor to first character on line
+	lda #$00
+	sta zp::cury
+	jsr text::index2cursor
+	stx zp::curx
+
+	; fall through to __edit_run
 .endproc
 
 ;******************************************************************************
@@ -141,6 +144,7 @@ status_row: .byte 0
 	jsr text::update
 	lda status_row
 	jsr text::status
+
 main:	jsr key::getch
 	beq @done
 

@@ -70,14 +70,15 @@ REG_SP_OFFSET = 14
 ; ACTION constants
 ; These tell us what command the user last executed when we return to the
 ; debugger via a BRK or NMI
-ACTION_STEP      = 1	; action for STEP command
-ACTION_STEP_OVER = 2	; action for STEP OVER command
-ACTION_START     = 3	; action for initial debug entry
-ACTION_GO_START  = 4	; action for first instruction of GO command
-ACTION_GO        = 5	; action for subsequent GO instructions
-ACTION_TRACE     = 6	; action for TRACE command
-ACTION_STEP_OUT  = 7	; action for STEP OUT command
-ACTION_TRACE_START = 8
+ACTION_STEP           = 1	; action for STEP command
+ACTION_STEP_OVER      = 2	; action for STEP OVER command
+ACTION_START          = 3	; action for initial debug entry
+ACTION_GO_START       = 4	; action for first instruction of GO command
+ACTION_GO             = 5	; action for subsequent GO instructions
+ACTION_TRACE_START    = 6
+ACTION_TRACE          = 7	; action for TRACE command
+ACTION_STEP_OUT_START = 8
+ACTION_STEP_OUT       = 9	; action for STEP OUT command
 
 ;******************************************************************************
 ; IFACE (interface) constants
@@ -273,6 +274,8 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ; Saves just the state of the user's zeropage that is clobbered while tracing
 .macro save_user_zp_trace
 	ldx #$0f
+
+	; TODO: what is clobbering this?
 :	lda $d0,x
 	sta mem::prog00+$d0,x
 	dex
@@ -340,6 +343,8 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ; Restores the state of the user's zeropage that is clobbered during a trace
 .macro restore_user_zp_trace
 	ldx #$0f
+
+	; TODO: what is clobbering this?
 :	lda mem::prog00+$d0,x
 	sta $d0,x
 	dex
@@ -882,20 +887,21 @@ brkhandler2_size=*-brkhandler2
 	; uninstall breakpoints (will reinstall the ones we want later)
 	jsr uninstall_breakpoints
 
-	; if we're beginning a GO, get on with it
+	; update TRACE_START, STEP_OUT_START, and GO to their subsequent actions
 	lda action
 	cmp #ACTION_TRACE_START
 	bne :+
-	lda #ACTION_TRACE
-	sta action
-
+	inc action
+:	cmp #ACTION_STEP_OUT_START
+	bne :+
+	inc action
+	; if we're beginning a GO, get on with it
 :	cmp #ACTION_GO_START
 	bne @update_watches
 
 	; continue the GO command
 	jsr step_restore
-	lda #ACTION_GO
-	sta action
+	inc action
 
 @continue_debug:
 	jsr install_breakpoints	; reinstall rest of breakpoints
@@ -1148,9 +1154,9 @@ restore_regs:
 	bne @rti
 
 @dummynmi:
-	lda #<$fead
+	lda #<$ff56
 	sta $0318
-	lda #>$fead
+	lda #>$ff56
 	sta $0319
 
 	; if we are executing in ROM, we couldn't set a breakpoint
@@ -1173,16 +1179,8 @@ restore_regs:
 	sta $0319
 
 @nmidone:
-	;sei
-	lda #<$eb15
-	sta $0314
-	lda #>$eb15
-	sta $0314+1
-
 	lda #$00	; enable Timer 2 (one-shot mode) on VIA #1
 	sta $911b
-	lda #$80|$20
-	sta $911e	; enable timer 2 interrupts
 
 	lda #<NMI_TIMER_VAL
 	sta $9118		; set low-order latch for the timer
@@ -1332,6 +1330,13 @@ restore_regs:
 	lda #$00
 	sta step_out_depth
 	sta stop_tracing
+
+	jsr __debug_step_out_next
+
+	inc swapmem
+	lda #ACTION_STEP_OUT_START
+	sta action
+	rts
 
 	; fall through to STEP OUT NEXT
 .endproc
@@ -1930,7 +1935,7 @@ restore_regs:
 __debug_remove_breakpoint:
 .proc remove_breakpoint
 	jsr get_breakpoint
-	bcs :+
+	bcs :+			; no breakpoint to remove -> rts
 
 	tax
 	; fall through to removebreakpointbyid
@@ -2515,7 +2520,7 @@ __debug_remove_breakpoint:
 .PUSHSEG
 .RODATA
 @stepcmds:
-	.byte ACTION_GO_START, ACTION_TRACE_START, ACTION_STEP, ACTION_STEP_OVER, ACTION_STEP_OUT, ACTION_TRACE
+	.byte ACTION_GO_START, ACTION_TRACE_START, ACTION_STEP, ACTION_STEP_OVER, ACTION_STEP_OUT, ACTION_TRACE, ACTION_STEP_OUT_START
 @num_stepcmds=*-@stepcmds
 .POPSEG
 .endproc

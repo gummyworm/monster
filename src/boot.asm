@@ -157,16 +157,14 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+_
 ; CART header and boot code
 .else ; CART
 .segment "CART"
-.word START   ; Entry point for power up
-.word RESTORE ; Entry point for warm start (RESTORE)
+.word START		; Entry point for power up
+.word edit::init	; Entry point for warm start (RESTORE)
 
 ; cartridge header
 .byte "a0",$C3,$C2,$CD	; "A0CBM"
 
 ; copy cart binary ($0000-$6000) to RAM
 START:
-RESTORE:
-@copy0:
 	jsr $fd8d	; RAMTAS
 	jsr $fd52	; init vectors
 	jsr $fdf9	; init I/O
@@ -229,6 +227,9 @@ RESTORE:
 	jsr fcpy::init
 	lda #FINAL_BANK_FASTCOPY2
 	jsr fcpy::init
+
+	lda #CUR_BLINK_SPEED
+	sta zp::curtmr
 
 .ifdef CART
 ; CART init code; copy the application from ROM bank 1
@@ -297,14 +298,28 @@ start:
 ; zero the BSS segment
 	ldxy #__BSS_LOAD__
 	stxy r0
-@zerobss:
+
+	lda #$00
 	ldy #$00
-	tya
+@zerobss:
 	sta (r0),y
-	incw r0
-	ldxy r0
-	cmpw #(__BSS_LOAD__+__BSS_SIZE__)
+	iny
 	bne @zerobss
+	inc r0+1
+	ldx r0+1
+	cpx #>(__BSS_LOAD__+__BSS_SIZE__)
+	bne @zerobss
+
+	; TODO: double check this
+	ldy #<(__BSS_LOAD__+__BSS_SIZE__)
+	beq @zero_bss_done
+@zerobss_last_page:
+	sta (r0),y
+	dey
+	bne @zerobss_last_page
+	sta (r0),y		; last byte
+
+@zero_bss_done:
 
 ;--------------------------------------
 ; relocate segments that need to be moved
@@ -464,20 +479,23 @@ num_relocs=(*-relocs)/7
 	cli
 
 	; initialize the status row reverse
-	lda #DEFAULT_900F^$08
+	lda #DEFAULT_RVS
 	ldx #23
 	jsr draw::hline
 
 	jsr asm::reset
 	jsr src::new
-	jsr edit::init
+
+	; initialize bitmap
+	jsr bm::init
+	jsr edit::clear
+
 	jsr dbgi::initonce
 
 .ifndef TEST
-	jmp edit::run
+	jmp edit::init
 .else
 	.import testsuite
 	jmp testsuite
 .endif
-
 .endproc
