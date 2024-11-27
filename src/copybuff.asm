@@ -7,30 +7,49 @@
 
 MAX_COPY_SIZE = __COPYBUFF_BSS_SIZE__
 
+.macro COPYBUFFJUMP proc
+	pha
+	lda #<proc
+	sta zp::bankjmpvec
+	lda #>proc
+	bne do_buff_proc
+.endmacro
+
 .CODE
 .export __buff_putch
-__buff_putch: JUMP FINAL_BANK_BUFF, #putch
+__buff_putch: COPYBUFFJUMP putch
 
 .export __buff_getch
-__buff_getch: JUMP FINAL_BANK_BUFF, #putch
+__buff_getch: COPYBUFFJUMP putch
 
 .export __buff_getline
-__buff_getline: JUMP FINAL_BANK_BUFF, #getline
+__buff_getline: COPYBUFFJUMP getline
 
 .export __buff_clear
-__buff_clear: JUMP FINAL_BANK_BUFF, #clear
+__buff_clear: COPYBUFFJUMP clear
 
 .export __buff_lines_copied
-__buff_lines_copied: JUMP FINAL_BANK_BUFF, #lines_copied
+__buff_lines_copied: COPYBUFFJUMP lines_copied
 
 .export __buff_push
-__buff_push: JUMP FINAL_BANK_BUFF, #push
+__buff_push: COPYBUFFJUMP push
 
 .export __buff_pop
-__buff_pop: JUMP FINAL_BANK_BUFF, #pop
+__buff_pop: COPYBUFFJUMP pop
 
 .export __buff_len
-__buff_len: JUMP FINAL_BANK_BUFF, #len
+__buff_len: COPYBUFFJUMP len
+
+;******************************************************************************
+; Entrypoint for label routines
+.proc do_buff_proc
+	sta zp::bankjmpvec+1
+	lda #FINAL_BANK_BUFF
+	sta zp::banktmp
+	pla
+	jmp __final_call
+.endproc
+
 
 .segment "COPYBUFF_BSS"
 buffptr:  		.word 0 	; buffer pointer

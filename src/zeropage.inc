@@ -6,7 +6,6 @@ ZEROPAGE_INC = 1
 jmpaddr = $00		; JMP instruction
 jmpvec  = $01 		; JMP vector for calling vectors
 
-final       = $04	; final expansion utility space
 banksp      = $05	; bank stack pointer
 bankval     = $07	; the value written by store_byte
 bankjmpaddr = $08	; JMP in struction for banked calls
@@ -86,7 +85,7 @@ sa       = $b9	; active secondary address (SETLFS)
 device   = $ba	; the last used drive #
 file     = $bb	; the most recently accessed file
 keycnt   = $cb	; # of keys in key buffer
-key      = $cb	; current keypress 
+key      = $cb	; current keypress
 
 keytab   = $f5	; key decode table
 
@@ -102,9 +101,9 @@ editor_mode	= $db	; editor mode (MODE_COMMAND or MODE_INSERT)
 editortmp 	= $dc
 
 ; $e0-$ff temporary storage
-; this is the primary scratchpad for routines. 
+; this is the primary scratchpad for routines.
 ; Be cautious when relying on this data to be in tact
-; after calling a procedure as it is likely that that 
+; after calling a procedure as it is likely that that
 ; procedure uses some of these locations
 tmp0  = $f0
 tmp1  = $f1

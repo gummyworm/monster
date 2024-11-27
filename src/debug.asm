@@ -77,6 +77,7 @@ ACTION_GO_START  = 4	; action for first instruction of GO command
 ACTION_GO        = 5	; action for subsequent GO instructions
 ACTION_TRACE     = 6	; action for TRACE command
 ACTION_STEP_OUT  = 7	; action for STEP OUT command
+ACTION_TRACE_START = 8
 
 ;******************************************************************************
 ; IFACE (interface) constants
@@ -95,8 +96,6 @@ NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
 TRACE_STACK_DEPTH = 20	; max stack depth per step of a TRACE command
 
 ;******************************************************************************
-swapmem        = zp::debugger	; not zero if we need to swap in user RAM
-
 debugtmp       = zp::debuggertmp	; scratchpad
 
 ;******************************************************************************
@@ -108,6 +107,8 @@ debugtmp       = zp::debuggertmp	; scratchpad
 __debug_interface: .byte DEBUG_IFACE_GUI
 
 .BSS
+swapmem: .byte 0	; not zero if we need to swap in user RAM
+
 
 ;******************************************************************************
 ; Up to 4 bytes need to be saved in a given STEP.
@@ -155,9 +156,9 @@ step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
 lineset:   .byte 0	; not zero if we know the line number we're on
 advance:   .byte 0	; not zero if a command continues program execution
 
-aux_mode:         .byte 0	; the active auxiliary view
-highlight_line:	  .word 0 	; the line we are highlighting
-highlight_file:   .word 0	; filename of line we are highlighting
+aux_mode:       .byte 0	; the active auxiliary view
+highlight_line: .word 0 ; the line we are highlighting
+highlight_file: .word 0	; filename of line we are highlighting
 
 action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
@@ -226,11 +227,9 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ;******************************************************************************
 ; RESTORE DEBUG ZP
 ; Restores the state of the debugger's zeropage
-.macro restore_debug_zp
+.macro restore_debug_low
 	ldx #$00
-:	lda mem::dbg00,x
-	sta $00,x
-	lda mem::dbg00+$100,x
+:	lda mem::dbg00+$100,x
 	sta $100,x
 	lda mem::dbg00+$200,x
 	sta $200,x
@@ -254,11 +253,13 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ; RESTORE DEBUG ZP TRACE
 ; Restores the state of the debugger's zeropage for traces
 .macro restore_debug_zp_trace
-	ldx #$00
+	ldx #$0f
 :	lda mem::dbg00,x
 	sta $00,x
+	lda mem::dbg00+$d0,x
+	sta $d0,x
 	dex
-	bne :-
+	bpl :-
 
 	ldx #TRACE_STACK_DEPTH-1
 :	lda mem::dbg00+$200-TRACE_STACK_DEPTH,x
@@ -271,11 +272,44 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ; SAVE USER ZP TRACE
 ; Saves just the state of the user's zeropage that is clobbered while tracing
 .macro save_user_zp_trace
-	ldx #$00
-:	lda $00,x
-	sta mem::prog00,x
+	ldx #$0f
+:	lda $d0,x
+	sta mem::prog00+$d0,x
 	dex
-	bne :-
+	bpl :-
+
+	lda zp::bankval
+	sta mem::prog00+zp::bankval
+	lda zp::banktmp
+	sta mem::prog00+zp::banktmp
+	lda zp::banktmp+1
+	sta mem::prog00+zp::banktmp+1
+	lda zp::bankoffset
+	sta mem::prog00+zp::bankoffset
+	lda r0
+	sta mem::prog00+r0
+	lda r1
+	sta mem::prog00+r1
+	lda r2
+	sta mem::prog00+r2
+	lda r3
+	sta mem::prog00+r3
+	lda r4
+	sta mem::prog00+r4
+	lda r5
+	sta mem::prog00+r5
+	lda r6
+	sta mem::prog00+r6
+	lda r7
+	sta mem::prog00+r7
+	lda r8
+	sta mem::prog00+r8
+	lda r9
+	sta mem::prog00+r9
+	lda ra
+	sta mem::prog00+ra
+	lda rb
+	sta mem::prog00+rb
 
 	ldx #TRACE_STACK_DEPTH-1
 :	lda $200-TRACE_STACK_DEPTH,x
@@ -305,11 +339,45 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ; RESTORE USER ZP TRACE
 ; Restores the state of the user's zeropage that is clobbered during a trace
 .macro restore_user_zp_trace
-	ldx #$00
-:	lda mem::prog00,x
-	sta $00,x
+	ldx #$0f
+:	lda mem::prog00+$d0,x
+	sta $d0,x
 	dex
-	bne :-
+	bpl :-
+
+	lda mem::prog00+zp::bankval
+	sta zp::bankval
+	lda mem::prog00+zp::banktmp
+	sta zp::banktmp
+	lda mem::prog00+zp::banktmp+1
+	sta zp::banktmp+1
+	lda mem::prog00+zp::bankoffset
+	sta zp::bankoffset
+
+	lda mem::prog00+r0
+	sta  r0
+	lda mem::prog00+r1
+	sta r1
+	lda mem::prog00+r2
+	sta r2
+	lda mem::prog00+r3
+	sta r3
+	lda mem::prog00+r4
+	sta r4
+	lda mem::prog00+r5
+	sta r5
+	lda mem::prog00+r6
+	sta r6
+	lda  mem::prog00+r7
+	sta r7
+	lda mem::prog00+r8
+	sta r8
+	lda mem::prog00+r9
+	sta r9
+	lda mem::prog00+ra
+	sta ra
+	lda mem::prog00+rb
+	sta rb
 
 	ldx #TRACE_STACK_DEPTH-1
 :	lda mem::prog00+$200-TRACE_STACK_DEPTH,x
@@ -773,7 +841,10 @@ brkhandler2_size=*-brkhandler2
 	txs
 
 	jsr tracing
-	bne @notrace
+	beq @backup_for_trace
+	jmp @notrace
+
+@backup_for_trace:
 	; if tracing, for the duration the debugger is active, enable an NMI to
 	; catch the user's signal to stop the trace (RESTORE)
 	ldxy #debug_restore
@@ -789,7 +860,8 @@ brkhandler2_size=*-brkhandler2
 	; save the user's zeropage and restore the debugger's
 @notrace:
 	save_user_zp
-	restore_debug_zp
+	restore_debug_low
+	jsr restore_debug_zp
 
 @swapout:
 	; swap the debugger state in
@@ -812,7 +884,12 @@ brkhandler2_size=*-brkhandler2
 
 	; if we're beginning a GO, get on with it
 	lda action
-	cmp #ACTION_GO_START
+	cmp #ACTION_TRACE_START
+	bne :+
+	lda #ACTION_TRACE
+	sta action
+
+:	cmp #ACTION_GO_START
 	bne @update_watches
 
 	; continue the GO command
@@ -863,7 +940,7 @@ brkhandler2_size=*-brkhandler2
 	bne @chktrace
 @stepout:
 	lda stop_tracing	; should we stop the trace?
-	bne @reset_state	; if so, return to debugger
+	bne @exit_trace		; if so, return to debugger
 	lda stepsave		; get the opcode we BRK'd on
 	pha
 	jsr __debug_step_out_next	; run one more STEP to get out of subroutine
@@ -889,11 +966,14 @@ brkhandler2_size=*-brkhandler2
 	; step point. If the latter, continue tracing
 	ldxy sim::pc
 	jsr get_breakpoint
-	bcc @reset_state	; breakpoint, return control to debugger
+	bcc @exit_trace		; breakpoint, return control to debugger
 	lda stop_tracing	; should we stop the trace?
-	bne @reset_state	; if so, return to debugger
+	bne @exit_trace		; if so, return to debugger
 	jsr __debug_trace_next	; run the next step of the trace
 	jmp @continue_debug
+
+@exit_trace:
+	jsr restore_debug_zp
 
 @reset_state:
 	lda #$00
@@ -980,6 +1060,7 @@ brkhandler2_size=*-brkhandler2
 @loopdone:
 	lda advance		; are we ready to execute program? (GO, STEP)
 	beq @debugloop		; not yet, loop and get another command
+	jsr cur::off
 .endproc
 
 ;******************************************************************************
@@ -989,7 +1070,6 @@ brkhandler2_size=*-brkhandler2
 ; continue execution of the program.
 .export __debug_done
 .proc __debug_done
-	jsr cur::off
 	jsr swapin
 
 @dummyirq:
@@ -1012,6 +1092,7 @@ brkhandler2_size=*-brkhandler2
 	rol
 	sta is_trace
 	beq @notrace
+
 	jsr save_debug_zp_trace
 	restore_user_zp_trace
 	jmp restore_regs
@@ -1155,6 +1236,18 @@ restore_regs:
 .endproc
 
 ;******************************************************************************
+; RESTORE DEBUG ZP
+; Restores the $00-$100 values for the debugger
+.proc restore_debug_zp
+	ldx #$00
+:	lda mem::dbg00,x
+	sta $00,x
+	dex
+	bne :-
+	rts
+.endproc
+
+;******************************************************************************
 ; SAVE DEBUG ZP
 ; Saves the state of the debugger's zeropage
 ; TODO: only save/restore the ZP locations clobbered by the debugger
@@ -1182,11 +1275,8 @@ restore_regs:
 ; (will require some overall restructure of ZP usage)
 .proc save_debug_zp_trace
 @zp=mem::dbg00
-	ldx #$00
-:	lda $00,x
-	sta @zp,x
-	dex
-	bne :-
+	; no need to save zeropage (it's either temp or static from start of
+	; trace)
 
 	ldx #TRACE_STACK_DEPTH-1
 :	lda $200-TRACE_STACK_DEPTH,x
@@ -1267,7 +1357,11 @@ restore_regs:
 .proc __debug_trace
 	lda #$00
 	sta stop_tracing
-	; fall through to __debug_trace_next
+	jsr __debug_trace_next
+	inc swapmem
+	lda #ACTION_TRACE_START
+	sta action
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1677,43 +1771,6 @@ restore_regs:
 .endproc
 
 ;******************************************************************************
-; RESTORE FOR STEP
-; Restores only the state that was clobbered when stepping to the next
-; instruction. This is used when tracing to keep the trace a little quicker
-.proc restore_for_step
-@buff=mem::dbg00
-	ldx #step_save_locs_size-1
-:	lda @buff,x
-	sta $00,x
-	dex
-	bpl :-
-	rts
-.endproc
-
-;******************************************************************************
-; SAVE FOR STEP
-; Saves only the state that will be clobbered in stepping to the next
-; instruction. This is used when tracing to keep the trace a little quicker
-.proc save_for_step
-@buff=mem::dbg00
-	ldx #step_save_locs_size-1
-:	lda $00,x
-	sta @buff,x
-	dex
-	bpl :-
-	rts
-.endproc
-
-;******************************************************************************
-.PUSHSEG
-.RODATA
-step_save_locs:
-.byte zp::bankval, zp::banktmp, zp::banktmp+1, zp::bankoffset
-.byte r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, ra, rb
-step_save_locs_size=*-step_save_locs
-.POPSEG
-
-;******************************************************************************
 ;******************************************************************************
 ; SWAPOUT
 ; Swaps *out* the user memory that needs to be saved in order to restore the
@@ -1729,7 +1786,10 @@ step_save_locs_size=*-step_save_locs
 @tosave=r4
 	lda swapmem
 	beq @fastswap
-	jmp @swapall
+@swapall:
+	; save the program state before we restore the debugger's
+	jsr __debug_save_prog_state
+	jmp restore_debug_state	; restore debugger state
 
 @fastswap:
 	; save [prevpc, prevpc+2], [msave], and [sim::next_pc] for the user
@@ -1808,11 +1868,6 @@ step_save_locs_size=*-step_save_locs
 	dec @cnt
 	bpl @store
 	rts			; done
-
-@swapall:
-	; save the program state before we restore the debugger's
-	jsr __debug_save_prog_state
-	jmp restore_debug_state	; restore debugger state
 .endproc
 
 ;******************************************************************************
@@ -1996,7 +2051,7 @@ __debug_remove_breakpoint:
 ;  - .C: set if no breakpoint is found
 ;  - .A: the id of the breakpoint
 .proc get_breakpoint
-@addr=debugtmp
+@addr=r0
 	stxy @addr
 	ldx __debug_numbreakpoints
 	beq @notfound
@@ -2460,7 +2515,7 @@ __debug_remove_breakpoint:
 .PUSHSEG
 .RODATA
 @stepcmds:
-	.byte ACTION_GO_START, ACTION_STEP, ACTION_STEP_OVER, ACTION_STEP_OUT, ACTION_TRACE
+	.byte ACTION_GO_START, ACTION_TRACE_START, ACTION_STEP, ACTION_STEP_OVER, ACTION_STEP_OUT, ACTION_TRACE
 @num_stepcmds=*-@stepcmds
 .POPSEG
 .endproc

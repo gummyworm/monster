@@ -44,11 +44,7 @@ SIZEOF_BLOCK_HEADER = 13
 	lda #<proc
 	sta zp::bankjmpvec
 	lda #>proc
-	sta zp::bankjmpvec+1
-	lda #FINAL_BANK_DEBUG
-	sta zp::banktmp
-	pla
-	jmp __final_call
+	bne do_proc
 .endmacro
 
 ;******************************************************************************
@@ -142,6 +138,17 @@ __debug_push_block:    BANKJUMP push_block
 __debug_pop_block:     BANKJUMP pop_block
 
 __debuginfo_get_fileid: BANKJUMP get_fileid
+
+;******************************************************************************
+; Entrypoint for routines
+.proc do_proc
+	sta zp::bankjmpvec+1
+	lda #FINAL_BANK_DEBUG
+	sta zp::banktmp
+	pla
+	jmp __final_call
+.endproc
+
 
 .POPSEG
 .endif
