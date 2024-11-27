@@ -93,6 +93,9 @@ __str_saveall: .byte "save all buffers? (y/n)",0
 .export __str_assemble_prompt
 __str_assemble_prompt: .byte "program out of date, reassemble? (y/n)",0
 
+.export __str_tracing
+__str_tracing: .byte "tracing...",0
+
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA
 .DATA

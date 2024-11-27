@@ -4621,7 +4621,7 @@ __edit_gotoline:
 	jsr src::get
 	lda #$00
 	jsr draw_src_line
-	jmp @longdone
+	jmp @renderdone
 
 @rowdown:
 	inc zp::cury
@@ -4636,7 +4636,7 @@ __edit_gotoline:
 	jsr draw_src_line
 
 	jsr is_visual
-	bne @longdone
+	bne @renderdone
 
 	cpx #MODE_VISUAL
 	beq @vis
@@ -4655,7 +4655,7 @@ __edit_gotoline:
 @rvs:	ldy #$00
 	lda zp::cury
 	jsr bm::rvsline_part
-	jmp @longdone
+	jmp @renderdone
 
 ; if we ran out of source but we're not at the end of the screen,
 ; clear whatever rows are left
@@ -4676,16 +4676,13 @@ __edit_gotoline:
 	lda @rowsave
 	sta zp::cury
 
-@longdone:
-	lda #$00
-	sta highlight_status
-
 @renderdone:
 	; move the cursor to the top if we searched backwards or bottom
 	; if forward
 	; and move to appropriate column if we ended on a TAB
 	lda mem::linebuffer
 	ldx #$00
+	stx highlight_status	; clear highlight status
 	cmp #$09		; TAB
 	bne :+
 	jsr src::right

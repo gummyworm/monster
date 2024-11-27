@@ -20,13 +20,14 @@
 .import __str_edit_file_save_failed
 .import __str_memory
 .import __str_memview_title
+.import __str_null
 .import __str_loading
 .import __str_run
 .import __str_saveall
 .import __str_saving
 .import __str_segments
 .import __str_symview_title
-.import __str_null
+.import __str_tracing
 .import __str_watch_added
 .import __str_watches_line
 .import __str_watches_line_end
@@ -68,6 +69,7 @@
 	saving                  = __str_saving
 	saveall			= __str_saveall
 	symview_title           = __str_symview_title
+	tracing                 = __str_tracing
 	invalid_command         = __str_invalid_command
 	jam_detected            = __str_jam_detected
 .endscope

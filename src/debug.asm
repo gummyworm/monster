@@ -360,7 +360,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	sta zp::bankoffset
 
 	lda mem::prog00+r0
-	sta  r0
+	sta r0
 	lda mem::prog00+r1
 	sta r1
 	lda mem::prog00+r2
@@ -891,7 +891,13 @@ brkhandler2_size=*-brkhandler2
 	lda action
 	cmp #ACTION_TRACE_START
 	bne :+
-	inc action
+
+	ldxy #strings::tracing
+	lda #REGISTERS_LINE-1
+	jsr text::print
+	lda #ACTION_TRACE
+	sta action
+
 :	cmp #ACTION_STEP_OUT_START
 	bne :+
 	inc action
@@ -1209,6 +1215,16 @@ restore_regs:
 .endproc
 
 ;******************************************************************************
+; GOTO BREAK
+; Navigates the editor to the line that corresponds to the address where the
+; debugger is currently at in the user program.
+.proc goto_break
+.endproc
+	ldxy brkaddr
+
+	; fall through to __debug_gotoaddr
+
+;******************************************************************************
 ; GOTOADDR
 ; Navigates the editor to the file/line associated with the give address
 ; IN:
@@ -1300,9 +1316,7 @@ restore_regs:
 
 	ldxy #NMI_IER
 	lda #$80|$02		; enable RESTORE interrupts only
-	jsr vmem::store
-
-	rts
+	jmp vmem::store
 .endproc
 
 ;******************************************************************************
@@ -1337,8 +1351,6 @@ restore_regs:
 	lda #ACTION_STEP_OUT_START
 	sta action
 	rts
-
-	; fall through to STEP OUT NEXT
 .endproc
 
 ;******************************************************************************
@@ -2539,29 +2551,10 @@ __debug_remove_breakpoint:
 .endproc
 
 ;******************************************************************************
-; GOTO BREAK
-; Navigates the editor to the line that corresponds to the address where the
-; debugger is currently at in the user program.
-.proc goto_break
-.endproc
-	ldxy brkaddr
-	jmp __debug_gotoaddr
-
-;******************************************************************************
 ; ACTIVATE MONITOR
 ; Activates the text user interface debugger (monitor)
 .proc activate_monitor
 	lda #DEBUG_IFACE_TEXT
-	sta __debug_interface
-	jsr save_debug_state
-	jmp edit::enterconsole
-.endproc
-
-;******************************************************************************
-; DEACTIVATE MONITOR
-; Deactivates the text user interface debugger (monitor) and returns to the GUI
-.proc deactivate_monitor
-	lda #DEBUG_IFACE_GUI
 	sta __debug_interface
 	jsr save_debug_state
 	jmp edit::enterconsole
