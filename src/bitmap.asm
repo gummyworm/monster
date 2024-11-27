@@ -42,7 +42,7 @@ COLMEM_ADDR = $9400
 
 ;******************************************************************************
 ; CLR
-; Clears the bitmap and sets the color memory to TEXT_COLOR
+; Clears the bitmap
 .export __bm_clr
 .proc __bm_clr
 	CALL FINAL_BANK_FAST, #fcpy::clr
@@ -52,7 +52,9 @@ COLMEM_ADDR = $9400
 
 ;******************************************************************************
 ; CLRCOLOR
-; Reverts all color memory to its initial values (TEXT_COLOR)
+; Reverts all color memory to the given color
+; IN:
+;  - .A: the color to fill the screen with
 .export __bm_clrcolor
 .proc __bm_clrcolor
 	ldy #$00

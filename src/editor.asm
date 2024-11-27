@@ -108,11 +108,16 @@ status_row: .byte 0
 ; Initializes the editor state
 .export __edit_init
 .proc __edit_init
+	sei
 	ldx #$ff
 	txs
+	cli
+
+	inx			; ldx #$00
+	stx debugging
 
 	jsr edit		; initialize size/mode/etc.
-
+	jsr reset_size
 	jsr enter_command
 
 	jsr asm::reset
@@ -132,6 +137,8 @@ status_row: .byte 0
 	sta zp::cury
 	jsr text::index2cursor
 	stx zp::curx
+
+	jsr refresh
 
 	; fall through to __edit_run
 .endproc
@@ -288,15 +295,7 @@ main:	jsr key::getch
 	jsr home_line	; avoid problems with cursor-y being below new height
 	ldxy @addr
 
-	jsr dbg::start	; start debugging at address in .XY
-	dec debugging
-
-	lda #TEXT_COLOR
-	jsr bm::clrcolor
-
-	jsr edit	; re-init editor state
-	jsr cancel
-	jmp refresh
+	jmp dbg::start	; start debugging at address in .XY
 .endproc
 
 ;******************************************************************************

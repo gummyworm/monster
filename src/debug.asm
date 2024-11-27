@@ -1417,10 +1417,11 @@ restore_regs:
 	sta edit::highlight_en	; disable highlighting
 	pha			; push 0 status
 	plp			; clear flags (.P)
-	sei
-	ldx #$ff
-	txs			; reset stack
-	cli
+
+	lda #TEXT_COLOR
+	jsr bm::clrcolor
+
+	jmp edit::init
 @done:	rts
 .endproc
 
