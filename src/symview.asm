@@ -15,7 +15,7 @@
 .include "keycodes.inc"
 .include "labels.inc"
 .include "macros.inc"
-.include "screen.inc"
+.include "vscreen.inc"
 .include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"
@@ -83,7 +83,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	sta filename+1
 
 	jsr dbgi::addr2line	; get file and line #
-	bcs @done		; if no mapping, skip 
+	bcs @done		; if no mapping, skip
 				; (this will filter out constants)
 	stxy line
 	jsr dbgi::get_filename
@@ -130,7 +130,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	lda addr+1
 	pha
 
-@print:	
+@print:
 @row=*+1
 	lda #$00
 	jsr text::print
@@ -165,7 +165,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	; elif we are sorting by addr, use the sort by name msg
 	ldxy #sort_by_addr_msg
 	lda sortby
-	cmp #SORT_ALPHA	
+	cmp #SORT_ALPHA
 	beq :+
 	ldxy #sort_by_name_msg
 :	lda #23

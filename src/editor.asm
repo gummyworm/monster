@@ -35,7 +35,7 @@
 .include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "screen.inc"
+.include "vscreen.inc"
 .include "source.inc"
 .include "state.inc"
 .include "string.inc"
@@ -1593,6 +1593,14 @@ force_enter_insert=*+5
 	bne :-
 
 @copydone:
+	; TODO:
+	; make sure that the lines that are being joined with pasted lines are
+	; less than the max line length
+	;
+	; [ pre-paste ] [ first line]
+	; ...
+	; [ last paste ] [ post-paste]
+
 	; read the first buffer line into the proper textbuffer location
 	lda @splitindex
 	clc
@@ -1716,8 +1724,8 @@ force_enter_insert=*+5
 	cmp #$6c	; 'l'
 	beq @left
 	rts
-@left:  JUMP FINAL_BANK_SAVESCR, #scr::pushcol
-@right: JUMP FINAL_BANK_SAVESCR, #scr::popcol
+@left:  JUMP FINAL_BANK_VSCREEN, #scr::shr
+@right: JUMP FINAL_BANK_VSCREEN, #scr::shl
 .endproc
 
 ;******************************************************************************

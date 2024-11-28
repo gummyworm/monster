@@ -17,7 +17,7 @@ infile = sys.argv[2]
 imgfile = sys.argv[3]
 
 # segments to crunch in the bootloader
-bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE", "SETUP", "FASTTEXT", "MACROCODE", "SAVESCR", "IRQ", "DATA", "LABELS", "UDGEDIT", "CONSOLE", "COPYBUFF", "RODATA"]
+bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE", "SETUP", "FASTTEXT", "MACROCODE", "VSCREEN", "IRQ", "DATA", "LABELS", "UDGEDIT", "CONSOLE", "COPYBUFF", "RODATA"]
 
 cartsegmentnames = ["CART"]
 

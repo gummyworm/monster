@@ -16,7 +16,7 @@ bootfile = sys.argv[3]
 appfile = sys.argv[4]
 
 # segments to crunch in the bootloader
-bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE" "SETUP", "FASTTEXT", "MACROCODE", "SAVESCR", "IRQ", "DATA", "LABELS", "UDGEDIT", "CONSOLE", "COPYBUFF", "RODATA"]
+bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE" "SETUP", "FASTTEXT", "MACROCODE", "VSCREEN", "IRQ", "DATA", "LABELS", "UDGEDIT", "CONSOLE", "COPYBUFF", "RODATA"]
 
 # open map file and extract the segment to crunch in the bootloader
 segments = {}
@@ -59,7 +59,7 @@ with open(infile, 'rb') as file:
     with open(bootfile, 'wb') as prg:
         prg.write(bootloader)
 
-    appstart = 0x2000 
+    appstart = 0x2000
     print(f'writing application file to ${appstart:02x}-${appstart+(len(buf)-size):02x} (${(len(buf)-size):02x} bytes)')
     with open(appfile, 'wb') as prg:
         # write load address

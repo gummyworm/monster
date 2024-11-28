@@ -14,7 +14,7 @@
 .include "keycodes.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "screen.inc"
+.include "vscreen.inc"
 .include "strings.inc"
 .include "text.inc"
 .include "util.inc"

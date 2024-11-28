@@ -678,6 +678,7 @@ blockaddresseshi: .res MAX_FILES
 @line=r2
 @cnt=r4
 @file=r5
+@closest=r7		; nearest line < the one we're looking for
 	sta @file
 	stxy @line
 	lda #$00
@@ -736,6 +737,11 @@ blockaddresseshi: .res MAX_FILES
 	RETURN_OK
 
 @nextline:
+	; TODO:
+	; check if the line we read is closer than our current closest
+	lda srcline
+	cmp @closest
+
 	jsr advance
 	bcc @findaddr
 @done:	rts

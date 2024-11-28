@@ -11,7 +11,7 @@
 .import __final_memcpy_bank
 
 ;******************************************************************************
-; BANK LAYOUT 
+; BANK LAYOUT
 ; These definitions describe which banks store the code/data for their
 ; corresponding item.
 
@@ -19,7 +19,7 @@ FINAL_BANK_ROM0	= $00		; ROM address $000000
 
 ;******************************************************************************
 ; This is the default bank while the editor has control of the CPU
-; MAIN bank ($01) 
+; MAIN bank ($01)
 FINAL_BANK_MAIN    = $a0|1	; where the editor/assembler/etc code is stored
 
 ;******************************************************************************
@@ -48,9 +48,9 @@ FINAL_BANK_SOURCE5 = $a0|9	; source bank
 FINAL_BANK_SOURCE6 = $a0|$a	; source bank
 FINAL_BANK_SOURCE7 = $a0|$b	; source bank
 
-; The following banks use the upper part of the 
+; The following banks use the upper part of the
 ; source banks ($a000-$c000)
-; $a000-$c000 
+; $a000-$c000
 FINAL_BANK_MACROS  = $a0|4	; macro code & macro data ($a000-$c000)
 FINAL_BANK_UDGEDIT = $a0|5	; UDG editor ($a000-$c000)
 FINAL_BANK_LINKER  = $a0|6	; linker ($a000-$c000)
@@ -64,10 +64,10 @@ FINAL_BANK_SYMVIEW = $a0|9	; symbol viewer ($a000-$c000)
 ;  $2000-$727f: screen shift routines and backup buffers (screen.asm)
 ;
 ;  $727f-$8000: 2nd part of bitmap clear routine
-;  $a000-$c000: 1st part of bitmap clear routine 
-FINAL_BANK_SAVESCR = $a0|$0c
+;  $a000-$c000: 1st part of bitmap clear routine
+FINAL_BANK_VSCREEN = $a0|$0c
 FINAL_BANK_FAST    = $a0|$0c
-			
+
 ;******************************************************************************
 ; SYMBOLS bank ($0D)
 ; The SYMBOLS bank stores the label names for the progam's labels in $2000-$8000
@@ -79,7 +79,7 @@ FINAL_BANK_SYMBOLS = $a0|$d	; symbols bank (label names and their addresses)
 ;******************************************************************************
 ; FASTCOPY blocks ($0E-$0F)
 ; In these blocks, $2000-$8000 is used to store undrolled loops that copy data
-; to the upper RAM ($a000-$c000).  The hi RAM ($a000-$b000) stores the data 
+; to the upper RAM ($a000-$c000).  The hi RAM ($a000-$b000) stores the data
 ; for the debugger (FASTCOPY2) and user program (in FASTCOPY).
 FINAL_BANK_FASTCOPY2 = $a0|$e
 FINAL_BANK_FASTCOPY  = $a0|$f
