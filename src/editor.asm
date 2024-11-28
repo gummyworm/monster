@@ -120,8 +120,6 @@ status_row: .byte 0
 	jsr reset_size
 	jsr enter_command
 
-	jsr asm::reset
-
 	lda #$01
 	sta state::verify	; don't assemble code (just check syntax)
 	sta format		; enable formatting

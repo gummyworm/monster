@@ -491,6 +491,7 @@ num_relocs=(*-relocs)/7
 	jsr edit::clear
 
 	jsr dbgi::initonce
+	jsr asm::reset
 
 .ifndef TEST
 	jmp edit::init
