@@ -1612,8 +1612,14 @@ force_enter_insert=*+5
 	jsr buff::getline
 	bcs @done		; buffer empty (nothing to paste)
 	pha			; save newline flag
-	ldxy r9			; dst (set in buff::getline)
-	jsr src::insertline	; insert the first line from the paste buffer
+
+	jsr text::linelen
+	cmp #40
+	bcc @ok
+	jsr beep::short		; line would be too long after the paste
+	jmp @done
+
+@ok:	jsr src::insertline	; insert the first line from the paste buffer
 	pla
 	cmp #$0d		; did line end with a newline?
 	bne @lastline		; if not, this is a < 1 line paste

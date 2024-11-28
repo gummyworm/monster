@@ -791,6 +791,7 @@ render_off: .byte 0
 ; Returns the length of mem::linebuffer in number of rendered characters
 ; OUT:
 ;  - .X: the length of mem::linebuffer as it appears on screen
+;  - .Y: the length of the linebuffer in characters
 .proc __text_rendered_line_len
 .export __text_rendered_line_len
 @tabsz=r0

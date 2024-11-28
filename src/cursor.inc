@@ -1,6 +1,4 @@
-.import __cur_down
 .import __cur_left
-.import __cur_forceset
 .import __cur_mode
 .import __cur_move
 .import __cur_on
@@ -16,7 +14,6 @@
 .import __cur_status
 .import __cur_toggle
 .import __cur_unlimit
-.import __cur_up
 
 CUR_NORMAL = 0
 CUR_SELECT = 1
@@ -34,9 +31,6 @@ CUR_ON  = 1
 	mode     = __cur_mode
 	move     = __cur_move
 	set      = __cur_set
-	up       = __cur_up
-	down     = __cur_down
-	forceset = __cur_forceset
 	right    = __cur_right
 	left     = __cur_left
 	toggle   = __cur_toggle

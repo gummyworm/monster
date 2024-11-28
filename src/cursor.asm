@@ -148,38 +148,6 @@ __cur_toggle:
 	rts
 
 ;******************************************************************************
-; UP
-; Moves the cursor up a row.
-; If moving up would move the cursor outside its defined limits, has no effect
-.export __cur_up
-.proc __cur_up
-	lda zp::cury
-	cmp miny
-	bcs :+
-	ldy miny
-	ldx #$00
-	jmp __cur_set
-:	ldy #$ff
-	ldx #$00
-	jmp __cur_move
-.endproc
-
-;******************************************************************************
-; UP
-; Moves the cursor down a row.
-; If moving down would move the cursor outside its defined limits, has no effect
-.export __cur_down
-.proc __cur_down
-	lda zp::cury
-	cmp maxy
-	bcs @done
-	ldy #1
-	ldx #$00
-	jmp __cur_move
-@done:	rts
-.endproc
-
-;******************************************************************************
 ; RIGHT
 ; Moves the cursor right a column
 ; If moving right would move the cursor outside its limits, has no effect
@@ -295,21 +263,23 @@ __cur_toggle:
 
 	ldx r2
 	ldy r3
-
-	; fall through
-.endproc
-
-;******************************************************************************
-; FORCESET
-; Sets the cursor X and Y without respecting limts
-; IN:
-;  - .X: the column to set the cursor to
-;  - .Y: the row to set the cursor to
-.export __cur_forceset
-.proc __cur_forceset
 	stx zp::curx
 	sty zp::cury
 	rts
+.endproc
+
+;******************************************************************************
+; UNLIMIT
+.export __cur_unlimit
+.proc __cur_unlimit
+	ldx #$00
+	stx minx
+	stx miny
+
+	ldx #40
+	ldy #23
+
+	; fall through to __cur_setmax
 .endproc
 
 ;******************************************************************************
@@ -336,15 +306,4 @@ __cur_toggle:
 	stx minx
 	sty miny
 	rts
-.endproc
-
-;******************************************************************************
-; UNLIMIT
-.export __cur_unlimit
-.proc __cur_unlimit
-	ldxy #$00
-	jsr __cur_setmin
-	ldx #40
-	ldy #23
-	jmp __cur_setmax
 .endproc
