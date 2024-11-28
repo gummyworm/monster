@@ -114,7 +114,18 @@ final_store_size=*-__final_store_byte
 	dey
 	bpl :-
 	ldx #$80
-	bne return_to_x	; restore bank
+
+	; fall through to return_to_x
+.endproc
+
+;******************************************************************************
+; RETURN TO X
+; Sets the bank to the given bank and returns (RTS)
+; IN:
+;  - .X: the bank to return to
+.proc return_to_x
+@done:	stx $9c02	; restore bank
+	rts
 .endproc
 
 ;******************************************************************************
@@ -141,18 +152,7 @@ final_store_size=*-__final_store_byte
 	iny
 	cpy #LINESIZE
 	bne :-
-@done:
-	; fall through to return_to_x
-.endproc
-
-;******************************************************************************
-; RETURN TO X
-; Sets the bank to the given bank and returns (RTS)
-; IN:
-;  - .X: the bank to return to
-.proc return_to_x
-@done:	stx $9c02	; restore bank
-	rts
+@done:	beq return_to_x	; restore bank
 .endproc
 
 ;******************************************************************************

@@ -288,7 +288,8 @@ render_off: .byte 0
 @moveback:
 	clc		; "put" was successful
 	rts
-@err:	sec		; couldn't perform action
+@err:	jsr beep::short
+	sec		; couldn't perform action
 	rts
 
 @printing:
@@ -306,9 +307,8 @@ render_off: .byte 0
 	jsr __text_tabr_dist
 	clc
 	adc @len2		; check if we can fit the new TAB char
-	cmp #40
-	bcc :+
-	jmp beep::short		; can't fit the new TAB
+	cmp cur::maxx
+	bcs @err		; can't fit the new TAB
 
 :	lda @ch
 	lda __text_insertmode
@@ -964,7 +964,7 @@ __text_tabr_dist_a=*+2
 	lda tabs,y
 	sta zp::util
 	lda zp::curx
-	sec
+	; sec
 	sbc zp::util
 @done:	rts
 .endproc

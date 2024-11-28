@@ -47,7 +47,7 @@ LINESIZE = 40	; the size of the buffer for 1 line on the screen
 
 ;******************************************************************************
 ; BEEP SETTINGS
-BEEP_TONE           = $e4
+BEEP_TONE           = $dd
 BEEP_ERR_TONE       = $a4
 BEEP_VOL            = $0c
 SHORT_BEEP_DURATION = 10
