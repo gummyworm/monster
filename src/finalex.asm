@@ -6,8 +6,9 @@
 ; the active bank.
 ;******************************************************************************
 
-.include "zeropage.inc"
+.include "config.inc"
 .include "macros.inc"
+.include "zeropage.inc"
 
 .segment "BANKCODE"
 
@@ -113,13 +114,12 @@ final_store_size=*-__final_store_byte
 	dey
 	bpl :-
 	ldx #$80
-	stx $9c02	; restore bank
-	rts
+	bne return_to_x	; restore bank
 .endproc
 
 ;******************************************************************************
 ; COPY LINE
-; Copies up to 256 bytes from zp::bankaddr0 to zp::bankaddr1 stopping at the
+; Copies up to LINESIZE bytes from zp::bankaddr0 to zp::bankaddr1 stopping at the
 ; first $0d or $00
 ; IN:
 ;  - .A:            the bank to perform the copy within
@@ -131,7 +131,7 @@ final_store_size=*-__final_store_byte
 .export __final_copy_line
 .proc __final_copy_line
 	ldx $9c02	; get current bank
-	sta $9c02
+	sta $9c02	; set bank to copy within
 	ldy #$00
 :	lda (zp::bankaddr0),y
 	sta (zp::bankaddr1),y
@@ -139,7 +139,18 @@ final_store_size=*-__final_store_byte
 	cmp #$0d
 	beq @done
 	iny
+	cpy #LINESIZE
 	bne :-
+@done:
+	; fall through to return_to_x
+.endproc
+
+;******************************************************************************
+; RETURN TO X
+; Sets the bank to the given bank and returns (RTS)
+; IN:
+;  - .X: the bank to return to
+.proc return_to_x
 @done:	stx $9c02	; restore bank
 	rts
 .endproc
@@ -192,7 +203,7 @@ banksp:    .byte 0
 ;******************************************************************************
 ; COPY BANK 2 BANK
 ; Entrypoint to copy from one bank to another
-; IN: 
+; IN:
 ;  - .A:  the source bank
 ;  - .XY: the number of bytes to copy
 ;  - r2:  the source address
