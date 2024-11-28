@@ -316,7 +316,7 @@ row:	.byte 0
 	ldx dbg::numwatches
 	beq :+
 
-	; check if watch already exists
+	; check if watch (in r2) already exists
 	jsr getwatch
 	beq @done		; already a watch here, exit
 
@@ -382,13 +382,12 @@ row:	.byte 0
 @addr=r2
 	ldx dbg::numwatches
 @l0:	lda @addr
-	cmp dbg::watcheslo,x
+	cmp dbg::watcheslo-1,x
 	bne @next
 	lda @addr+1
-	cmp dbg::watcheshi,x
+	cmp dbg::watcheshi-1,x
 	beq @done
 @next:	dex
-	dex
-	bpl @l0
+	bne @l0
 @done:	rts
 .endproc

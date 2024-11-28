@@ -22,22 +22,22 @@ CUR_OFF = 0
 CUR_ON  = 1
 
 .scope cur
-	on       = __cur_on
-	off      = __cur_off
-	maxx     = __cur_maxx
-	minx     = __cur_minx
-	maxy     = __cur_maxy
-	miny     = __cur_miny
-	mode     = __cur_mode
-	move     = __cur_move
-	set      = __cur_set
-	right    = __cur_right
-	left     = __cur_left
-	toggle   = __cur_toggle
-	setmin   = __cur_setmin
-	setmax   = __cur_setmax
-	status   = __cur_status
-	unlimit  = __cur_unlimit
+	on      = __cur_on
+	off     = __cur_off
+	maxx    = __cur_maxx
+	minx    = __cur_minx
+	maxy    = __cur_maxy
+	miny    = __cur_miny
+	mode    = __cur_mode
+	move    = __cur_move
+	set     = __cur_set
+	right   = __cur_right
+	left    = __cur_left
+	toggle  = __cur_toggle
+	setmin  = __cur_setmin
+	setmax  = __cur_setmax
+	status  = __cur_status
+	unlimit = __cur_unlimit
 .endscope
 
 .macro pushcur

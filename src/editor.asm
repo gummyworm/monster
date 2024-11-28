@@ -1600,6 +1600,7 @@ force_enter_insert=*+5
 	; [ last paste ] [ post-paste]
 
 	; read the first buffer line into the proper textbuffer location
+	jsr text::savebuff
 	lda @splitindex
 	clc
 	adc #<mem::linebuffer
@@ -1614,6 +1615,7 @@ force_enter_insert=*+5
 	jsr text::linelen
 	cmp #40
 	bcc @ok
+	jsr text::restorebuff
 	jsr beep::short		; line would be too long after the paste
 	jmp @done
 

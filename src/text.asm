@@ -1,4 +1,5 @@
 .include "asm.inc"
+.include "beep.inc"
 .include "bitmap.inc"
 .include "config.inc"
 .include "cursor.inc"
@@ -239,7 +240,15 @@ render_off: .byte 0
 ;  - .C: set if character was unsuccessfully put
 .export __text_putch
 .proc __text_putch
-@curi=zp::text
+@curi=zp::text+3
+@len=zp::text+4
+@ch=zp::text+5
+@len2=zp::text+6
+	sta @ch
+	jsr __text_linelen
+	stx @len
+
+	lda @ch
 	cmp #$14
 	bne @printing
 
@@ -267,8 +276,9 @@ render_off: .byte 0
 	beq @moveback	; if REPLACE, just move cursor
 
 @shift_left:
-	jsr __text_linelen
+	; shift everything to the right of the char we replaced left
 	lda #$00
+	ldx @len
 	sta mem::linebuffer,x
 	txa
 	tay
@@ -284,17 +294,30 @@ render_off: .byte 0
 @printing:
 	ldx zp::curx
 	cpx cur::maxx
-	bcs @err	; cursor is limited
-	pha
+	bcs @err		; cursor is limited
 	jsr __text_char_index
 	sty @curi
+
+	lda @ch
+	cmp #$09		; is char to print a TAB?
+	bne :+
+	jsr __text_rendered_line_len
+	stx @len2
+	jsr __text_tabr_dist
+	clc
+	adc @len2		; check if we can fit the new TAB char
+	cmp #40
+	bcc :+
+	jmp beep::short		; can't fit the new TAB
+
+:	lda @ch
 	lda __text_insertmode
 	beq @fastput	; if REPLACE, no need to shift, do fast put
 
 @slowput:
 @shift_right:
 	; insert a new char and redraw the line
-	jsr __text_linelen
+	ldx @len
 	cpx @curi
 	beq @fastputi
 	lda #$00
@@ -314,7 +337,7 @@ render_off: .byte 0
 @fastput:
 	; replace the underlying character
 @cont:	ldx @curi
-	pla
+	lda @ch
 	sta mem::linebuffer,x
 	bne :+
 	RETURN_OK		; terminating 0, we're done
