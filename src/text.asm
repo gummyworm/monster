@@ -295,6 +295,11 @@ render_off: .byte 0
 	rts
 
 @printing:
+	jsr __text_rendered_line_len
+	stx @len2
+	cpx #40			; is line already maxed out?
+	bcs @err		; if so, no chance we can insert
+
 	ldx zp::curx
 	cpx cur::maxx
 	bcs @err		; cursor is limited
@@ -304,8 +309,6 @@ render_off: .byte 0
 	lda @ch
 	cmp #$09		; is char to print a TAB?
 	bne :+
-	jsr __text_rendered_line_len
-	stx @len2
 	jsr __text_tabr_dist
 	clc
 	adc @len2		; check if we can fit the new TAB char

@@ -185,7 +185,6 @@ row:	.byte 0
 	rts
 .endproc
 
-
 ;******************************************************************************
 ; UPDATE
 ; Reads the new values of all locations being watched and stores them
