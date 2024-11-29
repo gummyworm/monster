@@ -8,10 +8,20 @@
 .include "util.inc"
 .include "zeropage.inc"
 
+;*******************************************************************************
+; INC
+; Increments the line pointer, which points to the current character being read
+; during assembly or other parsing (e.g. expression evaluation)
+.export __line_inc
+.proc __line_inc
+	incw zp::line
+	rts
+.endproc
+
 ;******************************************************************************
 ; NEXTCH
 ; advances the line and THEN processes whitespace
-; (equivalent to incw zp::line : jsr process_ws).
+; (equivalent to jsr __line_inc : jsr process_ws).
 ; OUT:
 ;  - .A: the new character that the line points to
 ;  - .Z: set if line is already at the end or is at the end after moving
@@ -20,7 +30,9 @@
 	ldy #$00
 	lda (zp::line),y
 	beq :+
-	incw zp::line
+
+	jsr __line_inc
+
 	; fall through
 .endproc
 
@@ -40,7 +52,7 @@
 	bmi @skip		; skip non-printing chars
 	jsr util::is_whitespace
 	bne :+			; if not space, we're done
-@skip:	incw zp::line
+@skip:	jsr __line_inc
 	bne @l0
 :	rts
 .endproc
@@ -58,7 +70,7 @@
 	beq :-				; to RTS
 	jsr util::is_whitespace
 	beq :-				; to RTS
-	incw zp::line
+	jsr __line_inc
 	jmp __line_process_word
 .endproc
 

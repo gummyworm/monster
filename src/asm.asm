@@ -561,7 +561,7 @@ num_illegals = *-illegal_opcodes
 	jsr is_anonref		; anonymous label (:)?
 	bne @label
 @anonlabel:
-	incw zp::line
+	jsr line::incptr
 	lda (zp::line),y
 	jsr util::is_whitespace	; anon label must be followed by whitespace
 	bne :+			; if not whitespace, go on
@@ -607,7 +607,7 @@ num_illegals = *-illegal_opcodes
 	cmp #'#'
 	bne @lparen		; if not '#' check for a paren (indirect)
 	inc immediate		; flag operand as IMMEDIATE
-	incw zp::line
+	jsr line::incptr
 	lda (zp::line),y	; get the next character
 
 	; if IMMEDIATE, skip parentheses (treat as part of expression)
@@ -617,20 +617,20 @@ num_illegals = *-illegal_opcodes
 	cmp #'('
 	bne @hi_or_low_byte
 	inc indirect
-	incw zp::line
+	jsr line::incptr
 	lda (zp::line),y
 
 @hi_or_low_byte:
 	cmp #'<'
 	bne :+
 	inc lsb			; flag LSB
-	incw zp::line
+	jsr line::incptr
 	jmp @evalexpr		; continue (can't be both MSB and LSB)
 
 :	cmp #'>'
 	bne @evalexpr
 	inc msb			; flag MSB
-	incw zp::line
+	jsr line::incptr
 
 ; all chars not part of expression have been processed, evaluate the expression
 @evalexpr:
@@ -705,7 +705,7 @@ num_illegals = *-illegal_opcodes
 
 ; look for a plain ')' (indirect addressing) or '),y'  (indirect y-indexed)
 @rparen_noprex:
-	incw zp::line
+	jsr line::incptr
 	cmp #')'
 	bne @unexpected_char
 
@@ -740,7 +740,7 @@ num_illegals = *-illegal_opcodes
 ;------------------------------------------------------------------------------
 ; finish the line by checking for whitespace and/or a comment
 @finishline:
-	incw zp::line		; next char
+	jsr line::incptr		; next char
 @getws2:
 	jsr line::process_ws
 
@@ -1126,7 +1126,7 @@ num_illegals = *-illegal_opcodes
 
 	ldx #$00
 @l0:
-	incw zp::line
+	jsr line::incptr
 	lda (zp::line),y
 	beq @err	; no closing quote
 	cmp #'"'
@@ -1135,7 +1135,7 @@ num_illegals = *-illegal_opcodes
 	inx
 	bne @l0
 @done:
-	incw zp::line
+	jsr line::incptr
 	txa
 	RETURN_OK
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
@@ -1408,7 +1408,7 @@ num_illegals = *-illegal_opcodes
 	jsr get_ctx_type
 	beq @ok		; done, context not handled
 	ldxy #asmbuffer
-	jsr ctx::write	; copy the linebuffer to the context
+	jsr ctx::write	; copy the lineer to the context
 	bcs @done
 	lda #$00	; flag that the context was handled
 	skw
@@ -1426,7 +1426,7 @@ num_illegals = *-illegal_opcodes
 	jsr util::is_whitespace
 	beq @done
 @l0:
-	incw zp::line
+	jsr line::incptr
 	lda (zp::line),y
 	jsr util::is_whitespace
 	bne @l0
@@ -1481,7 +1481,7 @@ num_illegals = *-illegal_opcodes
 	beq @done
 	cmp #';'		; comment?
 	beq @done
-	incw zp::line
+	jsr line::incptr
 	cmp #','
 	beq definebyte
 	jsr util::is_whitespace
@@ -1520,7 +1520,7 @@ num_illegals = *-illegal_opcodes
 	beq @done
 	cmp #';'
 	beq @done
-	incw zp::line
+	jsr line::incptr
 	cmp #','
 	beq defineword
 	jsr util::is_whitespace
@@ -1582,7 +1582,7 @@ num_illegals = *-illegal_opcodes
 @unenquoted:
 	RETURN_ERR ERR_UNEXPECTED_CHAR
 :	ldx #$00
-	incw zp::line
+	jsr line::incptr
 @getfilename:
 	lda (zp::line),y
 	jsr util::is_whitespace
@@ -1590,7 +1590,7 @@ num_illegals = *-illegal_opcodes
 	cmp #'"'
 	beq @doinc
 	sta @filename,x
-	incw zp::line
+	jsr line::incptr
 	inx
 	bne @getfilename
 
@@ -1815,7 +1815,7 @@ __asm_include:
 
 @getparam:
 	; get the name of the parameter
-	incw zp::line
+	jsr line::incptr
 	ldy #$00
 @saveparam:
 	ldxy zp::line
@@ -1879,7 +1879,7 @@ __asm_include:
 	beq :+
 	RETURN_ERR ERR_UNEXPECTED_CHAR
 
-:	incw zp::line
+:	jsr line::incptr
 	bne @getparams
 @done:	lda #CTX_MACRO
 	jsr set_ctx_type	; store MACRO as current context type
@@ -2351,7 +2351,7 @@ __asm_include:
 	beq @done		; 0 (end of line) we're done, assemble
 	cmp #';'		; ';' (comment) - also done
 	beq @done
-	incw zp::line
+	jsr line::incptr
 	cmp #','
 	beq @l0
 	jsr util::is_whitespace

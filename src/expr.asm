@@ -6,6 +6,7 @@
 
 .include "errors.inc"
 .include "labels.inc"
+.include "line.inc"
 .include "macros.inc"
 .include "math.inc"
 .include "state.inc"
@@ -75,7 +76,7 @@ end_on_whitespace: .byte 0
 	; check whitespace behavior, finish if configured as terminator
 	lda end_on_whitespace
 	bne @end
-	incw zp::line
+	jsr line::incptr
 	bne @l0		; branch always
 
 :	lda (zp::line),y
@@ -88,7 +89,7 @@ end_on_whitespace: .byte 0
 	bne @lparen
 	inc @may_be_unary
 	jsr @pushop
-	incw zp::line
+	jsr line::incptr
 	bne @l0		; branch always
 
 @lparen:
@@ -105,7 +106,7 @@ end_on_whitespace: .byte 0
 	cmp #'('
 	bne :+
 	jsr @popop	; pop the parentheses
-	incw zp::line
+	jsr line::incptr
 	jmp @l0		; and we're done evaluating this () block
 
 :	jsr @eval	; evaluate the top 2 operands
@@ -139,7 +140,7 @@ end_on_whitespace: .byte 0
 @process_ops_done:
 	pla
 	jsr @pushop
-	incw zp::line
+	jsr line::incptr
 	inc @may_be_unary
 	jmp @l0
 
@@ -393,7 +394,7 @@ end_on_whitespace: .byte 0
 @l0:	lda (zp::line),y
 	jsr util::isseparator
 	beq :+
-	incw zp::line
+	jsr line::incptr
 	bne @l0
 
 :	pla
@@ -488,7 +489,7 @@ end_on_whitespace: .byte 0
 	beq :+
 	jmp @err
 
-:	incw zp::line
+:	jsr line::incptr
 	ldx zp::virtualpc
 	ldy zp::virtualpc+1
 	beq *+3
@@ -499,14 +500,14 @@ end_on_whitespace: .byte 0
 
 ;------------------
 @char:
-	incw zp::line
+	jsr line::incptr
 	lda (zp::line),y	; read the character value
 	tax			; put it into .X
-	incw zp::line
+	jsr line::incptr
 	lda (zp::line),y	; make sure there is a terminating quote
 	cmp #$27		; single quote
 	bne @badchar
-	incw zp::line
+	jsr line::incptr
 	lda #$01		; result is 1 byte in size
 	RETURN_OK
 
