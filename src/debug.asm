@@ -1577,6 +1577,8 @@ restore_regs:
 	bcc @setbrk			; if there's no watch, contiue
 
 	; activate the watch window so user sees change
+	; restore zp (if we were tracing, must be restored)
+	jsr restore_debug_zp
 	lda #(DEBUG_INFO_START_ROW+1)*8
 	jsr bm::clrpart
 	lda #AUX_GUI
@@ -1593,8 +1595,7 @@ restore_regs:
 
 	; is the next instruction a JAM?
 	lda sim::jammed
-	beq @nojam
-	jmp jam_detected
+	bne jam_detected
 
 @nojam:	lda sim::op
 	cmp #$20		; JSR?
@@ -1641,12 +1642,10 @@ restore_regs:
 	clc
 	adc sim::stopwatch
 	sta sim::stopwatch
-	lda sim::stopwatch+1
-	adc #$00
-	sta sim::stopwatch+1
-	lda sim::stopwatch+2
-	adc #$00
-	sta sim::stopwatch+2
+	bcc @addbrk
+	inc sim::stopwatch+1
+	bne @addbrk
+	inc sim::stopwatch+2
 
 ; add the breakpoint
 @addbrk:
@@ -1663,15 +1662,6 @@ restore_regs:
 @brkdone:
 	inc advance		; continue program execution
 	RETURN_OK		; return to the debugger
-.endproc
-
-;******************************************************************************
-; STEP RESTORE
-; Restores the opcode destroyed by the last STEP.
-.proc step_restore
-	lda stepsave
-	ldxy brkaddr
-	jmp vmem::store
 .endproc
 
 ;******************************************************************************
@@ -1693,6 +1683,16 @@ restore_regs:
 :	jsr key::getch		; wait for keypress
 	beq :-
 	rts
+.endproc
+
+
+;******************************************************************************
+; STEP RESTORE
+; Restores the opcode destroyed by the last STEP.
+.proc step_restore
+	lda stepsave
+	ldxy brkaddr
+	jmp vmem::store
 .endproc
 
 ;******************************************************************************

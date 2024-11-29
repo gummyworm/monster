@@ -188,7 +188,10 @@ row:	.byte 0
 ;******************************************************************************
 ; UPDATE
 ; Reads the new values of all locations being watched and stores them
-; If the watch represents a RANGE of values, does not store new value
+; If the watch represents a RANGE of values, does not store new value.
+; OUT:
+;  - .A: the ID of the first watch triggered (if any)
+;  - .C: set if any watch was triggered
 .export __watches_update
 .proc __watches_update
 @cnt=r0
