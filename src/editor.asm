@@ -1723,6 +1723,8 @@ force_enter_insert=*+5
 ;  - l: move screen 2 characters to the left
 ;  - h: move screen 2 characters to the right
 .proc command_move_scr
+.if 0
+; TODO:
 :	jsr key::getch
 	beq :-
 	cmp #$68	; 'h'
@@ -1732,6 +1734,7 @@ force_enter_insert=*+5
 	rts
 @left:  JUMP FINAL_BANK_VSCREEN, #scr::shr
 @right: JUMP FINAL_BANK_VSCREEN, #scr::shl
+.endif
 .endproc
 
 ;******************************************************************************

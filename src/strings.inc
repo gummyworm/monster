@@ -35,6 +35,7 @@
 .import __str_watches_range_line
 .import __str_invalid_command
 .import __str_jam_detected
+.import __str_watch_triggered
 
 .scope strings
 	assemble_prompt       = __str_assemble_prompt
@@ -72,4 +73,5 @@
 	tracing                 = __str_tracing
 	invalid_command         = __str_invalid_command
 	jam_detected            = __str_jam_detected
+	watch_triggered		= __str_watch_triggered
 .endscope

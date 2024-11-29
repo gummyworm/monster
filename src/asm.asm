@@ -2525,11 +2525,10 @@ __asm_include:
 	beq @yes
 	cmp #$a0	; aaa = 101 LDX ($a)
 	beq @yes
-@no:	pla
-	sec
-	rts
-@yes:	pla
-	clc
+@no:	sec
+	skb
+@yes:	clc
+	pla
 	rts
 .endproc
 

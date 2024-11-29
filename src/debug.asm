@@ -110,7 +110,6 @@ __debug_interface: .byte DEBUG_IFACE_GUI
 .BSS
 swapmem: .byte 0	; not zero if we need to swap in user RAM
 
-
 ;******************************************************************************
 ; Up to 4 bytes need to be saved in a given STEP.
 ;  1. The instruction at the PC (up to 3 bytes)
@@ -659,11 +658,9 @@ brkhandler2_size=*-brkhandler2
 
 	ldxy @brkaddr
 	jsr vmem::load
-	beq @next		; already a BRK
 	ldx @cnt
 	sta breaksave,x		; save the instruction under the new BRK
 	lda #$00		; BRK
-
 	ldxy @brkaddr
 	jsr vmem::store
 
@@ -694,7 +691,6 @@ brkhandler2_size=*-brkhandler2
 	sta @addr+1
 
 	lda breaksave,x
-	beq @next				; already a BRK
 	ldxy @addr
 	jsr vmem::store
 @next:	dec @cnt
@@ -938,10 +934,10 @@ brkhandler2_size=*-brkhandler2
 	lda startsave		; restore opcode
 	ldxy sim::pc
 	jsr vmem::store
-	jmp @reset_state
+	jmp return_to_debugger
 
 :	jsr stepping		; are we stepping?
-	bne @reset_state
+	bne return_to_debugger
 @restore_step:
 	jsr step_restore
 
@@ -959,6 +955,8 @@ brkhandler2_size=*-brkhandler2
 	pha
 	jsr __debug_step_out_next	; run one more STEP to get out of subroutine
 	pla				; get previous opcode
+	rol stop_tracing	; stop tracing if STEP OUT says we should
+
 	cmp #$20		; did we run a JSR?
 	bne :+
 	inc step_out_depth	; if we called another subroutine, inc depth
@@ -974,7 +972,7 @@ brkhandler2_size=*-brkhandler2
 
 @chktrace:
 	cmp #ACTION_TRACE
-	bne @reset_state	; if not TRACE/STEP_OUT, return to debugger
+	bne return_to_debugger	; if not TRACE/STEP_OUT, return to debugger
 @trace:
 	; check if the BRK that was triggered is a breakpoint or just the
 	; step point. If the latter, continue tracing
@@ -984,13 +982,18 @@ brkhandler2_size=*-brkhandler2
 	lda stop_tracing	; should we stop the trace?
 	bne @exit_trace		; if so, return to debugger
 	jsr __debug_trace_next	; run the next step of the trace
+	rol stop_tracing	; stop tracing if STEP OUT says we should
 @continue_trace:
 	jmp __debug_done
 
 @exit_trace:
 	jsr restore_debug_zp
+.endproc
 
-@reset_state:
+;******************************************************************************
+; RETURN TO DEBUGGER
+; Entrypoint to the debugger
+.proc return_to_debugger
 	lda #$00
 	sta action
 	sta advance	; by default, don't return to program after command
@@ -1342,6 +1345,8 @@ restore_regs:
 ;******************************************************************************
 ; STEP OUT
 ; Runs the user program until the next RTS is executed
+; OUT:
+;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .export __debug_step_out
 .proc __debug_step_out
 	lda #$00
@@ -1349,17 +1354,21 @@ restore_regs:
 	sta stop_tracing
 
 	jsr __debug_step_out_next
+	bcs @done
 
 	inc swapmem
 	lda #ACTION_STEP_OUT_START
 	sta action
-	rts
+	clc
+@done:	rts
 .endproc
 
 ;******************************************************************************
 ; STEP OUT NEXT
 ; Runs the next step of a "STEP OUT" command.  This is called each step after
 ; executing a "STEP OUT" until the RTS we're looking for is executed
+; OUT:
+;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .proc __debug_step_out_next
 	; for the first instruction, just STEP, this lets us keep the breakpoint
 	; we are on (if there is one) intact
@@ -1387,13 +1396,15 @@ restore_regs:
 ;******************************************************************************
 ; TRACE NEXT
 ; Runs the next step of a TRACE
+; OUT:
+;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .proc __debug_trace_next
 	jsr __debug_step
 	lda stop_tracing
-	bne :+
+	bne @done
 	lda #ACTION_TRACE
-:	sta action
-	rts
+	sta action
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1526,6 +1537,8 @@ restore_regs:
 ; Runs the next instruction from the .PC and returns to the debug prompt.
 ; This works by inserting a BRK instruction after
 ; the current instruction and RUNning.
+; OUT:
+;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .export __debug_step
 .proc __debug_step
 @mode=r0
@@ -1569,12 +1582,12 @@ restore_regs:
 
 @check_effects:
 	lda sim::affected
-	and #OP_LOAD|OP_STORE	; was there a write to memory?
-	beq @setbrk		; if not, skip ahead to setting the next BRK
+	and #OP_LOAD|OP_STORE		; will there be a write to memory?
+	beq @setbrk			; if not, skip ahead to setting the next BRK
 
 	ldxy sim::effective_addr	; if so, mark the watch if there is one
-	jsr watch::mark			; if there's a watch at this addr, mark it
-	bcc @setbrk			; if there's no watch, contiue
+	jsr watch::mark			; check if there's a watch at this addr
+	bcc @setbrk			; if there's no watch at addr, continue
 
 	; activate the watch window so user sees change
 	; restore zp (if we were tracing, must be restored)
@@ -1583,7 +1596,16 @@ restore_regs:
 	jsr bm::clrpart
 	lda #AUX_GUI
 	sta aux_mode
+
+	; display a message indicating watch was triggered
+	ldxy #strings::watch_triggered
+	lda #(REGISTERS_LINE)
+	jsr text::print
+
 	jsr watch::edit
+	pla			; clean stack
+	sec			; flag that we should return to the debugger
+	rts
 
 @setbrk:
 	pla			; get instruction size

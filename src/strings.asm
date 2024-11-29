@@ -96,6 +96,10 @@ __str_assemble_prompt: .byte "program out of date, reassemble? (y/n)",0
 .export __str_tracing
 __str_tracing: .byte "tracing...",0
 
+.export __str_watch_triggered
+__str_watch_triggered:
+.byte "watch triggered",0
+
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA
 .DATA
