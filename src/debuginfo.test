@@ -1,0 +1,132 @@
+;******************************************************************************
+.proc test
+	TEST "debuginfo.0"
+
+	jsr dbgi::init
+
+	; store filename to give it an ID
+	ldxy #filename
+	jsr dbgi::setfile
+
+	; create new block
+	ldxy #filename
+	jsr dbgi::getfileid	; file ID
+	sta dbgi::file
+
+	ldxy #1			; base line
+	stxy dbgi::srcline
+
+	ldxy #$1000		; base address
+	jsr dbgi::newblock
+
+	; map line 1 to address $1000
+	ldxy #$1000
+	stxy r0
+	ldxy #1
+	jsr dbgi::storeline
+
+	; map line 2 to address $1002
+	ldxy #$1002
+	stxy r0
+	ldxy #2
+	jsr dbgi::storeline
+
+	; done with the block
+	ldxy #$1004		; end address
+	jsr dbgi::endblock
+
+	; lookup the line we stored by address
+	ldxy #filename
+	jsr dbgi::getfileid	; file ID
+	assert_cc
+
+	ldxy #$1000		; address to get line of
+	jsr dbgi::addr2line
+
+	assert_cc
+	assert_xy_equals #1
+	
+	; now lookup the address by line
+	ldxy #filename
+	jsr dbgi::getfileid	; file ID
+	ldxy #1
+	jsr dbgi::line2addr
+
+	assert_cc
+	assert_xy_equals #$1000
+.endproc
+
+;******************************************************************************
+; TWO BLOCKS
+; Add a second block and look up a line in it by address
+.proc two_blocks
+	TEST "debuginfo.2 blocks"
+
+	; create new block
+	ldxy #filename
+	jsr dbgi::getfileid	; same file ID as block 0
+	sta dbgi::file
+
+	ldxy #3			; base line
+	stxy dbgi::srcline
+	ldxy #$1003		; base address
+	jsr dbgi::newblock
+
+	; map line 3 to address $1003
+	ldxy #$1003
+	stxy r0
+	ldxy #3
+	jsr dbgi::storeline
+
+	; done with the block
+	jsr dbgi::endblock
+
+	; lookup the line we stored by address
+	ldxy #filename
+	jsr dbgi::getfileid	; file ID
+	ldxy #$1003		; address to get line of
+	jsr dbgi::addr2line
+
+	assert_cc
+	assert_xy_equals #3
+
+	; now lookup the address by line
+	ldxy #filename
+	jsr dbgi::getfileid	; file ID
+	ldxy #3
+	jsr dbgi::line2addr
+
+	assert_cc
+	assert_xy_equals #$1003
+.endproc
+
+;******************************************************************************
+; LONG LINE JUMP
+; Test that the line program can handle long (> 16 line) advances
+.proc long_line_jmp
+	TEST "debuginfo.long line jmp"
+
+	ldxy #$1006
+	stxy r0
+	ldxy #100
+	jsr dbgi::storeline
+
+	jsr dbgi::endblock
+
+	; lookup the line we stored by address
+	ldxy #filename
+	jsr dbgi::getfileid	; file ID
+	ldxy #$1006		; address to get line of
+	jsr dbgi::addr2line
+
+	assert_cc
+	assert_xy_equals #100
+
+	jmp done
+.endproc
+
+;******************************************************************************
+; TEST DATA
+filename: .byte "hello",0
+
+done:

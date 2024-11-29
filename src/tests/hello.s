@@ -1,11 +1,11 @@
 .org $1400
 main:
-	jsr $e5b5	; INIT VIC
-	jsr $e55f	; CLRSCR
-	lda #$f0
-	sta $9005
-	lda #$96
-	sta $9002
+	;jsr $e5b5	; INIT VIC
+	;jsr $e55f	; CLRSCR
+	;lda #$f0
+	;sta $9005
+	;lda #$96
+	;sta $9002
 	ldx #0
 loop:
 	lda msg,x

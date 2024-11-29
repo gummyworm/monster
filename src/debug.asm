@@ -220,7 +220,6 @@ breakpoint_flags: .res MAX_BREAKPOINTS ; active state of breakpoints
 breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 in_rom:   .byte 0	; !0: the next instruction is in $c000-$ffff
-is_trace: .byte 0	; !0: we are running a TRACE instruction
 is_step:  .byte 0	; !0: we are running a STEP instruction
 
 ;******************************************************************************
@@ -531,27 +530,22 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	stxy $0318		; NMI
 	cli
 
-	lda #$a9		; LDA
-	sta r0
-	lda #FINAL_BANK_USER
-	sta r1
-	lda #$8d		; STA
-	sta r2
-	lda #<$9c02
-	sta r3
-	lda #>$9c02
-	sta r4
-
-	lda #$4c		; JMP
-	sta r5
-
-	; BASIC cold start
-	lda #<$e37b
-	sta r6
-	lda #>$e37b
-	sta r7
-
+	ldx #@bootloader_size
+:	lda @bootloader-1,x
+	sta r0-1,x
+	dex
+	bne :-
 	jmp r0
+
+.PUSHSEG
+.RODATA
+@bootloader:
+	lda #FINAL_BANK_USER
+	sta $9c02
+	jmp $e37b		; BASIC cold start
+@bootloader_size=*-@bootloader
+.POPSEG
+
 .endproc
 
 ;******************************************************************************
@@ -1148,10 +1142,7 @@ brkhandler2_size=*-brkhandler2
 	rol
 	sta is_step
 	jsr tracing
-	lda #$00
-	rol
-	sta is_trace
-	beq @notrace
+	bne @notrace
 
 	jsr save_debug_zp_trace
 	restore_user_zp_trace
@@ -1297,7 +1288,7 @@ restore_regs:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*****************************************************************************
 ; RESTORE DEBUG ZP
 ; Restores the $00-$100 values for the debugger
 .proc restore_debug_zp
@@ -1312,8 +1303,6 @@ restore_regs:
 ;******************************************************************************
 ; SAVE DEBUG ZP
 ; Saves the state of the debugger's zeropage
-; TODO: only save/restore the ZP locations clobbered by the debugger
-; (will require some overall restructure of ZP usage)
 .proc save_debug_zp
 @zp=mem::dbg00
 	ldx #$00
@@ -1333,8 +1322,6 @@ restore_regs:
 ;******************************************************************************
 ; SAVE DEBUG ZP TRACE
 ; Saves the state of the debugger's zeropage
-; TODO: only save/restore the ZP locations clobbered by the debugger
-; (will require some overall restructure of ZP usage)
 .proc save_debug_zp_trace
 @zp=mem::dbg00
 	; no need to save zeropage (it's either temp or static from start of
