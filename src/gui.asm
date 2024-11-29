@@ -4,6 +4,7 @@
 ; GUI windows are created by defining a structure containing handlers for
 ; retrieving the lines of data to draw and handling key presses.
 ; Handlers should stay away from the gui zeropage area (see zeropage.inc)
+
 ;******************************************************************************
 
 .include "bitmap.inc"
@@ -155,7 +156,7 @@ guisp:		.word guistack
 	sec
 	sbc select
 	tax
-	lda #DEFAULT_RVS
+	lda #GUI_SELECT_COLOR
 	jsr draw::hline
 
 :	jsr key::getch
@@ -243,10 +244,12 @@ guisp:		.word guistack
 ; would affect the state of the GUI window, e.g. setting a breakpoint could
 ; cause the breakpoints GUI to populate with new data.
 .export __gui_refresh
-__gui_refresh:
+.proc __gui_refresh
 	; copy the persistent GUI state to the zeropage
 	jsr copyvars
 	bcc redraw_state
+.endproc
+exit:
 	rts				; no GUI to draw
 
 ; entrypoint to draw the already copied zeropage state
@@ -304,11 +307,13 @@ __gui_refresh:
 
 ;--------------------------------------
 @highlight_selection:
+	lda num
+	beq exit
 	lda baserow
 	sec
 	sbc select
 	tax
-	lda #DEFAULT_RVS
+	lda #GUI_SELECT_COLOR
 	jmp draw::hline
 
 ;******************************************************************************

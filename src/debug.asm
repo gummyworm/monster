@@ -1652,9 +1652,8 @@ restore_regs:
 	ldxy brkaddr
 	jsr vmem::load
 	sta stepsave
-	lda in_rom		; can we add a breakpoint?
-	bne @brkdone		; if not, continue
 
+	; add breakpoint (note that this is a NOP if the address is in ROM)
 	lda #$00		; BRK
 	ldxy brkaddr
 	jsr vmem::store
