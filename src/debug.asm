@@ -164,8 +164,7 @@ action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
 brkcond: .word 0	; if !0, address to handler to break TRACE on
 
-.export debugger_sp
-debugger_sp: .byte 0	; stack pointer (SP) for debugger
+is_brk: .byte 0		; set if interrupt was triggered by BRK
 
 step_out_depth: .byte 0 ; # of RTS's to wait for when "stepping out"
 
@@ -503,8 +502,8 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	jsr install_brk			; install the BRK handler IRQ
 
 	jsr save_debug_state 		; save the debug state
-	;jsr __debug_save_prog_state
-	jsr __debug_restore_progstate	; and copy in entire user state to start
+
+@cont:	jsr __debug_restore_progstate	; copy in user program
 
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
@@ -513,10 +512,46 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	; swap the user and debug zeropages
 	jsr save_debug_zp
 
-	ldx #$ff
-	tsx
+	; initialize machine state
+	sei
+	jsr $fd8d	; initialize and test RAM
+	jsr $fd52	; restore default I/O vectors
+	jsr $fdf9	; initialize I/O registers
+	jsr $e518	; initialize hardware
 
-	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK
+	jsr $e44f	; init BASIC vectors
+	save_user_zp
+	ldxy sim::pc
+	stxy $0302	; BASIC warm start vector
+
+	sei
+	ldxy #BRK_HANDLER_ADDR+1
+	stxy $0316		; BRK
+	ldxy #NMI_HANDLER_ADDR
+	stxy $0318		; NMI
+	cli
+
+	lda #$a9		; LDA
+	sta r0
+	lda #FINAL_BANK_USER
+	sta r1
+	lda #$8d		; STA
+	sta r2
+	lda #<$9c02
+	sta r3
+	lda #>$9c02
+	sta r4
+
+	lda #$4c		; JMP
+	sta r5
+
+	; BASIC cold start
+	lda #<$e37b
+	sta r6
+	lda #>$e37b
+	sta r7
+
+	jmp r0
 .endproc
 
 ;******************************************************************************
@@ -777,9 +812,14 @@ brkhandler2_size=*-brkhandler2
 ; and finally transfers control to the debugger
 .proc debug_brk
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
-	ldy $911d	; check if NMI occurred (bit 7)
 	lda #$7f
 	sta $911e	; disable all NMI's
+	sta $912e	; disable all NMI's
+
+	tsx
+	lda $104,x	; get status
+	and #$10	; mask BRK flag
+	sta is_brk
 
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
 	pla
@@ -802,9 +842,8 @@ brkhandler2_size=*-brkhandler2
 	; clear decimal in case user set it
 	cld
 
-	tya		; get IFR
-	and #$22	; was the interrupt from RESTORE (CA1) or TIMER 2?
-	beq @notnmi
+	lda is_brk	; was interrupt triggered  by a BRK?
+	bne @notnmi	; if so, skip NMI handler
 
 ; An NMI interrupt occurred while we were returning to the user program (while
 ; we were still in the NMI/BRK ISR).

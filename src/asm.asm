@@ -833,7 +833,7 @@ num_illegals = *-illegal_opcodes
 	dey
 	jsr writeb
 	bcs @ret		; return err
-:	lda #$01
+	lda #$01
 	sta operandsz
 	jmp @noerr
 
