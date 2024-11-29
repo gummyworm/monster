@@ -223,31 +223,6 @@ in_rom:   .byte 0	; !0: the next instruction is in $c000-$ffff
 is_step:  .byte 0	; !0: we are running a STEP instruction
 
 ;******************************************************************************
-; RESTORE DEBUG ZP
-; Restores the state of the debugger's zeropage
-.macro restore_debug_low
-	ldx #$00
-:	lda mem::dbg00+$100,x
-	sta $100,x
-	lda mem::dbg00+$200,x
-	sta $200,x
-	dex
-	bne :-
-
-	; copy around the NMI vector
-:	lda mem::dbg00+$31a,x
-	sta $31a,x
-	dex
-	bne :-
-
-	ldx #$18-1
-:	lda mem::dbg00+$300,x
-	sta $300,x
-	dex
-	bpl :-
-.endmacro
-
-;******************************************************************************
 ; RESTORE DEBUG ZP TRACE
 ; Restores the state of the debugger's zeropage for traces
 .macro restore_debug_zp_trace
@@ -501,15 +476,12 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	jsr install_brk			; install the BRK handler IRQ
 
 	jsr save_debug_state 		; save the debug state
+	jsr save_debug_zp
 
-@cont:	jsr __debug_restore_progstate	; copy in user program
+	jsr __debug_restore_progstate	; copy in user program
 
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
-
-	; the zeropage is sensitive, when we're done with all other setup,
-	; swap the user and debug zeropages
-	jsr save_debug_zp
 
 	; initialize machine state
 	sei
@@ -525,9 +497,9 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 
 	sei
 	ldxy #BRK_HANDLER_ADDR+1
-	stxy $0316		; BRK
+	stxy $0316			; BRK
 	ldxy #NMI_HANDLER_ADDR
-	stxy $0318		; NMI
+	stxy $0318			; NMI
 	cli
 
 	ldx #@bootloader_size
@@ -536,7 +508,6 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	dex
 	bne :-
 	jmp r0
-
 .PUSHSEG
 .RODATA
 @bootloader:
@@ -545,7 +516,6 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	jmp $e37b		; BASIC cold start
 @bootloader_size=*-@bootloader
 .POPSEG
-
 .endproc
 
 ;******************************************************************************
@@ -894,11 +864,11 @@ brkhandler2_size=*-brkhandler2
 	; save the user's zeropage and restore the debugger's
 @notrace:
 	save_user_zp
-	restore_debug_low
+	jsr restore_debug_low
 	jsr restore_debug_zp
 
 @swapout:
-	; swap the debugger state in
+	; save program state and swap the debugger state in
 	jsr swapout
 
 	; reinstall the main IRQ
@@ -1006,8 +976,8 @@ brkhandler2_size=*-brkhandler2
 @chktrace:
 	cmp #ACTION_TRACE
 	bne return_to_debugger	; if not TRACE/STEP_OUT, return to debugger
-@trace:
-	; check if the BRK that was triggered is a breakpoint or just the
+
+@trace:	; check if the BRK that was triggered is a breakpoint or just the
 	; step point. If the latter, continue tracing
 	ldxy sim::pc
 	jsr get_breakpoint
@@ -1020,9 +990,13 @@ brkhandler2_size=*-brkhandler2
 	jmp __debug_done
 
 @exit_trace:
-	jsr restore_debug_zp
 	lda #$7f
 	sta $911e		; disable all NMI's
+	jsr restore_debug_zp
+	jsr restore_debug_low
+	jsr restore_debug_state
+	inc swapmem
+        jsr irq::raster
 .endproc
 
 ;******************************************************************************
@@ -1298,6 +1272,43 @@ restore_regs:
 	dex
 	bne :-
 	rts
+.endproc
+
+;******************************************************************************
+; RESTORE DEBUG ZP
+; Restores the state of the debugger's zeropage
+.proc restore_debug_low
+	; get return address (stack will be clobbered)
+	pla
+	clc
+	adc #$01
+	sta @ret
+	pla
+	adc #$00
+	sta @ret+1
+
+	ldx #$00
+:	lda mem::dbg00+$100,x
+	sta $100,x
+	lda mem::dbg00+$200,x
+	sta $200,x
+	dex
+	bne :-
+
+	; copy around the NMI vector
+:	lda mem::dbg00+$31a,x
+	sta $31a,x
+	dex
+	bne :-
+
+	ldx #$18-1
+:	lda mem::dbg00+$300,x
+	sta $300,x
+	dex
+	bpl :-
+
+@ret=*+1
+	jmp $f00d
 .endproc
 
 ;******************************************************************************
@@ -1860,7 +1871,7 @@ restore_regs:
 @swapall:
 	; save the program state before we restore the debugger's
 	jsr __debug_save_prog_state
-	jmp restore_debug_state	; restore debugger state
+	jmp restore_debug_state		; restore debugger state
 
 @fastswap:
 	; save [prevpc, prevpc+2], [msave], and [sim::next_pc] for the user
