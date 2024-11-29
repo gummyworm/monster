@@ -253,11 +253,11 @@ render_off: .byte 0
 	bne @printing
 
 	; backspace
-	lda zp::curx
-	beq @err	; cannot delete (cursor is at left side of screen)
-	cmp cur::minx
-	bcc @err	; cursor is limited
-	beq @err
+	ldx zp::curx
+	beq @err_silent	; cannot delete (cursor is at left side of screen)
+	dex
+	cpx cur::minx
+	bcc @err	; minx >= curx, cursor is limited
 
 	jsr __text_char_index
 	sty @curi
@@ -273,7 +273,7 @@ render_off: .byte 0
 	sta mem::linebuffer-1,y	; restore
 
 	lda __text_insertmode
-	beq @moveback	; if REPLACE, just move cursor
+	beq @bs_done		; if REPLACE, don't alter text
 
 @shift_left:
 	; shift everything to the right of the char we replaced left
@@ -285,10 +285,12 @@ render_off: .byte 0
 	ldx @curi
 	dex
 	jsr linebuff::shl
-@moveback:
+@bs_done:
 	clc		; "put" was successful
 	rts
+
 @err:	jsr beep::short
+@err_silent:
 	sec		; couldn't perform action
 	rts
 

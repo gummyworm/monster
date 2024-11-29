@@ -2493,18 +2493,17 @@ __edit_set_breakpoint:
 	cmp #$00
 	beq @ret		; no UDG created
 
-	cmp #$01
-	bne @update
+	cmp #$01		; check if result was 1 (new udg created)
+	bne @update		; if not, must be 2 (udg updated)
 
-@new:	jsr enter_insert
+@new:	jsr open_line_below_noindent
 	jmp @write
 
 @update:
 	jsr delete_line
 	jsr enter_insert
 
-@write:
-	; write .udg to the source buffer
+@write: ; write .udg to the source buffer
 	jsr text::bufferon
 	lda #'.'
 	jsr insert
@@ -2516,7 +2515,7 @@ __edit_set_breakpoint:
 	jsr insert
 
 	; convert the binary to hex and write the UDG
-	lda #0
+	lda #$00
 	sta @cnt
 
 @l0:	lda #'$'
@@ -2539,7 +2538,7 @@ __edit_set_breakpoint:
 	inc @cnt
 	bpl @l0
 
-@done:	jsr text::bufferon
+@done:	jsr text::bufferoff
 	lda zp::cury
 	jmp text::drawline
 @ret:	rts
