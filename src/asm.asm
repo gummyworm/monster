@@ -639,11 +639,11 @@ num_illegals = *-illegal_opcodes
 	bne :+
 	jsr anonref
 	bcc @store_value
+@evalfailed:
 	rts			; return error
 
 :	jsr expr::eval
-	bcc @store_value
-	rts			; return error, eval failed
+	bcs @evalfailed		; return error, eval failed
 
 ; store the value, note that we don't really care if we write 2 bytes when we
 ; only need one (the next instruction will overwrite it and it doesn't affect
@@ -668,8 +668,7 @@ num_illegals = *-illegal_opcodes
 	tya			; .A = MSB
 	ldy #$02
 	jsr writeb		; write the MSB (or garbage)
-	bcc @store_lsb		; if successful, write LSB
-@ret:	rts			; return err
+	bcs @evalfailed		; if unsucessful, return err
 
 @store_lsb:
 	txa			; .X = LSB
@@ -754,12 +753,14 @@ num_illegals = *-illegal_opcodes
 @done:
 	lda resulttype
 	cmp #ASM_OPCODE
-	beq :+
-	RETURN_OK	; if not an instruction, we're done
+	beq @chkaddrmode
+	; if not an instruction, we're done
+	clc
+@ret:	rts
 
-:	jsr getaddrmode
-	bcc @checkjmp
-	rts
+@chkaddrmode:
+	jsr getaddrmode
+	bcs @ret
 
 @checkjmp:
 	tax
@@ -828,11 +829,10 @@ num_illegals = *-illegal_opcodes
 	; replace 2 byte operand with 1 byte relative address
 :	txa
 	sec
-	sbc #$02	; offset is -2 from current instruction's address
+	sbc #$02		; offset -2 from current instruction's address
 	dey
 	jsr writeb
-	bcc :+
-	rts		; return err
+	bcs @ret		; return err
 :	lda #$01
 	sta operandsz
 	jmp @noerr

@@ -1,5 +1,7 @@
 .include "text.inc"
 
+.define yes_no "(", $79, "/", $6e, ")"		; lowercase (y/n)
+
 ;******************************************************************************
 .RODATA
 
@@ -88,10 +90,10 @@ __str_invalid_command: .byte "invalid command", 0
 __str_jam_detected: .byte "jam detected",0
 
 .export __str_saveall
-__str_saveall: .byte "save all buffers? (y/n)",0
+__str_saveall: .byte "save all buffers? ", yes_no, 0
 
 .export __str_assemble_prompt
-__str_assemble_prompt: .byte "program out of date, reassemble? (y/n)",0
+__str_assemble_prompt: .byte "program out of date, reassemble? ", yes_no, 0
 
 .export __str_tracing
 __str_tracing: .byte "tracing...",0
