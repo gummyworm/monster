@@ -988,6 +988,8 @@ brkhandler2_size=*-brkhandler2
 
 @exit_trace:
 	jsr restore_debug_zp
+	lda #$7f
+	sta $911e	; disable all NMI's
 .endproc
 
 ;******************************************************************************
@@ -1007,6 +1009,7 @@ brkhandler2_size=*-brkhandler2
 @iface_tui:
 	; display the contents of the registers
 	CALL FINAL_BANK_CONSOLE, #dbgcmd::regs
+
 @debugloop_tui:
 	CALL FINAL_BANK_CONSOLE, #con::reenter
 	jmp @finishlooptui
