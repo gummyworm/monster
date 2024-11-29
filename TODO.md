@@ -4,14 +4,12 @@
   - [ ] Track current scope in editor
   - [ ] Show current scope in status bar (why not)
 - [ ] Startup animation
-- [ ] Allow setting breakpoints in ROM
-  - [ ] Copy ROM to spare 16k of FE3 bank RAM
-  - [ ] Update vmem to handle the 16k ROM range
 - [ ] Support variable width characters (8x8 UDG's)
 - [ ] Implement linker (WIP on linkage branch)
 - [ ] Add settings / project configuration file
 - [ ] Symbolic disassembly
-- [ ] Cleanup hack that requires "jmp gui::ret" in GUI (call text::render instead of pushing format strings)
+- [x] Cleanup hack that requires "jmp gui::ret" in GUI (call text::render instead of pushing format strings)
+- [x] Allow setting breakpoints in ROM
 - [x] debug information rework
   - [x] store relative line #'s (label + x)
   - [x] update debug line #'s in realtime (upon line insertion/delete)

@@ -83,7 +83,7 @@ numerrs: .byte 0
 
 	ldxy #strings::edit_line_err
 	jsr text::render
-	jmp gui::ret
+	rts
 
 ;--------------------------------------
 ; callback to handle keypress

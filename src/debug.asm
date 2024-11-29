@@ -989,7 +989,7 @@ brkhandler2_size=*-brkhandler2
 @exit_trace:
 	jsr restore_debug_zp
 	lda #$7f
-	sta $911e	; disable all NMI's
+	sta $911e		; disable all NMI's
 .endproc
 
 ;******************************************************************************

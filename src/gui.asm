@@ -254,6 +254,13 @@ exit:
 
 ; entrypoint to draw the already copied zeropage state
 .proc redraw_state
+@row=guitmp
+	; copy address for getline
+	lda getdata
+	sta @getline
+	lda getdata+1
+	sta @getline+1
+
 	; resize the main editor window to fit the GUI (may increase editor
 	; size if the GUI window has shrunk since the last call)
 	lda baserow
@@ -262,7 +269,6 @@ exit:
 	sbc #$01
 	jsr edit::resize
 
-@row=guitmp
 	lda baserow
 	sta @row
 	sec
@@ -281,7 +287,7 @@ exit:
 	lda #$00
 	sta @i
 
-@dloop:	lda @row
+@dloop: lda @row
 @rowstop=*+1
 	cmp #$00			; are we at the top row yet?
 	bcc @highlight_selection	; if so, continue to highlight selected
@@ -291,9 +297,9 @@ exit:
 	clc
 	adc scroll
 
-	jmp (getdata)			; get the next line of data
+@getline=*+1
+	jsr $f00d			; get the next line of data
 
-@guireturn:			; getdata will jump back here
 	lda @row
 	jsr text::print
 
@@ -315,17 +321,6 @@ exit:
 	tax
 	lda #GUI_SELECT_COLOR
 	jmp draw::hline
-
-;******************************************************************************
-; GUIRETURN
-; Jump target for "getline" handlers to return from.  These handlers should
-; end with a `jmp gui::return` instead of `rts`
-; This is done because these handlers often push values to be printed and this
-; saves them from having to do stack management
-; IN:
-;   - .XY: address of the text to render for the current line
-.export __gui_return
-__gui_return = @guireturn
 .endproc
 
 ;******************************************************************************

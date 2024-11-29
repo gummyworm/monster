@@ -128,7 +128,8 @@ BREAKPOINT_ENABLED = 1
 	ldxy #strings::breakpoints_line
 
 @datadone:
-	jmp gui::ret
+	jsr text::render
+	rts
 .endproc
 
 ;******************************************************************************

@@ -181,7 +181,8 @@ row:	.byte 0
 
 	ldxy #strings::watches_line
 @getdatadone:
-	jmp gui::ret
+	jsr text::render
+	rts
 .endproc
 
 

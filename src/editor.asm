@@ -2622,7 +2622,8 @@ goto_buffer:
 
 	; print the buffer name at its corresponding row
 	ldxy #@buffer_line
-	jmp gui::ret
+	jsr text::render
+	rts
 
 .RODATA
 @buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
