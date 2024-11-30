@@ -50,7 +50,6 @@ __buff_len: COPYBUFFJUMP len
 	jmp __final_call
 .endproc
 
-
 .segment "COPYBUFF_BSS"
 buffptr:  		.word 0 	; buffer pointer
 buffsave: 		.word 0		; backup buffer pointer (see buff::push)

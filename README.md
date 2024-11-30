@@ -162,21 +162,21 @@ below for more info on modes).
 The following commands are entered at the "Ex Command" prompt (accessed with the `:` key).
 Most accept an argument (as described in each commands description below)
 
-|Key| Name                         |   Args                          | Description                                                                               |
-|---|------------------------------|---------------------------------|-------------------------------------------------------------------------------------------|
-| a | Assemble File                | Filename                        | assembles the given filename                                                              |
-| B | export Binary                | Filename                        | exports the active assembly to a binary file (no .PRG header)                             |
-| d | Start Debugger               | Symbol to debug at (optional)   | begins debugging at the given label                                                       |
-| db| Start Debugger (with init)   | Symbol to debug at (optional)   | begins debugging at the given label. Initializes target state with the BASIC cold handler |
-| D | Disassemble                  | Start address, End address      | Disassembles the given address range                                                      |
-| e | Edit                         | Filename                        | loads the buffer with the contents of the given file                                      |
-| g | Goto                         | Symbol to run at (optional)     | executes the program at the address of the given symbol                                   |
-| F | Disassemble File             | Filename                        | disassembles the given file to a new source buffer                                        |
-| P | export .PRG                  | Filename                        | exports the active assembly to a .PRG file                                                |
-| r | Rename                       | Name                            | renames the buffer to the given name                                                      |
-| s | Save                         | Filename                        | saves the buffer to the given filename                                                    |
-| S | Save All                     |   N/A                           | saves all modified buffers that are open currently                                        |
-| x | Scratch                      | Filename                        | scratches (deletes) the given filename                                                    |
+|Key| Name                         |   Args                          | Description                                                                                     |
+|---|------------------------------|---------------------------------|-------------------------------------------------------------------------------------------------|
+| a | Assemble File                | Filename                        | assembles the given filename                                                                    |
+| B | export Binary                | Filename                        | exports the active assembly to a binary file (no .PRG header)                                   |
+| d | Start Debugger               | Symbol to debug at (optional)   | begins debugging at the given label                                                             |
+| db| Start Debugger (with init)   | Symbol to debug at (optional)   | begins debugging at the given label. Initializes target state with the BASIC cold start handler |
+| D | Disassemble                  | Start address, End address      | Disassembles the given address range                                                            |
+| e | Edit                         | Filename                        | loads the buffer with the contents of the given file                                            |
+| g | Goto                         | Symbol to run at (optional)     | executes the program at the address of the given symbol                                         |
+| F | Disassemble File             | Filename                        | disassembles the given file to a new source buffer                                              |
+| P | export .PRG                  | Filename                        | exports the active assembly to a .PRG file                                                      |
+| r | Rename                       | Name                            | renames the buffer to the given name                                                            |
+| s | Save                         | Filename                        | saves the buffer to the given filename                                                          |
+| S | Save All                     |   N/A                           | saves all modified buffers that are open currently                                              |
+| x | Scratch                      | Filename                        | scratches (deletes) the given filename                                                          |
 
 #### Assemble File :a <filename>
 Assembles the contents of the given file. This is functionally the same as opening
@@ -205,6 +205,22 @@ details on debugging.
 
 Example:
 `:d START`
+
+#### Start Debugger (with init) :db [symbol]
+Begins debugging at the given symbol using the active debug information, initializing the
+system with the BASIC COLD start handler first.
+
+This is useful if your program expects the system to be initialized with the default
+VIC-registers, zeropage values , etc.
+
+If no symbol is given, the program will
+begin and the debugger invoked at the _lowest_ defined origin (.ORG) in the
+program. See [Debugger](https://github.com/gummyworm/monster#debugger) for more
+details on debugging.
+
+Example:
+`:db START`
+
 
 #### Disassemble :D <start address>, <end address>
 Disassembles the contents of the _virtual_ memory between the given range.
