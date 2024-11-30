@@ -483,7 +483,13 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
 
-	; initialize machine state
+	lda edit::binary_flag		; did user ask us to init BASIC first?
+	bne @basic			; if so, continue to do so
+
+	; execute without initializing BASIC
+	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK
+
+@basic:	; initialize machine state
 	sei
 	jsr $fd8d	; initialize and test RAM
 	jsr $fd52	; restore default I/O vectors
@@ -1155,7 +1161,7 @@ restore_regs:
 
 	; TODO: restore timer values
 
-	pha			; save .A (to be pulled after bank select)
+	pha		; save .A (to be pulled after bank select)
 
 	lda #$7f
 	sta $911e	; disable NMI's

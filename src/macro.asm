@@ -372,4 +372,3 @@ macros:          .res $1400
 .endproc
 
 endmac:	.byte ".endmac",0
-.CODE

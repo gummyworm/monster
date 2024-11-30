@@ -84,8 +84,13 @@ visual_start_x:		.byte 0	; the x-position a selection began at
 selection_type:    	.byte 0 ; the type of selection (VISUAL_LINE or VISUAL)
 format:            	.byte 0	; if 0, formatting is not applied on line-end
 
+
 overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
-cmdreps:   .byte 0	; number of times to REPEAT current command
+
+.export __edit_binary_flag
+__edit_binary_flag: .byte 0	; flag used by some commands
+
+cmdreps:     .byte 0	; number of times to REPEAT current command
 
 .export __edit_highlight_en
 .export __edit_highlight_line
@@ -116,13 +121,12 @@ status_row: .byte 0
 	inx			; ldx #$00
 	stx debugging
 
-	jsr edit		; initialize size/mode/etc.
-	jsr reset_size
-	jsr enter_command
+	inx			; ldx #$01
+	stx state::verify	; don't assemble code (just check syntax)
+	stx format		; enable formatting
 
-	lda #$01
-	sta state::verify	; don't assemble code (just check syntax)
-	sta format		; enable formatting
+	jsr edit		; initialize size/mode/etc.
+	jsr enter_command
 
 	jsr buff::clear		; clear copy buffer
 
@@ -1051,7 +1055,6 @@ force_enter_insert=*+5
 :	lda #EDITOR_HEIGHT
 	sta height
 	jmp refresh
-	rts
 .endproc
 
 ;******************************************************************************_
@@ -1208,9 +1211,7 @@ force_enter_insert=*+5
 	jsr enter_insert
 @l0:	jsr ccright
 	bcc @l0
-	jsr src::end
-	beq @done
-@done:  rts
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -1248,7 +1249,7 @@ force_enter_insert=*+5
 .proc end_of_line
 @l0:	jsr ccright
 	bcc @l0
-@done:	rts
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -1472,7 +1473,7 @@ force_enter_insert=*+5
 	jmp text::drawline
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 .proc delete_char
 	jsr delch
 	bcc @ok
@@ -1480,7 +1481,7 @@ force_enter_insert=*+5
 @ok:	jmp redraw_to_end_of_line
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 .proc delete_to_end
 @l0:	jsr delch
 	jsr src::before_newl
@@ -1488,17 +1489,16 @@ force_enter_insert=*+5
 	jmp redraw_to_end_of_line
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 .proc delete_word
 @endonalpha=r1
 	; if we're on an alphanum char, end on the first non-alphanum char
 	; if we're NOT on an alphanum char, end on the first alphanum char
 	jsr src::after_cursor
-	ldx #$00
 	jsr util::isalphanum
-	bcc :+
-	inx
-:	stx @endonalpha	; flag if we are to end on an alphanum char or not
+	lda #$00
+	rol		; 0 if starting char is alphanum, 1 if not
+	sta @endonalpha	; flag if we are to end on an alphanum char or not
 
 @l0:	jsr delch
 	bcs @done
@@ -1507,8 +1507,8 @@ force_enter_insert=*+5
 	jsr src::after_cursor
 	jsr util::isalphanum
 	ldx @endonalpha
-	bne :+
-	bcs @l0
+	bne :+			; if we don't want to end on alphanum, skip
+	bcs @l0			; if alphanum, continue
 :	bcc @l0
 
 @done:  jmp redraw_to_end_of_line
@@ -1907,8 +1907,8 @@ force_enter_insert=*+5
 	bne @check_ban_up
 	jsr text::linelen
 
-	cpx #$00
-	bne @ban_down	; if line is not empty open line and add banner to it
+	dex
+	bpl @ban_down	; if line is not empty open line and add banner to it
 @ban_cur:
 	jsr enter_insert
 	jsr comment_banner
@@ -2007,11 +2007,10 @@ force_enter_insert=*+5
 .proc goto_start
 :	jsr key::getch
 	beq :-
-	cmp #$67		; get second 'g' to confirm movement
-	beq @top
 	cmp #$64		; 'd' (goto definition)
 	beq @gotodef
-@ret:	rts
+	cmp #$67		; get second 'g' to confirm movement
+	bne @ret
 
 @top:	ldxy #1
 	jsr gotoline
@@ -2063,13 +2062,13 @@ force_enter_insert=*+5
 
 @err:	jsr beep::short
 	sec
-	rts
+@ret:	rts
 
 @ok:	jsr add_jump_point
 	ldxy @addr
 	jsr dbg::gotoaddr	; goto it
 	bcs @err
-	rts
+	rts			; return ok
 .endproc
 
 ;*******************************************************************************
@@ -2184,7 +2183,7 @@ force_enter_insert=*+5
 	lda @specialvecshi,x
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr
-	sec
+	sec		; key was handled
 	rts
 
 .RODATA
@@ -2493,11 +2492,9 @@ __edit_set_breakpoint:
 	jsr scr::restore
 	popcur
 	lda @result
-	cmp #$00
-	beq @ret		; no UDG created
-
-	cmp #$01		; check if result was 1 (new udg created)
-	bne @update		; if not, must be 2 (udg updated)
+	beq @ret	; no UDG created
+	lsr		; check if result was 1 (new udg created)
+	bcc @update	; if not, must be 2 (udg updated)
 
 @new:	jsr open_line_below_noindent
 	jmp @write
@@ -2508,14 +2505,15 @@ __edit_set_breakpoint:
 
 @write: ; write .udg to the source buffer
 	jsr text::bufferon
-	lda #'.'
+
+	; write ".db "
+	ldx #4
+	stx @cnt
+:	ldx @cnt
+	lda @db_text-1,x
 	jsr insert
-	lda #'d'
-	jsr insert
-	lda #'b'
-	jsr insert
-	lda #' '
-	jsr insert
+	dec @cnt
+	bne :-
 
 	; convert the binary to hex and write the UDG
 	lda #$00
@@ -2545,6 +2543,11 @@ __edit_set_breakpoint:
 	lda zp::cury
 	jmp text::drawline
 @ret:	rts
+.PUSHSEG
+.RODATA
+@db_text:
+	.byte " bd."	; ".db " (backwards)
+.POPSEG
 .endproc
 
 ;******************************************************************************
@@ -2585,6 +2588,8 @@ goto_buffer:
 
 	; we don't need to keep this window open, close it
 	jmp cancel
+
+.PUSHSEG
 .RODATA
 @menu:
 .byte 8			; max height
@@ -2592,7 +2597,7 @@ goto_buffer:
 .word @getdata		; get line handler
 .word src::numbuffers	; num ptr
 .word strings::buffers	; title
-.CODE
+.POPSEG
 
 ;--------------------------------------
 @getdata:
@@ -2711,9 +2716,13 @@ goto_buffer:
 
 	lda @cmdbuff+2
 	cmp #'@'		; check overwrite flag (for SAVE commands)
-	bne @parsearg
+	bne :+
 	stx overwrite		; set OVERWRITE flag
 	inx			; move past '@'
+:	cmp #$62		; check binary ('b') flag (also used by DEBUG)
+	bne @parsearg
+	stx __edit_binary_flag	; set binary flag
+	inx			; move past 'b'
 
 ; get the argument for the command and send it along to the vector
 @parsearg:

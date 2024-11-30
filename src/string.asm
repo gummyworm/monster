@@ -118,8 +118,7 @@ SLASH = SPECIAL_CHARS_START+2
 @toolong:
 	RETURN_ERR ERR_LINE_TOO_LONG
 
-@cat:
-	tya
+@cat:	tya
 	clc
 	adc #<@buff
 	sta @str1
@@ -146,7 +145,6 @@ SLASH = SPECIAL_CHARS_START+2
 ; IN:
 ;  - .XY: the source string to copy
 ;  - r0:  the destination to copy to
-;  - .C:  set on error (in practice always clear)
 .export __str_copy
 .proc __str_copy
 @src=zp::str0
@@ -158,7 +156,7 @@ SLASH = SPECIAL_CHARS_START+2
 	beq @done
 	iny
 	bne :-
-@done:	RETURN_OK
+@done:	rts
 .endproc
 
 ;******************************************************************************

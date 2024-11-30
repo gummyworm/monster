@@ -1,5 +1,6 @@
 .importzp __edit_height
 
+.import __edit_binary_flag
 .import __edit_clear
 .import __edit_current_file
 .import __edit_enter_console
@@ -18,6 +19,7 @@
 .import __edit_src2screen
 
 .scope edit
+	binary_flag    = __edit_binary_flag
 	clear          = __edit_clear
 	currentfile    = __edit_current_file
 	enterconsole   = __edit_enter_console

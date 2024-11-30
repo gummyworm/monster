@@ -24,37 +24,6 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-.CODE
-
-;******************************************************************************
-; START PASS
-; Resets assembly context in preparation for the given pass
-; IN:
-;  - .A: the pass # (1 or 2)
-.export __asm_startpass
-.proc __asm_startpass
-	pha
-
-	; disable VERIFY (assemble)
-	lda #$00
-	sta state::verify
-
-	jsr ctx::init		; init the context
-	pla
-	sta zp::pass		; set pass #
-	cmp #$01
-	bne @pass2
-
-	lda #$00
-	sta top			; set top of program to 0
-	sta top+1
-	jmp __asm_reset		; reset assembly state
-
-@pass2:
-	jsr __asm_resetpc	; reset PC
-	jsr ctx::init		; re-init the context
-	rts
-.endproc
 
 ;******************************************************************************
 ; ASSEMBLER OVERVIEW
@@ -412,6 +381,34 @@ illegal_opcodes:
 num_illegals = *-illegal_opcodes
 
 .CODE
+
+;******************************************************************************
+; START PASS
+; Resets assembly context in preparation for the given pass
+; IN:
+;  - .A: the pass # (1 or 2)
+.export __asm_startpass
+.proc __asm_startpass
+	pha
+
+	; disable VERIFY (assemble)
+	lda #$00
+	sta state::verify
+
+	jsr ctx::init		; init the context
+	pla
+	sta zp::pass		; set pass #
+	cmp #$01
+	bne @pass2
+
+	lda #$00
+	sta top			; set top of program to 0
+	sta top+1
+	jmp __asm_reset		; reset assembly state
+
+@pass2: jsr __asm_resetpc	; reset PC
+	jmp ctx::init		; re-init the context
+.endproc
 
 ;******************************************************************************
 ; TOKENIZE
@@ -1418,24 +1415,6 @@ num_illegals = *-illegal_opcodes
 .endproc
 
 ;******************************************************************************
-; PROCESSSTRING
-; Reads all characters in zp::line until the next whitespace
-.proc processstring
-	ldy #$00
-	lda (zp::line),y
-	jsr util::is_whitespace
-	beq @done
-@l0:
-	jsr line::incptr
-	lda (zp::line),y
-	jsr util::is_whitespace
-	bne @l0
-@done:
-	rts
-.endproc
-
-
-;******************************************************************************
 ; DEFINEBYTE
 ; Defines 0 or more bytes and stores them in (asmresult)
 ; OUT:
@@ -1695,9 +1674,8 @@ __asm_include:
 	jsr line::process_ws
 	ldxy zp::line
 	jsr expr::eval
-	bcc :+
-	rts			; error
-:	stxy zp::asmresult
+	bcs @ret		; error
+	stxy zp::asmresult
 	stxy zp::virtualpc
 	lda pcset
 	bne @chkorg
@@ -1709,7 +1687,7 @@ __asm_include:
 	stxy top
 
 :	stxy origin
-	jmp @done
+	bne @done		; branch always
 
 	; check if this is lower than current base origin
 @chkorg:
@@ -1721,7 +1699,8 @@ __asm_include:
 @set:	stxy origin
 
 @done:	lda #ASM_ORG
-	RETURN_OK
+	clc			; ok
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -1740,7 +1719,6 @@ __asm_include:
 	rts
 .endproc
 
-
 ;******************************************************************************
 ; DEFINE_PSUEDO_ORG
 ; Hanldes the .RORG directive.
@@ -1751,10 +1729,10 @@ __asm_include:
 	jsr line::process_ws
 	ldxy zp::line
 	jsr expr::eval
-	bcc :+
-	rts		; error
-:	stxy zp::virtualpc
-	RETURN_OK
+	bcs @ret		; error
+	stxy zp::virtualpc
+	clc			; ok
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -1774,8 +1752,19 @@ __asm_include:
 	pha
 	lda zp::line+1
 	pha
-	jsr processstring	; move past label name
-	jsr line::process_ws	; eat whitespace
+
+	; read all characters in zp::line until the next whitespace
+	ldy #$00
+	lda (zp::line),y
+	jsr util::is_whitespace
+	beq @cont
+@l0:
+	jsr line::incptr
+	lda (zp::line),y
+	jsr util::is_whitespace
+	bne @l0
+
+@cont:	jsr line::process_ws	; eat whitespace
 	jsr expr::eval		; get constant value
 	bcc @ok
 	pla
@@ -1802,8 +1791,7 @@ __asm_include:
 	jsr ctx::push	; push a new context
 
 	jsr expr::eval  ; get the number of times to repeat the code
-	bcc @ok
-	rts	 	; error evaluating # of reps expression
+	bcs @ret	; error evaluating # of reps expression
 
 @ok:	stxy zp::ctx+repctx::iter_end
 	jsr line::process_ws
@@ -1820,8 +1808,7 @@ __asm_include:
 @saveparam:
 	ldxy zp::line
 	jsr ctx::addparam
-	bcc @cont
-	rts		; error adding parameter
+	bcs @ret	; error adding parameter
 
 @cont:	stxy zp::line	; update line pointer to after parameter
 	lda #$00
@@ -1829,7 +1816,8 @@ __asm_include:
 	sta zp::ctx+repctx::iter+1
 @done:	lda #CTX_REPEAT
 	jsr set_ctx_type	; store REPEAT as current context type
-	RETURN_OK
+	clc		; ok
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -1857,9 +1845,8 @@ __asm_include:
 	RETURN_ERR ERR_NO_MACRO_NAME
 :	ldxy zp::line
 	jsr ctx::addparam
-	bcc :+
-	rts		; return err
-:	stxy zp::line	; update line pointer
+	bcs @ret		; return err
+	stxy zp::line		; update line pointer
 
 @getparams:
 	jsr line::process_ws	; sets .Y to 0
@@ -1884,7 +1871,8 @@ __asm_include:
 @done:	lda #CTX_MACRO
 	jsr set_ctx_type	; store MACRO as current context type
 	lda #ASM_DIRECTIVE
-	RETURN_OK
+	clc			; ok
+@ret:	rts
 .endproc
 
 ;******************************************************************************
