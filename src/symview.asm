@@ -106,7 +106,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	lda filename
 	bne :+
 	lda filename+1
-	beq :++
+	beq :++		; no filename
 
 :	ldxy #sym_line
 
@@ -223,6 +223,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	cmp @row
 	bcc @menu
 
+	; if (scroll+1) <= lbl::num, don't allow scroll
 	lda @scroll
 	; sec
 	adc #$00	; +1

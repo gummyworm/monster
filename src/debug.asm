@@ -94,7 +94,10 @@ NMI_TIMER_VAL = (2+3+4+4+6)+5
 NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
 					; before returning from debugger
 
-TRACE_STACK_DEPTH = 20	; max stack depth per step of a TRACE command
+; Max depth the debugger may reach during handling of a step during the TRACE
+; command. This amount will be saved/restored by the debugger before handling
+; the debugged program's next instruction.
+TRACE_STACK_DEPTH = 16
 
 ;******************************************************************************
 debugtmp       = zp::debuggertmp	; scratchpad
@@ -362,7 +365,6 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	dex
 	bpl :-
 .endmacro
-
 
 ;******************************************************************************
 ; RESTORE USER ZP
@@ -1264,7 +1266,7 @@ restore_regs:
 	ldxy @line
 	jsr edit::gotoline
 	ldxy @line
-	clc
+	clc			; ok
 @done:	rts
 .endproc
 

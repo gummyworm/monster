@@ -56,12 +56,11 @@ SLASH = SPECIAL_CHARS_START+2
 
 @l0:	lda (zp::str0),y
 	cmp (zp::str2),y
-	beq :+
-	rts
-:	dey
+	bne @ret
+	dey
 	bpl @l0
 @match:	lda #$00
-	rts
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -80,16 +79,14 @@ SLASH = SPECIAL_CHARS_START+2
 @l0:	lda (zp::str0),y
 	beq @match
 	cmp (zp::str2),y
-	beq :+
-	rts			; not equal
-:	iny
+	bne @ret		; not equal
+	iny
 	bpl @l0
 	rts
 
 @match:	lda #$00
-	rts
+@ret:	rts
 .endproc
-
 
 ;******************************************************************************
 ; CAT
@@ -281,7 +278,6 @@ SLASH = SPECIAL_CHARS_START+2
 @done:	sta (@wptr),y	; write the 0
 	ldxy #@dst
 	rts
-
 .endproc
 
 .RODATA
