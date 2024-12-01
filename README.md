@@ -362,6 +362,10 @@ When the paste command is executed, the buffer is cleared.
 The copy buffer is $1e00 bytes, which is enough for ~3.5 completely full screens
 of text (22 rows and 40 columns).
 
+Because the editor is limited to 40 columns in width, the first and last lines are handled
+specially.  If the first line will not fit, the paste is aborted.  If the last line will not
+fit, it is broken into two lines.
+
 ### Jump Lists
 When the user "jumps" to a different position in the source (`gg`, `G`, `goto line`,
 `find`, `[`, and `]`) the editor saves the old position.  To recall the positions
@@ -913,6 +917,12 @@ value is loaded.
 Step _over_ behaves the same as step _into_, but if the next
 instruction is a subroutine call (`JSR`), execution continues until the
 instruction _after_ the `JSR` (after the subroutine returns).
+
+This command is considered somewhat dangerous because this command doesn't
+trace the execution.  If the subroutine that is stepped over runs a JAM
+instruction, the processor will halt.  Because the overhead of tracing is
+fairly high, this may be worth the risk. Especiallly if you are calling
+routines that are trusted such as those in the KERNAL or BASIC ROM.
 
 #### Step Out (`y`)
 Step _out_ is different from the other STEP commands in that it runs by tracing.
