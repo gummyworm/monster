@@ -61,6 +61,18 @@ __key_num_processed: .byte 0
 .endproc
 
 ;******************************************************************************
+; WAITCH
+; Waits for a keypress and returns the key that was pressed.
+; OUT:
+;   - .A: the key that was pressed
+.export __key_waitch
+.proc __key_waitch
+:	jsr __key_getch
+	beq :-
+	rts
+.endproc
+
+;******************************************************************************
 ; GETHEX
 ; Gets a key from the keyboard, and returns its value ONLY
 ; if it is a hex value, a DELETE, a RETURN, or a QUIT (<-)

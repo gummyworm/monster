@@ -157,8 +157,7 @@ SCREEN_H = 23
 	jsr draw::hline
 
 ; at the end of the screen, get user input for page up/down
-@key:	jsr key::getch
-	beq @key
+@key:	jsr key::waitch
 	cmp #K_QUIT
 	bne @checkdown
 	jmp @exit

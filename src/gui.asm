@@ -159,8 +159,7 @@ guisp:		.word guistack
 	lda #GUI_SELECT_COLOR
 	jsr draw::hline
 
-:	jsr key::getch
-	beq :-
+	jsr key::waitch
 	pha		; save the key
 
 	; unhighlight the current line in case we move lines

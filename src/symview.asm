@@ -196,9 +196,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	jsr draw::hline		; unhighlight the current selection
 
 @menuloop:
-	; wait for a key
-	jsr key::getch
-	beq @menuloop
+	jsr key::waitch		; wait for a key
 
 	pha
 	ldx @selection

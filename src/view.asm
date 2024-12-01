@@ -79,8 +79,7 @@ memaddr:   .word 0
 	ldxy memaddr
 	stxy @src
 
-:	jsr key::getch
-	beq :-
+	jsr key::waitch
 
 	cmp #K_UP_ARROW
 	bne :+

@@ -1464,8 +1464,7 @@ restore_regs:
 	lda #DEBUG_MESSAGE_LINE
 	jsr text::print
 
-:	jsr key::getch
-	beq :-
+:	jsr key::waitch
 
 	; 'N' or QUIT: return back to debugger, 'Y': exit debugger
 	cmp #$4e		; N
@@ -1557,8 +1556,7 @@ restore_regs:
 	jsr __debug_restore_progstate
 
 	; wait for a key to swap the state back
-:	jsr key::getch
-	beq :-
+	jsr key::waitch
 
 	; reenable coloring
 	inc mem::coloron
@@ -1749,8 +1747,7 @@ restore_regs:
 
 @gui:	lda #REGISTERS_LINE-1
 	jsr text::print
-:	jsr key::getch		; wait for keypress
-	beq :-
+	jsr key::waitch		; wait for keypress
 	rts
 .endproc
 
@@ -2176,8 +2173,7 @@ __debug_remove_breakpoint:
 	jsr showstate		; fill linebuffer with register state
 
 @edit:	jsr cur::on
-:	jsr key::getch
-	beq :-
+	jsr key::waitch
 	pha
 	jsr cur::off
 	pla

@@ -663,8 +663,7 @@ main:	jsr key::getch
 	ldx #STATUS_ROW
 	lda #ASM_SUCCESS_COLOR
 	jsr draw::hline
-:	jsr key::getch          ; wait for key
-	beq :-
+	jsr key::waitch		; wait for key
 	lda #DEFAULT_RVS
 	ldx #STATUS_ROW
 	jsr draw::hline
@@ -961,8 +960,7 @@ main:	jsr key::getch
 	sbc #'0'		; .C already set
 	sta cmdreps
 
-:	jsr key::getch	; get another key for the command to do cmdreps times
-	beq :-
+	jsr key::waitch		; get another key for the command to do cmdreps times
 
 @check_cmds:
 	ldx #numcommands-1
@@ -1181,8 +1179,7 @@ force_enter_insert=*+5
 	jsr is_readonly
 	beq @done
 
-:	jsr key::getch	; get the character to replace with
-	beq :-
+	jsr key::waitch		; get the character to replace with
 	pha
 	jsr src::replace
 	jsr text::char_index
@@ -1350,10 +1347,9 @@ force_enter_insert=*+5
 	bne @delsel
 	dec @cnt+1
 	bpl @delsel
-	jmp refresh			; done, refresh to clear deleted text
+	jmp refresh		; done, refresh to clear deleted text
 
-@cont:	jsr key::getch			; get a key to decide what to delete
-	beq @cont
+@cont:	jsr key::waitch		; get a key to decide what to delete
 	ldx #@numcmds-1
 :	cmp @subcmds,x
 	beq @found
@@ -1759,8 +1755,7 @@ force_enter_insert=*+5
 .proc command_move_scr
 .if 0
 ; TODO:
-:	jsr key::getch
-	beq :-
+	jsr key::waitch
 	cmp #$68	; 'h'
 	beq @right
 	cmp #$6c	; 'l'
@@ -1788,8 +1783,7 @@ force_enter_insert=*+5
 
 ; if not in visual mode, prompt for another key
 @prompt:
-	jsr key::getch
-	beq @prompt
+	jsr key::waitch
 	cmp #$79	; if yy was entered, yank current line
 	beq :+
 	RETURN_OK
@@ -1934,8 +1928,7 @@ force_enter_insert=*+5
 
 ;*******************************************************************************
 .proc comment_out
-:	jsr key::getch	; get a key to decide what to comment out
-	beq :-
+	jsr key::waitch	; get a key to decide what to comment out
 
 	cmp #$3b	; if another comment, generate a banner
 	bne @check_ban_up
@@ -2039,8 +2032,7 @@ force_enter_insert=*+5
 ; GOTO_START
 ; Accepts another key and, if it is 'g', moves to the start of the buffer.
 .proc goto_start
-:	jsr key::getch
-	beq :-
+	jsr key::waitch
 	cmp #$64		; 'd' (goto definition)
 	beq @gotodef
 	cmp #$67		; get second 'g' to confirm movement
