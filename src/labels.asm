@@ -4,21 +4,44 @@
 .include "zeropage.inc"
 
 ;******************************************************************************
-.macro LBLJUMP proc
+.macro LBLJUMP proc_id
 	pha
-	lda #<proc
-	sta zp::bankjmpvec
-	lda #>proc
-	bne do_label_proc
+	lda #proc_id
+	bpl do_label_proc
 .endmacro
 
-.macro LBLJUMP_LONG proc
-	pha
-	lda #<proc
-	sta zp::bankjmpvec
-	lda #>proc
-	jmp do_label_proc
-.endmacro
+.enum proc_ids
+CLR = 0
+ADD
+FIND
+BY_ADDR
+BY_ID
+NAME_BY_ID
+IS_VALID
+GET_NAME
+GETADDR
+IS_LOCAL
+SET
+SET24
+DEL
+ADDRESS
+SET_SCOPE
+ADD_ANON
+GET_FANON
+GET_BANON
+INDEX
+ID_BY_ADDR_INDEX
+.endenum
+
+;******************************************************************************
+.RODATA
+.linecont +
+.define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
+	getaddr, is_local, set, set24, del, address, set_scope, add_anon, \
+	get_fanon, get_banon, index, id_by_addr_index
+.linecont -
+procs_lo: .lobytes procs
+procs_hi: .hibytes procs
 
 ;******************************************************************************
 ; CONSTANTS
@@ -35,74 +58,78 @@ allow_overwrite = zp::labels+4
 ; Label JUMP table
 .CODE
 .export __label_clr
-__label_clr:
-	LBLJUMP_LONG clr
+__label_clr: LBLJUMP proc_ids::CLR
 
 .export __label_add
-__label_add:
-	LBLJUMP_LONG add
+__label_add: LBLJUMP proc_ids::ADD
 
 .export __label_find
-__label_find: LBLJUMP_LONG find
+__label_find: LBLJUMP proc_ids::FIND
 
 .export __label_by_addr
-__label_by_addr: LBLJUMP_LONG by_addr
+__label_by_addr: LBLJUMP proc_ids::BY_ADDR
 
 .export __label_by_id
-__label_by_id: LBLJUMP_LONG by_id
+__label_by_id: LBLJUMP proc_ids::BY_ID
 
 .export __label_name_by_id
-__label_name_by_id: LBLJUMP name_by_id
+__label_name_by_id: LBLJUMP proc_ids::NAME_BY_ID
 
 .export __label_isvalid
-__label_isvalid:
-	LBLJUMP is_valid
+__label_isvalid: LBLJUMP proc_ids::IS_VALID
 
 .export __label_get_name
-__label_get_name: LBLJUMP get_name
+__label_get_name: LBLJUMP proc_ids::GET_NAME
 
 .export __label_get_addr
-__label_get_addr: LBLJUMP getaddr
+__label_get_addr: LBLJUMP proc_ids::GETADDR
 
 .export __label_is_local
-__label_is_local: LBLJUMP is_local
+__label_is_local: LBLJUMP proc_ids::IS_LOCAL
 
 .export __label_set
-__label_set: LBLJUMP set
+__label_set: LBLJUMP proc_ids::SET
 
 .export __label_set24
-__label_set24: LBLJUMP set24
+__label_set24: LBLJUMP proc_ids::SET24
 
 .export __label_del
-__label_del: LBLJUMP del
+__label_del: LBLJUMP proc_ids::DEL
 
 .export __label_address
-__label_address: LBLJUMP address
+__label_address: LBLJUMP proc_ids::ADDRESS
 
 .export __label_setscope
-__label_setscope: LBLJUMP set_scope
+__label_setscope: LBLJUMP proc_ids::SET_SCOPE
 
 .export __label_addanon
-__label_addanon: LBLJUMP add_anon
+__label_addanon: LBLJUMP proc_ids::ADD_ANON
 
 .export __label_get_fanon
-__label_get_fanon: LBLJUMP get_fanon
+__label_get_fanon: LBLJUMP proc_ids::GET_FANON
 
 .export __label_get_banon
-__label_get_banon: LBLJUMP get_banon
+__label_get_banon: LBLJUMP proc_ids::GET_BANON
 
 .export __label_index
-__label_index: LBLJUMP index
+__label_index: LBLJUMP proc_ids::INDEX
 
 .export __label_id_by_addr_index
-__label_id_by_addr_index: LBLJUMP id_by_addr_index
+__label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 
 ;******************************************************************************
 ; Entrypoint for label routines
 .proc do_label_proc
+	stx @savex
+	tax
+	lda procs_lo,x
+	sta zp::bankjmpvec
+	lda procs_hi,x
 	sta zp::bankjmpvec+1
 	lda #FINAL_BANK_SYMBOLS
 	sta zp::banktmp
+@savex=*+1
+	ldx #$00
 	pla
 	jmp __final_call
 .endproc

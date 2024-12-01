@@ -1609,17 +1609,20 @@ force_enter_insert=*+5
 	adc #$00
 	tay
 	jsr buff::getline
-	bcs @done		; buffer empty (nothing to paste)
-	pha			; save newline flag
+	bcc :+
+	jmp @done		; buffer empty (nothing to paste)
+:	pha			; save newline flag
 
-	jsr text::linelen
+	jsr text::rendered_line_len
 	cmp #40
 	bcc @ok
 	jsr text::restorebuff
 	jsr beep::short		; line would be too long after the paste
+	pla			; clean stack
 	jmp @done
 
-@ok:	jsr src::insertline	; insert the first line from the paste buffer
+@ok:	ldxy r9
+	jsr src::insertline	; insert the first line from the paste buffer
 	pla
 	cmp #$0d		; did line end with a newline?
 	bne @lastline		; if not, this is a < 1 line paste
@@ -1663,7 +1666,7 @@ force_enter_insert=*+5
 
 @lastdone:
 	txa
-	pha
+	pha				; save index of char
 
 	lda @row
 	jsr draw_line_if_visible
@@ -1671,8 +1674,7 @@ force_enter_insert=*+5
 	jsr enter_command
 
 	jsr buff::lines_copied
-	cmp #$00
-	beq :+
+	bcc :+				; if no lines, skip
 
 	; if we pasted multiple lines, restore source position and don't move cursor
 	jsr src::popgoto
@@ -1680,7 +1682,7 @@ force_enter_insert=*+5
 	jsr text::index2cursor
 	stx zp::curx
 	pla
-	jmp @done
+	bpl @done			; branch always
 
 :	pla
 	jsr text::index2cursor

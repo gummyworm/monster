@@ -165,9 +165,11 @@ copybuff: 		.res $1e00	; buffer for copy data
 ; LINES COPIED
 ; Returns the # of lines in the copy buffer
 ; OUT:
-;   - .A: the number of lines in the copy bufferj
+;   - .A: the number of lines in the copy buffer
+;   - .C: clear if there are no lines copied
 .proc lines_copied
 	lda visual_lines_copied
+	cmp #$01
 	rts
 .endproc
 
