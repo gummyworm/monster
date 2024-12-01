@@ -121,14 +121,14 @@ BREAKPOINT_ENABLED = 1
 	ldy #BREAKPOINT_OFF_CHAR
 	lda dbg::breakpoint_flags,x
 	beq :+
-	ldy #BREAKPOINT_CHAR
+	dey				; ldy #BREAKPOINT_CHAR
 :	sty strings::breakpoints_line
 
 	; print the breakpoint info
 	ldxy #strings::breakpoints_line
+	jsr text::render
 
 @datadone:
-	jsr text::render
 	rts
 .endproc
 

@@ -624,7 +624,7 @@ brkhandler1_size=*-brkhandler1
 
 brkhandler2:
 ; this portion runs in the user bank
-	pha		; TODO: delete?
+	pha
 	lda #$80
 	sta $9c02	; switch to DEBUGGER bank
 ;--------------------------------------

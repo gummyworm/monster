@@ -82,7 +82,13 @@ row:	.byte 0
 	cmp #K_DEL		; DEL
 	bne @done
 
-	; TODO: delete the watch
+	lda row
+	clc
+	adc scroll
+	tax
+	jsr __watches_remove
+	jsr gui::refresh
+
 @done:	RETURN_OK
 
 ;--------------------------------------

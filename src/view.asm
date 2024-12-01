@@ -260,6 +260,8 @@ memaddr:   .word 0
 
 ;--------------------------------------
 ; table of columns to skip in cursor movement
+.PUSHSEG
+.RODATA
 @x_skips:
 	.byte COL_START+2
 	.byte COL_START+5
@@ -269,6 +271,7 @@ memaddr:   .word 0
 	.byte COL_START+17
 	.byte COL_START+20
 @num_x_skips=*-@x_skips
+.POPSEG
 
 ;--------------------------------------
 @find:	pushcur
