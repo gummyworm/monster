@@ -112,9 +112,9 @@ copybuff: 		.res $1e00	; buffer for copy data
 ; IN:
 ;  - .XY: the address to store the line to
 ; OUT:
-;  - (.XY): the last line PUT to the buffer
-;  - .A:    $0d if last character is a newline
-;  - .C:    set if the buffer is empty
+;  - .A: $0d if last character is a newline
+;  - .Y: the number of characters that were read to the buffer
+;  - .C: set if the buffer is empty
 .proc getline
 @dst=r9
 @buff=rb

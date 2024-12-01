@@ -1548,6 +1548,7 @@ force_enter_insert=*+5
 .proc paste_buff
 @row=rd
 @splitindex=re
+@linelen=rf
 @posttext=$100
 	; save the current buffer pointer
 	jsr buff::push
@@ -1637,6 +1638,7 @@ force_enter_insert=*+5
 	; for full rows ($0d terminated), just get a line and draw it
 @l1:	ldxy #mem::linebuffer
 	jsr buff::getline
+	sty @linelen
 	php
 	pha			; save last char read
 	ldxy r9			; (getline leaves result in r0)
@@ -1659,13 +1661,43 @@ force_enter_insert=*+5
 	ldy #$00
 :	lda @posttext,y
 	sta mem::linebuffer,x
-	beq @lastdone
+	beq @chklast
 	inx
 	iny
 	bne :-
 
+@chklast:
+	; does the last line fit on screen?
+	jsr text::rendered_line_len
+	cpx #40
+	bcc @lastdone			; it fits, continue
+
+	; redraw the original line without the pasted portion
+	lda #$00
+	ldy @linelen
+	sta mem::linebuffer,y
+	lda @row
+	inc @row
+	jsr draw_line_if_visible
+
+	; last line doesn't fit on screen, insert a newline between the
+	; original and pasted line
+	lda #$0d
+	jsr src::insert
+
+	; print the pasted line and scroll down one more line
+	lda @row
+	ldx height
+	jsr text::scrolldown
+	jsr src::get
+	ldx @row
+	ldy height
+	jsr draw::scrollcolorsd1
+
+	ldy #$00			; go back to start of original line
+
 @lastdone:
-	txa
+	tya
 	pha				; save index of char
 
 	lda @row
