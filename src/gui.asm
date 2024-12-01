@@ -223,7 +223,7 @@ guisp:		.word guistack
 @getch:
 	jsr @keycallback
 	bcs @quit
-	bcc @loop
+	bcc __gui_activate
 
 ;--------------------------------------
 @keycallback:

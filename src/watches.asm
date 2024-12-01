@@ -87,7 +87,6 @@ row:	.byte 0
 	adc scroll
 	tax
 	jsr __watches_remove
-	jsr gui::refresh
 
 @done:	RETURN_OK
 
@@ -327,7 +326,7 @@ row:	.byte 0
 
 	; check if watch (in r2) already exists
 	jsr getwatch
-	beq @done		; already a watch here, exit
+	bcs @done		; already a watch here, exit
 
 	ldx dbg::numwatches
 :	lda @addr
@@ -398,5 +397,6 @@ row:	.byte 0
 	beq @done
 @next:	dex
 	bne @l0
+	clc			; no watch exists
 @done:	rts
 .endproc
