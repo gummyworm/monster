@@ -56,7 +56,7 @@ row:	.byte 0
 @menu:
 .byte HEIGHT				; max height
 .word @getkey				; key handler
-.word @getdata				; get line handler
+.word __watches_tostring		; get line handler
 .word dbg::numwatches			; # of breakpoints pointer
 .word strings::watches_title		; title
 
@@ -324,7 +324,7 @@ row:	.byte 0
 .endproc
 
 ;******************************************************************************
-; GET WATCH STRING
+; TOSTRING
 ; Returns the rendered string for the given watch.
 ; This is displayed in both the TUI and GUI watch viewer
 ; IN:

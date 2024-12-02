@@ -6,6 +6,7 @@
 ;******************************************************************************
 
 .include "asm.inc"
+.include "breakpoints.inc"
 .include "console.inc"
 .include "cursor.inc"
 .include "debug.inc"
@@ -129,13 +130,13 @@
 .proc list_watches
 @cnt=zp::tmp13
 @num=zp::tmp14
-@range=r3	; if !0, start != stop (watch is a range)
-@start=r4	; start address
-@stop=r6	; stop address (same as start if NOT range)
-@val=r8		; value of watch (if NOT range)
-@prev=r9	; previous value of watch (if NOT range)
 	lda #$00
 	sta @cnt
+
+	CALL FINAL_BANK_MAIN, #watch::getdata
+	stx @num
+	cpx #$00
+	beq @done
 
 @loop:	lda @cnt
 	jsr @print
@@ -157,7 +158,6 @@
 ; IN:
 ;  - .XY: the parameters for the command
 .proc remove_watch
-@addr=r0
 	; get the ID
 	ldxy zp::line
 	CALL FINAL_BANK_MAIN, #atoi
@@ -176,7 +176,26 @@
 ; b
 ; List all breakpoints
 .proc list_breakpoints
-	; TODO:
+@cnt=zp::tmpa
+@num=zp::tmpb
+	lda #$00
+	sta @cnt
+
+	CALL FINAL_BANK_MAIN, #brkpt::num
+	sta @num
+	cmp #$00
+	beq @done
+
+@loop:	lda @cnt
+	jsr @print
+	inc @cnt
+	lda @cnt
+	cmp @num
+	bcc @loop
+@done:	RETURN_OK
+
+@print:	CALL FINAL_BANK_MAIN, #brkpt::tostring
+	jmp con::puts
 .endproc
 
 ;******************************************************************************
@@ -699,8 +718,8 @@ commands:
 .byte "zo",0	; step out
 
 .linecont +
-.define command_vectors add_watch, remove_watch, list_watches, add_break, \
-	list_breakpoints, remove_break, fill, move, goto, compare, hunt, \
+.define command_vectors add_watch, remove_watch, list_watches, list_breakpoints, \
+	add_break, remove_break, fill, move, goto, compare, hunt, \
 	__dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
 	step_over, go, backtrace, step_out
 .linecont -

@@ -39,7 +39,7 @@ BREAKPOINT_ENABLED = 1
 @menu:
 .byte HEIGHT				; max height
 .word @getkey				; key handler
-.word @getdata				; get line handler
+.word __brkpt_tostring			; get line handler
 .word dbg::numbreakpoints		; # of breakpoints pointer
 .word strings::breakpoints_title	; title
 .POPSEG
@@ -63,6 +63,85 @@ BREAKPOINT_ENABLED = 1
 
 ;--------------------------------------
 @getdata:
+	jmp __brkpt_tostring
+.endproc
+
+;******************************************************************************
+; TOGGLE_BREAKPOINT
+; IN:
+;  - .A: the breakpoint to toggle active/inactive
+.proc toggle_breakpoint
+	tax
+	lda dbg::breakpoint_flags,x
+	eor #BREAKPOINT_ENABLED
+	sta dbg::breakpoint_flags,x
+
+	; if the breakpoint is visible, toggle its color
+	lda dbg::breakpoint_lineslo,x
+	ldy dbg::breakpoint_lineshi,x
+	tax
+	jsr edit::src2screen
+	tax
+	bcs :+
+
+	lda mem::rowcolors,x
+	eor #(BREAKPOINT_OFF_COLOR)^(BREAKPOINT_ON_COLOR)
+	sta mem::rowcolors,x
+
+:	rts
+.endproc
+
+;******************************************************************************
+; GETBYLINE
+; Returns the ID of the breakpoint at the given line (if one exists)
+; IN:
+;  - .XY: the line # to get the breakpoint at
+;  - .A:  the file ID of the breakpoint
+; OUT:
+;  - .A: the flags for the breakpoint
+;  - .X: the ID of the breakpoint at the given line (if one exists)
+;  - .C: set if there is no breakpoint at the given line
+.export __brkpt_getbyline
+.proc __brkpt_getbyline
+@line=r2
+@file=r4
+	stxy @line
+	sta @file
+
+	; find the matching line #
+	ldx dbg::numbreakpoints
+	beq @notfound
+	dex
+@l0:	lda @file
+	cmp dbg::breakpoint_fileids,x
+	bne @next
+	lda @line
+	cmp dbg::breakpoint_lineslo,x
+	bne @next
+	lda @line+1
+	cmp dbg::breakpoint_lineshi,x
+	bne @next
+	lda dbg::breakpoint_flags,x
+	RETURN_OK
+
+@next:	dex
+	bpl @l0
+@notfound:
+	sec		; not found
+@done:	rts
+.endproc
+
+;******************************************************************************
+; TOSTRING
+; Returns the rendered string for the given breakpoint.
+; This is displayed in both the TUI and GUI breakpoint viewer
+; IN:
+;  - .A: the watch to get the string for
+; OUT:
+;  - .XY: the rendered string for that watch
+;  - .C:  set if there is no breakpoint for the given ID
+.export __brkpt_tostring
+.proc __brkpt_tostring
 @offset=zp::tmp13
 @addr=zp::tmp14
 @namebuff=mem::spare+40
@@ -133,66 +212,12 @@ BREAKPOINT_ENABLED = 1
 .endproc
 
 ;******************************************************************************
-; TOGGLE_BREAKPOINT
-; IN:
-;  - .A: the breakpoint to toggle active/inactive
-.proc toggle_breakpoint
-	tax
-	lda dbg::breakpoint_flags,x
-	eor #BREAKPOINT_ENABLED
-	sta dbg::breakpoint_flags,x
-
-	; if the breakpoint is visible, toggle its color
-	lda dbg::breakpoint_lineslo,x
-	ldy dbg::breakpoint_lineshi,x
-	tax
-	jsr edit::src2screen
-	tax
-	bcs :+
-
-	lda mem::rowcolors,x
-	eor #(BREAKPOINT_OFF_COLOR)^(BREAKPOINT_ON_COLOR)
-	sta mem::rowcolors,x
-
-:	rts
-.endproc
-
-;******************************************************************************
-; GETBYLINE
-; Returns the ID of the breakpoint at the given line (if one exists)
-; IN:
-;  - .XY: the line # to get the breakpoint at
-;  - .A:  the file ID of the breakpoint
+; NUM
+; Returns the number of breakpoints
 ; OUT:
-;  - .A: the flags for the breakpoint
-;  - .X: the ID of the breakpoint at the given line (if one exists)
-;  - .C: set if there is no breakpoint at the given line
-.export __brkpt_getbyline
-.proc __brkpt_getbyline
-@line=r2
-@file=r4
-	stxy @line
-	sta @file
-
-	; find the matching line #
-	ldx dbg::numbreakpoints
-	beq @notfound
-	dex
-@l0:	lda @file
-	cmp dbg::breakpoint_fileids,x
-	bne @next
-	lda @line
-	cmp dbg::breakpoint_lineslo,x
-	bne @next
-	lda @line+1
-	cmp dbg::breakpoint_lineshi,x
-	bne @next
-	lda dbg::breakpoint_flags,x
-	RETURN_OK
-
-@next:	dex
-	bpl @l0
-@notfound:
-	sec		; not found
-@done:	rts
+;  - .A: the number of breakpoints
+.export __brkpt_num
+.proc __brkpt_num
+	lda dbg::numbreakpoints
+	rts
 .endproc
