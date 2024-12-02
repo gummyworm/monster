@@ -2051,10 +2051,15 @@ __debug_remove_breakpoint:
 ; Removes the ID with the given handle.
 ; IN:
 ;  - .X: the breakpoint to remove
+; OUT:
+;  - .C: set if no breakpoint was removed
 .export __debug_removebreakpointbyid
 .proc __debug_removebreakpointbyid
 @addr=debugtmp
 @end=debugtmp+2
+	cpx __debug_numbreakpoints
+	bcs :+				; no breakpoint of given ID
+
 	; shift breakpoints down
 	lda __debug_numbreakpoints
 	sta @end

@@ -291,7 +291,7 @@
 	bcs @done
 
 @ok:	cpy #$00
-	bne @done				; there can't be > $ff watches
+	bne @done	; there can't be > $ff breakpoints
 
 	; .X is the ID to remove
 	CALL FINAL_BANK_MAIN, #dbg::removebreakpointbyid
