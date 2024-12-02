@@ -141,83 +141,11 @@
 	jsr @print
 	inc @cnt
 	lda @cnt
-	cmp @num	; TODO
+	cmp @num
 	bcc @loop
 @done:	RETURN_OK
 
-@print:	CALL FINAL_BANK_MAIN, #watch::getdata
-	cpx #$00
-	beq @done
-	stx @num
-
-	tax			; save flags
-
-	lda @start
-	cmp @stop
-	beq :+
-	inc @range		; flag that start != stop
-
-:	lda @start+1
-	cmp @stop+1
-	beq :+
-	inc @range		; flag that start != stop
-
-:	; print the watch info
-	lda @range		; is it a range of addresses?
-	beq @valline		; not a range, continue
-
-; if the start address != stop address, print start and stop
-@rangeline:
-	; push the stop address
-	lda @stop
-	pha
-	lda @stop+1
-	pha
-
-	; push the start address
-	lda @start
-	pha
-	lda @start+1
-	pha
-
-	; push SPACE if not dirty or '!' if dirty
-	ldy #' '
-	txa				; get flags
-	and #WATCH_DIRTY		; dirty?
-	beq :+				; if NOT dirty, don't push previous value
-	ldy #'!'			; dirty
-:	tya
-	pha
-
-	; if start addr != stop addr, print the address range
-	ldx #<strings::watches_range_line
-	ldy #>strings::watches_range_line
-	bne @getdatadone
-
-; if the start address == stop address, just print the one address and its val
-@valline:
-	; push current value of the watch
-	lda @val
-	pha
-
-	; is this watch dirty?
-	ldxy #strings::watches_line	; default to "clean" string
-	txa				; get flags
-	and #WATCH_DIRTY		; dirty?
-	beq :+				; if NOT dirty, don't push previous value
-
-	; dirty, push previous value
-	lda @prev
-	pha				; push previous value if dirty
-	ldxy #strings::watches_changed_line
-
-:	; push the address
-	lda @start
-	pha
-	lda @start+1
-	pha
-
-@getdatadone:
+@print:	CALL FINAL_BANK_MAIN, #watch::tostring
 	jmp con::puts
 .endproc
 
@@ -244,12 +172,21 @@
 .endproc
 
 ;******************************************************************************
+; LIST BREAKPOINTS
+; b
+; List all breakpoints
+.proc list_breakpoints
+	; TODO:
+.endproc
+
+;******************************************************************************
 ; ADD BREAK
-; br <expr>
+; ba <expr>
 ; Adds a breakpoint at the given address/expression
 ; IN:
 ;  - .XY: the parameters for the command
 .proc add_break
+	; TODO:
 .endproc
 
 ;******************************************************************************
@@ -260,6 +197,7 @@
 ; IN:
 ;  - .XY: the parameters for the command
 .proc remove_break
+	; TODO:
 .endproc
 
 ;******************************************************************************
@@ -740,6 +678,7 @@ commands:
 .byte "wa",0	; watch add
 .byte "wr",0	; watch remove
 .byte "w",0	; list watches
+.byte "b",0	; list breakpoints
 .byte "ba",0	; breakpoint add
 .byte "br",0	; breakpoint remove
 .byte "f",0	; fill memory in the given address range with the given data
@@ -761,8 +700,9 @@ commands:
 
 .linecont +
 .define command_vectors add_watch, remove_watch, list_watches, add_break, \
-	remove_break, fill, move, goto, compare, hunt, __dbgcmd_regs, disasm, \
-	assemble, showmem, trace, quit, step, step_over, go, backtrace, step_out
+	list_breakpoints, remove_break, fill, move, goto, compare, hunt, \
+	__dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
+	step_over, go, backtrace, step_out
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors

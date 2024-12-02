@@ -92,85 +92,7 @@ row:	.byte 0
 
 ;--------------------------------------
 @getdata:
-@cnt=zp::tmp13
-@range=r3	; if !0, start != stop (watch is a range)
-@start=r4	; start address
-@stop=r6	; stop address (same as start if NOT range)
-@val=r8		; value of watch (if NOT range)
-@prev=r9	; previous value of watch (if NOT range)
-	sta @cnt
-
-	jsr __watches_getdata
-	tax				; save flags
-
-	lda @start
-	cmp @stop
-	beq :+
-	inc @range		; flag that start != stop
-
-:	lda @start+1
-	cmp @stop+1
-	beq :+
-	inc @range		; flag that start != stop
-
-:	; print the watch info
-	lda @range		; is it a range of addresses?
-	beq @valline		; not a range, continue
-
-; if the start address != stop address, print start and stop
-@rangeline:
-	; push the stop address
-	lda @stop
-	pha
-	lda @stop+1
-	pha
-
-	; push the start address
-	lda @start
-	pha
-	lda @start+1
-	pha
-
-	; push SPACE if not dirty or '!' if dirty
-	ldy #' '
-	txa				; get flags
-	and #WATCH_DIRTY		; dirty?
-	beq :+				; if NOT dirty, don't push previous value
-	ldy #'!'			; dirty
-:	tya
-	pha
-
-	; if start addr != stop addr, print the address range
-	ldx #<strings::watches_range_line
-	ldy #>strings::watches_range_line
-	bne @getdatadone
-
-; if the start address == stop address, just print the one address and its val
-@valline:
-	; push current value of the watch
-	lda @val
-	pha
-
-	; is this watch dirty?
-	ldxy #strings::watches_line	; default to "clean" string
-	txa				; get flags
-	and #WATCH_DIRTY		; dirty?
-	beq :+				; if NOT dirty, don't push previous value
-
-	; dirty, push previous value
-	lda @prev
-	pha				; push previous value if dirty
-	ldxy #strings::watches_changed_line
-
-:	; push the address
-	lda @start
-	pha
-	lda @start+1
-	pha
-
-@getdatadone:
-	jsr text::render
-	rts
+	jmp __watches_tostring
 .endproc
 
 ;******************************************************************************
@@ -398,6 +320,94 @@ row:	.byte 0
 
 	lda dbg::watch_flags,x
 	ldx dbg::numwatches
+	rts
+.endproc
+
+;******************************************************************************
+; GET WATCH STRING
+; Returns the rendered string for the given watch.
+; This is displayed in both the TUI and GUI watch viewer
+; IN:
+;  - .A: the watch to get the string for
+; OUT:
+;  - .XY: the rendered string for that watch
+.export __watches_tostring
+.proc __watches_tostring
+@range=r3	; if !0, start != stop (watch is a range)
+@start=r4	; start address
+@stop=r6	; stop address (same as start if NOT range)
+@val=r8		; value of watch (if NOT range)
+@prev=r9	; previous value of watch (if NOT range)
+	jsr __watches_getdata
+	tax				; save flags
+
+	lda @start
+	cmp @stop
+	beq :+
+	inc @range		; flag that start != stop
+
+:	lda @start+1
+	cmp @stop+1
+	beq :+
+	inc @range		; flag that start != stop
+
+:	; print the watch info
+	lda @range		; is it a range of addresses?
+	beq @valline		; not a range, continue
+
+; if the start address != stop address, print start and stop
+@rangeline:
+	; push the stop address
+	lda @stop
+	pha
+	lda @stop+1
+	pha
+
+	; push the start address
+	lda @start
+	pha
+	lda @start+1
+	pha
+
+	; push SPACE if not dirty or '!' if dirty
+	ldy #' '
+	txa				; get flags
+	and #WATCH_DIRTY		; dirty?
+	beq :+				; if NOT dirty, don't push previous value
+	ldy #'!'			; dirty
+:	tya
+	pha
+
+	; if start addr != stop addr, print the address range
+	ldx #<strings::watches_range_line
+	ldy #>strings::watches_range_line
+	bne @getdatadone
+
+; if the start address == stop address, just print the one address and its val
+@valline:
+	; push current value of the watch
+	lda @val
+	pha
+
+	; is this watch dirty?
+	ldxy #strings::watches_line	; default to "clean" string
+	txa				; get flags
+	and #WATCH_DIRTY		; dirty?
+	beq :+				; if NOT dirty, don't push previous value
+
+	; dirty, push previous value
+	lda @prev
+	pha				; push previous value if dirty
+	ldxy #strings::watches_changed_line
+
+:	; push the address
+	lda @start
+	pha
+	lda @start+1
+	pha
+
+@getdatadone:
+	jsr text::render
 	rts
 .endproc
 

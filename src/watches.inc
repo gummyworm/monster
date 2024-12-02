@@ -4,14 +4,16 @@
 .import __watches_getdata
 .import __watches_mark
 .import __watches_remove
+.import __watches_tostring
 .import __watches_update
 
 .scope watch
-	add     = __watches_add
-	edit    = __watches_edit
-	getdata = __watches_getdata
-	init    = __watches_init
-	mark    = __watches_mark
-	remove  = __watches_remove
-	update  = __watches_update
+	add      = __watches_add
+	edit     = __watches_edit
+	getdata  = __watches_getdata
+	init     = __watches_init
+	mark     = __watches_mark
+	remove   = __watches_remove
+	tostring = __watches_tostring
+	update   = __watches_update
 .endscope
