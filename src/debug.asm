@@ -2016,6 +2016,8 @@ restore_regs:
 ;   - .XY: the line # of the breakpoint to set the address for
 ;   - .A:  the file ID for the breakpoint to set
 ;   - r0:  the address to store for the breakpoint
+; OUT:
+;   - .C: set if there is no breakpoint at the given line/file
 .export __debug_brksetaddr
 .proc __debug_brksetaddr
 @addr=r0

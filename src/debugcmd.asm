@@ -244,19 +244,37 @@
 @fileid=zp::tmp10
 @line=zp::tmp11
 	; get the filename of the file to add the breakpoint in
+	skb
+@err:	rts
+	ldy #$ff
+:	iny
+	lda (zp::line),y
+	beq @err		; no filename
+	jsr is_whitespace
+	bne :-
+
+	lda #$00
+	sta (zp::line),y
+	tya
 	ldxy zp::line
-	CALL FINAL_BANK_MAIN, #dbgi::getfileid
-	bcs @done				; no file found
-	sta @fileid
+	sec			; +1
+	adc zp::line
+	sta zp::line
+	bcc :+
+	inc zp::line+1
+
+:	CALL FINAL_BANK_MAIN, #dbgi::getfileid
+	bcc :+
+	;bcs @done				; no file found
+:	sta @fileid
 
 	; move past the filename and whitespace
-	CALL FINAL_BANK_MAIN, #line::process_word
 	CALL FINAL_BANK_MAIN, #line::process_ws
 
 	; evaluate the expression to get break line
 	CALL FINAL_BANK_MAIN, #expr::eval
-	bcs @done				; invalid line #
 	stxy @line
+	bcs @err		; invalid line #
 
 	; add the breakpoint
 	lda @fileid
@@ -272,8 +290,6 @@
 	ldxy @line
 	lda @fileid
 	CALL FINAL_BANK_MAIN, #dbg::brksetaddr
-	clc					; ok
-
 @done:	rts
 .endproc
 
@@ -793,7 +809,8 @@ commands:
 .byte "wr",0	; watch remove
 .byte "w",0	; list watches
 .byte "b",0	; list breakpoints
-.byte "ba",0	; breakpoint add
+.byte "ba",0	; breakpoint add by addr
+.byte "bl",0	; breakpoint add by line
 .byte "br",0	; breakpoint remove
 .byte "f",0	; fill memory in the given address range with the given data
 .byte "move",0	; move memory from the given address range to the target address
@@ -813,10 +830,10 @@ commands:
 .byte "zo",0	; step out
 
 .linecont +
-.define command_vectors add_watch, remove_watch, list_watches, list_breakpoints, \
-	add_break_addr, remove_break, fill, move, goto, compare, hunt, \
-	__dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
-	step_over, go, backtrace, step_out
+.define command_vectors add_watch, remove_watch, list_watches, \
+	list_breakpoints, add_break_addr, add_break_line, remove_break, fill, \
+	move, goto, compare, hunt, __dbgcmd_regs, disasm, assemble, showmem, \
+	trace, quit, step, step_over, go, backtrace, step_out
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors
