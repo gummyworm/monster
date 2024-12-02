@@ -203,6 +203,10 @@ BREAKPOINT_ENABLED = 1
 	dey				; ldy #BREAKPOINT_CHAR
 :	sty strings::breakpoints_line
 
+	; push the breakpoint ID
+	lda @offset
+	pha
+
 	; print the breakpoint info
 	ldxy #strings::breakpoints_line
 	jsr text::render

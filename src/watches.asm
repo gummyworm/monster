@@ -333,13 +333,15 @@ row:	.byte 0
 ;  - .XY: the rendered string for that watch
 .export __watches_tostring
 .proc __watches_tostring
+@id=r2		; id of the watch to get
 @range=r3	; if !0, start != stop (watch is a range)
 @start=r4	; start address
 @stop=r6	; stop address (same as start if NOT range)
 @val=r8		; value of watch (if NOT range)
 @prev=r9	; previous value of watch (if NOT range)
+	sta @id
 	jsr __watches_getdata
-	tax				; save flags
+	tax			; save flags
 
 	lda @start
 	cmp @stop
@@ -407,6 +409,9 @@ row:	.byte 0
 	pha
 
 @getdatadone:
+	; push the ID of the watch
+	lda @id
+	pha
 	jsr text::render
 	rts
 .endproc

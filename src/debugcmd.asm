@@ -161,14 +161,13 @@
 	; get the ID
 	ldxy zp::line
 	CALL FINAL_BANK_MAIN, #atoi
-	bcc @ok
-@done:	rts
+	bcs @done
 @ok:	cpy #$00
 	bne @done				; there can't be > $ff watches
 	txa
 	CALL FINAL_BANK_MAIN, #watch::remove
 	clc
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -216,7 +215,18 @@
 ; IN:
 ;  - .XY: the parameters for the command
 .proc remove_break
-	; TODO:
+	; get the ID
+	ldxy zp::line
+	CALL FINAL_BANK_MAIN, #atoi
+	bcs @done
+
+@ok:	cpy #$00
+	bne @done				; there can't be > $ff watches
+
+	; .X is the ID to remove
+	CALL FINAL_BANK_MAIN, #dbg::removebreakpointbyid
+	clc
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -339,14 +349,17 @@
 ; Example:
 ;  `g $1234`
 .proc goto
+	; TODO:
 .endproc
 
 ;******************************************************************************
 .proc compare
+	; TODO:
 .endproc
 
 ;******************************************************************************
 .proc move
+	; TODO:
 .endproc
 
 ;******************************************************************************

@@ -78,7 +78,7 @@ __str_load: .byte "load",0
 __str_run: .byte "run",0
 
 .export __str_watches_range_line
-__str_watches_range_line: .byte ESCAPE_CHAR, " $", ESCAPE_VALUE, "-$", ESCAPE_VALUE,0
+__str_watches_range_line: .byte ESCAPE_BYTE, ESCAPE_CHAR, " $", ESCAPE_VALUE, "-$", ESCAPE_VALUE,0
 
 .export __str_errors
 __str_errors: .byte "errors",0
@@ -105,19 +105,19 @@ __str_watch_triggered:
 .export __str_watches_line
 ;   $1000 : $10
 __str_watches_line:
-.byte "  $", ESCAPE_VALUE, ": ", ESCAPE_BYTE, 0
+.byte ESCAPE_BYTE, "  $", ESCAPE_VALUE, ": ", ESCAPE_BYTE, 0
 
 ; ! $1000 : $10 > $20
 .export __str_watches_changed_line
 __str_watches_changed_line:
-.byte "! $", ESCAPE_VALUE, ": ", ESCAPE_BYTE, CH_R_ARROW, ESCAPE_BYTE, 0
+.byte ESCAPE_BYTE, "! $", ESCAPE_VALUE, ": ", ESCAPE_BYTE, CH_R_ARROW, ESCAPE_BYTE, 0
 
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA
 .DATA
 ; <filename> l: <line no.> <symbol> : <addr>
 .export __str_breakpoints_line
-__str_breakpoints_line: .byte " ", ESCAPE_STRING, " l:", ESCAPE_VALUE_DEC, " [", ESCAPE_STRING, "] $", ESCAPE_VALUE,0
+__str_breakpoints_line: .byte "  ", ESCAPE_BYTE," ", ESCAPE_STRING, " l:", ESCAPE_VALUE_DEC, " [", ESCAPE_STRING, "] $", ESCAPE_VALUE,0
 
 .export __str_watch_added
 __str_watch_added:
