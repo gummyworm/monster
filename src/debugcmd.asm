@@ -10,6 +10,7 @@
 .include "console.inc"
 .include "cursor.inc"
 .include "debug.inc"
+.include "debuginfo.inc"
 .include "errors.inc"
 .include "expr.inc"
 .include "finalex.inc"
@@ -198,13 +199,82 @@
 .endproc
 
 ;******************************************************************************
-; ADD BREAK
+; ADD BREAK ADDR
 ; ba <expr>
 ; Adds a breakpoint at the given address/expression
 ; IN:
 ;  - .XY: the parameters for the command
-.proc add_break
-	; TODO:
+.proc add_break_addr
+@addr=zp::tmp10
+	; evaluate the expression to get break address
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @done
+
+	stxy @addr
+
+	; get the line/file for the given address
+	CALL FINAL_BANK_MAIN, #dbgi::addr2line
+	bcs @skip_line
+	CALL FINAL_BANK_MAIN, #dbg::setbrkatline
+
+	pha
+	lda @addr
+	sta r0
+	lda @addr+1
+	sta r0+1
+	pla
+	CALL FINAL_BANK_MAIN, #dbg::brksetaddr
+	RETURN_OK
+
+@skip_line:
+	; no line number for the address requested
+	ldxy @addr
+	CALL FINAL_BANK_MAIN, #dbg::setbrkataddr
+	clc						; ok
+@done:	rts
+.endproc
+
+;******************************************************************************
+; ADD BREAK LINE
+; bl file <expr>
+; Adds a breakpoint at the given line/expression
+; IN:
+;  - .XY: the parameters for the command
+.proc add_break_line
+@fileid=zp::tmp10
+@line=zp::tmp11
+	; get the filename of the file to add the breakpoint in
+	ldxy zp::line
+	CALL FINAL_BANK_MAIN, #dbgi::getfileid
+	bcs @done				; no file found
+	sta @fileid
+
+	; move past the filename and whitespace
+	CALL FINAL_BANK_MAIN, #line::process_word
+	CALL FINAL_BANK_MAIN, #line::process_ws
+
+	; evaluate the expression to get break line
+	CALL FINAL_BANK_MAIN, #expr::eval
+	bcs @done				; invalid line #
+	stxy @line
+
+	; add the breakpoint
+	lda @fileid
+	CALL FINAL_BANK_MAIN, #dbg::setbrkatline
+
+	; get the address for the given line
+	ldxy @line
+	lda @fileid
+	CALL FINAL_BANK_MAIN, #dbgi::line2addr
+	bcs @done				; no matching line found
+
+	; map the address we looked up to the line
+	ldxy @line
+	lda @fileid
+	CALL FINAL_BANK_MAIN, #dbg::brksetaddr
+	clc					; ok
+
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -732,7 +802,7 @@ commands:
 
 .linecont +
 .define command_vectors add_watch, remove_watch, list_watches, list_breakpoints, \
-	add_break, remove_break, fill, move, goto, compare, hunt, \
+	add_break_addr, remove_break, fill, move, goto, compare, hunt, \
 	__dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
 	step_over, go, backtrace, step_out
 .linecont -

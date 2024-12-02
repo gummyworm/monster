@@ -1962,6 +1962,8 @@ restore_regs:
 ; IN:
 ;  - .XY: the line number to set the breakpoint at
 ;  - .A:  the file ID to set the breakpoint in
+; OUT:
+;  - .A: the ID of the breakpoint that was added
 .export __debug_setbrkatline
 .proc __debug_setbrkatline
 	pha				; save file ID
@@ -1978,6 +1980,29 @@ restore_regs:
 	lda #BREAKPOINT_ENABLED
 	sta breakpoint_flags,x
 
+	lda __debug_numbreakpoints
+	inc __debug_numbreakpoints
+	rts
+.endproc
+
+;******************************************************************************
+; SETBRKATADDR
+; Sets a breakpoint at the given address.
+; This can be used while debugging to set breakpoints at addresses directly,
+; even if they don't correspond to a line or file
+; IN:
+;  - .XY: the address to set the breakpoint at
+.export __debug_setbrkataddr
+.proc __debug_setbrkataddr
+	txa
+	ldx __debug_numbreakpoints
+	sta breakpointslo,x
+	tya
+	sta breakpointshi,x
+
+	lda #BREAKPOINT_ENABLED
+	sta breakpoint_flags,x
+
 	inc __debug_numbreakpoints
 	rts
 .endproc
@@ -1985,8 +2010,8 @@ restore_regs:
 
 ;******************************************************************************
 ; BRKSETADDR
-; Sets the address for the given breakpoint. If no matching breakpoint is found,
-; does nothing
+; Sets the address for the given (existing) breakpoint.
+; If no matching breakpoint is found, does nothing
 ; IN:
 ;   - .XY: the line # of the breakpoint to set the address for
 ;   - .A:  the file ID for the breakpoint to set

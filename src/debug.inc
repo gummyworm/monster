@@ -35,6 +35,7 @@
 .import __debug_watch_prevs
 .import __debug_watch_flags
 .import __debug_watch_vals
+.import __debug_setbrkataddr
 
 .scope dbg
 	breakpointslo      = __debug_breakpointslo
@@ -46,6 +47,7 @@
 	brksetaddr         = __debug_brksetaddr
 	done               = __debug_done
 	setbrkatline       = __debug_setbrkatline
+	setbrkataddr       = __debug_setbrkataddr
 	edit_watches       = __debug_edit_watches
 	gotoaddr           = __debug_gotoaddr
 	loadfile           = __debug_load_file
