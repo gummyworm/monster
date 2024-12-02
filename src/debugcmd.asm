@@ -435,7 +435,9 @@
 ; Example:
 ;  `g $1234`
 .proc goto
-	; TODO:
+	CALL FINAL_BANK_MAIN, #dbg::go
+	inc con::quit
+:	rts
 .endproc
 
 ;******************************************************************************
@@ -457,7 +459,38 @@
 ;  `m $1000 $2000 $3000`
 ; Will move the memory in [$1000, $2000) to the address $3000.
 .proc move
-	; TODO:
+@start = zp::debuggertmp+2
+@end = zp::debuggertmp+4
+@target = zp::debuggertmp+6
+	; get the start of the range to move
+	CALL FINAL_BANK_MAIN, #expr::eval
+	stxy @start
+	bcs :-			; -> rts
+	CALL FINAL_BANK_MAIN, #line::process_ws
+
+	; get the end of the range to move
+	CALL FINAL_BANK_MAIN, #expr::eval
+	stxy @end
+	bcs @ret
+	CALL FINAL_BANK_MAIN, #line::process_ws
+
+	; get the target address
+	CALL FINAL_BANK_MAIN, #expr::eval
+	stxy @target
+	bcs @ret
+
+	; move the data
+@l0:	ldxy @start
+	CALL FINAL_BANK_MAIN, #vmem::load
+	ldxy @target
+	CALL FINAL_BANK_MAIN, #vmem::store
+	incw @target
+	incw @start
+	ldxy @start
+	cmpw @end
+	bne @l0
+	clc
+@ret:	rts
 .endproc
 
 ;******************************************************************************
