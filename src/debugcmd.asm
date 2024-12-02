@@ -423,11 +423,23 @@
 .endproc
 
 ;******************************************************************************
+; COMPARE
+; c <expr> <expr> <expr> <expr>
+; Compares the memory values in the ranges given by two pairs of expressions.
+; Example:
+;  `c $100 $105 $200 $205`
+; Will show the differences between the 5 bytes in [$100, $105) and [$200, $205)
 .proc compare
 	; TODO:
 .endproc
 
 ;******************************************************************************
+; MOVE
+; m <expr> <expr> <expr>
+; Moves the given range of memory to the specified destination address.
+; Example:
+;  `m $1000 $2000 $3000`
+; Will move the memory in [$1000, $2000) to the address $3000.
 .proc move
 	; TODO:
 .endproc
@@ -786,7 +798,7 @@ commands:
 .byte "f",0	; fill memory in the given address range with the given data
 .byte "move",0	; move memory from the given address range to the target address
 .byte "g",0	; goto given expression/address
-.byte "c",0	; compare the memory in the two given range
+.byte "c",0	; compare the memory in the two given ranges
 .byte "h",0	; hunts the given address range for the given data
 .byte "r",0	; shows the contents of the registers
 .byte "d",0	; disassembles from the given address
