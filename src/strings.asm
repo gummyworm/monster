@@ -102,20 +102,22 @@ __str_tracing: .byte "tracing...",0
 __str_watch_triggered:
 .byte "watch triggered",0
 
+.export __str_watches_line
+;   $1000 : $10
+__str_watches_line:
+.byte "  $", ESCAPE_VALUE, ": ", ESCAPE_BYTE, 0
+
+; ! $1000 : $10 > $20
+.export __str_watches_changed_line
+__str_watches_changed_line:
+.byte "! $", ESCAPE_VALUE, ": ", ESCAPE_BYTE, CH_R_ARROW, ESCAPE_BYTE, 0
+
 ;******************************************************************************
 ; These strings are modified thus are not in RODATA
 .DATA
 ; <filename> l: <line no.> <symbol> : <addr>
 .export __str_breakpoints_line
 __str_breakpoints_line: .byte " ", ESCAPE_STRING, " l:", ESCAPE_VALUE_DEC, " [", ESCAPE_STRING, "] $", ESCAPE_VALUE,0
-
-; <"address>: <val>
-.export __str_watches_line
-__str_watches_line:
-.byte ESCAPE_CHAR, " $", ESCAPE_VALUE, ": ", ESCAPE_BYTE, 0
-.export __str_watches_line_end
-__str_watches_line_end=*-1
-.byte ESCAPE_BYTE,0
 
 .export __str_watch_added
 __str_watch_added:

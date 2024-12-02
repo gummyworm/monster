@@ -185,8 +185,6 @@ __debug_watch_flags: .res MAX_WATCHPOINTS   ; flags for watches (e.g. DIRTY)
 
 ; the following are used for watches that represent a range of values
 ; e.g. [$1000, $1100)
-__debug_watches_changedlo: .res MAX_WATCHPOINTS ; the address that was changed
-__debug_watches_changedhi: .res MAX_WATCHPOINTS ; the address that was changed
 __debug_watches_stoplo:    .res MAX_WATCHPOINTS ; end address of watch range
 __debug_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 

@@ -93,40 +93,31 @@ row:	.byte 0
 ;--------------------------------------
 @getdata:
 @cnt=zp::tmp13
-@range=r3			; if !0, start != stop (watch is a range)
-@start=r4			; start address
-@stop=r6			; stop address (same as start if NOT range)
-@val=r8			; value of watch (if NOT range)
+@range=r3	; if !0, start != stop (watch is a range)
+@start=r4	; start address
+@stop=r6	; stop address (same as start if NOT range)
+@val=r8		; value of watch (if NOT range)
+@prev=r9	; previous value of watch (if NOT range)
 	sta @cnt
-	lda #$00
-	sta @range			; init RANGE flag to false
-	sta strings::watches_line_end	; restore string if it was changed
 
-	; get the START and STOP addresses of the watch
-	ldy @cnt
-	lda dbg::watcheslo,y
-	cmp dbg::watches_stoplo,y
+	jsr __watches_getdata
+	tax				; save flags
+
+	lda @start
+	cmp @stop
 	beq :+
-	inc @range			; flag that start != stop
-:	sta @start
+	inc @range		; flag that start != stop
 
-	lda dbg::watches_stoplo,y
-	sta @stop
-	lda dbg::watcheshi,y
-	cmp dbg::watches_stophi,y
+:	lda @start+1
+	cmp @stop+1
 	beq :+
-	inc @range
+	inc @range		; flag that start != stop
 
-:	sta @start+1
-	lda dbg::watches_stophi,y
-	sta @stop+1
+:	; print the watch info
+	lda @range		; is it a range of addresses?
+	beq @valline		; not a range, continue
 
-	; print the watch info
-	lda @range			; is it a range of addresses?
-	beq @valline			; not a range
-
-;--------------------------------------
-; if the start address != stop address, print both
+; if the start address != stop address, print start and stop
 @rangeline:
 	; push the stop address
 	lda @stop
@@ -142,7 +133,7 @@ row:	.byte 0
 
 	; push SPACE if not dirty or '!' if dirty
 	ldy #' '
-	lda dbg::watch_flags,x
+	txa				; get flags
 	and #WATCH_DIRTY		; dirty?
 	beq :+				; if NOT dirty, don't push previous value
 	ldy #'!'			; dirty
@@ -157,17 +148,19 @@ row:	.byte 0
 ; if the start address == stop address, just print the one address and its val
 @valline:
 	; push current value of the watch
-	lda dbg::watch_vals,x
+	lda @val
 	pha
 
-	; push the previous value of the watch
-	lda dbg::watch_flags,x
+	; is this watch dirty?
+	ldxy #strings::watches_line	; default to "clean" string
+	txa				; get flags
 	and #WATCH_DIRTY		; dirty?
 	beq :+				; if NOT dirty, don't push previous value
-	lda dbg::watch_prevs,x
+
+	; dirty, push previous value
+	lda @prev
 	pha				; push previous value if dirty
-	lda #CH_R_ARROW
-	sta strings::watches_line_end	; insert a > between old/new values
+	ldxy #strings::watches_changed_line
 
 :	; push the address
 	lda @start
@@ -175,16 +168,6 @@ row:	.byte 0
 	lda @start+1
 	pha
 
-	; push SPACE if not dirty or '!' if dirty
-	ldy #' '
-	lda dbg::watch_flags,x
-	and #WATCH_DIRTY		; dirty?
-	beq :+				; if NOT dirty, don't push previous value
-	ldy #'!'			; dirty
-:	tya
-	pha
-
-	ldxy #strings::watches_line
 @getdatadone:
 	jsr text::render
 	rts
@@ -378,13 +361,54 @@ row:	.byte 0
 .endproc
 
 ;******************************************************************************
+; GETWATCH DATA
+; Returns the properties of the given watch
+; IN:
+;   - .A: the ID of the watch to get the properties of
+; OUT:
+;   - .A: the flags for the watch
+;   - .X: the number of watches total
+;   - r4: the start address of the watch
+;   - r6: the stop address of the watch
+;   - r8: the current value of the watched address
+;   - r9: the previous value of the watched address
+.export __watches_getdata
+.proc __watches_getdata
+@start=r4
+@stop=r6
+@val=r8
+@prev=r9
+	tax
+
+	lda dbg::watcheslo,x
+	sta @start
+	lda dbg::watcheshi,x
+	sta @start+1
+
+	lda dbg::watches_stoplo,x
+	sta @stop
+	lda dbg::watches_stophi,x
+	sta @stop+1
+
+	lda dbg::watch_vals,x
+	sta @val
+
+	lda dbg::watch_prevs,x
+	sta @prev
+
+	lda dbg::watch_flags,x
+	ldx dbg::numwatches
+	rts
+.endproc
+
+;******************************************************************************
 ; GETWATCH
 ; Returns the index of the watch at the given address
 ; IN:
 ;  - r2: the address of the watch
 ; OUT:
 ;  - .C: set if the watch exists
-;  - .X: the id of the watch * 2
+;  - .X: the id of the watch
 .export getwatch
 .proc getwatch
 @addr=r2
