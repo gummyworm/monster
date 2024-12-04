@@ -136,7 +136,7 @@ BREAKPOINT_ENABLED = 1
 ; Returns the rendered string for the given breakpoint.
 ; This is displayed in both the TUI and GUI breakpoint viewer
 ; IN:
-;  - .A: the watch to get the string for
+;  - .A: the breakpoint to get the string for
 ; OUT:
 ;  - .XY: the rendered string for that watch
 ;  - .C:  set if there is no breakpoint for the given ID
@@ -152,12 +152,12 @@ BREAKPOINT_ENABLED = 1
 	bcs @datadone
 
 	; push the address of the breakpoint
+	ldy dbg::breakpointshi,x
 	lda dbg::breakpointslo,x
 	pha
 	tax
-	lda dbg::breakpointshi,x
+	tya
 	pha
-	tay
 
 	; get/push the symbol name for this address (if there is one)
 	stxy @addr

@@ -1108,9 +1108,7 @@ anon_addrs: .res MAX_ANON*2
 ;  - .XY: the ID of the label
 ;  - .C: set if no label is found
 .proc by_addr
-@other=rc
-@addr=re
-@cnt=zp::tmp10
+@addr=ra
 @lb=rc
 @ub=re
 @m=zp::tmp10
@@ -1186,20 +1184,20 @@ anon_addrs: .res MAX_ANON*2
 @done:	bcc @err
 
 	; look up the ID for the address
-	lda @lb
+	lda @m
 	clc
 	adc #<(label_addresses_sorted_ids - label_addresses_sorted)
-	sta @lb
+	sta @m
 
-	lda @lb+1
+	lda @m+1
 	adc #>(label_addresses_sorted_ids - label_addresses_sorted)
-	sta @lb+1
+	sta @m+1
 
 	ldy #$00
-	lda (@lb),y
+	lda (@m),y
 	tax
 	iny
-	lda (@lb),y
+	lda (@m),y
 	tay
 	RETURN_OK
 
