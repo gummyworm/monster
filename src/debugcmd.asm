@@ -266,7 +266,7 @@
 :	CALL FINAL_BANK_MAIN, #dbgi::getfileid
 	bcc :+
 	;bcs @done				; no file found
-:	sta @fileid
+:	pha			; save file ID
 
 	; move past the filename and whitespace
 	CALL FINAL_BANK_MAIN, #line::process_ws
@@ -274,6 +274,8 @@
 	; evaluate the expression to get break line
 	CALL FINAL_BANK_MAIN, #expr::eval
 	stxy @line
+	pla
+	sta @fileid
 	bcs @err		; invalid line #
 
 	; add the breakpoint
@@ -290,6 +292,7 @@
 	ldxy @line
 	lda @fileid
 	CALL FINAL_BANK_MAIN, #dbg::brksetaddr
+	clc
 @done:	rts
 .endproc
 
