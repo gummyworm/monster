@@ -206,6 +206,7 @@
 ;  - .XY: the parameters for the command
 .proc add_break_addr
 @addr=zp::tmp10
+@line=zp::tmp12
 	; evaluate the expression to get break address
 	CALL FINAL_BANK_MAIN, #expr::eval
 	bcs @done
@@ -215,14 +216,16 @@
 	; get the line/file for the given address
 	CALL FINAL_BANK_MAIN, #dbgi::addr2line
 	bcs @skip_line
+	pha
+	stxy @line
 	CALL FINAL_BANK_MAIN, #dbg::setbrkatline
 
-	pha
 	lda @addr
 	sta r0
 	lda @addr+1
 	sta r0+1
 	pla
+	ldxy @line
 	CALL FINAL_BANK_MAIN, #dbg::brksetaddr
 	RETURN_OK
 
@@ -288,6 +291,7 @@
 	CALL FINAL_BANK_MAIN, #dbgi::line2addr
 	bcs @done				; no matching line found
 
+	stxy r0
 	; map the address we looked up to the line
 	ldxy @line
 	lda @fileid
