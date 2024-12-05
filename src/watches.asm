@@ -26,11 +26,30 @@
 ;******************************************************************************
 ; CONSTANTS
 HEIGHT = WATCHVIEW_STOP-WATCHVIEW_START-1
+MAX_WATCHPOINTS = 8	; max number of watchpoints that may be set
 
 .BSS
 ;******************************************************************************
 scroll: .byte 0
 row:	.byte 0
+
+__watches_num:  .byte 0		    ; number of active watches
+
+NUM_WATCH_TABLES=7
+watch_data:
+__watches_watcheslo:   .res MAX_WATCHPOINTS   ; addresses of the set watchpoints
+__watches_watcheshi:   .res MAX_WATCHPOINTS   ; addresses of the set watchpoints
+__watches_watch_vals:  .res MAX_WATCHPOINTS   ; values of the set watchpoints
+__watches_watch_prevs: .res MAX_WATCHPOINTS   ; previous values of watches
+__watches_watch_flags: .res MAX_WATCHPOINTS   ; flags for watches (e.g. DIRTY)
+
+; the following are used for watches that represent a range of values
+; e.g. [$1000, $1100)
+__watches_watches_stoplo:    .res MAX_WATCHPOINTS ; end address of watch range
+__watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
+
+.export __watches_num
+.export __watches_watch_flags
 
 .CODE
 ;******************************************************************************
@@ -57,7 +76,7 @@ row:	.byte 0
 .byte HEIGHT				; max height
 .word @getkey				; key handler
 .word __watches_tostring		; get line handler
-.word dbg::numwatches			; # of breakpoints pointer
+.word __watches_num			; # of breakpoints pointer
 .word strings::watches_title		; title
 
 ;--------------------------------------
@@ -70,9 +89,9 @@ row:	.byte 0
 	clc
 	adc scroll
 	tax
-	lda dbg::watcheslo,x
+	lda __watches_watcheslo,x
 	sta view::addr
-	lda dbg::watcheshi,x
+	lda __watches_watcheshi,x
 	sta view::addr+1
 	jsr view::edit		; invoke the memory editor
 	sec			; after returning from mem editor, quit
@@ -106,29 +125,29 @@ row:	.byte 0
 .proc __watches_update
 @cnt=r0
 @addr=r1
-	ldx dbg::numwatches
+	ldx __watches_num
 	beq @done
 	dex
 	stx @cnt
 @l0:	ldx @cnt
-	lda dbg::watch_vals,x
-	sta dbg::watch_prevs,x	; store curr value as prev
+	lda __watches_watch_vals,x
+	sta __watches_watch_prevs,x	; store curr value as prev
 
 	ldx @cnt
-	lda dbg::watcheslo,x
-	ldy dbg::watcheshi,x
+	lda __watches_watcheslo,x
+	ldy __watches_watcheshi,x
 	tax
 
 	jsr vmem::load
 	ldx @cnt
-	cmp dbg::watch_prevs,x	; same as old value?
+	cmp __watches_watch_prevs,x	; same as old value?
 	beq :+
 	pha
 	lda #WATCH_DIRTY
-	ora dbg::watch_flags,x
-	sta dbg::watch_flags,x	; mark value as DIRTY
+	ora __watches_watch_flags,x
+	sta __watches_watch_flags,x	; mark value as DIRTY
 	pla
-:	sta dbg::watch_vals,x	; store new value
+:	sta __watches_watch_vals,x	; store new value
 	dec @cnt
 	bpl @l0
 @done:	rts
@@ -150,23 +169,23 @@ row:	.byte 0
 	tax
 @chklo:
 	lda @addr+1
-	cmp dbg::watcheshi,x
+	cmp __watches_watcheshi,x
 	bcc @no 		; if MSB < addr's, not in range of this watch
 	beq :+
 	bcs @chkstop		; if MSB > addr's, addr is above low bound
 
 :	lda @addr
-	cmp dbg::watcheslo,x
+	cmp __watches_watcheslo,x
 	bcc @no			; if MSB == addr's and LSB > addr's, try next
 
 @chkstop:
 	lda @addr+1
-	cmp dbg::watches_stophi,x
+	cmp __watches_watches_stophi,x
 	bcc @yes
 	beq :+
 	bcs @no			; if MSB > addr, not in range of this watch
 :	lda @addr
-	cmp dbg::watches_stoplo,x ; if LSB <= addr, addr is in range
+	cmp __watches_watches_stoplo,x ; if LSB <= addr, addr is in range
 	beq @yes
 	bcc @yes
 @no:	sec
@@ -191,7 +210,7 @@ row:	.byte 0
 	sta @found
 
 	stxy @addr
-	ldx dbg::numwatches
+	ldx __watches_num
 	beq @done
 	dex
 	stx @cnt
@@ -202,7 +221,7 @@ row:	.byte 0
 	bcs @next
 	ldx @cnt
 	lda #WATCH_DIRTY
-	sta dbg::watch_flags,x	; mark this watchpoint as DIRTY
+	sta __watches_watch_flags,x	; mark this watchpoint as DIRTY
 	inc @found
 
 @next:	dec @cnt
@@ -226,33 +245,33 @@ row:	.byte 0
 @flags=r4
 	sta @flags
 	stxy @addr
-	ldx dbg::numwatches
+	ldx __watches_num
 	beq :+
 
 	; check if watch (in r2) already exists
 	jsr getwatch
 	bcs @done		; already a watch here, exit
 
-	ldx dbg::numwatches
+	ldx __watches_num
 :	lda @addr
-	sta dbg::watcheslo,x
+	sta __watches_watcheslo,x
 	lda @addr+1
-	sta dbg::watcheshi,x
+	sta __watches_watcheshi,x
 
 	lda @stop
-	sta dbg::watches_stoplo,x
+	sta __watches_watches_stoplo,x
 	lda @stop+1
-	sta dbg::watches_stophi,x
+	sta __watches_watches_stophi,x
 
 	ldxy @addr
 	jsr vmem::load
-	ldx dbg::numwatches
-	sta dbg::watch_vals,x
+	ldx __watches_num
+	sta __watches_watch_vals,x
 
 	lda @flags
-	sta dbg::watch_flags,x
+	sta __watches_watch_flags,x
 
-	inc dbg::numwatches
+	inc __watches_num
 @done:	rts
 .endproc
 
@@ -264,20 +283,39 @@ row:	.byte 0
 .export __watches_remove
 .proc __watches_remove
 @id=r6
-	cmp dbg::numwatches
-	bcs @done		; can't remove (invalid ID)
+@data=r7
+	cmp __watches_num
+	bcs @ret		; can't remove (invalid ID)
 
-	; shift watches down
-	tax
-@l0:	lda dbg::watcheshi+1,x
-	sta dbg::watcheshi,x
-	lda dbg::watcheslo+1,x
-	sta dbg::watcheslo,x
-	inx
-	cpx dbg::numwatches
-	bcc @l0
-@removed:
-	dec dbg::numwatches
+	sta @id
+	ldxy #watch_data
+	stxy @data
+
+	ldx #NUM_WATCH_TABLES
+
+	; shift watche data down
+@l0:	ldy @id
+	iny
+@l1:	lda (@data),y
+	dey
+	sta (@data),y
+	iny
+	iny
+	cpy __watches_num
+	bcc @l1
+
+	; move to next table
+	lda @data
+	; sec
+	adc #MAX_WATCHPOINTS-1
+	sta @data
+	bcc @next
+	inc @data+1
+
+@next:	dex
+	bne @l0
+	dec __watches_num
+
 @done:	clc
 @ret:	rts
 .endproc
@@ -302,24 +340,24 @@ row:	.byte 0
 @prev=r9
 	tax
 
-	lda dbg::watcheslo,x
+	lda __watches_watcheslo,x
 	sta @start
-	lda dbg::watcheshi,x
+	lda __watches_watcheshi,x
 	sta @start+1
 
-	lda dbg::watches_stoplo,x
+	lda __watches_watches_stoplo,x
 	sta @stop
-	lda dbg::watches_stophi,x
+	lda __watches_watches_stophi,x
 	sta @stop+1
 
-	lda dbg::watch_vals,x
+	lda __watches_watch_vals,x
 	sta @val
 
-	lda dbg::watch_prevs,x
+	lda __watches_watch_prevs,x
 	sta @prev
 
-	lda dbg::watch_flags,x
-	ldx dbg::numwatches
+	lda __watches_watch_flags,x
+	ldx __watches_num
 	rts
 .endproc
 
@@ -427,12 +465,12 @@ row:	.byte 0
 .export getwatch
 .proc getwatch
 @addr=r2
-	ldx dbg::numwatches
+	ldx __watches_num
 @l0:	lda @addr
-	cmp dbg::watcheslo-1,x
+	cmp __watches_watcheslo-1,x
 	bne @next
 	lda @addr+1
-	cmp dbg::watcheshi-1,x
+	cmp __watches_watcheshi-1,x
 	beq @done
 @next:	dex
 	bne @l0

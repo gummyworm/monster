@@ -14,7 +14,6 @@
 .import __debug_init
 .import __debug_interface
 .import __debug_numbreakpoints
-.import __debug_numwatches
 .import __debug_regs_contents
 .import __debug_remove_breakpoint
 .import __debug_removebreakpointbyid
@@ -28,13 +27,6 @@
 .import __debug_step_over
 .import __debug_trace
 .import __debug_swap_user_mem
-.import __debug_watcheslo
-.import __debug_watcheshi
-.import __debug_watches_stoplo
-.import __debug_watches_stophi
-.import __debug_watch_prevs
-.import __debug_watch_flags
-.import __debug_watch_vals
 .import __debug_setbrkataddr
 
 .scope dbg
@@ -55,7 +47,6 @@
 	init               = __debug_init
 	interface          = __debug_interface
 	numbreakpoints     = __debug_numbreakpoints
-	numwatches         = __debug_numwatches
 	regs_contents      = __debug_regs_contents
 	removebreakpoint   = __debug_remove_breakpoint
 	removebreakpointbyid = __debug_removebreakpointbyid
@@ -68,11 +59,4 @@
 	step_over          = __debug_step_over
 	swapusermem        = __debug_swap_user_mem
 	trace              = __debug_trace
-	watcheslo          = __debug_watcheslo
-	watcheshi          = __debug_watcheshi
-	watches_stoplo	   = __debug_watches_stoplo
-	watches_stophi	   = __debug_watches_stophi
-	watch_flags        = __debug_watch_flags
-	watch_prevs        = __debug_watch_prevs
-	watch_vals         = __debug_watch_vals
 .endscope

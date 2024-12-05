@@ -53,7 +53,6 @@ RTI_ADDR         = BRK_HANDLER_ADDR+3
 
 ;******************************************************************************
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
-MAX_WATCHPOINTS = 8	; max number of watchpoints that may be set
 
 AUX_NONE = 0		; flag for no viewer enabled
 AUX_MEM  = 1		; enables the memory viewer in the debug view
@@ -173,29 +172,6 @@ step_out_depth: .byte 0 ; # of RTS's to wait for when "stepping out"
 
 stop_tracing: .byte 0	; if !0, debugger will stop a TRACE at the next STEP
 
-;******************************************************************************
-; WATCHES
-;******************************************************************************
-__debug_numwatches:  .byte 0		    ; number of active watches
-__debug_watcheslo:   .res MAX_WATCHPOINTS   ; addresses of the set watchpoints
-__debug_watcheshi:   .res MAX_WATCHPOINTS   ; addresses of the set watchpoints
-__debug_watch_vals:  .res MAX_WATCHPOINTS   ; values of the set watchpoints
-__debug_watch_prevs: .res MAX_WATCHPOINTS   ; previous values of watches
-__debug_watch_flags: .res MAX_WATCHPOINTS   ; flags for watches (e.g. DIRTY)
-
-; the following are used for watches that represent a range of values
-; e.g. [$1000, $1100)
-__debug_watches_stoplo:    .res MAX_WATCHPOINTS ; end address of watch range
-__debug_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
-
-.export __debug_watcheslo
-.export __debug_watcheshi
-.export __debug_watch_vals
-.export __debug_watch_prevs
-.export __debug_numwatches
-.export __debug_watch_flags
-.export __debug_watches_stoplo
-.export __debug_watches_stophi
 
 ;******************************************************************************
 ; BREAKPOINTS
@@ -207,6 +183,14 @@ __debug_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 
 .export __debug_numbreakpoints
 __debug_numbreakpoints:     .byte 0
+
+
+;******************************************************************************
+; The following tables must be stored together and
+; NUM_BREAKPOINT_TABLES must be set to the number of them
+; We iteratively modify the values within these tables
+NUM_BREAKPOINT_TABLES=7
+breakpoint_data:
 __debug_breakpointslo:
 breakpointslo:      .res MAX_BREAKPOINTS	; LSB's of the break points
 __debug_breakpointshi:
@@ -464,7 +448,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	ldxy sim::pc
 	lda #$00
 	sta aux_mode		; initialize auxiliary views
-	sta __debug_numwatches	; clear watches
+	sta watch::num	; clear watches
 	jsr vmem::store
 
 	lda #DEFAULT_RVS
@@ -1626,9 +1610,9 @@ restore_regs:
 
 	; clear watch flags
 	lda #$00
-	ldx __debug_numwatches
+	ldx watch::num
 	beq @check_effects
-:	sta __debug_watch_flags-1,x
+:	sta watch::flags-1,x
 	dex
 	bne :-
 
@@ -2066,30 +2050,39 @@ __debug_remove_breakpoint:
 .export __debug_removebreakpointbyid
 .proc __debug_removebreakpointbyid
 @addr=debugtmp
-@end=debugtmp+2
+@data=debugtmp+2
+@id=debugtmp+4
 	cpx __debug_numbreakpoints
 	bcs :+				; no breakpoint of given ID
 
+	stx @id
+	ldxy #breakpoint_data
+	stxy @data
+
+	ldx #NUM_BREAKPOINT_TABLES
+
 	; shift breakpoints down
-	lda __debug_numbreakpoints
-	sta @end
-	cpx @end
-	beq @removed
-@l0:	lda breakpointshi+1,x
-	sta breakpointshi,x
-	lda breakpointslo+1,x
-	sta breakpointslo,x
-	lda __debug_breakpoint_lineshi+1,x
-	sta __debug_breakpoint_lineshi,x
-	lda __debug_breakpoint_lineslo+1,x
-	sta __debug_breakpoint_lineslo,x
-	lda __debug_breakpoint_fileids+1,x
-	sta __debug_breakpoint_fileids,x
-	inx
-	cpx @end
-	bcc @l0
-@removed:
+@l0:	ldy @id
+	iny
+@l1:	lda (@data),y
+	dey
+	sta (@data),y
+	iny
+	iny
+	cpy __debug_numbreakpoints
+	bcc @l1
+
+	lda @data
+	; sec
+	adc #MAX_BREAKPOINTS-1
+	sta @data
+	bcc @next
+	inc @data+1
+
+@next:	dex
+	bne @l0
 	dec __debug_numbreakpoints
+
 @done:	clc
 :	rts
 .endproc

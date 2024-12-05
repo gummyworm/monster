@@ -39,13 +39,36 @@ OP_SET_PC       = $06
 SIZEOF_BLOCK_HEADER = 13
 
 ;******************************************************************************
-.macro BANKJUMP proc
+.macro BANKJUMP proc_id
 	pha
-	lda #<proc
-	sta zp::bankjmpvec
-	lda #>proc
-	bne do_proc
+	lda #proc_id
+	bpl do_proc
 .endmacro
+
+.enum dbgi_proc_ids
+ADDR2LINE
+LINE2ADDR
+END_BLOCK
+INIT
+INITONCE
+GET_FILENAME
+NEW_BLOCK
+SET_FILE
+SET_NAME
+SET_ADDR
+STORE_LINE
+PUSH_BLOCK
+POP_BLOCK
+GET_FILEID
+.endenum
+
+.RODATA
+.linecont +
+.define dbgi_procs addr2line, end_block, line2addr, init, initonce, get_filename, new_block, \
+	set_file, set_name, set_addr, store_line, push_block, pop_block, get_fileid
+.linecont -
+dbgi_procs_lo: .lobytes dbgi_procs
+dbgi_procs_hi: .hibytes dbgi_procs
 
 ;******************************************************************************
 ; Debug info pointers
@@ -123,32 +146,37 @@ debuginfo: .res $6000
 .PUSHSEG
 .CODE
 
-__debug_addr2line:     BANKJUMP addr2line
-__debug_line2addr:     BANKJUMP line2addr
-__debug_end_block:     BANKJUMP end_block
-__debug_init:          BANKJUMP init
-__debug_initonce:      BANKJUMP initonce
-__debug_get_filename:  BANKJUMP get_filename
-__debug_new_block:     BANKJUMP new_block
-__debug_set_file:      BANKJUMP set_file
-__debug_set_name:      BANKJUMP set_name
-__debug_set_addr:      BANKJUMP set_addr
-__debug_store_line:    BANKJUMP store_line
-__debug_push_block:    BANKJUMP push_block
-__debug_pop_block:     BANKJUMP pop_block
-
-__debuginfo_get_fileid: BANKJUMP get_fileid
+__debug_addr2line:     BANKJUMP dbgi_proc_ids::ADDR2LINE
+__debug_line2addr:     BANKJUMP dbgi_proc_ids::LINE2ADDR
+__debug_end_block:     BANKJUMP dbgi_proc_ids::END_BLOCK
+__debug_init:          BANKJUMP dbgi_proc_ids::INIT
+__debug_initonce:      BANKJUMP dbgi_proc_ids::INITONCE
+__debug_get_filename:  BANKJUMP dbgi_proc_ids::GET_FILENAME
+__debug_new_block:     BANKJUMP dbgi_proc_ids::NEW_BLOCK
+__debug_set_file:      BANKJUMP dbgi_proc_ids::SET_FILE
+__debug_set_name:      BANKJUMP dbgi_proc_ids::SET_NAME
+__debug_set_addr:      BANKJUMP dbgi_proc_ids::SET_ADDR
+__debug_store_line:    BANKJUMP dbgi_proc_ids::STORE_LINE
+__debug_push_block:    BANKJUMP dbgi_proc_ids::PUSH_BLOCK
+__debug_pop_block:     BANKJUMP dbgi_proc_ids::POP_BLOCK
+__debuginfo_get_fileid: BANKJUMP dbgi_proc_ids::GET_FILEID
 
 ;******************************************************************************
 ; Entrypoint for routines
 .proc do_proc
+	stx @savex
+	tax
+	lda dbgi_procs_lo,x
+	sta zp::bankjmpvec
+	lda dbgi_procs_hi,x
 	sta zp::bankjmpvec+1
 	lda #FINAL_BANK_DEBUG
 	sta zp::banktmp
+@savex=*+1
+	ldx #$00
 	pla
 	jmp __final_call
 .endproc
-
 
 .POPSEG
 .endif
