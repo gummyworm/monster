@@ -2408,8 +2408,8 @@ __edit_refresh:
 
 ;******************************************************************************
 ; SET_BREAKPOINT
-; Inserts a BREAKPOINT character at the cursor's current file and line number.
-; If a breakpoint already exists there, removes it.
+; Creates a breakpoint at the cursor's current file/line number or removes it
+; if one already exists
 .export __edit_set_breakpoint
 __edit_set_breakpoint:
 .proc set_breakpoint
@@ -2427,22 +2427,19 @@ __edit_set_breakpoint:
 
 @set:	jsr src::currline
 	jsr dbg::setbrkatline
-	lda #BREAKPOINT_ON_COLOR
-
-@done:	ldx zp::cury
-	jsr draw::hline
-	jsr gui::refresh
-
-	; get the file and line we are setting the breakpint at
 	jsr __edit_current_file
 	pha
 	jsr dbgi::line2addr
 	stxy r0
 	jsr src::currline
 	pla
+	jsr dbg::brksetaddr
 
-	; map the address to the breakpoint
-	jmp dbg::brksetaddr
+	lda #BREAKPOINT_ON_COLOR
+
+@done:	ldx zp::cury
+	jsr draw::hline
+	jmp gui::refresh
 .endproc
 
 ;******************************************************************************

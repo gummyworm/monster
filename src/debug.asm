@@ -676,7 +676,8 @@ brkhandler2_size=*-brkhandler2
 
 ;******************************************************************************
 ; UNINSTALL_BREAKPOINTS
-; Restores the source code by removing all breakpoints installed by the debugger
+; Restores the source code by removing all breakpoints installed by the
+; debugger
 .proc uninstall_breakpoints
 @addr=r0
 @cnt=r2
@@ -687,7 +688,7 @@ brkhandler2_size=*-brkhandler2
 @uninstall:
 	ldx @cnt
 	lda breakpoint_flags,x
-	and #BREAKPOINT_ENABLED
+	and #BREAKPOINT_ENABLED	; if breakpoint is disabled, skip
 	beq @next
 
 	lda breakpointslo,x
@@ -2065,13 +2066,16 @@ __debug_remove_breakpoint:
 	; shift breakpoints down
 	lda __debug_numbreakpoints
 	sta @end
-	dex
 	cpx @end
 	beq @removed
 @l0:	lda breakpointshi+1,x
 	sta breakpointshi,x
 	lda breakpointslo+1,x
 	sta breakpointslo,x
+	lda __debug_breakpoint_lineshi+1,x
+	sta __debug_breakpoint_lineshi,x
+	lda __debug_breakpoint_lineslo+1,x
+	sta __debug_breakpoint_lineslo,x
 	lda __debug_breakpoint_fileids+1,x
 	sta __debug_breakpoint_fileids,x
 	inx

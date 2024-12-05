@@ -7,45 +7,68 @@
 
 MAX_COPY_SIZE = __COPYBUFF_BSS_SIZE__
 
-.macro COPYBUFFJUMP proc
+.macro COPYBUFFJUMP proc_id
 	pha
-	lda #<proc
-	sta zp::bankjmpvec
-	lda #>proc
-	bne do_buff_proc
+	lda #proc_id
+	bpl do_buff_proc
 .endmacro
+
+.enum buff_proc_ids
+PUTCH
+GETCH
+GETLINE
+CLEAR
+LINES_COPIED
+PUSH
+POP
+LEN
+.endenum
+
+.RODATA
+.linecont +
+.define buff_procs putch, getch, getline, clear, lines_copied, push, pop, len
+.linecont -
+buff_procs_lo: .lobytes buff_procs
+buff_procs_hi: .hibytes buff_procs
 
 .CODE
 .export __buff_putch
-__buff_putch: COPYBUFFJUMP putch
+__buff_putch: COPYBUFFJUMP buff_proc_ids::PUTCH
 
 .export __buff_getch
-__buff_getch: COPYBUFFJUMP putch
+__buff_getch: COPYBUFFJUMP buff_proc_ids::GETCH
 
 .export __buff_getline
-__buff_getline: COPYBUFFJUMP getline
+__buff_getline: COPYBUFFJUMP buff_proc_ids::GETLINE
 
 .export __buff_clear
-__buff_clear: COPYBUFFJUMP clear
+__buff_clear: COPYBUFFJUMP buff_proc_ids::CLEAR
 
 .export __buff_lines_copied
-__buff_lines_copied: COPYBUFFJUMP lines_copied
+__buff_lines_copied: COPYBUFFJUMP buff_proc_ids::LINES_COPIED
 
 .export __buff_push
-__buff_push: COPYBUFFJUMP push
+__buff_push: COPYBUFFJUMP buff_proc_ids::PUSH
 
 .export __buff_pop
-__buff_pop: COPYBUFFJUMP pop
+__buff_pop: COPYBUFFJUMP buff_proc_ids::POP
 
 .export __buff_len
-__buff_len: COPYBUFFJUMP len
+__buff_len: COPYBUFFJUMP buff_proc_ids::LEN
 
 ;******************************************************************************
 ; Entrypoint for label routines
 .proc do_buff_proc
+	stx @savex
+	tax
+	lda buff_procs_lo,x
+	sta zp::bankjmpvec
+	lda buff_procs_hi,x
 	sta zp::bankjmpvec+1
 	lda #FINAL_BANK_BUFF
 	sta zp::banktmp
+@savex=*+1
+	ldx #$00
 	pla
 	jmp __final_call
 .endproc
