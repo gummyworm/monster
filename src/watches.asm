@@ -238,6 +238,8 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 ;  - .XY: the address to add a watch for
 ;  - r0:  the STOP address to add the watch for
 ;  - .A:  the type of watch (WATCH_LOAD, WATCH_STORE, or WATCH_LOAD_STORE)
+; OUT:
+;   - .C: set if the watch was not added
 .export __watches_add
 .proc __watches_add
 @stop=r0
@@ -380,6 +382,8 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	sta @id
 	jsr __watches_getdata
 	tax			; save flags
+	lda #$00
+	sta @range
 
 	lda @start
 	cmp @stop
@@ -395,7 +399,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	lda @range		; is it a range of addresses?
 	beq @valline		; not a range, continue
 
-; if the start address != stop address, print start and stop
+; if the stat address != stop address, print start and stop
 @rangeline:
 	; push the stop address
 	lda @stop
@@ -458,12 +462,14 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 ; GETWATCH
 ; Returns the index of the watch at the given address
 ; IN:
+;  - r0: the stop address of the watch
 ;  - r2: the address of the watch
 ; OUT:
 ;  - .C: set if the watch exists
 ;  - .X: the id of the watch
 .export getwatch
 .proc getwatch
+@stop=r0
 @addr=r2
 	ldx __watches_num
 @l0:	lda @addr
@@ -471,6 +477,12 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	bne @next
 	lda @addr+1
 	cmp __watches_watcheshi-1,x
+	bne @next
+	lda @stop
+	cmp __watches_watches_stoplo,x
+	bne @next
+	lda @stop+1
+	cmp __watches_watches_stophi,x
 	beq @done
 @next:	dex
 	bne @l0
