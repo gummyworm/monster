@@ -525,55 +525,6 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 .endproc
 
 ;******************************************************************************
-; INSTALL BRK
-; Installs the debugger BRK handler to the BRK and NMI vectors and copies the
-; code to enter the handler to the user program's RAM at BRK_HANDLER_ADDR.
-; This handler switches back to the debuggers RAM bank, where the debugger takes
-; over.
-; IN:
-;  - .XY: the address to install the BRK handler to
-.proc install_brk
-@dst=r0
-@cnt=r2
-	sei
-	ldxy #BRK_HANDLER_ADDR+1
-	stxy $0316		; BRK
-	ldxy #NMI_HANDLER_ADDR
-	stxy @dst
-	stxy $0318		; NMI
-	cli
-
-	lda #brkhandler1_size-1
-	sta @cnt
-; copy part 1 of the BRK handler to the user program
-@l0:	ldy @cnt
-	lda brkhandlers,y
-	sta zp::bankval
-	sty zp::bankoffset
-	ldxy @dst
-	lda #FINAL_BANK_USER
-	jsr fe3::store_off
-	dec @cnt
-	bpl @l0
-
-	ldxy #BRK_HANDLER_ADDR
-	stxy @dst
-	lda #brkhandler2_size-1
-	sta @cnt
-; copy part 2 of the BRK handler to our memory
-@l1:	ldy @cnt
-	lda brkhandler2,y
-	sta zp::bankval
-	sty zp::bankoffset
-	ldxy @dst
-	lda #FINAL_BANK_MAIN
-	jsr fe3::store_off
-	dec @cnt
-	bpl @l1
-	rts
-.endproc
-
-;******************************************************************************
 ; BRKHANDLER
 ; Handles the BRK interrupt by returning control to the main bank
 ; and continuing execution there.
@@ -632,6 +583,57 @@ brkhandler2_size=*-brkhandler2
 .POPSEG
 
 ;******************************************************************************
+; INSTALL BRK
+; Installs the debugger BRK handler to the BRK and NMI vectors and copies the
+; code to enter the handler to the user program's RAM at BRK_HANDLER_ADDR.
+; This handler switches back to the debuggers RAM bank, where the debugger takes
+; over.
+; Also installs the active breakpoints
+; IN:
+;  - .XY: the address to install the BRK handler to
+.proc install_brk
+@dst=r0
+@cnt=r2
+	sei
+	ldxy #BRK_HANDLER_ADDR+1
+	stxy $0316		; BRK
+	ldxy #NMI_HANDLER_ADDR
+	stxy @dst
+	stxy $0318		; NMI
+	cli
+
+	lda #brkhandler1_size-1
+	sta @cnt
+; copy part 1 of the BRK handler to the user program
+@l0:	ldy @cnt
+	lda brkhandlers,y
+	sta zp::bankval
+	sty zp::bankoffset
+	ldxy @dst
+	lda #FINAL_BANK_USER
+	jsr fe3::store_off
+	dec @cnt
+	bpl @l0
+
+	ldxy #BRK_HANDLER_ADDR
+	stxy @dst
+	lda #brkhandler2_size-1
+	sta @cnt
+; copy part 2 of the BRK handler to our memory
+@l1:	ldy @cnt
+	lda brkhandler2,y
+	sta zp::bankval
+	sty zp::bankoffset
+	ldxy @dst
+	lda #FINAL_BANK_MAIN
+	jsr fe3::store_off
+	dec @cnt
+	bpl @l1
+
+	; fall through to install_breakpoints
+.endproc
+
+;******************************************************************************
 ; INSTALL_BREAKPOINTS
 ; Install all breakpoints from "breakpoints" EXCEPT for those at the current
 ; PC. This is to prevent a loop of breakpoints being repeatedly set and
@@ -661,10 +663,12 @@ brkhandler2_size=*-brkhandler2
 	cmpw @brkaddr
 	beq @next
 
+	; get the opcode to save before we overwrite it with a BRK
 	ldxy @brkaddr
 	jsr vmem::load
 	ldx @cnt
 	sta breaksave,x		; save the instruction under the new BRK
+
 	lda #$00		; BRK
 	ldxy @brkaddr
 	jsr vmem::store
@@ -696,6 +700,7 @@ brkhandler2_size=*-brkhandler2
 	lda breakpointshi,x
 	sta @addr+1
 
+	; restore the opcode we replaced with a BRK
 	lda breaksave,x
 	ldxy @addr
 	jsr vmem::store
@@ -892,8 +897,10 @@ brkhandler2_size=*-brkhandler2
 @uninstall_brks:
 	jsr tracing
 	beq :+
-	; unless tracing, uninstall breakpoints (will reinstall again later)
+	; unless tracing, uninstall breakpoints and reinstall updated ones
+	; if there is a breakpoint at the current PC, we will ignore it
 	jsr uninstall_breakpoints
+	jsr install_breakpoints
 
 :	; update TRACE_START, STEP_OUT_START, and GO to their subsequent actions
 	lda action
@@ -903,6 +910,7 @@ brkhandler2_size=*-brkhandler2
 	bne :+
 
 @update_trace_action:
+	; move from TRACE_START -> TRACE, install breakpoints, and begin trace
 	inc action
 	ldxy #strings::tracing
 	lda #REGISTERS_LINE-1
@@ -918,7 +926,6 @@ brkhandler2_size=*-brkhandler2
 	inc action
 
 @continue_debug:
-	jsr install_breakpoints	; reinstall rest of breakpoints
 	jmp __debug_done	; continue execution
 
 @update_watches:
