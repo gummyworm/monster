@@ -64,7 +64,7 @@ GET_FILEID
 
 .RODATA
 .linecont +
-.define dbgi_procs addr2line, end_block, line2addr, init, initonce, get_filename, new_block, \
+.define dbgi_procs addr2line, line2addr, end_block, init, initonce, get_filename, new_block, \
 	set_file, set_name, set_addr, store_line, push_block, pop_block, get_fileid
 .linecont -
 dbgi_procs_lo: .lobytes dbgi_procs
