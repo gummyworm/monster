@@ -777,10 +777,7 @@
 ; An optional offset from the stack pointer can be given to adjust the
 ; stack's start location
 .proc backtrace
-	CALL FINAL_BANK_MAIN, #dbg::step_out
-
-	inc con::quit	; send QUIT signal
-	rts
+	; TODO:
 .endproc
 
 ;******************************************************************************
@@ -866,7 +863,7 @@ commands:
 .byte "z",0	; step to the next instruction
 .byte "n",0	; step over the next instruction
 .byte "g",0	; go (continue program execution)
-.byte "bt",0	; backgrace
+.byte "bt",0	; backtrace
 .byte "zo",0	; step out
 
 .linecont +
