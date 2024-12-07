@@ -199,6 +199,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 ; its value has not changed.
 ; IN:
 ;  - .XY: the address to mark dirty (if a watch exists for it)
+;  - .A:  the mode to mark dirty: WATCH_LOAD, WATCH_STORE, or WATCH_LOAD_STORE
 ; OUT:
 ;  - .C: set if the given address was being watched by at least 1 watch
 .export __watches_mark
@@ -206,6 +207,9 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 @cnt=r6
 @addr=r7
 @found=r9
+@mode=ra
+	sta @mode
+
 	lda #$00
 	sta @found
 
@@ -220,7 +224,13 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	jsr in_range		; is the address in range for this watch?
 	bcs @next
 	ldx @cnt
+
+	lda @mode
+	and __watches_watch_flags,x
+	beq @next			; if different mode, skip
+
 	lda #WATCH_DIRTY
+	ora __watches_watch_flags,x
 	sta __watches_watch_flags,x	; mark this watchpoint as DIRTY
 	inc @found
 

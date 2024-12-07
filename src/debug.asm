@@ -1469,7 +1469,6 @@ restore_regs:
 	pha			; push 0 status
 	plp			; clear flags (.P)
 
-	lda #TEXT_COLOR
 	jsr bm::clrcolor
 
 	jmp edit::init
@@ -1577,12 +1576,11 @@ restore_regs:
 ;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .export __debug_step
 .proc __debug_step
-@mode=r0
 	lda #ACTION_STEP
 	sta action		; flag that we are STEPing
 
 	ldxy #NMI_IER
-	lda #$80|$20	; enable TIMER interrupts only
+	lda #$80|$20		; enable TIMER interrupts only
 	jsr vmem::store
 
 	ldxy #$100		; TODO: use ROM addr? (we don't need the string)
@@ -1601,27 +1599,25 @@ restore_regs:
 	; increment this again) we know exactly what will be written
 	dec swapmem
 
-	stx @mode			; address mode (set by asm::disassemble)
 	ldxy sim::pc			; address of instruction
 	jsr sim::get_side_effects	; get state that will be clobbered/used
 
 ; for updating watches and just general info for the user, save the current
 ; state of memory that will be altered
-
 	; clear watch flags
-	lda #$00
 	ldx watch::num
 	beq @check_effects
-:	sta watch::flags-1,x
+:	lda #$ff^WATCH_DIRTY
+	and watch::flags-1,x
+	sta watch::flags-1,x
 	dex
 	bne :-
 
 @check_effects:
 	lda sim::affected
-	and #OP_LOAD|OP_STORE		; will there be a write to memory?
+	and #OP_LOAD|OP_STORE		; was there a memory read/write?
 	beq @setbrk			; if not, skip ahead to setting the next BRK
-
-	ldxy sim::effective_addr	; if so, mark the watch if there is one
+	ldxy sim::effective_addr	; if yes, mark the watch if there is one
 	jsr watch::mark			; check if there's a watch at this addr
 	bcc @setbrk			; if there's no watch at addr, continue
 
@@ -1634,14 +1630,9 @@ restore_regs:
 	sta aux_mode
 
 	; display a message indicating watch was triggered
-	ldxy #strings::watch_triggered
-	lda #(REGISTERS_LINE)
-	jsr text::print
-
-	jsr watch::edit
-	pla			; clean stack
-	sec			; flag that we should return to the debugger
-	rts
+	jsr watch_triggered
+	lda #ACTION_STEP
+	sta action
 
 @setbrk:
 	pla			; get instruction size
@@ -1726,7 +1717,28 @@ restore_regs:
 ; This procedure is called when STEP (via step, trace, etc.) encounters a JAM
 ; instruction
 .proc jam_detected
-	ldxy #strings::jam_detected
+	ldx #<strings::jam_detected
+	ldy #>strings::jam_detected
+	bne print_msg
+.endproc
+
+;******************************************************************************
+; WATCH_TRIGGERED
+; This procedure is called when STEP (via step, trace, etc.) reads/writes to a
+; memory location that is being watched
+.proc watch_triggered
+	ldx #<strings::watch_triggered
+	ldy #>strings::watch_triggered
+
+	; fall through to print_msg
+.endproc
+
+;******************************************************************************
+; PRINT MSG
+; Prints a message for the TUI or GUI (whichever is active)
+; IN:
+;   - .XY: the message to print
+.proc print_msg
 	lda __debug_interface
 	beq @gui
 
@@ -1737,10 +1749,10 @@ restore_regs:
 
 @gui:	lda #REGISTERS_LINE-1
 	jsr text::print
+	jsr bm::clrcolor
 	jsr key::waitch		; wait for keypress
 	rts
 .endproc
-
 
 ;******************************************************************************
 ; STEP RESTORE

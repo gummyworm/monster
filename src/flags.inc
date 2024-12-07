@@ -1,6 +1,5 @@
 ;******************************************************************************
 ; WATCH flags
-WATCH_DIRTY      = $01
-WATCH_LOAD       = $02
-WATCH_STORE      = $04
-WATCH_LOAD_STORE = $08
+WATCH_LOAD       = $01
+WATCH_STORE      = $02
+WATCH_DIRTY      = $04

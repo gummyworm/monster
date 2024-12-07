@@ -58,6 +58,7 @@ COLMEM_ADDR = $9400
 .export __bm_clrcolor
 .proc __bm_clrcolor
 	ldy #$00
+	lda #TEXT_COLOR
 @l0:    sta COLMEM_ADDR,y
         dey
         bne @l0

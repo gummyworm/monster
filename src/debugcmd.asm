@@ -94,6 +94,34 @@
 .endproc
 
 ;******************************************************************************
+; ADD WATCH LOAD
+; was <expression> [, expression]
+; Prompts for a start address and (optional) stop address and adds a watch
+; at that location
+; The set watch will only trigger when the watched value is read from
+; IN:
+;  - .XY: the parameters for the command
+.proc add_watch_load
+	lda #WATCH_LOAD
+	bne add_watch
+	; fall through
+.endproc
+
+;******************************************************************************
+; ADD WATCH STORE
+; was <expression> [, expression]
+; Prompts for a start address and (optional) stop address and adds a watch
+; at that location
+; The set watch will only trigger when the watched value is written to
+; IN:
+;  - .XY: the parameters for the command
+.proc add_watch_store
+	lda #WATCH_STORE
+	skw
+	; fall through
+.endproc
+
+;******************************************************************************
 ; ADD WATCH
 ; wa <expression> [, expression]
 ; Prompts for a start address and (optional) stop address and adds a watch
@@ -102,6 +130,10 @@
 ;  - .XY: the parameters for the command
 .proc add_watch
 @addr=r8
+@mode=ra
+	lda #WATCH_LOAD|WATCH_STORE
+	sta @mode
+
 	; evaluate the expression to get start address
 	CALL FINAL_BANK_MAIN, #expr::eval
 	bcs @err
@@ -118,6 +150,7 @@
 	stxy r0
 
 @set:	ldxy @addr
+	lda @mode
 	CALL FINAL_BANK_MAIN, #watch::add		; add the watch
 	clc
 @err:	rts
@@ -842,6 +875,8 @@
 ; commands
 commands:
 .byte "wa",0	; watch add
+.byte "wal",0	; watch add load
+.byte "was",0	; watch add store
 .byte "wr",0	; watch remove
 .byte "w",0	; list watches
 .byte "b",0	; list breakpoints
@@ -866,10 +901,11 @@ commands:
 .byte "zo",0	; step out
 
 .linecont +
-.define command_vectors add_watch, remove_watch, list_watches, \
-	list_breakpoints, add_break_addr, add_break_line, remove_break, fill, \
-	move, goto, compare, hunt, __dbgcmd_regs, disasm, assemble, showmem, \
-	trace, quit, step, step_over, go, backtrace, step_out
+.define command_vectors add_watch, add_watch_load, add_watch_store, \
+	remove_watch, list_watches, list_breakpoints, add_break_addr, \
+	add_break_line, remove_break, fill, move, goto, compare, hunt, \
+	__dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
+	step_over, go, backtrace, step_out
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors
