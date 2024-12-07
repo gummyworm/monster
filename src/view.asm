@@ -133,6 +133,7 @@ memaddr:   .word 0
 	pha
 	tya
 	pha
+
 	lda #WATCH_STORE
 	jsr watch::add
 

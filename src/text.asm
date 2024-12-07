@@ -354,7 +354,7 @@ render_off: .byte 0
 	adc zp::curx
 	sta zp::curx
 	lda zp::cury
-	jmp @redrawline		; re-render the line
+	bpl @redrawline		; re-render the line
 
 @redraw:
 	lda __text_buffer
@@ -977,11 +977,14 @@ __text_tabr_dist_a=*+2
 ;******************************************************************************
 ; TABS
 ; This table stores the offsets to each TAB column
+.PUSHSEG
+.RODATA
 tabs:
 .repeat TAB_WIDTH, i
 	.byte i*TAB_WIDTH
 .endrepeat
 tabs_end=*-tabs
+.POPSEG
 
 ;******************************************************************************
 ; SAVEBUFF

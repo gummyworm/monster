@@ -51,6 +51,9 @@ NMI_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size
 BRK_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size+5-1 ; 5 = sizeof NMI portion
 RTI_ADDR         = BRK_HANDLER_ADDR+3
 
+.segment "NMI_HANDLER"
+.res 17 ;brkhandler1_size
+
 ;******************************************************************************
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
 
@@ -554,6 +557,7 @@ brkhandler1:
 	pla
 	rti		; return from BRK/NMI
 brkhandler1_size=*-brkhandler1
+.export brkhandler1_size
 
 brkhandler2:
 ; this portion runs in the user bank

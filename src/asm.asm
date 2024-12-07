@@ -2532,6 +2532,7 @@ __asm_include:
 	bpl :+
 	lda #$00	; stack is empty; return 0 for NO CONTEXT
 	rts
+
 :	lda contextstack,x
 	sta ctx::type
 	rts
