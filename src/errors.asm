@@ -9,6 +9,8 @@
 .include "layout.inc"
 .include "text.inc"
 
+NUM_ERRORS = 42
+
 .DATA
 ;******************************************************************************
 err_no_err:
@@ -49,8 +51,6 @@ err_undefined_label:
 err_unmatched_endif:
 	;.byte "endif with no if",0
 	.byte $2b,$84,$49,$9b,$ba,$54,$46,$ce,$7e,$c9,$30,$0
-
-NUM_ERRORS=*-err_no_err
 
 ;******************************************************************************
 err_unaligned_label:

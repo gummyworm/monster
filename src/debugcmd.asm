@@ -71,8 +71,7 @@
 	lda @cnt
 	cmp #num_commands
 	bne @l0
-@err:	sec
-	rts		; no command found
+@err:	RETURN_ERR ERR_INVALID_COMMAND
 
 @cmdfound:
 	lda commands,x	; check if end of command

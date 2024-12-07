@@ -3,12 +3,14 @@
 .include "debug.inc"
 .include "debugcmd.inc"
 .include "edit.inc"
+.include "errors.inc"
 .include "expr.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "finalex.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "string.inc"
 .include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"
@@ -147,7 +149,9 @@ __console_quit: .byte 0	; if !0, console will quit when command returns to it
 	jsr dbgcmd::run
 	bcc @ok			; if it succeeded, continue
 
-@err:	ldxy #strings::invalid_command
+@err:	;ldxy #strings::invalid_command
+	CALL FINAL_BANK_MAIN, #err::get
+	CALL FINAL_BANK_MAIN, #str::uncompress
 	jsr __console_puts
 
 @ok:	lda __console_quit	; was QUIT signal sent?
