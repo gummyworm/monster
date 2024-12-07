@@ -1623,14 +1623,14 @@ restore_regs:
 
 	; activate the watch window so user sees change
 	; restore zp (if we were tracing, must be restored)
+	pha
+	jsr save_debug_zp
 	jsr restore_debug_zp
-	lda #(DEBUG_INFO_START_ROW+1)*8
-	jsr bm::clrpart
-	lda #AUX_GUI
-	sta aux_mode
 
 	; display a message indicating watch was triggered
+	pla
 	jsr watch_triggered
+
 	lda #ACTION_STEP
 	sta action
 
@@ -1727,8 +1727,8 @@ restore_regs:
 ; This procedure is called when STEP (via step, trace, etc.) reads/writes to a
 ; memory location that is being watched
 .proc watch_triggered
-	ldx #<strings::watch_triggered
-	ldy #>strings::watch_triggered
+	; display the watch that was triggered
+	jsr watch::tostring
 
 	; fall through to print_msg
 .endproc

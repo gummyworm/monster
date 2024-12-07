@@ -149,8 +149,7 @@ __console_quit: .byte 0	; if !0, console will quit when command returns to it
 	jsr dbgcmd::run
 	bcc @ok			; if it succeeded, continue
 
-@err:	;ldxy #strings::invalid_command
-	CALL FINAL_BANK_MAIN, #err::get
+@err:	CALL FINAL_BANK_MAIN, #err::get
 	CALL FINAL_BANK_MAIN, #str::uncompress
 	jsr __console_puts
 

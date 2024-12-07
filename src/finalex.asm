@@ -11,6 +11,7 @@
 .include "zeropage.inc"
 
 .segment "BANKCODE"
+.export banksp
 
 bankcode:
 ;******************************************************************************

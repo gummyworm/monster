@@ -201,6 +201,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 ;  - .XY: the address to mark dirty (if a watch exists for it)
 ;  - .A:  the mode to mark dirty: WATCH_LOAD, WATCH_STORE, or WATCH_LOAD_STORE
 ; OUT:
+;  - .A: the first watch that matched the criteria to activate the trigger
 ;  - .C: set if the given address was being watched by at least 1 watch
 .export __watches_mark
 .proc __watches_mark
@@ -208,6 +209,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 @addr=r7
 @found=r9
 @mode=ra
+@match=rb
 	sta @mode
 
 	lda #$00
@@ -233,11 +235,13 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	ora __watches_watch_flags,x
 	sta __watches_watch_flags,x	; mark this watchpoint as DIRTY
 	inc @found
+	stx @match
 
 @next:	dec @cnt
 	bpl @l0
-@done:	lda @found
-	cmp #$01		; set .C if @found >= 1
+@done:	ldx @found
+	cpx #$01		; set .C if @found >= 1
+	lda @match
 	rts
 .endproc
 
