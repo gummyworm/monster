@@ -214,7 +214,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ; RESTORE DEBUG ZP TRACE
 ; Restores the state of the debugger's zeropage for traces
 .macro restore_debug_zp_trace
-	ldx #$0a
+	ldx #$0f
 	; TODO: figure out what exactly must be saved
 :	lda mem::dbg00,x
 	sta $00,x
@@ -1152,6 +1152,7 @@ restore_regs:
 
 	lda #$7f
 	sta $911d	; ack all interrupts
+	sta $912d
 .endproc
 
 .proc debug_rti
