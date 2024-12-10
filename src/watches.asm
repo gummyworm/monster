@@ -72,12 +72,15 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	ldxy #@menu
 	lda #WATCHVIEW_STOP
 	jmp gui::listmenu
+.PUSHSEG
+.RODATA
 @menu:
 .byte HEIGHT				; max height
 .word @getkey				; key handler
 .word __watches_tostring		; get line handler
 .word __watches_num			; # of breakpoints pointer
 .word strings::watches_title		; title
+.POPSEG
 
 ;--------------------------------------
 @getkey:
@@ -108,10 +111,6 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	jsr __watches_remove
 
 @done:	RETURN_OK
-
-;--------------------------------------
-@getdata:
-	jmp __watches_tostring
 .endproc
 
 ;******************************************************************************

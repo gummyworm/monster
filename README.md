@@ -740,6 +740,13 @@ Comments are excluded from the internal context buffer, so using them will not c
 
 ---
 
+### Limitations
+
+#### Memory Usage
+The user program may use all available memory from $00 to $7fef. The $11 bytes above $7fef are reserved
+for the debugger.  If your program needs these, you can still assemble to them, but you will not be
+able to use the debugger.
+
 ### Best Practices
 Although Monster strives to feel like unbothered by the physical limits of the
 Vic-20, certain usage patterns can cause issues. By following these practices,
@@ -771,7 +778,7 @@ In these cases, you can press RESTORE to return to the debugger (assuming the us
 has not overwritten the NMI vector at $0318 or disabled NMIs).
 
 In the event of a JAM or an unreoverable state (NMI disabled or vector overwritten), you
-will need to reset the machine.
+will need to reset the machine.  Save often.
 
 ---
 

@@ -2417,7 +2417,7 @@ __asm_include:
 	ldxy zp::line
 	jsr lbl::find
 	lda #$00
-	bcs :+	; label not defined
+	bcs :+		; label not defined
 	lda #$01
 
 :	; store TRUE/FALSE to the if stack

@@ -872,7 +872,7 @@
 .endproc
 
 ;******************************************************************************
-; commands
+; COMMANDS
 commands:
 .byte "wa",0	; watch add
 .byte "wal",0	; watch add load

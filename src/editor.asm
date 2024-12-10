@@ -128,8 +128,6 @@ status_row: .byte 0
 	jsr edit		; initialize size/mode/etc.
 	jsr enter_command
 
-	jsr buff::clear		; clear copy buffer
-
 	; rewind source and get the first line's contents in textbuffer
 	jsr src::rewind
 	jsr src::get

@@ -47,12 +47,15 @@ numerrs: .byte 0
 .proc __errlog_activate
 	ldxy #@menu
 	jmp gui::listmenu
+.PUSHSEG
+.RODATA
 @menu:
 .byte MAX_HEIGHT	; max height
 .word @keyhandler	; key handler
 .word @getline		; get line handler
 .word numerrs		; pointer to number of errors
 .word strings::errors	; title
+.POPSEG
 
 ;--------------------------------------
 ; callback to get the item in .A

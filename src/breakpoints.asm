@@ -60,10 +60,6 @@ BREAKPOINT_ENABLED = 1
 	tax
 	jsr dbg::removebreakpoint
 @done:	RETURN_OK
-
-;--------------------------------------
-@getdata:
-	jmp __brkpt_tostring
 .endproc
 
 ;******************************************************************************

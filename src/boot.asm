@@ -1,6 +1,7 @@
 .include "asm.inc"
 .include "bitmap.inc"
 .include "config.inc"
+.include "copybuff.inc"
 .include "debug.inc"
 .include "debuginfo.inc"
 .include "draw.inc"
@@ -79,7 +80,13 @@
 .import __RODATA_RUN__
 .import __RODATA_SIZE__
 
-TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+__FASTTEXT_SIZE__+__MACROCODE_SIZE__+__VSCREEN_SIZE__+__IRQ_SIZE__+__LINKER_SIZE__+__LABELS_SIZE__+__UDGEDIT_SIZE__+__CONSOLE_SIZE__+__COPYBUFF_SIZE__+__RODATA_SIZE__+__DEBUGINFO_CODE_SIZE__
+.linecont +
+TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
+	     __FASTTEXT_SIZE__+__MACROCODE_SIZE__+__VSCREEN_SIZE__+ \
+	     __IRQ_SIZE__+__LINKER_SIZE__+__LABELS_SIZE__+__UDGEDIT_SIZE__+ \
+	     __CONSOLE_SIZE__+__COPYBUFF_SIZE__+__RODATA_SIZE__+ \
+	     __DEBUGINFO_CODE_SIZE__
+.linecont -
 
 ;******************************************************************************
 ; RELOC
@@ -492,6 +499,7 @@ num_relocs=(*-relocs)/7
 
 	jsr dbgi::initonce
 	jsr asm::reset
+	jsr buff::clear		; clear copy buffer
 
 .ifndef TEST
 	jmp edit::init
