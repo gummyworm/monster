@@ -19,6 +19,8 @@
 .import __sim_effective_addr
 .import __sim_stopwatch
 
+.import __sim_via2
+
 .scope sim
 	affected         = __sim_affected
 	branch_taken     = __sim_branch_taken
@@ -40,4 +42,6 @@
 	reg_y          = __sim_reg_y
 	reg_sp         = __sim_reg_sp
 	reg_p          = __sim_reg_p
+
+	via2 = __sim_via2
 .endscope

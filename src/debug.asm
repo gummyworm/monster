@@ -775,6 +775,9 @@ brkhandler2_size=*-brkhandler2
 ; needed by the debugger for display etc, then it restores the debugger's state
 ; and finally transfers control to the debugger
 .proc debug_brk
+	lda $912e
+	sta sim::via2+$e
+
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
 	lda #$7f
 	sta $911e	; disable all NMI's
@@ -1111,6 +1114,10 @@ brkhandler2_size=*-brkhandler2
 	lda #DEFAULT_900F
 	sta $900f
 
+	; restore VIA state that was clobbered
+	lda sim::via2+$e
+	sta $912e
+
 	; can't call anything after restoring stack/sp
 	; get state variables for "tracing" and "stepping"
 	jsr stepping
@@ -1140,7 +1147,7 @@ restore_regs:
 	sta prev_pc
 	pha
 
-	lda sim::reg_p	; restore processor status
+	lda sim::reg_p	; restore processor status (RTI will pull)
 	pha
 
 	lda #$7f
@@ -1161,7 +1168,6 @@ restore_regs:
 
 	lda #$7f
 	sta $911e	; disable NMI's
-	sta $912e
 
 	lda action
 	cmp #ACTION_GO
