@@ -135,16 +135,15 @@ The editor is a substantial part of this assembler.  In addition to offering
 a high-density 40-column display, it has, by 8-bit editor standards, advanced navigation
 functionality.
 
-### Command shortcuts
-Below are the basic commands along with their associated key combinations. These
-commands are available regardless of insertion mode (see the _Editor Modes_ section
+### C= Command
+Below are the basic C= + <key> commands along with their corresponding key combination. These
+commands are available regardless of editor mode (see the _Editor Modes_ section
 below for more info on modes).
 
 |  Key   | Name          |   Description                                                         |
 |--------|---------------|-----------------------------------------------------------------------|
 | C= + b | Set Breakpoint| sets a breakpoint at the current line                                 |
 | C= + c | Refresh       | refrehshes the screen by redrawing the source buffer                  |
-| C= + h | Help          | displays the help menu                                                |
 | C= + l | List          | list directory, shows the files on the current disk                   |
 | C= + n | New buffer    | creates a new source buffer and sets it as the active buffer          |
 | C= + q | Close buffer  | closes the current buffer and opens the next one that is open         |
@@ -157,6 +156,19 @@ below for more info on modes).
 | C= + + | Next Drive    | Selects the next drive (limited to #15)                               |
 | C= + - | Prev Drive    | Selects the previous drive (limited to #8)                            |
 |    :   | Ex Command    | Accepts a command + argument(s) and executes the command              |
+
+### Function (f key) Commands
+
+|  Key   | Name             |   Description                                                         |
+|--------|------------------|-----------------------------------------------------------------------|
+|   f1   | Assemble Project | assembles current project                                             |
+|   f2   | Assemble File    | assembles the current file to memory (must specify .org)              |
+|   f3   | Debug            | begins debugging contents of memory at lowest defined origin (.org)   |
+|   f4   | Debug BASIC      | initializes BASIC and begins debugging at the lowest defined origin   |
+|   f5   | Show buffers     | displays a list of the currently open buffers                         |
+|   f6   | Show project     | displays the current project configuration                            |
+
+While debugging, f-keys 1-4 have different functionality, as described in the _Debug Commands_ section
 
 ### Ex Commands
 The following commands are entered at the "Ex Command" prompt (accessed with the `:` key).

@@ -124,6 +124,7 @@
 	bcs @done
 	cmp #$61
 	bcc @upper
+@lower:
 	sbc #($61-$0a)
 	RETURN_OK
 

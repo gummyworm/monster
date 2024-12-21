@@ -204,15 +204,13 @@ main:	jsr key::getch
 ;  - .C: set on error, clear on success
 .proc label_addr_or_org
 @lbl=r0
-	stxy @lbl
-	jsr str::len
-	cmp #$00
+	stxy zp::line
+	ldy #$00
+	lda (zp::line),y
 	bne @label
 	ldxy asm::origin ; use ORG if no label given
 	RETURN_OK
-
-@label:	ldxy @lbl
-	jmp lbl::addr
+@label:	jmp expr::eval
 .endproc
 
 ;******************************************************************************
@@ -2220,6 +2218,7 @@ force_enter_insert=*+5
 	.byte K_ASM 		; assemble
 	.byte K_ASM_DEBUG	; debug
 	.byte K_SHOW_BUFFERS	; show buffers
+	.byte K_SHOW_PROJECT	; show project
 	.byte K_REFRESH		; refresh
 	.byte K_DIR		; dir
 	.byte K_LIST_SYMBOLS	; list symbols
@@ -2244,7 +2243,7 @@ force_enter_insert=*+5
 @num_special_keys=*-@specialkeys
 .linecont +
 .define specialvecs ccleft, ccright, ccup, ccdown, \
-	home, command_asm, command_asmdbg, show_buffers, refresh, \
+	home, command_asm, command_asmdbg, show_buffers, show_proj, refresh, \
 	dir::view, symview::enter, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
@@ -2596,6 +2595,13 @@ goto_buffer:
 	bcs @done		; if we can't set the buffer, exit
 	jmp refresh
 @done:	rts
+
+;******************************************************************************
+; SHOW_PROJ
+; Displays the project configuration for the current project
+.proc show_proj
+	; TODO:
+.endproc
 
 ;******************************************************************************
 ; SHOW_BUFFERS
@@ -5062,7 +5068,8 @@ numcommands=*-commands
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, paste_below, paste_above, delete_char, \
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
-	goto_start, find_next, find_prev, open_line_above, open_line_below, join_line, end_of_line, \
+	goto_start, find_next, find_prev, open_line_above, open_line_below,  \
+	join_line, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
 	command_find, next_drive, prev_drive, get_command, mon, next_err

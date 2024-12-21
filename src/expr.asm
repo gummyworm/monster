@@ -437,10 +437,15 @@ end_on_whitespace: .byte 0
 
 	cpx #$00
 	beq @dec
+
 	; check hex
-	cmp #'f'+1
+	cmp #$66+1	; 'f'+1
 	bcs @err
-	cmp #'a'
+	cmp #$61	; 'a'
+	bcs @ok
+	cmp #$46+1	; 'F'+1
+	bcs @err
+	cmp #$41	; 'A'
 	bcs @ok
 
 @dec:	cmp #'0'

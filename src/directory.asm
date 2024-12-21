@@ -22,6 +22,8 @@
 
 SCREEN_H = 23
 
+.CODE
+
 ;******************************************************************************
 ; DIR VIEW
 ; Enters the directory viewer
@@ -282,4 +284,3 @@ SCREEN_H = 23
 @dirmsglen=*-@dirmsg
 .POPSEG
 .endproc
-

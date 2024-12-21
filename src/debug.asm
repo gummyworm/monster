@@ -86,8 +86,8 @@ ACTION_STEP_OUT       = 9	; action for STEP OUT command
 ; IFACE (interface) constants
 ; These are the valid values for dbg::interface. This value determines the
 ; interface that is entered in the debug breakpoint handler
-DEBUG_IFACE_GUI  = 0
-DEBUG_IFACE_TEXT = 1
+DEBUG_IFACE_GUI  = 0	; GUI interface (returns to visual debugger)
+DEBUG_IFACE_TEXT = 1	; text interface (returns to TUI)
 
 ; The number of cycles to load into the VIA timer for the timer "step"
 ; interrupt.  This value is exactly enough to countdown to 1 by the time the
@@ -474,7 +474,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	bne @basic			; if so, continue to do so
 
 	; execute without initializing BASIC
-	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK
+	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK/NMI
 
 @basic:	; initialize machine state
 	sei
@@ -1053,6 +1053,10 @@ brkhandler2_size=*-brkhandler2
 	pha
 	jsr cur::off
 	pla
+
+	ldx zp::editor_mode
+	cpx #MODE_INSERT
+	beq @nocmd		; in INSERT mode, propagate all keys to editor
 
  ; check if the key has a debugger command associated with it
 	ldx #num_commands-1
