@@ -144,7 +144,7 @@ below for more info on modes).
 |--------|---------------|-----------------------------------------------------------------------|
 | C= + b | Set Breakpoint| sets a breakpoint at the current line                                 |
 | C= + c | Refresh       | refrehshes the screen by redrawing the source buffer                  |
-| C= + l | List          | list directory, shows the files on the current disk                   |
+|    -   | File Viewer   | list directory, shows the files on the current disk                   |
 | C= + n | New buffer    | creates a new source buffer and sets it as the active buffer          |
 | C= + q | Close buffer  | closes the current buffer and opens the next one that is open         |
 | C= + v | MemView       | enters the memory viewer/editor (press <- to exit)                    |
@@ -834,15 +834,15 @@ Selects the next or previous drive (within the valid range of 8-15).
 `C= + + (plus)` selects the _next_ available drive and `C= + - (minus)` selects
 the _previous_ available drive.
 
-### Directory Viewer (`C= + L`)
+### Directory Viewer (`-` in command mode)
 The directory viewer offers a paginated view of all files on the disk.
 Pressing `RETURN` while the row of the desired file is highlighted will load
 that file into a new buffer and activate that buffer.
 
 ---
 
-## Symbol Viewer
-The symbol viewer, activated with `C= + Y`, displays all the labels in the program
+## Symbol Viewer (`C= + Y`)
+The symbol viewer displays all the labels in the program
 along with their corresponding address.
 The up/down cursor keys navigate between pages of symbols. The back-arrow
 key returns to the debugger.

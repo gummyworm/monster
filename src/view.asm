@@ -40,14 +40,6 @@ memaddr:   .word 0
 
 .CODE
 ;******************************************************************************
-; OFF
-; Turns off the memory view window by restoring the screen
-.export __view_off
-.proc __view_off
-	jmp bm::restore
-.endproc
-
-;******************************************************************************
 ; EDIT
 ; Starts the memory editor
 .export __view_edit

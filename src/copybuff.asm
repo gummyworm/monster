@@ -7,6 +7,21 @@
 
 MAX_COPY_SIZE = __COPYBUFF_BSS_SIZE__
 
+.if FINAL_BANK_MAIN=FINAL_BANK_BUFF
+;******************************************************************************
+; Flat memory procedure mappings
+__buff_putch        = putch
+__buff_getch        = getch
+__buff_getline      = getline
+__buff_clear        = clear
+__buff_lines_copied = lines_copied
+__buff_push         = push
+__buff_pop          = pop
+__buff_len          = len
+
+.else
+;******************************************************************************
+; Copy Buff JUMP table
 .macro COPYBUFFJUMP proc_id
 	pha
 	lda #proc_id
@@ -72,6 +87,7 @@ __buff_len: COPYBUFFJUMP buff_proc_ids::LEN
 	pla
 	jmp __final_call
 .endproc
+.endif
 
 .segment "COPYBUFF_BSS"
 buffptr:  		.word 0 	; buffer pointer

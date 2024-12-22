@@ -2167,9 +2167,8 @@ force_enter_insert=*+5
 	ldx #$01
 	stx @indent
 	jsr is_readonly
-	bne :+
-@done:	rts
-:	lda mem::linebuffer
+	beq @done
+	lda mem::linebuffer
 	pha
 	jsr enter_insert
 	jsr end_of_line
@@ -2180,6 +2179,7 @@ force_enter_insert=*+5
 	cmp #$09	; TAB
 	bne @done
 	jmp insert
+@done:	rts
 .endproc
 
 ;******************************************************************************

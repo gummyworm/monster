@@ -4,6 +4,66 @@
 .include "zeropage.inc"
 
 ;******************************************************************************
+
+;******************************************************************************
+; CONSTANTS
+MAX_ANON      = 750	; max number of anonymous labels
+MAX_LABEL_LEN = 32	; 8 bytes for namespace + 16 for label name
+SCOPE_LEN     = 8	; max len of namespace (scope)
+MAX_LABELS    = 750
+
+;******************************************************************************
+; ZEROPAGE
+allow_overwrite = zp::labels+4
+
+.if FINAL_BANK_SYMBOLS=FINAL_BANK_MAIN
+
+;******************************************************************************
+; Flat memory procedure mappings
+__label_clr              = clr
+__label_add		 = add
+__label_find             = find
+__label_by_addr          = by_addr
+__label_by_id            = by_id
+__label_name_by_id       = name_by_id
+__label_isvalid          = is_valid
+__label_get_name         = get_name
+__label_get_addr         = getaddr
+__label_is_local         = is_local
+__label_set              = set
+__label_set24            = set24
+__label_del              = del
+__label_address          = address
+__label_setscope         = set_scope
+__label_addanon          = add_anon
+__label_get_fanon        = get_fanon
+__label_get_banon        = get_banon
+__label_index            = index
+__label_id_by_addr_index = id_by_addr_index
+__label_clr              = clr
+__label_add              = add
+__label_find             = find
+__label_by_addr          = by_addr
+__label_by_id            = by_id
+__label_name_by_id       = name_by_id
+__label_isvalid          = is_valid
+__label_get_name         = get_name
+__label_get_addr         = getaddr
+__label_is_local         = is_local
+__label_set              = set
+__label_set24            = set24
+__label_del              = del
+__label_address          = address
+__label_setscope         = set_scope
+__label_addanon          = add_anon
+__label_get_fanon        = get_fanon
+__label_get_banon        = get_banon
+__label_index            = index
+__label_id_by_addr_index = id_by_addr_index
+
+.else
+;******************************************************************************
+; Label JUMP table
 .macro LBLJUMP proc_id
 	pha
 	lda #proc_id
@@ -33,7 +93,6 @@ INDEX
 ID_BY_ADDR_INDEX
 .endenum
 
-;******************************************************************************
 .RODATA
 .linecont +
 .define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
@@ -43,19 +102,6 @@ ID_BY_ADDR_INDEX
 procs_lo: .lobytes procs
 procs_hi: .hibytes procs
 
-;******************************************************************************
-; CONSTANTS
-MAX_ANON      = 750	; max number of anonymous labels
-MAX_LABEL_LEN = 32	; 8 bytes for namespace + 16 for label name
-SCOPE_LEN     = 8	; max len of namespace (scope)
-MAX_LABELS    = 750
-
-;******************************************************************************
-; ZEROPAGE
-allow_overwrite = zp::labels+4
-
-;******************************************************************************
-; Label JUMP table
 .CODE
 .export __label_clr
 __label_clr: LBLJUMP proc_ids::CLR
@@ -133,6 +179,8 @@ __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 	pla
 	jmp __final_call
 .endproc
+.export __label_clr
+.endif
 
 ;******************************************************************************
 ; LABELS
