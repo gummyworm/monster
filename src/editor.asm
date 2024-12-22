@@ -3277,11 +3277,7 @@ goto_buffer:
 ; Adds a character at the cursor position.
 .proc insert
 	jsr is_readonly
-	bne :+
-@done:	rts
-
-:	cmp #$80
-	bcs @done		; non-printable
+	beq @done
 
 	cmp #$14		; handle DEL
 	bne :+
@@ -3305,6 +3301,7 @@ goto_buffer:
 	pla
 	bcs @done
 	jmp src::insert
+@done:	rts
 .endproc
 
 ;******************************************************************************

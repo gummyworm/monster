@@ -7,8 +7,8 @@ K_HOME      = $13	; HOME
 
 K_UP_ARROW  = $5e	; up arrow
 
-K_PREV_BUFF  = $3c	; <
-K_NEXT_BUFF  = $3e	; >
+K_PREV_BUFF  = $b4	; C= + h
+K_NEXT_BUFF  = $b6	; C= + l
 K_NEW_BUFF   = $aa	; C= + n
 K_CLOSE_BUFF = $ab	; C= + q
 
@@ -52,6 +52,7 @@ K_EDIT_STATE     = $89	; F2
 K_SWAP_WINS      = $b3	; C= + s
 K_NEXT_ERR       = $b1  ; C= + e
 
+;******************************************************************************
 ; DEBUGGER KEYS
 K_SRCVIEW		= $85	; F1
 K_MEMVIEW		= $86	; F3
