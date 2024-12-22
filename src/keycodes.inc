@@ -31,7 +31,7 @@ K_SHOW_PROJECT	 = $8b	; F6
 K_CONSOLE        = $a3	; C= + t
 K_REFRESH        = $bc  ; C= + c
 K_RENAME         = $b2  ; C= + r
-K_DIR            = $b6  ; C= + l
+K_DIR            = $2d  ; -
 K_LIST_SYMBOLS   = $b7  ; C= + y
 K_FIND           = $2f	; /
 K_FIND_PREV      = $2f	; /

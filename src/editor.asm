@@ -2220,7 +2220,6 @@ force_enter_insert=*+5
 	.byte K_SHOW_BUFFERS	; show buffers
 	.byte K_SHOW_PROJECT	; show project
 	.byte K_REFRESH		; refresh
-	.byte K_DIR		; dir
 	.byte K_LIST_SYMBOLS	; list symbols
 	.byte K_CLOSE_BUFF	; close buffer
 	.byte K_NEW_BUFF	; new buffer
@@ -2244,7 +2243,7 @@ force_enter_insert=*+5
 .linecont +
 .define specialvecs ccleft, ccright, ccup, ccdown, \
 	home, command_asm, command_asmdbg, show_buffers, show_proj, refresh, \
-	dir::view, symview::enter, \
+	symview::enter, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
 	next_buffer, prev_buffer, udgedit, cancel
@@ -5012,6 +5011,7 @@ numccodes=*-controlcodes
 
 ;******************************************************************************
 commands:
+	.byte K_DIR		; - (show directory)
 	.byte K_SWAP_WINS	; C= + w (swap windows)
 	.byte $68		; h (left)
 	.byte $6c		; l (right)
@@ -5051,6 +5051,7 @@ commands:
 	.byte $56		; V (enter visual line mode)
 	.byte $79		; y (yank)
 	.byte $7a		; z (move screen prefix)
+
 	.byte K_FIND		; / (find)
 	.byte K_NEXT_DRIVE	; next drive
 	.byte K_PREV_DRIVE	; prev drive
@@ -5061,7 +5062,7 @@ numcommands=*-commands
 
 ; command tables for COMMAND mode key commands
 .linecont +
-.define cmd_vecs swapwin, ccleft, ccright, ccup, ccdown, endofword, beginword, \
+.define cmd_vecs dir::view, swapwin, ccleft, ccright, ccup, ccdown, endofword, beginword, \
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
 	append_char, delete, paste_below, paste_above, delete_char, \
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
