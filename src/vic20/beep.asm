@@ -1,5 +1,5 @@
-.include "config.inc"
-.include "macros.inc"
+.include "../config.inc"
+.include "../macros.inc"
 
 .BSS
 ;******************************************************************************

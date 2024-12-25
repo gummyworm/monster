@@ -14,7 +14,9 @@ C1541=c1541
 EXOMIZER=exomizer
 
 BOOTSRC=boot.asm
-SRC=$(filter-out $BOOTSRC, $(wildcard *.asm))
+TARGET_SRC=$(wildcard $(TARGET)/*.asm)			# platform specific source files
+PI_SRC=$(filter-out $BOOTSRC, $(wildcard *.asm))	# platform independent source files
+SRC=$(TARGET_SRC) $(PI_SRC)
 TEST_TXTS=$(wildcard tests/*.txt)
 TEST_FILES=$(TESTS) $(TEST_INCS) $(TEST_TXTS)
 
