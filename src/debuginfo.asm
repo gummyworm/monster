@@ -146,19 +146,19 @@ debuginfo: .res $6000
 .PUSHSEG
 .CODE
 
-__debug_addr2line:     BANKJUMP dbgi_proc_ids::ADDR2LINE
-__debug_line2addr:     BANKJUMP dbgi_proc_ids::LINE2ADDR
-__debug_end_block:     BANKJUMP dbgi_proc_ids::END_BLOCK
-__debug_init:          BANKJUMP dbgi_proc_ids::INIT
-__debug_initonce:      BANKJUMP dbgi_proc_ids::INITONCE
-__debug_get_filename:  BANKJUMP dbgi_proc_ids::GET_FILENAME
-__debug_new_block:     BANKJUMP dbgi_proc_ids::NEW_BLOCK
-__debug_set_file:      BANKJUMP dbgi_proc_ids::SET_FILE
-__debug_set_name:      BANKJUMP dbgi_proc_ids::SET_NAME
-__debug_set_addr:      BANKJUMP dbgi_proc_ids::SET_ADDR
-__debug_store_line:    BANKJUMP dbgi_proc_ids::STORE_LINE
-__debug_push_block:    BANKJUMP dbgi_proc_ids::PUSH_BLOCK
-__debug_pop_block:     BANKJUMP dbgi_proc_ids::POP_BLOCK
+__debug_addr2line:      BANKJUMP dbgi_proc_ids::ADDR2LINE
+__debug_line2addr:      BANKJUMP dbgi_proc_ids::LINE2ADDR
+__debug_end_block:      BANKJUMP dbgi_proc_ids::END_BLOCK
+__debug_init:           BANKJUMP dbgi_proc_ids::INIT
+__debug_initonce:       BANKJUMP dbgi_proc_ids::INITONCE
+__debug_get_filename:   BANKJUMP dbgi_proc_ids::GET_FILENAME
+__debug_new_block:      BANKJUMP dbgi_proc_ids::NEW_BLOCK
+__debug_set_file:       BANKJUMP dbgi_proc_ids::SET_FILE
+__debug_set_name:       BANKJUMP dbgi_proc_ids::SET_NAME
+__debug_set_addr:       BANKJUMP dbgi_proc_ids::SET_ADDR
+__debug_store_line:     BANKJUMP dbgi_proc_ids::STORE_LINE
+__debug_push_block:     BANKJUMP dbgi_proc_ids::PUSH_BLOCK
+__debug_pop_block:      BANKJUMP dbgi_proc_ids::POP_BLOCK
 __debuginfo_get_fileid: BANKJUMP dbgi_proc_ids::GET_FILEID
 
 ;******************************************************************************

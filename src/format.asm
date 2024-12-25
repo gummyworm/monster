@@ -17,7 +17,7 @@
 .proc end_of_line
 	jsr src::end
 	beq @done
-	jsr src::before_newl
+	jmp src::before_newl
 @done:	rts
 .endproc
 
@@ -44,7 +44,7 @@
 	bne @tab
 	jsr src::delete
 	bcc @l1
-	bcs @done
+	rts		; done
 
 @tab:	; now insert a TAB to separate label and opcode
 	lda #$09
@@ -78,20 +78,14 @@
 
 	; remove spaces from start of line
 	jsr src::up
-
-	; if breakpoint, skip
-	ldx #$00
-	stx @tmp
-	lda mem::linebuffer
-	cmp #BREAKPOINT_CHAR
-	bne @removespaces
-	jsr src::next
-	inc @tmp
+	lda #$00
+	sta @tmp
 
 @removespaces:
 	jsr src::after_cursor
 	jsr util::is_whitespace
 	bne @left_aligned
+
 @del:	jsr src::delete
 	ldx @tmp
 	ldy #39
