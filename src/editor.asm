@@ -2208,6 +2208,7 @@ force_enter_insert=*+5
 	sec		; key was handled
 	rts
 
+.PUSHSEG
 .RODATA
 @specialkeys:
 	.byte K_LEFT		; left
@@ -2250,7 +2251,7 @@ force_enter_insert=*+5
 .linecont -
 @specialvecslo: .lobytes specialvecs
 @specialvecshi: .hibytes specialvecs
-.CODE
+.POPSEG
 .endproc
 
 ;******************************************************************************

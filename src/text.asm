@@ -753,8 +753,11 @@ render_off: .byte 0
 
 ;--------------------------------------
 .define escape_vectors @esc_goto_col, $0000,  @esc_ch,  @esc_byte, @esc_spacing,  @esc_value_dec, @esc_value, @esc_string
+.PUSHSEG
+.RODATA
 @escvecs_lo: .lobytes escape_vectors
 @escvecs_hi: .hibytes escape_vectors
+.POPSEG
 
 ;--------------------------------------
 @disp:	; fill the rest of the line buffer with spaces
