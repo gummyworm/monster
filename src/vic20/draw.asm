@@ -1,8 +1,8 @@
-.include "bitmap.inc"
-.include "config.inc"
-.include "macros.inc"
-.include "memory.inc"
-.include "zeropage.inc"
+.include "../bitmap.inc"
+.include "../config.inc"
+.include "../macros.inc"
+.include "../memory.inc"
+.include "../zeropage.inc"
 
 .CODE
 
