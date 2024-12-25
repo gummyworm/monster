@@ -10,46 +10,28 @@
 .CODE
 
 ;******************************************************************************
-; END_OF_LINE
-; Checks if the source is at the end or end of the line
-; OUT:
-;  - .Z: set if the source pointer is at a newline or at the end of the buffer
-.proc end_of_line
-	jsr src::end
-	beq @done
-	jmp src::before_newl
-@done:	rts
-.endproc
-
-;******************************************************************************
 ; LABEL
 ; Formats linebuffer as a label.
 .export __fmt_label
 .proc __fmt_label
-@curr=r6
-@cnt=r6
 	; read past the label
-	ldy #$00
-	sty @curr
-@l0:	jsr end_of_line
-	beq @done	; if EOL, no more formatting needed
-	jsr src::next
-	inc @curr
+@l0:	jsr src::right_rep
+	bcs @done			; nothing on the line after the label
 	jsr util::is_whitespace
 	bne @l0
 
 	; delete all spaces until the opcode/macro/etc.
 @l1:	jsr src::after_cursor
+	bcs @done
 	jsr util::is_whitespace
 	bne @tab
 	jsr src::delete
 	bcc @l1
-	rts		; done
+@done:	rts
 
 @tab:	; now insert a TAB to separate label and opcode
 	lda #$09
-	jsr src::insert
-@done:	rts
+	jmp src::insert
 .endproc
 
 ;******************************************************************************
