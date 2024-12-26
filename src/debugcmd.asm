@@ -886,17 +886,17 @@
 ; .e.g.
 ;  `>BT 8`
 .proc backtrace
-@offset=zp::tmp13
-@sp=zp::tmp14
-@fileid=zp::tmp15
+@fileid=zp::debuggertmp
+@sp=zp::debuggertmp+1
+@offset=zp::debuggertmp+3
 @namebuff=mem::spare+40
-	; TODO: finish implementing
-
-	; get the (optional) offset
+	; check if an offset was given
 	ldy #$00
 	lda (zp::line),y
 	tax
-	beq @cont			; no end address
+	beq @cont			; no offset specified, continue
+
+	; get the offset
 	incw zp::line			; move past separator
 	jsr eval
 	cpy #$01
@@ -906,68 +906,68 @@
 	bcs :-
 
 @cont:	stx @offset
-@l0:	lda sim::reg_sp
+	ldxy #sim::reg_sp
+	jsr getb
 	clc
 	adc @offset
-	beq @done		; when offset + .SP is 0, we're done
 	sta @sp
-	lda sim::pc+1
+	ldxy #sim::reg_sp+1
+	jsr getb
 	adc #$00
 	sta @sp+1
 
-	lda @sp
-	sec
-	sbc #$02
-	sta @sp
-	lda @sp+1
-	sbc #$00
-	sta @sp+1
+@l0:
+	jsr @draw_item		; draw the stack contents for this offset
 
-	inc @offset		; move to next procedure in the stack
-	lda @offset
-
+	inc @sp			; move to next procedure in the stack
+	beq @ok
+	inc @sp
+	bne @l0
+@ok:	rts
 @done:	rts
 
 ;--------------------------------------
 @draw_item:
-	; get/push the symbol name for this address (if there is one)
+	; TODO: push the offset from the label
+	lda #$00
+	pha
+	lda #$00
+	pha
+
+	; push the symbol name for this address (if there is one)
 	ldxy @sp
-	jsr lbl::by_addr
-	bcc @getname
+	CALL FINAL_BANK_MAIN, #lbl::by_addr
+	bcc @addr
 @noname:
 	lda #>strings::question_marks
 	pha
 	lda #<strings::question_marks
 	pha
-	jmp @lineno
 
-@getname:
-	lda #>@namebuff
-	pha
-	sta r0+1
-	lda #<@namebuff
-	pha
-	sta r0
-	jsr lbl::getname
+@addr:	; push stack pointer (JSR pushes address + 2)
+	ldxy @sp
+	CALL FINAL_BANK_MAIN, #vmem::load
+	sec
+	sbc #$02
+	pha					; push LSB
+	ldxy @sp
+	inx					; MSB of stack address
+	CALL FINAL_BANK_MAIN, #vmem::load
+	sbc #$00
+	pha					; push MSB
 
-@lineno:
-	ldx @offset
-	CALL FINAL_BANK_DEBUG, #dbgi::addr2line
-	sta @fileid
-	txa
-	pha
-	tya
+	lda @sp
 	pha
 
-	lda @fileid
-	CALL FINAL_BANK_DEBUG, #dbgi::get_filename
-	tya
-	pha
-	txa
-	pha
-
-	ldxy #strings::breakpoints_line
+	ldxy #@backtrace_msg
 	jmp con::puts
+
+.PUSHSEG
+.RODATA
+@backtrace_msg:
+	; <stack address> <address> <symbol>+<offset>
+	.byte "$", ESCAPE_BYTE, " ", ESCAPE_VALUE, " ", ESCAPE_STRING, "+", ESCAPE_VALUE,0
+.POPSEG
 .endproc
 
 ;******************************************************************************
@@ -1041,6 +1041,13 @@
 ;  - zp::line: updated to point beyond the parsed expression
 .proc eval
 	JUMP FINAL_BANK_MAIN, #expr::eval
+.endproc
+
+;******************************************************************************
+; GETB
+; Calls "fe3::get_byte"
+.proc getb
+	JUMP FINAL_BANK_MAIN, #fe3::get_byte
 .endproc
 
 ;******************************************************************************

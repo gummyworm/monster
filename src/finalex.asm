@@ -201,6 +201,24 @@ banksp:    .byte 0
 
 .CODE
 
+;*******************************************************************************
+; GET BYTE
+; When called from a non-MAIN bank, returns the value from the MAIN bank for the
+; the given address.
+; IN:
+;   - .XY: the address to get the value of
+; OUT:
+;   - .A: the value for the given address in the MAIN bank
+; CLOBBERS:
+;   - .A, .Y, r0-r1
+.export __final_get_byte
+.proc __final_get_byte
+	stxy r0
+	ldy #$00
+	lda (r0),y
+	rts
+.endproc
+
 ;******************************************************************************
 ; COPY BANK 2 BANK
 ; Entrypoint to copy from one bank to another

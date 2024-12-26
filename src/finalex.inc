@@ -9,6 +9,7 @@
 .import __final_copy_line
 .import __final_bank_store_rel
 .import __final_memcpy_bank
+.import __final_get_byte
 
 ;******************************************************************************
 ; BANK LAYOUT
@@ -98,6 +99,7 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 	store_off  = __final_bank_store_rel
 	load       = __final_load_byte
 	load_off   = __final_load_byte_off
+	get_byte   = __final_get_byte
 .endscope
 
 ;******************************************************************************
