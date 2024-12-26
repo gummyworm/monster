@@ -131,8 +131,8 @@ SLASH = SPECIAL_CHARS_START+2
 	cpy #40
 	bcs @toolong
 	bcc :-
-@done:
-	ldxy #@buff
+
+@done:	ldxy #@buff
 	RETURN_OK
 .endproc
 
@@ -281,6 +281,5 @@ SLASH = SPECIAL_CHARS_START+2
 .endproc
 
 .RODATA
-
 special_chars:
 	.byte ' ', '.', '/'

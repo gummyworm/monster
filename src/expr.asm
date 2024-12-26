@@ -40,7 +40,7 @@ end_on_whitespace: .byte 0
 ; IN:
 ;  - zp::line: pointer to the expression to evaluate
 ; OUT:
-;  - .A:       the size of the returned value in bytes
+;  - .A:       the size of the returned value in bytes or the error code
 ;  - .XY:      the result of the evaluated expression
 ;  - .C:       clear on success or set on failure
 ;  - zp::line: updated to point beyond the parsed expression

@@ -1110,7 +1110,6 @@ num_illegals = *-illegal_opcodes
 	RETURN_ERR ERR_OVERSIZED_OPERAND
 .endproc
 
-
 ;******************************************************************************
 ; GETTEXT
 ; Parses an enquoted text string in zp::line and returns it in mem::spare
@@ -1122,22 +1121,20 @@ num_illegals = *-illegal_opcodes
 	bne @err
 
 	ldx #$00
-@l0:
-	jsr line::incptr
+@l0:	jsr line::incptr
 	lda (zp::line),y
-	beq @err	; no closing quote
+	beq @err		; no closing quote
 	cmp #'"'
 	beq @done
 	sta mem::spare,x
 	inx
 	bne @l0
-@done:
-	jsr line::incptr
+
+@done:	jsr line::incptr
 	txa
 	RETURN_OK
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
 .endproc
-
 
 ;******************************************************************************
 ; GETOPCODE

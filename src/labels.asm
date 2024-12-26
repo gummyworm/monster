@@ -1153,8 +1153,9 @@ anon_addrs: .res MAX_ANON*2
 ; IN:
 ;  - .XY: the label address to get the name of
 ; OUT:
-;  - .XY: the ID of the label
-;  - .C: set if no label is found
+;  - .XY: the ID of the label (exact match or closest one at address less than
+;         the one provided.
+;  - .C: set if no EXACT match for the label is found
 .proc by_addr
 @addr=ra
 @lb=rc

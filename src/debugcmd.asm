@@ -15,9 +15,11 @@
 .include "expr.inc"
 .include "finalex.inc"
 .include "flags.inc"
+.include "labels.inc"
 .include "line.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "sim6502.inc"
 .include "string.inc"
 .include "strings.inc"
 .include "text.inc"
@@ -84,7 +86,7 @@
 	bcc :+
 	inc zp::line+1
 
-:	CALL FINAL_BANK_MAIN, #line::process_ws
+:	jsr process_ws
 @run:	ldx @cnt
 	lda commandslo,x
 	sta zp::jmpvec
@@ -135,7 +137,7 @@
 	sta @mode
 
 	; evaluate the expression to get start address
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	bcs @err
 	stxy @addr
 	stxy r0
@@ -145,7 +147,7 @@
 	beq @set				; if not, continue
 
 	; evaluate the 2nd expression (if any) to get stop address
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	bcs @err
 	stxy r0
 
@@ -240,7 +242,7 @@
 @addr=zp::tmp10
 @line=zp::tmp12
 	; evaluate the expression to get break address
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	bcs @done
 
 	stxy @addr
@@ -304,10 +306,10 @@
 :	pha			; save file ID
 
 	; move past the filename and whitespace
-	CALL FINAL_BANK_MAIN, #line::process_ws
+	jsr process_ws
 
 	; evaluate the expression to get break line
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	stxy @line
 	pla
 	sta @fileid
@@ -369,14 +371,14 @@
 @i       = r0
 @list    = zp::debuggertmp+6
 	; get the start address
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	stxy @start
 	incw zp::line		; move past separator
 	bcs @ret
 
 @getstop:
 	; get the stop address
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	stxy @stop
 	bcs @ret
 
@@ -424,7 +426,7 @@
 
 @l0:	incw zp::line		; move past separator
 
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	bcs @ret
 
 	cmp #$02		; was expression 2 bytes?
@@ -469,6 +471,88 @@
 .endproc
 
 ;******************************************************************************
+; COMPARE
+; c <expr> <expr> <expr>
+; Compares the given number of bytes at the two given memory addresses and
+; displays any disparities.
+; Example:
+;  `c $100 $200 $5`
+; Will show the differences between the 5 bytes in [$100, $105) and [$200, $205)
+.proc compare
+@block0 = zp::debuggertmp
+@block1 = zp::debuggertmp+2
+@num = zp::debuggertmp+4
+@tmp = zp::debuggertmp+5
+	; get the start of one of the blocks to compare
+	jsr eval
+	stxy @block0
+	bcs @done
+	jsr process_ws
+
+	; get the start of the other block to compare
+	jsr eval
+	stxy @block1
+	bcs @done
+	jsr process_ws
+
+	; get the number of bytes to compare
+	jsr eval
+	bcs @done
+	stxy @num
+	txa
+	ora @num+1
+	beq @done		; if comparing 0 bytes, we're done
+
+@l0:	ldxy @block0
+	CALL FINAL_BANK_MAIN, #vmem::load	; get a byte from block 0
+	sta @tmp
+	ldxy @block1
+	CALL FINAL_BANK_MAIN, #vmem::load	; get a byte from block 1
+	cmp @tmp
+	beq @next
+
+	; display the address that had a mismatch
+	jsr @display_item
+
+@next:	incw @block0
+	incw @block1
+	decw @num
+	bne @l0
+	clc
+
+@done:	rts
+
+;--------------------------------------
+@display_item:
+	; push the value from the other block
+	pha
+
+	; push the value from the first block
+	lda @tmp
+	pha
+
+	; push the address in the other block
+	lda @block1
+	pha
+	lda @block1+1
+	pha
+
+	; push the address in the first block
+	lda @block0
+	pha
+	lda @block0+1
+	pha
+
+	ldxy #@compare_msg
+	jmp con::puts
+
+.PUSHSEG
+.RODATA
+@compare_msg: .byte ESCAPE_VALUE, " ", ESCAPE_VALUE, " $", ESCAPE_BYTE, " $", ESCAPE_BYTE, 0
+.POPSEG
+.endproc
+
+;******************************************************************************
 ; GOTO
 ; Sets the program counter to the given value
 ; Example:
@@ -477,17 +561,6 @@
 	CALL FINAL_BANK_MAIN, #dbg::go
 	inc con::quit
 :	rts
-.endproc
-
-;******************************************************************************
-; COMPARE
-; c <expr> <expr> <expr> <expr>
-; Compares the memory values in the ranges given by two pairs of expressions.
-; Example:
-;  `c $100 $105 $200 $205`
-; Will show the differences between the 5 bytes in [$100, $105) and [$200, $205)
-.proc compare
-	; TODO:
 .endproc
 
 ;******************************************************************************
@@ -502,19 +575,19 @@
 @end = zp::debuggertmp+4
 @target = zp::debuggertmp+6
 	; get the start of the range to move
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	stxy @start
 	bcs :-			; -> rts
-	CALL FINAL_BANK_MAIN, #line::process_ws
+	jsr process_ws
 
 	; get the end of the range to move
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	stxy @end
 	bcs @ret
-	CALL FINAL_BANK_MAIN, #line::process_ws
+	jsr process_ws
 
 	; get the target address
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	stxy @target
 	bcs @ret
 
@@ -545,7 +618,7 @@
 @listlen = zp::debuggertmp+4
 @list    = zp::debuggertmp+6
 	; get the start address
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	stxy @start
 	bcs @ret
 
@@ -613,7 +686,7 @@
 	; get the address to start disassembling at
 	lda #20
 	sta @lines
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	bcs @ret
 	stxy @addr
 
@@ -663,14 +736,14 @@
 ; ASSEMBLE
 ; Assembles the given instruction at the address of the given expression
 ; e.g.
-; >.A $1000, lda #$00
+;  `>A $1000, lda #$00`
 .proc assemble
 @addr=rd
 @lines=rf
 	; get the address to assemble at
 	lda #20
 	sta @lines
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	bcs @ret		; return if address is invalid expression
 	stxy @addr
 	CALL FINAL_BANK_MAIN, #asm::setpc
@@ -695,6 +768,8 @@
 ;******************************************************************************
 ; SHOWMEM
 ; Shows the contents of memory at the target of the given expression
+; e.g.
+;  `>M $1000 $1020`
 .proc showmem
 @addr=zp::debuggertmp
 @lines=zp::debuggertmp+2
@@ -705,7 +780,7 @@
 	sta @lines+1
 
 	; get the address to start showing memory at
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	bcs @ret
 	stxy @addr
 
@@ -714,7 +789,7 @@
 	lda (zp::line),y
 	beq @l0					; no end address
 	incw zp::line				; move past separator
-	CALL FINAL_BANK_MAIN, #expr::eval
+	jsr eval
 	bcs @ret				; error
 	sub16 @addr
 	stx @lines
@@ -808,8 +883,89 @@
 ; result in a bad rendering.
 ; An optional offset from the stack pointer can be given to adjust the
 ; stack's start location
+; .e.g.
+;  `>BT 8`
 .proc backtrace
-	; TODO:
+@offset=zp::tmp13
+@sp=zp::tmp14
+@fileid=zp::tmp15
+@namebuff=mem::spare+40
+	; get the (optional) offset
+	ldy #$00
+	lda (zp::line),y
+	tax
+	beq @cont			; no end address
+	incw zp::line			; move past separator
+	jsr eval
+	cpy #$01
+	bcc @cont
+:	RETURN_ERR ERR_OVERSIZED_OPERAND	; offset must be <$80
+	cpx #$80
+	bcs :-
+
+@cont:	stx @offset
+@l0:	lda sim::reg_sp
+	clc
+	adc @offset
+	beq @done		; when offset + .SP is 0, we're done
+	sta @sp
+	lda sim::pc+1
+	adc #$00
+	sta @sp+1
+
+	lda @sp
+	sec
+	sbc #$02
+	sta @sp
+	lda @sp+1
+	sbc #$00
+	sta @sp+1
+
+	inc @offset		; move to next procedure in the stack
+	lda @offset
+
+@done:	rts
+
+;--------------------------------------
+@draw_item:
+	; get/push the symbol name for this address (if there is one)
+	ldxy @sp
+	jsr lbl::by_addr
+	bcc @getname
+@noname:
+	lda #>strings::question_marks
+	pha
+	lda #<strings::question_marks
+	pha
+	jmp @lineno
+
+@getname:
+	lda #>@namebuff
+	pha
+	sta r0+1
+	lda #<@namebuff
+	pha
+	sta r0
+	jsr lbl::getname
+
+@lineno:
+	ldx @offset
+	CALL FINAL_BANK_DEBUG, #dbgi::addr2line
+	sta @fileid
+	txa
+	pha
+	tya
+	pha
+
+	lda @fileid
+	CALL FINAL_BANK_DEBUG, #dbgi::get_filename
+	tya
+	pha
+	txa
+	pha
+
+	ldxy #strings::breakpoints_line
+	jmp con::puts
 .endproc
 
 ;******************************************************************************
@@ -869,6 +1025,27 @@
 :	adc #'a'-$a-1
 :	tax
 	rts
+.endproc
+
+;******************************************************************************
+; EVAL
+; Calls "expr::eval" and returns
+; IN:
+;   - zp::line: the text for the expression to evaluate
+; OUT:
+;  - .A:       the size of the returned value in bytes or the error code
+;  - .XY:      the result of the evaluated expression
+;  - .C:       clear on success or set on failure
+;  - zp::line: updated to point beyond the parsed expression
+.proc eval
+	JUMP FINAL_BANK_MAIN, #expr::eval
+.endproc
+
+;******************************************************************************
+; PROCESS_WS
+; Calls "line::process_ws" in the MAIN bank
+.proc process_ws
+	JUMP FINAL_BANK_MAIN, #line::process_ws
 .endproc
 
 ;******************************************************************************
