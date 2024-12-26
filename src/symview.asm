@@ -270,7 +270,6 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 @select:
 	jsr scr::restore
 
-	; TODO: fix
 	lda @row
 	clc			; subtract an extra 1
 	sbc @selection

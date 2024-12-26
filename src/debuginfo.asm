@@ -30,7 +30,7 @@ DATA_LINE = 1	; offset of line number in debug info
 DATA_ADDR = 3	; offset of line address in debug info
 
 OP_SET_ADDR     = $01
-OP_SET_FILE     = $02
+; FREE          = $02
 OP_SET_LINE     = $03
 OP_ADVANCE_LINE = $04
 OP_ADVANCE_ADDR = $05
@@ -1045,13 +1045,6 @@ get_filename = get_filename_addr
 	incw line
 	lda (line),y
 	sta addr+1
-	jmp @ok
-
-:	cmp #OP_SET_FILE	; TODO: remove support for SET_FILE
-	bne :+
-@setfile:
-	lda (line),y
-	sta file
 	jmp @ok
 
 :	cmp #OP_ADVANCE_LINE
