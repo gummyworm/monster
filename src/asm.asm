@@ -2531,7 +2531,6 @@ __asm_include:
 	rts
 
 :	lda contextstack,x
-	sta ctx::type
 	rts
 .endproc
 
@@ -2556,7 +2555,6 @@ __asm_include:
 	RETURN_ERR ERR_STACK_OVERFLOW
 :	inc contextstacksp
 	sta contextstack,x
-	sta ctx::type
 	rts
 .endproc
 

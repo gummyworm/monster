@@ -26,12 +26,8 @@ contexts = mem::spare
 
 .BSS
 ;******************************************************************************
-.export __ctx_type
-__ctx_type:
-type:      .byte 0	; the active context
 activectx: .byte 0
 
-; TODO: support context other than REP
 ctx       = zp::ctx+0	; address of context
 iter      = zp::ctx+2	; (REP) iterator's current value
 iterend   = zp::ctx+4	; (REP) iterator's end value
@@ -57,7 +53,6 @@ numparams = zp::ctx+10	; the number of parameters for the context
 .proc reset
 	lda #$00
 	sta numparams
-	sta type
 	sta mem::ctxbuffer
 	rts
 .endproc
@@ -114,7 +109,6 @@ numparams = zp::ctx+10	; the number of parameters for the context
 .export __ctx_getline
 .proc __ctx_getline
 @out=mem::ctxbuffer
-	; TODO: support types other than REP
 	; read until a newline or EOF
 	ldy #$00
 @read:	lda (cur),y
@@ -365,7 +359,6 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	sta ctx+1
 
 	; restore the context data
-	; TODO: support types other than REP
 	; get the ctx metadata (iter, iterend, cur, and param)
 	ldy #CTX_PARAMS_START-CTX_ITER_START
 @l0:	lda (ctx),y

@@ -8,7 +8,6 @@
 .import __ctx_rewind
 .import __ctx_write
 .import __ctx_init
-.import __ctx_type
 
 ; the max number of lines stored in contexts for macros
 MAX_CTX_LINES = 16
@@ -45,6 +44,4 @@ CTX_MACRO = 2
 	getdata   = __ctx_getdata
 	write     = __ctx_write
 	rewind    = __ctx_rewind
-
-	type = __ctx_type
 .endscope

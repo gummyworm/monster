@@ -890,6 +890,8 @@
 @sp=zp::tmp14
 @fileid=zp::tmp15
 @namebuff=mem::spare+40
+	; TODO: finish implementing
+
 	; get the (optional) offset
 	ldy #$00
 	lda (zp::line),y
