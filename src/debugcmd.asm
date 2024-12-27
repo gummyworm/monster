@@ -930,10 +930,12 @@
 	CALL FINAL_BANK_MAIN, #vmem::load
 	sec
 	sbc #$02
+	php
 	sta @addr
 	ldxy @sp
 	inx					; MSB of stack address
 	CALL FINAL_BANK_MAIN, #vmem::load
+	plp
 	sbc #$00
 	sta @addr+1
 
@@ -944,7 +946,9 @@
 
 	; subtract the address we found from the address we were looking for
 	CALL FINAL_BANK_MAIN, #lbl::getaddr
-	sub16 @addr
+	stxy r0
+	ldxy @addr
+	sub16 r0
 	txa
 	pha
 	tya
