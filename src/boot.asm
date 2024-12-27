@@ -314,11 +314,13 @@ start:
 	bne @zerobss
 	inc r0+1
 	ldx r0+1
-	cpx #>(__BSS_LOAD__+__BSS_SIZE__)
+	cpx #>(__BSS_LOAD__+__BSS_SIZE__-1)
 	bne @zerobss
 
-	; TODO: double check this
-	ldy #<(__BSS_LOAD__+__BSS_SIZE__)
+	lda #$00
+	sta r0
+
+	ldy #<(__BSS_LOAD__+__BSS_SIZE__-1)
 	beq @zero_bss_done
 @zerobss_last_page:
 	sta (r0),y

@@ -19,7 +19,7 @@
 HEIGHT = 24
 
 .segment "CONSOLE_BSS"
-line: .byte 0		; the line that the console is on
+line:      .byte 0	; the line that the console is on
 repeatcmd: .byte 0	; if set, empty line repeats last command
 
 cursave_x: .byte 0

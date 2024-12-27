@@ -1117,9 +1117,10 @@ the viewer is also activated.
 
 ---
 
-## Monitor
+## Monitor (`C= + t`)
 The monitor is a text based interface for debugging programs and manipulating
-program state.
+program state.  It offers the same functionality as the GUI debugger plus a plethora of other commands to
+manipulate the program state.
 
 ### Monitor Commands
 The below table enumerates the available monitor commands and their parameters (plus optional ones).
@@ -1151,4 +1152,4 @@ Most parameters may be expressions (e.g. `label+10`).
 |    x     | quit                    |                                    |                      | exits the monitor                                                                                                             |
 |    z     | step                    |                                    |                      | runs the next instrcution and returns to the the monitor prompt                                                               |
 |    zo    | step-out                |                                    |                      | runs the program that is being debugged until the current subroutine is RTS'd from                                            |
-|    F1    | view screen             |      N/A                           |                      | toggles the view of the user-memory (swaps the the  $1000-$2000 range monitor <-> program                                     |
+|    F1    | view screen             |                                    |                      | toggles the view of the user-memory (swaps the the  $1000-$2000 range monitor <-> program                                     |

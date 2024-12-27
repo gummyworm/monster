@@ -1149,7 +1149,6 @@ anon_addrs: .res MAX_ANON*2
 ; NOTE: Labels must be indexed (lbl::index) in order for this function to return
 ; the correct ID. If you've added a label since the last index, it is necessary
 ; to re-index.
-;
 ; IN:
 ;  - .XY: the label address to get the name of
 ; OUT:
