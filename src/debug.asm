@@ -2734,6 +2734,7 @@ disabled_commands:
 	.byte K_ASM
 	.byte K_ASM_DEBUG
 	.byte K_REFRESH
-	.byte $76	; v (enter visual)
-	.byte $56	; V (enter visual line)
+	.byte K_LIST_SYMBOLS	; symbol viewer, TODO: don't use scr::reset in symview?
+	.byte $76		; v (enter visual)
+	.byte $56		; V (enter visual line)
 num_disabled_commands=*-disabled_commands

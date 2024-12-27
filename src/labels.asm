@@ -1188,7 +1188,7 @@ anon_addrs: .res MAX_ANON*2
 	lda @ub+1
 	sbc @lb+1
 	bcc @done	; if low > high, not found
-	lsr		; calculate (high - low) / 2
+	lsr		; calculate (high-low) / 2
 	tay
 	txa
 	ror		; carry cleared because multiple of 2
@@ -1223,6 +1223,7 @@ anon_addrs: .res MAX_ANON*2
 
 @modhigh:		; A[mid] > value
 	lda @m		; high = mid - element size
+	;clc
 	sbc #2-1	; carry always clear
 	sta @ub
 	lda @m+1
@@ -1232,7 +1233,7 @@ anon_addrs: .res MAX_ANON*2
 
 @done:	bcc @err
 
-	; look up the ID for the address
+@ok:	; look up the ID for the address
 	lda @m
 	clc
 	adc #<(label_addresses_sorted_ids - label_addresses_sorted)
@@ -1250,7 +1251,10 @@ anon_addrs: .res MAX_ANON*2
 	tay
 	RETURN_OK
 
-@err:	sec
+@err:	ldxy @ub
+	stxy @m
+	jsr @ok		; get the closest label
+	sec
 	rts
 .endproc
 

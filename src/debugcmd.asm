@@ -886,9 +886,10 @@
 ; .e.g.
 ;  `>BT 8`
 .proc backtrace
-@fileid=zp::debuggertmp
-@sp=zp::debuggertmp+1
-@offset=zp::debuggertmp+3
+@sp=zp::debuggertmp
+@offset=zp::debuggertmp+2
+@lbl=zp::debuggertmp+2
+@addr=zp::debuggertmp+4
 @namebuff=mem::spare+40
 	; check if an offset was given
 	ldy #$00
@@ -908,54 +909,65 @@
 @cont:	stx @offset
 	ldxy #sim::reg_sp
 	jsr getb
-	clc
+	sec			; +1
 	adc @offset
 	sta @sp
-	ldxy #sim::reg_sp+1
-	jsr getb
-	adc #$00
+	lda #>$0100		; MSB of stack base
 	sta @sp+1
 
-@l0:
-	jsr @draw_item		; draw the stack contents for this offset
-
+@l0:	jsr @draw_item		; draw the stack contents for this offset
 	inc @sp			; move to next procedure in the stack
 	beq @ok
 	inc @sp
 	bne @l0
-@ok:	rts
+@ok:	clc
 @done:	rts
 
 ;--------------------------------------
 @draw_item:
-	; TODO: push the offset from the label
-	lda #$00
-	pha
-	lda #$00
-	pha
-
-	; push the symbol name for this address (if there is one)
-	ldxy @sp
-	CALL FINAL_BANK_MAIN, #lbl::by_addr
-	bcc @addr
-@noname:
-	lda #>strings::question_marks
-	pha
-	lda #<strings::question_marks
-	pha
-
-@addr:	; push stack pointer (JSR pushes address + 2)
-	ldxy @sp
+	; get the address of the procedure call
+	ldxy @sp				; LSB of stack address
 	CALL FINAL_BANK_MAIN, #vmem::load
 	sec
 	sbc #$02
-	pha					; push LSB
+	sta @addr
 	ldxy @sp
 	inx					; MSB of stack address
 	CALL FINAL_BANK_MAIN, #vmem::load
 	sbc #$00
-	pha					; push MSB
+	sta @addr+1
 
+	; get the symbol name for this address (if there is one)
+	ldxy @addr
+	CALL FINAL_BANK_MAIN, #lbl::by_addr
+	stxy @lbl		; save the id of the label
+
+	; subtract the address we found from the address we were looking for
+	CALL FINAL_BANK_MAIN, #lbl::getaddr
+	sub16 @addr
+	txa
+	pha
+	tya
+	pha
+
+@label:	lda #>@namebuff
+	pha
+	sta r0+1
+	lda #<@namebuff
+	pha
+	sta r0
+	ldxy @lbl
+	CALL FINAL_BANK_MAIN, #lbl::getname
+	jmp @push_addr
+
+@push_addr:
+	; push the address of the procedure call
+	lda @addr
+	pha					; push LSB
+	lda @addr+1
+	pha
+
+	; push the stack pointer
 	lda @sp
 	pha
 
@@ -966,7 +978,7 @@
 .RODATA
 @backtrace_msg:
 	; <stack address> <address> <symbol>+<offset>
-	.byte "$", ESCAPE_BYTE, " ", ESCAPE_VALUE, " ", ESCAPE_STRING, "+", ESCAPE_VALUE,0
+	.byte "$", ESCAPE_BYTE, " $", ESCAPE_VALUE, " ", ESCAPE_STRING, "+$", ESCAPE_VALUE,0
 .POPSEG
 .endproc
 

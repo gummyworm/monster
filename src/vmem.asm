@@ -74,10 +74,10 @@
 .export __vmem_translate
 .proc __vmem_translate
 	lda #FINAL_BANK_USER	; default to user's bank
-	cpy #>$0100
+	cpy #>$0400
 	bcs :+
 
-@00:	; $00-$100 is stored in the prog00 buffer
+@00:	; $00-$400 is stored in the prog00 buffer
 	add16 #(mem::prog00-$00)
 	lda #FINAL_BANK_MAIN
 	rts

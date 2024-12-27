@@ -1,4 +1,5 @@
 .org $2000
+start:
 	lda #$01
 	jsr myproc
 	jsr myproc2
