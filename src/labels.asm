@@ -1161,6 +1161,7 @@ anon_addrs: .res MAX_ANON*2
 @lb=rc
 @ub=re
 @m=zp::tmp10
+@top=zp::tmp12
 	stxy @addr
 
 	lda numlabels
@@ -1176,10 +1177,12 @@ anon_addrs: .res MAX_ANON*2
 	sta @lb
 	adc @ub
 	sta @ub
+	sta @top
 	lda #>label_addresses_sorted
 	sta @lb+1
 	adc @ub+1
 	sta @ub+1
+	sta @top+1
 
 @loop:	lda @ub
 	sec
@@ -1251,10 +1254,23 @@ anon_addrs: .res MAX_ANON*2
 	tay
 	RETURN_OK
 
-@err:	ldxy @ub
-	stxy @m
+@err:	ldxy @ub	; get the lower bound of where our search ended
+	stxy @m		; and set our result variable to it (ub < lb here)
 	jsr @ok		; get the closest label
-	sec
+	cmpw numlabels	; was the result a valid label?
+	bcc :+		; if so, continue to return
+
+	; if label wasn't valid, get the highest label by address
+	lda @top
+	;sec
+	sbc #$02
+	sta @m
+	lda @top+1
+	sbc #$00
+	sta @m+1
+	jsr @ok
+
+:	sec
 	rts
 .endproc
 
