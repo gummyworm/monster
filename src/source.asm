@@ -1268,7 +1268,7 @@ __src_atcursor:
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DOWNN
 ; Advances the source by the number of lines in .YX
 ;  - .YX: the number of lines that were not read
@@ -1287,7 +1287,7 @@ __src_atcursor:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; UPN
 ; Advances the source by the number of lines in .YX
 ; IN:
@@ -1309,7 +1309,7 @@ __src_atcursor:
 	rts
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; ON_LAST_LINE
 ; Checks if the cursor is on the last line of the active source buffer.
 ; OUT:
@@ -1321,7 +1321,7 @@ __src_atcursor:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; MARK DIRTY
 ; Marks the given buffer as "dirty" by setting its appropriate flag.
 ; IN:

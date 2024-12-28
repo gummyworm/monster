@@ -934,7 +934,7 @@ main:	jsr key::getch
 :	jmp insert
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; ONKEY_CMD
 ; Handles a keypress from the user in COMMAND mode
 .proc onkey_cmd
@@ -981,7 +981,7 @@ main:	jsr key::getch
 	jmp (zp::jmpvec)
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; ENTER_INSERT
 ; Enters INSERT mode
 force_enter_insert=*+5
@@ -1051,7 +1051,7 @@ force_enter_insert=*+5
 	jmp refresh
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; ENTER_COMMAND
 ; Enters COMMAND mode
 .proc enter_command
@@ -1376,7 +1376,7 @@ force_enter_insert=*+5
 .CODE
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; DELETE TO BEGIN (d0)
 ; Deletes everything from the current cursor position to the beginning of the
 ; line
@@ -1396,7 +1396,7 @@ force_enter_insert=*+5
 	jmp enter_command
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; DELETE LINE (dd)
 ; Deletes the entire contents of the line that the cursor is on and scrolls
 ; everything below it up.
@@ -2273,7 +2273,7 @@ force_enter_insert=*+5
 	jmp bm::clr
 .endproc
 
-;******************************************************************************_
+;*******************************************************************************
 ; EXIT VISUAL
 ; If in visual mode, clears highlights from visual mode (if any)
 .proc exit_visual

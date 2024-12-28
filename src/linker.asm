@@ -683,6 +683,5 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	rts
 
 @found: lda @cnt
-	clc		; OK
-	rts
+	RETURN_OK
 .endproc
