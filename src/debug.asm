@@ -390,8 +390,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	jsr bm::init
 
 	; restore the screen ($1100-$2000)
-	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
-	rts
+	jmp bm::restore
 .endproc
 
 ;******************************************************************************
@@ -1598,8 +1597,8 @@ restore_regs:
 	lda #$80|$20		; enable TIMER interrupts only
 	jsr vmem::store
 
-	ldxy #$100		; TODO: use ROM addr? (we don't need the string)
-	stxy r0			; TODO: make way to not disassemble to string
+	ldxy #$f00d		; use ROM address because we don't need string
+	stxy r0
 	ldxy sim::pc		; get address of next instruction
 	jsr asm::disassemble	; disassemble it to get its size (BRK offset)
 	stx sim::op_mode
@@ -2734,7 +2733,6 @@ disabled_commands:
 	.byte K_ASM
 	.byte K_ASM_DEBUG
 	.byte K_REFRESH
-	.byte K_LIST_SYMBOLS	; symbol viewer, TODO: don't use scr::reset in symview?
 	.byte $76		; v (enter visual)
 	.byte $56		; V (enter visual line)
 num_disabled_commands=*-disabled_commands

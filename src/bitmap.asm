@@ -293,8 +293,7 @@ COLMEM_ADDR = $9400
 ; to bm::restore
 .export __bm_save
 .proc __bm_save
-	copy #mem::backbuff, #BITMAP_ADDR, #(20*192)
-	rts
+	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
 .endproc
 
 ;******************************************************************************
@@ -303,8 +302,7 @@ COLMEM_ADDR = $9400
 ; You should call bm::save first with the buffer you want to restore
 .export __bm_restore
 .proc __bm_restore
-	copy #BITMAP_ADDR, #mem::backbuff, #(20*192)
-	rts
+	JUMP FINAL_BANK_FASTCOPY2, #fcpy::restore
 .endproc
 
 ;******************************************************************************

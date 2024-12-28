@@ -34,13 +34,3 @@
 	todec8		      = __util_todec8
 	todec24		      = __util_todec24
 .endscope
-
-.macro copy dst, src, len
-	ldxy src
-	stxy r2
-	ldxy dst
-	stxy r4
-	ldxy len
-	stxy r0
-	jsr util::memcpy
-.endmacro
