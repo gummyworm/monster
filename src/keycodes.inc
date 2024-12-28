@@ -12,7 +12,8 @@ K_NEXT_BUFF  = $b6	; C= + l
 K_NEW_BUFF   = $aa	; C= + n
 K_CLOSE_BUFF = $ab	; C= + q
 
-K_UDG_EDIT   = $b8	; C= + u
+K_UDG_EDIT         = $b8	; C= + u
+K_UDG_TOGGLE_MODE  = $4d	; m
 
 ; GLOBAL INTERFACE KEYS
 K_RETURN    = $0d	; RETURN

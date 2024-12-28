@@ -1,41 +1,43 @@
-;******************************************************************************
+;*******************************************************************************
 ; UDGEDIT.ASM
 ;
 ; This file contains the source for the UDG Editor module, which allows a user
 ; to define "user defined graphics", or UDG's, for insertion into their code.
 ; The UDG Editor displays an 8x8 grid that can be navigated using the normal
 ; vi-like navigation keys. Plotting pixels is done with the '1' key.
+; The 'M' key toggles between multicolor and hires mode
 ; Pressing ENTER confirms the creation of a graphic, while the QUIT key
 ; exits the editor without creating the graphic.
 ;
 ; It is up to the caller (the editor) to update the source with the data for
 ; the created graphic
-;******************************************************************************
+;*******************************************************************************
 
+.include "bitmap.inc"
 .include "keycodes.inc"
 .include "macros.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
-BITMAP_ADDR = $1100
+;*******************************************************************************
 PIXEL_SIZE = 4		; size of each pixel in the editor
-
-CUR_DELAY = $2000
+CUR_DELAY  = $2000	; ticks before cursor is toggled
 
 CANVAS_Y      = 64		; start row (in pixels)
 CANVAS_X      = 8*8		; start column (in pixels)
 CANVAS_HEIGHT = 8*PIXEL_SIZE
 CANVAS_WIDTH  = 8*PIXEL_SIZE
 
-color   = zp::editortmp
-cur_on  = zp::editortmp+1	; cursor on flag
-cur_tmr = zp::editortmp+2	; cursor blink timer (2 bytes)
-udg     = r8
+color      = zp::editortmp
+cur_on     = zp::editortmp+1	; cursor on flag
+cur_tmr    = zp::editortmp+2	; cursor blink timer (2 bytes)
+multicolor = zp::editortmp+4	; flag for multi-color enabled (!0)
+
+udg = r8	; buffer where character data is stored (8 bytes)
 
 linebuffer = $0400
 
 .segment "UDGEDIT"
-;******************************************************************************
+;*******************************************************************************
 ; EDIT
 ; Activates the UDG editor
 ; OUT:
@@ -48,6 +50,13 @@ linebuffer = $0400
 @result=r4
 	cli
 	jsr clrcanvas
+
+	lda #$0e
+	sta $900a		; set aux color to light blue
+	lda #$00
+	sta multicolor		; multicolor off
+
+	jsr init_mc		; init multicolor mode
 
 	; parse linebuffer, populate udg (r8) if line contains a .db directive
 	jsr parse_bytes
@@ -110,7 +119,7 @@ linebuffer = $0400
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; HANDLEKEY
 .proc handlekey
 	ldx #@numkeys-1
@@ -128,15 +137,16 @@ linebuffer = $0400
 	jmp zp::jmpaddr
 
 @keys:
-	.byte $4b, $4a, $48, $4c, '1', '2'	; k, j, h, l, 1, 2
+	; k, j, h, l, 1, 2, m
+	.byte $4b, $4a, $48, $4c, '1', '2', '3', '4', K_UDG_TOGGLE_MODE
 @numkeys=*-@keys
 
-.define handlers up, down, left, right, plot, plotoff
+.define handlers up, down, left, right, plot0, plot1, plot2, plot3, toggle_mode
 @handlerslo: .lobytes handlers
 @handlershi: .hibytes handlers
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLRCANVAS
 ; Clears the 8x8 UDG canvas and the underlying character data
 .proc clrcanvas
@@ -197,7 +207,7 @@ linebuffer = $0400
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CUROFF
 ; Turns off the cursor
 .proc curoff
@@ -207,7 +217,7 @@ linebuffer = $0400
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CURON
 ; Turns on the cursor
 .proc curon
@@ -217,7 +227,7 @@ linebuffer = $0400
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CURTOGGLE
 ; Toggles the cursor
 .proc curtoggle
@@ -246,20 +256,23 @@ linebuffer = $0400
 	and #$01
 	bne @oddcol
 
-@evencol:
-	lda #$f0
+	lda multicolor
+	bne @evencol_mc
+
+@evencol_hires:
+	lda #$f0		; top border
 	eor (@dst),y
 	sta (@dst),y
 	iny
-	lda #$90
+	lda #$90		; left/right border
 	eor (@dst),y
 	sta (@dst),y
 	iny
-	lda #$90
+	lda #$90		; left/right border
 	eor (@dst),y
 	sta (@dst),y
 	iny
-	lda #$f0
+	lda #$f0		; bottomo border
 	eor (@dst),y
 	sta (@dst),y
 	rts
@@ -281,14 +294,33 @@ linebuffer = $0400
 	eor (@dst),y
 	sta (@dst),y
 	rts
+
+@evencol_mc:
+	lda #$ff		; top border
+	eor (@dst),y
+	sta (@dst),y
+	iny
+	lda #$81		; left/right border
+	eor (@dst),y
+	sta (@dst),y
+	iny
+	lda #$81		; left/right border
+	eor (@dst),y
+	sta (@dst),y
+	iny
+	lda #$ff		; bottom border
+	eor (@dst),y
+	sta (@dst),y
+	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETDSTMASK
 ; Gets the bitmap address of the cursor and its mask within the cell
 ; OUT:
 ;  - r0: the bitmap address of the cursor
 ;  - r2: the bitmask of the cursor
+;  - r3: the inverse bitmask of the cursor
 .proc getdstmask
 @dst=r0
 @mask=r2
@@ -320,102 +352,128 @@ linebuffer = $0400
 	rts
 .endproc
 
-;******************************************************************************
-; PLOTOFF
-; Clears the given (x,y) coordinate on the canvas
-.proc plotoff
-@dst=r0
-@mask=r2
-	jsr getdstmask
-; draw the pixel
-	ldx #4
-:	lda @mask
-	eor (@dst),y
-	sta (@dst),y
-	iny
-	dex
-	bne :-
+;*******************************************************************************
+; TOGGLE MODE
+; Toggles between multicolor and hires mode
+.proc toggle_mode
+	jsr curoff
 
-	; fall through to clrpixel in memory
+	lda #$08
+	eor multicolor
+	sta multicolor
+	beq @done
+
+	; move cursor to even position if on odd one
+	lda zp::curx
+	and #$fe
+	sta zp::curx
+
+@done:	rts
 .endproc
 
-;******************************************************************************
-; CLRPIXEL
-; Clears the pixel at the cursor
-.proc clrpixel
-	; update the UDG pixel data
-	lda #$07
-	sec
-	sbc zp::curx
-	tax
-	ldy zp::cury
-	lda $8270,x	; charrom '/' (mask associated with pixel)
-	eor udg,y
-	sta udg,y
-	rts
-.endproc
-
-
-;******************************************************************************
-; PLOT
-; Plots the given (x,y) coordinate on the canvas
-.proc plot
+;*******************************************************************************
+; PLOT0
+; Draws a '0' into the single bit (hires) or two-bit (multicolor) pattern
+; at the cursor's position
+plot0:	lda #$00
+	skw
+plot1:	lda #$01
+	skw
+plot2:	lda #$02
+	skw
+plot3:	lda #$03
+plot:
 @dst=r0
 @mask=r2
+@pattern=r4
+	sta @pattern
 	jsr getdstmask
-; draw the pixel
-	ldx #4
-:	lda @mask
+
+	; draw the pixel
+	ldx #PIXEL_SIZE		; rows to draw
+@l0:	lda @clrmask
+	lda (@dst),y
+	lda @mask
 	ora (@dst),y
-	sta (@dst),y
 	iny
 	dex
-	bne :-
+	bne @l0
 
-	; fall through to setpixel in memory
-.endproc
+	; fall through to setpixel in the UDG buffer
 
-;******************************************************************************
+;*******************************************************************************
 ; SETPIXEL
-; Sets the pixel at the cursor
+; Sets the pixel at the cursor to the given pattern
+; IN:
+;   - .A: the 1 or 2 (multicolor) bit pattern to set at the cursor's position
 .proc setpixel
-	; update the UDG pixel data
+@patt=r0
+@clrpatt=r1
+	sta @patt
+
+	; move the pattern into position based on the cursor's position
+	lda #$fe
+	sta @clrpatt
 	lda #$07
 	sec
 	sbc zp::curx
 	tax
-	ldy zp::cury
-	lda udg,y
-	ora $8270,x	; charrom '/' (mask associated with pixel)
+	beq @set
+@l0:	asl @patt
+	asl @clrpatt
+	dex
+	bne @l0
+
+@set:	lda udg,y
+	and @clrpatt
+	ora @patt
 	sta udg,y
 	rts
 .endproc
 
-
-;******************************************************************************
+;*******************************************************************************
 ; RIGHT
 ; Handle the "move right" behavior
 .proc right
 	jsr curoff
 	lda zp::curx
-	cmp #7
-	bcs :+
+	ldx multicolor
+	bne @mc
+
+@hires:	cmp #7
+	bcs @done
 	inc zp::curx
-:	jmp curon
+	bne @done	; branch always
+
+@mc:	cmp #6
+	bcs @done
+	inc zp::curx
+	inc zp::curx	; in multicolor mode, move in incremenets of 2
+
+@done:	jmp curon
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LEFT
 ; Handle the "move left" behavior
 .proc left
 	jsr curoff
-	dec zp::curx
-	bpl :+
+	lda multicolor
+	bne @mc
+
+@hires:	dec zp::curx
+	bpl @done
 	inc zp::curx
-:	jmp curon
+	bpl @done	; branch always
+
+@mc:	lda zp::curx
+	beq @done
+	dec zp::curx
+	dec zp::curx	; in multicolor mode, move in incremenets of 2
+@done:	jmp curon
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DOWN
 ; Handle the "move down" behavior
 .proc down
@@ -427,7 +485,7 @@ linebuffer = $0400
 :	jmp curon
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; UP
 ; Handle the "move up" behavior
 .proc up
@@ -438,7 +496,7 @@ linebuffer = $0400
 :	jmp curon
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PARSEHEX
 ; Parses the given characters and returns the binary data they represent
 ; IN:
@@ -490,7 +548,7 @@ linebuffer = $0400
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PARSE_BYTES
 ; Parses the line for graphic data
 ; Graphic data lines are .DB directives. If more than 8 bytes are defined
@@ -605,7 +663,34 @@ linebuffer = $0400
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
+; INIT MC
+; Initializes multicolor mode for all cells used by the UDG editor
+.proc init_mc
+@color=r0
+	; enable multicolor for all cells
+	ldxy #(COLMEM_ADDR + ((CANVAS_Y/16)*(BITMAP_WIDTH/8) + (CANVAS_X/8)))
+	stxy @color
+
+	ldx #(CANVAS_HEIGHT/16)
+@l0:	ldy #(CANVAS_WIDTH/8)-1
+@l1:	lda (@color),y
+	eor #$08
+	sta (@color),y
+	dey
+	bpl @l1
+	lda @color
+	clc
+	adc #(BITMAP_WIDTH/8)
+	sta @color
+	bcc :+
+	inc @color+1
+:	dex
+	bne @l0
+	rts
+.endproc
+
+;*******************************************************************************
 .linecont +
 .define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
   $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40

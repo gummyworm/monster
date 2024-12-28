@@ -1,5 +1,7 @@
 .include "zeropage.inc"
 
+.import atoi
+
 .import __util_chtohex
 .import __util_hextostr
 .import __util_findb
@@ -11,7 +13,6 @@
 .import __util_todec
 .import __util_todec8
 .import __util_todec24
-.import atoi
 .import __util_isoperator
 .import __util_is_separator
 .import __util_is_alphanum

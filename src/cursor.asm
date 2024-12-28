@@ -8,13 +8,13 @@
 
 ;******************************************************************************
 ; CONSTANTS
-L_INSERT_MASK  = $80
-R_INSERT_MASK  = $08
+L_INSERT_MASK  = $80	; mask for left half of 8x8 char in INSERT mode
+R_INSERT_MASK  = $08	; mask for right half of 8x8 char in INSERT mode
 
 END_INSERT_MASK = $01	; mask for offscreen column
 
-L_REPLACE_MASK = $f0
-R_REPLACE_MASK = $0f
+L_REPLACE_MASK = $f0	; mask for left half of 8x8 char in REPLACE mode
+R_REPLACE_MASK = $0f	; mask for right half of 8x8 char in REPLACE mode
 
 ;******************************************************************************
 .BSS
