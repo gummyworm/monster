@@ -3,49 +3,9 @@
 .CODE
 
 ;******************************************************************************
-; MUL8
-; 16*8-bit multiply with 16-bit product
-; by WhiteFlame
-; https://codebase64.org/doku.php?id=base:8bit_multiplication_16bit_product
-; IN:
-;  - .AY: multiplicand
-;  - .X: multiplier
-; OUT:
-;  - .AY: the product
-.export __math_mul8
-.proc __math_mul8
-@num1=zp::math
-@num2=zp::math+2
-	sta @num1
-	sty @num1+1
-	stx @num2
-
-	lda #$00
-	tay
-	beq @enterLoop
-
-@doAdd:	clc
-	adc @num1
-	tax
-
-	tya
-	adc @num1+1
-	tay
-	txa
-
-@loop:  asl @num1
-	rol @num1+1
-@enterLoop:
-	lsr @num2
-	bcs @doAdd
-	bne @loop
-	rts
-.endproc
-
-;******************************************************************************
 ; MUL16
-;16-bit multiply with 32-bit product
-;from 6502.org
+; Multiplies the two given 16-bit numbers and returns a 32-bit product
+; From 6502.org
 ; IN:
 ;  - r0: the multiplier
 ;  - r2: the multiplicand
@@ -85,7 +45,7 @@
 
 ;******************************************************************************
 ; DIV16
-; Divides the given divisor by the given dividend
+; Divides the given 16-bit divisor by the given 16-bit dividend
 ; IN:
 ;  - r2: the divisor
 ;  - r0: the dividend
@@ -97,28 +57,28 @@
 @divisor = r2
 @dividend = r0
 @remainder = r4
-@result = @dividend	;return quotient in dividend's place
-	lda #0	        ;preset remainder to 0
+@result = @dividend		; return quotient in dividend's place
+	lda #0			; preset remainder to 0
 	sta @remainder
 	sta @remainder+1
-	ldx #16	        ;repeat for each bit: ...
+	ldx #16			; repeat for each bit: ...
 
 @divloop:
-	asl @dividend	;dividend lb & hb*2, msb -> Carry
+	asl @dividend		; dividend lb & hb*2, msb -> Carry
 	rol @dividend+1
-	rol @remainder	;remainder lb & hb * 2 + msb from carry
+	rol @remainder		; remainder lb & hb * 2 + msb from carry
 	rol @remainder+1
 	lda @remainder
 	sec
-	sbc @divisor	;substract divisor to see if it fits in
-	tay	        ;lb result -> Y, for we may need it later
+	sbc @divisor		; substract divisor to see if it fits in
+	tay			; lb result -> Y, for we may need it later
 	lda @remainder+1
 	sbc @divisor+1
-	bcc @skip	;if carry=0 then divisor didn't fit in yet
+	bcc @skip		; if carry=0 then divisor didn't fit in yet
 
-	sta @remainder+1	;else save substraction result as new remainder,
+	sta @remainder+1	; else save substraction result as new remainder
 	sty @remainder
-	inc @result	;and INCrement result cause divisor fit in 1 times
+	inc @result		; and INCrement result (divisor fit in 1 time)
 
 @skip:	dex
 	bne @divloop
