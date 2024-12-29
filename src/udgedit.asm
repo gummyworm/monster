@@ -23,6 +23,11 @@
 PIXEL_SIZE = 4		; size of each pixel in the editor
 CUR_DELAY  = $2000	; ticks before cursor is toggled
 
+UP    = 0
+DOWN  = 1
+LEFT  = 2
+RIGHT = 3
+
 CANVAS_Y      = 64		; start row (in pixels)
 CANVAS_X      = 8*8		; start column (in pixels)
 CANVAS_HEIGHT = 8*PIXEL_SIZE
@@ -32,6 +37,7 @@ color      = zp::editortmp
 cur_on     = zp::editortmp+1	; cursor on flag
 cur_tmr    = zp::editortmp+2	; cursor blink timer (2 bytes)
 multicolor = zp::editortmp+4	; flag for multi-color enabled (!0)
+dir        = zp::editortmp+5	; direction cursor last moved in
 
 udg = r8	; buffer where character data is stored (8 bytes)
 
@@ -96,10 +102,12 @@ linebuffer = $0400
 	jsr handlekey
 	jmp @main
 
-@ok:	lda @result
+@ok:	jsr init_mc	; de-init multicolor mode
+	lda @result
 	rts
 
-@ret:	lda #$00	; no graphic created
+@ret:	jsr init_mc	; de-init multicolor mode
+	lda #$00	; no graphic created
 	rts
 .endproc
 
@@ -497,51 +505,78 @@ linebuffer = $0400
 .endproc
 
 ;*******************************************************************************
-; PLOT
+; PLOT X
 ; The following plot routines set the respective bit patterns to the current
 ; cursor position:
 ;  hires:      0, 1
 ;  multicolor: 00, 01, 10, 11
 plot0:	lda #$00
 	skw
-plot1:	lda #(1<<6)|(1<<4)|(1<<2)|1
+plot1:	lda #$01
 	skw
-plot2:	lda #(2<<6)|(2<<4)|(2<<2)|2
+plot2:	lda #$02
 	skw
-plot3:	lda #(3<<6)|(3<<4)|(3<<2)|3
-plot:
+plot3:	lda #$03
+
+	jsr plot
+
+	; update cursor in direction it was last moving
+	lda dir
+	cmp #UP
+	bne :+
+	jmp up
+:	cmp #DOWN
+	bne :+
+	jmp down
+:	cmp #LEFT
+	bne :+
+	jmp left
+:	jmp right
+
+;*******************************************************************************
+; PLOT
+; Plots the given bit pattern at the current cursor position
+.proc plot
 @dst=r0
 @mask=r2
 @clrmask=r3
 @pattern=r4
-	sta @pattern
+@tmp=r5
+	pha			; save the original pattern
+
+	ldx multicolor
+	bne :+
+	asl			; bit pattern %10 is character color in hires
+:	sta @pattern
 
 	; replicate the given bit pattern across a whole byte
-	ldx #7
+	ldx #3
 @genpatt:
 	asl
-	ldy multicolor
-	beq :+
-	asl			; for multicolor, move in increments of 2
-	dex
-:	ora @pattern
+	asl
+	ora @pattern
 	dex
 	bpl @genpatt
+	sta @pattern
 
 	jsr getdstmask
 
 	; draw the pixel
 	ldx #PIXEL_SIZE		; rows to draw
-@l0:	lda @clrmask
-	and (@dst),y		; clear the underlying pixels
-	ora @pattern
+@l0:	lda @pattern
 	and @mask
+	sta @tmp
+	lda (@dst),y
+	and @clrmask
+	ora @tmp
 	sta (@dst),y		; set the new pattern
 	iny
 	dex
 	bne @l0
 
+	pla			; restore original pattern
 	; fall through to setpixel in the UDG buffer
+.endproc
 
 ;*******************************************************************************
 ; SETPIXEL
@@ -549,23 +584,31 @@ plot:
 ; IN:
 ;   - .A: the 1 or 2 (multicolor) bit pattern to set at the cursor's position
 .proc setpixel
-@patt=r4
-@clrpatt=r0
+@patt=r0
+@clrpatt=r1
+	sta @patt
+
 	; move the pattern into position based on the cursor's position
 	lda #$fe
-	sta @clrpatt
+	ldx multicolor
+	beq :+
+	asl		; clear 2 bits if we're in multicolor mode
+:	sta @clrpatt
 	lda #$07
 	sec
 	sbc zp::curx
 	tax
 	beq @set
+
 @l0:	asl @patt
-	asl @clrpatt
+	sec
+	rol @clrpatt
 	dex
 	bne @l0
 
-@set:	lda udg,y
-	and @clrpatt
+@set:	ldy zp::cury
+	lda udg,y
+	and @clrpatt	; clear the bits we're replacing
 	ora @patt
 	sta udg,y
 	rts
@@ -575,6 +618,8 @@ plot:
 ; RIGHT
 ; Handle the "move right" behavior
 .proc right
+	lda #RIGHT
+	sta dir
 	jsr curoff
 	lda zp::curx
 	ldx multicolor
@@ -597,6 +642,8 @@ plot:
 ; LEFT
 ; Handle the "move left" behavior
 .proc left
+	lda #LEFT
+	sta dir
 	jsr curoff
 	lda multicolor
 	bne @mc
@@ -617,6 +664,8 @@ plot:
 ; DOWN
 ; Handle the "move down" behavior
 .proc down
+	lda #DOWN
+	sta dir
 	jsr curoff
 	lda zp::cury
 	cmp #7
@@ -629,6 +678,8 @@ plot:
 ; UP
 ; Handle the "move up" behavior
 .proc up
+	lda #UP
+	sta dir
 	jsr curoff
 	dec zp::cury
 	bpl :+
