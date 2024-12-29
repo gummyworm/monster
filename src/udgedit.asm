@@ -14,6 +14,7 @@
 ;*******************************************************************************
 
 .include "bitmap.inc"
+.include "cursor.inc"
 .include "keycodes.inc"
 .include "macros.inc"
 .include "zeropage.inc"
@@ -66,24 +67,7 @@ linebuffer = $0400
 
 	inc @result		; flag that we are updating graphic
 
-	; draw any pixels that are set
-	lda #7
-	sta zp::cury
-@l0:	lda #7
-	sta zp::curx
-@l1:	lda #$07
-	sec
-	sbc zp::curx
-	tax
-	lda $8270,x
-	ldy zp::cury
-	and udg,y
-	beq :+
-	jsr plot
-:	dec zp::curx
-	bpl @l1
-	dec zp::cury
-	bpl @l0
+	jsr draw_udg
 
 @cont:
 	; move cursor back to (0,0)
@@ -232,6 +216,7 @@ linebuffer = $0400
 ; Toggles the cursor
 .proc curtoggle
 @dst=r0
+@y=r2
 	lda cur_on
 	eor #$01
 	sta cur_on
@@ -240,11 +225,11 @@ linebuffer = $0400
 	lsr
 	tax
 
-	lda colslo+(CANVAS_X/8),x
+	lda colslo+(CANVAS_X/8)-1,x
 	clc
 	adc #CANVAS_Y
 	sta @dst
-	lda colshi+(CANVAS_X/8),x
+	lda colshi+(CANVAS_X/8)-1,x
 	adc #$00
 	sta @dst+1
 
@@ -252,6 +237,7 @@ linebuffer = $0400
 	asl
 	asl
 	tay
+	sty @y
 	lda zp::curx
 	and #$01
 	bne @oddcol
@@ -260,57 +246,182 @@ linebuffer = $0400
 	bne @evencol_mc
 
 @evencol_hires:
-	lda #$f0		; top border
+	; left border
+	ldx #PIXEL_SIZE
+:	lda #$02
 	eor (@dst),y
 	sta (@dst),y
 	iny
-	lda #$90		; left/right border
+	dex
+	bne :-
+
+	lda @dst
+	clc
+	adc #BITMAP_HEIGHT
+	sta @dst
+	bcc :+
+	inc @dst+1
+
+:	ldy @y
+	; top row
+	lda #$a8
+	eor (@dst),y
+	sta (@dst),y
+
+	; middle rows
+	iny
+	lda #$08
 	eor (@dst),y
 	sta (@dst),y
 	iny
-	lda #$90		; left/right border
+	lda #$08
 	eor (@dst),y
 	sta (@dst),y
+
+	; bottom row
 	iny
-	lda #$f0		; bottomo border
+	lda #$a8
 	eor (@dst),y
 	sta (@dst),y
 	rts
 
 @oddcol:
-	lda #$0f
+	lda @dst
+	clc
+	adc #BITMAP_HEIGHT
+	sta @dst
+	bcc :+
+	inc @dst+1
+
+:	; top row
+	lda #$2a
+	eor (@dst),y
+	sta (@dst),y
+
+	; middle rows
+	iny
+	lda #$20
 	eor (@dst),y
 	sta (@dst),y
 	iny
-	lda #$09
+	lda #$20
+	eor (@dst),y
+	sta (@dst),y
+
+	; bottom row
+	iny
+	lda #$2a
+	eor (@dst),y
+	sta (@dst),y
+
+	lda @dst
+	clc
+	adc #BITMAP_HEIGHT
+	sta @dst
+	bcc :+
+	inc @dst+1
+
+:	ldy @y
+	; right border
+	ldx #PIXEL_SIZE
+:	lda #$80
 	eor (@dst),y
 	sta (@dst),y
 	iny
-	lda #$09
-	eor (@dst),y
-	sta (@dst),y
-	iny
-	lda #$0f
-	eor (@dst),y
-	sta (@dst),y
+	dex
+	bne :-
 	rts
 
+; multicolor is always even
 @evencol_mc:
-	lda #$ff		; top border
+	; left border
+	ldx #PIXEL_SIZE
+:	lda #$02
 	eor (@dst),y
 	sta (@dst),y
 	iny
-	lda #$81		; left/right border
+	dex
+	bne :-
+
+	lda @dst
+	clc
+	adc #BITMAP_HEIGHT
+	sta @dst
+	bcc :+
+	inc @dst+1
+
+:	ldy @y
+	lda #$aa		; top border
 	eor (@dst),y
 	sta (@dst),y
 	iny
-	lda #$81		; left/right border
+	iny
+	iny
+	lda #$aa		; bottom border
+	eor (@dst),y
+	sta (@dst),y
+
+	lda @dst
+	clc
+	adc #BITMAP_HEIGHT
+	sta @dst
+	bcc :+
+	inc @dst+1
+
+:	ldy @y
+	; right border
+	ldx #PIXEL_SIZE
+:	lda #$80
 	eor (@dst),y
 	sta (@dst),y
 	iny
-	lda #$ff		; bottom border
-	eor (@dst),y
-	sta (@dst),y
+	dex
+	bne :-
+
+	rts
+.endproc
+
+;*******************************************************************************
+; DRAW UDG
+; Draws the UDG stored in "udg"
+; If the multicolor flag is set, will be drawn in multicolor else hires
+.proc draw_udg
+@row=r6
+@mask=r7
+	lda #7
+	sta zp::cury	; start at bottom
+
+	lda #$01
+	sta @mask	; for hires, set bitmask to %1
+	lda multicolor
+	beq @l0
+	sec
+	rol		; set bit mask to %11 for multicolor
+
+@l0:	lda #7
+	sta zp::curx
+	lda multicolor
+	beq :+
+	dec zp::curx
+:	ldy zp::cury
+	lda udg,y
+	sta @row	; get a row of data to render
+
+@l1:	lda @row
+	and @mask
+	jsr plot
+
+@next:	lda multicolor
+	beq :+
+	dec zp::curx	; if multicolor, move x in increments of 2
+	lsr @row
+
+:	lsr @row
+	dec zp::curx
+	bpl @l1
+
+	dec zp::cury
+	bpl @l0
 	rts
 .endproc
 
@@ -324,6 +435,7 @@ linebuffer = $0400
 .proc getdstmask
 @dst=r0
 @mask=r2
+@clrmask=r3
 	jsr curoff
 	lda zp::curx
 	lsr
@@ -342,13 +454,23 @@ linebuffer = $0400
 	asl
 	tay
 
-	lda zp::curx
+	lda multicolor
+	beq :+
+	lda #$ff	; multicolor takes up full 8-pixels
+	sta @mask
+	lda #$00
+	sta @clrmask	; clear whole row
+	rts
+
+:	lda zp::curx
 	and #$01
 	bne :+
 	lda #$f0	; even mask
 	skw
 :	lda #$0f	; odd mask
 	sta @mask
+	eor #$ff
+	sta @clrmask	; set clear mask
 	rts
 .endproc
 
@@ -368,33 +490,53 @@ linebuffer = $0400
 	and #$fe
 	sta zp::curx
 
-@done:	rts
+@done:	pushcur
+	jsr draw_udg	; redraw the contents of the UDG
+	popcur
+	rts
 .endproc
 
 ;*******************************************************************************
-; PLOT0
-; Draws a '0' into the single bit (hires) or two-bit (multicolor) pattern
-; at the cursor's position
+; PLOT
+; The following plot routines set the respective bit patterns to the current
+; cursor position:
+;  hires:      0, 1
+;  multicolor: 00, 01, 10, 11
 plot0:	lda #$00
 	skw
-plot1:	lda #$01
+plot1:	lda #(1<<6)|(1<<4)|(1<<2)|1
 	skw
-plot2:	lda #$02
+plot2:	lda #(2<<6)|(2<<4)|(2<<2)|2
 	skw
-plot3:	lda #$03
+plot3:	lda #(3<<6)|(3<<4)|(3<<2)|3
 plot:
 @dst=r0
 @mask=r2
+@clrmask=r3
 @pattern=r4
 	sta @pattern
+
+	; replicate the given bit pattern across a whole byte
+	ldx #7
+@genpatt:
+	asl
+	ldy multicolor
+	beq :+
+	asl			; for multicolor, move in increments of 2
+	dex
+:	ora @pattern
+	dex
+	bpl @genpatt
+
 	jsr getdstmask
 
 	; draw the pixel
 	ldx #PIXEL_SIZE		; rows to draw
 @l0:	lda @clrmask
-	lda (@dst),y
-	lda @mask
-	ora (@dst),y
+	and (@dst),y		; clear the underlying pixels
+	ora @pattern
+	and @mask
+	sta (@dst),y		; set the new pattern
 	iny
 	dex
 	bne @l0
@@ -407,10 +549,8 @@ plot:
 ; IN:
 ;   - .A: the 1 or 2 (multicolor) bit pattern to set at the cursor's position
 .proc setpixel
-@patt=r0
-@clrpatt=r1
-	sta @patt
-
+@patt=r4
+@clrpatt=r0
 	; move the pattern into position based on the cursor's position
 	lda #$fe
 	sta @clrpatt

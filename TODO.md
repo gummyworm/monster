@@ -1,4 +1,5 @@
 ### TODO
+- [ ] Multicolor support for UDG editor
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor
   - [ ] Show current scope in status bar (why not)
