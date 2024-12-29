@@ -14,6 +14,7 @@ K_CLOSE_BUFF = $ab	; C= + q
 
 K_UDG_EDIT         = $b8	; C= + u
 K_UDG_TOGGLE_MODE  = $4d	; m
+K_UDG_CLEAR        = $93	; SHIFT + CLR/HOME
 
 ; GLOBAL INTERFACE KEYS
 K_RETURN    = $0d	; RETURN

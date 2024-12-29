@@ -404,7 +404,7 @@ linebuffer = $0400
 	lda multicolor
 	beq @l0
 	sec
-	rol		; set bit mask to %11 for multicolor
+	rol @mask	; set bit mask to %11 for multicolor
 
 @l0:	lda #7
 	sta zp::curx
@@ -415,17 +415,19 @@ linebuffer = $0400
 	lda udg,y
 	sta @row	; get a row of data to render
 
-@l1:	lda @row
+@l1:	lda #$00
+	lda @row
 	and @mask
-	jsr plot
+	lsr @row
+	ldx multicolor
+	beq :+
+	lsr @row
+:	jsr plot
 
-@next:	lda multicolor
+@next:	ldx multicolor
 	beq :+
 	dec zp::curx	; if multicolor, move x in increments of 2
-	lsr @row
-
-:	lsr @row
-	dec zp::curx
+:	dec zp::curx
 	bpl @l1
 
 	dec zp::cury
@@ -518,7 +520,13 @@ plot2:	lda #$02
 	skw
 plot3:	lda #$03
 
-	jsr plot
+	ldx multicolor
+	bne :+
+	cmp #$02		; colors 2 and 3 disabled if in hires mode
+	bcc :+
+	rts
+
+:	jsr plot
 
 	; update cursor in direction it was last moving
 	lda dir
@@ -586,15 +594,19 @@ plot3:	lda #$03
 .proc setpixel
 @patt=r0
 @clrpatt=r1
+@tmp=r2
 	sta @patt
 
 	; move the pattern into position based on the cursor's position
 	lda #$fe
+	ldy #$07
 	ldx multicolor
 	beq :+
 	asl		; clear 2 bits if we're in multicolor mode
+	dey
 :	sta @clrpatt
-	lda #$07
+
+	tya
 	sec
 	sbc zp::curx
 	tax
@@ -606,10 +618,15 @@ plot3:	lda #$03
 	dex
 	bne @l0
 
-@set:	ldy zp::cury
+@set:	lda @clrpatt
+	eor #$ff
+	and @patt
+	sta @tmp
+
+	ldy zp::cury
 	lda udg,y
-	and @clrpatt	; clear the bits we're replacing
-	ora @patt
+	and @clrpatt
+	ora @tmp
 	sta udg,y
 	rts
 .endproc
