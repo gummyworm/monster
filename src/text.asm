@@ -34,6 +34,8 @@ NUM_ESCAPE_CODES = 8
 STATUS_LINE      = 23
 STATUS_COL       = 0
 
+STATUS_FORMAT_DEFAULT = 0	; display x, line/total lines
+STATUS_FORMAT_XY      = 1	; display x,y position of cursor
 
 .BSS
 ;******************************************************************************
@@ -48,6 +50,9 @@ __text_insertmode: .byte 0	; the insert mode (1 = insert, 0 = replace)
 
 .export __text_status_mode
 __text_status_mode: .byte 0	; the mode to display on the status line
+
+.export __text_status_fmt
+__text_status_fmt: .byte 0	; the format to use for the status display
 
 render_off: .byte 0
 
@@ -120,6 +125,22 @@ render_off: .byte 0
 	sta mem::statusline+@columnstart+1,y
 
 	; display current line
+	lda __text_status_fmt
+	beq @fmt_default
+
+@fmtxy:	lda zp::cury
+	jsr util::todec8
+
+	; display the row
+	ldy #$00
+	cpx #'0'
+	beq :+
+	stx mem::statusline+@linestart
+	iny
+:	sta mem::statusline+@linestart,y
+	jmp @mode
+
+@fmt_default:
 	ldxy src::line
 	jsr util::todec
 	ldx #$00
@@ -141,13 +162,13 @@ render_off: .byte 0
 	ldx @tmp
 	ldy #$00
 @l1:	lda mem::spare,y
-	beq :+
+	beq @mode
 	sta mem::statusline+@linestart+1,x
 	iny
 	inx
 	bne @l1
 
-:	; add the editor mode
+@mode:	; add the editor mode
 	lda __text_status_mode
 	sta mem::statusline+@modestart
 

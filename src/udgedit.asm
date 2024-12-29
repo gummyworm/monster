@@ -15,8 +15,10 @@
 
 .include "bitmap.inc"
 .include "cursor.inc"
+.include "finalex.inc"
 .include "keycodes.inc"
 .include "macros.inc"
+.include "text.inc"
 .include "zeropage.inc"
 
 ;*******************************************************************************
@@ -84,6 +86,8 @@ linebuffer = $0400
 	ldxy #CUR_DELAY
 	stxy cur_tmr
 
+	jsr refresh_status
+
 @main:	decw cur_tmr
 	bne :+
 	lda cur_tmr+1
@@ -126,16 +130,25 @@ linebuffer = $0400
 	sta zp::jmpvec
 	lda @handlershi,x
 	sta zp::jmpvec+1
-	jmp zp::jmpaddr
+	jsr zp::jmpaddr
+	jmp refresh_status
 
-@keys:
-	; k, j, h, l, 1, 2, m
+@keys:	; k, j, h, l, 1, 2, m
 	.byte $4b, $4a, $48, $4c, '1', '2', '3', '4', K_UDG_TOGGLE_MODE
 @numkeys=*-@keys
 
 .define handlers up, down, left, right, plot0, plot1, plot2, plot3, toggle_mode
 @handlerslo: .lobytes handlers
 @handlershi: .hibytes handlers
+.endproc
+
+;*******************************************************************************
+; REFRESH STATUS
+; Updates the status lines with the new row/column/mode info for the editor
+.proc refresh_status
+	CALL FINAL_BANK_MAIN, #text::updatestatusline
+	lda #23
+	JUMP FINAL_BANK_MAIN, #text::status
 .endproc
 
 ;*******************************************************************************

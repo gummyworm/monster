@@ -2507,8 +2507,12 @@ __edit_set_breakpoint:
 @udg=r8
 	pushcur
 	jsr scr::reset
+	inc text::statusfmt
+
 	CALL FINAL_BANK_UDGEDIT, #udg::edit
 	sta @result
+
+	dec text::statusfmt
 	jsr scr::restore
 	popcur
 	lda @result

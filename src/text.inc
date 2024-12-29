@@ -21,8 +21,9 @@
 .import __text_scrolldown
 .import __text_scrolldownn
 .import __text_scrollup
-.import __text_status 
+.import __text_status
 .import __text_status_mode
+.import __text_status_fmt
 .import __text_tabl_dist
 .import __text_tabr_dist
 .import __text_update
@@ -45,7 +46,7 @@ RVS_OFF = $00
 
 BREAKPOINT_CHAR     = 133
 BREAKPOINT_OFF_CHAR = 134
-CH_R_ARROW	    = 135 
+CH_R_ARROW	    = 135
 
 .scope text
 	buffer           = __text_buffer
@@ -69,6 +70,7 @@ CH_R_ARROW	    = 135
 	scrolldown       = __text_scrolldown
 	scrolldownn      = __text_scrolldownn
 	scrollup         = __text_scrollup
+	statusfmt	 = __text_status_fmt
 	statusmode       = __text_status_mode
 	status           = __text_status
 	restorebuff      = __text_restorebuff
