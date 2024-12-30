@@ -417,6 +417,7 @@ following commands:
 |  Clear        |SHIFT+CLR| Multicolor mode only. Sets the selected position to the auxiliary color                              |
 |  Done         | RETURN  | Exits the editor and enters (or updates) the .db commands to create the graphic in the editor        |
 |  Quit         | STOP    | Exits the editor without creating/updating the graphic contained in the editor                       |
+| Toggle Mode   |   M     | If in hires mode, switches to multicolor mode or vise-versa                                          |
 
 Entering the editor while on a line with an 8-byte ".db" definition (e.g. `.db $ff,$00,$ff,$00,$ff,$00,$ff,$00`) will pre-populate the
 UDG editor with the character defined by these directives.

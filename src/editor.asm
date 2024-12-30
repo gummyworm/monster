@@ -84,7 +84,6 @@ visual_start_x:		.byte 0	; the x-position a selection began at
 selection_type:    	.byte 0 ; the type of selection (VISUAL_LINE or VISUAL)
 format:            	.byte 0	; if 0, formatting is not applied on line-end
 
-
 overwrite: .byte 0	; for SAVE commands, if !0, overwrite existing file
 
 .export __edit_binary_flag
@@ -106,6 +105,8 @@ highlight_status:	.byte 0		; if !0 highlight is active
 ; It is also where the program accepts commands (see get_command)
 status_row: .byte 0
 
+autoindent: .byte 0		; auto-indent enable flag (0=don't auto-indent)
+
 .CODE
 
 ;******************************************************************************
@@ -124,6 +125,7 @@ status_row: .byte 0
 	inx			; ldx #$01
 	stx state::verify	; don't assemble code (just check syntax)
 	stx format		; enable formatting
+	stx autoindent		; enable auto-indent
 
 	jsr edit		; initialize size/mode/etc.
 	jsr enter_command
@@ -2113,10 +2115,14 @@ force_enter_insert=*+5
 ; See OPEN_LINE_BELOW.  This entry point will not indent regardless of the
 ; contents of the current line
 .proc open_line_below_noindent
-	ldx #$00
-	skw
-
-	; fall through to open_line_below
+	lda autoindent
+	pha
+	lda #$00
+	sta autoindent		; temporarily overwrite autoindent flag
+	jsr open_line_below
+	pla
+	sta autoindent		; restore autoindent flag
+	rts
 .endproc
 
 ;******************************************************************************
@@ -2125,22 +2131,21 @@ force_enter_insert=*+5
 ; based on the contents of the current line.  If it starts with a TAB, the new
 ; line will begin with a TAB.
 .proc open_line_below
-@indent=zp::editortmp
-	ldx #$01
-	stx @indent
 	jsr is_readonly
 	beq @done
-	lda mem::linebuffer
-	pha
+
+	lda mem::linebuffer	; get the character at the start of the line
+	pha			; and save it
 	jsr enter_insert
-	jsr end_of_line
-	jsr newl
-	pla
-	ldx @indent
-	beq @done
-	cmp #$09	; TAB
-	bne @done
-	jmp insert
+	jsr end_of_line		; move to end of current line
+	jsr newl		; and insert a newline
+	pla			; restore character at start of previous line
+
+	ldx autoindent		; get auto-indent flag
+	beq @done		; if clear, don't indent
+	cmp #$09		; if set, check if last line started with TAB
+	bne @done		; if it didn't, don't indent
+	jmp insert		; if it did, indent the new line too
 @done:	rts
 .endproc
 
@@ -3038,31 +3043,17 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
+; NEWL
+; Inserts a newline at the current cursor position
 .proc newl
 	jsr is_readonly
-	bne :+
+	bne @insert
 	; if in readonly mode, just go down
 	jmp begin_next_line
 
-:	; insert \n into source buffer and terminate text buffer
+@insert:
 	lda #$0d
-	jsr src::insert
-	lda #$00
-	jsr text::putch
-
-@nextline:
-	jsr drawline
-	; redraw everything from <cursor> to EOL on next line
-	lda zp::cury
-	jsr text::drawline
-
-@done:	lda zp::curx
-	beq @ret
-:	jsr src::prev
-	jsr cur::left
-	lda zp::curx
-	bne :-
-@ret:	rts
+	jmp insert
 .endproc
 
 ;******************************************************************************
@@ -3073,6 +3064,8 @@ goto_buffer:
 .proc linedone
 @indent=ra	; indent boolean (!0 = indent)
 @i=ra		; loop counter for indentation loop
+	sta @indent
+
 	jsr is_readonly
 	bne :+
 	jmp begin_next_line	; if READONLY, just go down a line
@@ -3096,7 +3089,10 @@ goto_buffer:
 	bcs @err
 
 ; format the line based on the line's contents (in .A from tokenize)
-@fmt:	ldx #$00		; init flag to NO indentation
+@fmt:	ldx autoindent
+	beq @nextline		; if indent disabled, skip
+
+	ldx #$00		; init flag to NO indentation
 	cmp #ASM_COMMENT	; if this is a comment, don't indent
 	beq @nextline
 	jsr fmt::line

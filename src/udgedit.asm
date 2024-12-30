@@ -40,7 +40,7 @@ cur_on     = zp::editortmp+1	; cursor on flag
 cur_tmr    = zp::editortmp+2	; cursor blink timer (2 bytes)
 multicolor = zp::editortmp+4	; flag for multi-color enabled (!0)
 dir        = zp::editortmp+5	; direction cursor last moved in
-
+result     = zp::editortmp+6
 udg = r8	; buffer where character data is stored (8 bytes)
 
 linebuffer = $0400
@@ -56,7 +56,6 @@ linebuffer = $0400
 ;           2: graphic updated
 .export __udg_edit
 .proc __udg_edit
-@result=r4
 	cli
 	jsr clrcanvas
 
@@ -70,10 +69,10 @@ linebuffer = $0400
 	; parse linebuffer, populate udg (r8) if line contains a .db directive
 	jsr parse_bytes
 	lda #$01
-	sta @result		; flag that we are creating new graphic
+	sta result		; flag that we are creating new graphic
 	bcs @cont		; line doesn't contain a UDG definition
 
-	inc @result		; flag that we are updating graphic
+	inc result		; flag that we are updating graphic
 
 	jsr draw_udg
 
@@ -107,7 +106,7 @@ linebuffer = $0400
 	jmp @main
 
 @ok:	jsr init_mc	; de-init multicolor mode
-	lda @result
+	lda result
 	rts
 
 @ret:	jsr init_mc	; de-init multicolor mode
