@@ -17,6 +17,7 @@ Table of Contents
           * [Insert Mode](https://github.com/gummyworm/monster#insert-mode-i-a-etc)
           * [Visual Mode](https://github.com/gummyworm/monster#visual-mode-v)
           * [Visual Line Mode](https://github.com/gummyworm/monster#visual-line-mode-v)
+      * [UDG Editor](https://github.com/gummyworm/monster#udg-editor)
   * [Assembler](https://github.com/gummyworm/monster#assembler-overview)
       * [Syntax](https://github.com/gummyworm/monster#syntax)
       * [Expressions](https://github.com/gummyworm/monster#expressions)
@@ -400,6 +401,25 @@ Macros, however, are expected to be defined.
 Although labels aren't _required_ to be defined, they are internally tracked
 while editing.  Because their addresses aren't valid til assembly, you cannot
 access them (e.g. in the symbol viewer) until then.
+
+### UDG Editor
+The UDG (user defined graphics) editor is entered with the `C= + u` key combination.
+This editor allows you to visually create simple graphics for your programs.  Navigation
+is done with the same vi-like commands used in the main editor and graphics are created using the
+following commands:
+
+| Command Name  |   Key   |  Behavior
+|---------------|---------|------------------------------------------------------------------------------------------------------|
+|  Plot Color 1 |    1    | Sets the selected position to the background color                                                   |
+|  Plot Color 2 |    2    | Sets the selected position to the character color (hires mode) or the border color (multicolor mode) |
+|  Plot Color 3 |    3    | Multicolor mode only. Sets the selected position to the character color                              |
+|  Plot Color 4 |    4    | Multicolor mode only. Sets the selected position to the auxiliary color                              |
+|  Clear        |SHIFT+CLR| Multicolor mode only. Sets the selected position to the auxiliary color                              |
+|  Done         | RETURN  | Exits the editor and enters (or updates) the .db commands to create the graphic in the editor        |
+|  Quit         | STOP    | Exits the editor without creating/updating the graphic contained in the editor                       |
+
+Entering the editor while on a line with an 8-byte ".db" definition (e.g. `.db $ff,$00,$ff,$00,$ff,$00,$ff,$00`) will pre-populate the
+UDG editor with the character defined by these directives.
 
 ---
 

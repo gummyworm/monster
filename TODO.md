@@ -1,5 +1,4 @@
 ### TODO
-- [ ] Multicolor support for UDG editor
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor
   - [ ] Show current scope in status bar (why not)
@@ -8,6 +7,7 @@
 - [ ] Implement linker (WIP on linkage branch)
 - [ ] Add settings / project configuration file
 - [ ] Symbolic disassembly
+- [x] Multicolor support for UDG editor
 - [x] Don't paste when it would create line > 40 columns
 - [x] Cleanup hack that requires "jmp gui::ret" in GUI (call text::render instead of pushing format strings)
 - [x] Allow setting breakpoints in ROM
