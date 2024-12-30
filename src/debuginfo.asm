@@ -493,11 +493,13 @@ blockaddresseshi: .res MAX_FILES
 @line=r2
 @dline=r4
 @daddr=r6
+@isize=r8
 	stxy @line
 
 	ldy #$00
+	sty @isize
 
-	; get the line and address delta for our new line
+	; get the line and address delta for our new line (dline = new - prev)
 	lda @line
 	sec
 	sbc srcline
@@ -522,15 +524,15 @@ blockaddresseshi: .res MAX_FILES
 	; in order to use a basic instruction, both must be in range [$01, $0f]
 	ora @dline+1
 	bne @extended	; if either delta's MSB is !0, need extended
+
 	lda @dline
 	ora @daddr
 	bne :+
 	rts		; no line/addr change, no instruction needed
-:	cmp #$10	; if either's LSB is >= $10, need extended
-	bcs @extended
+:	and #$f0	; if either's LSB is >= $10, need extended
+	bne @extended
 
-@basic:
-	; encode the instruction ((daddr << 4) | dline)
+@basic:	; encode the instruction ((daddr << 4) | dline)
 	lda @daddr
 	asl
 	asl
@@ -539,47 +541,50 @@ blockaddresseshi: .res MAX_FILES
 	ora @dline
 	sta (line),y		; write the encoded instruction
 	lda #$01		; advance 1 byte
+	sta @isize
 	bne @done
 
 @extended:
+	ldy #$00
 @advanceline:
 	lda @dline
 	ora @dline+1
 	beq @advanceaddr	; skip if line delta is 0
 
-	lda #$00
-	tay
+	lda #$00		; extended instruction opcode byte 0
 	sta (line),y
 
 	; get 16 bit signed offset for target line
-	ldy #$01
-	lda #OP_ADVANCE_LINE
+	iny
+	lda #OP_ADVANCE_LINE	; extended instruction opcode byte 1
 	sta (line),y
+
 	iny
 	lda @dline
-	sta (line),y	; write LSB
+	sta (line),y		; write LSB of line delta
 	iny
 	lda @dline+1
-	sta (line),y	; write MSB
+	sta (line),y		; write MSB of line delta
 
-	lda #$04
-	jsr @done
+	iny
+
+	lda #$04		; advance 4 bytes
+	sta @isize
 
 @advanceaddr:
 	lda @daddr
 	ora @daddr+1
-	beq @done	; skip if addr delta is 0
+	beq @done	; no need for instruction if addr delta is 0 - skip
 
-	lda #$00
-	tay
+	lda #$00		; extended instruction opcode byte 0
 	sta (line),y
 
 	iny
-	lda #OP_ADVANCE_ADDR
+	lda #OP_ADVANCE_ADDR	; extended instruction opcode byte 1
 	sta (line),y
 
-	iny
 	; get 16 bit signed offset for target address
+	iny
 	lda @daddr
 	sta (line),y	; write LSB
 	iny
@@ -587,20 +592,26 @@ blockaddresseshi: .res MAX_FILES
 	sta (line),y	; write MSB
 
 	lda #$04	; advance 4 bytes
+	clc
+	adc @isize
+	sta @isize
 
 @done:	; add instruction size to program pointer and program-stop pointer
-	pha
+	lda @isize
 	clc
 	adc progstop
-	sta progstop
+	sta progstop	; progstop += size of instruction
 	bcc :+
 	inc progstop+1
-:	pla
+
+	; update line pointer by instruction size
+:	lda @isize
 	clc
 	adc line
 	sta line
 	bcc :+
 	inc line+1
+
 :	; write new program terminator ($00 $00)
 	lda #$00
 	tay
@@ -1008,6 +1019,7 @@ get_filename = get_filename_addr
 	ldy #$00
 	lda (line),y
 	beq @extended_i	; if opcode is 0, this is an extended instruction
+
 @basic_i:
 	; decode the opcode; top 4 bits contain PC offset and bottom 4 line
 	pha
@@ -1028,7 +1040,7 @@ get_filename = get_filename_addr
 	sta addr
 	bcc @ok
 	inc addr+1
-	bcs @ok
+	bcs @ok		; branch always
 
 @extended_i:
 	incw line	; move line program PC to byte 2 of opcode
@@ -1062,7 +1074,7 @@ get_filename = get_filename_addr
 
 :	cmp #OP_ADVANCE_ADDR
 	bne :+
-@adv_pc:
+@adv_addr:
 	lda addr
 	clc
 	adc (line),y
@@ -1081,12 +1093,11 @@ get_filename = get_filename_addr
 	incw line
 	lda (line),y
 	sta addr+1
-	skw		; fall through to @ok
-@end:	sec
-	rts
-
 @ok:	incw line
 	RETURN_OK
+
+@end:	sec		; flag end of porgram
+	rts
 .endproc
 
 ;******************************************************************************
