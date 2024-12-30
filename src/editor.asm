@@ -1405,62 +1405,24 @@ force_enter_insert=*+5
 	bne :+
 	rts
 
-:	lda #TEXT_INSERT
-	sta text::insertmode
-
-	; for all but the 1st line,
-	; if line length is 0, just do one backspace and we're done
-	jsr text::linelen
-	cpx #$00		; is line length 0?
-	bne :+			; if not, need to do more than a backspace
-	jsr on_line1		; are we on the 1st line?
-	beq :+			; if we are, need to do more than backspace
-	lda #$0d
-	jsr buff::putch		; put a newline into the copy buffer
-	jsr backspace
-	jmp @done
-
-:	jsr src::down		; go to the end of the line
-	php			; save EOF flag
-	bcs @l0			; if EOF, skip scroll up
-
-	jsr on_line1
-	beq :+			; if on line 1, scroll everything
-	inc zp::cury		; not line 1, move cursor down to row to scroll
-:	jsr bumpup		; scroll up
-
-@l0:	jsr src::backspace	; delete a character
-	bcs :+			; break if at start of source buffer
-	jsr buff::putch		; put the character that was deleted into the copy buffer
-	jsr src::atcursor	; are we on a newline?
+:	; delete the contents of the current line
+	jsr src::lineend
+@l0:	jsr src::atcursor
 	cmp #$0d
-	bne @l0			; loop until we are on newline
+	beq @moveup
+	jsr src::backspace
+	bcs @moveup		; break if at start of source buffer
+	jsr buff::putch		; put the character that was deleted into the copy buffer
+	jmp @l0
 
-:	plp			; get EOF flag (.C)
-	bcc :+			; skip if not EOF
-
-@eof:	jsr on_line1		; are we on the 1st line?
-	beq :+			; if so, we won't be changing lines, skip
-	lda zp::cury		; if EOF, clear the line we're on
-	jsr bm::clrline
-	dec zp::cury		; no newline was deleted yet,
-	jsr src::backspace	; so delete the newline
-	jsr buff::putch		; and add it to the copy buffer
-	jsr src::up		; and go to the start of the, now, last line
-
-:	jsr src::get
-
-	; fix x-position if we're on a TAB
-	ldx #$00
-	lda mem::linebuffer
-	cmp #$09
-	bne :+
-	jsr src::next
-	ldx #TAB_WIDTH
-:	stx zp::curx
-
-@done:	lda #TEXT_REPLACE
-	sta text::insertmode
+@moveup:
+	lda #$00
+	sta zp::curx
+	jsr enter_insert
+	jsr ccdown
+	jsr backspace
+	jsr enter_command
+	jsr src::get
 	lda zp::cury
 	jmp text::drawline
 .endproc
@@ -2524,7 +2486,8 @@ __edit_set_breakpoint:
 	jmp @write
 
 @update:
-	jsr delete_line
+	jsr home
+	jsr delete_to_end
 	jsr enter_insert
 
 @write: ; write .udg to the source buffer
