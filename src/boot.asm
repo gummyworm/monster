@@ -1,6 +1,7 @@
 .include "asm.inc"
 .include "bitmap.inc"
 .include "config.inc"
+.include "console.inc"
 .include "copybuff.inc"
 .include "debug.inc"
 .include "debuginfo.inc"
@@ -502,6 +503,8 @@ num_relocs=(*-relocs)/7
 	jsr dbgi::initonce
 	jsr asm::reset
 	jsr buff::clear		; clear copy buffer
+
+	CALL FINAL_BANK_CONSOLE, #con::init
 
 .ifndef TEST
 	jmp edit::init

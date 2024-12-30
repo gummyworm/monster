@@ -1,3 +1,10 @@
+;*******************************************************************************
+; CONSOLE.ASM
+; This file contains procedures for interacting with the "console".
+; The console is a text-based interface that can be used for interacting with
+; program state as well as debugging.
+;*******************************************************************************
+
 .include "bitmap.inc"
 .include "cursor.inc"
 .include "debug.inc"
@@ -15,7 +22,7 @@
 .include "text.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 HEIGHT = 24
 
 .segment "CONSOLE_BSS"
@@ -25,10 +32,17 @@ repeatcmd: .byte 0	; if set, empty line repeats last command
 cursave_x: .byte 0
 cursave_y: .byte 0
 
-;******************************************************************************
+;*******************************************************************************
 ; SIGNALS
 .export __console_quit
 __console_quit: .byte 0	; if !0, console will quit when command returns to it
+
+
+;*******************************************************************************
+; SCREEN
+; This buffer stores the complete contents of the console.  It is used to
+; restore the console to its last state when it is re-entered
+screen: .res 40*24
 
 .CODE
 ;******************************************************************************
@@ -55,6 +69,9 @@ __console_quit: .byte 0	; if !0, console will quit when command returns to it
 .export __console_puts
 .proc __console_puts
 @msg=r0
+@scr0=r2
+@scr1=r4
+@tmp=r6
 	stxy @msg
 
 	; check if we need to scroll
@@ -66,12 +83,84 @@ __console_quit: .byte 0	; if !0, console will quit when command returns to it
 	ldx #$00
 	lda #HEIGHT
 	CALL FINAL_BANK_MAIN, #text::scrollup
-	dec line
-	lda line
 
-@print:	inc line
+	; scroll the console screen buffer
+	ldxy #screen
+	stxy @scr0
+	ldxy #screen+40
+	stxy @scr1
+
+	; scroll the screen buffer
+	ldx #24-1
+@scroll:
+	ldy #40-1
+:	lda (@scr1),y
+	sta (@scr0),y
+	dey
+	bpl :-
+	lda @scr0
+	clc
+	adc #40
+	sta @scr0
+	bcc :+
+	inc @scr0+1
+:	lda @scr0
+	clc
+	adc #40
+	sta @scr1
+	bcc :+
+	inc @scr1+1
+:	dex
+	bne @scroll
+
+	dec line
+
+@print:	ldxy @msg
+	CALL FINAL_BANK_MAIN, #text::render
+	stxy @msg
+
+	lda #$00
+	sta @scr0+1
+
+	; copy the rendered text to the current line of the buffer
+	; the buffer destination is screen + (line*40)
+	lda line
+	asl		; *2
+	sta @tmp
+	asl		; *4
+	asl		; *8
+	adc @tmp	; *10
+	asl		; *20
+	rol @scr0+1
+	asl		; *40
+	rol @scr0+1
+	adc #<screen
+	sta @scr0
+	lda @scr0+1
+	adc #>screen
+	sta @scr0+1
+
+	; store the text we are about to draw to the console buffer
+	ldy #39
+@copy:	lda (@msg),y
+	sta (@scr0),y
+	dey
+	bpl @copy
+
+	lda line
+	inc line
 	ldxy @msg
-	JUMP FINAL_BANK_MAIN, #text::print
+	JUMP FINAL_BANK_MAIN, #text::puts
+.endproc
+
+;******************************************************************************
+; INIT
+; Initializes the console
+.export __console_init
+.proc __console_init
+	lda #$00
+	sta line
+	rts
 .endproc
 
 ;******************************************************************************
@@ -79,11 +168,41 @@ __console_quit: .byte 0	; if !0, console will quit when command returns to it
 ; Activates the console.
 .export __console_enter
 .proc __console_enter
+@scr=r0
+@line=r2
+@linebuff=mem::spare
 	CALL FINAL_BANK_MAIN, #bm::clr
-	lda #$00
-	sta line
 
-	; save cursor state of caller
+	lda line
+	beq @cont
+
+	; restore the contents of the console screen buffer
+	lda #$00
+	sta @line
+	ldxy #screen
+	stxy @scr
+
+@l0:	ldy #40-1
+:	lda (@scr),y
+	sta @linebuff,y
+	dey
+	bpl :-
+
+	lda @line
+	ldxy #@linebuff
+	CALL FINAL_BANK_MAIN, #text::puts
+	lda @scr
+	clc
+	adc #40
+	sta @scr
+	bcc :+
+	inc @scr+1
+:	inc @line
+	lda @line
+	cmp line
+	bne @l0
+
+@cont:	; save cursor state of caller
 	lda zp::curx
 	sta cursave_x
 	lda zp::cury
@@ -131,15 +250,14 @@ __console_quit: .byte 0	; if !0, console will quit when command returns to it
 	bcs @clrline
 	pha
 
+	ldxy #mem::linebuffer
+	jsr __console_puts
+
 	lda line
 	cmp #HEIGHT-1
 	bcc :+
 
-	; if at bottom of the screen, scroll everything up
-	CALL FINAL_BANK_MAIN, #text::scrollup
-	dec line
-:	inc line		; move down a row before running command
-	pla
+:	pla
 	cmp #$02		; 2 because prompt makes min length 1
 	bcs @run
 	jmp @prompt		; if command length is 0, there is no command

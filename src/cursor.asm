@@ -1,3 +1,10 @@
+;*******************************************************************************
+; CURSOR.ASM
+; This file contains procedures for interacting with the cursor.
+; This includes functionality like limiting the bounds of the cursor as well
+; as code to render it.
+;*******************************************************************************
+
 .include "bitmap.inc"
 .include "config.inc"
 .include "edit.inc"

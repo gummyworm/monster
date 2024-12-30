@@ -1,3 +1,11 @@
+;*******************************************************************************
+; CTX.ASM
+; This file contains the code for interacting with the assembly "context"
+; The "context" is a special buffer used by the .MAC and .REP directives to
+; store lines of data, which is required to complete the assembly of these
+; directives when their corresponding .ENDMAC or .ENDREP directive is found.
+;*******************************************************************************
+
 .include "errors.inc"
 .include "macros.inc"
 .include "memory.inc"

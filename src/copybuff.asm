@@ -1,3 +1,10 @@
+;*******************************************************************************
+; COPYBUFF.ASM
+; This file contains the procedures to read and write from/to the copy buffer.
+; This is used by the editor to store data that was copied in VISUAL mode
+; or deleted.
+;*******************************************************************************
+
 .include "errors.inc"
 .include "finalex.inc"
 .include "macros.inc"

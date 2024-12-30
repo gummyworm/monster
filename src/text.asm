@@ -816,7 +816,7 @@ render_off: .byte 0
 ; the string, text::len characters are displayed (including 0's etc.)
 ; IN:
 ;  - .XY: the string to display
-;  - .A: the text to display
+;  - .A:  the row to display the string on
 .export __text_puts
 .proc __text_puts
 	JUMP FINAL_BANK_FASTTEXT, #ftxt::puts

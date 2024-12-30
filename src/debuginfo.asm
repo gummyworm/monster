@@ -1,10 +1,10 @@
-;******************************************************************************
+;*******************************************************************************
 ; DEBUGINFO.ASM
 ; This file contains definitions for procedures to store debug info for
 ; assembled programs.  This info is the map of file and line-number to address.
 ; Refer to docs/debug-info.md for more information about the format of the
 ; debug information
-;******************************************************************************
+;*******************************************************************************
 
 .include "errors.inc"
 .include "finalex.inc"
@@ -29,6 +29,7 @@ DATA_FILE = 0	; offset of FILE ID in debug info
 DATA_LINE = 1	; offset of line number in debug info
 DATA_ADDR = 3	; offset of line address in debug info
 
+; Opcodes for extended instructions
 OP_SET_ADDR     = $01
 ; FREE          = $02
 OP_SET_LINE     = $03
@@ -38,7 +39,7 @@ OP_SET_PC       = $06
 
 SIZEOF_BLOCK_HEADER = 13
 
-;******************************************************************************
+;*******************************************************************************
 .macro BANKJUMP proc_id
 	pha
 	lda #proc_id
@@ -70,7 +71,7 @@ GET_FILEID
 dbgi_procs_lo: .lobytes dbgi_procs
 dbgi_procs_hi: .hibytes dbgi_procs
 
-;******************************************************************************
+;*******************************************************************************
 ; Debug info pointers
 ; active line data, these represent the HEAD state of the line program
 ; state machine
@@ -99,7 +100,7 @@ __debug_src_line = srcline	; the line # stored by dbg::storeline
 
 .segment "DEBUGINFO"
 
-;******************************************************************************
+;*******************************************************************************
 ; DEBUGINFO
 ; This large block of memory stores the line programs for each block.
 ; The location of each block is found by summing the sizes of each block before
@@ -161,7 +162,7 @@ __debug_push_block:     BANKJUMP dbgi_proc_ids::PUSH_BLOCK
 __debug_pop_block:      BANKJUMP dbgi_proc_ids::POP_BLOCK
 __debuginfo_get_fileid: BANKJUMP dbgi_proc_ids::GET_FILEID
 
-;******************************************************************************
+;*******************************************************************************
 ; Entrypoint for routines
 .proc do_proc
 	stx @savex
@@ -181,7 +182,7 @@ __debuginfo_get_fileid: BANKJUMP dbgi_proc_ids::GET_FILEID
 .POPSEG
 .endif
 
-;******************************************************************************
+;*******************************************************************************
 ; number of files that we have debug info for
 numfiles: .byte 0
 
@@ -209,7 +210,7 @@ blockheaders: .res MAX_BLOCKS * SIZEOF_BLOCK_HEADER
 blockaddresseslo: .res MAX_FILES
 blockaddresseshi: .res MAX_FILES
 
-;******************************************************************************
+;*******************************************************************************
 ; INITONCE
 ; Clears state that should only be cleared on boot (file table)
 .proc initonce
@@ -219,7 +220,7 @@ blockaddresseshi: .res MAX_FILES
 	; fall through to init
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; INIT
 ; Clears the debug info state that is valid for a single assembled program
 ; This is the line table and line program information, which is regenerated
@@ -239,7 +240,7 @@ blockaddresseshi: .res MAX_FILES
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PUSH BLOCK
 ; Pushes the current state machine values for the line program
 ; This allows a new block to be created and then the current block restored
@@ -266,7 +267,7 @@ blockaddresseshi: .res MAX_FILES
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; POP BLOCK
 ; Pops the last pushed values (push_block) for the line program state machine
 ; OUT:
@@ -292,7 +293,7 @@ blockaddresseshi: .res MAX_FILES
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; NEW BLOCK
 ; Creates a new block (as with .ORG)
 ; IN:
@@ -387,7 +388,7 @@ blockaddresseshi: .res MAX_FILES
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; END BLOCK
 ; Updates values that may have changed with calls to storeline
 ; This includes the end address and number of lines in the block
@@ -446,7 +447,7 @@ blockaddresseshi: .res MAX_FILES
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SET ADDR
 ; Writes an instruction to set the address to the given value
 ; This is for use with the .ORG directive
@@ -481,7 +482,7 @@ blockaddresseshi: .res MAX_FILES
 :	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; STORE LINE
 ; Write an instruction to the active line program to map the given line to the
 ; given address within the active block.
@@ -636,7 +637,7 @@ blockaddresseshi: .res MAX_FILES
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ADDR2LINE
 ; returns the filename and address that correspond
 ; to the given address
@@ -704,7 +705,7 @@ blockaddresseshi: .res MAX_FILES
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LINE2ADDR
 ; Returns the address of the given line.
 ; IN:
@@ -786,7 +787,7 @@ blockaddresseshi: .res MAX_FILES
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET FILEID
 ; Returns the ID for the given file name by looking it up in the file table
 ; IN:
@@ -837,7 +838,7 @@ blockaddresseshi: .res MAX_FILES
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET FILENAME ADDR
 ; Returns the address of the filename for the given file ID
 ; IN:
@@ -862,7 +863,7 @@ blockaddresseshi: .res MAX_FILES
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET FILENAME
 ; Copies the filename for the given ID to a scratch buffer and returns the
 ; address to it
@@ -891,7 +892,7 @@ get_filename = get_filename_addr
 .endproc
 .endif
 
-;******************************************************************************
+;*******************************************************************************
 ; SET FILE
 ; Sets the active file-id to the the ID for given filename.
 ; If no file-id exists for the provided filename, one is first created.
@@ -908,7 +909,7 @@ get_filename = get_filename_addr
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SET NAME
 ; Renames the entry for the given ID in the file table to the given name
 ; IN:
@@ -939,7 +940,7 @@ get_filename = get_filename_addr
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET BLOCK BY ID
 ; Returns the start and stop addresses of a block by its ID.
 ; ID's are sequential, so to iterate over all blocks, you can call this
@@ -1007,7 +1008,7 @@ get_filename = get_filename_addr
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ADVANCE
 ; Runs one command in the active line program
 ; Updates the line pointer to point to the next line in the active file.
@@ -1100,7 +1101,7 @@ get_filename = get_filename_addr
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COMPARE
 ; Compares the strings in (str0) to the buffer @ $120
 ; IN:
@@ -1124,7 +1125,7 @@ get_filename = get_filename_addr
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COPY
 ; Copies one 0-terminated string to another. A maximum of 255 chars are copied
 ; IN:
