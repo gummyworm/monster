@@ -1424,7 +1424,10 @@ force_enter_insert=*+5
 	jsr ccdown
 	jsr backspace
 	jsr enter_command
+	jsr src::pushp
+	jsr home
 	jsr src::get
+	jsr src::popp
 	lda zp::cury
 	jmp text::drawline
 .endproc
@@ -1440,9 +1443,11 @@ force_enter_insert=*+5
 ;*******************************************************************************
 .proc delete_to_end
 @l0:	jsr delch
-	jsr src::before_newl
+	jsr src::after_cursor
+	bcs :+			; if at end of buffer, we're done
+	cmp #$0d
 	bne @l0
-	jmp redraw_to_end_of_line
+:	jmp redraw_to_end_of_line
 .endproc
 
 ;*******************************************************************************

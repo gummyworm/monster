@@ -1102,6 +1102,7 @@ __src_atcursor:
 	jsr __src_prev
 	pla
 	RETURN_OK
+
 @end:	sec		; end of buffer
 	rts
 .endproc
