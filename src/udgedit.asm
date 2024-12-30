@@ -133,11 +133,16 @@ linebuffer = $0400
 	jsr zp::jmpaddr
 	jmp refresh_status
 
-@keys:	; k, j, h, l, 1, 2, m
-	.byte $4b, $4a, $48, $4c, '1', '2', '3', '4', K_UDG_TOGGLE_MODE
+@keys:	.byte $4b, $4a, $48, $4c	; k, j, h, l
+	.byte '1', '2', '3', '4'
+	.byte K_UDG_TOGGLE_MODE, K_UDG_CLEAR
 @numkeys=*-@keys
 
-.define handlers up, down, left, right, plot0, plot1, plot2, plot3, toggle_mode
+.linecont +
+.define handlers up, down, left, right, plot0, plot1, plot2, plot3, \
+	toggle_mode, clrcanvas
+.linecont -
+
 @handlerslo: .lobytes handlers
 @handlershi: .hibytes handlers
 .endproc
