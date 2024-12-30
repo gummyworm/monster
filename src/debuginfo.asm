@@ -497,9 +497,6 @@ blockaddresseshi: .res MAX_FILES
 @isize=r8
 	stxy @line
 
-	ldy #$00
-	sty @isize
-
 	; get the line and address delta for our new line (dline = new - prev)
 	lda @line
 	sec
@@ -511,6 +508,9 @@ blockaddresseshi: .res MAX_FILES
 
 	; set new srcline value to the line we're moving to
 	stxy srcline
+
+	ldy #$00
+	sty @isize
 
 	; get the relative address from the block's base address
 	lda @addr
@@ -654,10 +654,11 @@ blockaddresseshi: .res MAX_FILES
 	lda #$00
 	sta @cnt
 
-@l0:	lda @cnt
+@l0:	; load the next block to search for the address in
+	lda @cnt
 	jsr get_block_by_id
 	bcc @checkstop
-	RETURN_ERR ERR_LINE_NOT_FOUND
+	RETURN_ERR ERR_LINE_NOT_FOUND	; no next block, address isn't mapped
 
 ; is the address we're looking for in the range [blockstart, blockstop)?
 @checkstop:
@@ -681,9 +682,7 @@ blockaddresseshi: .res MAX_FILES
 	bcs @findline   ; blockstart <= addr < blockstop, find the line #
 
 @next:	inc @cnt
-	lda @cnt
-	cmp numblocks
-	bcc @l0	 	; repeat until we've checked all blocks
+	bne @l0
 	RETURN_ERR ERR_LINE_NOT_FOUND
 
 ; run the line program until we find the line that is mapped to the given addr
@@ -695,13 +694,14 @@ blockaddresseshi: .res MAX_FILES
 	cmp @addr+1
 	bne @nextline
 
-@found:	ldxy srcline
-	lda file
+@found:	ldxy srcline	; return the line that the program ended on
+	lda file	; and file
 	RETURN_OK
 
 @nextline:
 	jsr advance
 	bcc @findline
+	lda #ERR_LINE_NOT_FOUND
 @done:	rts
 .endproc
 
@@ -1023,7 +1023,7 @@ get_filename = get_filename_addr
 
 @basic_i:
 	; decode the opcode; top 4 bits contain PC offset and bottom 4 line
-	pha
+	pha		; save instruction
 	and #$0f	; get line offest and add it to the current line
 	clc
 	adc srcline
@@ -1031,7 +1031,7 @@ get_filename = get_filename_addr
 	bcc :+
 	inc srcline+1
 
-:	pla
+:	pla		; restore instruction
 	lsr		; get PC offset and add it to the current address
 	lsr
 	lsr
