@@ -1,3 +1,9 @@
+;*******************************************************************************
+; UTIL.ASM
+; This file contains definitions for various utility procedures.  This includes
+; things like converting binary values to hex or copying memory.
+;*******************************************************************************
+
 .include "errors.inc"
 .include "memory.inc"
 .include "text.inc"
@@ -5,31 +11,7 @@
 .include "macros.inc"
 .CODE
 
-;******************************************************************************
-; FINDB
-; Finds the given byte value in the provided list and returns its index
-; IN:
-;  - .A:  the value to look for
-;  - .XY: the address of list to seek for the value in
-;  - r0: the # of items in the list
-; OUT:
-;  - .Y: the index of the item (if found)
-;  - .Z: set if the item was found in the list
-.export __util_findb
-.proc __util_findb
-@list=zp::util
-@cnt=r0
-	stxy @list
-	ldy @cnt
-	dey
-:	cmp (@list),y
-	beq @done
-	dey
-	bpl :-
-@done:	rts
-.endproc
-
-;******************************************************************************
+;*******************************************************************************
 ; MEMSET
 ; Sets r0 bytes of the memory at (YX) to .A.
 ; IN:
@@ -45,7 +27,7 @@
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; MEMCPY
 ; Moves r0 bytes from (r2) to (r4).
 ; IN:
@@ -76,7 +58,7 @@
 @done:  rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; MEMMOVE
 ; Moves .A bytes from (r0) to (r2)
 ; Can move at most 128 bytes
@@ -110,7 +92,7 @@
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CHTOHEX
 ; Returns the binary representation of the character given in .A
 ; IN:
@@ -183,7 +165,7 @@
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PARSE HEX
 ; Returns the 16-bit binary value of the given hex string.
 ; IN:
@@ -231,7 +213,7 @@
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ATOI
 ; Returns the value of the decimal string given in .XY.
 ; The string must be terminated by a \0, $0d (newline), or ','.
@@ -343,7 +325,7 @@
 	RETURN_ERR ERR_OVERSIZED_OPERAND
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TODEC
 ; Gets the decimal representation of the value given.
 ; IN:
@@ -411,7 +393,7 @@ result=mem::spare
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TODEC8
 ; A small (faster) routine to convert a small number to decimal
 ; IN:
@@ -433,7 +415,7 @@ result=mem::spare
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TODEC24
 ; Converts the given 24 bit binary value to a decimal string
 ; IN:
@@ -502,7 +484,7 @@ result=mem::spare
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS_WHITESPACE
 ; Checks if the given character is a whitespace character
 ; IN:
@@ -519,7 +501,7 @@ result=mem::spare
 :	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; is_null_space_comma_closingparen
 ; IN:
 ;  - .A: the character to test
@@ -537,7 +519,7 @@ result=mem::spare
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS_OPERATOR
 ; IN:
 ;  - .A: the character to test
@@ -560,7 +542,7 @@ result=mem::spare
 @numops = *-@ops
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS_SEPARATOR
 .export __util_is_separator
 .proc __util_is_separator
@@ -572,7 +554,7 @@ result=mem::spare
 :	jmp __util_isoperator
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS_ALPHANUM
 ; IN:
 ;  .A: the character to test for alphanumeric
@@ -593,7 +575,7 @@ result=mem::spare
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PARSE_ENQUOTED_STRING
 ; Parses an enquoted text string in returns the text that is within the quotes
 ; at the given destination address

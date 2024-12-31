@@ -1,8 +1,13 @@
+;*******************************************************************************
+; STRINGS.ASM
+; This file contains string constants used throughout the program.
+;*******************************************************************************
+
 .include "text.inc"
 
 .define yes_no "(", $79, "/", $6e, ")"		; lowercase (y/n)
 
-;******************************************************************************
+;*******************************************************************************
 .RODATA
 
 .export __str_buffers
@@ -112,7 +117,7 @@ __str_watches_line:
 __str_watches_changed_line:
 .byte ESCAPE_BYTE, "! $", ESCAPE_VALUE, ": ", ESCAPE_BYTE, CH_R_ARROW, ESCAPE_BYTE, 0
 
-;******************************************************************************
+;*******************************************************************************
 ; These strings are modified thus are not in RODATA
 .DATA
 ; <filename> l: <line no.> <symbol> : <addr>

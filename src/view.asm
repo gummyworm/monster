@@ -1,3 +1,10 @@
+;*******************************************************************************
+; VIEW.ASM
+; This file contains the code for the memory viewer/editor.  This editor is
+; invoked via the debugger and allows the user to inspect memory or change its
+; contents through a visual interface.
+;*******************************************************************************
+
 .include "beep.inc"
 .include "bitmap.inc"
 .include "config.inc"
@@ -21,7 +28,7 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; CONSTANTS
 BYTES_TO_DISPLAY=8
 
@@ -31,7 +38,7 @@ COL_STOP  = COL_START+(3*BYTES_TO_DISPLAY)-1
 TOTAL_BYTES = BYTES_TO_DISPLAY*(MEMVIEW_STOP-MEMVIEW_START)
 
 .BSS
-;******************************************************************************
+;*******************************************************************************
 dirtybuff: .res TOTAL_BYTES
 
 .export __view_addr
@@ -39,7 +46,7 @@ __view_addr:
 memaddr:   .word 0
 
 .CODE
-;******************************************************************************
+;*******************************************************************************
 ; EDIT
 ; Starts the memory editor
 .export __view_edit
@@ -302,7 +309,7 @@ memaddr:   .word 0
 @reset: jmp __view_edit		; restart the viewer at the word's address
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; UP
 ; Handles the Up key, moving the cursor or scrolling if needed
 .proc up
@@ -356,7 +363,7 @@ memaddr:   .word 0
 	jmp cur::on
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETSET ADDR
 ; Gets an address from the user (as input in the memory title area) and updates
 ; the memory view to render that area of memory.
@@ -447,7 +454,7 @@ memaddr:   .word 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; MEM_LINE
 ; Returns a line containing 8 bytes of the contents of the given address
 ; along with a text rendering of those 8 bytes.
@@ -517,7 +524,7 @@ memaddr:   .word 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; Get the character representation of the given byte value
 .proc val2ch
 	cmp #$20
@@ -569,7 +576,7 @@ memaddr:   .word 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; FIND WORD
 ; Seeks forward from the address in memaddr for the given WORD value.
 ; IN:
@@ -605,7 +612,7 @@ memaddr:   .word 0
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; FIND BYTE
 ; Searches for the given byte value starting at the given address and ending at
 ; the given address (wrapping around if needed)
