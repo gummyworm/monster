@@ -35,6 +35,8 @@ CANVAS_X      = 8*8		; start column (in pixels)
 CANVAS_HEIGHT = 8*PIXEL_SIZE
 CANVAS_WIDTH  = 8*PIXEL_SIZE
 
+BORDER_SIZE = 0
+
 color      = zp::editortmp
 cur_on     = zp::editortmp+1	; cursor on flag
 cur_tmr    = zp::editortmp+2	; cursor blink timer (2 bytes)
@@ -135,11 +137,12 @@ linebuffer = $0400
 @keys:	.byte $4b, $4a, $48, $4c	; k, j, h, l
 	.byte '1', '2', '3', '4'
 	.byte K_UDG_TOGGLE_MODE, K_UDG_CLEAR
+	.byte $14,$c8,$30,$24,$c7	; DELETE, H, 0, $, G
 @numkeys=*-@keys
 
 .linecont +
 .define handlers up, down, left, right, plot0, plot1, plot2, plot3, \
-	toggle_mode, clrcanvas
+	toggle_mode, clrcanvas, left, home, col0, col7, bot
 .linecont -
 
 @handlerslo: .lobytes handlers
@@ -170,21 +173,26 @@ linebuffer = $0400
 	bpl :-
 
 	; clear the bitmap area of the canvas
-	ldxy #BITMAP_ADDR+($c0*(CANVAS_X/8))+CANVAS_Y-1-$c0
+	ldxy #BITMAP_ADDR+($c0*(CANVAS_X/8))+CANVAS_Y-$c0-(BORDER_SIZE)-1
 	stxy @dst
 	ldx #CANVAS_WIDTH/8+1	; +1 for border
 
 ; draw left border
-	lda #$01
-	ldy #CANVAS_HEIGHT+1
+	ldy #CANVAS_HEIGHT+(BORDER_SIZE)+1
+	lda #($aa >> (6-BORDER_SIZE))
+	sta (@dst),y
+	dey
+	lda #($02 << BORDER_SIZE)
 :	sta (@dst),y
 	dey
-	bpl :-
-	bmi @nextcol
+	bne :-
+	lda #($aa >> (6-BORDER_SIZE))
+	sta (@dst),y
+	bne @nextcol
 
 @l0:	lda #$00
-	ldy #CANVAS_HEIGHT+1
-	lda #$ff
+	ldy #CANVAS_HEIGHT+(BORDER_SIZE)+1
+	lda #$aa
 	sta (@dst),y	; bottom border
 	dey
 :	lda #$00
@@ -192,7 +200,7 @@ linebuffer = $0400
 	dey
 	bne :-
 
-	lda #$ff
+	lda #$aa
 	sta (@dst),y	; top border
 
 @nextcol:
@@ -206,15 +214,64 @@ linebuffer = $0400
 	bne @l0
 
 @rborder:
-	; draw rightborder
-	lda #$80
-	ldy #CANVAS_HEIGHT+1
+	ldy #CANVAS_HEIGHT+(BORDER_SIZE)+1
+	lda #($aa << (6-BORDER_SIZE)) & $ff
+	sta (@dst),y
+	dey
+	lda #($80 >> BORDER_SIZE)
 :	sta (@dst),y
 	dey
-	bpl :-
+	bne :-
+	lda #($aa << (6-BORDER_SIZE)) & $ff
+	sta (@dst),y
 
 @done:	rts
 .endproc
+
+;*******************************************************************************
+; HOME
+; Moves the cursor to the top left position
+.proc home
+	jsr curoff
+	lda #$00
+	sta zp::curx
+	sta zp::cury
+	jmp curon
+.endproc
+
+;*******************************************************************************
+; BOT
+; Moves the cursor to the bottom left position
+.proc bot
+	jsr curoff
+	lda #$00
+	sta zp::curx
+	lda #$07
+	sta zp::cury
+	jmp curon
+.endproc
+
+
+;*******************************************************************************
+; COL0
+; Moves the cursor to the first column
+.proc col0
+	jsr curoff
+	lda #$00
+	sta zp::curx
+	jmp curon
+.endproc
+
+;*******************************************************************************
+; COL7
+; Moves the cursor to the last column
+.proc col7
+	jsr curoff
+	lda #$07
+	sta zp::curx
+	jmp curon
+.endproc
+
 
 ;*******************************************************************************
 ; CUROFF
@@ -893,12 +950,12 @@ plot3:	lda #$03
 ; Initializes multicolor mode for all cells used by the UDG editor
 .proc init_mc
 @color=r0
-	; enable multicolor for all cells
-	ldxy #(COLMEM_ADDR + ((CANVAS_Y/16)*(BITMAP_WIDTH/8) + (CANVAS_X/8)))
+	; enable multicolor for all cells (including border (the -1))
+	ldxy #(COLMEM_ADDR + ((CANVAS_Y/16 - 1)*(BITMAP_WIDTH/8) + (CANVAS_X/8)-1))
 	stxy @color
 
-	ldx #(CANVAS_HEIGHT/16)
-@l0:	ldy #(CANVAS_WIDTH/8)-1
+	ldx #(CANVAS_HEIGHT/16)+2
+@l0:	ldy #(CANVAS_WIDTH/8)-1+2	; +1 for border
 @l1:	lda (@color),y
 	eor #$08
 	sta (@color),y
