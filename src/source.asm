@@ -1,3 +1,13 @@
+;*******************************************************************************
+; SOURCE.ASM
+; This file contains the procedures to interacting with the buffer that backs
+; the editor. When data is entered in the editor, it is stored in one of 8
+; "source buffers", each in their own memory bank. These are gap buffers to
+; allow for efficient insertion of text.
+; Because there are 8 different buffers, the procedures to read and write to
+; the current active buffer are stored in shared RAM.
+;*******************************************************************************
+
 .include "cursor.inc"
 .include "debug.inc"
 .include "draw.inc"
@@ -13,25 +23,25 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; CONSTANTS
 MAX_SOURCES=8		; number of source buffers that can be loaded at once
 GAPSIZE = $100		; size of gap in gap buffer
 POS_STACK_SIZE = 32 	; size of source position stack
 MAX_BUFFER_NAME_LEN=16  ; max length of names for each buffer
 
-;******************************************************************************
+;*******************************************************************************
 ; FLAGS
 FLAG_DIRTY = 1
 
 .BSS
 
-;******************************************************************************
+;*******************************************************************************
 data_start:
 sp: 	   .byte 0		; stack pointer for source position stack
 stack:     .res POS_STACK_SIZE	; stack for source positions
 
-;******************************************************************************
+;*******************************************************************************
 ; BUFFSTATE
 ; This block of zeropage variables are stored in the order they are
 ; enumerated below.  When a source buffer is activated, the state for that
@@ -51,7 +61,7 @@ __src_line = line
 .exportzp __src_lines
 __src_lines = lines
 
-;******************************************************************************
+;*******************************************************************************
 ; SAVESTATE
 ; This buffer holds the "buffer state" for each source buffer. See BUFFSTATE
 savestate:  .res MAX_SOURCES*10	; 10 bytes: curl, curr, line, lines, end
@@ -60,7 +70,7 @@ savestate:  .res MAX_SOURCES*10	; 10 bytes: curl, curr, line, lines, end
 __src_names:
 names:	   .res MAX_SOURCES*MAX_BUFFER_NAME_LEN
 
-;******************************************************************************
+;*******************************************************************************
 .export __src_numbuffers
 __src_numbuffers:
 numsrcs:    .byte 0		; number of buffers
@@ -74,9 +84,9 @@ buffs_cury: .res MAX_SOURCES	; cursor Y positions for each inactive buffer
 banks:      .res MAX_SOURCES	; the corresponding bank for each buffer
 
 flags:	.res MAX_SOURCES	; flags for each source buffer
-;******************************************************************************
+;*******************************************************************************
 
-;******************************************************************************
+;*******************************************************************************
 ; DATA
 ; This buffer holds the text data.  It is a large contiguous chunk of memory
 .segment "SOURCE"
@@ -84,7 +94,7 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 data: .res $6000
 
 .CODE
-;******************************************************************************
+;*******************************************************************************
 ; SAVE
 ; Backs up the pointers for the active source so that they may be set for
 ; another source
@@ -123,7 +133,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SET
 ; Sets the active source to the source in the given ID.
 ; IN:
@@ -169,7 +179,7 @@ data: .res $6000
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; FIND_BANK
 ; Returns the ID of a free bank to store source in
 ; OUT:
@@ -198,7 +208,7 @@ data: .res $6000
 @found:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; NEW
 ; Initializes a new source buffer and sets it as the current buffer
 ; OUT:
@@ -266,7 +276,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; BUFFER_BY_NAME
 ; Returns the ID of the buffer associated with the given filename. The carry
 ; is set if no buffer by the given name exists.
@@ -313,7 +323,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CURRENT_FILENAME
 ; Returns the filename for the active buffer
 ; OUT:
@@ -328,7 +338,7 @@ data: .res $6000
 	; fall through to __src_get_filename
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET_FILENAME
 ; Returns the filename for the given buffer
 ; IN:
@@ -363,7 +373,7 @@ data: .res $6000
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ISDIRTY
 ; Returns .Z clear if the active buffer is dirty (has changed since it was last
 ; marked !DIRTY)
@@ -377,7 +387,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ANYDIRTY
 ; Returns .Z clear if ANY buffer is dirty (has changed since it was last
 ; marked !DIRTY)
@@ -394,7 +404,7 @@ data: .res $6000
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET_FLAGS
 ; Returns the flags for the requested buffer
 ; IN:
@@ -408,7 +418,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SET_FLAGS
 ; Sets the flags for the active source buffer
 ; IN:
@@ -420,7 +430,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLOSE
 ; Closes the active buffer. If the buffer being closed is the only one open,
 ; initializes a new buffer and makes it the active buffer.
@@ -509,7 +519,7 @@ data: .res $6000
 	jmp __src_set
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; NAME
 ; Sets the name for the active buffer
 ; IN:
@@ -535,7 +545,7 @@ data: .res $6000
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PUSHP
 ; Pushes the current source position to an internal stack.
 ; OUT:
@@ -579,7 +589,7 @@ data: .res $6000
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CURR LINE
 ; Returns the line number that the source cursor is on
 ; OUT:
@@ -590,7 +600,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; END
 ; Returns .Z set if the cursor is at the end of the buffer.
 ; OUT:
@@ -605,7 +615,7 @@ data: .res $6000
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; END_REP
 ; Returns .Z set if the current or next cursor position is at the end of the
 ; buffer.
@@ -623,7 +633,7 @@ data: .res $6000
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; BEFORE END
 ; Checks if the source cursor is located just before the end of the buffer.
 ; OUT:
@@ -636,7 +646,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; POS
 ; Returns the current source position.  You may go to this position with the
 ; src::goto routine.  Note that if the source changes since this procedure is
@@ -649,7 +659,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; START
 ; Returns .Z set if the cursor is at the start of the buffer.
 ; OUT:
@@ -663,7 +673,7 @@ data: .res $6000
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; BACKSPACE
 ; Deletes the character immediately before the current cursor position.
 ; OUT:

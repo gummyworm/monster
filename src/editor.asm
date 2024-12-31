@@ -608,7 +608,7 @@ main:	jsr key::getch
 	; fall through to display_result
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ASM DONE
 ; Displays the result of the assembly. Prints an error if one occurred or
 ; the size of the assembled program if not.
@@ -674,7 +674,7 @@ main:	jsr key::getch
 .CODE
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PROMPT SAVE ALL
 ; Asks the user if they would like to save all modified buffers and does so
 ; if they confirm
@@ -698,7 +698,7 @@ main:	jsr key::getch
 @done:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PROMPT ASSEMBLE
 ; Asks the user if they would like to reassemble their program and does so
 ; if they confirm
@@ -718,7 +718,7 @@ main:	jsr key::getch
 @done:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COMMAND_ASMDBG
 ; assembles the source and generates debug information for it
 .proc command_asmdbg
@@ -734,7 +734,7 @@ main:	jsr key::getch
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COMMAND SAVE ALL
 ; Save all open buffers that have been modified since they were last saved.
 ; OUT
@@ -779,7 +779,7 @@ main:	jsr key::getch
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETS
 ; Accepts user input at the current cursor position and returns the input
 ; after the user presses RETURN
@@ -862,7 +862,7 @@ main:	jsr key::getch
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; READINPUT
 ; Reads command input and returns it (0-terminated) in mem::linebuffer
 ; a prompt may be given in the address XY. If XY is 0, a ':' will be
@@ -3230,7 +3230,7 @@ goto_buffer:
 	jmp cur::set
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLRERROR
 ; Clears any error message
 .proc clrerror
@@ -3271,7 +3271,7 @@ goto_buffer:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CCUP
 ; Handles the up cursor key
 .proc ccup
@@ -3418,10 +3418,10 @@ goto_buffer:
 	adc zp::curx
 	sta zp::curx
 	dec zp::curx
-; fallthrough
+; fallthrough to ccup_highlight
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CCUP HIGHLIGHT
 ; Highlights the line that the cursor is on if the editor is in VISUAL mode
 ; This is called after the ccup logic
@@ -3838,16 +3838,16 @@ goto_buffer:
 	; if in VISUAL_LINE mode, just rvs the line and return
 	lda mode
 	cmp #MODE_VISUAL_LINE
-	bne @xloopend
+	bne @movex
 	jsr rvs_current_line
 
-@xloop:	jsr src_right
+@movex:	lda zp::curx
+	cmp @xend
+	bcs @end
+	jsr src_right
 	bcs @end
 	jsr cur::right
-@xloopend:
-	lda zp::curx
-	cmp @xend
-	bcc @xloop
+	jmp @movex
 
 @end:	; if we ended on a TAB, advance to next tab col
 	jsr src::after_cursor
