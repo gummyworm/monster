@@ -544,6 +544,12 @@ result=mem::spare
 
 ;*******************************************************************************
 ; IS_SEPARATOR
+; Checks if the given byte represents a "separator". A separator is any of:
+;  0, $0d, ' ', ',', ')', or any operator character
+; IN:
+;   - .A: the byte to check
+; OUT:
+;   - .Z: set if the given byte represents a "separator"
 .export __util_is_separator
 .proc __util_is_separator
 	cmp #':'
