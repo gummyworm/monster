@@ -1071,7 +1071,6 @@ force_enter_insert=*+5
 	bne @left
 
 	jsr refresh	; unhighlight selection (if we were in VISUAL mode)
-	jmp @done	; skip INSERT position correction
 
 @left:	; if we're on a TAB, move cursor to the end of it
 	jsr src::after_cursor
@@ -1082,10 +1081,14 @@ force_enter_insert=*+5
 	adc zp::curx
 	sta zp::curx
 	dec zp::curx
-:	lda #MODE_COMMAND
-	sta mode
+
+:	lda mode
+	cmp #MODE_INSERT
+	bne :+
 	jsr ccleft	; insert places cursor after char
 
+:	lda #MODE_COMMAND
+	sta mode
 	; if we're on a TAB after moving left, move to the end of it
 	jsr src::after_cursor
 	cmp #$09
