@@ -1,3 +1,13 @@
+;*******************************************************************************
+; FORMAT.ASM
+;
+; This file contains the code to format a line of the user's program based
+; on its contents.
+; The main procedure, fmt::line, looks at the given "type" value and indents
+; or unindents depending on what the line contains.
+; Labels are unindented, instructions are indented.
+;*******************************************************************************
+
 .include "codes.inc"
 .include "config.inc"
 .include "linebuffer.inc"

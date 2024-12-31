@@ -1342,9 +1342,10 @@ force_enter_insert=*+5
 	dec @cnt
 	lda @cnt
 	cmp #$ff
-	bne @delsel
+	bne :+
 	dec @cnt+1
-	bpl @delsel
+:	ora @cnt+1		; are LSB and MSB of @cnt 0?
+	bne @delsel
 	jmp refresh		; done, refresh to clear deleted text
 
 @cont:	jsr key::waitch		; get a key to decide what to delete
@@ -1364,6 +1365,7 @@ force_enter_insert=*+5
 	jsr buff::clear		; clear the copy buffer
 	jmp zp::jmpaddr		; execute the delete command
 
+.PUSHSEG
 .RODATA
 @subcmds:
 .byte $77	; w delete word
@@ -1375,7 +1377,7 @@ force_enter_insert=*+5
 .define subcmds delete_word, delete_line, delete_to_end, delete_to_begin
 @subcmdshi: .hibytes subcmds
 @subcmdslo: .lobytes subcmds
-.CODE
+.POPSEG
 .endproc
 
 ;*******************************************************************************
@@ -1868,14 +1870,11 @@ force_enter_insert=*+5
 	ldxy @cur
 	jsr src::goto
 
-	jsr src::atcursor
-	cmp #$0d
-	beq :+
-	jsr src::up	; if cursor is not at start of line, move it there
+	jsr src::home	; if cursor is not at start of line, move it there
 	jsr src::pos
 	stxy @cur
 
-:	ldxy @end
+	ldxy @end
 	jsr src::goto
 	jsr src::lineend	; if selecting the whole line, go to end of it
 	jsr src::pos
@@ -2263,7 +2262,7 @@ force_enter_insert=*+5
 .endproc
 
 ;******************************************************************************
-; Refresh
+; REFRESH
 ; Redraws the screen
 .export __edit_refresh
 __edit_refresh:
@@ -2376,7 +2375,7 @@ __edit_refresh:
 .endproc
 
 ;******************************************************************************
-; SET_BREAKPOINT
+; SET BREAKPOINT
 ; Creates a breakpoint at the cursor's current file/line number or removes it
 ; if one already exists
 .export __edit_set_breakpoint
@@ -3733,13 +3732,12 @@ goto_buffer:
 	cmp #MODE_INSERT
 	beq @endins
 	jsr src::end_rep
-	bne :+
-	rts
+	beq @ret
 @endins:
 	jsr src::end
 	bne :+
 	sec
-	rts		; cursor is at end of source file, return
+@ret:	rts		; cursor is at end of source file, return
 
 :	lda zp::curx
 	sta @xend
@@ -3840,19 +3838,14 @@ goto_buffer:
 	; if in VISUAL_LINE mode, just rvs the line and return
 	lda mode
 	cmp #MODE_VISUAL_LINE
-	bne @movex
+	bne @xloopend
 	jsr rvs_current_line
 
-@xloop:	lda mode
-	cmp #MODE_INSERT
-	beq :+
-	jsr src::right_rep
-	bcs ccdown_highlight
-	bcc @cur
-:	jsr src::right
-	bcs ccdown_highlight
-@cur:	jsr cur::right
-@movex: lda zp::curx
+@xloop:	jsr src_right
+	bcs @end
+	jsr cur::right
+@xloopend:
+	lda zp::curx
 	cmp @xend
 	bcc @xloop
 

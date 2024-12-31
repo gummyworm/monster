@@ -688,7 +688,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ON LINE INSERTED
 ; Callback to handle a line insertion. Various state needs to be shifted when
 ; this occurs (breakpoints, etc.)
@@ -705,7 +705,7 @@ data: .res $6000
 	jmp dbg::shift_breakpointsd
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ON LINE DELETED
 ; Callback to handle a line deletion. Various state needs to be shifted when
 ; this occurs (breakpoints for now, TODO: symbols)
@@ -719,7 +719,7 @@ data: .res $6000
 	jmp dbg::shift_breakpointsu
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DELETE
 ; Deletes the character at the current cursor position.
 ; OUT:
@@ -780,7 +780,7 @@ data: .res $6000
 @done:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PREV
 ; Moves the cursor back one character in the gap buffer.
 ; OUT:
@@ -823,7 +823,7 @@ data: .res $6000
 .endproc
 .POPSEG;
 
-;******************************************************************************
+;*******************************************************************************
 ; HOME
 ; Moves left until at the start of the source buffer or the start of the line
 .export __src_home
@@ -833,7 +833,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LINE_END
 ; Moves right until at the end of the source buffer or the end of the line
 .export __src_line_end
@@ -843,7 +843,7 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LEFT
 ; Moves left to the previous character unless it is a newline
 ; OUT:
@@ -863,7 +863,7 @@ data: .res $6000
 @done:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RIGHT
 ; Moves to the next character unless it is a newline
 ; OUT:

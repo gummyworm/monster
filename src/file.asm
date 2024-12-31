@@ -154,7 +154,7 @@ __file_load_src:
 ; This is called by __file_save and __file_savebin after those routines
 ; initialize the flags necessary to save source or memory respectively.
 ; IN:
-;  - the file to wrtie out should be open (file::open_w)
+;  - the file to write out should be open (file::open_w)
 ; OUT:
 ;  - .C: set on error, clear on success
 .proc dosave
