@@ -1,3 +1,11 @@
+;*******************************************************************************
+; BREAKPOINTS.ASM
+; This file contains code/data for interacting with breakpoints.
+; In their most primitive form, breakpoints are addresses that the debugger will
+; use to determine where to insert BRK's into the program that is being
+; debugged.
+;*******************************************************************************
+
 .include "bitmap.inc"
 .include "config.inc"
 .include "debug.inc"
@@ -17,14 +25,14 @@
 .include "text.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; CONSTANTS
 HEIGHT             = BRKVIEW_STOP-BRKVIEW_START-1
 BREAKPOINT_ENABLED = 1
 
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; EDIT
 ; Begins the breakpoint editor
 .export __breakpoint_edit
@@ -62,7 +70,7 @@ BREAKPOINT_ENABLED = 1
 @done:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TOGGLE_BREAKPOINT
 ; IN:
 ;  - .A: the breakpoint to toggle active/inactive
@@ -87,7 +95,7 @@ BREAKPOINT_ENABLED = 1
 :	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETBYLINE
 ; Returns the ID of the breakpoint at the given line (if one exists)
 ; IN:
@@ -127,7 +135,7 @@ BREAKPOINT_ENABLED = 1
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TOSTRING
 ; Returns the rendered string for the given breakpoint.
 ; This is displayed in both the TUI and GUI breakpoint viewer
@@ -211,7 +219,7 @@ BREAKPOINT_ENABLED = 1
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; NUM
 ; Returns the number of breakpoints
 ; OUT:

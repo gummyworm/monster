@@ -1,3 +1,11 @@
+;*******************************************************************************
+; WATCHES.ASM
+; This file contains code/data for interacting with breakpoints.
+; Watches are addresses that the debugger will use to determine where to halt a
+; trace.  Watches also have a flag associated with them, which allows the
+; watch to be triggered only when the value is read from or written to.
+;*******************************************************************************
+
 .include "bitmap.inc"
 .include "config.inc"
 .include "cursor.inc"
@@ -23,13 +31,13 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; CONSTANTS
 HEIGHT = WATCHVIEW_STOP-WATCHVIEW_START-1
 MAX_WATCHPOINTS = 8	; max number of watchpoints that may be set
 
 .BSS
-;******************************************************************************
+;*******************************************************************************
 scroll: .byte 0
 row:	.byte 0
 
@@ -52,7 +60,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 .export __watches_watch_flags
 
 .CODE
-;******************************************************************************
+;*******************************************************************************
 ; INIT
 ; Initializes the watch editor
 .export __watches_init
@@ -63,7 +71,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; EDIT
 ; Begins the breakpoint editor
 .export __watches_edit
@@ -113,7 +121,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 @done:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; UPDATE
 ; Reads the new values of all locations being watched and stores them
 ; If the watch represents a RANGE of values, does not store new value.
@@ -152,7 +160,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IN RANGE
 ; Checks if the given address is in the range of the given watch
 ; IN:
@@ -192,7 +200,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 @yes:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; MARK
 ; Marks the watch for the given address (if there is one) as DIRTY. Even if
 ; its value has not changed.
@@ -244,7 +252,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ADD
 ; Adds a watch for the given memory location.
 ; IN:
@@ -290,7 +298,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; REMOVE
 ; Removes the watch with the given ID
 ; IN:
@@ -335,7 +343,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETWATCH DATA
 ; Returns the properties of the given watch
 ; IN:
@@ -376,7 +384,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TOSTRING
 ; Returns the rendered string for the given watch.
 ; This is displayed in both the TUI and GUI watch viewer
@@ -471,7 +479,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETWATCH
 ; Returns the index of the watch at the given address
 ; IN:

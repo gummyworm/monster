@@ -15,7 +15,7 @@
 MAX_COPY_SIZE = __COPYBUFF_BSS_SIZE__
 
 .if FINAL_BANK_MAIN=FINAL_BANK_BUFF
-;******************************************************************************
+;*******************************************************************************
 ; Flat memory procedure mappings
 __buff_putch        = putch
 __buff_getch        = getch
@@ -27,7 +27,7 @@ __buff_pop          = pop
 __buff_len          = len
 
 .else
-;******************************************************************************
+;*******************************************************************************
 ; Copy Buff JUMP table
 .macro COPYBUFFJUMP proc_id
 	pha
@@ -78,7 +78,7 @@ __buff_pop: COPYBUFFJUMP buff_proc_ids::POP
 .export __buff_len
 __buff_len: COPYBUFFJUMP buff_proc_ids::LEN
 
-;******************************************************************************
+;*******************************************************************************
 ; Entrypoint for label routines
 .proc do_buff_proc
 	stx @savex
@@ -104,7 +104,7 @@ copybuff: 		.res $1e00	; buffer for copy data
 
 .segment "COPYBUFF"
 
-;******************************************************************************
+;*******************************************************************************
 ; PUTCH
 ; Pushes the given character onto the copy/paste buffer
 ; IN:
@@ -131,7 +131,7 @@ copybuff: 		.res $1e00	; buffer for copy data
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETCH
 ; Gets the last character that was PUT to the buffer
 ; OUT:
@@ -152,7 +152,7 @@ copybuff: 		.res $1e00	; buffer for copy data
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETLINE
 ; Gets the last line that was PUT to the buffer
 ; IN:
@@ -196,7 +196,7 @@ copybuff: 		.res $1e00	; buffer for copy data
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLEAR
 ; Initializes the copy buffer by clearing it
 .proc clear
@@ -207,7 +207,7 @@ copybuff: 		.res $1e00	; buffer for copy data
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LINES COPIED
 ; Returns the # of lines in the copy buffer
 ; OUT:
@@ -219,7 +219,7 @@ copybuff: 		.res $1e00	; buffer for copy data
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PUSH
 ; Saves the current location of the buffer pointer. Call buff::pop to restore
 ; it
@@ -231,7 +231,7 @@ copybuff: 		.res $1e00	; buffer for copy data
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; POP
 ; Pops the buffer pointer that was saved by calling buff::push
 .proc pop
@@ -242,7 +242,7 @@ copybuff: 		.res $1e00	; buffer for copy data
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LEN
 ; Returns the length of the buffer
 ; OUT:
