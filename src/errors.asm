@@ -168,6 +168,9 @@ err_copy_too_big:
 err_buffer_name_exists:
 	.byte $15,$46,$31,$52,$db,$81,$69,$5b,$2e,$9,$9d,$13,$0
 
+err_buffer_full:
+	.byte $15,$46,$31,$52,$d9,$95,$63,$0
+
 ;******************************************************************************
 .linecont +
 .define errors \
@@ -211,7 +214,8 @@ err_buffer_name_exists:
 	err_too_many_labels, \
 	err_invalid_command, \
 	err_copy_too_big, \
-	err_buffer_name_exists
+	err_buffer_name_exists, \
+	err_buffer_full
 .linecont -
 errorslo: .lobytes errors
 errorshi: .hibytes errors

@@ -1007,8 +1007,9 @@
 @startaddr=zp::debuggertmp
 	; get the start of the address range to save
 	jsr eval
-	bcs @done
-	stxy @startaddr
+	bcc :+
+	rts
+:	stxy @startaddr
 
 	incw zp::line				; move past separator
 

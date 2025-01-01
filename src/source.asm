@@ -25,10 +25,11 @@
 
 ;*******************************************************************************
 ; CONSTANTS
-MAX_SOURCES=8		; number of source buffers that can be loaded at once
-GAPSIZE = $100		; size of gap in gap buffer
-POS_STACK_SIZE = 32 	; size of source position stack
-MAX_BUFFER_NAME_LEN=16  ; max length of names for each buffer
+MAX_SOURCES         = 8		; # of source buffers that can be loaded at once
+GAPSIZE             = $100	; size of gap in gap buffer
+POS_STACK_SIZE      = 32 	; size of source position stack
+MAX_BUFFER_NAME_LEN = 16	; max length of names for each buffer
+BUFFER_SIZE         = $6000	; max size of buffer
 
 ;*******************************************************************************
 ; FLAGS
@@ -91,7 +92,7 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 ; This buffer holds the text data.  It is a large contiguous chunk of memory
 .segment "SOURCE"
 .assert * & $ff = 0, error, "source buffers must be page aligned"
-data: .res $6000
+data: .res BUFFER_SIZE
 
 .CODE
 ;*******************************************************************************
@@ -969,11 +970,13 @@ data: .res $6000
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; INSERT
 ; Adds the character in .A to the buffer at the gap position (gap).
 ; IN:
 ;  - .A: the character to insert
+; OUT:
+;  - .C: set if the character could not be inserted (buffer full)
 .export __src_insert
 .proc __src_insert
 @len=r0
@@ -985,13 +988,23 @@ data: .res $6000
 	cmpw #0		; is gap closed?
 	bne @ins	; no, insert as usual
 
-	; gap is closed, create a new one
+	; check if there is room to expand the gap
+	lda poststartzp+1
+	cmp #>(BUFFER_SIZE+data)-1
+	bcc :+
+
+	; buffer overflow, cannot insert character
+	pla				; clean stack
+	lda #ERR_BUFFER_FULL
+	rts
+
+:	; gap is closed, create a new one
 	; copy data[poststart] to data[poststart + GAPSIZE]
 	ldxy cursorzp
 	stxy @src
 
 	inc poststartzp+1
-	inc end+1	; increase size by $100
+	inc end+1		; increase size by $100
 	ldxy poststartzp
 	stxy @dst
 
@@ -1014,7 +1027,7 @@ data: .res $6000
 	incw line
 	jsr on_line_inserted
 :	incw cursorzp
-@done:	rts
+@done:	RETURN_OK
 .endproc
 
 ;******************************************************************************

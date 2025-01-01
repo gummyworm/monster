@@ -139,7 +139,8 @@ __file_load_src:
 	bne @put
 	lda #$0d
 @put:	jsr putb	; write the byte to source/memory
-	jmp @l0		; and continue
+	bcc @l0
+	rts		; failed to write byte return err
 
 @err_or_eof:
 	eor #$40
@@ -527,6 +528,8 @@ __file_load_src:
 ; physical memory (isvirtual == 0) or virtual (isvirtual != 0)
 ; IN:
 ;  - .A: the byte to output
+; OUT:
+;  - .C: set if the byte could not be written to the destination
 .proc putb
 	ldx isbin
 	beq @src
@@ -540,7 +543,8 @@ __file_load_src:
 	skw
 :	sta (__file_load_address),y
 @done:	incw __file_load_address
-	rts
+	RETURN_OK
+
 @src:	jmp src::insert
 .endproc
 

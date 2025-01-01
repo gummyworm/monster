@@ -62,10 +62,12 @@ ERR_COPY_TOO_BIG = 38
 
 ERR_BUFFER_NAME_EXISTS = 39
 
+ERR_BUFFER_FULL = 40
+
 ;******************************************************************************
 ; linker errors
-ERR_SECTION_TOO_SMALL = 40
-ERR_NO_SECTIONS = 41
+ERR_SECTION_TOO_SMALL = 41
+ERR_NO_SECTIONS = 42
 
 .import __err_get
 
