@@ -4,7 +4,7 @@
 
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; LOAD
 ; Reads a byte from the physical address associated with the given virtual
 ; address
@@ -18,7 +18,7 @@
 	jmp fe3::load
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LOAD OFF
 ; Reads a byte from the physical address associated with the given virtual
 ; address
@@ -34,7 +34,7 @@
 	jmp fe3::load_off
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; STORE
 ; Stores a byte at the physical address associated with the given virtual
 ; address
@@ -48,7 +48,7 @@
 	jmp fe3::store
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; STORE OFF
 ; Stores a byte at the physical address associated with the given virtual
 ; address offset by the given offset.
@@ -63,7 +63,7 @@
 	jmp fe3::store_off
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TRANSLATE
 ; Returns the physical address associated with the given virtual address
 ; IN:

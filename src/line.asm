@@ -1,14 +1,14 @@
-;******************************************************************************
+;*******************************************************************************
 ; LINE.ASM
 ; This file contains code to advance the line (zp::line)
 ; These helpers ares used when parsing its contents.
-;******************************************************************************
+;*******************************************************************************
 
 .include "macros.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
-;*******************************************************************************
+;********************************************************************************
 ; INC
 ; Increments the line pointer, which points to the current character being read
 ; during assembly or other parsing (e.g. expression evaluation)
@@ -18,7 +18,7 @@
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; NEXTCH
 ; advances the line and THEN processes whitespace
 ; (equivalent to jsr __line_inc : jsr process_ws).
@@ -36,7 +36,7 @@
 	; fall through
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PROCESS_WS
 ; Reads (line) and updates it to point past ' ' chars and non-printing chars
 ; out:
@@ -57,7 +57,7 @@
 :	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PROCESS_WORD
 ; Reads (line) and updates it to point to the next whitespace character
 ; OUT:

@@ -1,6 +1,6 @@
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; VERIFY
 ; This flag, when set, will tell the assembler to loosen its error checking
 ; and skip certain operations (like including a file).

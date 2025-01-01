@@ -3,7 +3,7 @@
 .include "memory.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; CONSTANTS
 
 ; constants for special symbols in 5-bit compresed strings
@@ -15,7 +15,7 @@ SLASH = SPECIAL_CHARS_START+2
 
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; LEN
 ; Returns the length of the string in
 ; IN:
@@ -39,7 +39,7 @@ SLASH = SPECIAL_CHARS_START+2
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COMPARE
 ; Compares the strings in (str0) and (str2) up to a length of .A
 ; IN:
@@ -63,7 +63,7 @@ SLASH = SPECIAL_CHARS_START+2
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COMPAREZ
 ; Compares the 0-terminated string in (str0) with (str2).
 ; If str0 matches just the first part of str2, will return a match but not
@@ -88,7 +88,7 @@ SLASH = SPECIAL_CHARS_START+2
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CAT
 ; concatentates the two provided strings.
 ; IN:
@@ -136,7 +136,7 @@ SLASH = SPECIAL_CHARS_START+2
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COPY
 ; Copies one 0-terminated string to another. A maximum of 255 chars are copied
 ; IN:
@@ -156,7 +156,7 @@ SLASH = SPECIAL_CHARS_START+2
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TOUPPER
 ; Replaces all lowercase characters in the given string ($61-$7a) with uppercase
 ; ($41-$5a) ones.

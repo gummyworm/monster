@@ -1,10 +1,10 @@
-;******************************************************************************
+;*******************************************************************************
 ; SIM6502.ASM
 ; This file contains the code to simulate the 6502. This is used to
 ; determine what memory/registers are affected by an instruction, count the
 ; number of cycles that instructions execute, and to determine what the
 ; next instruction that will be executed as.
-;******************************************************************************
+;*******************************************************************************
 
 .include "asmflags.inc"
 .include "errors.inc"
@@ -13,7 +13,7 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 .BSS
 
 .export __sim_register_state
@@ -84,7 +84,7 @@ __sim_via2: .res $10
 
 .segment "DEBUGGER"
 
-;******************************************************************************
+;*******************************************************************************
 ; NEXT_INSTRUCTION
 ; Given the address of the current instruction, returns the address of the next
 ; instruction that will be executed.
@@ -303,7 +303,7 @@ __sim_via2: .res $10
 
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET SIDE EFFECTS
 ; Checks if the given instruction requires any RAM state and handles the
 ; creation of any state needed to handle them.
@@ -372,7 +372,7 @@ __sim_via2: .res $10
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET EFFECTIVE ADDR
 ; Returns the effective address for the given opcode/operand. This may be the
 ; same as the operand (if the opcode represents a zeropage or absolute address
@@ -480,7 +480,7 @@ __sim_via2: .res $10
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COUNT CYCLES
 ; Counts the number of cycles that the given instruction will execute
 ; IN:
@@ -545,7 +545,7 @@ __sim_via2: .res $10
 .endproc
 
 .RODATA
-;******************************************************************************
+;*******************************************************************************
 ; OERATION SIDE EFFECTS TABLE
 ; This table contains all opcodes and what state they affect.
 ; This is used to display changes made by a given instruction as well as
@@ -842,7 +842,7 @@ side_effects_tab:
 .byte OP_LOAD|OP_STORE|OP_FLAG	; $fe INC abs,x
 .byte $00			; ---
 
-;******************************************************************************
+;*******************************************************************************
 ; corresponding masks for top 2 bits of opcode to flags in the status register
 branch_masks:
 .byte $80	; negative
@@ -850,7 +850,7 @@ branch_masks:
 .byte $01	; carry
 .byte $02	; zero
 
-;******************************************************************************
+;*******************************************************************************
 ; Instruction timing table
 ; Each byte contains the timing for two instructions beginning at opcodes $00
 ; and $01 and ending at opcodes $fe and $ff.

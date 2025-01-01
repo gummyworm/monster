@@ -1,4 +1,4 @@
-;******************************************************************************
+;*******************************************************************************
 ; SYMVIEW.ASM
 ; This file contains the code for the symbol viewer, which allows the user to
 ; see all (non-local/anonymous) symbols in their program.
@@ -33,10 +33,11 @@ line     = zp::tmp12	; the line number for the current line
 sortby   = zp::tmp14	; the sort order (ALPHA, ADDR)
 name     = $100
 
-;******************************************************************************
+;*******************************************************************************
 .RODATA
 sym_line:
-.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, " ", ESCAPE_GOTO, 22, ESCAPE_STRING, " ", "l:", ESCAPE_VALUE_DEC, 0
+.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, " ", ESCAPE_GOTO, 22, ESCAPE_STRING
+.byte " ", "l:", ESCAPE_VALUE_DEC, 0
 
 sym_line_no_file:
 .byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING, 0
@@ -46,7 +47,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; GET ITEM
 ; Returns the label ID at the given index based on the current sortby value.
 ; IN:
@@ -92,7 +93,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PRINT ITEM
 ; Prints the item at the given line.  The pointers are set by the most recent
 ; call to get_item
@@ -137,7 +138,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ENTER
 ; Enters the symbol viewer.
 .export __symview_enter

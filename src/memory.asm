@@ -2,7 +2,7 @@
 
 .BSS
 
-;******************************************************************************
+;*******************************************************************************
 __mem_keybuff=$277
 
 .export __mem_spare
@@ -64,7 +64,7 @@ __mem_rowcolors_save: .res 24
 .export __mem_findbuff
 __mem_findbuff: .res MAX_SEARCH_LEN+1	; +1 for terminating 0
 
-;******************************************************************************
+;*******************************************************************************
 ; LINEBUFFER
 ; The linebuffer must live in lower RAM, which is NOT switched out with the
 ; upper RAM upon switching banks

@@ -1,11 +1,11 @@
-;******************************************************************************
+;*******************************************************************************
 ; GUI.ASM
 ; This file contains procedures for GUI functionality like graphical menus.
 ; GUI windows are created by defining a structure containing handlers for
 ; retrieving the lines of data to draw and handling key presses.
 ; Handlers should stay away from the gui zeropage area (see zeropage.inc)
 
-;******************************************************************************
+;*******************************************************************************
 
 .include "bitmap.inc"
 .include "config.inc"
@@ -17,10 +17,10 @@
 .include "text.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 MAX_WINDOWS = 3
 
-;******************************************************************************
+;*******************************************************************************
 .BSS
 
 guidata = zp::gui
@@ -51,14 +51,14 @@ guitmp = zp::gui+$d
 ; deactivating the window will pop it back into the active gui data memory.
 guistack:	.res MAX_WINDOWS*guidata_size
 
-;******************************************************************************
+;*******************************************************************************
 .DATA
 guisp:		.word guistack
 
-;******************************************************************************
+;*******************************************************************************
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; REENTER
 ; Activates the most recently created GUI without reinitializing it.
 .export __gui_reenter
@@ -69,7 +69,7 @@ guisp:		.word guistack
 	jmp __gui_activate
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LIST_MENU
 ; Displays a user selectable menu of options as rows of text that the given
 ; callbacks provide.
@@ -134,7 +134,7 @@ guisp:		.word guistack
 	; fall through to __gui_activate
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ACTIVATE
 ; Activates the most recently created (top of the GUI stack) GUI window.
 .export __gui_activate
@@ -237,7 +237,7 @@ guisp:		.word guistack
 	jmp (getkey)
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; REFRESH
 ; Redraws the active GUI. This should be called after making changes that
 ; would affect the state of the GUI window, e.g. setting a breakpoint could
@@ -322,7 +322,7 @@ exit:
 	jmp draw::hline
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DEACTIVATE
 ; Exits the GUI that is at the top of the GUI stack
 .export __gui_deactivate
@@ -339,7 +339,7 @@ exit:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLOSEALL
 ; Frees the GUI stack by setting it back to its base.
 .export __gui_closeall
@@ -349,7 +349,7 @@ exit:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COPYVARS
 ; Copies the GUI state to the zeropage
 ; OUT:

@@ -6,7 +6,7 @@
 
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; READERR
 ; Reads the drive's error into mem::drive_err (0-terminated)
 ; NOTE: file #15 is opened and should be closed by the caller when done
