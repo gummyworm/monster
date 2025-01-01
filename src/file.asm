@@ -1,4 +1,4 @@
-;******************************************************************************
+;*******************************************************************************
 ; FILE.ASM
 ; This file contains procedures to read/write to files to/from source or binary.
 ; The pattern for file I/O is similar to the C standard or CBM DOS:
@@ -26,7 +26,7 @@
 ; Note that the binary that gets written (file::writeb) comes from the virtual
 ; memory (vmem.asm) and not the main program memory, which is where the editor
 ; lives.
-;******************************************************************************
+;*******************************************************************************
 
 .include "errors.inc"
 .include "finalex.inc"
@@ -40,7 +40,7 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; CONSTANTS
 MAX_OPEN_FILES = 10
 FIRST_FILE_ID  = 2
@@ -52,7 +52,7 @@ kernal_sas   = $26d	; KERNAL secondary address table
 isvirtual = zp::tmp16 	; flag for binary load to VIRTUAL memory
 isbin     = zp::tmp17	; flag for binary save/load to memory
 
-;******************************************************************************
+;*******************************************************************************
 ; The address to load from during a binary LOAD
 ; VOLATILE should be set immediately before calling
 .export __file_load_address
@@ -65,7 +65,7 @@ __file_save_address     = rb
 .export __file_save_address_end
 __file_save_address_end = rd
 
-;******************************************************************************
+;*******************************************************************************
 ; LOADBINV
 ; loads the given file into the given virtual memory address
 ; IN:
@@ -81,7 +81,7 @@ __file_save_address_end = rd
 	bne load
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LOADBIN
 ; loads the given file into the given memory address
 ; IN:
@@ -98,7 +98,7 @@ __file_save_address_end = rd
 	bne load
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LOAD SOURCE
 ; loads the given file into a new source buffer
 ; IN:
@@ -113,7 +113,7 @@ __file_load_src:
 
 	; fall through
 
-;******************************************************************************
+;*******************************************************************************
 ; LOAD
 ; loads the given file into memory or a source buffer
 ; IN:
@@ -148,7 +148,7 @@ __file_load_src:
 @eof:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DOSAVE
 ; Saves the source buffer or binary block to the given file.
 ; This is called by __file_save and __file_savebin after those routines
@@ -175,7 +175,7 @@ __file_load_src:
 @error:	jmp geterr
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SAVEBIN
 ; Saves the binary from the given address, to the given filename.
 ; NOTE: the address refers to the virtual memory address not the physical
@@ -196,7 +196,7 @@ __file_load_src:
 	jmp dosave
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SAVE SRC
 ; Saves the active source buffer to a file of the given name
 ; IN:
@@ -213,7 +213,7 @@ __file_load_src:
 	jmp dosave
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; READB
 ; Reads a byte from the open file
 ; OUT:
@@ -239,7 +239,7 @@ __file_load_src:
 @err:	jmp geterr
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETLINE
 ; Reads the file handle given in .A until EOF or a newline ($0d or $0a) is
 ; encountered and stores the data at the address given in .XY
@@ -276,7 +276,7 @@ __file_load_src:
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SCRATCH
 ; Deletes the given file
 ; IN:
@@ -309,7 +309,7 @@ __file_load_src:
 	.byte "s:",0
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; OPEN_W
 ; Opens a file for writing
 ; IN:
@@ -329,7 +329,7 @@ __file_load_src:
 @p_w:	.byte ",p,w",0
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; OPEN_R
 ; Opens a file for reading
 ; IN:
@@ -343,7 +343,7 @@ __file_load_src:
 	bne __file_open
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; OPEN_R_PRG
 ; Opens a file for reading as a .PRG
 .export __file_open_r_prg
@@ -352,7 +352,7 @@ __file_load_src:
 	; fall through
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; OPEN
 ; Opens a file from disk, opens a channel and returns the handle to it.
 ; you may call the read and write operations with this handle
@@ -407,7 +407,7 @@ __file_load_src:
 	jmp geterr
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; EXISTS
 ; Opens, reads a byte, and closes a file of the given name to check for its
 ; existence.
@@ -435,7 +435,7 @@ __file_load_src:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLOSE
 ; Closes the file with the given handle.
 ; IN:
@@ -449,7 +449,7 @@ __file_load_src:
 	jmp $ffb7		; READST
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; INIT DRIVE
 ; Initializes the drive
 .proc init_drive
@@ -470,7 +470,7 @@ __file_load_src:
 .POPSEG
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETB
 ; During SAVE: reads the next byte to be saved.
 ; OUT:
@@ -498,7 +498,7 @@ __file_load_src:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETERR
 ; Reads the error channel and maps the DOS error code to the internal one
 ; IN:
@@ -519,7 +519,7 @@ __file_load_src:
 :	RETURN_ERR ERR_IO_ERROR		; unknown error
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PUTB
 ; Outputs a byte to the __file_load_address (if isbin is !0) or to the current
 ; source if not.
@@ -545,7 +545,7 @@ __file_load_src:
 .endproc
 
 .BSS
-;******************************************************************************
+;*******************************************************************************
 secondaryaddr:	.byte 0	; secondary address to use on file open
 
 .export __file_eof

@@ -13,10 +13,12 @@
 .include "debuginfo.inc"
 .include "errors.inc"
 .include "expr.inc"
+.include "file.inc"
 .include "finalex.inc"
 .include "flags.inc"
 .include "labels.inc"
 .include "line.inc"
+.include "irq.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "sim6502.inc"
@@ -987,7 +989,7 @@
 .endproc
 
 ;******************************************************************************
-; STEP_OUT
+; STEP OUT
 ; Continues execution til the current subroutine returns with an RTS
 .proc step_out
 	CALL FINAL_BANK_MAIN, #dbg::step_out
@@ -996,7 +998,55 @@
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
+; SAVEMEM
+; Saves the given memory range to the specified file
+; e.g.
+;  `>S $1000 $2000 FILE.PRG`
+.proc savemem
+@startaddr=zp::debuggertmp
+	; get the start of the address range to save
+	jsr eval
+	bcs @done
+	stxy @startaddr
+
+	incw zp::line				; move past separator
+
+	; get the end of the address range to save
+	jsr eval
+	bcs @done
+	stxy file::save_address_end
+
+	incw zp::line				; move past separator
+
+	CALL FINAL_BANK_MAIN, #irq::disable
+
+	; open the output filename
+	ldxy zp::line
+	CALL FINAL_BANK_MAIN, #file::open_w
+	bcs @err
+	pha
+
+	; save the given memory range
+	ldxy @startaddr
+	CALL FINAL_BANK_MAIN, #file::savebin
+
+	pla
+	bcs @err				; if file save failed -> done
+
+	; close the file
+	CALL FINAL_BANK_MAIN, #file::close
+	jsr @err				; restore IRQ
+	RETURN_OK
+
+@err:	pha					; save error code
+	CALL FINAL_BANK_MAIN, #irq::raster
+	pla
+	sec
+@done:	rts
+.endproc
+
+;*******************************************************************************
 ; IS_WHITESPACE
 ; Checks if the given character is a whitespace character
 ; IN:
@@ -1101,13 +1151,14 @@ commands:
 .byte "g",0	; go (continue program execution)
 .byte "bt",0	; backtrace
 .byte "zo",0	; step out
+.byte "s",0	; save memory
 
 .linecont +
 .define command_vectors add_watch, add_watch_load, add_watch_store, \
 	remove_watch, list_watches, list_breakpoints, add_break_addr, \
 	add_break_line, remove_break, fill, move, goto, compare, hunt, \
 	__dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
-	step_over, go, backtrace, step_out
+	step_over, go, backtrace, step_out, savemem
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors
