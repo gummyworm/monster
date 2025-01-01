@@ -1,31 +1,9 @@
-.include "asmflags.inc"
-.include "ctx.inc"
-.include "codes.inc"
-.include "debug.inc"
-.include "debuginfo.inc"
-.include "errors.inc"
-.include "errlog.inc"
-.include "expr.inc"
-.include "file.inc"
-.include "finalex.inc"
-.include "layout.inc"
-.include "labels.inc"
-.include "line.inc"
-.include "macro.inc"
-.include "macros.inc"
-.include "math.inc"
-.include "memory.inc"
-.include "string.inc"
-.include "text.inc"
-.include "source.inc"
-.include "util.inc"
-.include "state.inc"
-.include "strings.inc"
-.include "vmem.inc"
-.include "zeropage.inc"
-
-
-;******************************************************************************
+;*******************************************************************************
+; ASM.ASM
+; This file contains the entrypoint for the primary assembly procedure as well
+; as much of the code used to assemble a given line of text to its binary
+; representation.
+;
 ; ASSEMBLER OVERVIEW
 ; The assembler operates in 2 passes.
 ; Pass 1:
@@ -68,13 +46,39 @@
 ;     ```
 ;     In this ^ correct example, we know to use zeropage addressing and the
 ;     first and second passes will generate the same labels hereafter.
-;******************************************************************************
+;*******************************************************************************
+
+.include "asmflags.inc"
+.include "ctx.inc"
+.include "codes.inc"
+.include "debug.inc"
+.include "debuginfo.inc"
+.include "errors.inc"
+.include "errlog.inc"
+.include "expr.inc"
+.include "file.inc"
+.include "finalex.inc"
+.include "layout.inc"
+.include "labels.inc"
+.include "line.inc"
+.include "macro.inc"
+.include "macros.inc"
+.include "math.inc"
+.include "memory.inc"
+.include "string.inc"
+.include "text.inc"
+.include "source.inc"
+.include "util.inc"
+.include "state.inc"
+.include "strings.inc"
+.include "vmem.inc"
+.include "zeropage.inc"
 
 ;******************************************************************************
 MAX_IFS      = 4 ; max nesting depth for .if/.endif
 MAX_CONTEXTS = 3 ; max nesting depth for contexts (activated by .MAC, .REP, etc)
 
-;******************************************************************************
+;*******************************************************************************
 indirect   = zp::asmtmp   ; 1=indirect, 0=absolute
 indexed    = zp::asmtmp+1 ; 1=x-indexed, 2=y-indexed, 0=not indexed
 immediate  = zp::asmtmp+2 ; 1=immediate, 0=not immediate
@@ -90,7 +94,7 @@ SEG_CODE = 1	; flag for CODE segment
 SEG_BSS  = 2	; flag for BSS segment (all data must be 0, PC not updated)
 
 .BSS
-;******************************************************************************
+;*******************************************************************************
 .export ifstack
 ifstack:   .res MAX_IFS	; contains TRUE/FALSE values for the active IF blocks
 ifstacksp: .byte 0	; stack pointer to "if" stack
@@ -118,14 +122,14 @@ __asm_linenum: .byte 0
 ; the type of the segment being stored e.g. SEG_BSS or SEG_CODE
 segment_type: .byte 0
 
-;******************************************************************************
+;*******************************************************************************
 ; ASMBUFFER
 ; Source is copied here so that it can be messed with while assembling
 .export asmbuffer
 asmbuffer = mem::asmbuffer
 
 .RODATA
-;******************************************************************************
+;*******************************************************************************
 NUM_OPCODES = 58
 CC_00       = 0
 CC_01       = 8
@@ -202,7 +206,7 @@ opcode_singles_strings:
 .byt "dex"
 .byt "nop"
 
-;******************************************************************************
+;*******************************************************************************
 ; OPCODETAB
 ; This table is used for instructions (mostly single byte) that don't follow
 ; the encoding of the other instructions well.
@@ -216,7 +220,7 @@ opcode_singles:
 .byt $8A, $9A, $AA, $BA, $CA, $EA		; TXA, TXS, TAX, TSX, DEX, NOP
 num_opcode_singles=*-opcode_singles
 
-;******************************************************************************
+;*******************************************************************************
 ; DIRECTIVES
 .export __asm_org_string
 
@@ -243,7 +247,7 @@ __asm_org_string:
 .byte "export",0
 directives_len=*-directives
 
-;******************************************************************************
+;*******************************************************************************
 directive_vectors:
 .word definebyte
 .word defineconst
@@ -263,7 +267,7 @@ directive_vectors:
 .word 0			; TODO: import
 .word 0			; TODO: export
 
-;******************************************************************************
+;*******************************************************************************
 ; see MODE_ constants in asmflags.inc
 bbb_modes:
 bbb00_modes:
@@ -295,7 +299,7 @@ bbb10_modes:
 	.byte $ff		        ; 110
 	.byte MODE_ABS | MODE_X_INDEXED	; 111 (Y_INDEXED for STX,LDX)
 
-;******************************************************************************
+;*******************************************************************************
 ; ADDRESS MODE TABLES
 ; The following tables store the bbb values for the encoding for various
 ; configurations of addressing, e.g. zeropage, x-indexed.
@@ -382,7 +386,7 @@ num_illegals = *-illegal_opcodes
 
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; START PASS
 ; Resets assembly context in preparation for the given pass
 ; IN:
@@ -410,7 +414,7 @@ num_illegals = *-illegal_opcodes
 	jmp ctx::init		; re-init the context
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TOKENIZE
 ; Assembles the string at (YX) into an instruction in (asm::result)
 ; if (YX) contains an instruction.  Any labels or comments encountered are
@@ -891,7 +895,7 @@ num_illegals = *-illegal_opcodes
 	rts		; return err
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS_LABEL
 ; IN:
 ;  - zp::line: string to check if label
@@ -902,7 +906,7 @@ num_illegals = *-illegal_opcodes
 	jmp lbl::isvalid
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DO_LABEL
 ; State machine component
 ; Extracts the label from the line
@@ -933,7 +937,7 @@ num_illegals = *-illegal_opcodes
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS_ANONREF
 ; Returns .Z set if zp::line points to an anonymous label reference
 ; OUT:
@@ -945,7 +949,7 @@ num_illegals = *-illegal_opcodes
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ANONREF
 ; evaluates the anonymous reference in (line) and returns
 ; the address it corresponds to
@@ -1016,7 +1020,7 @@ num_illegals = *-illegal_opcodes
 	jmp lbl::get_fanon
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; STOREDEBUGINFO
 ; Stores the current VPC to the current source line
 ; If debug info generation is disabled, does nothing
@@ -1035,7 +1039,7 @@ num_illegals = *-illegal_opcodes
 	jmp dbgi::storeline	; map them
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETADDRMODE
 ; Returns the address mode according to the global assembly flags:
 ; immediate, indexed, and indirect.
@@ -1110,7 +1114,7 @@ num_illegals = *-illegal_opcodes
 	RETURN_ERR ERR_OVERSIZED_OPERAND
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETTEXT
 ; Parses an enquoted text string in zp::line and returns it in mem::spare
 ; returns the length in .A ($ff if no string was found)
@@ -1136,7 +1140,7 @@ num_illegals = *-illegal_opcodes
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETOPCODE
 ; Parses zp::line for an instruction and returns information about it if it
 ; is determined to be an instruction
@@ -1223,7 +1227,7 @@ num_illegals = *-illegal_opcodes
 @err:	RETURN_ERR ERR_ILLEGAL_OPCODE
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETDIRECTIVE
 ; checks if (zp::line) contains a directive and handles it if it does.
 ; OUT:
@@ -1285,7 +1289,7 @@ num_illegals = *-illegal_opcodes
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; HANDLE_REPEAT
 ; Handler for .endrep.
 ; Generates the repeated assembly block defined between here and the previous
@@ -1368,7 +1372,7 @@ num_illegals = *-illegal_opcodes
 @done:	jmp ctx::pop	; pop the context
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; REWIND CTX DBG
 ; Rewinds the context and debug source line by the number of lines that are
 ; rewound.
@@ -1389,7 +1393,7 @@ num_illegals = *-illegal_opcodes
 	jmp ctx::rewind
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; HANDLE_CTX
 ; If this is the first pass, copies the contents of the asmbuffer to the current
 ; context.
@@ -1411,7 +1415,7 @@ num_illegals = *-illegal_opcodes
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DEFINEBYTE
 ; Defines 0 or more bytes and stores them in (asmresult)
 ; OUT:
@@ -1468,7 +1472,7 @@ num_illegals = *-illegal_opcodes
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DEFINEWORD
 ; Parses zp::line for a word value and stores it to zp::asmresult if possible.
 ; OUT:
@@ -1507,7 +1511,7 @@ num_illegals = *-illegal_opcodes
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; INCBINFILE
 ; Includes the enquoted binary file
 ; The contents of the file are inserted directly as binary values at the
@@ -1538,7 +1542,7 @@ num_illegals = *-illegal_opcodes
 @err:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; INCLUDEFILE
 ; Include file assembles the contents of the given file.
 ;
@@ -1661,7 +1665,7 @@ __asm_include:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DEFINEORG
 ; Hanldes the .ORG directive.
 ; Parses an expression for a value and sets the asmresult and virtualpc
@@ -1700,7 +1704,7 @@ __asm_include:
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SET PC
 ; Sets the address to assemble at next time tokenize is called.
 ; This is only useful in the context of assembling a line directly to
@@ -1716,7 +1720,7 @@ __asm_include:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DEFINE_PSUEDO_ORG
 ; Hanldes the .RORG directive.
 ; Parses an expression for a value and sets the virtualpc  address to it.
@@ -1732,7 +1736,7 @@ __asm_include:
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DEFINECONST
 ; Hanldes the .EQ directive
 ; Effective on 1st pass only
@@ -1776,7 +1780,7 @@ __asm_include:
 	jmp lbl::add
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; REPEAT
 ; generates assembly for the parameterized code between this directive
 ; and the lines that follow until '.endrep'
@@ -1817,7 +1821,7 @@ __asm_include:
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; MACRO
 ; Begins the definition of a macro, which will continue until '.endmac' is
 ; .mac add8 A, B
@@ -1872,7 +1876,7 @@ __asm_include:
 @ret:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CREATE_MACRO
 ; This is the handler for the .endmac directive
 ; It uses the active context to finish creating a macro from that context.
@@ -1905,7 +1909,7 @@ __asm_include:
 	jmp ctx::pop	; cleanup; pop the context
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RESET
 ; Resets the internal assembly context (labels and pointer to target)
 .export __asm_reset
@@ -1920,7 +1924,7 @@ __asm_include:
 	; fall through to RESETPC
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RESETPC
 ; Resets the PC for, for example, beginning a new pass on the assembler
 .export __asm_resetpc
@@ -1930,7 +1934,7 @@ __asm_include:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DISASSEMBLE
 ; disassembles the given instruction
 ; IN:
@@ -2295,7 +2299,7 @@ __asm_include:
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ASSEMBLE_MACRO
 ; Takes the contents of (line) and expands it to the corresponding macro.
 ; IN:
@@ -2347,7 +2351,7 @@ __asm_include:
 	JUMP FINAL_BANK_MACROS, #mac::asm
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DO_IF
 ; handles .IF during assembly
 ; OUT:
@@ -2376,7 +2380,7 @@ __asm_include:
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DO_ENDIF
 ; Handles .ENDIF during assembly
 .proc do_endif
@@ -2389,7 +2393,7 @@ __asm_include:
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DO_ELSE
 ; handles .ELSE during assembly
 .proc do_else
@@ -2401,7 +2405,7 @@ __asm_include:
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DO_IFDEF
 ; handles the .IFDEF directive during assembly
 .proc do_ifdef
@@ -2427,7 +2431,7 @@ __asm_include:
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TOKENIZE_PASS
 ; Based on the current pass (zp::pass), calls the appropriate routine to
 ; handle assembly for that pass
@@ -2443,7 +2447,7 @@ __asm_include:
 ; fall through
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TOKENIZE_PASS1
 ; Calls tokenize on the given line
 ; IN:
@@ -2455,7 +2459,7 @@ __asm_include:
 	jmp __asm_tokenize	; assemble the line
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TOKENIZE_PASS2
 ; Calls tokenize and generated debug info (if enabled)
 ; IN:
@@ -2481,7 +2485,7 @@ __asm_include:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ISLINETERMINATOR
 ; IN:
 ;  .A: the character to check
@@ -2494,7 +2498,7 @@ __asm_include:
 :	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS_LDX_STX
 ; Checks if the given opcode is a LDX/STX
 ; OUT:
@@ -2517,7 +2521,7 @@ __asm_include:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET_CTX_TYPE
 ; Returns the active context type
 ; OUT:
@@ -2534,7 +2538,7 @@ __asm_include:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SET_CTX_TYPE
 ; Sets the active context type
 ; If 0 is given, the active context is popped from the context stack. Otherwise
@@ -2558,7 +2562,7 @@ __asm_include:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ADD_PC
 ; Adds the given value to the virtual PC and asmresult pointers
 ; IN:
@@ -2588,7 +2592,7 @@ __asm_include:
 :	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; INCPC
 ; Updates the asmresult and virtualpc pointers by 1
 .proc incpc
@@ -2603,7 +2607,7 @@ __asm_include:
 :	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; WRITEB
 ; Stores a byte to (zp::asmresult),y
 ; Also checks if the origin has been set
@@ -2630,7 +2634,7 @@ __asm_include:
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; READB
 ; Reads a byte from (zp::asmresult),y
 ; IN:

@@ -892,11 +892,10 @@ data: .res BUFFER_SIZE
 @endofline:
 	sec
 	rts
-@done:	clc
-	rts
+@done:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RIGHT_REP
 ; Moves to the next character unless a newline exists AFTER the destination
 ; OUT:
@@ -921,11 +920,10 @@ data: .res BUFFER_SIZE
 @endofline:
 	sec
 	rts
-@done:	clc
-	rts
+@done:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; UP
 ; Moves the cursor back one line or to the start of the buffer if it is
 ; already on the first line
@@ -949,7 +947,7 @@ data: .res BUFFER_SIZE
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DOWN
 ; Moves the cursor beyond the next RETURN character (or to the end of
 ; the buffer if there is no such character
@@ -961,13 +959,12 @@ data: .res BUFFER_SIZE
 	beq @eof
 @l0:	jsr __src_next
 	cmp #$0d
-	beq :+
+	beq @ok
 	jsr __src_end
 	bne @l0
 @eof:	sec	; end of the buffer
 	rts
-:	clc
-	rts
+@ok:	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -993,7 +990,7 @@ data: .res BUFFER_SIZE
 	cmp #>(BUFFER_SIZE+data)-1
 	bcc :+
 
-	; buffer overflow, cannot insert character
+@err:	; buffer overflow, cannot insert character
 	pla				; clean stack
 	lda #ERR_BUFFER_FULL
 	rts
@@ -1030,7 +1027,7 @@ data: .res BUFFER_SIZE
 @done:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; INSERT_LINE
 ; Inserts the given string into the source at the current cursor position.
 ; IN:
@@ -1052,7 +1049,7 @@ data: .res BUFFER_SIZE
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; REPLACE
 ; Adds the character in .A to the buffer at the cursor position,
 ; replacing the character that currently resides there
@@ -1073,7 +1070,7 @@ data: .res BUFFER_SIZE
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GAPLEN
 ; Returns the length of the gap
 ; OUT:
@@ -1084,7 +1081,7 @@ data: .res BUFFER_SIZE
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ATCURSOR
 ; Returns the character at the cursor position.
 ; OUT:
@@ -1098,7 +1095,7 @@ __src_atcursor:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; BEFORE_NEWL
 ; Checks if src::aftercursor is a newline ($0d)
 ; OUT:
@@ -1110,7 +1107,7 @@ __src_atcursor:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; AFTER CURSOR
 ; Returns the character AFTER the cursor position.
 ; OUT:
@@ -1130,7 +1127,7 @@ __src_atcursor:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; REWIND
 ; Moves the cursor back to the start of the buffer
 .export __src_rewind
@@ -1140,7 +1137,7 @@ __src_atcursor:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; READLINE
 ; Reads one line at the cursor positon and advances the cursor
 ; OUT:
@@ -1180,7 +1177,7 @@ __src_atcursor:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; POPGOTO
 ; Navigates to the the most recent source position pushed in .YX
 .export __src_popgoto
@@ -1190,7 +1187,7 @@ __src_atcursor:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GOTO
 ; Goes to the source position given
 ; IN:
@@ -1228,7 +1225,7 @@ __src_atcursor:
 @done:  rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET
 ; Returns the text at the current cursor position in mem::linebuffer
 ; OUT:
@@ -1241,7 +1238,7 @@ __src_atcursor:
 	; fall through to __src_get_at
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET_AT
 ; Returns the text at the current cursor position and stores it to the given
 ; target location
@@ -1296,7 +1293,8 @@ __src_atcursor:
 ; DOWNN
 ; Advances the source by the number of lines in .YX
 ;  - .YX: the number of lines that were not read
-;  - .C: set if the end was reached before the total lines requested could be reached
+;  - .C: set if the end was reached before the total lines requested could be
+;        reached
 .export __src_downn
 .proc __src_downn
 @cnt=r4
@@ -1318,7 +1316,8 @@ __src_atcursor:
 ;  - .XY: the number of lines to move "up"
 ; OUT:
 ;  - .YX: contains the number of lines that were not read
-;  - .C: set if the beginning was reached before the total lines requested could be reached
+;  - .C: set if the beginning was reached before the total lines requested could
+;        be reached
 .export __src_upn
 .proc __src_upn
 @cnt=r4
