@@ -3032,7 +3032,9 @@ goto_buffer:
 
 	jsr src::rewind		; rewind the source
 
+	jmp *
 	jsr refresh
+	jmp *
 	jsr text::clrinfo
 	jsr cancel
 	RETURN_OK

@@ -8,6 +8,7 @@
 ; the current active buffer are stored in shared RAM.
 ;*******************************************************************************
 
+.include "config.inc"
 .include "cursor.inc"
 .include "debug.inc"
 .include "draw.inc"
@@ -1177,9 +1178,14 @@ __src_atcursor:
 @l0:	jsr __src_next
 	ldx @cnt
 	cmp #$0d
-	bne :+
+	bne @store
 	lda #$00
-:	sta mem::linebuffer,x
+
+@store:	cpx #LINESIZE
+	bcs :+			; if we have >= LINESIZE characters don't store
+	sta mem::linebuffer,x
+
+:	cmp #$00
 	beq @done
 	inc @cnt
 	jsr __src_end

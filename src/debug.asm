@@ -1,8 +1,8 @@
-;******************************************************************************
+;*******************************************************************************
 ; DEBUG.ASM
 ; This file contains the debugger code, which is the main loop while debugging
 ; and assembled program.
-;******************************************************************************
+;*******************************************************************************
 
 .include "asm.inc"
 .include "asmflags.inc"
@@ -42,7 +42,7 @@
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
 
-;******************************************************************************
+;*******************************************************************************
 ; BRK/NMI HANDLER ADDRESSES
 ; address in user program where the BRK handler will reside
 ; NOTE: the user program cannot use the space occupied by these handlers
@@ -54,7 +54,7 @@ RTI_ADDR         = BRK_HANDLER_ADDR+3
 .segment "NMI_HANDLER"
 .res 17 ;brkhandler1_size
 
-;******************************************************************************
+;*******************************************************************************
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
 
 AUX_NONE = 0		; flag for no viewer enabled
@@ -68,7 +68,7 @@ REG_X_OFFSET = 8
 REG_Y_OFFSET = 11
 REG_SP_OFFSET = 14
 
-;******************************************************************************
+;*******************************************************************************
 ; ACTION constants
 ; These tell us what command the user last executed when we return to the
 ; debugger via a BRK or NMI
@@ -82,7 +82,7 @@ ACTION_TRACE          = 7	; action for TRACE command
 ACTION_STEP_OUT_START = 8
 ACTION_STEP_OUT       = 9	; action for STEP OUT command
 
-;******************************************************************************
+;*******************************************************************************
 ; IFACE (interface) constants
 ; These are the valid values for dbg::interface. This value determines the
 ; interface that is entered in the debug breakpoint handler
@@ -101,10 +101,10 @@ NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
 ; the debugged program's next instruction.
 TRACE_STACK_DEPTH = 16
 
-;******************************************************************************
+;*******************************************************************************
 debugtmp       = zp::debuggertmp	; scratchpad
 
-;******************************************************************************
+;*******************************************************************************
 ; Program state variables
 
 .segment "SHAREBSS"
@@ -133,7 +133,7 @@ startsave:
 stepsave:  .byte 0	; opcode to save under BRK
 brkaddr:   .word 0 	; address where our brakpoint is set
 
-;******************************************************************************
+;*******************************************************************************
 ; Debug state values for internal RAM locations
 ; NOTE:
 ; these must be stored next to each other as they are backed up/restored as
@@ -143,7 +143,7 @@ debug_instruction_save: .res 3	; buffer for debugger RAM at current instruction
 mem_debugsave:          .byte 0 ; byte under effective address during STEP
 debug_stepsave: 	.byte 0 ; debugger byte under BRK (if internal)
 
-;******************************************************************************
+;*******************************************************************************
 ; previous values for registers etc.
 prev_reg_a:  .byte 0
 prev_reg_x:  .byte 0
@@ -2529,7 +2529,7 @@ __debug_remove_breakpoint:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SHOWBRK
 ; Display the BRK line number or address
 .proc showbrk
@@ -2574,7 +2574,7 @@ __debug_remove_breakpoint:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SHOW_AUX
 ; Displays the memory viewer, breakpoint viewer, or watchpoint viewer depending
 ; on which is enabled
@@ -2588,7 +2588,7 @@ __debug_remove_breakpoint:
 @none:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS INTERNAL ADDRESS
 ; Returns with .Z set if the given address is outside of the address ranges
 ; [$2000,$8000) or [$a000,$c000)
@@ -2616,7 +2616,7 @@ __debug_remove_breakpoint:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TRACING
 ; Checks if the debugger is currently "tracing"
 ; The definition of tracing is any command that automatically STEPs
@@ -2667,7 +2667,7 @@ __debug_remove_breakpoint:
 .POPSEG
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RESET STOPWATCH
 ; Resets the stopwatch
 .proc reset_stopwatch
@@ -2680,7 +2680,7 @@ __debug_remove_breakpoint:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ACTIVATE MONITOR
 ; Activates the text user interface debugger (monitor)
 .proc activate_monitor
@@ -2691,7 +2691,7 @@ __debug_remove_breakpoint:
 .endproc
 
 .RODATA
-;******************************************************************************
+;*******************************************************************************
 ; COMMANDS
 ; This table contains the keys used to invoke the corresponding command
 ; within the debugger
@@ -2725,7 +2725,7 @@ num_commands=*-commands
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors
 
-;******************************************************************************
+;*******************************************************************************
 ; DISABLED COMMANDS
 ; the following commands are NOT propagated to the editor. they become a nop
 ; when handled by the debugger
