@@ -1,3 +1,9 @@
+;*******************************************************************************
+; MATH.ASM
+; This file contains math-related procedures.  These are primarily used by the
+; expression parser.
+;*******************************************************************************
+
 .include "zeropage.inc"
 
 .CODE
