@@ -970,6 +970,8 @@ data: .res BUFFER_SIZE
 ;*******************************************************************************
 ; INSERT
 ; Adds the character in .A to the buffer at the gap position (gap).
+; If the character is not valid, it is not inserted, but the operation is
+; still considereed a success (.C is returned clear)
 ; IN:
 ;  - .A: the character to insert
 ; OUT:
@@ -979,6 +981,9 @@ data: .res BUFFER_SIZE
 @len=r0
 @src=r2
 @dst=r4
+	cmp #$80	; make sure char is displayable
+	bcs @done
+
 	pha
 	jsr mark_dirty
 	jsr gaplen

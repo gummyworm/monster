@@ -1518,6 +1518,9 @@ num_illegals = *-illegal_opcodes
 ; current assembly address.
 .proc incbinfile
 @filename=$100
+	lda state::verify
+	bne @ok			; don't include a file when verifying
+
 	lda #<@filename
 	sta r0
 	lda #>@filename
@@ -1528,17 +1531,18 @@ num_illegals = *-illegal_opcodes
 
 	ldxy #@filename
 	jsr file::open
+	bcs @err
 
-@l0:	; read the binary file contents
+@l0:	; read the binary file contents byte-by-byte
 	jsr file::readb
 	bcs @done
 	jsr writeb
 	jsr incpc
 	jmp @l0
 
-@done:	cmp #$00	; error set?
+@done:	cpx #$00	; error set?
 	bne @err
-	clc		; return without err
+@ok:	clc		; return without err
 @err:	rts
 .endproc
 
@@ -1553,30 +1557,15 @@ num_illegals = *-illegal_opcodes
 ;  Stores the corresponding lines for addresses of assembled code
 .proc includefile
 @filename=$100
-	jsr line::process_ws
-	ldy #$00
-@quote1:
-	lda (zp::line),y
-	cmp #'"'
-	beq :+
-@unenquoted:
-	RETURN_ERR ERR_UNEXPECTED_CHAR
-:	ldx #$00
-	jsr line::incptr
-@getfilename:
-	lda (zp::line),y
-	jsr util::is_whitespace
-	beq @unenquoted
-	cmp #'"'
-	beq @doinc
-	sta @filename,x
-	jsr line::incptr
-	inx
-	bne @getfilename
-
-@doinc: lda #$00
-	sta @filename,x
-	ldxy #@filename
+	lda #<@filename
+	sta r0
+	lda #>@filename
+	sta r0+1
+	ldxy zp::line
+	jsr util::parse_enquoted_string
+	bcc :+
+	rts
+:	ldxy #@filename
 
 ; entry point for assembling a given file
 .export __asm_include

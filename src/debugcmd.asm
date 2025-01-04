@@ -1022,7 +1022,7 @@
 
 	CALL FINAL_BANK_MAIN, #irq::disable
 
-	; open the output filename
+	; open the output file for writing
 	ldxy zp::line
 	CALL FINAL_BANK_MAIN, #file::open_w
 	bcs @err

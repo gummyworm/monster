@@ -150,33 +150,6 @@ __file_load_src:
 .endproc
 
 ;*******************************************************************************
-; DOSAVE
-; Saves the source buffer or binary block to the given file.
-; This is called by __file_save and __file_savebin after those routines
-; initialize the flags necessary to save source or memory respectively.
-; IN:
-;  - the file to write out should be open (file::open_w)
-; OUT:
-;  - .C: set on error, clear on success
-.proc dosave
-	ldx isbin
-	bne @save
-	jsr src::rewind	; if saving source, go back to the start of it
-
-@save:  jsr $ffb7       ; READST (read status byte)
-	bne @error	; error
-@chout: jsr getb
-	php		; save EOF flag
-	jsr $ffd2	; write to file
-	plp		; get EOF flag
-	bcc @save	; loop if !EOF
-	lda #$00	; no error
-	RETURN_OK	; done
-
-@error:	jmp geterr
-.endproc
-
-;*******************************************************************************
 ; SAVEBIN
 ; Saves the binary from the given address, to the given filename.
 ; NOTE: the address refers to the virtual memory address not the physical
@@ -211,7 +184,36 @@ __file_load_src:
 	jsr $ffc9	; CHKOUT (file in .X now uesd as output)
 	ldx #$00
 	stx isbin	; not binary
-	jmp dosave
+
+	; fall through to dosave
+.endproc
+
+;*******************************************************************************
+; DOSAVE
+; Saves the source buffer or binary block to the given file.
+; This is called by __file_save and __file_savebin after those routines
+; initialize the flags necessary to save source or memory respectively.
+; IN:
+;  - the file to write out should be open (file::open_w)
+; OUT:
+;  - .C: set on error, clear on success
+.proc dosave
+	ldx isbin
+	bne @save
+	jsr src::rewind	; if saving source, go back to the start of it
+
+@save:  jsr $ffb7       ; READST (read status byte)
+	bne @error	; error
+@chout: jsr getb
+	php		; save EOF flag
+	jmp *
+	jsr $ffd2	; write to file
+	plp		; get EOF flag
+	bcc @save	; loop if !EOF
+	lda #$00	; no error
+	RETURN_OK	; done
+
+@error:	jmp geterr
 .endproc
 
 ;*******************************************************************************
