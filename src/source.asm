@@ -987,8 +987,11 @@ data: .res BUFFER_SIZE
 @len=r0
 @src=r2
 @dst=r4
-	cmp #$80	; make sure char is displayable
+	; make sure char is displayable
+	cmp #$80
 	bcs @done
+	cmp #$20
+	bcc @done
 
 	pha
 	jsr mark_dirty
