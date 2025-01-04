@@ -41,28 +41,29 @@ ERR_NO_ORIGIN            = 25
 ERR_BRANCH_OUT_OF_RANGE  = 26
 ERR_FILE_NOT_FOUND       = 27
 ERR_UNKNOWN_SEGMENT      = 28
+ERR_PC_TARGET_UNWRITABLE = 29
 
 ;******************************************************************************
 ; file i/o errors
-ERR_TOO_MANY_OPEN_FILES   = 29
-ERR_LOGICAL_FILE_IN_USE   = 30
-ERR_DRIVE_DID_NOT_RESPOND = 31
+ERR_TOO_MANY_OPEN_FILES   = 30
+ERR_LOGICAL_FILE_IN_USE   = 31
+ERR_DRIVE_DID_NOT_RESPOND = 32
 
 ;******************************************************************************
-ERR_UNNAMED_BUFFER = 32
-ERR_NO_FILENAME    = 33
-ERR_NO_OPEN_SCOPE  = 34
+ERR_UNNAMED_BUFFER = 33
+ERR_NO_FILENAME    = 34
+ERR_NO_OPEN_SCOPE  = 35
 
-ERR_LABEL_ALREADY_DEFINED = 35
-ERR_TOO_MANY_LABELS       = 36
+ERR_LABEL_ALREADY_DEFINED = 36
+ERR_TOO_MANY_LABELS       = 37
 
-ERR_INVALID_COMMAND = 37
+ERR_INVALID_COMMAND = 38
 
-ERR_COPY_TOO_BIG = 38
+ERR_COPY_TOO_BIG = 39
 
-ERR_BUFFER_NAME_EXISTS = 39
+ERR_BUFFER_NAME_EXISTS = 40
 
-ERR_BUFFER_FULL = 40
+ERR_BUFFER_FULL = 41
 
 ;******************************************************************************
 ; linker errors

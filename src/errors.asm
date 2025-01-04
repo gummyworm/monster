@@ -129,6 +129,10 @@ err_unknown_segment:
 	;.byte "unknown segment",0
 	.byte $ab,$8b,$73,$d7,$76,$d3,$29,$cd,$2b,$94,$0
 
+err_pc_target_unwritable:
+	; .byte "pc target unwritable",0
+	.byte $80,$db,$a0,$52,$39,$54,$dd,$4e,$bc,$89,$a0,$42,$61,$40
+
 err_too_many_open_files:
 	;.byte "too many open files",0
 	.byte $a3,$cf,$db,$41,$76,$5b,$7c,$5,$76,$c6,$4b,$5,$98,$0
@@ -204,6 +208,7 @@ err_buffer_full:
 	err_branch_out_of_range, \
 	err_file_not_found, \
 	err_unknown_segment, \
+	err_pc_target_unwritable, \
 	err_too_many_open_files, \
 	err_logical_file_in_use, \
 	err_drive_did_not_respond, \

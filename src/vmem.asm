@@ -123,3 +123,26 @@
 	lda #FINAL_BANK_USER
 	rts
 .endproc
+
+;*******************************************************************************
+; WRITABLE
+; Checks if the given address is within the valid writable range.
+; This includes the addresses [$00, $8000) and [$a000, $c000)
+; IN:
+;   - .XY: the address to check for writability
+; OUT:
+;   - .C: set if the address is NOT writable
+.export __vmem_writable
+.proc __vmem_writable
+	cmpw #$8000
+	bcc @done	; [$00, $8000) -> writable
+	cmpw #$c000
+	bcs @done	; [$c000, $ffff) -> not writable
+	cmpw #$a000
+	bcs @writable
+	sec		; [$8000, $a000) -> not writable
+	rts
+@writable:
+	clc
+@done:	rts
+.endproc

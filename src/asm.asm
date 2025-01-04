@@ -1531,19 +1531,24 @@ num_illegals = *-illegal_opcodes
 
 	ldxy #@filename
 	jsr file::open
+	pha
 	bcs @err
 
 @l0:	; read the binary file contents byte-by-byte
 	jsr file::readb
-	bcs @done
+	bcs @err
 	jsr writeb
+	bcs @err
 	jsr incpc
-	jmp @l0
+	lda file::eof
+	beq @l0		; loop until EOF
 
-@done:	cpx #$00	; error set?
-	bne @err
 @ok:	clc		; return without err
-@err:	rts
+@err:	pla		; restore file handle
+	php		; save success status flag
+	jsr file::close	; cleanup (close the file)
+	plp		; restore success flag
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -1610,7 +1615,7 @@ __asm_include:
 	jsr file::getline	; read a line from the file
 	bcc @asm
 	lda file::eof
-	beq @close
+	beq @close		; failed to get a line and not at end of file
 
 ; assemble the line
 @asm:	ldxy #mem::spare
@@ -2617,7 +2622,13 @@ __asm_include:
 	sty @savey
 	tya			; .A = offset
 	ldxy zp::asmresult
-	jsr vmem::store_off
+
+	jsr vmem::writable
+	bcc :+
+	lda #ERR_PC_TARGET_UNWRITABLE
+	rts			; address is not writable
+
+:	jsr vmem::store_off
 	ldx @savex
 	ldy @savey
 	RETURN_OK
