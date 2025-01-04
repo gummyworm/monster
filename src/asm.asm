@@ -1397,7 +1397,7 @@ num_illegals = *-illegal_opcodes
 ; HANDLE_CTX
 ; If this is the first pass, copies the contents of the asmbuffer to the current
 ; context.
-; Note: during vierification contexts are not handled at all.
+; NOTE: during vierification contexts are not handled at all.
 ; OUT:
 ;  - .Z: set if the line was handled by this handler
 ;  - .C: set on error
@@ -1527,12 +1527,14 @@ num_illegals = *-illegal_opcodes
 	sta r0+1
 	ldxy zp::line
 	jsr util::parse_enquoted_string
-	bcs @err
+	bcs @ret
 
 	ldxy #@filename
 	jsr file::open
-	pha
-	bcs @err
+	bcs @ret
+	pha		; save file handle
+	tax
+	jsr $ffc6	; CHKIN (use file as input)
 
 @l0:	; read the binary file contents byte-by-byte
 	jsr file::readb
@@ -1548,7 +1550,7 @@ num_illegals = *-illegal_opcodes
 	php		; save success status flag
 	jsr file::close	; cleanup (close the file)
 	plp		; restore success flag
-	rts
+@ret:	rts
 .endproc
 
 ;*******************************************************************************
