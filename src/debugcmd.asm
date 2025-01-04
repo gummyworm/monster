@@ -10,6 +10,7 @@
 .include "cursor.inc"
 .include "debug.inc"
 .include "debuginfo.inc"
+.include "edit.inc"
 .include "errors.inc"
 .include "expr.inc"
 .include "file.inc"
@@ -752,28 +753,63 @@
 ; e.g.
 ;  `>A $1000, lda #$00`
 .proc assemble
-@addr=rd
+@addr=zp::debuggertmp
 	; get the address to assemble at
 	jsr eval
 	bcs @ret		; return if address is invalid expression
 	stxy @addr
 	CALL FINAL_BANK_MAIN, #asm::setpc
 
-	ldy #$00
+	jsr process_ws
 	lda (zp::line),y
-	beq @nexti		; if no instruction provided, prompt for more
-	incw zp::line
+	bne @getop
+	RETURN_OK		; if no instruction provided, we're done
+
+@getop:	lda #FINAL_BANK_MAIN
 	ldxy zp::line
-	lda #FINAL_BANK_MAIN
 	CALL FINAL_BANK_MAIN, #asm::tokenize	; assemble the instruction
-	bcs @err
-@nexti:	rts
+	bcc @nexti
 
 @err:	CALL FINAL_BANK_MAIN, #err::get
 	CALL FINAL_BANK_MAIN, #str::uncompress
 	jsr con::puts				; print the error
 	clc
 @ret:	rts
+
+@nexti:	; prepopulate input buffer with ".A <next address> "
+	lda #$61
+	sta mem::linebuffer
+	lda #' '
+	sta mem::linebuffer+1
+	lda #'$'
+	sta mem::linebuffer+2
+	lda zp::asmresult+1
+	jsr hextostr
+	sty mem::linebuffer+3
+	stx mem::linebuffer+4
+	lda zp::asmresult
+	jsr hextostr
+	sty mem::linebuffer+5
+	stx mem::linebuffer+6
+	lda #' '
+	sta mem::linebuffer+7
+	lda #$00
+	sta mem::linebuffer+8
+
+	lda con::line
+	sta zp::cury
+
+	ldx #$08
+	stx zp::curx
+	ldy #$00
+	CALL FINAL_BANK_MAIN, #cur::setmin
+
+	ldxy #con::getch
+	CALL FINAL_BANK_MAIN, #edit::gets
+	ldxy #mem::linebuffer
+	jsr __console_puts
+	ldxy #mem::linebuffer
+	jmp __dbgcmd_run
 .endproc
 
 ;*******************************************************************************

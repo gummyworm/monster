@@ -26,6 +26,9 @@
 HEIGHT = 24
 
 .segment "CONSOLE_BSS"
+.export __console_line
+
+__console_line:
 line:      .byte 0	; the line that the console is on
 repeatcmd: .byte 0	; if set, empty line repeats last command
 
@@ -48,7 +51,8 @@ screen: .res 40*24
 ;******************************************************************************
 ; GETCH
 ; Handles the key (called by the keyboard gets handler)
-.proc getch
+.export __console_getch
+.proc __console_getch
 	jsr key::getch
 	beq :+
 	cmp #K_SWAP_USERMEM_TUI
@@ -61,7 +65,15 @@ screen: .res 40*24
 
 .segment "CONSOLE"
 
-;******************************************************************************
+;*******************************************************************************
+; NEWL
+; Displays a new empty line in the console
+.export __console_newl
+.proc __console_newl
+	ldxy #strings::null
+.endproc
+
+;*******************************************************************************
 ; PUTS
 ; Prints the given line to the console
 ; IN:
@@ -246,7 +258,7 @@ screen: .res 40*24
 	ldy #$00
 	CALL FINAL_BANK_MAIN, #cur::setmin
 
-	ldxy #getch
+	ldxy #__console_getch
 	CALL FINAL_BANK_MAIN, #edit::gets
 	bcs @clrline
 	pha
