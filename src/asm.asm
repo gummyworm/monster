@@ -1520,6 +1520,7 @@ num_illegals = *-illegal_opcodes
 @filename=$100
 	lda state::verify
 	beq @cont
+	lda #ASM_DIRECTIVE
 	RETURN_OK		; don't include a file when verifying
 
 @cont:	lda #<@filename
@@ -1551,7 +1552,8 @@ num_illegals = *-illegal_opcodes
 	php		; save success status flag
 	jsr file::close	; cleanup (close the file)
 	plp		; restore success flag
-@ret:	rts
+@ret:	lda #ASM_DIRECTIVE
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -1572,7 +1574,7 @@ num_illegals = *-illegal_opcodes
 	ldxy zp::line
 	jsr util::parse_enquoted_string
 	bcc :+
-	rts
+	rts			; failed to parse filename
 :	ldxy #@filename
 
 ; entry point for assembling a given file
@@ -1584,7 +1586,8 @@ __asm_include:
 
 	lda state::verify
 	beq :+
-	RETURN_OK	; don't include a file when verifying
+	lda #ASM_DIRECTIVE	; format type
+	RETURN_OK		; don't include a file when verifying
 
 :	sta @err
 	jsr file::open

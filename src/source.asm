@@ -451,7 +451,7 @@ data: .res BUFFER_SIZE
 	; only one buffer open; re-initialize it to "close" it
 	dec numsrcs	; set num sources back to 0
 	jsr __src_new	; and initialize the buffer
-	sec		; flag new buffer created
+	sec		; flag that a new buffer was created/initialized
 	rts
 
 @close:
