@@ -560,6 +560,8 @@
 ; Example:
 ;  `g $1234`
 .proc goto
+	jsr debugging
+	bcc :+				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, #dbg::go
 	inc con::quit
 :	rts
@@ -906,10 +908,12 @@
 ; STEP
 ; Steps to the next instruction while debugging
 .proc step
+	jsr debugging
+	bcc @done				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, #dbg::step
 
 	inc con::quit	; send QUIT signal
-	rts
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -918,20 +922,25 @@
 ; treated as one instruction
 ; instruction
 .proc step_over
+	jsr debugging
+	bcc @done				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, #dbg::step_over
 
 	inc con::quit	; send QUIT signal
-	rts
+@done:	rts
 .endproc
 
 ;*******************************************************************************
 ; TRACE
 ; Starts TRACE'ing the program.
 .proc trace
+	jsr debugging
+	bcc @done				; can't step if not debugging
+
 	CALL FINAL_BANK_MAIN, #dbg::trace
 
 	inc con::quit	; send QUIT signal
-	rts
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -1057,10 +1066,12 @@
 ; STEP OUT
 ; Continues execution til the current subroutine returns with an RTS
 .proc step_out
+	jsr debugging
+	bcc @done				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, #dbg::step_out
 
 	inc con::quit	; send QUIT signal
-	rts
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -1159,6 +1170,29 @@
 :	adc #'a'-$a-1
 :	tax
 	rts
+.endproc
+
+;*******************************************************************************
+; DEBUGGING
+; Checks if the user is currently debugging a program.
+; Some commands are only valid while debugging
+; OUT:
+;  - .C: set if the user is debugging a program
+.proc debugging
+	; get the debugging flag
+	ldxy #edit::debugging
+	jsr getb
+	cmp #$01
+	bcs :+
+
+	ldxy #@not_debugging_msg
+	jsr con::puts
+	clc
+:	rts
+.PUSHSEG
+.RODATA
+@not_debugging_msg: .byte "not debugging",0
+.POPSEG
 .endproc
 
 ;*******************************************************************************

@@ -3,6 +3,7 @@
 .import __edit_binary_flag
 .import __edit_clear
 .import __edit_current_file
+.import __edit_debugging
 .import __edit_enter_console
 .import __edit_gets
 .import __edit_gotoline
@@ -22,6 +23,7 @@
 	binary_flag    = __edit_binary_flag
 	clear          = __edit_clear
 	currentfile    = __edit_current_file
+	debugging      = __edit_debugging
 	enterconsole   = __edit_enter_console
 	gets           = __edit_gets
 	gotoline       = __edit_gotoline

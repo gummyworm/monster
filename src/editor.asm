@@ -74,6 +74,9 @@ __edit_height = height
 .BSS
 ;******************************************************************************
 readonly:  .byte 0	; if !0 no edits are allowed to be made via the editor
+
+.export __edit_debugging
+__edit_debugging:
 debugging: .byte 0	; if !0, debugger is active
 
 jumplist: .res 8*2	; line #'s between jumps
@@ -3032,9 +3035,7 @@ goto_buffer:
 
 	jsr src::rewind		; rewind the source
 
-	jmp *
 	jsr refresh
-	jmp *
 	jsr text::clrinfo
 	jsr cancel
 	RETURN_OK
