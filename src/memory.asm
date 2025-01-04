@@ -1,3 +1,9 @@
+;*******************************************************************************
+; MEMORY.ASM
+; This file contains reservations for important shared RAM locations used
+; by Monster.  Notably this includes the "line" and "assembly" buffers.
+;*******************************************************************************
+
 .include "config.inc"
 
 .BSS
@@ -70,10 +76,12 @@ __mem_findbuff: .res MAX_SEARCH_LEN+1	; +1 for terminating 0
 ; upper RAM upon switching banks
 ; This allows the buffer to be manipulated from any bank
 .segment "LINEBUFF"
+
 .export __linebuffer
 __linebuffer:
 .assert * & $ff = $00, error, "line buffer not page-aligned"
 	.res LINESIZE
+
 .export __linebuffer2
 ;__linebuffer2: .res 80		; backup buffer for when the linebuffer must be saved
 __linebuffer2:

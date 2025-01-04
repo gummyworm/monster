@@ -30,6 +30,12 @@
 .include "util.inc"
 .include "zeropage.inc"
 
+;*******************************************************************************
+; CHARACTER ESCAPE CODES
+; These codes, when encountered by text::print, will be expanded to values
+; from the stack.  For example, when text::print encounters an ESCAPE_STRING
+; byte in the string, it will pull two bytes from the stack and add the
+; string at that address to the rendered string.
 ESCAPE_STRING    = $ff
 ESCAPE_VALUE     = $fe
 ESCAPE_VALUE_DEC = $fd

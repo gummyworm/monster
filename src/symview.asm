@@ -3,6 +3,7 @@
 ; This file contains the code for the symbol viewer, which allows the user to
 ; see all (non-local/anonymous) symbols in their program.
 ; Using debug information, the user can navigate to the location of the symbol
+;*******************************************************************************
 
 .include "config.inc"
 .include "debuginfo.inc"
@@ -20,12 +21,16 @@
 .include "text.inc"
 .include "zeropage.inc"
 
+;*******************************************************************************
+; CONSTANTS
 HEIGHT     = 23
 MAX_LABELS = 768
 
 SORT_ALPHA = 0	; sort by label name alphabetically
 SORT_ADDR  = 1	; sort by label address
 
+;*******************************************************************************
+; ZEROPAGE/MEMORY LOCATIONS
 lbl      = r5		; the ID of the current line's label
 addr     = r9		; the address corresponding to the current line's label
 filename = zp::tmp10	; the filename for the current line
