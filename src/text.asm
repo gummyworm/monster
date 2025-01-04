@@ -55,6 +55,7 @@ __text_status_mode: .byte 0	; the mode to display on the status line
 __text_status_fmt: .byte 0	; the format to use for the status display
 
 render_off: .byte 0
+indirect:   .byte 0
 
 .CODE
 ;******************************************************************************
@@ -566,7 +567,26 @@ render_off: .byte 0
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
+; RENDER INDIRECT
+; This procedure functions the same as RENDER, but it saves two procedures from
+; the stack for the return address instead of just one.
+; This is for use in other RAM banks than the one which the text code resides
+; in, where a trampoline is needed to call/return from the procedure.
+.export __text_render_indirect
+.proc __text_render_indirect
+@retbank = zp::text+7+2
+	lda #$01
+	sta indirect
+	pla
+	sta @retbank
+	pla
+	sta @retbank+1
+
+	; fall through to RENDER
+.endproc
+
+;*******************************************************************************
 ; RENDER
 ; Renders the given string. The given format string follows the same format as
 ; "text::print"
@@ -597,7 +617,7 @@ render_off: .byte 0
 @row = zp::text+4
 @savex = zp::text+5
 @savey = zp::text+6
-@ret = zp::text+8
+@ret = zp::text+7
 @buff = mem::linebuffer2
         stx @str
         sty @str+1
@@ -668,6 +688,8 @@ render_off: .byte 0
 :	lda #' '
 	sta @buff,x
 	inx
+	cpx #40
+	beq @gotodisp
 	dey
 	bne :-
 	ldy @savey
@@ -794,6 +816,17 @@ render_off: .byte 0
 	pha
 	lda @ret
 	pha
+
+	; do we need to restore two addresses?
+	lda indirect
+	beq :+
+	lda @ret+3
+	pha
+	lda @ret+2
+	pha
+
+:	lda #$00
+	sta indirect	; reset indirect flag
 
 	; check if we want to render to screen or just return
 	lda render_off

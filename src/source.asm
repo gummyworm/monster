@@ -990,10 +990,16 @@ data: .res BUFFER_SIZE
 	; make sure char is displayable
 	cmp #$80
 	bcs @done
+	cmp #$0d
+	beq :+
+	cmp #$0a
+	beq :+
+	cmp #$09
+	beq :+
 	cmp #$20
 	bcc @done
 
-	pha
+:	pha
 	jsr mark_dirty
 	jsr gaplen
 	cmpw #0		; is gap closed?
@@ -1001,15 +1007,15 @@ data: .res BUFFER_SIZE
 
 	; check if there is room to expand the gap
 	lda poststartzp+1
-	cmp #>(BUFFER_SIZE+data)-1
-	bcc :+
+	cmp #>(BUFFER_SIZE+data)-1	; -1 to save space for a $100 byte gap
+	bcc @ok
 
 @err:	; buffer overflow, cannot insert character
 	pla				; clean stack
 	lda #ERR_BUFFER_FULL
 	rts
 
-:	; gap is closed, create a new one
+@ok:	; gap is closed, create a new one
 	; copy data[poststart] to data[poststart + GAPSIZE]
 	ldxy cursorzp
 	stxy @src

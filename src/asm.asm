@@ -2145,6 +2145,7 @@ __asm_include:
 	dey
 	bpl :-
 
+	; update @dst to after the opcode
 	lda @dst
 	clc
 	adc #$03
@@ -2180,6 +2181,7 @@ __asm_include:
 	beq @cont	; if not implied, go on
 @implied:
 	lda #$00
+	tay
 	sta (@dst),y	; 0-terminate
 	lda #$01	; 1 byte in size
 	ldx @modes

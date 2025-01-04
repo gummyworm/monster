@@ -116,7 +116,8 @@ screen: .res 40*24
 	dec line
 
 @print:	ldxy @msg
-	CALL FINAL_BANK_MAIN, #text::render
+
+	CALL FINAL_BANK_MAIN, #text::render_ind
 	stxy @msg
 
 	lda #$00

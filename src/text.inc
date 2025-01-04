@@ -15,6 +15,7 @@
 .import __text_putch
 .import __text_puterr
 .import __text_render
+.import __text_render_indirect
 .import __text_rendered_line_len
 .import __text_restorebuff
 .import __text_savebuff
@@ -65,6 +66,7 @@ CH_R_ARROW	    = 135
 	putch            = __text_putch
 	puts             = __text_puts
 	render           = __text_render
+	render_ind       = __text_render_indirect
 	rendered_line_len= __text_rendered_line_len
 	savebuff         = __text_savebuff
 	scrolldown       = __text_scrolldown

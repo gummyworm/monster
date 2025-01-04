@@ -212,8 +212,8 @@
 ; b
 ; List all breakpoints
 .proc list_breakpoints
-@cnt=zp::tmpa
-@num=zp::tmpb
+@cnt=zp::debuggertmp
+@num=zp::debuggertmp+1
 	lda #$00
 	sta @cnt
 
@@ -241,8 +241,8 @@
 ; IN:
 ;  - .XY: the parameters for the command
 .proc add_break_addr
-@addr=zp::tmp10
-@line=zp::tmp12
+@addr=zp::debuggertmp
+@line=zp::debuggertmp+2
 	; evaluate the expression to get break address
 	jsr eval
 	bcs @done
@@ -280,8 +280,8 @@
 ; IN:
 ;  - .XY: the parameters for the command
 .proc add_break_line
-@fileid=zp::tmp10
-@line=zp::tmp11
+@fileid=zp::debuggertmp
+@line=zp::debuggertmp+1
 	; get the filename of the file to add the breakpoint in
 	skb
 @err:	rts
@@ -683,32 +683,45 @@
 ; DISASM
 ; Disassembles from the given expression
 .proc disasm
-@addr=rd
-@lines=rf
+@addr=zp::debuggertmp
+@stopaddr=zp::debuggertmp+2
+@buff=mem::spare+40
 	; get the address to start disassembling at
-	lda #20
-	sta @lines
 	jsr eval
 	bcs @ret
 	stxy @addr
 
-@l0:	ldxy #$100
+	; init default stop address
+	add16 #$20
+	stxy @stopaddr
+
+	; get the optional address to stop disassembling at
+	incw zp::line
+	ldy #$00
+	lda (zp::line),y
+	beq @l0					; no end address
+	jsr eval
+	bcs @ret
+	stxy @stopaddr
+
+@l0:	ldxy #@buff
 	stxy r0
 	ldxy @addr
 	CALL FINAL_BANK_MAIN, #asm::disassemble
 
 	jsr @drawline
-	dec @lines
-	bne @l0
+	ldxy @addr
+	cmpw @stopaddr
+	bcc @l0
 @done:	clc
 @ret:	rts
 
 @drawline:
 	tax
 	; push the disassembled string
-	lda #>$100
+	lda #>@buff
 	pha
-	lda #<$100
+	lda #<@buff
 	pha
 
 	; push the address
@@ -728,10 +741,11 @@
 :	ldxy #@disasm_msg
 	jmp con::puts
 
+.PUSHSEG
 .RODATA
 @disasm_msg:
-	.byte $fe," ", $ff,0	; <address> <instruction>
-.segment "CONSOLE"
+	.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING,0	; <address> <instruction>
+.POPSEG
 .endproc
 
 ;******************************************************************************
@@ -741,10 +755,7 @@
 ;  `>A $1000, lda #$00`
 .proc assemble
 @addr=rd
-@lines=rf
 	; get the address to assemble at
-	lda #20
-	sta @lines
 	jsr eval
 	bcs @ret		; return if address is invalid expression
 	stxy @addr
@@ -964,7 +975,6 @@
 	sta r0
 	ldxy @lbl
 	CALL FINAL_BANK_MAIN, #lbl::getname
-	jmp @push_addr
 
 @push_addr:
 	; push the address of the procedure call
