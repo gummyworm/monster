@@ -2437,7 +2437,12 @@ __edit_set_breakpoint:
 ; is one) or a new source.
 .proc close_buffer
 	jsr src::close
-	jmp refresh	; refresh the new buffer
+	bcc :+
+	; if there was no buffer to switch to, reset cursor
+	lda #$00
+	sta zp::curx
+	sta zp::cury
+:	jmp refresh	; refresh the new buffer
 .endproc
 
 ;******************************************************************************

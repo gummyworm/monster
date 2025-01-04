@@ -435,20 +435,24 @@ data: .res BUFFER_SIZE
 ; CLOSE
 ; Closes the active buffer. If the buffer being closed is the only one open,
 ; initializes a new buffer and makes it the active buffer.
+; OUT:
+;  - .C: set if a new buffer was created (the last buffer was closed)
 .export __src_close
 .proc __src_close
 @cnt=r0
 @end=r0
 ; get number of last byte to move (num_buffers)*2
 	lda numsrcs
-	bne :+
-	rts		; no buffer to close
-:	cmp #$01
+	beq @ok		; no buffer to close
+
+	cmp #$01	; is the current buffer the last one?
 	bne @close
 
 	; only one buffer open; re-initialize it to "close" it
 	dec numsrcs	; set num sources back to 0
-	jmp __src_new	; and initialize the buffer
+	jsr __src_new	; and initialize the buffer
+	sec		; flag new buffer created
+	rts
 
 @close:
 	; get the number of buffers to shift (numsrcs - activesrc - 1)
@@ -517,7 +521,8 @@ data: .res BUFFER_SIZE
 	bcc :+
 	dec activesrc
 :	lda activesrc
-	jmp __src_set
+	jsr __src_set
+@ok:	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -759,6 +764,7 @@ data: .res BUFFER_SIZE
 ; Moves the cursor up one character in the gap buffer
 ; OUT:
 ;  - .A: the character at the new cursor position in .A
+;  - .C: clear on success (always clear)
 .export __src_next
 .proc __src_next
 	; do __src_end inline to save the cycles from JSR and RTS

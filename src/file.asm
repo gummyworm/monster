@@ -204,13 +204,13 @@ __file_load_src:
 
 @save:  jsr $ffb7       ; READST (read status byte)
 	bne @error	; error
+
 @chout: jsr getb
-	php		; save EOF flag
-	jmp *
-	jsr $ffd2	; write to file
-	plp		; get EOF flag
-	bcc @save	; loop if !EOF
-	lda #$00	; no error
+	bcs @done	; EOF or end of save range
+	jsr $ffd2	; write byte to file
+	jmp @save
+
+@done:	lda #$00	; no error
 	RETURN_OK	; done
 
 @error:	jmp geterr
@@ -478,26 +478,25 @@ __file_load_src:
 ; During SAVE: reads the next byte to be saved.
 ; OUT:
 ;  - .A: the character that was read
-;  - .C: set if EOF
+;  - .C: set if EOF (source) or end of save address range (binary)
 .proc getb
 	lda isbin	; are we reading from memory or source
 	bne @use_bin
 
 @use_src:
-	jsr src::next
 	jsr src::end
-	beq :+		; if EOF, return with .C set
-	clc		; !EOF, return with .C clear
-	rts
-:	sec
+	beq @eof	; if EOF, return with .C set
+	jmp src::next	; else, return the next byte
+@eof:	sec
 	rts
 
 @use_bin:
 	ldxy __file_save_address
+	cmpw __file_save_address_end	; are we at the end of the save range?
+	bcs @done			; if so, we're done
+
 	jsr vmem::load
 	incw __file_save_address
-	ldxy __file_save_address
-	cmpw __file_save_address_end ; set .C if src >= end address
 @done:	rts
 .endproc
 

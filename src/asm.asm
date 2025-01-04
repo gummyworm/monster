@@ -1519,9 +1519,10 @@ num_illegals = *-illegal_opcodes
 .proc incbinfile
 @filename=$100
 	lda state::verify
-	bne @ok			; don't include a file when verifying
+	beq @cont
+	RETURN_OK		; don't include a file when verifying
 
-	lda #<@filename
+@cont:	lda #<@filename
 	sta r0
 	lda #>@filename
 	sta r0+1
@@ -1545,7 +1546,7 @@ num_illegals = *-illegal_opcodes
 	lda file::eof
 	beq @l0		; loop until EOF
 
-@ok:	clc		; return without err
+	clc		; return without err
 @err:	pla		; restore file handle
 	php		; save success status flag
 	jsr file::close	; cleanup (close the file)
