@@ -1,8 +1,7 @@
 ;******************************************************************************
 ; DEBUGCMD.ASM
 ; This file contains the code for handling debug commands.
-; This is accessed by typing '/' while in the main debugger view or one of the
-; sub-views (memory editor, etc.)
+; Debug commands are those invoked by the TUI (monitor) interface.
 ;******************************************************************************
 
 .include "asm.inc"
@@ -663,8 +662,7 @@
 	iny
 :	jsr print_word	; print the address where we found the value
 
-	clc
-	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -691,7 +689,7 @@
 	bcs @ret
 	stxy @addr
 
-	; init default stop address
+	; init default stop address to start address + $20
 	add16 #$20
 	stxy @stopaddr
 

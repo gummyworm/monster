@@ -1,3 +1,12 @@
+;*******************************************************************************
+; TEXT.ASM
+; This file contains procedures for drawing text or interacting with it in
+; a physical (rendering related) sense.
+; This includes utilities to determine how wide a TAB will be rendered at a
+; given offset, or where the cursor should be relative to a given character
+; offset.
+;*******************************************************************************
+
 .include "asm.inc"
 .include "beep.inc"
 .include "bitmap.inc"
@@ -38,7 +47,7 @@ STATUS_FORMAT_DEFAULT = 0	; display x, line/total lines
 STATUS_FORMAT_XY      = 1	; display x,y position of cursor
 
 .BSS
-;******************************************************************************
+;*******************************************************************************
 .export __text_len
 __text_len: .byte 0
 
@@ -58,7 +67,7 @@ render_off: .byte 0
 indirect:   .byte 0
 
 .CODE
-;******************************************************************************
+;*******************************************************************************
 ; BUFFERON
 ; enables buffering for text (text will only be drawn when lines are
 ; drawn, inserts will not redraw screen)
@@ -70,7 +79,7 @@ indirect:   .byte 0
 	; fallthrough
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; BUFFEROFF
 ; Disables buffering. All characters will be drawn to screen
 .export __text_bufferoff
@@ -80,7 +89,7 @@ indirect:   .byte 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; STATUS
 ; Draws the text status (row, column, etc.) at the given row
 ; IN:
@@ -91,7 +100,7 @@ indirect:   .byte 0
 	jmp __text_puts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; UPDATE_STATUSLINE
 ; Updates mem::statusline with new information (cursor pos, etc.)
 ; SIDE-EFFECTS:
@@ -224,7 +233,7 @@ indirect:   .byte 0
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; UPDATE
 ; updates the statusline according to the current cursor position
 ; and blinks the cursor if it's time
@@ -242,7 +251,7 @@ indirect:   .byte 0
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLRLINE
 ; Clears the linebuffer by setting its first byte to 0.
 .export __text_clrline
@@ -252,7 +261,7 @@ indirect:   .byte 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PUTCH
 ; Adds the character in .A to the current cursor position in the
 ; text linebuffer. The cursor is then updated to the next position.
@@ -391,7 +400,7 @@ indirect:   .byte 0
 	RETURN_OK		; "put" was successful
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DRAWLINE
 ; Renders the text in mem::linebuffer at the given row
 ; IN:
@@ -405,7 +414,7 @@ indirect:   .byte 0
 	jmp __text_print
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SCROLLUP
 ; Scrolls all lines from .X to .A up
 ; IN:
@@ -469,7 +478,7 @@ indirect:   .byte 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SCROLLDOWN
 ; Scrolls all rows from .A to .X
 ; IN:
@@ -482,7 +491,7 @@ indirect:   .byte 0
 	; fallthrough
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SCROLLDOWNN
 ; Scrolls all rows in the given range down by the given number of rows
 ; IN:
@@ -843,7 +852,7 @@ indirect:   .byte 0
 	; fall through to __text_puts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PUTS
 ; Displays the given string at the given row.  Regardless of the contents of
 ; the string, text::len characters are displayed (including 0's etc.)
@@ -855,7 +864,7 @@ indirect:   .byte 0
 	JUMP FINAL_BANK_FASTTEXT, #ftxt::puts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LINELEN
 ; Returns the length of mem::linebuffer
 ; OUT:
@@ -871,7 +880,7 @@ indirect:   .byte 0
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RENDERED LINE LEN
 ; Returns the length of mem::linebuffer in number of rendered characters
 ; OUT:
@@ -904,7 +913,7 @@ indirect:   .byte 0
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CHAR INDEX
 ; Returns the character index of the current cursor position
 ; If the cursor is within a TAB character's rendered range, returns the
@@ -943,7 +952,7 @@ indirect:   .byte 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; INDEX2CURSOR
 ; Returns the x cursor position for the given offset in linebuffer
 ; Assumes that the editor is NOT in INSERT mode.
@@ -989,7 +998,7 @@ indirect:   .byte 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TABR_DIST
 ; Returns the # of columns to the next tab from the current cursor position
 ; OUT:
@@ -1009,7 +1018,7 @@ __text_tabr_dist_a=*+2
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TABL_DIST
 ; Returns the number of columns left to the previous tab column
 ; OUT:
@@ -1031,7 +1040,7 @@ __text_tabr_dist_a=*+2
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; TABS
 ; This table stores the offsets to each TAB column
 .PUSHSEG
@@ -1043,7 +1052,7 @@ tabs:
 tabs_end=*-tabs
 .POPSEG
 
-;******************************************************************************
+;*******************************************************************************
 ; SAVEBUFF
 ; Stores the contents of linebuffer to spare memory. The contents of the
 ; most recent call to this routine will be restored when text::restorebuff is
@@ -1058,7 +1067,7 @@ tabs_end=*-tabs
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RESTOREBUFF
 ; Restores the linebuffer from the contents of spare memory (saved by the most
 ; recent call to text::savebuff)
@@ -1072,7 +1081,7 @@ tabs_end=*-tabs
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; INFO
 ; Copies the given message directly to the status line.
 ; ; IN:
@@ -1107,7 +1116,7 @@ tabs_end=*-tabs
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLRINFO
 ; Clears the info part of the status line
 .export __text_clrinfo
