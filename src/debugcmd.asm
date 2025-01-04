@@ -707,16 +707,35 @@
 	stxy r0
 	ldxy @addr
 	CALL FINAL_BANK_MAIN, #asm::disassemble
-
-	jsr @drawline
-	ldxy @addr
+	bcc @ok
+	jsr @drawbyte
+	jmp @next
+@ok:	jsr @drawline
+@next:	ldxy @addr
 	cmpw @stopaddr
 	bcc @l0
 @done:	clc
 @ret:	rts
 
+@drawbyte:
+	; unknown instruction
+	ldxy @addr
+	CALL FINAL_BANK_MAIN, #vmem::load	; get the byte
+	pha
+
+	; push the address
+	lda @addr
+	pha
+	lda @addr+1
+	pha
+
+	incw @addr
+	ldxy #@byte_msg
+	jmp con::puts
+
 @drawline:
-	tax
+	tax		; save instruction size
+
 	; push the disassembled string
 	lda #>@buff
 	pha
@@ -742,6 +761,8 @@
 
 .PUSHSEG
 .RODATA
+@byte_msg:
+	.byte "$", ESCAPE_VALUE, " .db $", ESCAPE_BYTE, 0
 @disasm_msg:
 	.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING,0	; <address> <instruction>
 .POPSEG
