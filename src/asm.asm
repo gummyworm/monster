@@ -1541,13 +1541,16 @@ num_illegals = *-illegal_opcodes
 @l0:	; read the binary file contents byte-by-byte
 	jsr file::readb
 	bcs @err
-	jsr writeb
+	ldx file::eof
+	bne @eof	; loop until EOF
+
+	ldy #$00	; no offset
+	jsr writeb	; write the byte
 	bcs @err
 	jsr incpc
-	lda file::eof
-	beq @l0		; loop until EOF
+	jmp @l0
 
-	clc		; return without err
+@eof:	clc		; return without err
 @err:	pla		; restore file handle
 	php		; save success status flag
 	jsr file::close	; cleanup (close the file)
