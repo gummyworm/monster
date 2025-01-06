@@ -49,6 +49,12 @@ __str_edit_file_load_failed: .byte "failed to load file; error $",ESCAPE_BYTE,0
 .export __str_edit_file_delete_failed
 __str_edit_file_delete_failed: .byte "failed to delete file; error ", ESCAPE_BYTE, 0
 
+.export __str_file_open_failed
+__str_file_open_failed: .byte "failed to open file; error ", ESCAPE_BYTE, 0
+
+.export __str_no_file
+__str_no_file: .byte "no input file specified", 0
+
 .export __str_deleting
 __str_deleting: .byte "deleting...",0
 

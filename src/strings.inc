@@ -15,11 +15,13 @@
 .import __str_errors
 .import __str_load
 .import __str_edit_line_err
+.import __str_file_open_failed
 .import __str_edit_file_delete_failed
 .import __str_edit_file_load_failed
 .import __str_edit_file_save_failed
 .import __str_memory
 .import __str_memview_title
+.import __str_no_file
 .import __str_null
 .import __str_loading
 .import __str_run
@@ -55,6 +57,8 @@
 	deleting                = __str_deleting
 	dir                     = __str_dir
 	edit_line_err           = __str_edit_line_err
+	nofile                  = __str_no_file
+	file_open_failed        = __str_file_open_failed
 	edit_file_load_failed   = __str_edit_file_load_failed
 	edit_file_delete_failed = __str_edit_file_delete_failed
 	edit_file_save_failed   = __str_edit_file_save_failed

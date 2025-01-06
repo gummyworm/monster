@@ -12,6 +12,7 @@
 .include "edit.inc"
 .include "errors.inc"
 .include "expr.inc"
+.include "file.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "finalex.inc"
@@ -21,6 +22,8 @@
 .include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"
+
+.import is_whitespace
 
 ;*******************************************************************************
 HEIGHT = 24
@@ -34,6 +37,8 @@ repeatcmd: .byte 0	; if set, empty line repeats last command
 
 cursave_x: .byte 0
 cursave_y: .byte 0
+
+outfile: .byte 0	; screen (0) or file handle to output con::puts to
 
 ;*******************************************************************************
 ; SIGNALS
@@ -66,18 +71,12 @@ screen: .res 40*24
 .segment "CONSOLE"
 
 ;*******************************************************************************
-; NEWL
-; Displays a new empty line in the console
-.export __console_newl
-.proc __console_newl
-	ldxy #strings::null
-.endproc
-
-;*******************************************************************************
 ; PUTS
 ; Prints the given line to the console
 ; IN:
 ;   - .XY: the address of the line to print
+; OUT:
+;   - .C: set on error (failed to write to output file)
 .export __console_puts
 .proc __console_puts
 @msg=r0
@@ -129,6 +128,7 @@ screen: .res 40*24
 
 @print:	ldxy @msg
 
+	; render the message
 	CALL FINAL_BANK_MAIN, #text::render_ind
 	stxy @msg
 
@@ -160,6 +160,24 @@ screen: .res 40*24
 	dey
 	bpl @copy
 
+	lda outfile
+	beq @screen
+
+@file:	; write the line to file
+	CALL FINAL_BANK_MAIN, #text::linelen
+	txa
+	clc
+	adc #<mem::linebuffer
+	sta file::save_address_end
+	lda #>mem::linebuffer
+	adc #$00
+	sta file::save_address_end+1
+
+	ldxy #mem::linebuffer
+	lda outfile
+	JUMP FINAL_BANK_MAIN, #file::savebin
+
+@screen:
 	lda line
 	inc line
 	ldxy @msg
@@ -263,8 +281,14 @@ screen: .res 40*24
 	bcs @clrline
 	pha
 
+	lda #$00
+	sta outfile
+
 	ldxy #mem::linebuffer
 	jsr __console_puts
+
+	ldxy #mem::linebuffer
+	jsr set_outfile
 
 	lda line
 	cmp #HEIGHT-1
@@ -278,6 +302,14 @@ screen: .res 40*24
 @run:	; run the command
 	ldxy #$101
 	jsr dbgcmd::run
+	php
+
+	; close the output file (if not screen)
+	lda outfile
+	beq :+
+	CALL FINAL_BANK_MAIN, #file::close
+
+:	plp
 	bcc @ok			; if it succeeded, continue
 
 @err:	CALL FINAL_BANK_MAIN, #err::get
@@ -298,4 +330,57 @@ screen: .res 40*24
 	; if debug interface changed back to GUI, refresh editor
 	CALL FINAL_BANK_MAIN, #edit::refresh
 :	rts
+.endproc
+
+;*******************************************************************************
+; SET OUTFILE
+; Parses the line for any redirection operator ('>') and sets the output file
+; for the debug command to be executed as appropriate.
+; The default output "file" is the screen.
+; OUT:
+;   - outfile: the file ID to store to
+;   - .C: set on error (failed to open file)
+.proc set_outfile
+	ldx #$00
+
+@findredir:
+	cpx #40-1
+	beq @done
+	lda mem::linebuffer+1,x	; start after prompt (+1)
+	beq @done		; no redirect, return
+	cmp #'>'		; redirect?
+	beq @redir
+	inx
+	bne @findredir
+	rts
+
+@redir:	; get the filename to redirect the ouput to
+	inx
+	lda mem::linebuffer+1,x
+	beq @err_nofile
+	jsr is_whitespace
+	beq @redir		; eat whitespace
+
+	; found the start of the filename
+	; open the output file
+	txa
+	clc
+	adc #<(mem::linebuffer+1)
+	tax
+	lda #>(mem::linebuffer+1)
+	adc #$00
+	tay
+	CALL FINAL_BANK_MAIN, #file::open_w
+	bcs @err
+	sta outfile
+@done:	rts
+
+@err:	; display error
+	ldxy #strings::file_open_failed
+	jmp __console_puts
+
+@err_nofile:
+	; display error
+	ldxy #strings::nofile
+	jmp __console_puts
 .endproc

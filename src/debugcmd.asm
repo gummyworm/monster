@@ -673,11 +673,15 @@
 ; Displays the current contents of the registers.
 .export __dbgcmd_regs
 .proc __dbgcmd_regs
+	jsr debugging
+	bcc @done	; registers aren't meaningful to user if not debugging
+
 	ldxy #strings::debug_registers
 	jsr con::puts
 	CALL FINAL_BANK_MAIN, #dbg::regs_contents
 	jsr con::puts
-	RETURN_OK
+	clc
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -1124,6 +1128,15 @@
 .endproc
 
 ;*******************************************************************************
+; DUMP
+; Outputs a dump of the given memory range in a format that can be assembled
+; (as .db statements)
+.proc dump
+	; TODO:
+	rts
+.endproc
+
+;*******************************************************************************
 ; IS_WHITESPACE
 ; Checks if the given character is a whitespace character
 ; IN:
@@ -1236,27 +1249,28 @@ commands:
 .byte "bl",0	; breakpoint add by line
 .byte "br",0	; breakpoint remove
 .byte "f",0	; fill memory in the given address range with the given data
+.byte "dump",0	; dumps the given address range
 .byte "move",0	; move memory from the given address range to the target address
 .byte "g",0	; goto given expression/address
 .byte "c",0	; compare the memory in the two given ranges
 .byte "h",0	; hunts the given address range for the given data
-.byte "r",0	; shows the contents of the registers
+.byte "r",0	; shows the contents of the registers (if debugging)
 .byte "d",0	; disassembles from the given address
 .byte "a",0	; assembles the given instruction given address
 .byte "m",0	; show contents of memory at the given address
 .byte "t",0	; start TRACE'ing
 .byte "x",0	; quit the debugger
-.byte "z",0	; step to the next instruction
-.byte "n",0	; step over the next instruction
-.byte "g",0	; go (continue program execution)
-.byte "bt",0	; backtrace
-.byte "zo",0	; step out
+.byte "z",0	; step to the next instruction (if debugging)
+.byte "n",0	; step over the next instruction (if debugging)
+.byte "g",0	; go (continue program execution) (if debugging)
+.byte "bt",0	; backtrace (if debugging)
+.byte "zo",0	; step out of current subroutine (if debugging)
 .byte "s",0	; save memory
 
 .linecont +
 .define command_vectors add_watch, add_watch_load, add_watch_store, \
 	remove_watch, list_watches, list_breakpoints, add_break_addr, \
-	add_break_line, remove_break, fill, move, goto, compare, hunt, \
+	add_break_line, remove_break, fill, dump, move, goto, compare, hunt, \
 	__dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
 	step_over, go, backtrace, step_out, savemem
 .linecont -

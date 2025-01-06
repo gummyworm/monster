@@ -1,3 +1,12 @@
+;*******************************************************************************
+; LABELS.ASM
+; This file defines procedures for creating and retrieving labels.
+; Labels map a text string to an address in memory.  They can be looked up
+; by address or name.  They are stored in a sorted list to enable efficient
+; alphabetic retrieval and are also indexed by address (value) to allow for
+; efficient retrieval by address.
+;*******************************************************************************
+
 .include "errors.inc"
 .include "finalex.inc"
 .include "macros.inc"
@@ -12,7 +21,7 @@ MAX_LABELS    = 750
 
 ;*******************************************************************************
 ; ZEROPAGE
-allow_overwrite = zp::labels+4
+allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
 
 .if FINAL_BANK_SYMBOLS=FINAL_BANK_MAIN
 
