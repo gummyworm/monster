@@ -1132,8 +1132,87 @@
 ; Outputs a dump of the given memory range in a format that can be assembled
 ; (as .db statements)
 .proc dump
-	; TODO:
+@addr=zp::debuggertmp
+@stop=zp::debuggertmp+2
+@cnt=zp::debuggertmp+4
+@line=zp::debuggertmp+5
+@buff=mem::spare
+	jsr get_range
+	bcc @l0
 	rts
+
+@l0:	ldxy #@buff+4
+	stxy @line
+
+	lda #'.'
+	sta @buff
+	lda #'d'
+	sta @buff+1
+	lda #'b'
+	sta @buff+2
+	lda #' '
+	sta @buff+3
+
+	lda #$08
+	sta @cnt
+
+@l1:	; get 8 bytes
+	ldxy @addr
+	cmpw @stop
+	bcs @cont
+
+	incw @addr
+	CALL FINAL_BANK_MAIN, #vmem::load
+	jsr hextostr
+	tya
+	ldy #$00
+	sta (@line),y
+	txa
+	incw @line
+	sta (@line),y
+	incw @line
+	lda #','
+	sta (@line),y
+	incw @line
+	dec @cnt
+	bne @l1
+
+@cont:	decw @line	; delete the last ','
+	lda #$00
+	tay
+	sta (@line),y	; terminate buff
+
+	ldxy #@buff
+	jsr con::puts
+	ldxy @addr
+	cmpw @stop
+	bcs @ok
+	jmp @l0
+
+@ok:	clc
+@done:	rts
+.endproc
+
+;*******************************************************************************
+; GET RANGE
+; Evaluate two arguments representing an address range and stores the results
+; OUT:
+;   - .C:                set if a (valid) range was not given
+;   - zp::debuggertmp:   the start of the range
+;   - zp::debuggertmp+2: the end of the range
+.proc get_range
+@start=zp::debuggertmp
+@stop=zp::debuggertmp+2
+	; get the start address
+	jsr eval
+	stxy @start
+	incw zp::line		; move past separator
+	bcs @ret
+
+	; get the stop address
+	jsr eval
+	stxy @stop
+@ret:	rts
 .endproc
 
 ;*******************************************************************************
