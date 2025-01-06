@@ -6,6 +6,7 @@
 ;*******************************************************************************
 
 .include "bitmap.inc"
+.include "config.inc"
 .include "cursor.inc"
 .include "debug.inc"
 .include "debugcmd.inc"
@@ -164,25 +165,35 @@ screen: .res 40*24
 	beq @screen
 
 @file:	; write the line to file
-	CALL FINAL_BANK_MAIN, #text::linelen
-	txa
+	ldy #$00
+:	lda (@msg),y
+	beq @write_to_file
+	iny
+	cpy #LINESIZE
+	bcc :-
+
+@write_to_file:
+	tya
 	clc
-	adc #<mem::linebuffer
+	adc @msg
 	sta file::save_address_end
-	lda #>mem::linebuffer
+	lda @msg+1
 	adc #$00
 	sta file::save_address_end+1
 
-	ldxy #mem::linebuffer
+	ldxy @msg
 	lda outfile
-	JUMP FINAL_BANK_MAIN, #file::savebin
+	CALL FINAL_BANK_MAIN, #file::savebin
+
+	; write a newline
+	lda #$0d
+	jmp $ffd2
 
 @screen:
 	lda line
 	inc line
 	ldxy @msg
-	JUMP FINAL_BANK_MAIN, #text::puts
-.endproc
+	JUMP FINAL_BANK_MAIN, #text::print
 
 ;******************************************************************************
 ; INIT
@@ -221,7 +232,7 @@ screen: .res 40*24
 
 	lda @line
 	ldxy #@linebuff
-	CALL FINAL_BANK_MAIN, #text::puts
+	CALL FINAL_BANK_MAIN, #text::print
 	lda @scr
 	clc
 	adc #40

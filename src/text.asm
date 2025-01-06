@@ -819,7 +819,14 @@ indirect:   .byte 0
 
 ;--------------------------------------
 @disp:	; fill the rest of the line buffer with spaces
-	lda #' '
+	lda render_off
+	beq :+
+	; if rendering is disabled don't fill buffer with spaces
+	lda #$00
+	sta @buff,x
+	beq @buffdone
+
+:	lda #' '
 :	sta @buff,x
 	inx
 	cpx #40

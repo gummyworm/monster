@@ -2289,7 +2289,7 @@ __debug_remove_breakpoint:
 @refresh:
 	lda #REGISTERS_LINE+1
 	ldxy #mem::linebuffer2
-	jsr text::puts
+	jsr text::print
 	jmp @edit
 
 ;--------------------------------------
@@ -2358,7 +2358,8 @@ __debug_remove_breakpoint:
 
 	jsr __debug_regs_contents
 	lda #REGISTERS_LINE+1
-	jmp text::puts
+	jsr text::print
+	rts
 .endproc
 
 ;******************************************************************************

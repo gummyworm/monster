@@ -83,9 +83,8 @@ __linebuffer:
 	.res LINESIZE
 
 .export __linebuffer2
-;__linebuffer2: .res 80		; backup buffer for when the linebuffer must be saved
 __linebuffer2:
-	.res LINESIZE
+	.res LINESIZE	; backup buffer for when the linebuffer must be saved
 
 .export __mem_asmbuffer
 __mem_asmbuffer:

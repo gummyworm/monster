@@ -446,7 +446,7 @@ memaddr:   .word 0
 @l0:	ldxy @src
 	jsr __view_mem_line
 	lda @row
-	jsr text::puts		; draw the row of rendered bytes
+	jsr text::print		; draw the row of rendered bytes
 	inc @row
 	lda @row
 	cmp #MEMVIEW_STOP	; have we drawn all rows?
