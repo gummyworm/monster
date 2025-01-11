@@ -13,7 +13,7 @@
 .scope watch
 	add      = __watches_add
 	edit     = __watches_edit
-	flags    =__watches_watch_flags
+	flags    = __watches_watch_flags
 	getdata  = __watches_getdata
 	init     = __watches_init
 	mark     = __watches_mark

@@ -24,7 +24,7 @@
 .include "text.inc"
 .include "zeropage.inc"
 
-.import is_whitespace
+.import is_whitespace	; from debugcmd.asm
 
 ;*******************************************************************************
 HEIGHT = 24
@@ -45,7 +45,6 @@ outfile: .byte 0	; screen (0) or file handle to output con::puts to
 ; SIGNALS
 .export __console_quit
 __console_quit: .byte 0	; if !0, console will quit when command returns to it
-
 
 ;*******************************************************************************
 ; SCREEN

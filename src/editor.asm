@@ -2092,17 +2092,22 @@ force_enter_insert=*+5
 
 ;*******************************************************************************
 .proc join_line
+@ch_index=r0
+@max_linesize=r0
 	jsr exit_visual
 	jsr is_readonly
 	bne @cont
 @quit:	rts
 
 @cont:	jsr src::on_last_line
-	beq @quit			; no next line to join
+	beq @quit		; no next line to join
 
-	jsr enter_insert		; enter INSERT to get correct x-pos
 	jsr end_of_line			; set curx to the correct index
-	jsr src::delete
+
+	jsr src::next
+	jsr src::delete			; delete the newline
+	jsr src::prev
+
 	jsr src::pushp
 	jsr src::home			; go to the start of the new joined line
 	jsr src::get			; refresh the linebuffer
@@ -2127,8 +2132,7 @@ force_enter_insert=*+5
 	jsr text::restorebuff
 @done:	jsr src::popgoto
 	lda zp::cury
-	jsr text::drawline
-	jmp enter_command
+	jmp text::drawline
 .endproc
 
 ;******************************************************************************

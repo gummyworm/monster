@@ -1285,7 +1285,7 @@ __src_atcursor:
 	lda #$00
 	tay
 	sta (@target),y		; init buffer
-	sec
+	sec			; end of buffer
 	rts
 
 :	ldxy @target
