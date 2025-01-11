@@ -194,6 +194,7 @@ screen: .res 40*24
 	inc line
 	ldxy @msg
 	JUMP FINAL_BANK_MAIN, #text::print
+.endproc
 
 ;******************************************************************************
 ; INIT

@@ -1143,6 +1143,16 @@ The monitor is a text based interface for debugging programs and manipulating
 program state.  It offers the same functionality as the GUI debugger plus a plethora of other commands to
 manipulate the program state.
 
+### File Redirection
+The output from a given monitor command can be redirected to file instead of the screen by using the
+redirect (`>`) operator.  When placed at the end of a command, the redirect operator writes all output from
+that command to the following file.
+
+For example:
+`r > regs.txt`
+
+Will write the contents of the registers to the file `regs.txt`
+
 ### Monitor Commands
 The below table enumerates the available monitor commands and their parameters (plus optional ones).
 Most parameters may be expressions (e.g. `label+10`).
