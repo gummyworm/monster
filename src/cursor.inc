@@ -1,4 +1,3 @@
-.import __cur_left
 .import __cur_mode
 .import __cur_move
 .import __cur_on
@@ -32,7 +31,6 @@ CUR_ON  = 1
 	move    = __cur_move
 	set     = __cur_set
 	right   = __cur_right
-	left    = __cur_left
 	toggle  = __cur_toggle
 	setmin  = __cur_setmin
 	setmax  = __cur_setmax

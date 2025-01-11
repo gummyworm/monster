@@ -1149,6 +1149,7 @@ redirect (`>`) operator.  When placed at the end of a command, the redirect oper
 that command to the following file.
 
 For example:
+
 `r > regs.txt`
 
 Will write the contents of the registers to the file `regs.txt`
@@ -1167,6 +1168,7 @@ Most parameters may be expressions (e.g. `label+10`).
 |    bt    | backtrace               |                                    | offset               | displays a rendered stack view beginning at the current SP + an optioinal offset, up to $200 (bottom of stack)                |
 |    c     | compare                 |  address 1, address 2, number      |                      | compares the given number of bytes at the two given addresses and displays any discrepancies                                  |
 |    d     | disassemble             |  start-address                     | end-address          | disassembles from the given start address or, if an end address is given, up to the the given end address                     |
+|  dump    | dump memory             |  start-address                     | end-address          | prints a list of bytes (in valid assembleable .DB directives) for the given address range                                     |
 |    f     | fill memory             |  start-address, stop-address, value| value list           | fills the given address range with the given list of values, repeating when the list is exhausted                             |
 |    g     | go                      |                                    |                      | continues execution of the debugged program without tracing                                                                   |
 |    h     | hunt                    |  start-address value               | value list           | hunts for the given list of values beginning at the provided address up to $ffff                                              |

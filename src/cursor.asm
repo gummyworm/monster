@@ -178,32 +178,6 @@ __cur_toggle:
 .endproc
 
 ;******************************************************************************
-; LEFT
-; Moves the cursor left a column
-; If moving left would move the cursor outside its defined limits, has no effect
-; OUT:
-;  - .C: set if the cursor wasn't moved
-.export __cur_left
-.proc __cur_left
-	jsr text::char_index
-	cpy #$00
-	beq @nomove
-	lda mem::linebuffer,y
-	cmp #$09		; TAB
-	bne :+
-	lda zp::curx
-	sbc #TAB_WIDTH
-	sta zp::curx
-:	dec zp::curx
-	bpl @done
-	lda #$00
-	sta zp::curx
-@done:	clc
-@nomove:
-	rts
-.endproc
-
-;******************************************************************************
 ; MOVE
 ; Updates the cursor's (x,y) position by the offsets given
 ; IN:

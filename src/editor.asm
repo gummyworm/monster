@@ -807,6 +807,8 @@ main:	jsr key::getch
 
 	ldx zp::curx
 	stx @result_offset	; offset to the user-input in line buffer
+	lda #$00
+	sta mem::linebuffer,x
 
 	jmp @redraw
 @getloop:
@@ -815,9 +817,30 @@ main:	jsr key::getch
 	jsr zp::jmpaddr		; call key-get func
 	cmp #$00
 	beq @getloop
+
 	pha
 	jsr cur::off
 	pla
+
+	cmp #$09		; TAB
+	beq @getloop		; don't allow tabs in gets
+	cmp #K_LEFT
+	bne :+
+	ldx #$ff
+	ldy #$00
+	jsr cur::move
+	jmp @redraw
+:	cmp #K_RIGHT
+	bne :+
+
+	ldx zp::curx
+	lda mem::linebuffer,x
+	beq @redraw
+	jsr cur::right
+	jmp @redraw
+
+:	cmp #$00
+	beq @getloop
 	cmp #$80		; > $80 -> not printable
 	bcs @getloop
 	cmp #K_RETURN

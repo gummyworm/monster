@@ -1153,14 +1153,20 @@
 	lda #' '
 	sta @buff+3
 
+	; get 8 bytes (1 row of .DB's)
 	lda #$08
 	sta @cnt
 
-@l1:	; get 8 bytes
-	ldxy @addr
+@l1:	ldxy @addr
 	cmpw @stop
 	bcs @cont
 
+	ldy #$00
+	lda #'$'
+	sta (@line),y
+	incw @line
+
+	ldy @addr+1
 	incw @addr
 	CALL FINAL_BANK_MAIN, #vmem::load
 	jsr hextostr
