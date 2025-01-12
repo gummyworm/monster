@@ -1187,6 +1187,7 @@
 	RETURN_OK
 
 @cont:	; get the stop address
+	jsr eat_whitespace
 	jsr eval
 	stxy @stop
 	jsr eat_whitespace
@@ -1207,10 +1208,10 @@
 	; get the start address
 	jsr eval
 	stxy @start
-	incw zp::line		; move past separator
 	bcs @ret
 
 	; get the stop address
+	jsr eat_whitespace
 	jsr eval
 	stxy @stop
 	jsr eat_whitespace
