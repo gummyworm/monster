@@ -1185,12 +1185,11 @@
 	jsr eat_whitespace
 	RETURN_OK
 
-@cont:
-	; get the stop address
+@cont:	; get the stop address
 	jsr eval
 	stxy @stop
 	jsr eat_whitespace
-	clc
+	clc			; ok
 
 @ret:	pla			; clean stack
 	rts

@@ -719,8 +719,7 @@ brkhandler2_size=*-brkhandler2
 	bne @savecolor
 
 	; backup the screen
-	CALL FINAL_BANK_FASTCOPY2, #fcpy::save
-	rts
+	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
 .endproc
 
 ;******************************************************************************
@@ -755,8 +754,7 @@ brkhandler2_size=*-brkhandler2
 	bne @savecolor
 
 	; backup the user $1100-$2000 data
-	CALL FINAL_BANK_FASTCOPY, #fcpy::save
-	rts
+	JUMP FINAL_BANK_FASTCOPY, #fcpy::save
 .endproc
 
 ;******************************************************************************
@@ -1097,6 +1095,8 @@ brkhandler2_size=*-brkhandler2
 	lda advance		; are we ready to execute program? (GO, STEP)
 	beq @debugloop		; not yet, loop and get another command
 	jsr cur::off
+
+	; fall through to __debug_done
 .endproc
 
 ;******************************************************************************
@@ -1758,14 +1758,12 @@ restore_regs:
 
 @tui:	lda #REGISTERS_LINE-1
 	CALL FINAL_BANK_CONSOLE, #con::puts
-	clc
-	rts
+	RETURN_OK
 
 @gui:	lda #REGISTERS_LINE-1
 	jsr text::print
 	jsr bm::clrcolor
-	jsr key::waitch		; wait for keypress
-	rts
+	jmp key::waitch		; wait for keypress
 .endproc
 
 ;******************************************************************************
