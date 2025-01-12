@@ -65,6 +65,10 @@ start-cart: $(CART_IMAGE) test.d81
 	$(C1541) -format disk,1 d81 empty.d81
 	$(XVIC) +warp -sound -cartfe $(CART_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -drive8type 1581 -8 empty.d81 -moncommands moncommands
 
+start-cart-jiffy: $(CART_IMAGE) test.d81
+	$(C1541) -format disk,1 d81 empty.d81
+	$(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -sound -cartfe $(CART_IMAGE) -memory all -ntsc -drive10type 1581 -10 test.d81 -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 empty.d81 -moncommands moncommands
+
 start-disk: test.d81
 	$(XVIC) +warp -sound -cartfe $(FE3BIN) -memory all -ntsc -drive8type 1581 -8 test.d81
 
