@@ -314,13 +314,15 @@ screen: .res 40*24
 	ldxy #$101
 	jsr dbgcmd::run
 	php
+	pha
 
 	; close the output file (if not screen)
 	lda outfile
 	beq :+
 	CALL FINAL_BANK_MAIN, #file::close
 
-:	plp
+:	pla
+	plp
 	bcc @ok			; if it succeeded, continue
 
 @err:	CALL FINAL_BANK_MAIN, #err::get

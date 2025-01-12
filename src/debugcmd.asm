@@ -1163,7 +1163,7 @@
 .proc get_range_or_default
 @start=zp::debuggertmp
 @stop=zp::debuggertmp+2
-	pha
+	sta @size
 	; get the start address
 	jsr eval
 	stxy @start
@@ -1175,7 +1175,8 @@
 	bne @cont
 
 @default:
-	pla
+@size=*+1
+	lda #$00
 	clc
 	adc @start
 	sta @stop
@@ -1190,9 +1191,7 @@
 	stxy @stop
 	jsr eat_whitespace
 	clc			; ok
-
-@ret:	pla			; clean stack
-	rts
+@ret:	rts
 .endproc
 
 ;*******************************************************************************
