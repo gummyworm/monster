@@ -366,11 +366,13 @@ screen: .res 40*24
 	rts
 
 @redir:	; get the filename to redirect the ouput to
-	inx
+	lda #$00
+	sta mem::linebuffer+1,x	; terminate the line where the redirect was
+@l0:	inx
 	lda mem::linebuffer+1,x
 	beq @err_nofile
 	jsr is_whitespace
-	beq @redir		; eat whitespace
+	beq @l0			; eat whitespace
 
 	; found the start of the filename
 	; open the output file

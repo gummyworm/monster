@@ -370,18 +370,9 @@
 @start   = zp::debuggertmp
 @stop    = zp::debuggertmp+2
 @listlen = zp::debuggertmp+4
-@i       = r0
 @list    = zp::debuggertmp+6
-	; get the start address
-	jsr eval
-	stxy @start
-	incw zp::line		; move past separator
-	bcs @ret
-
-@getstop:
-	; get the stop address
-	jsr eval
-	stxy @stop
+@i       = r0
+	jsr get_range
 	bcs @ret
 
 	jsr parse_exprs		; parse the list of values to fill
@@ -426,10 +417,10 @@
 	lda #$00
 	sta @listlen
 
-@l0:	incw zp::line		; move past separator
-
-	jsr eval
+@l0:	jsr eval
 	bcs @ret
+
+	incw zp::line		; move past separator
 
 	cmp #$02		; was expression 2 bytes?
 	tya
@@ -575,20 +566,11 @@
 ;  `m $1000 $2000 $3000`
 ; Will move the memory in [$1000, $2000) to the address $3000.
 .proc move
-@start = zp::debuggertmp+2
-@end = zp::debuggertmp+4
-@target = zp::debuggertmp+6
-	; get the start of the range to move
-	jsr eval
-	stxy @start
-	bcs :-			; -> rts
-	jsr process_ws
-
-	; get the end of the range to move
-	jsr eval
-	stxy @end
+@start = zp::debuggertmp
+@end = zp::debuggertmp+2
+@target = zp::debuggertmp+4
+	jsr get_range
 	bcs @ret
-	jsr process_ws
 
 	; get the target address
 	jsr eval
@@ -691,23 +673,10 @@
 @addr=zp::debuggertmp
 @stopaddr=zp::debuggertmp+2
 @buff=mem::spare+40
-	; get the address to start disassembling at
-	jsr eval
+	; default stop address is start address + $20
+	lda #$20
+	jsr get_range_or_default
 	bcs @ret
-	stxy @addr
-
-	; init default stop address to start address + $20
-	add16 #$20
-	stxy @stopaddr
-
-	; get the optional address to stop disassembling at
-	incw zp::line
-	ldy #$00
-	lda (zp::line),y
-	beq @l0					; no end address
-	jsr eval
-	bcs @ret
-	stxy @stopaddr
 
 @l0:	ldxy #@buff
 	stxy r0
@@ -846,25 +815,13 @@
 ;  `>M $1000 $1020`
 .proc showmem
 @addr=zp::debuggertmp
+@stop=zp::debuggertmp+2
 @lines=zp::debuggertmp+2
-	; default to 8 lines (64 bytes total)
-	lda #$08
-	sta @lines
-	lda #$00
-	sta @lines+1
-
-	; get the address to start showing memory at
-	jsr eval
+	lda #8*8		; default to 8 lines (64 bytes)
+	jsr get_range_or_default
 	bcs @ret
-	stxy @addr
 
-	; get the (optional) end address and divide by 8 to get # of lines
-	ldy #$00
-	lda (zp::line),y
-	beq @l0					; no end address
-	incw zp::line				; move past separator
-	jsr eval
-	bcs @ret				; error
+	ldxy @stop
 	sub16 @addr
 	stx @lines
 	tya
@@ -1085,20 +1042,11 @@
 ;  `>S $1000 $2000 FILE.PRG`
 .proc savemem
 @startaddr=zp::debuggertmp
-	; get the start of the address range to save
-	jsr eval
-	bcc :+
-	rts
-:	stxy @startaddr
-
-	incw zp::line				; move past separator
-
-	; get the end of the address range to save
-	jsr eval
+@stopaddr=zp::debuggertmp+2
+	jsr get_range
 	bcs @done
+	ldxy @stopaddr
 	stxy file::save_address_end
-
-	incw zp::line				; move past separator
 
 	CALL FINAL_BANK_MAIN, #irq::disable
 
@@ -1137,7 +1085,8 @@
 @cnt=zp::debuggertmp+4
 @line=zp::debuggertmp+5
 @buff=mem::spare
-	jsr get_range
+	lda #8*8			; default size of range
+	jsr get_range_or_default
 	bcc @l0
 	rts
 
@@ -1200,6 +1149,54 @@
 .endproc
 
 ;*******************************************************************************
+; GET RANGE OR DEFAULT
+; Evaluate one-two arguments representing an address range and stores the
+; results.
+; If no end to the range is provided, returns the start address + the given
+; default range size
+; IN:
+;   - .A: the default size of the range
+; OUT:
+;   - .C:                set if a (valid) range was not given
+;   - zp::debuggertmp:   the start of the range
+;   - zp::debuggertmp+2: the end of the range
+.proc get_range_or_default
+@start=zp::debuggertmp
+@stop=zp::debuggertmp+2
+	pha
+	; get the start address
+	jsr eval
+	stxy @start
+	bcs @ret
+
+	; are we at the end of the line?
+	ldy #$00
+	lda (zp::line),y
+	bne @cont
+
+@default:
+	pla
+	clc
+	adc @start
+	sta @stop
+	lda @start+1
+	adc #$00
+	sta @stop+1
+	jsr eat_whitespace
+	RETURN_OK
+
+@cont:
+	; get the stop address
+	jsr eval
+	stxy @stop
+	jsr eat_whitespace
+	clc
+
+@ret:	pla			; clean stack
+	rts
+.endproc
+
+;*******************************************************************************
 ; GET RANGE
 ; Evaluate two arguments representing an address range and stores the results
 ; OUT:
@@ -1218,6 +1215,7 @@
 	; get the stop address
 	jsr eval
 	stxy @stop
+	jsr eat_whitespace
 @ret:	rts
 .endproc
 
@@ -1236,6 +1234,22 @@
 	beq :+
 	cmp #' '
 :	rts
+.endproc
+
+;*******************************************************************************
+; EAT_WHITESPACE
+; Updates zp::line to point past any whitespace.
+.proc eat_whitespace
+	php
+	ldy #$00
+@l0:	lda (zp::line),y
+	jsr is_whitespace
+	bne @done
+	incw zp::line
+	bne @l0			; branch always
+
+@done:	plp
+	rts
 .endproc
 
 ;*******************************************************************************
