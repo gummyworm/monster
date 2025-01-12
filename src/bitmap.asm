@@ -1,3 +1,12 @@
+;*******************************************************************************
+; BITMAP.ASM
+; This file contains procedures for initializing and writing to the the bitmap
+; display.  The bitmap is configured as 20 columns of 12 rows of double-height
+; user-defined characters for a total of 40 columns and 24 rows of 4x8
+; characters.
+; This configuration is popularly known as MINIGRAFIK, created by Mike
+;*******************************************************************************
+
 .include "fastcopy.inc"
 .include "finalex.inc"
 .include "config.inc"
@@ -6,13 +15,13 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; CONSTANTS
 BITMAP_ADDR = $1100
 COLMEM_ADDR = $9400
 
 .CODE
-;******************************************************************************
+;*******************************************************************************
 ; INIT
 ; MINIGRAFIK VIC/memory initialization
 ; code by Mike
@@ -40,7 +49,7 @@ COLMEM_ADDR = $9400
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLR
 ; Clears the bitmap
 .export __bm_clr
@@ -50,7 +59,7 @@ COLMEM_ADDR = $9400
 	; fall through
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLRCOLOR
 ; Reverts all color memory to the given color
 ; IN:
@@ -65,7 +74,7 @@ COLMEM_ADDR = $9400
         rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLR_PART
 ; Clears all pixels below the given offset in every column of the bitmap
 ; IN:
@@ -109,7 +118,7 @@ COLMEM_ADDR = $9400
         rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; BM CLRLINE
 ; Clears the given character row
 ; IN:
@@ -138,7 +147,7 @@ COLMEM_ADDR = $9400
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RVSLINE
 ; Reverses 1 row of characters (8 pixels high) at the given row character row
 ; IN:
@@ -167,7 +176,7 @@ COLMEM_ADDR = $9400
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RVSLINE PART
 ; Reverses the given number of character (8 pixels high) in the given row
 ; IN:
@@ -287,7 +296,7 @@ COLMEM_ADDR = $9400
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SAVE
 ; Saves the bitmap to the backup buffer. It may then be restored with a call
 ; to bm::restore
@@ -296,7 +305,7 @@ COLMEM_ADDR = $9400
 	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RESTORE
 ; Restores the bitmap from the backup buffer.
 ; You should call bm::save first with the buffer you want to restore
@@ -305,7 +314,7 @@ COLMEM_ADDR = $9400
 	JUMP FINAL_BANK_FASTCOPY2, #fcpy::restore
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CHAR ADDR
 ; Returns the bitmap address for the "character row" of the given row.
 ; Characters are 8 pixels tall, so this is BITMAP_ADDR+(8*row) where row is
@@ -326,7 +335,7 @@ COLMEM_ADDR = $9400
 .endproc
 
 .RODATA
-;******************************************************************************
+;*******************************************************************************
 .linecont +
 .define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
   $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
