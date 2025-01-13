@@ -4200,7 +4200,7 @@ goto_buffer:
 ; COMMAND_FIND
 ; Gets a string from the user and searches (forward) for it in the source file
 .proc command_find
-	ldxy #$0000
+	ldxy #@prompt_find
 	jsr readinput
 
 	; copy (.XY) to the find buffer
@@ -4212,6 +4212,9 @@ goto_buffer:
 
 	ldy #$01		; MSB of the readinput buffer
 	jmp __edit_find
+.PUSHSEG
+@prompt_find: .byte "find",0
+.POPSEG
 .endproc
 
 ;******************************************************************************
