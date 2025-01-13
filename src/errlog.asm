@@ -8,6 +8,7 @@
 
 .include "asm.inc"
 .include "bitmap.inc"
+.include "debug.inc"
 .include "debuginfo.inc"
 .include "edit.inc"
 .include "errors.inc"
@@ -96,7 +97,16 @@ numerrs: .byte 0
 @ret:	clc			; flag to stay in menu
 	rts
 
-:	ldy errlineshi,x
+:	txa
+	pha			; save index
+
+	lda errfileids,x
+	jsr dbg::loadfile	; load the file containing the error
+
+	pla			; restore index
+	tax
+
+	ldy errlineshi,x
 	lda errlineslo,x
 	tax
 	cmpw #0

@@ -2780,6 +2780,7 @@ goto_buffer:
 	jmp (zp::jmpvec)
 @done:  rts			; no input
 
+.PUSHSEG
 .RODATA
 @ex_commands:
 	.byte $67	; g - go
@@ -2805,7 +2806,7 @@ goto_buffer:
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
 
-.CODE
+.POPSEG
 .endproc
 
 ;******************************************************************************

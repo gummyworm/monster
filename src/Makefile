@@ -72,6 +72,9 @@ start-cart-jiffy: $(CART_IMAGE) test.d81
 start-disk: test.d81
 	$(XVIC) +warp -sound -cartfe $(FE3BIN) -memory all -ntsc -drive8type 1581 -8 test.d81
 
+start-disk-jiffy: test.d81
+	$(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -sound -cartfe $(FE3BIN) -memory all -ntsc -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 test.d81
+
 start-install: install.d81
 	cp fe3vice.bin fw-test.bin
 	$(XVIC) +warp -sound -cartfe fw-test.bin -fewriteback -memory all -ntsc -drive8type 1581 -8 install.d81
