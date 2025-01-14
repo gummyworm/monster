@@ -49,7 +49,7 @@ end_on_whitespace: .byte 0
 @val1=zp::expr
 @val2=zp::expr+2
 @num_operators=zp::expr+4
-@num_operands=zp::expr+5
+@num_operands=zp::expr+5	; num operands * 2
 @may_be_unary=zp::expr+6
 
 @operators=$100
@@ -166,11 +166,16 @@ end_on_whitespace: .byte 0
 	lda (zp::line),y
 	cmp #')'
 	beq @done
-	RETURN_ERR ERR_LABEL_UNDEFINED
+	;RETURN_ERR ERR_LABEL_UNDEFINED
 
 @done:	ldx @num_operators	; if there are still ops on stack
 	beq @getresult		; no operators: just get the result
-	jsr @eval		; evaluate each remaining operator
+	ldx @num_operands
+	cpx #$02
+	bne :+
+	jsr @eval_unary
+	jmp @done
+:	jsr @eval		; evaluate each remaining operator
 	jmp @done
 
 @getresult:
@@ -178,8 +183,6 @@ end_on_whitespace: .byte 0
 	lda #$01
 	ldy @operands+1
 	beq :+
-	;cpy #$ff	; 1 byte negative
-	;beq :+
 	lda #$02
 :	RETURN_OK
 
@@ -270,6 +273,18 @@ end_on_whitespace: .byte 0
 	rts
 
 ;------------------
+; evaluates a unary operator
+@eval_unary:
+	; set val2 to 0
+	lda #$00
+	sta @val2
+	sta @val2+1
+
+	jsr @popval
+	stxy @val1
+	jmp :+		; -> continue eval
+
+;------------------
 ; returns the evaluation of the operator in .A on the operands @val1 and @val2
 @eval:
 	jsr @popval
@@ -277,7 +292,7 @@ end_on_whitespace: .byte 0
 	jsr @popval
 	stxy @val2
 
-	jsr @popop
+:	jsr @popop
 	cmp #'+'
 	bne :+
 

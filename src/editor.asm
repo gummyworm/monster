@@ -2656,9 +2656,9 @@ goto_buffer:
 	jsr text::render
 	rts
 
+.PUSHSEG
 .RODATA
 @buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
-.CODE
 
 ;--------------------------------------
 @getkey:
@@ -2680,6 +2680,8 @@ goto_buffer:
 :	clc		; flag to get more keys
 @done:	rts
 .endproc
+
+.POPSEG
 
 ;******************************************************************************
 ; COMMAND RENAME

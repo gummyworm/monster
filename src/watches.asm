@@ -80,6 +80,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	ldxy #@menu
 	lda #WATCHVIEW_STOP
 	jmp gui::listmenu
+
 .PUSHSEG
 .RODATA
 @menu:

@@ -1,6 +1,7 @@
 .org $7a00
 	; addition
 	lda #1
+	lda #-1
 	lda #1+1
 	lda #1+1+1
 	lda #1-1
@@ -15,12 +16,12 @@
 
 	; division
 	lda #100/5
-	
+
 	; bitwise ops
 	lda #$a0.$07
 	lda #$77&$33
 	lda #$f0^$f3
-	
+
 	; order of operations
 	lda #1+2*4
 	lda #(1+2)*4

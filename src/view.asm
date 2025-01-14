@@ -446,7 +446,7 @@ memaddr:   .word 0
 @l0:	ldxy @src
 	jsr __view_mem_line
 	lda @row
-	jsr text::print		; draw the row of rendered bytes
+	jsr text::print	; draw the row of rendered bytes
 	inc @row
 	lda @row
 	cmp #MEMVIEW_STOP	; have we drawn all rows?
@@ -499,8 +499,16 @@ memaddr:   .word 0
 	pha			; save the byte
 
 	incw @src		; update @src to the next byte
-	jsr val2ch
-	ldx @col
+
+@val2ch:
+	; get the character representation of the byte
+	cmp #$20
+	bcc :+
+	cmp #$80
+	bcc @cont
+:	lda #'.'	; use '.' for undisplayable chars
+
+@cont:	ldx @col
 	sta mem::spare+31,x	; write the character representation
 	pla			; get the byte we're rendering
 	jsr util::hextostr	; convert to hex characters
@@ -522,17 +530,6 @@ memaddr:   .word 0
 	ldx #<mem::spare
 	ldy #>mem::spare
 	rts
-.endproc
-
-;*******************************************************************************
-; Get the character representation of the given byte value
-.proc val2ch
-	cmp #$20
-	bcc :+
-	cmp #$80
-	bcc @done
-:	lda #'.'	; use '.' for undisplayable chars
-@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -605,6 +602,7 @@ memaddr:   .word 0
 	cmpw memaddr
 	bne @l0
 @notfound:
+	;sec
 	rts			; return with .C set
 
 @found:	ldxy @addr
