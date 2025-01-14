@@ -137,26 +137,6 @@ SLASH = SPECIAL_CHARS_START+2
 .endproc
 
 ;*******************************************************************************
-; COPY
-; Copies one 0-terminated string to another. A maximum of 255 chars are copied
-; IN:
-;  - .XY: the source string to copy
-;  - r0:  the destination to copy to
-.export __str_copy
-.proc __str_copy
-@src=zp::str0
-@dst=r0
-	stxy @src
-	ldy #$00
-:	lda (@src),y
-	sta (@dst),y
-	beq @done
-	iny
-	bne :-
-@done:	rts
-.endproc
-
-;*******************************************************************************
 ; TOUPPER
 ; Replaces all lowercase characters in the given string ($61-$7a) with uppercase
 ; ($41-$5a) ones.

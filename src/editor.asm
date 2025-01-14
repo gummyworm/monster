@@ -4200,19 +4200,24 @@ goto_buffer:
 ; COMMAND_FIND
 ; Gets a string from the user and searches (forward) for it in the source file
 .proc command_find
+@str=r0
 	ldxy #@prompt_find
 	jsr readinput
 
 	; copy (.XY) to the find buffer
-	lda #<mem::findbuff
-	sta r0
-	lda #>mem::findbuff
-	sta r0+1
-	jsr str::copy
+	stxy @str
+	ldy #$00
+:	lda (@str),y
+	sta mem::findbuff,y
+	beq @cont
+	iny
+	bne :-
 
-	ldy #$01		; MSB of the readinput buffer
+@cont:	ldxy #mem::findbuff
 	jmp __edit_find
+
 .PUSHSEG
+.RODATA
 @prompt_find: .byte "find",0
 .POPSEG
 .endproc

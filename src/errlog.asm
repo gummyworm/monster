@@ -85,6 +85,16 @@ numerrs: .byte 0
 	lda errlineshi,x
 	pha
 
+	; get the filename and push it
+	lda errfileids,x
+	jsr dbgi::get_filename
+	bcc :+
+	ldxy #strings::question_marks
+:	tya
+	pha
+	txa
+	pha
+
 	ldxy #strings::edit_line_err
 	jsr text::render
 	rts

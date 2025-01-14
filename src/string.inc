@@ -1,7 +1,6 @@
 .import __str_cat
 .import __str_compare
 .import __str_comparez
-.import __str_copy
 .import __str_len
 .import __str_toupper
 .import __str_uncompress
@@ -10,7 +9,6 @@
 	cat        = __str_cat
 	compare    = __str_compare
 	comparez   = __str_comparez
-	copy       = __str_copy
 	len        = __str_len
 	toupper    = __str_toupper
 	uncompress = __str_uncompress

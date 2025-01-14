@@ -41,7 +41,7 @@ __str_debug_registers: .byte " pc  a  x  y  sp nv-bdizc  addr      clk",0
 __str_debug_stop_debugging: .byte "stop debugging? (press 'y' to quit)",0
 
 .export __str_edit_line_err
-__str_edit_line_err: .byte "l", ESCAPE_VALUE_DEC,":", ESCAPE_STRING,0
+__str_edit_line_err: .byte ESCAPE_STRING, " l", ESCAPE_VALUE_DEC,":", ESCAPE_STRING,0
 
 .export __str_edit_file_load_failed
 __str_edit_file_load_failed: .byte "failed to load file; error $",ESCAPE_BYTE,0
