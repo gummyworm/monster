@@ -51,6 +51,7 @@ end_on_whitespace: .byte 0
 @num_operators=zp::expr+4
 @num_operands=zp::expr+5	; num operands * 2
 @may_be_unary=zp::expr+6
+@partial=zp::expr+9		; 0 = full result, 1 = LSB, 2 = MSB
 
 @operators=$100
 @operands=$120
@@ -60,6 +61,7 @@ end_on_whitespace: .byte 0
 	sta @num_operands
 	tay
 
+	; by default flag that operator might be unary
 	lda #$01
 	sta @may_be_unary
 
@@ -152,16 +154,16 @@ end_on_whitespace: .byte 0
 	rts			; return err
 
 @label: ldxy zp::line
-	jsr get_label	; is it a label?
+	jsr get_label		; is it a label?
 	bcs @err
+
 @pushoperand:
 	jsr @pushval
 	lda #$00
 	sta @may_be_unary
 	jmp @l0
 
-@err:
-	; check if this is parentheses (could be indirect addressing)
+@err:	; check if this is parentheses (could be indirect addressing)
 	ldy #$00
 	lda (zp::line),y
 	cmp #')'
@@ -243,6 +245,10 @@ end_on_whitespace: .byte 0
 
 ;------------------
 @priority:
+	cmp #'<'
+	beq @prio1
+	cmp #'>'
+	beq @prio1
 	cmp #'+'
 	beq @prio1
 	cmp #'-'
@@ -358,13 +364,26 @@ end_on_whitespace: .byte 0
 	jmp @pushval
 
 :	cmp #'^'	; EOR
-	bne @unknown_op
+	bne @lsb
 	lda @val1
 	eor @val2
 	tax
 	lda @val1+1
 	eor @val2+1
 	tay
+	jmp @pushval
+
+@lsb:	cmp #'<'
+	bne @msb
+	ldy #$00
+	ldx @val1
+	jmp @pushval
+
+@msb:	cmp #'>'
+	bne @unknown_op
+	lda #$00
+	ldy @val1+1
+	ldx #$00
 	jmp @pushval
 
 @unknown_op:

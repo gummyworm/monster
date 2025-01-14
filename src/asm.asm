@@ -625,12 +625,13 @@ num_illegals = *-illegal_opcodes
 	cmp #'<'
 	bne :+
 	inc lsb			; flag LSB
-	jsr line::incptr
-	jmp @evalexpr		; continue (can't be both MSB and LSB)
+	bne @eval_byte		; branch always
 
 :	cmp #'>'
 	bne @evalexpr
 	inc msb			; flag MSB
+
+@eval_byte:
 	jsr line::incptr
 
 ; all chars not part of expression have been processed, evaluate the expression

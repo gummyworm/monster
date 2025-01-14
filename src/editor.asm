@@ -672,10 +672,11 @@ main:	jsr key::getch
 	jsr lbl::index		; index labels for debugging, etc.
 	RETURN_OK
 
+.PUSHSEG
 .RODATA
 @success_msg: .byte "done. from $", $fe, "-$", $fe, " ($", $fe, " bytes)", 0
 @success0:    .byte "done.",0
-.CODE
+.POPSEG
 .endproc
 
 ;*******************************************************************************
@@ -2623,7 +2624,6 @@ goto_buffer:
 .word @getdata		; get line handler
 .word src::numbuffers	; num ptr
 .word strings::buffers	; title
-.POPSEG
 
 ;--------------------------------------
 @getdata:
@@ -2656,8 +2656,6 @@ goto_buffer:
 	jsr text::render
 	rts
 
-.PUSHSEG
-.RODATA
 @buffer_line:  .byte ESCAPE_BYTE," :",ESCAPE_CHAR, ESCAPE_STRING, 0
 
 ;--------------------------------------
