@@ -16,6 +16,7 @@
 .include "bitmap.inc"
 .include "cursor.inc"
 .include "finalex.inc"
+.include "key.inc"
 .include "keycodes.inc"
 .include "macros.inc"
 .include "text.inc"
@@ -97,7 +98,7 @@ linebuffer = $0400
 	ldxy #CUR_DELAY
 	stxy cur_tmr
 
-:	jsr $f1f9		; get key
+:	CALL FINAL_BANK_MAIN, #key::getch	; get key
 	cmp #$00
 	beq @main
 	cmp #K_RETURN
@@ -134,7 +135,7 @@ linebuffer = $0400
 	jsr zp::jmpaddr
 	jmp refresh_status
 
-@keys:	.byte $4b, $4a, $48, $4c	; k, j, h, l
+@keys:	.byte $6b, $6a, $68, $6c	; k, j, h, l
 	.byte '1', '2', '3', '4'
 	.byte K_UDG_TOGGLE_MODE, K_UDG_CLEAR
 	.byte $14,$c8,$30,$24,$c7	; DELETE, H, 0, $, G
