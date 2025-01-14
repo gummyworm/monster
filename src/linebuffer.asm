@@ -17,7 +17,7 @@
 @stop=r0
 	sty @stop
 	cpx @stop
-	beq @done
+	bcs @done
 :	lda mem::linebuffer+1,x
 	sta mem::linebuffer,x
 	inx

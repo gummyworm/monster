@@ -70,6 +70,8 @@
 @n=r0
 @last=r1
 	sty @last
+	cpx @last
+	bcs @done
 	sta @n
 
 	; get start row + scroll amount

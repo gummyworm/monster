@@ -32,6 +32,7 @@
 .include "keycodes.inc"
 .include "layout.inc"
 .include "labels.inc"
+.include "line.inc"
 .include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -355,7 +356,7 @@ main:	jsr key::getch
 	bcs @done		; if invalid, just exit
 	stxy @start
 
-	incw zp::line		; move past separator
+	jsr line::incptr
 	jsr expr::eval		; evaluate end address
 	bcc @ok
 @done:	rts
