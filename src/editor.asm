@@ -1999,22 +1999,6 @@ force_enter_insert=*+5
 .endproc
 
 ;*******************************************************************************
-; FIND NEXT
-; Navigates to the next match for the last FIND command
-.proc find_next
-	ldxy #mem::findbuff
-	jmp __edit_find
-.endproc
-
-;*******************************************************************************
-; FIND PREV
-; Navigates to the previous match for the last FIND command
-.proc find_prev
-	ldxy #mem::findbuff
-	jmp __edit_find_prev
-.endproc
-
-;*******************************************************************************
 .proc goto_end
 	jsr add_jump_point
 	ldxy #$ffff
@@ -4240,6 +4224,24 @@ goto_buffer:
 	bcc :+
 	dec zp::device
 :	rts
+.endproc
+
+;*******************************************************************************
+; FIND NEXT
+; Navigates to the next match for the last FIND command
+.proc find_next
+	ldx #<mem::findbuff
+	ldy #>mem::findbuff
+	bne __edit_find		; branch always
+.endproc
+
+;*******************************************************************************
+; FIND PREV
+; Navigates to the previous match for the last FIND command
+.proc find_prev
+	ldxy #mem::findbuff
+
+	; fall through to __edit_find_prev
 .endproc
 
 ;******************************************************************************

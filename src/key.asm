@@ -42,8 +42,11 @@ __key_num_processed: .byte 0
 	dec $c6		; dec keyboard buffer index
 	tya		; get key
 
-
-	cmp #$41
+	cmp #$dd	; SHIFT minus?
+	bne :+
+	lda #$5f	; underscore
+	rts
+:	cmp #$41
 	bcc @done
 	cmp #$5a+1
 	bcs :+
