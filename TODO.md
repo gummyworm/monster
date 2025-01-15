@@ -1,4 +1,5 @@
 ### TODO
+- [ ] Directive to forward declare labels .lbl
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor
   - [ ] Show current scope in status bar (why not)

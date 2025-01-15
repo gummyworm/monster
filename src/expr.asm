@@ -20,6 +20,15 @@ MAX_OPERANDS  = MAX_OPERATORS/2
 .BSS
 end_on_whitespace: .byte 0
 
+
+; HINT VALUE
+; This value will be used if a label cannot be resolved when evaluating the
+; expression
+.export __expr_label_hint
+.export __expr_label_size_hint
+__expr_label_hint:      .word 0
+__expr_label_size_hint: .byte 0
+
 .CODE
 
 ;******************************************************************************
@@ -51,7 +60,6 @@ end_on_whitespace: .byte 0
 @num_operators=zp::expr+4
 @num_operands=zp::expr+5	; num operands * 2
 @may_be_unary=zp::expr+6
-@partial=zp::expr+9		; 0 = full result, 1 = LSB, 2 = MSB
 
 @operators=$100
 @operands=$120
@@ -168,17 +176,19 @@ end_on_whitespace: .byte 0
 	lda (zp::line),y
 	cmp #')'
 	beq @done
-	;RETURN_ERR ERR_LABEL_UNDEFINED
+	RETURN_ERR ERR_LABEL_UNDEFINED
 
 @done:	ldx @num_operators	; if there are still ops on stack
 	beq @getresult		; no operators: just get the result
-	ldx @num_operands
+
+	ldx @num_operands	; only 1 operand left?
 	cpx #$02
-	bne :+
-	jsr @eval_unary
+	beq @finish_unary
+	jsr @eval		; evaluate each remaining operator
 	jmp @done
-:	jsr @eval		; evaluate each remaining operator
-	jmp @done
+
+@finish_unary:
+	jsr @eval_unary		; evaluate last as unary
 
 @getresult:
 	ldx @operands
@@ -292,8 +302,7 @@ end_on_whitespace: .byte 0
 
 ;------------------
 ; returns the evaluation of the operator in .A on the operands @val1 and @val2
-@eval:
-	jsr @popval
+@eval:	jsr @popval
 	stxy @val1
 	jsr @popval
 	stxy @val2
@@ -381,9 +390,8 @@ end_on_whitespace: .byte 0
 
 @msb:	cmp #'>'
 	bne @unknown_op
-	lda #$00
-	ldy @val1+1
-	ldx #$00
+	ldy #$00
+	ldx @val1+1
 	jmp @pushval
 
 @unknown_op:
@@ -415,12 +423,13 @@ end_on_whitespace: .byte 0
 	cmp #$02
 	bcs @done		; not verifying, return with error
 
-	lda #$ff		; flag that we don't know the size of the label
+	; default to the hint value/size
+	lda #$ff
 	ldxy zp::virtualpc	; TODO: assume smallest possible value
 
 @updateline:
-	pha
-	tya
+	pha	; save size
+	tya	; save MSB
 	pha
 
 	; move the line pointer to the separator

@@ -538,7 +538,7 @@ result=mem::spare
 	ldx @xsave
 	plp
 	rts
-@ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.'
+@ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.', '<', '>'
 @numops = *-@ops
 .endproc
 

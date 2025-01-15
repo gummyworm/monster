@@ -1,11 +1,14 @@
 .org $7a00
+start
 	; addition
 	lda #1
-	lda #-1
 	lda #1+1
 	lda #1+1+1
 	lda #1-1
 	;lda #1-1-1
+
+	lda #*-start
+	lda #(*-start)/2
 
 	; subtraction
 	lda #9-(3+3)
@@ -28,5 +31,13 @@
 
 	; misc
 	lda *+3
+
+	lda #>$10f0
+	lda #<$f010
+
+	lda #>$110+$210
+	lda #<($08*$100)
+
+	lda <($08*$100-10*5)
 
 	jmp *

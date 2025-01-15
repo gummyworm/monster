@@ -86,9 +86,7 @@ operandsz  = zp::asmtmp+3 ; size of the operand (in bytes) $ff indicates 1 or 2 
 cc         = zp::asmtmp+4
 resulttype = zp::asmtmp+5
 opcode     = zp::asmtmp+8
-lsb        = zp::asmtmp+$9
-msb        = zp::asmtmp+$a
-scratchpad = zp::asmtmp+$b
+scratchpad = zp::asmtmp+$9
 
 SEG_CODE = 1	; flag for CODE segment
 SEG_BSS  = 2	; flag for BSS segment (all data must be 0, PC not updated)
@@ -439,7 +437,6 @@ num_illegals = *-illegal_opcodes
 	stxy zp::line
 	jsr str::toupper
 
-; check if there is a breakpoint on this line and set it if there is
 	ldy #$00
 	lda (zp::line),y
 	beq @noasm		; empty line, early out
@@ -522,8 +519,6 @@ num_illegals = *-illegal_opcodes
 	sty indexed
 	sty operandsz
 	sty immediate
-	sty lsb
-	sty msb
 
 ; check if the line contains an instruction
 @opcode:
@@ -612,26 +607,13 @@ num_illegals = *-illegal_opcodes
 	lda (zp::line),y	; get the next character
 
 	; if IMMEDIATE, skip parentheses (treat as part of expression)
-	jmp @hi_or_low_byte
+	jmp @evalexpr
 
 @lparen:
+	; not immediate, assume expressions are 2 bytes
 	cmp #'('
-	bne @hi_or_low_byte
-	inc indirect
-	jsr line::incptr
-	lda (zp::line),y
-
-@hi_or_low_byte:
-	cmp #'<'
-	bne :+
-	inc lsb			; flag LSB
-	bne @eval_byte		; branch always
-
-:	cmp #'>'
 	bne @evalexpr
-	inc msb			; flag MSB
-
-@eval_byte:
+	inc indirect
 	jsr line::incptr
 
 ; all chars not part of expression have been processed, evaluate the expression
@@ -652,19 +634,6 @@ num_illegals = *-illegal_opcodes
 ; our program size count).
 @store_value:
 	sta operandsz		; save size of the operand
-	lda lsb			; handle '<' character
-	beq :+			; skip if '<' flag not set
-	lda #$01
-	sta operandsz		; update operand size to 1 (only want LSB)
-	bne @store_lsb
-
-:	lda msb			; handle '>' character
-	beq @store_msb
-	tya			; move .Y (MSB) to .X (LSB)
-	tax
-	lda #$01
-	sta operandsz
-	bne @store_lsb
 
 @store_msb:
 	tya			; .A = MSB
@@ -822,14 +791,20 @@ num_illegals = *-illegal_opcodes
 	tax
 	jsr readb
 	sbc zp::asmresult+1
-	beq :+
+	beq @store_offset
 	cmp #$ff
-	beq :+
+	beq @store_offset
+
+	lda zp::pass
+	cmp #$01		; on pass 1, offset might not be correct: allow
+	beq @store_offset
+
 	RETURN_ERR ERR_BRANCH_OUT_OF_RANGE
 	bne @err		; address out of range
 
+@store_offset:
 	; replace 2 byte operand with 1 byte relative address
-:	txa
+	txa
 	sec
 	sbc #$02		; offset -2 from current instruction's address
 	dey
@@ -1112,6 +1087,9 @@ num_illegals = *-illegal_opcodes
 @impl:	lda #IMPLIED
 @done:	RETURN_OK
 @oversized:
+	lda zp::pass
+	cmp #$01
+	beq @done
 	RETURN_ERR ERR_OVERSIZED_OPERAND
 .endproc
 
@@ -1594,10 +1572,15 @@ __asm_include:
 	RETURN_OK		; don't include a file when verifying
 
 :	sta @err
+
+	; save current file
+	lda dbgi::file
+	pha
+
 	jsr file::open
 	bcc :+
 	rts		; return err
-:	pha		; save the id of the file we're working on
+:	pha		; save the id of the file we're working on (for closing)
 	sta zp::file
 
 	; add the filename to debug info (if it isn't yet), reset line number
@@ -1637,9 +1620,8 @@ __asm_include:
 	bcc :+
 	jsr errlog::log
 	bcc :+
-	pla			; clean stack
-	inc @err		; too many errors or fatal error
-	bne @close		; close and return
+
+@fatal:	inc @err		; too many errors or fatal error
 
 :	pla
 	sta zp::file
@@ -1655,6 +1637,7 @@ __asm_include:
 	bne :+			; if not pass 2, don't mess with debug info
 	ldxy zp::asmresult
 	jsr dbgi::endblock	; end the block for the included file
+
 	lda zp::file
 	sta dbgi::file
 	ldxy zp::asmresult
@@ -1662,6 +1645,10 @@ __asm_include:
 
 :	pla		; get the file ID for the include file to close
 	jsr file::close	; close the file
+
+	; restore the file we included from
+	pla
+	sta dbgi::file
 
 @err=*+1
 	lda #$00	; get err code
@@ -1753,6 +1740,7 @@ __asm_include:
 :	ldxy zp::line
 	jsr lbl::isvalid
 	bcs @err
+
 	lda zp::line		; save label name's address
 	pha
 	lda zp::line+1
@@ -1763,8 +1751,8 @@ __asm_include:
 	lda (zp::line),y
 	jsr util::is_whitespace
 	beq @cont
-@l0:
-	jsr line::incptr
+
+@l0:	jsr line::incptr
 	lda (zp::line),y
 	jsr util::is_whitespace
 	bne @l0
@@ -1772,9 +1760,12 @@ __asm_include:
 @cont:	jsr line::process_ws	; eat whitespace
 	jsr expr::eval		; get constant value
 	bcc @ok
-	pla
-	pla
-@err:	RETURN_ERR ERR_SYNTAX_ERROR
+
+	; clean the stack and return error
+	plp
+	plp
+	sec
+@err:	rts
 
 @ok:	stxy zp::label_value
 	pla
