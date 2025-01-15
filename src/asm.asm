@@ -782,18 +782,20 @@ num_illegals = *-illegal_opcodes
 
 	cpx #ABS	; only ABS/ZP supported for branches
 	bne @err
-	; convert operand to relative address
-	ldy #$01
+	; convert operand to relative address (operand - zp::asmresult)
+	ldy #$01		; offset to operand LSB
 	jsr readb
 	sec
 	sbc zp::asmresult
-	iny
+	iny			; read MSB
 	tax
+	php
 	jsr readb
+	plp
 	sbc zp::asmresult+1
-	beq @store_offset
-	cmp #$ff
-	beq @store_offset
+	beq @store_offset	; $00xx might be in range
+	cmp #$ff		; $ffxx might be in range
+	beq @store_offset	; continue
 
 	lda zp::pass
 	cmp #$01		; on pass 1, offset might not be correct: allow
