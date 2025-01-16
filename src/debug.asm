@@ -482,7 +482,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	jsr $fdf9	; initialize I/O registers
 	jsr $e518	; initialize hardware
 
-	jsr $e44f	; init BASIC vectors
+	jsr $e45b	; init BASIC vectors
 	save_user_zp
 	ldxy sim::pc
 	stxy $0302	; BASIC warm start vector
