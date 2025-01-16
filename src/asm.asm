@@ -1579,7 +1579,7 @@ __asm_include:
 	lda dbgi::file
 	pha
 
-	jsr file::open
+	jsr file::open	; open the file we are including
 	bcc :+
 	rts		; return err
 :	pha		; save the id of the file we're working on (for closing)
@@ -1619,39 +1619,35 @@ __asm_include:
 
 	lda #FINAL_BANK_MAIN	; any bank that is valid (low mem is used)
 	jsr __asm_tokenize_pass
-	bcc :+
+	bcc @ok
 	jsr errlog::log
-	bcc :+
+	bcc @ok
 
 @fatal:	inc @err		; too many errors or fatal error
 
-:	pla
-	sta zp::file
+@ok:	pla			; restore the file ID we included from
+	sta zp::file		; and temporarily store it
 	bcs @close
 
 @next:	incw __asm_linenum	; next line
 	lda file::eof		; EOF?
 	beq @doline		; repeat til we are
 
-@close:
-	lda zp::pass
-	cmp #$02
-	bne :+			; if not pass 2, don't mess with debug info
-	ldxy zp::asmresult
-	jsr dbgi::endblock	; end the block for the included file
-
-	lda zp::file
-	sta dbgi::file
-	ldxy zp::asmresult
-	jsr dbgi::newblock	; start a new block in original file
-
-:	pla		; get the file ID for the include file to close
+@close: pla		; get the file ID for the include file to close
 	jsr file::close	; close the file
-
-	; restore the file we included from
 	pla
 	sta dbgi::file
 
+	lda zp::pass
+	cmp #$02
+	bne @done		; if not pass 2, don't mess with debug info
+
+	ldxy zp::asmresult
+	jsr dbgi::endblock	; end the block for the included file
+	; restore the file we included from
+	ldxy zp::asmresult
+	jsr dbgi::newblock	; start a new block in original file
+@done:
 @err=*+1
 	lda #$00	; get err code
 	cmp #$01	; set carry if >= 1
