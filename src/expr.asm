@@ -116,6 +116,7 @@ __expr_label_size_hint: .byte 0
 	cmp #'('
 	bne :+
 	jsr @popop	; pop the parentheses
+
 	jsr line::incptr
 	jmp @l0		; and we're done evaluating this () block
 
@@ -180,15 +181,8 @@ __expr_label_size_hint: .byte 0
 
 @done:	ldx @num_operators	; if there are still ops on stack
 	beq @getresult		; no operators: just get the result
-
-	ldx @num_operands	; only 1 operand left?
-	cpx #$02
-	beq @finish_unary
 	jsr @eval		; evaluate each remaining operator
 	jmp @done
-
-@finish_unary:
-	jsr @eval_unary		; evaluate last as unary
 
 @getresult:
 	ldx @operands
@@ -255,10 +249,6 @@ __expr_label_size_hint: .byte 0
 
 ;------------------
 @priority:
-	cmp #'<'
-	beq @prio1
-	cmp #'>'
-	beq @prio1
 	cmp #'+'
 	beq @prio1
 	cmp #'-'
@@ -273,6 +263,10 @@ __expr_label_size_hint: .byte 0
 	beq @prio4
 	cmp #'.'
 	beq @prio5
+	cmp #'<'
+	beq @prio3
+	cmp #'>'
+	beq @prio3
 
 	lda #$00	; unknown
 	rts
@@ -289,25 +283,25 @@ __expr_label_size_hint: .byte 0
 	rts
 
 ;------------------
-; evaluates a unary operator
-@eval_unary:
-	; set val2 to 0
-	lda #$00
-	sta @val2
-	sta @val2+1
-
-	jsr @popval
-	stxy @val1
-	jmp :+		; -> continue eval
-
-;------------------
 ; returns the evaluation of the operator in .A on the operands @val1 and @val2
 @eval:	jsr @popval
 	stxy @val1
+
+	jsr @popop
+	; check if operator is unary
+	cmp #'<'
+	beq @unary
+	cmp #'>'
+	bne @binary
+@unary: jmp @check_unary
+
+@binary:
+	; not unary, get a second argument
+	pha
 	jsr @popval
 	stxy @val2
 
-:	jsr @popop
+	pla
 	cmp #'+'
 	bne :+
 
@@ -373,7 +367,7 @@ __expr_label_size_hint: .byte 0
 	jmp @pushval
 
 :	cmp #'^'	; EOR
-	bne @lsb
+	bne @unknown_op
 	lda @val1
 	eor @val2
 	tax
@@ -381,6 +375,11 @@ __expr_label_size_hint: .byte 0
 	eor @val2+1
 	tay
 	jmp @pushval
+
+@check_unary:
+	ldx #$00
+	stx @val2
+	stx @val2+1
 
 @lsb:	cmp #'<'
 	bne @msb

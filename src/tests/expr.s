@@ -7,6 +7,8 @@ start
 	lda #1-1
 	;lda #1-1-1
 
+	lda #>$100+<$102
+
 	lda #*-start
 	lda #(*-start)/2
 
