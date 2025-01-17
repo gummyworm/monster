@@ -750,6 +750,8 @@ anon_addrs: .res MAX_ANON*2
 ; OUT:
 ;  - .XY: the address where the 1st anon label with a bigger address than the
 ;         one given is stored in the anon_addrs table
+;  - .C: set if the given address is greater than all in the table
+;        (if .XY represents an address outside the range of the table)
 .proc seek_anon
 @cnt=r0
 @seek=r2
@@ -781,8 +783,8 @@ anon_addrs: .res MAX_ANON*2
 	bne @found	; if > we're done
 	cpx @addr	; MSB is =, check LSB
 	bcs @found	; if LSB is >, we're done
-@next:
-	incw @cnt
+
+@next:	incw @cnt
 	lda @cnt+1
 	cmp numanon+1
 	bne @l0
@@ -791,6 +793,10 @@ anon_addrs: .res MAX_ANON*2
 	bne @l0		; loop til we've checked all anonymous labels
 
 	; none found, fall through to get last address
+	jsr @found
+	sec		; given address is > all in table
+	rts
+
 @found:
 	lda #$00
 	sta @seek+1
@@ -803,6 +809,7 @@ anon_addrs: .res MAX_ANON*2
 	adc #>anon_addrs
 	sta @seek+1
 	tay
+	clc
 	rts
 .endproc
 
@@ -891,7 +898,6 @@ anon_addrs: .res MAX_ANON*2
 ; OUT:
 ;  - .XY: the nth anonymous label whose address is < than the given address
 .proc get_banon
-@cnt=r0
 @bcnt=r8
 @addr=r4
 @seek=r6
@@ -900,12 +906,18 @@ anon_addrs: .res MAX_ANON*2
 
 	; get address to start looking backwards from
 	jsr seek_anon
-	stxy @seek
+	bcc :+
+	txa
+	sbc #$02
+	tax
+	tya
+	sbc #$00
+	tay
 
+:	stxy @seek
 	ldxy numanon
 	cmpw #0
 	beq @err		; no anonymous labels defined
-	stxy @cnt
 
 @l0:	ldy #$01		; MSB
 	lda @addr+1

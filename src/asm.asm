@@ -780,26 +780,29 @@ num_illegals = *-illegal_opcodes
 	bne :+
 	cpx #ABS
 	bne @err	; only ABS supported for JSR
-	jmp @noerr
+	beq @noerr
 
 :	; check if opcode was a branch
 	and #$1f
 	cmp #$10
 	bne @verifyimm
 
+	cpx #ZEROPAGE
+	beq :+
 	cpx #ABS	; only ABS/ZP supported for branches
 	bne @err
-	; convert operand to relative address (operand - zp::asmresult)
+
+:	; convert operand to relative address (operand - zp::asmresult)
 	ldy #$01		; offset to operand LSB
 	jsr readb
 	sec
 	sbc zp::asmresult
-	iny			; read MSB
+	iny
 	tax
 	php
-	jsr readb
+	jsr readb		; read MSB
 	plp
-	sbc zp::asmresult+1
+	sbc zp::asmresult+1	; MSB - >PC
 	beq @store_offset	; $00xx might be in range
 	cmp #$ff		; $ffxx might be in range
 	beq @store_offset	; continue
@@ -807,9 +810,7 @@ num_illegals = *-illegal_opcodes
 	lda zp::pass
 	cmp #$01		; on pass 1, offset might not be correct: allow
 	beq @store_offset
-
 	RETURN_ERR ERR_BRANCH_OUT_OF_RANGE
-	bne @err		; address out of range
 
 @store_offset:
 	; replace 2 byte operand with 1 byte relative address
@@ -895,6 +896,7 @@ num_illegals = *-illegal_opcodes
 ; DO_LABEL
 ; State machine component
 ; Extracts the label from the line
+; On pass 1, adds the label to the symbol table
 .proc do_label
 	lda #ASM_LABEL
 	sta resulttype
@@ -928,7 +930,7 @@ num_illegals = *-illegal_opcodes
 ; OUT:
 ;  - .Z: Set if zp::line is on an anonymous label reference
 .proc is_anonref
-	ldy #$00		; past the ':'
+	ldy #$00
 	lda (zp::line),y
 	cmp #':'
 	rts

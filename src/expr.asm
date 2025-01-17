@@ -539,10 +539,10 @@ __expr_label_size_hint: .byte 0
 :	jsr line::incptr
 	ldx zp::virtualpc
 	ldy zp::virtualpc+1
-	beq *+3
+	beq :+
 	lda #$02
 	skw
-	lda #$01
+:	lda #$01
 	RETURN_OK
 
 ;------------------
