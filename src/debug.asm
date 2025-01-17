@@ -472,20 +472,24 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	lda edit::binary_flag		; did user ask us to init BASIC first?
 	bne @basic			; if so, continue to do so
 
+@nobasic:
 	; execute without initializing BASIC
 	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK/NMI
 
 @basic:	; initialize machine state
 	sei
-	jsr $fd8d	; initialize and test RAM
+	;jsr $fd8d	; initialize and test RAM
 	jsr $fd52	; restore default I/O vectors
 	jsr $fdf9	; initialize I/O registers
 	jsr $e518	; initialize hardware
 
 	jsr $e45b	; init BASIC vectors
 	save_user_zp
+
 	ldxy sim::pc
-	stxy $0302	; BASIC warm start vector
+	jmp @nobasic
+
+	;stxy $0302	; BASIC warm start vector
 
 	sei
 	ldxy #BRK_HANDLER_ADDR+1

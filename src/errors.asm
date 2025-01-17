@@ -97,6 +97,10 @@ err_cyclic_include:
 	;.byte "cyclic include",0
 	.byte $1e,$43,$62,$43,$da,$4e,$1b,$15,$21,$40
 
+err_failed_to_open_include:
+	;.byte "failed to open include file",0
+	.byte $30,$49,$61,$44,$dd,$f,$db,$d0,$2b,$9b,$4b,$83,$65,$44,$2e,$c6,$4b,$5,$0
+
 err_overlapping_segments:
 	;.byte "segment overlap",0
 	.byte $99,$47,$69,$4e,$a6,$cf,$b1,$52,$60,$50,$0
@@ -200,6 +204,7 @@ err_buffer_full:
 	err_no_macro_name, \
 	err_unresolvable_label, \
 	err_cyclic_include, \
+	err_failed_to_open_include, \
 	err_overlapping_segments, \
 	err_max_files_exceeded, \
 	err_param_name_too_long, \

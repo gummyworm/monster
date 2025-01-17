@@ -469,14 +469,18 @@ num_illegals = *-illegal_opcodes
 
 @if_false:
 	; asm is off, check for ENDIF or ELSE
+	; anything else: return without assembling
+	jsr is_directive
+	bcs @noasm		; if not directive continue
 	jsr getdirective
-	bcs @noasm
+	bcs :+			; if error, return it
 	cmp #DIRECTIVE_ENDIF
 	beq @exec_directive
 	cmp #DIRECTIVE_ELSE
 	beq @exec_directive
 @noasm:	lda #ASM_NONE
-	RETURN_OK
+	clc
+:	rts
 
 ; check if the line is a full line comment
 @chk_comment:
@@ -497,10 +501,13 @@ num_illegals = *-illegal_opcodes
 	beq @noasm
 
 	jsr line::process_ws
+
 ; 1. check if the line contains a directive
 @directive:
+	jsr is_directive
+	bcs @ctx		; if not directive -> continue
 	jsr getdirective
-	bcs @ctx
+	bcs @ret0		; return error
 
 @exec_directive:
 	lda #ASM_DIRECTIVE
@@ -1209,19 +1216,31 @@ num_illegals = *-illegal_opcodes
 .endproc
 
 ;*******************************************************************************
-; GETDIRECTIVE
-; checks if (zp::line) contains a directive and handles it if it does.
+; IS_DIRECTIVE
+; Checks if the contents of (zp::line) represent a directive
 ; OUT:
-;  - .C: set if the contents of zp::line is not a directive
-.proc getdirective
-@cnt=r2
+;   - .C: set if (zp::line) is not a directive
+.proc is_directive
 	ldy #$00
 	lda (zp::line),y
 	cmp #'.'
-	beq :+
-	RETURN_ERR ERR_INVALID_DIRECTIVE
+	bne @no
+@yes:	clc			; zp::line is a directive
+	rts
+@no:	sec			; not a directive
+	rts
+.endproc
 
-:	ldx #$00
+;*******************************************************************************
+; GETDIRECTIVE
+; Returns the handler and ID for the directive in (zp::line)
+; OUT:
+;  - .A:  the ID of the directive (if one is found)
+;  - .XY: the address of the directive's handler
+;  - .C:  set if the contents of zp::line is not a valid directive
+.proc getdirective
+@cnt=r2
+	ldx #$00
 	stx @cnt
 @l0:	ldy #$01
 @l1:	lda directives,x
@@ -1236,9 +1255,10 @@ num_illegals = *-illegal_opcodes
 @next:	cpx #directives_len
 	bcc @ok
 	RETURN_ERR ERR_INVALID_DIRECTIVE
-@ok:	inc @cnt
 
-@l2:	lda directives,x ; move to next directive
+@ok:	inc @cnt	; move to next directive
+
+@l2:	lda directives,x
 	inx
 	cmp #$00
 	beq @l0
@@ -1250,7 +1270,7 @@ num_illegals = *-illegal_opcodes
 	lda (zp::line),y
 	beq :+
 	jsr util::is_whitespace
-	bne @next
+	bne @next		; trailing char -> continue
 
 :	tya
 	clc
@@ -1266,7 +1286,7 @@ num_illegals = *-illegal_opcodes
 	ldy directive_vectors+1,x
 	lda directive_vectors,x
 	tax
-	lda @cnt
+	lda @cnt		; get the ID of the directive
 	RETURN_OK
 .endproc
 
@@ -1513,6 +1533,12 @@ num_illegals = *-illegal_opcodes
 	bcs @ret
 
 	ldxy #@filename
+	jsr file::exists
+	beq :+
+	lda #ERR_FAILED_OPEN_INCLUDE
+	rts
+
+:	ldxy #@filename
 	jsr file::open
 	bcs @ret
 	pha		; save file handle
@@ -1579,9 +1605,19 @@ __asm_include:
 	lda dbgi::file
 	pha
 
+	ldxy @fname
+	jsr file::exists
+	beq :+
+	lda #ERR_FAILED_OPEN_INCLUDE
+@reterr:
+	plp		; clean stack
+	sec
+	rts
+
+:	ldxy @fname
 	jsr file::open	; open the file we are including
-	bcc :+
-	rts		; return err
+	bcs @reterr
+
 :	pha		; save the id of the file we're working on (for closing)
 	sta zp::file
 
@@ -1609,8 +1645,10 @@ __asm_include:
 	lda zp::file
 	jsr file::getline	; read a line from the file
 	bcc @asm
-	lda file::eof
-	beq @close		; failed to get a line and not at end of file
+	ldx file::eof
+	bne @close		; failed to get a line and not at end of file
+	sta @err
+	bne @close		; branch always
 
 ; assemble the line
 @asm:	ldxy #mem::spare
@@ -1622,8 +1660,7 @@ __asm_include:
 	bcc @ok
 	jsr errlog::log
 	bcc @ok
-
-@fatal:	inc @err		; too many errors or fatal error
+@fatal:	sta @err		; too many errors or fatal error
 
 @ok:	pla			; restore the file ID we included from
 	sta zp::file		; and temporarily store it

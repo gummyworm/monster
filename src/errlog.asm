@@ -146,6 +146,7 @@ numerrs: .byte 0
 ;  - .C: set if MAX_ERRORS have been logged since log was cleared
 .export __errlog_log
 .proc __errlog_log
+	pha
 	ldx numerrs
 	cpx #MAX_ERRORS-1
 	bcs @done		; if already at max errors, return with .C set
@@ -161,7 +162,8 @@ numerrs: .byte 0
 
 	inc numerrs
 	clc
-@done:	rts
+@done:	pla
+	rts
 .endproc
 
 ;******************************************************************************

@@ -511,13 +511,13 @@ __file_load_src:
 .proc geterr
 	jsr io::readerr
 	cpx #$01
-	bcs :+				; err >= 1, error
-@ok:	rts
+	bcc @ret		; err < 1 -> no error
 
-:	cpx #$3e
+	cpx #$3e		; err code $3e (file not found)?
 	bne :+
+	;sec
 	lda #ERR_FILE_NOT_FOUND
-	rts
+@ret:	rts
 :	RETURN_ERR ERR_IO_ERROR		; unknown error
 .endproc
 
