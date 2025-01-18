@@ -41,42 +41,40 @@
 .import __str_watch_triggered
 
 .scope strings
-	assemble_prompt       = __str_assemble_prompt
-	assembling            = __str_assembling
-	buffers               = __str_buffers
-	noname                = __str_noname
-	endrep                = __str_endrep
-	breakpoints_title     = __str_breakpoints_title
-	breakpoints_line      = __str_breakpoints_line
-	question_marks        = __str_question_marks
-	debug_brk_line        = __str_debug_brk_line
-	debug_brk_addr        = __str_debug_brk_addr
-	debug_registers       = __str_debug_registers
-
+	assemble_prompt         = __str_assemble_prompt
+	assembling              = __str_assembling
+	buffers                 = __str_buffers
+	breakpoints_title       = __str_breakpoints_title
+	breakpoints_line        = __str_breakpoints_line
+	question_marks          = __str_question_marks
+	debug_brk_line          = __str_debug_brk_line
+	debug_brk_addr          = __str_debug_brk_addr
+	debug_registers         = __str_debug_registers
 	debug_stop_debugging    = __str_debug_stop_debugging
 	deleting                = __str_deleting
 	dir                     = __str_dir
-	edit_line_err           = __str_edit_line_err
-	nofile                  = __str_no_file
-	file_open_failed        = __str_file_open_failed
 	edit_file_load_failed   = __str_edit_file_load_failed
 	edit_file_delete_failed = __str_edit_file_delete_failed
 	edit_file_save_failed   = __str_edit_file_save_failed
+	edit_line_err           = __str_edit_line_err
+	endrep                  = __str_endrep
 	errors                  = __str_errors
-	watch_added             = __str_watch_added
-	watches_line            = __str_watches_line
-	watches_changed_line    = __str_watches_changed_line
-	watches_range_line      = __str_watches_range_line
-	watches_title           = __str_watches_title
-
-	memview_title           = __str_memview_title
+	invalid_command         = __str_invalid_command
+	file_open_failed        = __str_file_open_failed
 	loading                 = __str_loading
+	memview_title           = __str_memview_title
+	nofile                  = __str_no_file
+	noname                  = __str_noname
 	null                    = __str_null
 	saving                  = __str_saving
 	saveall			= __str_saveall
 	symview_title           = __str_symview_title
 	tracing                 = __str_tracing
-	invalid_command         = __str_invalid_command
 	jam_detected            = __str_jam_detected
+	watch_added             = __str_watch_added
+	watches_line            = __str_watches_line
+	watches_changed_line    = __str_watches_changed_line
+	watches_range_line      = __str_watches_range_line
+	watches_title           = __str_watches_title
 	watch_triggered		= __str_watch_triggered
 .endscope

@@ -43,7 +43,7 @@ dirtybuff: .res TOTAL_BYTES
 
 .export __view_addr
 __view_addr:
-memaddr:   .word 0
+memaddr: .word 0
 
 .CODE
 ;*******************************************************************************
@@ -71,14 +71,17 @@ memaddr:   .word 0
 	sta text::insertmode
 
 	jsr __view_mem
-	jsr cur::on
 
 ; until user exits (<- or RETURN), get input and update memory
 @edit:
+	jsr cur::on
 	ldxy memaddr
 	stxy @src
 
 	jsr key::waitch
+	pha
+	jsr cur::off
+	pla
 
 	cmp #K_UP_ARROW
 	bne :+
@@ -97,23 +100,15 @@ memaddr:   .word 0
 @down:	jsr down
 	jmp @edit
 
-:	cmp #K_DEL
-	beq @retreat
-	cmp #K_LEFT
-	beq @retreat
-	cmp #$68	; h (also left)
+:	jsr key::isleft	; h or left
 	bne :+
 @retreat:
 	jsr @prev_x
-	jsr cur::on
 	jmp @edit
 
-:	cmp #K_RIGHT
-	beq @right
-	cmp #$6c	; l (also right)
+:	jsr key::isright
 	bne :+
 @right: jsr @next_x
-	jsr cur::on
 	jmp @edit
 
 :	cmp #K_FIND
@@ -151,7 +146,6 @@ memaddr:   .word 0
 	jsr @next_x	; advance the cursor (if we can)
 	ldxy @src
 	jsr __view_mem	; update the display
-	jsr cur::on
 	jmp @edit
 
 ;--------------------------------------
@@ -229,7 +223,6 @@ memaddr:   .word 0
 ;--------------------------------------
 ; move cursor to the next x-position
 @next_x:
-	jsr cur::off
 	ldx zp::curx
 @next_x2:
 	inx
@@ -245,7 +238,6 @@ memaddr:   .word 0
 ;--------------------------------------
 ; move cursor to the previous x-position
 @prev_x:
-	jsr cur::off
 	ldx zp::curx
 @prev_x2:
 	dex
@@ -313,8 +305,6 @@ memaddr:   .word 0
 ; UP
 ; Handles the Up key, moving the cursor or scrolling if needed
 .proc up
-	jsr cur::off
-
 	; are we at the top of the editor?
 	lda zp::cury
 	cmp #MEMVIEW_START+1
@@ -327,21 +317,17 @@ memaddr:   .word 0
 	bcs @done
 	dec memaddr+1
 @done:	sta memaddr
-	jsr __view_mem	; refresh the display
-	jmp cur::on
+	jmp __view_mem	; refresh the display
 
 :	ldy #$ff
 	ldx #0
-	jsr cur::move
-	jmp cur::on
+	jmp cur::move
 .endproc
 
 ;******************************************************************************
 ; DOWN
 ; Handles the Down key, moving the cursor or scrolling if needed
 .proc down
-	jsr cur::off
-
 	; are we at the bottom of the editor?
 	lda zp::cury
 	cmp #MEMVIEW_STOP-1
@@ -354,13 +340,11 @@ memaddr:   .word 0
 	bcc @done
 	inc memaddr+1
 @done:	sta memaddr
-	jsr __view_mem	; refresh the display
-	jmp cur::on
+	jmp __view_mem	; refresh the display
 
 :	ldy #1
 	ldx #0
-	jsr cur::move
-	jmp cur::on
+	jmp cur::move
 .endproc
 
 ;*******************************************************************************
@@ -369,7 +353,6 @@ memaddr:   .word 0
 ; the memory view to render that area of memory.
 .proc getset_addr
 	pushcur
-	jsr cur::off
 
 	lda #DEFAULT_RVS
 	ldx #MEMVIEW_START

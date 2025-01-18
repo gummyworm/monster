@@ -40,8 +40,8 @@ FLAG_DIRTY = 1
 
 ;*******************************************************************************
 data_start:
-sp: 	   .byte 0		; stack pointer for source position stack
-stack:     .res POS_STACK_SIZE	; stack for source positions
+sp:	.byte 0			; stack pointer for source position stack
+stack:	.res POS_STACK_SIZE	; stack for source positions
 
 ;*******************************************************************************
 ; BUFFSTATE
