@@ -426,12 +426,7 @@ num_illegals = *-illegal_opcodes
 ;  - .C: set if an error occurred
 .export __asm_tokenize
 .proc __asm_tokenize
-	inc $900f
-	jsr @asm
-	dec $900f
-	rts
-
-@asm:	; copy the line to the main RAM bank and make it uppercase (assembly is
+	; copy the line to the main RAM bank and make it uppercase (assembly is
 	; case-insensitive)
 	stxy zp::bankaddr0
 	ldxy #asmbuffer

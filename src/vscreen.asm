@@ -18,6 +18,7 @@
 ;******************************************************************************
 
 .include "bitmap.inc"
+.include "config.inc"
 .include "finalex.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -45,10 +46,12 @@ MAX_SHIFT = NUM_COLS
 .export __scr_reset
 .proc __scr_reset
 	jsr bm::save
-	; save the per-row colors
+	; save the per-row colors and reset them
 	ldx #NUM_ROWS*2-1
 :	lda mem::rowcolors,x
 	sta mem::rowcolors_save,x
+	lda #DEFAULT_900F
+	sta mem::rowcolors,x
 	dex
 	bpl :-
 	jmp bm::init
