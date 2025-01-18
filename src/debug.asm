@@ -1002,7 +1002,9 @@ brkhandler2_size=*-brkhandler2
 	jsr restore_debug_low
 	jsr restore_debug_state
 	inc swapmem
-        jsr irq::raster
+	jsr irq::raster
+	jsr uninstall_breakpoints
+	jsr install_breakpoints
 .endproc
 
 ;******************************************************************************
