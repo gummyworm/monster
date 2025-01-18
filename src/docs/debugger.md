@@ -2,6 +2,22 @@
 
 ---
 
+## Requirements
+In order for the debugger to coexist with your program there are a few small
+requirements.
+
+#### Don't Use $7FEF-$8000
+The address range from $7fef to $8000 is used to store the interrupts that
+return control to the debugger.
+If this range is clobbered, a BRK or NMI will not return to the debugger and the
+machine will likely JAM.
+
+#### Stack Has 6 Bytes Free
+The stack, at its current location for a given step, must have 3 bytes free.
+If your program uses an IRQ (correctly) this shouldn't be an issue because the Vic-20's
+interrupt sequence pushes 6 bytes (the registers, including status, plus the
+interrupt return address).
+
 ## Step Mechanisms
 The manner in which the program is "stepped" depends on a variety of situations.
 There are 3 means of stepping:

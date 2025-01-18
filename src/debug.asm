@@ -846,7 +846,7 @@ brkhandler2_size=*-brkhandler2
 @restore_debugger:
 	sei
 
-	; restore the debugger's SP
+	; reinit the debugger's SP
 	ldx #$ff
 	txs
 
@@ -954,8 +954,6 @@ brkhandler2_size=*-brkhandler2
 
 	; if we are doing a TRACE, install breakpoints and continue
 	; TODO: replace below with more flexbile condition based BRK (brkcond)
-	; TODO: when we encounter JSR inc counter, on RTS decrement,
-	;       wait for it to be negative to stop stepping
 	lda action
 	cmp #ACTION_STEP_OUT
 	bne @chktrace
@@ -1834,7 +1832,8 @@ restore_regs:
 	lda @tosave,y
 	sta @addr
 	lda @tosave+1,y
-	beq :+			; skip zeropage (saved elsewhere)
+	cmp #$02
+	bcc :+			; skip zeropage/stack (saved elsewhere)
 	sta @addr+1
 	jsr is_internal_address
 	bne :+
@@ -1862,13 +1861,9 @@ restore_regs:
 
 	jsr vmem::load
 	ldx @addr+1
-	bne :+			; skip zeropage for now (we're still using it)
-
-	ldx @addr
-	sta mem::prog00,x	; update virtual ZP
-	jmp @next
-
-:	ldy #$00
+	cpx #$02
+	bcc @next
+	ldy #$00
 	sta (@addr),y		; store it to the physical address
 @next:	dec @cnt
 	dec @cnt
@@ -1886,6 +1881,10 @@ restore_regs:
 ; areas that would be affected before we encountered the BRK, only swap those
 ; values for the debugger's values of those.
 ; If not, swap the entire internal RAM state
+; The following state is saved/swapped when we can avoid swapping all memory:
+;  [prevpc, prevpc+2]: area of the instruction that will be executed
+;  (sim::next_pc):     address of the BRK that we will install
+;  (msave):            effective address of the instruction we will execute
 .proc swapout
 @cnt=r0
 @addr=r1
@@ -1899,7 +1898,7 @@ restore_regs:
 	jmp restore_debug_state		; restore debugger state
 
 @fastswap:
-	; save [prevpc, prevpc+2], [msave], and [sim::next_pc] for the user
+	; save [prevpc, prevpc+2], (msave), and (sim::next_pc) for the user
 	; program
 	lda prev_pc+1
 	sta @tosave+1
@@ -1930,7 +1929,8 @@ restore_regs:
 	lda @tosave,x
 	sta @addr
 	ldy @tosave+1,x
-	beq :+			; skip ZP (saved elsewhere)
+	cpy #$02
+	bcc :+			; skip ZP and stack (saved elsewhere)
 	sty @addr+1
 	tax
 	jsr is_internal_address
@@ -1952,7 +1952,8 @@ restore_regs:
 	sta @ysave
 
 	ldy @tosave+1,x
-	beq @next
+	cpy #$02
+	bcc @next		; skip ZP and stack (already handled)
 	sty @addr+1
 	lda @tosave,x
 	sta @addr

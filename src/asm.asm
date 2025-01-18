@@ -1537,8 +1537,7 @@ num_illegals = *-illegal_opcodes
 	ldxy #@filename
 	jsr file::exists
 	beq :+
-	lda #ERR_FAILED_OPEN_INCLUDE
-	rts
+	RETURN_ERR ERR_FAILED_OPEN_INCLUDE
 
 :	ldxy #@filename
 	jsr file::open
@@ -1947,7 +1946,6 @@ __asm_include:
 .export __asm_reset
 .proc __asm_reset
 	lda #$00
-	sta pcset
 	sta ifstacksp
 	sta contextstacksp
 	jsr ctx::init
@@ -2478,6 +2476,7 @@ __asm_include:
 	cmp #$02
 	pla
 	bcs __asm_tokenize_pass2
+
 ; fall through
 .endproc
 
