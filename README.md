@@ -1118,10 +1118,11 @@ to such an instruction, but setting one on `.DB $00` has no effect.
 
 ### Toggle Breakpoint (`C= + b`)
 During normal editing, breakpoints may be set and removed  with the `C= + b` key combination.
-A breakpoint symbol (a filled circle) is placed at the beginning of a line to
-indicate that a breakpoint has been added.
+
 Pressing the same key combination (`C= + b`) will also remove a breakpoint
 if it is pressed while on a line that already has one.
+
+Breakpoints can only be added to buffers that have been named.
 
 ---
 

@@ -2402,7 +2402,11 @@ __edit_set_breakpoint:
 .proc set_breakpoint
 @savex=zp::editortmp
 	jsr __edit_current_file	; get the debug file ID and line #
-	pha			; save the file ID
+	bcc :+
+	lda #ERR_UNNAMED_BUFFER
+	jmp report_typein_error
+
+:	pha			; save the file ID
 	jsr brkpt::getbyline	; is there already a breakpoint?
 	pla			; restore the file ID
 	bcs @set		; if not, add one
@@ -4794,12 +4798,10 @@ __edit_gotoline:
 ; IN:
 ;  - .A: the error code
 .proc report_typein_error
-	cmp #$00
-	beq @done	; no error
 	jsr err::get
 	jsr str::uncompress
-	jmp text::info
-@done:	rts
+	jsr text::info
+	jmp beep::short
 .endproc
 
 ;******************************************************************************
@@ -4845,7 +4847,7 @@ __edit_gotoline:
 	RETURN_OK
 
 @done:	sec			; line off screen
-@ret:	rts
+	rts
 .endproc
 
 ;******************************************************************************
