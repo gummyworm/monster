@@ -466,6 +466,10 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 
 	jsr __debug_restore_progstate	; copy in user program
 
+	; initialize the user program stack
+	ldx #$e0
+	txs
+
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
 
@@ -478,7 +482,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 
 @basic:	; initialize machine state
 	sei
-	;jsr $fd8d	; initialize and test RAM
+	jsr $fd8d	; initialize and test RAM
 	jsr $fd52	; restore default I/O vectors
 	jsr $fdf9	; initialize I/O registers
 	jsr $e518	; initialize hardware
@@ -487,9 +491,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	save_user_zp
 
 	ldxy sim::pc
-	jmp @nobasic
-
-	;stxy $0302	; BASIC warm start vector
+	stxy $0302	; BASIC warm start vector
 
 	sei
 	ldxy #BRK_HANDLER_ADDR+1

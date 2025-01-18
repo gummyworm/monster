@@ -4110,32 +4110,6 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
-; SCROLLDOWN
-; scrolls everything in the given range of rows and highlights the row that
-; is scrolled in (if highlight is enabled)
-; IN:
-;  - .A: the row to start scrolling at
-;  - .X: the row to stop scrolling at
-.proc scrolldown
-@start=r1
-@stop=r2
-	stx @stop
-	sta @start
-	jsr text::scrolldown
-
-	; shift colors down by 1
-	ldx @start
-	ldy @stop
-	jsr draw::scrollcolorsd1
-
-	ldxy __edit_highlight_line
-	cmpw src::line
-	bne :+
-	rts
-:	jmp highlight
-.endproc
-
-;******************************************************************************
 ; COMMAND_GOTOLINE
 ; Gets a line number from the user and moves the cursor and source to that line
 .proc command_gotoline
@@ -4253,7 +4227,7 @@ goto_buffer:
 ; IN:
 ;  - .YX: the text to find (0-terminated)
 .proc __edit_find_prev
-	lda #$00
+	lda #$00	; flag search BACKWARD
 	skw
 
 	; fall through to FIND
@@ -4273,7 +4247,7 @@ goto_buffer:
 @cnt=rd
 @forward=re
 @searchbuff=$120	; buffer of bytes to search
-	lda #$01
+	lda #$01	; flag search FORWARD
 	sta @forward
 
 	stxy @string
@@ -4749,7 +4723,59 @@ __edit_gotoline:
 	jsr src::right
 	ldx #TAB_WIDTH
 :	stx zp::curx
-	jmp highlight
+
+	; fall through to highlight
+.endproc
+
+;******************************************************************************
+; HIGHLIGHT
+; If the row that should be highlighted is visible, highlight it
+.proc highlight
+@was_visible=r4
+	lda __edit_highlight_en
+	beq @done
+	lda highlight_status
+	sta @was_visible
+
+	; update the status (check if the highlight was scrolled out)
+	; get filename (r0 = id)
+	lda src::activebuff
+	lda #$00
+	sta highlight_status
+	ldxy __edit_highlight_line
+	jsr __edit_src2screen
+	bcc @ok
+@done:	rts
+
+@ok:	inc highlight_status
+	lda @was_visible
+	bne @done		; if highlight was, and still is, visible: skip
+	jmp toggle_highlight	; highlight was NOT visible, but is now
+.endproc
+
+;******************************************************************************
+; SCROLLDOWN
+; scrolls everything in the given range of rows and highlights the row that
+; is scrolled in (if highlight is enabled)
+; IN:
+;  - .A: the row to start scrolling at
+;  - .X: the row to stop scrolling at
+.proc scrolldown
+@start=r1
+@stop=r2
+	stx @stop
+	sta @start
+	jsr text::scrolldown
+
+	; shift colors down by 1
+	ldx @start
+	ldy @stop
+	jsr draw::scrollcolorsd1
+
+	ldxy __edit_highlight_line
+	cmpw src::line
+	bne highlight
+	rts
 .endproc
 
 ;******************************************************************************
@@ -4936,7 +4962,8 @@ __edit_gotoline:
 	lda #$01
 	sta __edit_highlight_en		; flag highlight as ON
 	sta highlight_status		; and flag highlight as on
-	; fall through to highlight line
+
+	; fall through to toggle_highlight
 .endproc
 
 ;******************************************************************************
@@ -4966,32 +4993,6 @@ __edit_gotoline:
 	lda status_row
 	jsr text::print
 	rts
-.endproc
-
-;******************************************************************************
-; HIGHLIGHT
-; If the row that should be highlighted is visible, highlight it
-.proc highlight
-@was_visible=r4
-	lda __edit_highlight_en
-	beq @done
-	lda highlight_status
-	sta @was_visible
-
-	; update the status (check if the highlight was scrolled out)
-	; get filename (r0 = id)
-	lda src::activebuff
-	lda #$00
-	sta highlight_status
-	ldxy __edit_highlight_line
-	jsr __edit_src2screen
-	bcc @ok
-@done:	rts
-
-@ok:	inc highlight_status
-	lda @was_visible
-	bne @done		; if highlight was, and still is, visible: skip
-	jmp toggle_highlight	; highlight was NOT visible, but is now
 .endproc
 
 ;******************************************************************************
@@ -5039,6 +5040,7 @@ commands:
 	.byte $41		; A (append to line/insert)
 	.byte $61		; a (append to character)
 	.byte $64		; d (delete)
+	.byte $44		; D (delete to end)
 	.byte $70		; p (paste below)
 	.byte $50		; P (paste above)
 	.byte $78		; x (erase char)
@@ -5077,7 +5079,7 @@ numcommands=*-commands
 .linecont +
 .define cmd_vecs dir::view, swapwin, ccleft, ccright, ccup, ccdown, endofword, beginword, \
 	insert_start, enter_insert, replace_char, replace, append_to_line, \
-	append_char, delete, paste_below, paste_above, delete_char, \
+	append_char, delete, delete_to_end, paste_below, paste_above, delete_char, \
 	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
 	goto_start, find_next, find_prev, open_line_above, open_line_below,  \
 	join_line, end_of_line, \

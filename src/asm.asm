@@ -426,7 +426,12 @@ num_illegals = *-illegal_opcodes
 ;  - .C: set if an error occurred
 .export __asm_tokenize
 .proc __asm_tokenize
-	; copy the line to the main RAM bank and make it uppercase (assembly is
+	inc $900f
+	jsr @asm
+	dec $900f
+	rts
+
+@asm:	; copy the line to the main RAM bank and make it uppercase (assembly is
 	; case-insensitive)
 	stxy zp::bankaddr0
 	ldxy #asmbuffer
@@ -1620,7 +1625,7 @@ __asm_include:
 	jsr file::open	; open the file we are including
 	bcs @reterr
 
-:	pha		; save the id of the file we're working on (for closing)
+	pha		; save the id of the file we're working on (for closing)
 	sta zp::file
 
 	; add the filename to debug info (if it isn't yet), reset line number

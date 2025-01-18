@@ -330,8 +330,10 @@ The following keys are handled in COMMAND mode.
 |    l       | Right      | moves the cursor right                                                 |
 |    H       | Home       | moves the cursor to the top left of the screen                         |
 |    L       | Last       | moves the cursor to the bottom left of the screen                      |
-|    dw      | Delete Word| deletes the next word                                                  |
+|    d0      | Delete To  | deletes everything on the line before the cursor                       |
+|    D/d$    | Delete Rest| deletes the contents of the line after the cursor's position           |
 |    dd      | Delete Line| deletes the next line                                                  |
+|    dw      | Delete Word| deletes the next word                                                  |
 |    J       | Join lines | moves the contents of the next line to the end of the current one      |
 |    0       | Column 0   | moves the cursor to the first column of the current line               |
 |    a       | append char| enters insert mode and moves to the next character                     |
