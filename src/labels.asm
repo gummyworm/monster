@@ -240,6 +240,7 @@ label_addresses_sorted_ids: .res MAX_LABELS*2
 scope: .res 8 ; buffer containing the current scope
 
 ; address table for each anonymous label
+.export anon_addrs
 anon_addrs: .res MAX_ANON*2
 
 .segment "LABELS"
@@ -897,6 +898,7 @@ anon_addrs: .res MAX_ANON*2
 ;  - .A:  how many anonymous labels backwards to look
 ; OUT:
 ;  - .XY: the nth anonymous label whose address is < than the given address
+;  - .C: set if there is no backwards label matching the given address
 .proc get_banon
 @bcnt=r8
 @addr=r4

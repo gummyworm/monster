@@ -167,6 +167,9 @@ err_label_already_defined:
 err_too_many_labels:
 	.byte $68,$58,$db,$1,$11,$4c,$9e,$c5,$c0,$c5,$29,$5,$20,$0
 
+err_label_unknown_pass1:
+	.byte $60,$42,$2b,$1b,$9,$4,$91,$53,$9e,$ce,$7d,$1b,$4b,$86,$2c,$92,$29,$0
+
 err_invalid_command:
 	.byte $4b,$96,$b,$9,$26,$c3,$7b,$4d,$b,$84,$0
 
@@ -222,6 +225,7 @@ err_buffer_full:
 	err_no_open_scope, \
 	err_label_already_defined, \
 	err_too_many_labels, \
+	err_label_unknown_pass1, \
 	err_invalid_command, \
 	err_copy_too_big, \
 	err_buffer_name_exists, \

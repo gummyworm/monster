@@ -569,12 +569,24 @@ num_illegals = *-illegal_opcodes
 	jsr util::is_whitespace	; anon label must be followed by whitespace
 	bne :+			; if not whitespace, go on
 	lda zp::pass
-	cmp #$01
-	bne @label_done		; if not pass 1, don't add the label
 	ldxy zp::virtualpc
+	cmp #$01
+	bne @validate_anon
 	jsr lbl::addanon	; add the anonymous label
 	bcc @label_done
 	rts			; return error (too many anonymous labels?)
+
+@validate_anon:
+	; make sure the anonymous label was correctly assigned in pass 1
+	inx
+	bne :+
+	iny
+:	lda #$01
+	jsr lbl::get_banon
+	cmpw zp::virtualpc
+	beq @label_done
+	lda #ERR_LABEL_NOT_KNOWN_PASS1
+	rts
 
 @label:	jsr is_label
 	bcs @getopws
@@ -913,11 +925,21 @@ num_illegals = *-illegal_opcodes
 	jsr lbl::setscope	; set the non-local label as the new scope
 
 :	lda zp::pass
-	cmp #$01
-	bne @ok			; if not pass 1, don't add the label
 	ldxy zp::line
+	cmp #$01
+	bne @validate		; if not pass 1, don't add the label
 	jsr lbl::add
-	bcs @ret		; return error
+	bcc @ok
+	rts
+
+@validate:
+	; make sure the label's address hasn't moved since pass 1
+	jsr lbl::find
+	jsr lbl::getaddr
+	cmpw zp::label_value
+	bcc @ok
+	lda #ERR_LABEL_NOT_KNOWN_PASS1
+	rts
 
 @ok:	ldxy zp::line
 @done:	clc
