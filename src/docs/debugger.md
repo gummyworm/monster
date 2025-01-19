@@ -18,6 +18,13 @@ If your program uses an IRQ (correctly) this shouldn't be an issue because the V
 interrupt sequence pushes 6 bytes (the registers, including status, plus the
 interrupt return address).
 
+### Don't overwrite BRK/NMI vectors
+The BRK vector is used to return to the debugger during normal execution of your program.
+
+The NMI vector _can_ be used by your program, but it is clobbered by the debugger
+when stepping through ROM.  VIA #1's timer is used to trigger the NMI
+that returns to the debugger when doing this.
+
 ## Step Mechanisms
 The manner in which the program is "stepped" depends on a variety of situations.
 There are 3 means of stepping:

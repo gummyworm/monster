@@ -210,9 +210,9 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	jsr draw::hline
 	pla
 
-	cmp #$11		; down
+	jsr key::isdown
 	beq @down
-	cmp #$91		; up
+	jsr key::isup
 	beq @up
 	cmp #K_RETURN		; RETURN
 	beq @select

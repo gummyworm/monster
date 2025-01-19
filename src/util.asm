@@ -12,37 +12,6 @@
 .CODE
 
 ;*******************************************************************************
-; MEMCPY
-; Moves r0 bytes from (r2) to (r4).
-; IN:
-;  - r0: the number of bytes to move
-;  - r2: the source address
-;  - r4: the destination address
-.export __util_memcpy
-.proc __util_memcpy
-@src=r2
-@dst=r4
-@len=r0
-	ldx @len
-	bne @l0
-	ldy @len+1
-	beq @done	; if len is 0, nothing to copy
-
-@l0:	ldy #$00
-	lda (@src),y
-	sta (@dst),y
-	incw @src
-	incw @dst
-	decw @len
-
-	; loop until @len is 0
-	bne @l0
-	ldy @len+1
-	bne @l0
-@done:  rts
-.endproc
-
-;*******************************************************************************
 ; MEMMOVE
 ; Moves .A bytes from (r0) to (r2)
 ; Can move at most 128 bytes
