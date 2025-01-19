@@ -319,9 +319,8 @@ memaddr: .word 0
 @done:	sta memaddr
 	jmp __view_mem	; refresh the display
 
-:	ldy #$ff
-	ldx #0
-	jmp cur::move
+:	dec zp::cury
+	rts
 .endproc
 
 ;******************************************************************************
@@ -342,9 +341,8 @@ memaddr: .word 0
 @done:	sta memaddr
 	jmp __view_mem	; refresh the display
 
-:	ldy #1
-	ldx #0
-	jmp cur::move
+:	inc zp::cury
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -387,9 +385,8 @@ memaddr: .word 0
 	ldxy #mem::linebuffer+17
 	stxy zp::line
 	jsr expr::eval
-	bcs :+		; couldn't convert (TODO: should be impossible)
 	stxy memaddr
-:	popcur
+	popcur
 	rts
 .endproc
 
@@ -453,12 +450,11 @@ memaddr: .word 0
 	stxy @src
 
 	; initialize line to empty (all spaces)
-	lda #40
-	sta r0
 	lda #' '
-	ldx #<mem::spare
-	ldy #>mem::spare
-	jsr util::memset
+	ldx #40-1
+:	sta mem::spare,x
+	dex
+	bpl :-
 
 @l0:	; draw the address of this line
 	lda @src+1

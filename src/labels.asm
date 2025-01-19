@@ -909,6 +909,9 @@ anon_addrs: .res MAX_ANON*2
 	; get address to start looking backwards from
 	jsr seek_anon
 	bcc :+
+
+	; if we ended after the end of the anonymous label list, move
+	; to a valid location in it (to the last item)
 	txa
 	sbc #$02
 	tax

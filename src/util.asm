@@ -12,22 +12,6 @@
 .CODE
 
 ;*******************************************************************************
-; MEMSET
-; Sets r0 bytes of the memory at (YX) to .A.
-; IN:
-;  - r0: the memory address to set
-;  - .A: the value to set the memory to
-.export __util_memset
-.proc __util_memset
-	stxy zp::util
-	ldy r0
-@l0:	sta (zp::util),y
-	dey
-	bpl @l0
-	rts
-.endproc
-
-;*******************************************************************************
 ; MEMCPY
 ; Moves r0 bytes from (r2) to (r4).
 ; IN:

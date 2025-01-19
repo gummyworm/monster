@@ -246,24 +246,14 @@ __asm_org_string:
 directives_len=*-directives
 
 ;*******************************************************************************
-directive_vectors:
-.word definebyte
-.word defineconst
-.word defineword
-.word includefile
-.word defineorg
-.word define_psuedo_org
-.word repeat
-.word macro
-.word do_if
-.word do_else
-.word do_endif
-.word do_ifdef
-.word create_macro
-.word handle_repeat
-.word incbinfile
-.word 0			; TODO: import
-.word 0			; TODO: export
+.linecont +
+.define directive_vectors definebyte, defineconst, defineword, includefile, \
+defineorg, define_psuedo_org, repeat, macro, do_if, do_else, do_endif, \
+do_ifdef, create_macro, handle_repeat, incbinfile, 0, 0	; TODO: import/export
+.linecont -
+
+directive_vectorslo: .lobytes directive_vectors
+directive_vectorshi: .hibytes directive_vectors
 
 ;*******************************************************************************
 ; see MODE_ constants in asmflags.inc
@@ -543,8 +533,7 @@ num_illegals = *-illegal_opcodes
 	jmp @getopws	; continue if no error
 
 ; check if the line contains a macro
-@macro:
-	ldxy zp::line
+@macro:	ldxy zp::line
 	CALL FINAL_BANK_MACROS, #mac::get
 
 	bcs @chklabels		; if not macro, skip
@@ -556,7 +545,7 @@ num_illegals = *-illegal_opcodes
 	bcs @ret0		; error
 	lda #ASM_MACRO
 	sta resulttype
-	clc
+	;clc
 @ret0:	rts
 
 ; check if the line is a label definition
@@ -567,7 +556,7 @@ num_illegals = *-illegal_opcodes
 	jsr line::incptr
 	lda (zp::line),y
 	jsr util::is_whitespace	; anon label must be followed by whitespace
-	bne :+			; if not whitespace, go on
+	bne @retlabel		; if not whitespace, go on
 	lda zp::pass
 	ldxy zp::virtualpc
 	cmp #$01
@@ -585,7 +574,7 @@ num_illegals = *-illegal_opcodes
 	jsr lbl::get_banon
 	cmpw zp::virtualpc
 	beq @label_done
-	lda #ERR_LABEL_NOT_KNOWN_PASS1
+:	lda #ERR_LABEL_NOT_KNOWN_PASS1
 	rts
 
 @label:	jsr is_label
@@ -601,11 +590,12 @@ num_illegals = *-illegal_opcodes
 	jsr @assemble		; assemble the rest of the line
 	bcs @ret0		; return error
 	cmp #ASM_LABEL
-	bne :+
+	bne @retlabel
 
 	; if we found another label, return error
 	RETURN_ERR ERR_UNEXPECTED_CHAR
-:	lda #ASM_LABEL		; return as LABEL (don't indent this line)
+@retlabel:
+	lda #ASM_LABEL		; return as LABEL (don't indent this line)
 	RETURN_OK
 
 ; from here on we are either reading a comment or an operand
@@ -641,6 +631,7 @@ num_illegals = *-illegal_opcodes
 	jsr is_anonref
 	bne :+
 	jsr anonref
+	lda #$02
 	bcc @store_value
 @evalfailed:
 	rts			; return error
@@ -648,11 +639,17 @@ num_illegals = *-illegal_opcodes
 :	jsr expr::eval
 	bcs @evalfailed		; return error, eval failed
 
-; store the value, note that we don't really care if we write 2 bytes when we
+; store the value
+; Note that we don't really care if we write 2 bytes when we
 ; only need one (the next instruction will overwrite it and it doesn't affect
 ; our program size count).
+; TODO: could be an issue if there is an overlapping .ORG
 @store_value:
 	sta operandsz		; save size of the operand
+	lda immediate
+	beq @store_msb
+	lda #$01
+	sta operandsz
 
 @store_msb:
 	tya			; .A = MSB
@@ -740,8 +737,7 @@ num_illegals = *-illegal_opcodes
 
 ;------------------------------------------------------------------------------
 ; done, create the assembled result based upon the opcode, operand, and addr mode
-@done:
-	lda resulttype
+@done:	lda resulttype
 	cmp #ASM_OPCODE
 	beq @chkaddrmode
 	; if not an instruction, we're done
@@ -805,16 +801,25 @@ num_illegals = *-illegal_opcodes
 	bne @err
 
 :	; convert operand to relative address (operand - zp::asmresult)
+@tmp=r0
+	lda zp::asmresult
+	clc
+	adc #$02
+	sta @tmp
+	lda zp::asmresult+1
+	adc #$00
+	sta @tmp+1
+
 	ldy #$01		; offset to operand LSB
 	jsr readb
 	sec
-	sbc zp::asmresult
+	sbc @tmp
 	iny
 	tax
 	php
 	jsr readb		; read MSB
 	plp
-	sbc zp::asmresult+1	; MSB - >PC
+	sbc @tmp+1		; MSB - >PC
 	beq @store_offset	; $00xx might be in range
 	cmp #$ff		; $ffxx might be in range
 	beq @store_offset	; continue
@@ -822,19 +827,18 @@ num_illegals = *-illegal_opcodes
 	lda zp::pass
 	cmp #$01		; on pass 1, offset might not be correct: allow
 	beq @store_offset
-	RETURN_ERR ERR_BRANCH_OUT_OF_RANGE
+	lda #ERR_BRANCH_OUT_OF_RANGE
+:	rts
 
 @store_offset:
 	; replace 2 byte operand with 1 byte relative address
 	txa
-	sec
-	sbc #$02		; offset -2 from current instruction's address
 	dey
 	jsr writeb
-	bcs @ret		; return err
+	bcs :-			; return err
 	lda #$01
 	sta operandsz
-	jmp @noerr
+	bne @noerr		; branch always
 
 @verifyimm:
 	; remaining opcodes are single byte- implied/accumulator only
@@ -935,10 +939,13 @@ num_illegals = *-illegal_opcodes
 @validate:
 	; make sure the label's address hasn't moved since pass 1
 	jsr lbl::find
+	bcs @ret
 	jsr lbl::getaddr
+	bcs @ret
 	cmpw zp::label_value
-	bcc @ok
+	beq @ok
 	lda #ERR_LABEL_NOT_KNOWN_PASS1
+	sec
 	rts
 
 @ok:	ldxy zp::line
@@ -966,6 +973,7 @@ num_illegals = *-illegal_opcodes
 ;  - zp::line points to the anonymous reference e.g. ":++"
 ; OUT:
 ;  - .XY:      the address that is referenced
+;  - .A:       the size of the label
 ;  - .C:       set if invalid reference or on error
 ;  - zp::line: if there was an anonymous reference, updated to point past it
 .proc anonref
@@ -1304,11 +1312,9 @@ num_illegals = *-illegal_opcodes
 	inc zp::line+1
 :	jsr line::process_ws
 
-	lda @cnt
-	asl
-	tax
-	ldy directive_vectors+1,x
-	lda directive_vectors,x
+	ldx @cnt
+	ldy directive_vectorshi,x
+	lda directive_vectorslo,x
 	tax
 	lda @cnt		; get the ID of the directive
 	RETURN_OK
@@ -2623,23 +2629,24 @@ __asm_include:
 ; IN:
 ;  - .A: the value to add to the assembly pointers (virtualpc and asmresult)
 .proc addpc
-@a=r0
-	sta @a
+	pha
 	clc
 	adc zp::asmresult
 	sta zp::asmresult
+	tax
 	lda zp::asmresult+1
 	bcc :+
 	inc zp::asmresult+1
-:	lda zp::virtualpc
+
+:	tay
+	pla
 	clc
-	adc @a
+	adc zp::virtualpc
 	sta zp::virtualpc
 	bcc :+
 	inc zp::virtualpc+1
 
 :	; update the top pointer if we are at the top of the program
-	ldxy zp::asmresult
 	cmpw top
 	bcc :+
 	stxy top
