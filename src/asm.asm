@@ -11,6 +11,8 @@
 ;  - create macro definitions (.MAC)
 ;
 ; Pass 2:
+;  - validate labels (make sure we correctly inferred their sizes if not
+;    forward declared)
 ;  - write the program binary by assembling:
 ;   - instructions
 ;   - macro invocations
@@ -46,6 +48,9 @@
 ;     ```
 ;     In this ^ correct example, we know to use zeropage addressing and the
 ;     first and second passes will generate the same labels hereafter.
+;
+;     If an address is incorrectly implied in pass 1, there will be an error
+;     generated when we validate it in pass 2
 ;*******************************************************************************
 
 .include "asmflags.inc"
@@ -572,10 +577,11 @@ num_illegals = *-illegal_opcodes
 	iny
 :	lda #$01
 	jsr lbl::get_banon
+	bcs :+
 	cmpw zp::virtualpc
 	beq @label_done
-:	lda #ERR_LABEL_NOT_KNOWN_PASS1
-	rts
+	lda #ERR_LABEL_NOT_KNOWN_PASS1
+:	rts
 
 @label:	jsr is_label
 	bcs @getopws

@@ -497,10 +497,10 @@
 	beq @done		; if comparing 0 bytes, we're done
 
 @l0:	ldxy @block0
-	CALL FINAL_BANK_MAIN, #vmem::load	; get a byte from block 0
+	jsr vmem_load	; get a byte from block 0
 	sta @tmp
 	ldxy @block1
-	CALL FINAL_BANK_MAIN, #vmem::load	; get a byte from block 1
+	jsr vmem_load	; get a byte from block 1
 	cmp @tmp
 	beq @next
 
@@ -579,7 +579,7 @@
 
 	; move the data
 @l0:	ldxy @start
-	CALL FINAL_BANK_MAIN, #vmem::load
+	jsr vmem_load
 	ldxy @target
 	CALL FINAL_BANK_MAIN, #vmem::store
 	incw @target
@@ -613,7 +613,7 @@
 	lda #$00
 	sta @i
 @l0:	ldxy @start
-	CALL FINAL_BANK_MAIN, #vmem::load
+	jsr vmem_load
 	ldx @i
 	inc @i
 	cmp @list,x
@@ -695,7 +695,7 @@
 @drawbyte:
 	; unknown instruction
 	ldxy @addr
-	CALL FINAL_BANK_MAIN, #vmem::load	; get the byte
+	jsr vmem_load	; get the byte
 	pha
 
 	; push the address
@@ -965,14 +965,14 @@
 @draw_item:
 	; get the address of the procedure call
 	ldxy @sp				; LSB of stack address
-	CALL FINAL_BANK_MAIN, #vmem::load
+	jsr vmem_load
 	sec
 	sbc #$02
 	php
 	sta @addr
 	ldxy @sp
 	inx					; MSB of stack address
-	CALL FINAL_BANK_MAIN, #vmem::load
+	jsr vmem_load
 	plp
 	sbc #$00
 	sta @addr+1
@@ -1113,22 +1113,22 @@
 	ldy #$00
 	lda #'$'
 	sta (@line),y
-	incw @line
+	jsr @inc_line
 
 	ldy @addr+1
-	incw @addr
-	CALL FINAL_BANK_MAIN, #vmem::load
+	jsr @inc_line
+	jsr vmem_load
 	jsr hextostr
 	tya
 	ldy #$00
 	sta (@line),y
 	txa
-	incw @line
+	jsr @inc_line
 	sta (@line),y
-	incw @line
+	jsr @inc_line
 	lda #','
 	sta (@line),y
-	incw @line
+	jsr @inc_line
 	dec @cnt
 	bne @l1
 
@@ -1141,11 +1141,11 @@
 	jsr con::puts
 	ldxy @addr
 	cmpw @stop
-	bcs @ok
-	jmp @l0
-
-@ok:	clc
+	bcc @l0
 @done:	rts
+@inc_line:
+	incw @line
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -1318,6 +1318,13 @@
 ;  - zp::line: updated to point beyond the parsed expression
 .proc eval
 	JUMP FINAL_BANK_MAIN, #expr::eval
+.endproc
+
+;*******************************************************************************
+; VMEM_LOAD
+; Calls vmem::load
+.proc vmem_load
+	JUMP FINAL_BANK_MAIN, #vmem::load
 .endproc
 
 ;*******************************************************************************

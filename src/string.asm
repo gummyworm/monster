@@ -245,11 +245,11 @@ SLASH = SPECIAL_CHARS_START+2
 	sta (@wptr),y
 	iny
 	cpy #$03
-	bne @l1
+	bcc @l1
 
 	lda @wptr
-	clc
-	adc #$03
+	;sec
+	adc #$02	; 3-1 (.C set)
 	sta @wptr
 	bcc @l0
 	inc @wptr+1

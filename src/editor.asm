@@ -2904,6 +2904,7 @@ goto_buffer:
 	ldxy @file
 	jsr str::len		; get the length of the file to save
 	bne @havename		; >0: filename was given
+
 	; get active filename (r0 = name)
 	jsr src::current_filename
 	bcc :+
@@ -3956,6 +3957,29 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
+; CCDEL
+; Handles the DEL key
+.proc ccdel
+	jsr src::start
+	bne :+
+	rts			; nothing to delete
+
+:	lda mode
+	cmp #MODE_COMMAND	; handle COMMAND mode like REPLACE
+	beq @del_rep
+
+	jsr is_readonly
+	beq @del_rep		; handle DEL in r/o mode the same as REPLACE
+	lda text::insertmode	; INSERT or REPLACE?
+	bne backspace		; if INSERT, continue to backspace
+
+; command or replace mode
+@del_rep:
+	; if we're replacing (or in r/o mode), just move left if we can
+	jmp ccleft
+.endproc
+
+;******************************************************************************
 ; BACKSPACE
 ; Deletes the previous character in the source and moves the cursor as needed.
 ; Call text::drawline (with the newly updated cursor Y position) to render the
@@ -4049,32 +4073,6 @@ goto_buffer:
 	lda height
 	jsr draw_src_line	; draw the new line that was scrolled up
 	jmp src::popgoto	; restore source position
-.endproc
-
-;******************************************************************************
-; CCDEL
-; Handles the DEL key
-.proc ccdel
-	jsr src::start
-	bne :+
-@done:	rts
-
-:	lda mode
-	cmp #MODE_COMMAND	; handle COMMAND mode like REPLACE
-	beq @del_rep
-
-	jsr is_readonly
-	beq @del_rep		; handle DEL in r/o mode the same as REPLACE
-	lda text::insertmode	; INSERT or REPLACE?
-	bne @del_ins		; if INSERT, continue to backspace
-
-; command or replace mode
-@del_rep:
-	; if we're replacing (or in r/o mode), just move left if we can
-	jmp ccleft
-
-@del_ins:
-	jmp backspace
 .endproc
 
 ;*****************************************************************************
@@ -4232,7 +4230,7 @@ goto_buffer:
 ;  - .YX: the text to find (0-terminated)
 .proc __edit_find_prev
 	lda #$00	; flag search BACKWARD
-	skw
+	skw		; skip the lda #(FORWARD flag)
 
 	; fall through to FIND
 .endproc
@@ -5008,7 +5006,7 @@ __edit_gotoline:
 .proc __edit_current_file
 	lda src::activebuff
 	jsr src::filename
-	bcs :+
+	bcs :+			; failed to get filename -> return
 	jsr dbgi::getfileid	; .A = id of the file
 	jmp src::currline
 :	rts

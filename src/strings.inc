@@ -39,6 +39,7 @@
 .import __str_watches_range_line
 .import __str_watches_title
 .import __str_watch_triggered
+.import __str_vital_addr_clobber_detected
 
 .scope strings
 	assemble_prompt         = __str_assemble_prompt
@@ -77,4 +78,5 @@
 	watches_range_line      = __str_watches_range_line
 	watches_title           = __str_watches_title
 	watch_triggered		= __str_watch_triggered
+	vital_addr_clobber      = __str_vital_addr_clobber_detected
 .endscope

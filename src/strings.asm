@@ -100,11 +100,11 @@ __str_invalid_command: .byte "invalid command", 0
 .export __str_jam_detected
 __str_jam_detected: .byte "jam detected",0
 
+.export __str_vital_addr_clobber_detected
+__str_vital_addr_clobber_detected: .byte "vital address clobber detected",0
+
 .export __str_saveall
 __str_saveall: .byte "save all buffers? ", yes_no, 0
-
-.export __str_buffer_must_be_named
-__str_buffer_must_be_named: .byte "buffer must be named",0
 
 .export __str_assemble_prompt
 __str_assemble_prompt: .byte "program out of date, reassemble? ", yes_no, 0

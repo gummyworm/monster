@@ -187,7 +187,6 @@ stop_tracing: .byte 0	; if !0, debugger will stop a TRACE at the next STEP
 .export __debug_numbreakpoints
 __debug_numbreakpoints:     .byte 0
 
-
 ;******************************************************************************
 ; The following tables must be stored together and
 ; NUM_BREAKPOINT_TABLES must be set to the number of them
@@ -1372,7 +1371,10 @@ restore_regs:
 	; for the first instruction, just STEP, this lets us keep the breakpoint
 	; we are on (if there is one) intact
 	jsr __debug_step
-	lda #$00
+	bcc :+
+	rts
+
+:	lda #$00
 	sta sw_valid		; invalidate stopwatch
 	lda #ACTION_GO_START
 	sta action
@@ -1458,7 +1460,10 @@ restore_regs:
 ;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .proc __debug_trace_next
 	jsr __debug_step
-	lda stop_tracing
+	bcc :+
+	rts
+
+:	lda stop_tracing
 	bne @done
 	lda #ACTION_TRACE
 	sta action
@@ -1662,11 +1667,11 @@ restore_regs:
 	jsr sim::next_instruction
 	stxy brkaddr
 
-	; is the next instruction a JAM?
-	lda sim::jammed
-	bne jam_detected
+	jsr safety_check	; check for JAMs/suspicious writes/etc.
+	bcc @safe
+	rts			; return to debugger
 
-@nojam:	lda sim::op
+@safe:	lda sim::op
 	cmp #$20		; JSR?
 	bne @countcycles
 	lda #ACTION_STEP_OVER
@@ -1732,7 +1737,48 @@ restore_regs:
 	RETURN_OK		; return to the debugger
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
+; SAFETY_CHECK
+; Checks if the CPU will be jammed after executing the next instruction or if
+; a critical memory location will be clobbered.
+.proc safety_check
+	; is the next instruction a JAM?
+	lda sim::jammed
+	bne jam_detected
+
+	; does the next instruction write to memory?
+	lda sim::affected
+	and #OP_STORE
+	beq @ok
+
+	ldx #@num_safe_addrs-1
+@l0:	lda sim::effective_addr
+	cmp @safeaddrs_lo,x
+	bne @next
+	lda sim::effective_addr+1
+	cmp @safeaddrs_hi,x
+	bne @next
+
+; an important memory location will be clobbered
+@clobber:
+	ldx #<strings::vital_addr_clobber
+	ldy #>strings::vital_addr_clobber
+	bne print_msg
+
+@next:	dex
+	bpl @l0
+@ok:	RETURN_OK
+
+.PUSHSEG
+.RODATA
+.define safety_addrs $0316, $0317, $0318, $0319
+	@safeaddrs_lo: .lobytes safety_addrs
+	@safeaddrs_hi: .hibytes safety_addrs
+	@num_safe_addrs=*-@safeaddrs_hi
+.POPSEG
+.endproc
+
+;*******************************************************************************
 ; JAM_DETECTED
 ; This procedure is called when STEP (via step, trace, etc.) encounters a JAM
 ; instruction
@@ -1742,7 +1788,7 @@ restore_regs:
 	bne print_msg
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; WATCH_TRIGGERED
 ; This procedure is called when STEP (via step, trace, etc.) reads/writes to a
 ; memory location that is being watched
@@ -1753,7 +1799,7 @@ restore_regs:
 	; fall through to print_msg
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PRINT MSG
 ; Prints a message for the TUI or GUI (whichever is active)
 ; IN:
@@ -1769,10 +1815,12 @@ restore_regs:
 @gui:	lda #REGISTERS_LINE-1
 	jsr text::print
 	jsr bm::clrcolor
-	jmp key::waitch		; wait for keypress
+	jsr key::waitch		; wait for keypress
+	sec
+	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; STEP RESTORE
 ; Restores the opcode destroyed by the last STEP.
 .proc step_restore
@@ -1781,7 +1829,7 @@ restore_regs:
 	jmp vmem::store
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SWAPIN
 ; Either swaps in the 3-4 bytes that were saved (if we were able to resolve the
 ; exact memory affected by an instruction or the _entire_ internal RAM
@@ -2010,7 +2058,7 @@ restore_regs:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SETBRKATADDR
 ; Sets a breakpoint at the given address.
 ; This can be used while debugging to set breakpoints at addresses directly,
@@ -2033,7 +2081,7 @@ restore_regs:
 .endproc
 
 
-;******************************************************************************
+;*******************************************************************************
 ; BRKSETADDR
 ; Sets the address for the given (existing) breakpoint.
 ; If no matching breakpoint is found, does nothing
@@ -2056,7 +2104,7 @@ restore_regs:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; REMOVEBREAKPOINT
 ; Removes a breakpoint at the address in .XY
 ; IN:
@@ -2073,7 +2121,7 @@ __debug_remove_breakpoint:
 	; fall through to removebreakpointbyid
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; REMOVEBREAKPOINTBYID
 ; Removes the ID with the given handle.
 ; IN:
@@ -2120,7 +2168,7 @@ __debug_remove_breakpoint:
 :	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SHIFT BREAKPOINTS D
 ; Shifts the line numbers for all breakpoints on lines below the current one
 ; IN:
@@ -2158,7 +2206,7 @@ __debug_remove_breakpoint:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SHIFT BREAKPOINTS U
 ; Shifts UP the line numbers for all breakpoints on lines below the current one
 ; given by the given offset.
@@ -2196,7 +2244,7 @@ __debug_remove_breakpoint:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET BREAKPOINT
 ; Returns the ID (index) of the breakpoint corresponding to the given address
 ; IN:
@@ -2226,7 +2274,7 @@ __debug_remove_breakpoint:
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; EDIT STATE
 ; Moves the cursor to the registers area and allows the user to modify
 ; their values with hex input
@@ -2352,7 +2400,7 @@ __debug_remove_breakpoint:
 	; fall through to showregs
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SHOWREGS
 ; prints the contents of the registers in the format
 ;   PC  A  X  Y  SP NV-BDIZC ADDR
@@ -2369,7 +2417,7 @@ __debug_remove_breakpoint:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; REGS_CONTENTS
 ; Returns a line containing the contents of the registers
 ; OUT: mem::linebuffer: a line of text containing the values for each tegister
