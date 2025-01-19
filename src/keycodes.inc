@@ -13,7 +13,7 @@ K_NEW_BUFF   = $aa	; C= + n
 K_CLOSE_BUFF = $ab	; C= + q
 
 K_UDG_EDIT         = $b8	; C= + u
-K_UDG_TOGGLE_MODE  = $4d	; m
+K_UDG_TOGGLE_MODE  = $6d	; m
 K_UDG_CLEAR        = $93	; SHIFT + CLR/HOME
 
 ; GLOBAL INTERFACE KEYS
