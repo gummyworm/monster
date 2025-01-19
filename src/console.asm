@@ -14,6 +14,7 @@
 .include "errors.inc"
 .include "expr.inc"
 .include "file.inc"
+.include "irq.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "finalex.inc"
@@ -92,7 +93,7 @@ screen: .res 40*24
 
 	; scroll everything up
 	ldx #$00
-	lda #HEIGHT
+	lda #HEIGHT-1
 	CALL FINAL_BANK_MAIN, #text::scrollup
 
 	; scroll the console screen buffer
@@ -320,6 +321,7 @@ screen: .res 40*24
 	lda outfile
 	beq :+
 	CALL FINAL_BANK_MAIN, #file::close
+	CALL FINAL_BANK_MAIN, #irq::raster
 
 :	pla
 	plp
@@ -373,12 +375,19 @@ screen: .res 40*24
 @l0:	inx
 	lda mem::linebuffer+1,x
 	beq @err_nofile
+
 	jsr is_whitespace
 	beq @l0			; eat whitespace
 
+	txa
+	pha
+
+	; disable IRQ for file IO
+	CALL FINAL_BANK_MAIN, #irq::disable
+
 	; found the start of the filename
 	; open the output file
-	txa
+	pla
 	clc
 	adc #<(mem::linebuffer+1)
 	tax
@@ -386,6 +395,7 @@ screen: .res 40*24
 	adc #$00
 	tay
 	CALL FINAL_BANK_MAIN, #file::open_w
+
 	bcs @err
 	sta outfile
 @done:	rts
