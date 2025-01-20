@@ -314,7 +314,6 @@ __sim_via2: .res $10
 ;  - .A: the size of the instruction
 ;  - r0: the address modes for the instruction (see asm::disassemble)
 ; OUT:
-;  - .C:                   clear if the instruction is desctructive
 ;  - __sim_effective_addr: holds the address of the byte that will be
 ;                          loaded/stored
 ;  - __sim_affected:       stores the flags with the CPU/mem state the operation
@@ -328,19 +327,39 @@ __sim_via2: .res $10
 @offset=zp::bankval
 	stxy @instruction
 	sta @opsz
+	pha
 
-	; if 0 byte opcode, it's either PHA, PHP or doesn't touch RAM
-	cmp #$00
-	bne @cont
-	sec			; no memory side-effects; TODO: check PHA
-	rts
-
-	; save the debugger's contents at the @instruction address
-@cont:	; get the instruction opcode/operand at the @instruction address
 	ldxy @instruction
 	jsr vmem::load			; opcode
 	sta @opcode
 
+	; if 0 byte opcode (no operand), either BRK, PHA, PHP or
+	; instruction doesn't write to RAM
+	; We don't emulate BRK because it is used by the debugger to
+	; maintain control of the program (it is implicitly
+	; treated as an instruction written for and by the debugger)
+	pla			; restore instruction size
+	cmp #$02		; if there's an operand
+	bcs @cont		; continue
+
+@check_pha_php:
+	lda @opcode
+	cmp #$48		; PHA?
+	beq @stack_ea
+	cmp #$08		; PHP?
+	bne :+			; no memory affected
+
+@stack_ea:
+	lda __sim_reg_sp
+	sta __sim_effective_addr
+	lda #$01
+	sta __sim_effective_addr+1
+	lda #OP_STACK|OP_STORE
+	sta __sim_affected
+:	rts			; done
+
+	; save the debugger's contents at the @instruction address
+@cont:	; get the instruction opcode/operand at the @instruction address
 	incw @instruction
 	ldxy @instruction
 	jsr vmem::load			; operand (1st byte)
