@@ -12,40 +12,6 @@
 .CODE
 
 ;*******************************************************************************
-; MEMMOVE
-; Moves .A bytes from (r0) to (r2)
-; Can move at most 128 bytes
-; IN:
-;  - .A: the number of bytes to move
-;  - r0: the source address
-;  - r2: the destination address
-.export __util_memmove
-.proc __util_memmove
-@src=r0
-@dst=r2
-@sz=r4
-	sta @sz
-	ldxy r0
-	cmpw r2
-	bcc @fwd
-
-@bwd:	tay
-:	lda (@src),y
-	sta (@dst),y
-	dey
-	bpl :-
-	rts
-
-@fwd:	ldy #$00
-:	lda (@src),y
-	sta (@dst),y
-	iny
-	cmp @sz
-	bcc :-
-@done:	rts
-.endproc
-
-;*******************************************************************************
 ; CHTOHEX
 ; Returns the binary representation of the character given in .A
 ; IN:

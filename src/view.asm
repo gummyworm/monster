@@ -271,6 +271,8 @@ memaddr: .word 0
 	lda #$00
 	sta cur::minx
 	sta zp::curx
+	lda #EDITOR_HEIGHT-1
+	sta zp::cury
 	lda #CUR_NORMAL
 	sta cur::mode
 	lda #TEXT_INSERT

@@ -42,11 +42,16 @@ __key_num_processed: .byte 0
 	dec $c6		; dec keyboard buffer index
 	tya		; get key
 
-	cmp #$dd	; SHIFT minus?
+	ldx #@num_translate
+@transloop:
+	cmp @to_translate,x
 	bne :+
-	lda #$5f	; underscore
-	rts
-:	cmp #$41
+	lda @translated,x
+	bne @cont	; branch always
+:	dex
+	bpl @transloop
+
+@cont:	cmp #$41
 	bcc @done
 	cmp #$5a+1
 	bcs :+
@@ -61,6 +66,32 @@ __key_num_processed: .byte 0
 
 @done:	cmp #$00
 @ret:	rts
+
+.PUSHSEG
+.RODATA
+; these characters are translated to their corresponding character in
+; @translated
+;
+@to_translate:
+	.byte $5c	; £ (Pound)
+	.byte $5e	; Arrow up
+	.byte $dd	; SHIFT Minus
+	.byte $5f	; Arrow left
+	.byte $ba	; SHIFT @
+	.byte $a9	; Shift-£
+	.byte $c0	; Shift *
+	;.byte $xx	; Shift left-arrow TODO: ?
+@translated:
+	.byte 92	; \
+	.byte 94	; ^
+	.byte 95	; _
+	.byte 96	; `
+	.byte 123	; {
+	.byte 124	; |
+	.byte 125	; }
+	;.byte 126	; ~
+@num_translate=*-@translated
+.POPSEG
 .endproc
 
 ;******************************************************************************
