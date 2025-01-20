@@ -572,10 +572,7 @@ num_illegals = *-illegal_opcodes
 
 @validate_anon:
 	; make sure the anonymous label was correctly assigned in pass 1
-	inx
-	bne :+
-	iny
-:	lda #$01
+	lda #$01
 	jsr lbl::get_banon
 	bcs :+
 	cmpw zp::virtualpc
