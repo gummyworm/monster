@@ -113,7 +113,9 @@ SLASH = SPECIAL_CHARS_START+2
 	cpy #40
 	bne :-
 @toolong:
-	RETURN_ERR ERR_LINE_TOO_LONG
+	;sec
+	lda #ERR_LINE_TOO_LONG
+	rts
 
 @cat:	tya
 	clc
@@ -133,7 +135,8 @@ SLASH = SPECIAL_CHARS_START+2
 	bcc :-
 
 @done:	ldxy #@buff
-	RETURN_OK
+	; clc
+	rts
 .endproc
 
 ;*******************************************************************************

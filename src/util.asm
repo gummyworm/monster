@@ -152,12 +152,12 @@
 @tmp2=zp::tmp17
 @offset=zp::util+1
 	stxy @str
-	lda #$00
-	sta @val
-	sta @val+1
+	ldy #$00
+	sty @val
+	sty @val+1
 
 	; find terminating char
-	ldy #$ff
+	dey			; .Y = $ff
 :	iny
 	lda (@str),y
 	jsr __util_is_separator

@@ -90,8 +90,8 @@ immediate  = zp::asmtmp+2 ; 1=immediate, 0=not immediate
 operandsz  = zp::asmtmp+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
 cc         = zp::asmtmp+4
 resulttype = zp::asmtmp+5
-opcode     = zp::asmtmp+8
-scratchpad = zp::asmtmp+$9
+opcode     = zp::asmtmp+6
+operand    = zp::asmtmp+7
 
 SEG_CODE = 1	; flag for CODE segment
 SEG_BSS  = 2	; flag for BSS segment (all data must be 0, PC not updated)
@@ -632,39 +632,24 @@ num_illegals = *-illegal_opcodes
 @evalexpr:
 	; first check if this is an anonymous label reference
 	jsr is_anonref
-	bne :+
+	bne @eval		; not anon ref -> continue
 	jsr anonref
 	lda #$02
-	bcc @store_value
+	bcc @eval_done
 @evalfailed:
 	rts			; return error
 
-:	jsr expr::eval
+@eval:  jsr expr::eval
 	bcs @evalfailed		; return error, eval failed
 
-; store the value
-; Note that we don't really care if we write 2 bytes when we
-; only need one (the next instruction will overwrite it and it doesn't affect
-; our program size count).
-; TODO: could be an issue if there is an overlapping .ORG
-@store_value:
-	sta operandsz		; save size of the operand
+@eval_done:
+	stxy operand	; save the operand to store later
+	sta operandsz	; save size of the operand
+
 	lda immediate
-	beq @store_msb
+	beq @cont
 	lda #$01
 	sta operandsz
-
-@store_msb:
-	tya			; .A = MSB
-	ldy #$02
-	jsr writeb		; write the MSB (or garbage)
-	bcs @evalfailed		; if unsucessful, return err
-
-@store_lsb:
-	txa			; .X = LSB
-	ldy #$01
-	jsr writeb		; write the LSB
-	bcs @ret		; if error, return
 
 ; we've evaluated the expression, now look for a right parentheses,
 ; ',X' or ',Y' to conclude if this is indirect or indexed addressing
@@ -743,13 +728,13 @@ num_illegals = *-illegal_opcodes
 @done:	lda resulttype
 	cmp #ASM_OPCODE
 	beq @chkaddrmode
-	; if not an instruction, we're done
+	; if not an instruction, we're done (nothing to write)
 	clc
 @ret:	rts
 
 @chkaddrmode:
 	jsr getaddrmode
-	bcs @ret
+	bcs @ret	; failed to get a valid address mode for instruction
 
 @checkjmp:
 	tax
@@ -813,15 +798,12 @@ num_illegals = *-illegal_opcodes
 	adc #$00
 	sta @tmp+1
 
-	ldy #$01		; offset to operand LSB
-	jsr readb
+	lda operand	; LSB of operand
 	sec
 	sbc @tmp
-	iny
+	sta operand		; overwrite operand with new relative address
 	tax
-	php
-	jsr readb		; read MSB
-	plp
+	lda operand+1	; MSB of operand
 	sbc @tmp+1		; MSB - >PC
 	beq @store_offset	; $00xx might be in range
 	cmp #$ff		; $ffxx might be in range
@@ -831,17 +813,7 @@ num_illegals = *-illegal_opcodes
 	cmp #$01		; on pass 1, offset might not be correct: allow
 	beq @store_offset
 	lda #ERR_BRANCH_OUT_OF_RANGE
-:	rts
-
-@store_offset:
-	; replace 2 byte operand with 1 byte relative address
-	txa
-	dey
-	jsr writeb
-	bcs :-			; return err
-	lda #$01
-	sta operandsz
-	bne @noerr		; branch always
+	rts
 
 @verifyimm:
 	; remaining opcodes are single byte- implied/accumulator only
@@ -849,7 +821,29 @@ num_illegals = *-illegal_opcodes
 	beq @noerr
 @err:	RETURN_ERR ERR_ILLEGAL_ADDRMODE
 
+@store_offset:
+	stx operand
+	lda #$01
+	sta operandsz	; force operand size to 1 for branches
+
 @noerr:
+; now store the operand byte(s)
+@store_value:
+	lda operandsz
+	beq @dbg		; if no operand, continue
+	cmp #$01
+	beq @store_lsb		; if 1 byte operand, skip writing MSB
+@store_msb:
+	ldy #$02
+	lda operand+1
+	jsr writeb	; write the MSB (or garbage)
+	bcs @opdone	; if unsucessful, return err
+@store_lsb:
+	ldy #$01
+	lda operand
+	jsr writeb	; write the LSB
+	bcs @opdone	; if error, return
+
 ;------------------
 ; store debug info if enabled
 @dbg:	jsr storedebuginfo
@@ -862,8 +856,10 @@ num_illegals = *-illegal_opcodes
 	txa
 	jsr addpc		; add operand size + 1 to assembly pointers
 
-@retop:	lda #ASM_OPCODE
-	RETURN_OK
+	lda #ASM_OPCODE
+	clc			; ok
+@opdone:
+	rts
 
 ;------------------
 ; check that the BBB and CC combination we have is valid

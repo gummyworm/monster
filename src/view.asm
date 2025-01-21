@@ -87,6 +87,7 @@ memaddr: .word 0
 	bne :+
 	jsr getset_addr
 	jmp __view_edit	; reactivate editor at new address
+
 :	cmp #K_QUIT	; <- (done)
 	beq @done
 
@@ -138,8 +139,7 @@ memaddr: .word 0
 	jsr beep::short	; beep to confirm add
 	jmp @edit
 
-@done:	jsr cur::unlimit
-	jmp cur::off
+@done:	jmp cur::unlimit
 
 @replace_val:
 	jsr @set_nybble	; replace the nybble under cursor
@@ -292,7 +292,7 @@ memaddr: .word 0
 	bcs @find		; if invalid hex, retry
 	lda @len
 	cmp #$03
-	bcs @word			; 3-4 characters -> find a word
+	bcs @word		; 3-4 characters -> find a word
 	txa
 	ldxy memaddr
 	jsr find_byte		; find byte
