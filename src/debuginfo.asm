@@ -432,17 +432,31 @@ blockaddresseshi: .res MAX_FILES
 	sta (block),y
 
 	; store new end of line program
-	; TODO: store new freeptr if progstop > freeptr
 	ldy #BLOCK_PROG_STOP_ADDR
 	lda progstop
-	sta (block),y
-	sta freeptr
+	sta (block),y	; right the LSB of stop address to the block header
 	iny
 	lda progstop+1
-	sta (block),y
-	sta freeptr+1
+	sta (block),y	; right the MSB of stop address to the block header
 
-	dec block_open	; flag that there is no open block
+	; check if progstop > freeptr and set freeptr to progstop if it is
+	cmp freeptr
+	bcc @close	; progstop is < freeptr, this isn't the new free ptr
+	bne @set_freetop
+
+	; check the LSB
+	lda progstop
+	cmp freeptr
+	bcc @close	; progstop < freeptr, don't set freeptr
+
+@set_freetop:
+	; freeptr is > progstop, set freeptr to progstop
+	lda progstop+1
+	sta freeptr+1
+	lda progstop
+	sta freeptr
+
+@close: dec block_open	; flag that there is no open block
 
 @done:	rts
 .endproc
