@@ -21,10 +21,10 @@ TEST_TXTS=$(wildcard tests/*.txt)
 TEST_FILES=$(TESTS) $(TEST_INCS) $(TEST_TXTS)
 
 UNIT=$(wildcard *.a65)
-#TESTS=$(wildcard tests/*.s)
-#TEST_INCS=$(wildcard tests/*.inc)
-TESTS=$(wildcard tests/wg/*.s)
-TEST_INCS=$(wildcard tests/wg/*.inc)
+TESTS=$(wildcard tests/*.s)
+TEST_INCS=$(wildcard tests/*.inc)
+#TESTS=$(wildcard tests/wg/*.s)
+#TEST_INCS=$(wildcard tests/wg/*.inc)
 
 all: test.d81
 
