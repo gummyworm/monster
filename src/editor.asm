@@ -169,7 +169,7 @@ main:	jsr key::getch
 
 :	jsr __edit_handle_key
 @done:	jsr text::update
-	jmp main	; we've used enough time, go straight to getting a key
+	bne main	; branch always (continue main loop)
 .endproc
 
 ;******************************************************************************
@@ -300,180 +300,6 @@ main:	jsr key::getch
 	ldxy @addr
 
 	jmp dbg::start	; start debugging at address in .XY
-.endproc
-
-;******************************************************************************
-; COMMAND_DISASM_FILE
-; :d <filename>
-; Disassembles the contents of the given file to a new buffer.
-; The .PRG load address determines where (in virtual memory) the file's
-; binary data is loaded
-; IN:
-;  - .XY: address of the command argument (filename to load)
-.proc command_disasm_file
-@file=zp::editortmp
-@filename=zp::editortmp+1
-@start=zp::editortmp+3
-	stxy @filename
-	jsr irq::disable
-	jsr file::open_r_prg
-	bcs @done		; failed to open file
-
-@ok:	sta @file
-	tax
-	jsr $ffc6     ; CHKIN (file in .X now used as input)
-
-	; read .PRG header
-	jsr $ffcf
-	sta @start
-	sta file::loadaddr
-	jsr $ffcf
-	sta @start+1
-	sta file::loadaddr+1
-
-	lda @file
-	jsr file::loadbinv	; load the binary
-
-	; disassemble the binary
-	ldxy file::loadaddr	; disassembly stop address
-	stxy r0
-	ldxy @start
-	jsr disassemble
-@done:	jmp irq::raster
-.endproc
-
-;******************************************************************************
-; COMMAND_DISASM
-; :d <start addr>, <stop addr>
-; Disassembles the given address range
-; IN:
-;  - .XY: address of a string containing the start and stop addresses (delimited
-;         by a comma) to disassemble to a new buffer.
-.proc command_disasm
-@start=zp::editortmp
-	stxy zp::line
-	jsr expr::eval		; get the start address
-	bcs @done		; if invalid, just exit
-	stxy @start
-
-	jsr line::incptr
-	jsr expr::eval		; evaluate end address
-	bcc @ok
-@done:	rts
-
-@ok:	stxy r0
-	ldxy @start
-
-	; fall through to disassemble
-.endproc
-
-;******************************************************************************
-; DISASSEMBLE
-; Disssembles the given address range to a new buffer
-; IN:
-;  - .XY: the start of the address range to disassemble
-;  - r0:  the stop address to disassemble
-.proc disassemble
-@addr=zp::editortmp
-@stop=zp::editortmp+2
-@cnt=zp::editortmp+4
-@buff=$100			; buffer to store disassembled instruction
-	stxy @addr
-	ldxy r0
-	stxy @stop
-	jsr new_buffer		; create/activate a new source buffer
-
-	lda #'.'
-	jsr src::insert
-	ldxy #asm::org_string
-	jsr src::insertline
-	lda #' '
-	jsr src::insert
-
-	lda #'$'
-	jsr src::insert
-	lda @addr+1
-	jsr util::hextostr
-	txa
-	pha
-	tya
-	jsr src::insert
-	pla
-	jsr src::insert
-
-	lda @addr
-	jsr util::hextostr
-	txa
-	pha
-	tya
-	jsr src::insert
-	pla
-	jsr src::insert
-	lda #$0d
-	jsr src::insert
-
-@l0:	ldxy #@buff
-	stxy r0
-	ldxy @addr
-	jsr asm::disassemble
-	bcc @ok
-
-; if we couldn't disassemble the instruction, just ad a .DB for it
-@byte:
-	ldx #@db_len-1
-:	lda @db,x
-	sta @buff,x
-	dex
-	bpl :-
-
-	; load the byte value and add it to the buffer
-	ldxy @addr
-	jsr vmem::load
-	jsr util::hextostr
-	sty @buff+@db_len
-	stx @buff+@db_len+1
-	lda #$00
-	sta @buff+@db_len+2	; 0-terminate
-
-	lda #$01		; set size of "instruction" to 1
-	clc
-
-@ok:	adc @addr
-	sta @addr
-	bcc @copyi
-	inc @addr+1
-
-; copy the instruction to the source buffer
-@copyi:
-	lda #$09		; TAB
-	jsr src::insert
-
-	ldx #$00
-	stx @cnt
-@l1:	ldx @cnt
-	lda @buff,x
-	beq @next
-	jsr src::insert		; add the disassembled char
-	inc @cnt
-	bne @l1
-
-@next:	lda #$0d
-	jsr src::insert		; add a newline
-
-	ldxy @addr
-	cmpw @stop
-	bcc @l0			; disassemble next instruction
-
-	lda #$00
-	sta zp::curx
-	sta zp::cury
-	jsr src::rewind
-	jmp refresh
-
-.RODATA
-@db:   .byte ".db $"
-@db_len=*-@db
-.CODE
 .endproc
 
 ;******************************************************************************
@@ -2720,6 +2546,7 @@ goto_buffer:
 @arg=r0
 	ldxy #$0000
 	stx overwrite		; clear OVERWRITE flag (for SAVEs)
+	stx __edit_binary_flag	; clear binary flag
 
 	jsr readinput
 	bcs @done
@@ -2751,7 +2578,7 @@ goto_buffer:
 	inx			; move past '@'
 :	cmp #$62		; check binary ('b') flag (also used by DEBUG)
 	bne @parsearg
-	stx __edit_binary_flag	; set binary flag
+	inc __edit_binary_flag	; set binary flag
 	inx			; move past 'b'
 
 ; get the argument for the command and send it along to the vector
@@ -2780,8 +2607,6 @@ goto_buffer:
 	.byte $53	; S - save all files
 	.byte $78	; x - scratch file
 	.byte $61	; a - assemble file
-	.byte $44	; D - disassemble
-	.byte $46	; F - disassemble file
 	.byte $42	; B - create .BIN
 	.byte $50	; P - create .PRG
 @num_ex_commands=*-@ex_commands
@@ -2789,8 +2614,8 @@ goto_buffer:
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
 	command_load, command_rename, command_save, command_saveall, \
-	command_scratch, command_assemble_file, command_disasm, \
-	command_disasm_file, command_savebin, command_saveprg
+	command_scratch, command_assemble_file, \
+	command_savebin, command_saveprg
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs

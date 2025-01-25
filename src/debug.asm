@@ -467,7 +467,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 
 	; initialize the user program stack
 	ldx #$e0
-	txs
+	txs				; TODO: can $fb work?
 
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
@@ -482,6 +482,10 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 @basic:	; initialize machine state
 	sei
 	jsr $fd8d	; initialize and test RAM
+
+	; TODO: check memory configuration; skip this for 8+K expanded
+	jsr $fdca	; set top of RAM to $2000 (for unexpanded)
+
 	jsr $fd52	; restore default I/O vectors
 	jsr $fdf9	; initialize I/O registers
 	jsr $e518	; initialize hardware

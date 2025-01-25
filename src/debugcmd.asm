@@ -33,6 +33,8 @@
 
 .segment "CONSOLE"
 
+print_meta: .byte 0
+
 ;*******************************************************************************
 ; DBGCMD RUN
 ; Handles the given debug command input. The given string is parsed and handled.
@@ -711,7 +713,22 @@
 @drawline:
 	tax		; save instruction size
 
-	; push the disassembled string
+	; should we print the address before the instruction?
+	lda print_meta
+	beq :+
+
+	; update the address pointer
+	txa		; get size of instruction
+	clc
+	adc @addr
+	sta @addr
+	bcc :+
+	inc @addr+1
+
+	ldxy #@buff
+	jmp con::puts	; if address rendering is off, just print
+
+:	; push the disassembled string
 	lda #>@buff
 	pha
 	lda #<@buff
@@ -733,7 +750,6 @@
 
 :	ldxy #@disasm_msg
 	jmp con::puts
-
 .PUSHSEG
 .RODATA
 @byte_msg:

@@ -243,6 +243,8 @@ indirect:   .byte 0
 ; UPDATE
 ; updates the statusline according to the current cursor position
 ; and blinks the cursor if it's time
+; OUT:
+;   - .Z: always clear
 .export __text_update
 .proc __text_update
 	jsr __text_update_statusline

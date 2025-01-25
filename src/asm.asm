@@ -556,16 +556,17 @@ num_illegals = *-illegal_opcodes
 ; check if the line is a label definition
 @chklabels:
 	jsr is_anonref		; anonymous label (:)?
-	bne @label
+	bne @label		; not an anonymous label definition
 @anonlabel:
 	jsr line::incptr
 	lda (zp::line),y
+	beq :+
 	jsr util::is_whitespace	; anon label must be followed by whitespace
 	bne @retlabel		; if not whitespace, go on
-	lda zp::pass
+:	lda zp::pass
 	ldxy zp::virtualpc
-	cmp #$01
-	bne @validate_anon
+	cmp #$01		; pass 1?
+	bne @validate_anon	; if not, just validate
 	jsr lbl::addanon	; add the anonymous label
 	bcc @label_done
 	rts			; return error (too many anonymous labels?)
