@@ -507,7 +507,7 @@ num_relocs=(*-relocs)/7
 	CALL FINAL_BANK_CONSOLE, #con::init
 
 .ifndef TEST
-	jmp edit::init
+	jmp dbg::clrstate
 .else
 	.import testsuite
 	jmp testsuite

@@ -385,6 +385,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	dex
 	bne :-
 
+
 	; reinit the bitmap
 	jsr bm::init
 
@@ -465,57 +466,39 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 
 	jsr __debug_restore_progstate	; copy in user program
 
+	sei	; disable IRQ's (user's interrupt will be installed)
+
+	restore_user_zp
+
 	; initialize the user program stack
-	ldx #$e0
-	txs				; TODO: can $fb work?
+	ldx #$e0		; TODO: calculate max value
+	txs
 
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
 
-	lda edit::binary_flag		; did user ask us to init BASIC first?
-	bne @basic			; if so, continue to do so
-
-@nobasic:
-	; execute without initializing BASIC
-	JUMP FINAL_BANK_USER, sim::pc	; execute the user program until BRK/NMI
-
 @basic:	; initialize machine state
-	sei
-	jsr $fd8d	; initialize and test RAM
-
-	; TODO: check memory configuration; skip this for 8+K expanded
-	jsr $fdca	; set top of RAM to $2000 (for unexpanded)
-
-	jsr $fd52	; restore default I/O vectors
-	jsr $fdf9	; initialize I/O registers
-	jsr $e518	; initialize hardware
-
-	jsr $e45b	; init BASIC vectors
-	save_user_zp
-
-	ldxy sim::pc
-	stxy $0302	; BASIC warm start vector
-
-	sei
 	ldxy #BRK_HANDLER_ADDR+1
 	stxy $0316			; BRK
 	ldxy #NMI_HANDLER_ADDR
 	stxy $0318			; NMI
-	cli
 
 	ldx #@bootloader_size
 :	lda @bootloader-1,x
 	sta r0-1,x
 	dex
 	bne :-
+	ldxy sim::pc
+	stxy re
 	jmp r0
 .PUSHSEG
 .RODATA
 @bootloader:
 	lda #FINAL_BANK_USER
 	sta $9c02
-	jmp $e37b		; BASIC cold start
+	jmp (re)
 @bootloader_size=*-@bootloader
+
 .POPSEG
 .endproc
 
@@ -729,6 +712,39 @@ brkhandler2_size=*-brkhandler2
 
 	; backup the screen
 	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
+.endproc
+
+;******************************************************************************
+; CLRSTATE
+; Clears the state of the user program memory area and initializes it the
+; state that BASIC would leave it in.
+.export __debug_clrstate
+.proc __debug_clrstate
+	sei
+	jsr save_debug_state
+	jsr save_debug_zp
+
+	; TODO: check memory configuration; skip this for 8+K expanded
+	;jsr $fd8d	; initialize and test RAM
+	jsr $fd52	; restore default I/O vectors
+	jsr $fdf9	; initialize I/O registers
+	jsr $fdca	; set top of RAM to $2000 (for unexpanded)
+	jsr $e518	; initialize hardware
+	jsr $e45b	; init BASIC vectors
+	jsr $e3a4
+	jsr $e404
+	save_user_zp
+	jsr __debug_save_prog_state
+
+	sei
+	lda #$7f
+	sta $911e			; disable NMI's
+
+	jsr restore_debug_zp
+	jsr restore_debug_low
+	jsr restore_debug_state
+	jsr irq::raster
+	jmp edit::init
 .endproc
 
 ;******************************************************************************
