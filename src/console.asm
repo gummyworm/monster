@@ -40,7 +40,11 @@ repeatcmd: .byte 0	; if set, empty line repeats last command
 cursave_x: .byte 0
 cursave_y: .byte 0
 
-outfile: .byte 0	; screen (0) or file handle to output con::puts to
+;*******************************************************************************
+; OUTFILE
+; Screen (0) or file handle to output con::puts to
+.export __console_outfile
+__console_outfile: .byte 0
 
 ;*******************************************************************************
 ; SIGNALS
@@ -161,7 +165,7 @@ screen: .res 40*24
 	dey
 	bpl @copy
 
-	lda outfile
+	lda __console_outfile
 	beq @screen
 
 @file:	; write the line to file
@@ -182,7 +186,7 @@ screen: .res 40*24
 	sta file::save_address_end+1
 
 	ldxy @msg
-	lda outfile
+	lda __console_outfile
 	CALL FINAL_BANK_MAIN, #file::savebin
 
 	; write a newline
@@ -294,13 +298,13 @@ screen: .res 40*24
 	pha
 
 	lda #$00
-	sta outfile
+	sta __console_outfile
 
 	ldxy #mem::linebuffer
 	jsr __console_puts
 
 	ldxy #mem::linebuffer
-	jsr set_outfile
+	jsr set___console_outfile
 
 	lda line
 	cmp #HEIGHT-1
@@ -318,7 +322,7 @@ screen: .res 40*24
 	pha
 
 	; close the output file (if not screen)
-	lda outfile
+	lda __console_outfile
 	beq :+
 	CALL FINAL_BANK_MAIN, #file::close
 	CALL FINAL_BANK_MAIN, #irq::raster
@@ -353,9 +357,9 @@ screen: .res 40*24
 ; for the debug command to be executed as appropriate.
 ; The default output "file" is the screen.
 ; OUT:
-;   - outfile: the file ID to store to
+;   - __console_outfile: the file ID to store to
 ;   - .C: set on error (failed to open file)
-.proc set_outfile
+.proc set___console_outfile
 	ldx #$00
 
 @findredir:
@@ -372,6 +376,7 @@ screen: .res 40*24
 @redir:	; get the filename to redirect the ouput to
 	lda #$00
 	sta mem::linebuffer+1,x	; terminate the line where the redirect was
+	sta $100+1,x
 @l0:	inx
 	lda mem::linebuffer+1,x
 	beq @err_nofile
@@ -397,7 +402,7 @@ screen: .res 40*24
 	CALL FINAL_BANK_MAIN, #file::open_w
 
 	bcs @err
-	sta outfile
+	sta __console_outfile
 @done:	rts
 
 @err:	; display error

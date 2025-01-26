@@ -33,8 +33,6 @@
 
 .segment "CONSOLE"
 
-print_meta: .byte 0
-
 ;*******************************************************************************
 ; DBGCMD RUN
 ; Handles the given debug command input. The given string is parsed and handled.
@@ -687,8 +685,10 @@ print_meta: .byte 0
 	bcc @ok
 	jsr @drawbyte
 	jmp @next
+	jmp *
 @ok:	jsr @drawline
 @next:	ldxy @addr
+	jmp *
 	cmpw @stopaddr
 	bcc @l0
 @done:	clc
@@ -700,6 +700,13 @@ print_meta: .byte 0
 	jsr vmem_load	; get the byte
 	pha
 
+	; if outputting to file, don't render addresses
+	lda con::outfile
+	beq @db_with_addr
+	ldxy #@byte_msg_no_addr
+	jmp con::puts
+
+@db_with_addr:
 	; push the address
 	lda @addr
 	pha
@@ -713,9 +720,9 @@ print_meta: .byte 0
 @drawline:
 	tax		; save instruction size
 
-	; should we print the address before the instruction?
-	lda print_meta
-	beq :+
+	; if outputting to file, don't render addresses
+	lda con::outfile
+	beq @with_addr
 
 	; update the address pointer
 	txa		; get size of instruction
@@ -725,10 +732,11 @@ print_meta: .byte 0
 	bcc :+
 	inc @addr+1
 
-	ldxy #@buff
+:	ldxy #@buff
 	jmp con::puts	; if address rendering is off, just print
 
-:	; push the disassembled string
+@with_addr:
+	; push the disassembled string
 	lda #>@buff
 	pha
 	lda #<@buff
@@ -753,7 +761,9 @@ print_meta: .byte 0
 .PUSHSEG
 .RODATA
 @byte_msg:
-	.byte "$", ESCAPE_VALUE, " .db $", ESCAPE_BYTE, 0
+	.byte "$", ESCAPE_VALUE, " "
+@byte_msg_no_addr:
+	.byte "$", ESCAPE_BYTE, 0
 @disasm_msg:
 	.byte "$", ESCAPE_VALUE, " ", ESCAPE_STRING,0	; <address> <instruction>
 .POPSEG
@@ -1186,6 +1196,7 @@ print_meta: .byte 0
 	bcs @ret
 
 	; are we at the end of the line?
+	jsr eat_whitespace
 	ldy #$00
 	lda (zp::line),y
 	bne @cont
@@ -1258,6 +1269,7 @@ print_meta: .byte 0
 	php
 	ldy #$00
 @l0:	lda (zp::line),y
+	beq @done
 	jsr is_whitespace
 	bne @done
 	incw zp::line

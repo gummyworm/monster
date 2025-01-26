@@ -181,10 +181,8 @@ Most accept an argument (as described in each commands description below)
 | B | export Binary                | Filename                        | exports the active assembly to a binary file (no .PRG header)                                   |
 | d | Start Debugger               | Symbol to debug at (optional)   | begins debugging at the given label                                                             |
 | db| Start Debugger (with init)   | Symbol to debug at (optional)   | begins debugging at the given label. Initializes target state with the BASIC cold start handler |
-| D | Disassemble                  | Start address, End address      | Disassembles the given address range                                                            |
 | e | Edit                         | Filename                        | loads the buffer with the contents of the given file                                            |
 | g | Goto                         | Symbol to run at (optional)     | executes the program at the address of the given symbol                                         |
-| F | Disassemble File             | Filename                        | disassembles the given file to a new source buffer                                              |
 | P | export .PRG                  | Filename                        | exports the active assembly to a .PRG file                                                      |
 | r | Rename                       | Name                            | renames the buffer to the given name                                                            |
 | s | Save                         | Filename                        | saves the buffer to the given filename                                                          |
@@ -234,33 +232,11 @@ details on debugging.
 Example:
 `:db START`
 
-
-#### Disassemble :D <start address>, <end address>
-Disassembles the contents of the _virtual_ memory between the given range.
-e.g. `:D $1001, $1040`.
-Expressions may be used in addtion to literal addresses when defining the disassembly range.
-
-This could be useful, for example, if your program generates code and you want to view
-the results.
-
-The result of the disassembly is opened in a new buffer, where you can edit it
-as you would any of your handwritten source.
-
-Example:
-`:D PROC, PEND`
-
 #### Edit :e <filename>
 Loads the given filename to a new buffer and activates it.
 
 Example:
 `:e HELLO.S`
-
-#### Disassemble from File :F <filename>
-Disassembles the contents of the given binary file.
-e.g. `:F EXAMPLE.PRG`
-
-The result of the disassembly is opened in a new buffer, where you can edit it
-as you would any of your handwritten source.
 
 #### Export .PRG :P <filename>
 Exports the active assembly (F3/F4) to the given file as a .PRG file.  This means
