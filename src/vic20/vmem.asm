@@ -1,6 +1,6 @@
-.include "finalex.inc"
-.include "macros.inc"
-.include "memory.inc"
+.include "../finalex.inc"
+.include "../macros.inc"
+.include "../memory.inc"
 
 .CODE
 
