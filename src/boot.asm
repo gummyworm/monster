@@ -479,7 +479,7 @@ num_relocs=(*-relocs)/7
 ; address space ($1000-$2000) as a bitmap
 .export enter
 .proc enter
-        jsr irq::raster
+        jsr irq::on
 	sei
 
 	lda #<start

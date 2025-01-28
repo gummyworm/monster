@@ -44,13 +44,13 @@ SCREEN_H = 23
 				; 40-41 is load address
 @namebuff=mem::spareend-40	; buffer for the file name
 @fptrs=mem::spareend-(128*2)	; room for 128 files
-	jsr irq::disable
+	jsr irq::off
 
 	ldxy #strings::dir
 	jsr file::open_r_prg
 	sta @file
 	bcc :+
-@err:	jmp irq::raster		; error
+@err:	jmp irq::on		; error
 
 	; load the directory into dirbuff
 :	ldxy #@dirbuff-2
@@ -61,7 +61,7 @@ SCREEN_H = 23
 	lda @file
 	jsr file::close
 
-	jsr irq::raster
+	jsr irq::on
 
 	; reset the screen so that we can print the file names normally
 	jsr scr::reset

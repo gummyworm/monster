@@ -743,7 +743,7 @@ brkhandler2_size=*-brkhandler2
 	jsr restore_debug_zp
 	jsr restore_debug_low
 	jsr restore_debug_state
-	jsr irq::raster
+	jsr irq::on
 	jmp edit::init
 .endproc
 
@@ -897,7 +897,7 @@ brkhandler2_size=*-brkhandler2
 	jsr swapout
 
 	; reinstall the main IRQ
-        jsr irq::raster
+        jsr irq::on
 
 	; unless we can figure out the exact RAM we will affect, we'll have to
 	; swap in the entire user RAM before we return from this BRK
@@ -1021,7 +1021,7 @@ brkhandler2_size=*-brkhandler2
 	jsr restore_debug_low
 	jsr restore_debug_state
 	inc swapmem
-	jsr irq::raster
+	jsr irq::on
 	jsr uninstall_breakpoints
 	jsr install_breakpoints
 .endproc

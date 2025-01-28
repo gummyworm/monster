@@ -1074,7 +1074,7 @@
 	ldxy @stopaddr
 	stxy file::save_address_end
 
-	CALL FINAL_BANK_MAIN, #irq::disable
+	CALL FINAL_BANK_MAIN, #irq::off
 
 	; open the output file for writing
 	ldxy zp::line
@@ -1095,7 +1095,7 @@
 	RETURN_OK
 
 @err:	pha					; save error code
-	CALL FINAL_BANK_MAIN, #irq::raster
+	CALL FINAL_BANK_MAIN, #irq::on
 	pla
 	sec
 @done:	rts

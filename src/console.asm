@@ -325,7 +325,7 @@ screen: .res 40*24
 	lda __console_outfile
 	beq :+
 	CALL FINAL_BANK_MAIN, #file::close
-	CALL FINAL_BANK_MAIN, #irq::raster
+	CALL FINAL_BANK_MAIN, #irq::on
 
 :	pla
 	plp
@@ -388,7 +388,7 @@ screen: .res 40*24
 	pha
 
 	; disable IRQ for file IO
-	CALL FINAL_BANK_MAIN, #irq::disable
+	CALL FINAL_BANK_MAIN, #irq::off
 
 	; found the start of the filename
 	; open the output file

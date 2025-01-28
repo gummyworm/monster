@@ -1,7 +1,7 @@
-.import __irq_raster
-.import __irq_disable
+.import __irq_on
+.import __irq_off
 
 .scope irq
-        raster  = __irq_raster
-	disable = __irq_disable
+        on  = __irq_on
+	off = __irq_off
 .endscope

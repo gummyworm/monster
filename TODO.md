@@ -1,4 +1,5 @@
 ### TODO
+- [ ] Update debug info while editing
 - [ ] Directive to forward declare labels .lbl
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor

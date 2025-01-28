@@ -324,7 +324,7 @@ main:	jsr key::getch
 	sta zp::gendebuginfo	; enable debug info
 	jsr asm::startpass
 
-	jsr irq::disable
+	jsr irq::off
 
 	; do the first pass of assembly
 	ldxy @filename
@@ -355,7 +355,7 @@ main:	jsr key::getch
 	ldxy #strings::assembling
 	jsr print_info
 
-	jsr irq::disable
+	jsr irq::off
 
 	jsr cancel		; close errlog (if open)
 	jsr dbgi::init
@@ -445,7 +445,7 @@ main:	jsr key::getch
 ; IN:
 ;  - zp::asmresult: pointer to the end of the program
 .proc display_result
-	jsr irq::raster
+	jsr irq::on
 
 	jsr clrerror
 	lda #$01
@@ -2655,10 +2655,10 @@ goto_buffer:
 ;  - .XY: the argument to the command (filename)
 .proc command_saveprg
 @file=r4
-	jsr irq::disable
+	jsr irq::off
 	jsr file::open_w	; open the output filename
 	bcc :+
-	jmp irq::raster		; failed to open file
+	jmp irq::on		; failed to open file
 
 :	sta @file
 
@@ -2682,10 +2682,10 @@ goto_buffer:
 ;  - .XY: the argument to the command (filename)
 .proc command_savebin
 @file=r4
-	jsr irq::disable
+	jsr irq::off
 	jsr file::open_w	; open the output filename
 	bcc :+
-	jmp irq::raster		; failed to open file
+	jmp irq::on		; failed to open file
 :	sta @file
 	; fall through
 .endproc
@@ -2707,7 +2707,7 @@ goto_buffer:
 	lda @file
 	jsr file::close
 
-@done:	jmp irq::raster
+@done:	jmp irq::on
 .endproc
 
 ;******************************************************************************
@@ -2740,7 +2740,7 @@ goto_buffer:
 
 :	stxy @file
 @havename:
-	jsr irq::disable
+	jsr irq::off
 	lda overwrite
 	beq @open		; if overwrite flag isn't set, continue
 @scratch:
@@ -2764,12 +2764,12 @@ goto_buffer:
 
 	jsr text::clrinfo	; erase SAVING message
 	jsr src::setflags	; clear flags on the source buffer and return
-	jmp irq::raster
+	jmp irq::on
 
 @err:	pha		; push error code
 	ldxy #strings::edit_file_save_failed
 	jsr text::info
-@ret:	jmp irq::raster
+@ret:	jmp irq::on
 .endproc
 
 ;******************************************************************************
@@ -2838,7 +2838,7 @@ goto_buffer:
 
 @notfound:
 ; buffer doesn't exist in any RAM bank, load from disk
-	jsr irq::disable
+	jsr irq::off
 
 	ldxy @file
 	jsr file::exists
@@ -2860,7 +2860,7 @@ goto_buffer:
 	pla
 	php
 
-	jsr irq::raster
+	jsr irq::on
 	jsr file::close		; close the file
 	plp
 	bcs @err
@@ -2884,7 +2884,7 @@ goto_buffer:
 	RETURN_OK
 
 @err:	jsr report_drive_error
-	jsr irq::raster
+	jsr irq::on
 	sec
 	rts
 .endproc
