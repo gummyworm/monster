@@ -24,16 +24,16 @@ FINAL_BANK_ROM0	= $00		; ROM address $000000
 FINAL_BANK_MAIN    = $a0|1	; where the editor/assembler/etc code is stored
 
 ;******************************************************************************
-; DEBUG bank ($02)
-; This bank stores debug information (file ID's, line numbers and addresses
-; as well as the code to access them
-FINAL_BANK_DEBUG = $a0|2	; where debug symbols are stored
-
-;******************************************************************************
-; USER bank ($03)
+; USER bank ($02)
 ; The assembled user program is stored in this bank. When debugging the program
 ; this bank is activated.
-FINAL_BANK_USER    = $a0|3	; where the user's program is stored
+FINAL_BANK_USER    = $a0|2	; where the user's program is stored
+
+;******************************************************************************
+; DEBUG bank ($03)
+; This bank stores debug information (file ID's, line numbers and addresses
+; as well as the code to access them
+FINAL_BANK_DEBUG = $a0|3	; where debug symbols are stored
 
 ;******************************************************************************
 ; SOURCE banks ($04-$0B)

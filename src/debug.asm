@@ -495,6 +495,8 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 .RODATA
 @bootloader:
 	lda #FINAL_BANK_USER
+	; TODO: use different FE3 mode to enable write-protect
+	; when running unexpanded program
 	sta $9c02
 	jmp (re)
 @bootloader_size=*-@bootloader
