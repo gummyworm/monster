@@ -37,6 +37,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "vscreen.inc"
+.include "settings.inc"
 .include "source.inc"
 .include "state.inc"
 .include "string.inc"

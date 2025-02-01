@@ -1,5 +1,5 @@
+.include "settings.inc"
 .include "../beep.inc"
-.include "../config.inc"
 .include "../key.inc"
 .include "../finalex.inc"
 .include "../macros.inc"

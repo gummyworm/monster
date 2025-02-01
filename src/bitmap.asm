@@ -9,9 +9,9 @@
 
 .include "fastcopy.inc"
 .include "finalex.inc"
-.include "config.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "settings.inc"
 .include "util.inc"
 .include "zeropage.inc"
 

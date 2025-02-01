@@ -1,4 +1,4 @@
-.include "../config.inc"
+.include "settings.inc"
 .include "../macros.inc"
 
 .BSS

@@ -22,6 +22,7 @@
 .include "finalex.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "settings.inc"
 .include "source.inc"
 .include "zeropage.inc"
 

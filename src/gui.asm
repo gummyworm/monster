@@ -8,12 +8,12 @@
 ;*******************************************************************************
 
 .include "bitmap.inc"
-.include "config.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "macros.inc"
+.include "settings.inc"
 .include "text.inc"
 .include "zeropage.inc"
 

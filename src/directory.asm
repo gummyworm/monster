@@ -14,10 +14,11 @@
 .include "keycodes.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "vscreen.inc"
+.include "settings.inc"
 .include "strings.inc"
 .include "text.inc"
 .include "util.inc"
+.include "vscreen.inc"
 .include "zeropage.inc"
 
 SCREEN_H = 23

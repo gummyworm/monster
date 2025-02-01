@@ -5,7 +5,6 @@
 ; Using debug information, the user can navigate to the location of the symbol
 ;*******************************************************************************
 
-.include "config.inc"
 .include "debuginfo.inc"
 .include "debug.inc"
 .include "draw.inc"
@@ -16,9 +15,10 @@
 .include "keycodes.inc"
 .include "labels.inc"
 .include "macros.inc"
-.include "vscreen.inc"
+.include "settings.inc"
 .include "strings.inc"
 .include "text.inc"
+.include "vscreen.inc"
 .include "zeropage.inc"
 
 ;*******************************************************************************

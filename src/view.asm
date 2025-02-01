@@ -21,6 +21,7 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "settings.inc"
 .include "strings.inc"
 .include "text.inc"
 .include "util.inc"

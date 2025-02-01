@@ -7,7 +7,6 @@
 ;*******************************************************************************
 
 .include "bitmap.inc"
-.include "config.inc"
 .include "debug.inc"
 .include "debuginfo.inc"
 .include "draw.inc"
@@ -21,6 +20,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "source.inc"
+.include "settings.inc"
 .include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"

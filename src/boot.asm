@@ -14,6 +14,7 @@
 .include "labels.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "settings.inc"
 .include "source.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
