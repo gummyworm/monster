@@ -4428,7 +4428,7 @@ __edit_gotoline:
 	sta zp::cury
 @l0: 	jsr src::get
 	lda zp::cury
-	jsr draw_src_line
+	jsr print_line
 	jsr is_visual
 	bne @visdone
 
@@ -4483,7 +4483,7 @@ __edit_gotoline:
 	; draw the last row (src::up will return .C=1 for it)
 	jsr src::get
 	lda #$00
-	jsr draw_src_line
+	jsr print_line
 	jmp @renderdone
 
 @rowdown:
@@ -4496,7 +4496,7 @@ __edit_gotoline:
 
 	jsr src::get
 	lda zp::cury
-	jsr draw_src_line
+	jsr print_line
 
 	jsr is_visual
 	bne @renderdone
@@ -4545,14 +4545,12 @@ __edit_gotoline:
 	; and move to appropriate column if we ended on a TAB
 	lda mem::linebuffer
 	ldx #$00
-	stx highlight_status	; clear highlight status
 	cmp #$09		; TAB
 	bne :+
 	jsr src::right
 	ldx #TAB_WIDTH
 :	stx zp::curx
-
-	; fall through to highlight
+	rts
 .endproc
 
 ;******************************************************************************
@@ -4575,7 +4573,7 @@ __edit_gotoline:
 	bcc @ok
 @done:	rts
 
-@ok:	inc highlight_status
+@ok:	inc highlight_status	; flag highlight as now visible
 	lda @was_visible
 	bne @done		; if highlight was, and still is, visible: skip
 	jmp toggle_highlight	; highlight was NOT visible, but is now
@@ -4779,9 +4777,9 @@ __edit_gotoline:
 @newhighlight=zp::editortmp+6
 	lda highlight_status		; is highlight active?
 	beq :+
+
 	stxy @newhighlight
 	jsr toggle_highlight		; toggle off old highlight if it's on
-
 	ldxy @newhighlight
 
 :	stxy __edit_highlight_line

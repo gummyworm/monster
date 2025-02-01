@@ -1052,6 +1052,7 @@ brkhandler2_size=*-brkhandler2
 
 @iface_gui:
 	jsr show_aux		; display the auxiliary mode
+
 @showbrk:
 	; get the address before the BRK and go to it
 	ldxy sim::pc
@@ -1422,7 +1423,6 @@ restore_regs:
 	jmp edit::sethighlight
 @done:	rts
 .endproc
-
 
 ;******************************************************************************
 ; STEP OUT
