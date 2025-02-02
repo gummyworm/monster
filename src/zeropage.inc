@@ -105,16 +105,6 @@ editortmp 	= $dc
 ; Be cautious when relying on this data to be in tact
 ; after calling a procedure as it is likely that that
 ; procedure uses some of these locations
-tmp0  = $f0
-tmp1  = $f1
-tmp2  = $f2
-tmp3  = $f3
-tmp4  = $f4
-tmp5  = $f5
-tmp6  = $f6
-tmp7  = $f7
-tmp8  = $f8
-tmp9  = $f9
 tmpa  = $fa
 tmpb  = $fb
 tmpc  = $fc

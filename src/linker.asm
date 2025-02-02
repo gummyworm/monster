@@ -197,14 +197,14 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ; ADD SECTION
 ; Adds a new section using the given parameters
 ; IN:
-;  - zp::tmp0: the start address for the segment
-;  - zp::tmp2: the stop address for the segment
+;  - r0: the start address for the segment
+;  - r2: the stop address for the segment
 ;  - .A:       flags for the segment
 .export __link_add_section
 .proc __link_add_section
-@start=zp::tmp0
-@stop=zp::tmp2
-@flags=zp::tmp4
+@start=r0
+@stop=r2
+@flags=r4
 	ldx numsections
 
 	sta sections_flags,x
@@ -233,7 +233,7 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ;  - .Y:  flags
 .export __link_add_segment
 .proc __link_add_segment
-@run=zp::tmp0
+@run=r0
 	stx @run
 
 	sta segments_load,x
@@ -427,8 +427,8 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ; Assembles the bytes that follow to the address of the current segment pointer,
 ; which is updated upon doing so
 .proc obj_bytes
-@ptr=zp::tmp0
-@cnt=zp::tmp2
+@ptr=r0
+@cnt=r2
 	ldy #$00
 	lda (objptr),y ; read the number of bytes to output
 	sta @cnt
@@ -461,7 +461,7 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ; The binary representation of the above command looks like this:
 ;  ` $02 $0030 $0c`
 .proc obj_rel_word
-@tmp=zp::tmp0
+@tmp=r0
 	ldy #$00
 	lda (objptr),y
 	sta @tmp
@@ -573,9 +573,9 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 EXPORT_SEG  = 8 		; offset to SEGMENT name in IMPORT header
 EXPORT_SIZE = 8+8		; offset to SIZE in IMPORT header
 EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
-@fptr=zp::tmp0
-@segaddr=zp::tmp2
-@buff=zp::tmp4
+@fptr=r0
+@segaddr=r2
+@buff=r4
 	stxy @fptr
 	ldx numfiles
 
@@ -660,7 +660,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 .proc get_segment_by_name
 @name=zp::str0
 @other=zp::str2
-@cnt=zp::tmp0
+@cnt=r0
 	stxy @name
 	ldxy #segment_names
 	stxy @other
