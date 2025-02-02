@@ -12,7 +12,7 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; CONSTANTS
 CONTEXT_SIZE = $200	; size of buffer per context
 PARAM_LENGTH = 16	; size of param (stored after the context data)
@@ -23,7 +23,7 @@ CTX_ITER_START   = 2
 CTX_PARAMS_START = 8
 CTX_LINES_START  = 11
 
-;******************************************************************************
+;*******************************************************************************
 ; CONTEXTS
 ; Contexts are stored in spare mem, which is unused by the assembler during the
 ; assembly of a program.
@@ -33,7 +33,7 @@ CTX_LINES_START  = 11
 contexts = mem::spare
 
 .BSS
-;******************************************************************************
+;*******************************************************************************
 activectx: .byte 0
 
 ctx       = zp::ctx+0	; address of context
@@ -44,7 +44,7 @@ params    = zp::ctx+8	; address of params (grows down from CONTEXT+$200-PARAM_LE
 numparams = zp::ctx+10	; the number of parameters for the context
 
 .CODE
-;******************************************************************************
+;*******************************************************************************
 ; INIT
 ; initializes the context state by clearing the stack
 .export  __ctx_init
@@ -55,7 +55,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	; fallthrough
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RESET
 ; resets the state for the active context
 .proc reset
@@ -65,7 +65,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PUSH
 ; Saves the current context and beings a new one
 ; OUT:
@@ -92,7 +92,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; POP
 ; Restores the last PUSH'ed context
 ; OUT:
@@ -106,7 +106,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 @err:	RETURN_ERR ERR_STACK_UNDERFLOW
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETLINE
 ; Returns a line from the active context.
 ; OUT:
@@ -139,7 +139,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETPARAMS
 ; returns a list of the parameters for the active context
 ; IN:
@@ -198,7 +198,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETDATA
 ; returns the address of the data for the active context.
 ; OUT:
@@ -215,7 +215,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; WRITE
 ; Writes the given line to the context at its current position
 ; Comments are ignored to save space in the context buffer.
@@ -254,7 +254,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 :	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ADDPARAM
 ; Adds the given parameter to the active context
 ; IN:
@@ -303,7 +303,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; REWIND
 ; Rewinds the context so that the cursor points to the beginning of its lines
 .export  __ctx_rewind
@@ -317,7 +317,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; NUMLINES
 ; Returns the length (in lines) of the context
 .export __ctx_numlines
@@ -348,7 +348,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETCTX
 ; Updates the zeropage context variables with values from the active context
 ; OUT:

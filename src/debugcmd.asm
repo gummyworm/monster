@@ -1110,11 +1110,10 @@
 @stop=zp::debuggertmp+2
 @cnt=zp::debuggertmp+4
 @line=zp::debuggertmp+5
-@buff=mem::spare
+@buff=mem::spare+40
 	lda #8*8			; default size of range
 	jsr get_range_or_default
-	bcc @l0
-	rts
+	bcs @done
 
 @l0:	ldxy #@buff+4
 	stxy @line
@@ -1139,39 +1138,46 @@
 	ldy #$00
 	lda #'$'
 	sta (@line),y
-	jsr @inc_line
 
-	ldy @addr+1
-	jsr @inc_line
+	ldy @addr+1	; restore .Y
 	jsr vmem_load
 	jsr hextostr
 	tya
-	ldy #$00
+	ldy #$01
 	sta (@line),y
+	iny
 	txa
-	jsr @inc_line
 	sta (@line),y
-	jsr @inc_line
+	iny
 	lda #','
 	sta (@line),y
-	jsr @inc_line
+	lda @line
+	clc
+	adc #$04
+	sta @line
 	dec @cnt
 	bne @l1
 
 @cont:	decw @line	; delete the last ','
 	lda #$00
 	tay
-	sta (@line),y	; terminate buff
+	sta (@line),y	; terminate buffer
 
 	ldxy #@buff
 	jsr con::puts
-	ldxy @addr
+
+	lda @addr
+	clc
+	adc #$08
+	sta @addr
+	bcc :+
+	inc @addr+1
+:	tax
+	ldy @addr+1
 	cmpw @stop
-	bcc @l0
+	bcc @l0		; next row
+	clc		; ok
 @done:	rts
-@inc_line:
-	incw @line
-	rts
 .endproc
 
 ;*******************************************************************************

@@ -13,7 +13,7 @@
 .include "text.inc"
 .include "zeropage.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; CONSTANTS
 L_INSERT_MASK  = $80	; mask for left half of 8x8 char in INSERT mode
 R_INSERT_MASK  = $08	; mask for right half of 8x8 char in INSERT mode
@@ -23,7 +23,7 @@ END_INSERT_MASK = $01	; mask for offscreen column
 L_REPLACE_MASK = $f0	; mask for left half of 8x8 char in REPLACE mode
 R_REPLACE_MASK = $0f	; mask for right half of 8x8 char in REPLACE mode
 
-;******************************************************************************
+;*******************************************************************************
 .BSS
 .export __cur_mode
 __cur_mode: .byte 0	; 0 = NORMAL, 1 = SELECT
@@ -49,7 +49,7 @@ maxy: .byte 0
 
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; MASK
 ; Returns the mask used to draw the cursor based on the current mode and
 ; cursor position.
@@ -89,7 +89,7 @@ maxy: .byte 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; OFF
 ; Turns off the cursor if it is on. Has no effect if the cursor is already off.
 .export __cur_off
@@ -98,7 +98,7 @@ __cur_off:
 	bne __cur_toggle
 	rts
 
-;******************************************************************************
+;*******************************************************************************
 ; ON
 ; Turns on the cursor if it is off. Has no effect if the cursor is already on.
 .export __cur_on
@@ -109,7 +109,7 @@ __cur_on:
 	beq __cur_toggle
 	rts
 
-;******************************************************************************
+;*******************************************************************************
 ; TOGGLE
 ; Toggles the cursor (turns it off if its on or vise-versa)
 .export __cur_toggle
@@ -154,7 +154,7 @@ __cur_toggle:
 	ldy zp::cury
 	rts
 
-;******************************************************************************
+;*******************************************************************************
 ; RIGHT
 ; Moves the cursor right a column
 ; If moving right would move the cursor outside its limits, has no effect
@@ -177,7 +177,7 @@ __cur_toggle:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; MOVE
 ; Updates the cursor's (x,y) position by the offsets given
 ; IN:
@@ -214,7 +214,7 @@ __cur_toggle:
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SET
 ; Sets the cursor position (x,y) to the values given
 ; IN:
@@ -249,7 +249,7 @@ __cur_toggle:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; UNLIMIT
 .export __cur_unlimit
 .proc __cur_unlimit
@@ -263,7 +263,7 @@ __cur_toggle:
 	; fall through to __cur_setmax
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SETMAX
 ; Sets the maximum values for the cursor's X and Y values
 ; IN:
@@ -276,7 +276,7 @@ __cur_toggle:
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SETMIN
 ; Sets the minimum values for the cursor's X and Y values
 ; IN:

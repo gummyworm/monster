@@ -1,3 +1,10 @@
+;*******************************************************************************
+; BOOT.ASM
+; This is the entrypoint.  Performs necessary initialization and jumps to the
+; editor main loop.
+; If CART is defined, copies code from cartridge to RAM.  If it isn't defined,
+; loads it from disk.
+;*******************************************************************************
 .include "asm.inc"
 .include "bitmap.inc"
 .include "config.inc"
@@ -90,7 +97,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 	     __DEBUGINFO_CODE_SIZE__
 .linecont -
 
-;******************************************************************************
+;*******************************************************************************
 ; RELOC
 ; relocates code from 1 address to another
 ; IN:
@@ -152,7 +159,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 .segment "SETUP"
 
 .ifndef CART
-;******************************************************************************
+;*******************************************************************************
 ; BASIC header: SYS 4621
 .word @head
 @head: .word @next
@@ -162,7 +169,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 @next: .word 0
 	jmp start
 
-;******************************************************************************
+;*******************************************************************************
 ; CART header and boot code
 .else ; CART
 .segment "CART"
@@ -206,7 +213,8 @@ START:
 
 	ldx #>TOTAL_SIZE+1	; # of pages to copy
 	ldy #$00
-@reloc:
+
+@reloc: ; read from ROM bank and write to RAM bank
 	lda (r0),y
 	sta (r2),y
 	iny
@@ -225,7 +233,7 @@ START:
 .segment "SETUP"
 .endif	; CART
 
-;******************************************************************************
+;*******************************************************************************
 ; LOWINIT
 ; Code that is sensitive to initialization order
 ; This code loads the app and sets up various banked code.
@@ -286,7 +294,7 @@ START:
 .endif
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; START
 ; Entrypoint to program
 start:
@@ -411,7 +419,7 @@ start:
 
 	jmp lowinit
 
-;******************************************************************************
+;*******************************************************************************
 ; RELOCS
 ; Table of start and target addresses for segments that need to be relocated
 relocs:
@@ -474,7 +482,7 @@ relocs:
 num_relocs=(*-relocs)/7
 
 .CODE
-;******************************************************************************
+;*******************************************************************************
 ; ENTER
 ; Entrypoint after initialization, from here on we're safe to use the bitmap
 ; address space ($1000-$2000) as a bitmap
