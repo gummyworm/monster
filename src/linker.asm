@@ -21,16 +21,16 @@ MAX_SECTIONS = 8	; the maximum number of memory sections
 MAX_SEGMENTS = 8	; the maximum number of segments across all objects
 MAX_OBJS     = 16	; the maximum number of object files that may be used
 
-;******************************************************************************
+;*******************************************************************************
 ; SECTION flags
 SECTION_FILL = $01	; flag to pad section's unused bytes with 0
 
-;******************************************************************************
+;*******************************************************************************
 ; SEGMENT flags
 SEGMENT_RO     = $01	; RO (readonly) writes to segment will be error
 SEGMENT_DEFINE = $02
 
-;******************************************************************************
+;*******************************************************************************
 ; ZEROPAGE variables
 ; OBJPTR is the cursor in the object code (where we are reading in the current
 ; object file)
@@ -38,7 +38,7 @@ SEGMENT_DEFINE = $02
 objptr=zp::link
 segptr=zp::link+2
 
-;******************************************************************************
+;*******************************************************************************
 .BSS
 
 numobjects:  .byte 0
@@ -49,7 +49,7 @@ numfiles:    .byte 0
 activeobj: .byte 0	; the current OBJECT (id) being linked
 activeseg: .byte 0	; the current SEGMENT (id) being written
 
-;******************************************************************************
+;*******************************************************************************
 ; SECTIONS
 ; The memory section contains up to MAX_SECTIONS of memory blocks.  Each
 ; defines the start and end addresses of the section plus a byte of flag
@@ -66,7 +66,7 @@ sections_stoplo:  .res MAX_SECTIONS
 sections_stophi:  .res MAX_SECTIONS
 sections_flags:   .res MAX_SECTIONS
 
-;******************************************************************************
+;*******************************************************************************
 ; IMPORT TABLES
 ; Each object file has its own table of imports. This allows the object code to
 ; store refrences to external labels in a more efficient manner: by storing the
@@ -74,7 +74,7 @@ sections_flags:   .res MAX_SECTIONS
 import_tabslo: .res MAX_OBJS
 import_tabshi: .res MAX_OBJS
 
-;******************************************************************************
+;*******************************************************************************
 ; SEGMENTS
 ; Segments define where the code or data that occupies them will be mapped to
 ; the memory defined in the SECTIONS blocks
@@ -115,12 +115,12 @@ segment_names: .res 8*MAX_SEGMENTS
 ;  CODE $1032
 ;  DATA $0062
 ;
-;  Obj Code Def        | Description                               |
-;  ----------------------------------------------------------------|
-;  SEG CODE            | Switches to the CODE segment              |
-;  b $01 $33 $44       | defines bytes at CODE+0, CODE+1, CODE+2   |
-;  b $ad               | defines a byte at CODE+3                  |
-;  w LAB+3             | defines WORD with the value of LAB        |
+;  | Obj Code Def        | Description                               |
+;  |-----------------------------------------------------------------|
+;  | SEG CODE            | Switches to the CODE segment              |
+;  | b $01 $33 $44       | defines bytes at CODE+0, CODE+1, CODE+2   |
+;  | b $ad               | defines a byte at CODE+3                  |
+;  | w LAB+3             | defines WORD with the value of LAB        |
 ;
 ; The value of segments (e.g. CODE) will change after each compilation unit
 ; is linked.

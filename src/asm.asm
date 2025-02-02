@@ -125,6 +125,15 @@ __asm_linenum: .byte 0
 ; the type of the segment being stored e.g. SEG_BSS or SEG_CODE
 segment_type: .byte 0
 
+; object assembly flag
+; if !0:
+;   tokenize will assemble the given line as object code to the current
+;   input file (file::open + CHKIN)
+; if 0:
+;   lines will be assembled directly to memory at the address in
+;   zp::asmresult
+to_object: .byte 0
+
 ;*******************************************************************************
 ; ASMBUFFER
 ; Source is copied here so that it can be messed with while assembling
@@ -254,7 +263,7 @@ directives_len=*-directives
 .linecont +
 .define directive_vectors definebyte, defineconst, defineword, includefile, \
 defineorg, define_psuedo_org, repeat, macro, do_if, do_else, do_endif, \
-do_ifdef, create_macro, handle_repeat, incbinfile, 0, 0	; TODO: import/export
+do_ifdef, create_macro, handle_repeat, incbinfile, import, export
 .linecont -
 
 directive_vectorslo: .lobytes directive_vectors
@@ -1540,6 +1549,32 @@ num_illegals = *-illegal_opcodes
 @err:	RETURN_ERR ERR_SYNTAX_ERROR
 @done:	clc
 @ret:	rts
+.endproc
+
+;*******************************************************************************
+; IMPORT
+; Imports the label following this directive
+; e.g. `IMPORT LABEL`
+; The label is assumed to be in the absolute ($100-$ffff) address range.
+; The actual resolution of the label will happen when the object code is linked
+.proc import
+.endproc
+
+;*******************************************************************************
+; IMPORTZP
+; Imports the label following this directive as a zeropage label reference
+; e.g. `IMPORT LABEL`
+; The label is assumed to be in the zeropage ($00-$ff) address range.
+; The actual resolution of the label will happen when the object code is linked
+.proc importzp
+.endproc
+
+;*******************************************************************************
+; EXPORT
+; Exports the label following this directive
+; e.g. `EXPORT LABEL`
+; The label is assumed to be in the absolute ($100-$ffff) address range.
+.proc export
 .endproc
 
 ;*******************************************************************************
