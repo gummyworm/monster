@@ -15,7 +15,6 @@
 .include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
-.include "fasttext.inc"
 .include "file.inc"
 .include "finalex.inc"
 .include "irq.inc"
@@ -29,6 +28,9 @@
 .include "strings.inc"
 .include "util.inc"
 .include "zeropage.inc"
+
+.import puts
+.import putch
 
 ;*******************************************************************************
 ; CHARACTER ESCAPE CODES
@@ -876,7 +878,7 @@ indirect:   .byte 0
 ;  - .A:  the row to display the string on
 .export __text_puts
 .proc __text_puts
-	JUMP FINAL_BANK_FASTTEXT, #ftxt::puts
+	JUMP FINAL_BANK_FASTTEXT, #puts
 .endproc
 
 ;*******************************************************************************

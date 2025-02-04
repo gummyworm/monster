@@ -1,6 +1,6 @@
-.include "bitmap.inc"
-.include "macros.inc"
-.include "zeropage.inc"
+.include "../bitmap.inc"
+.include "../macros.inc"
+.include "../zeropage.inc"
 
 .segment "FASTTEXT"
 
@@ -9,8 +9,8 @@
 ; Puts the character given at the current cursor position
 ; IN:
 ;  - .A: the character to plot
-.export __ftxt_putch
-.proc __ftxt_putch
+.export putch
+.proc putch
 @src=zp::text
 @mask=zp::text+2
 @dst=zp::text+4
@@ -74,8 +74,8 @@
 ; IN:
 ;  - .XY: the string to display
 ;  - .A:  the row to display the text at
-.export __ftxt_puts
-.proc __ftxt_puts
+.export puts
+.proc puts
 @txtbyte  = zp::text
 @txtsrc   = zp::text+7
 @ysave	  = zp::text+9
@@ -135,7 +135,7 @@
 
 ;******************************************************************************
 ; GET_CHAR_ADDR
-; Returns the address of the character in .A
+; Retuns the address of the character in .A
 ; IN:
 ;  - .A: the character to get the address of
 ; OUT:
@@ -265,11 +265,11 @@ charmap:
 num_chars = (*-charmap)/8
 
 .segment "SETUP"
-;******************************************************************************
+;*******************************************************************************
 ; GEN_CHAR_ADDRS
 ; Generates the charaddrlo and charaddrhi tables
-.export __ftxt_init
-.proc __ftxt_init
+.export __text_init
+.proc __text_init
 @addr=r0
 	ldxy #charmap
 	stxy @addr

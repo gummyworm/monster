@@ -15,7 +15,6 @@
 .include "draw.inc"
 .include "edit.inc"
 .include "fastcopy.inc"
-.include "fasttext.inc"
 .include "finalex.inc"
 .include "irq.inc"
 .include "labels.inc"
@@ -25,6 +24,10 @@
 .include "source.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
+
+.ifdef vic20
+.include "vic20/vic20.inc"
+.endif
 
 .import __SETUP_LOAD__
 .import __SETUP_RUN__
@@ -390,9 +393,11 @@ start:
 	dec @cnt
 	bne @reloc
 
+.ifdef vic20
 	lda #FINAL_BANK_FASTTEXT
 	sta $9c02
-	jsr ftxt::init
+	jsr vic20::init
+.endif
 
 	; TODO: enable write-protection for the $2000-$8000 blocks when
 	; all SMC is removed from the segments in that range

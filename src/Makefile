@@ -87,3 +87,5 @@ vstart:
 
 clean:
 	rm -f *.prg *.o test.d81 $(CART_IMAGE)
+	rm -rf vic20/*.o
+	rm -rf c64/*.o
