@@ -396,10 +396,6 @@ start:
 	; perform the machine-specific initialization
 .ifdef vic20
 	jsr vic20::init
-	; TODO: enable write-protection for the $2000-$8000 blocks when
-	; all SMC is removed from the segments in that range
-	lda #$a1
-	sta $9c02	; enable 35K of RAM for final expansion
 .endif
 
 	; initialize the JMP vector
