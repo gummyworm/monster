@@ -8,7 +8,9 @@
 
 .include "errors.inc"
 .include "file.inc"
+.include "finalex.inc"
 .include "labels.inc"
+.include "line.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "string.inc"
@@ -164,11 +166,14 @@ segment_names: .res 8*MAX_SEGMENTS
 ;******************************************************************************
 
 ;******************************************************************************
-; OBJ Code Constants
-; These represent the "instructions" of the object code
-OBJ_BYTES   = $01 	; defines literal byte values e.g. "B 4 0 1 2 3"
-OBJ_RELWORD = $02	; defines a value of an imported symbol "W LAB"
-OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
+; OBJ Code Opcodes
+; These represent the "instruction" opcodes of the object code
+OBJ_SETSEG  = $01       ; switches to the given segment e.g. "SEG DATA"
+OBJ_BYTES   = $02 	; RLE encoded byte values e.g. "B 4 0 1 2 3"
+OBJ_RELBYTE = $03	; byte value + word offset "RB LAB+3"
+OBJ_RELWORD = $04	; word value + word offset "RW LAB+10"
+OBJ_RELZP   = $05	; byte value followed by relative byte "RZ $20 LAB+10"
+OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 .segment "LINKER"
 ;******************************************************************************
@@ -273,6 +278,7 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 .export __link_parse
 .proc __link_parse
 @filebuff=mem::spare
+@line=mem::linebuffer
 	pha
 	lda #<@filebuff
 	sta file::loadaddr
@@ -280,15 +286,107 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 	sta file::loadaddr+1
 	pla
 
-	;jsr file::load		; load link file into filebuff
-	bcs @done		; return err if .C set
+	; load link file into filebuff
+	CALL FINAL_BANK_MAIN, #file::open_r
+	CALL FINAL_BANK_MAIN, #file::loadbin
+	bcs @err
 
-	; TODO: parse the file buff for sections and segments
+	ldxy #@filebuff
+	stxy zp::line
 
-@done:	rts
+@getblock:
+	CALL FINAL_BANK_MAIN, #line::process_ws
+	ldy #$00
+
+	; is line "MEMORY"?
+	ldxy #@memory
+	lda #6
+	jsr cmpline
+	beq @parse_sections
+
+	ldxy #@segments
+	lda #8
+	jsr cmpline
+	beq @parse_segments
+
+	; invalid string
+	sec
+@err:	rts
+
+@parse_sections:
+	jsr @get_open_brace
+	bcs @err
+
+	; read the section into the section definitions table
+:	jsr parse_section
+	bcs @err
+	jsr @get_closing_brace
+	bcc :-
+
+	; make sure last character is a ']'
+	cmp #']'
+	beq :+
+	sec
+	rts
+:	clc
+	rts
+
+@parse_segments:
+	jsr @get_open_brace
+	bcs @err
+
+	; read the section into the section definitions table
+:	jsr parse_segment
+	bcs @err
+	jsr @get_closing_brace
+	bcc :-
+
+	; make sure last character is a ']'
+	cmp #']'
+	beq :+
+	sec
+	rts
+:	clc
+	rts
+
+@get_open_brace:
+	; TODO:
+
+@get_closing_brace:
+	; TODO:
+
+@memory:   .byte "memory",0
+@segments: .byte "segments",0
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
+; PARSE SECTION
+; Parses the definition for one SECTION in the MEMORY block of the linker file
+; A section is defined by the section name followed by a ':'
+; Followed by lines defining its start and end address
+;
+; SECTIONA:
+;  start=$0000
+;  end=$1000
+.proc parse_section
+@start:    .byte "start",0
+@end:      .byte "end",0
+.endproc
+
+;*******************************************************************************
+; PARSE SEGMENT
+; Parses the definition for one SEGMENT in the SEGMENTS block of the linker file
+; A segment is defined by the section name followed by a ':'
+; Followed by lines defining its load and run addresses
+; SEGA:
+;  load=$0000
+;  run=$1000
+.proc parse_segment
+@load:     .byte "load",0
+@run:      .byte "run",0
+.endproc
+
+;*******************************************************************************
 ; LINK
 ; Links all files that were added to the linker (link::addfile) and produces
 ; the linked executable as a file with the given name.
@@ -556,11 +654,13 @@ OBJ_SETSEG  = $03       ; switches to the given segment e.g. "SEG DATA"
 ;
 ; The 3rd block of headers tells the linker the size of each SEGMENT in the
 ; .obj file
-; -----------------------------------
-; | SEG1 [8 bytes] | size [2 bytes] |
-; | SEG2 [8 bytes] | size [2 bytes] |
-; | 0 (end of seg) |
-; ------------------
+; -----------------------------
+; | SEG1 name [16 bytes]      |
+; | sizeof(SEG1) [2 bytes]    |
+; | SEG2 name [16 bytes]      |
+; | sizeof(SEG2) [2 bytes]    |
+; | 0 (end of block) [1 byte] |
+; -----------------------------
 ;
 ; IN:
 ;  - .XY: address to the contents of the .obj file
@@ -668,7 +768,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	lda #$00
 	sta @cnt
 @l0:	lda #$08
-	jsr str::compare
+	jsr strcmp
 	beq @found
 	lda @other
 	clc
@@ -685,3 +785,38 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 @found: lda @cnt
 	RETURN_OK
 .endproc
+
+;*******************************************************************************
+; COMPARE LINE
+; Compares the strings in (zp::line) and (.XY) up to a length of .A
+.proc cmpline
+	stxy zp::str2
+	ldxy zp::line
+	stxy zp::str0
+
+	; fall through to strcmp
+.endproc
+
+;*******************************************************************************
+; COMPARE
+; Compares the strings in (zp::str0) and (zp::str2) up to a length of .A
+; IN:
+;  zp::line: one of the strings to compare
+;  .XY:      the other string to compare
+;  .A:       the max length to compare
+; OUT:
+;  .Z: set if the strings are equal
+.proc strcmp
+	tay		; is length to compare 0?
+	dey
+	bmi @match	; if 0-length comparison, it's a match by default
+
+@l0:	lda (zp::line),y
+	cmp (zp::str0),y
+	bne @ret
+	dey
+	bpl @l0
+@match:	lda #$00
+@ret:	rts
+.endproc
+

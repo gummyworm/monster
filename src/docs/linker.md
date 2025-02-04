@@ -20,7 +20,8 @@ The `MEMORY` block defines all the _sections_.
 The `SEGMENTS` block defines how the segments defined in the object code map to the memory sections.
 
 #### Example
-Below is a simple example of the link configuration file format.
+Below is a simple example of the link configuration file format
+
 ```
 MEMORY [
 SECTIONA:
@@ -71,31 +72,33 @@ object file at link-time in order to produce the ouput binary.
 To link multiple object files the linker follows the following procedure.
 
 1. Parse link file
-  a. get section addresses, where to assemble the object code
-  b. initialize segment pointers to the base address of their section +
-2. Calculate segment start addresses in each object file and total segment sizes
-  a. sum segment usage of each object file to get total size of each segment
-  b. in order defined by link file, set segment start addresses to SECTION start + size of all
-     segments before it.
-3. Calculate label addresses
-  a. absolute exports: define labels for their absolute address
-  b. relative exports: define labels at their defined SEGMENT base address + relative offset
-4. Assemble object files
+  a. get section addresses (where to assemble the object code)
+2. Read all object file's headers
+3. Calculate segment start addresses in each object file and total segment sizes
+  b. sum segment usage in each object file to get total size of each segment
+  c. in order defined by link file, set segment start addresses to SECTION start + size of all
+     preceding segments
+4. Calculate label addresses
+  a. absolute exports: define labels at their absolute address
+  b. relative exports: define labels at the SEGMENT base address within the object file + relative offset
+5. Assemble object files
   a. in order provided, open object file
   b. read imports from header for this object file (skip rest of header)
   c. map imports to their corresponding labels
   d. assemble object code (see object code definition in this doc below)
+6. Validate
+  a. make sure sections don't overlap
 
 ### Object Code Definition
 Object code is a primitive instruction set that the linker uses to generate
-the final binary program.
+the final binary program.  The below table describes the opcodes and operands that make up
+this instruction set.
 
 |  Instruction   |Opcode| Operands (size)             | Description
 |----------------|------|-----------------------------|------------------------------------------------------------------------------------------------------|
 | Set Segment    |  1   | name (16)                   | Sets the current segment to the operand.                                                             |
 | Emit Bytes     |  2   | num (1)                     | Outputs the given number of bytes (up to 255) The byte sequence immediately follows this instruction |
 | Relative Byte  |  3   | symbol id (2), offset (2)   | Outputs a byte that's value is the given symbol plus the given offset                                |
-| Relative Byte  |  4   | symbol id (2), offset (2)   | Outputs a byte that's value is the given symbol plus the given offset                                |
-| Relative Word  |  5   | symbol id (2), offset (2)   | Outputs a _word_that's value is the given symbol plus the given offset                               |
+| Relative Word  |  4   | symbol id (2), offset (2)   | Outputs a _word_that's value is the given symbol plus the given offset                               |
+| Relative ZP Op |  5   | symbol id (2), offset (2)   | Outputs an _instruction_, one absolute byte and one _byte_, whose value is the given symbol + offset |
 | Relative Abs Op|  6   | symbol id (2), offset (2)   | Outputs an _instruction_, one absolute byte and one _word_, whose value is the given symbol + offset |
-| Relative ZP Op |  7   | symbol id (2), offset (2)   | Outputs an _instruction_, one absolute byte and one _byte_, whose value is the given symbol + offset |
