@@ -5,7 +5,6 @@
 ; program state as well as debugging.
 ;*******************************************************************************
 
-.include "bitmap.inc"
 .include "config.inc"
 .include "cursor.inc"
 .include "debug.inc"
@@ -17,13 +16,15 @@
 .include "irq.inc"
 .include "key.inc"
 .include "keycodes.inc"
-.include "finalex.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "screen.inc"
 .include "string.inc"
 .include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 .import is_whitespace	; from debugcmd.asm
 
@@ -218,7 +219,7 @@ screen: .res 40*24
 @scr=r0
 @line=r2
 @linebuff=mem::spare
-	CALL FINAL_BANK_MAIN, #bm::clr
+	CALL FINAL_BANK_MAIN, #scr::clr
 
 	lda line
 	beq @cont

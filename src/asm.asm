@@ -62,7 +62,6 @@
 .include "errlog.inc"
 .include "expr.inc"
 .include "file.inc"
-.include "finalex.inc"
 .include "layout.inc"
 .include "labels.inc"
 .include "line.inc"
@@ -78,6 +77,8 @@
 .include "strings.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 ;******************************************************************************
 MAX_IFS      = 4 ; max nesting depth for .if/.endif

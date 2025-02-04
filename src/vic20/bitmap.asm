@@ -7,13 +7,13 @@
 ; This configuration is popularly known as MINIGRAFIK, created by Mike
 ;*******************************************************************************
 
-.include "fastcopy.inc"
 .include "finalex.inc"
-.include "macros.inc"
-.include "memory.inc"
-.include "settings.inc"
-.include "util.inc"
-.include "zeropage.inc"
+.include "../fastcopy.inc"
+.include "../macros.inc"
+.include "../memory.inc"
+.include "../settings.inc"
+.include "../util.inc"
+.include "../zeropage.inc"
 
 ;*******************************************************************************
 ; CONSTANTS
@@ -25,8 +25,8 @@ COLMEM_ADDR = $9400
 ; INIT
 ; MINIGRAFIK VIC/memory initialization
 ; code by Mike
-.export __bm_init
-.proc __bm_init
+.export __screen_init
+.proc __screen_init
 	clc
 	lda #$10
 	tay
@@ -51,9 +51,9 @@ COLMEM_ADDR = $9400
 
 ;*******************************************************************************
 ; CLR
-; Clears the bitmap
-.export __bm_clr
-.proc __bm_clr
+; Clears the screen
+.export __screen_clr
+.proc __screen_clr
 	CALL FINAL_BANK_FAST, #fcpy::clr
 	lda #TEXT_COLOR
 	; fall through
@@ -64,8 +64,8 @@ COLMEM_ADDR = $9400
 ; Reverts all color memory to the given color
 ; IN:
 ;  - .A: the color to fill the screen with
-.export __bm_clrcolor
-.proc __bm_clrcolor
+.export __screen_clrcolor
+.proc __screen_clrcolor
 	ldy #$00
 	lda #TEXT_COLOR
 @l0:    sta COLMEM_ADDR,y
@@ -76,13 +76,16 @@ COLMEM_ADDR = $9400
 
 ;*******************************************************************************
 ; CLR_PART
-; Clears all pixels below the given offset in every column of the bitmap
+; Clears all rows below the given offset in every column of the bitmap
 ; IN:
-;  - .A: the pixel offset to start clearing at
-.export __bm_clr_part
-.proc __bm_clr_part
+;  - .A: the character row to start clearing at
+.export __screen_clr_part
+.proc __screen_clr_part
 @screen=r0
 @offset=r2
+	asl
+	asl
+	asl
 	sta @offset
 	clc
 	adc #<BITMAP_ADDR
@@ -123,8 +126,8 @@ COLMEM_ADDR = $9400
 ; Clears the given character row
 ; IN:
 ;  - .A: the row to clear
-.export __bm_clrline
-.proc __bm_clrline
+.export __screen_clrline
+.proc __screen_clrline
 @dst=r0
 	jsr __bm_char_addr
 	stx @dst
@@ -152,8 +155,8 @@ COLMEM_ADDR = $9400
 ; Reverses 1 row of characters (8 pixels high) at the given row character row
 ; IN:
 ;  - .A: the text row to reverse (pixel number / 8)
-.export __bm_rvsline
-.proc __bm_rvsline
+.export __scr_rvsline
+.proc __scr_rvsline
 @dst=r0
 	jsr __bm_char_addr
 	stxy @dst
@@ -183,8 +186,8 @@ COLMEM_ADDR = $9400
 ;  - .A: the text row to reverse (pixel number / 8)
 ;  - .Y: the first column to reverse
 ;  - .X: the last column to reverse
-.export __bm_rvsline_part
-.proc __bm_rvsline_part
+.export __screen_rvsline_part
+.proc __screen_rvsline_part
 @dst=r0
 @odd=r2		; !0 if the character to end at is odd
 @start=r3
@@ -300,8 +303,8 @@ COLMEM_ADDR = $9400
 ; SAVE
 ; Saves the bitmap to the backup buffer. It may then be restored with a call
 ; to bm::restore
-.export __bm_save
-.proc __bm_save
+.export __screen_save
+.proc __screen_save
 	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
 .endproc
 

@@ -29,7 +29,6 @@
 ;*******************************************************************************
 
 .include "errors.inc"
-.include "finalex.inc"
 .include "io.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -39,6 +38,8 @@
 .include "util.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS

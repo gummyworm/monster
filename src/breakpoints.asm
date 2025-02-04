@@ -6,7 +6,6 @@
 ; debugged.
 ;*******************************************************************************
 
-.include "bitmap.inc"
 .include "debug.inc"
 .include "debuginfo.inc"
 .include "draw.inc"

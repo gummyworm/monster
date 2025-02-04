@@ -14,7 +14,6 @@
 .include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
-.include "finalex.inc"
 .include "irq.inc"
 .include "macros.inc"
 .include "memory.inc"
@@ -23,6 +22,8 @@
 .include "strings.inc"
 .include "util.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS

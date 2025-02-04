@@ -4,7 +4,6 @@
 ; menu for selecting a file to load.
 ;******************************************************************************
 
-.include "bitmap.inc"
 .include "config.inc"
 .include "draw.inc"
 .include "edit.inc"
@@ -15,10 +14,10 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "settings.inc"
+.include "screen.inc"
 .include "strings.inc"
 .include "text.inc"
 .include "util.inc"
-.include "vscreen.inc"
 .include "zeropage.inc"
 
 SCREEN_H = 23

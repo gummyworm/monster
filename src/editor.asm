@@ -8,7 +8,6 @@
 
 .include "asm.inc"
 .include "beep.inc"
-.include "bitmap.inc"
 .include "breakpoints.inc"
 .include "codes.inc"
 .include "config.inc"
@@ -24,7 +23,6 @@
 .include "errors.inc"
 .include "errlog.inc"
 .include "file.inc"
-.include "finalex.inc"
 .include "format.inc"
 .include "gui.inc"
 .include "irq.inc"
@@ -36,7 +34,7 @@
 .include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "vscreen.inc"
+.include "screen.inc"
 .include "settings.inc"
 .include "source.inc"
 .include "state.inc"
@@ -44,11 +42,13 @@
 .include "strings.inc"
 .include "symview.inc"
 .include "text.inc"
-.include "udgedit.inc"
 .include "util.inc"
 .include "view.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
+
+.include "vic20/udgedit.inc"
+.include "vic20/finalex.inc"
 
 ;******************************************************************************
 ; CONSTANTS
@@ -1012,7 +1012,7 @@ force_enter_insert=*+5
 	jsr text::rendered_line_len
 	ldy #$00
 	lda zp::cury
-	jmp bm::rvsline_part
+	jmp scr::rvsline_part
 .endproc
 
 ;*******************************************************************************
@@ -2087,7 +2087,7 @@ force_enter_insert=*+5
 .proc __edit_clear
 	lda #CUR_OFF
 	sta cur::status
-	jmp bm::clr
+	jmp scr::clr
 .endproc
 
 ;*******************************************************************************
@@ -2162,7 +2162,7 @@ __edit_refresh:
 	sta mem::rowcolors,x	; clear the color for this row
 	stx zp::cury
 	txa
-	jsr bm::clrline		; clear the bitmap data for this row
+	jsr scr::clrline		; clear the bitmap data for this row
 	jmp @clr
 
 @done:	; restore source position
@@ -3047,7 +3047,7 @@ goto_buffer:
 	; and clear the new line
 	jsr text::clrline
 	lda height
-	jsr bm::clrline
+	jsr scr::clrline
 
 	dec zp::cury
 	bne @setcur		; branch always
@@ -3178,7 +3178,7 @@ goto_buffer:
 	ldx zp::curx
 	inx			; (already toggled curx off)
 	lda zp::cury
-	jsr bm::rvsline_part	; deselect section right of visual_start_x
+	jsr scr::rvsline_part	; deselect section right of visual_start_x
 	ldx visual_start_x
 	inx
 	ldy #$00
@@ -3189,7 +3189,7 @@ goto_buffer:
 @rvs0:	lda zp::cury
 	cpx #$00
 	beq @viscur
-	jsr bm::rvsline_part
+	jsr scr::rvsline_part
 
 @viscur:
 	; handle cursor state for VISUAL mode
@@ -3251,7 +3251,7 @@ goto_buffer:
 	jsr text::rendered_line_len
 	ldy #$00
 	lda zp::cury
-	jmp bm::rvsline_part
+	jmp scr::rvsline_part
 
 @movex: lda zp::curx
 	cmp @xend
@@ -3330,7 +3330,7 @@ goto_buffer:
 	inx
 
 @rvs:	lda zp::cury
-	jsr bm::rvsline_part	; reverse line part from column .Y to .X
+	jsr scr::rvsline_part	; reverse line part from column .Y to .X
 	lda @togglecur
 	beq @done
 @toggle:
@@ -3571,7 +3571,7 @@ goto_buffer:
 	jsr text::rendered_line_len
 	ldy #$00
 	lda zp::cury
-	jmp bm::rvsline_part
+	jmp scr::rvsline_part
 .endproc
 
 ;******************************************************************************
@@ -3637,7 +3637,7 @@ goto_buffer:
 
 	ldx visual_start_x
 	lda zp::cury
-	jsr bm::rvsline_part	; reverse OFF the part before visual_start_x
+	jsr scr::rvsline_part	; reverse OFF the part before visual_start_x
 
 	; and reverse ON the part after visual_start_x
 	ldy visual_start_x
@@ -3647,7 +3647,7 @@ goto_buffer:
 @rvs0:	lda zp::cury
 	cpx #$00		; is line empty?
 	beq @viscur		; if line is empty, nothing to reverse
-	jsr bm::rvsline_part
+	jsr scr::rvsline_part
 
 	lda zp::curx
 	sta @xend
@@ -3774,7 +3774,7 @@ goto_buffer:
 	inx
 
 @rvs:	lda zp::cury
-	jsr bm::rvsline_part
+	jsr scr::rvsline_part
 	lda @togglecur
 	beq @done
 @toggle:
@@ -4449,7 +4449,7 @@ __edit_gotoline:
 	inx
 @rvspart:
 	lda zp::cury
-	jsr bm::rvsline_part
+	jsr scr::rvsline_part
 	jmp @visdone			; continue
 
 @noteq:	; only reverse if we are below (forward selection) or behind (backward
@@ -4517,7 +4517,7 @@ __edit_gotoline:
 	ldx #TAB_WIDTH
 @rvs:	ldy #$00
 	lda zp::cury
-	jsr bm::rvsline_part
+	jsr scr::rvsline_part
 	jmp @renderdone
 
 ; if we ran out of source but we're not at the end of the screen,
@@ -4528,7 +4528,7 @@ __edit_gotoline:
 	stx @rowsave
 @clrloop:
 	txa
-	jsr bm::clrline
+	jsr scr::clrline
 	inc zp::cury
 @clrnext:
 	ldx zp::cury

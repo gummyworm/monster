@@ -9,14 +9,12 @@
 
 .include "asm.inc"
 .include "beep.inc"
-.include "bitmap.inc"
 .include "config.inc"
 .include "cursor.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
 .include "file.inc"
-.include "finalex.inc"
 .include "irq.inc"
 .include "key.inc"
 .include "layout.inc"
@@ -28,6 +26,9 @@
 .include "strings.inc"
 .include "util.inc"
 .include "zeropage.inc"
+
+.include "vic20/bitmap.inc"
+.include "vic20/finalex.inc"
 
 .import puts
 .import putch

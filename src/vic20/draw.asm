@@ -1,5 +1,5 @@
 .include "settings.inc"
-.include "../bitmap.inc"
+.include "bitmap.inc"
 .include "../macros.inc"
 .include "../memory.inc"
 .include "../zeropage.inc"

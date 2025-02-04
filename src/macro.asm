@@ -1,9 +1,10 @@
 .include "asm.inc"
 .include "errors.inc"
-.include "finalex.inc"
 .include "labels.inc"
 .include "macros.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS

@@ -12,6 +12,7 @@ information (line numbers, files, etc.)
 #### Link Format (.O)
 |  field         | description                   |
 |----------------|-------------------------------|
+| Segments       | segments used in the file     |
 | Imports        | symbols required to link      |
 | Exports        | symbols exported by this file |
 | Section Header | # of headers                  |

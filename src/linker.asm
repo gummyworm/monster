@@ -8,20 +8,23 @@
 
 .include "errors.inc"
 .include "file.inc"
-.include "finalex.inc"
 .include "labels.inc"
 .include "line.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "string.inc"
 .include "strings.inc"
+.include "util.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS
-MAX_SECTIONS = 8	; the maximum number of memory sections
-MAX_SEGMENTS = 8	; the maximum number of segments across all objects
-MAX_OBJS     = 16	; the maximum number of object files that may be used
+MAX_SECTIONS         = 8	; max number of memory sections
+MAX_SEGMENTS         = 8	; max number of segments across all objects
+MAX_OBJS             = 16	; max number of object files that may be used
+MAX_SECTION_NAME_LEN = 8	; max length of a single section name
 
 ;*******************************************************************************
 ; SECTION flags
@@ -67,6 +70,7 @@ sections_starthi: .res MAX_SECTIONS
 sections_stoplo:  .res MAX_SECTIONS
 sections_stophi:  .res MAX_SECTIONS
 sections_flags:   .res MAX_SECTIONS
+section_names:    .res MAX_SECTIONS*MAX_SECTION_NAME_LEN
 
 ;*******************************************************************************
 ; IMPORT TABLES
@@ -176,7 +180,7 @@ OBJ_RELZP   = $05	; byte value followed by relative byte "RZ $20 LAB+10"
 OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 .segment "LINKER"
-;******************************************************************************
+;*******************************************************************************
 ; LINK DEBUG
 ; Links the given object files into a .D (debug) file of the given name
 ; IN:
@@ -187,7 +191,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc __link_debug
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LINK PRG
 ; Links the given object files into a .PRG file of the given name
 ; IN:
@@ -198,7 +202,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc __link_prg
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ADD SECTION
 ; Adds a new section using the given parameters
 ; IN:
@@ -228,7 +232,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ADD SEGMENT
 ; Adds a new segment using the given parameters
 ; IN:
@@ -251,7 +255,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PARSE LINK FILE
 ; Parses the given file into sections and segments, loading those into the
 ; linker's own section and segment state.
@@ -368,7 +372,76 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; SECTIONA:
 ;  start=$0000
 ;  end=$1000
+;
+; IN:
+;  - zp::line: points to the buffer to parse the SECTION from
 .proc parse_section
+@name=r0
+@val=r2
+@keybuff=r4
+	; get address to store new section name to
+	lda numsections
+	asl			; *2
+	asl			; *4
+	asl			; *8
+	adc #<section_names
+	sta @name
+	lda #>section_names
+	adc #$00
+	sta @name+1
+
+	; read the section name
+	ldy #$00
+@l0:	lda (zp::line),y
+	beq @err		; no ':'
+	cmp #':'
+	beq @cont		; found end of section name
+	sta (@name),y
+	iny
+	cpy #$08
+	bcc @l0
+@err:	rts
+
+@cont:	tya
+	;sec			; +1 (move passed ':')
+	adc zp::line
+	sta zp::line
+	bcc :+
+	inc zp::line
+:	jsr process_ws
+
+@getprops:
+	ldxy @keybuff
+	jsr parse_kv
+	stxy @val
+
+	ldxy @keybuff
+	stxy zp::str0
+
+	ldxy #@start
+	stxy zp::str2
+	jsr strcmp
+	bne :+
+	; set the start address for the segment
+	ldx numsections
+	lda @val
+	sta segments_startlo,x
+	lda @val+1
+	sta segments_starthi,x
+	jmp @getprops
+
+:	ldxy #@end
+	stxy zp::str2
+	jsr strcmp
+	bne @err
+	; set the end address for the segment
+	ldx numsections
+	lda @val
+	sta segments_stoplo,x
+	lda @val+1
+	sta segments_stophi,x
+	jmp @getprops
+
 @start:    .byte "start",0
 @end:      .byte "end",0
 .endproc
@@ -381,6 +454,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; SEGA:
 ;  load=$0000
 ;  run=$1000
+; IN:
+;  - zp::line: points to the buffer to parse the SEGMENT from
 .proc parse_segment
 @load:     .byte "load",0
 @run:      .byte "run",0
@@ -487,7 +562,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LINK OBJECT
 ; Handles the main block of the object code defintion using the data extracted
 ; from the OBJ headers.
@@ -519,7 +594,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; OBJ_BYTES
 ; Handles the OBJ_BYTES command
 ; Assembles the bytes that follow to the address of the current segment pointer,
@@ -629,38 +704,62 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; EXTRACT HEADERS
 ; Extracts the header data from the .obj file and builds the absolute address
 ; of any EXPORTs for the .obj file. These are added as labels (lbl::add).
 ; Then updates the SEGMENT pointers by the sizes of each SEGMENT used in the
 ; .obj file.
 ;
-; The first block contains the EXPORTs for the block
-; --------------------------------------------------
-; | PROC [8 bytes] |  SEG [8 bytes | SIZE [2 bytes]|
-; -------------------------------------------------|
-; |                             ...                |
-; --------------------------------------------------
+; The first block contains the names of all segments used in the object file.
+; This is a list of 0-terminated strings.
+; ---------------------------------
+; |  Property       | Size (bytes)|
+; |-----------------|-------------|
+; | Segment 1 Name  |  1-32       |
+; | Segment 2 Name  |  1-32       |
+; | end marker (0)  |  1          |
+; ---------------------------------
+;
+; The next block contains the EXPORTs for the block.
+; The EXPORT block contains the names of all symbols exported by the object
+; file as well as their relative segment offsets
+;
+; Segments are identified by a 1 byte ID, which refers to their index in
+; the segment table for the object file
+;
+; -----------------------------------------
+; |  Property               | Size (bytes)|
+; |-------------------------|-------------|
+; | Export 1 Name           |  1-32       |
+; | Export 1 Segment        |    1        |
+; | Export 1 Segment Offset |    1        |
+; | Export 2 Name           |  1-32       |
+; | Export 2 Segment        |    1        |
+; | Export 2 Segment Offset |    1        |
+; -----------------------------------------
 ;
 ; The second block contains the IMPORTs for the block
-; ----------------------
-; | EXT_PROC [8 bytes] |
-; ----------------------
-; | EXTPROC2 [8 bytes] |
-; ----------------------
-; |        ...         |
-; ----------------------
+; This is a list of 0-terminated strings
+; --------------------------------
+; |  Property      | Size (bytes)|
+; |----------------|-------------|
+; | Import 1 Name  |  1-32       |
+; | Import 2 Name  |  1-32       |
+; | end marker (0) |  1          |
+; --------------------------------
 ;
-; The 3rd block of headers tells the linker the size of each SEGMENT in the
-; .obj file
-; -----------------------------
-; | SEG1 name [16 bytes]      |
-; | sizeof(SEG1) [2 bytes]    |
-; | SEG2 name [16 bytes]      |
-; | sizeof(SEG2) [2 bytes]    |
-; | 0 (end of block) [1 byte] |
-; -----------------------------
+; The 3rd block of headers tells the linker the name and size of each SEGMENT
+; in the .obj file
+; --------------------------------
+; |  Property      | Size (bytes)|
+; |----------------|-------------|
+; | SEG1 name      |  16         |
+; | sizeof(SEG1)   |  2          |
+; | SEG2 name      |  16         |
+; | sizeof(SEG2)   |  2          |
+; | end marker (0) |  1          |
+; --------------------------------
 ;
 ; IN:
 ;  - .XY: address to the contents of the .obj file
@@ -678,6 +777,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 @buff=r4
 	stxy @fptr
 	ldx numfiles
+@getsegments:
 
 @getexports:
 	; get the absolute address of the segment
@@ -787,6 +887,54 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 .endproc
 
 ;*******************************************************************************
+; PARSE KV
+; Parses a key/value pair
+; e.g. A=120
+; The left hand side is read as a string into the given buffer and the right
+; is read a number and returned
+; A maximum of 8 characters are read for the key
+; IN:
+;   - zp::line: points to the buffer to parse the pair from
+;   - .XY:      buffer to store the key to
+; OUT:
+;   - .XY: the value of the key/value pair
+;   - .C:  set if the key/value pair was not parsed successfully
+.proc parse_kv
+@buff=r0
+	stxy @buff
+	jsr process_ws
+	; read the key into the buffer
+	ldy #$00
+:	lda (zp::line),y
+	beq @err
+	cmp #' '
+	beq @geteq
+	cmp #'='
+	beq @getvalue
+	sta (@buff),y
+	iny
+	cpy #$08
+	bne :-
+	; sec
+	rts
+
+@geteq:
+	jsr process_ws
+	lda (zp::line),y
+	cmp #'='
+	bne @err		; separator between key and value must be '='
+
+@getvalue:
+	jsr process_ws
+	incw zp::line		; move passed the '='
+	CALL FINAL_BANK_MAIN, #util::parsehex
+	rts
+
+@err:	sec
+	rts
+.endproc
+
+;*******************************************************************************
 ; COMPARE LINE
 ; Compares the strings in (zp::line) and (.XY) up to a length of .A
 .proc cmpline
@@ -818,5 +966,25 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	bpl @l0
 @match:	lda #$00
 @ret:	rts
+.endproc
+
+;*******************************************************************************
+; PROCESS_WS
+; Reads (line) and updates it to point past ' ' chars and non-printing chars
+; out:
+;  .Z: set if we're at the end of the line
+;  .A: the last character processed
+;  .Y: 0
+;  zp::line: updated to first non ' ' character
+.proc process_ws
+	ldy #$00
+@l0:	lda (zp::line),y
+	beq :+			; if end of line, we're done
+	bmi @skip		; skip non-printing chars
+	jsr util::is_whitespace
+	bne :+			; if not space, we're done
+@skip:	jsr __line_inc
+	bne @l0
+:	rts
 .endproc
 

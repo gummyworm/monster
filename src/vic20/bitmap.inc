@@ -13,8 +13,6 @@ BITMAP_WIDTH  = 160
 .import __bm_columnshi
 .import __bm_rvsline
 .import __bm_rvsline_part
-.import __bm_save
-.import __bm_restore
 
 .scope bm
 	init         = __bm_init
@@ -27,7 +25,5 @@ BITMAP_WIDTH  = 160
 	columnshi    = __bm_columnshi
 	rvsline      = __bm_rvsline
 	rvsline_part = __bm_rvsline_part
-	save         = __bm_save
-	restore      = __bm_restore
 .endscope
 

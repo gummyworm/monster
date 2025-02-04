@@ -7,12 +7,12 @@
 
 ;*******************************************************************************
 
-.include "bitmap.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "macros.inc"
+.include "screen.inc"
 .include "settings.inc"
 .include "text.inc"
 .include "zeropage.inc"

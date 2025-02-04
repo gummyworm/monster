@@ -7,7 +7,6 @@
 ;******************************************************************************
 
 .include "asm.inc"
-.include "bitmap.inc"
 .include "debug.inc"
 .include "debuginfo.inc"
 .include "edit.inc"
@@ -16,6 +15,7 @@
 .include "key.inc"
 .include "keycodes.inc"
 .include "macros.inc"
+.include "screen.inc"
 .include "source.inc"
 .include "string.inc"
 .include "strings.inc"

@@ -11,15 +11,16 @@
 .include "edit.inc"
 .include "errors.inc"
 .include "key.inc"
-.include "finalex.inc"
 .include "keycodes.inc"
 .include "labels.inc"
 .include "macros.inc"
+.include "screen.inc"
 .include "settings.inc"
 .include "strings.inc"
 .include "text.inc"
-.include "vscreen.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS

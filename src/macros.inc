@@ -1,3 +1,5 @@
+.include "zeropage.inc"
+
 ; incw increments the 16-bit value at the address w.
 .macro incw w
 .local @skip

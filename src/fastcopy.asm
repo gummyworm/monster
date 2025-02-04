@@ -1,8 +1,10 @@
-.include "bitmap.inc"
-.include "finalex.inc"
 .include "macros.inc"
 .include "ram.inc"
+.include "screen.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
+.include "vic20/bitmap.inc"
 
 ;******************************************************************************
 ; CONSTANTS

@@ -6,7 +6,6 @@
 ; watch to be triggered only when the value is read from or written to.
 ;*******************************************************************************
 
-.include "bitmap.inc"
 .include "config.inc"
 .include "cursor.inc"
 .include "debug.inc"
@@ -14,7 +13,6 @@
 .include "edit.inc"
 .include "errors.inc"
 .include "expr.inc"
-.include "finalex.inc"
 .include "flags.inc"
 .include "gui.inc"
 .include "key.inc"
@@ -30,6 +28,8 @@
 .include "view.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS

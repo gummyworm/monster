@@ -6,7 +6,6 @@
 ; loads it from disk.
 ;*******************************************************************************
 .include "asm.inc"
-.include "bitmap.inc"
 .include "config.inc"
 .include "console.inc"
 .include "copybuff.inc"
@@ -15,12 +14,12 @@
 .include "draw.inc"
 .include "edit.inc"
 .include "fastcopy.inc"
-.include "finalex.inc"
 .include "irq.inc"
 .include "labels.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "settings.inc"
+.include "screen.inc"
 .include "source.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
@@ -505,7 +504,7 @@ num_relocs=(*-relocs)/7
 	jsr src::new
 
 	; initialize bitmap
-	jsr bm::init
+	jsr scr::init
 	jsr edit::clear
 
 	jsr dbgi::initonce

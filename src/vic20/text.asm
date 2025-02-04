@@ -1,4 +1,4 @@
-.include "../bitmap.inc"
+.include "bitmap.inc"
 .include "../macros.inc"
 .include "../zeropage.inc"
 

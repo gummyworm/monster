@@ -17,14 +17,17 @@
 ; will now refer to 8 pixels at the top right of the bitmap display.
 ;******************************************************************************
 
-.include "bitmap.inc"
 .include "config.inc"
-.include "finalex.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "settings.inc"
 .include "source.inc"
 .include "zeropage.inc"
+
+.include "vic20/bitmap.inc"
+.include "vic20/finalex.inc"
+
+.import __scr_init
 
 SCREEN_ADDR = $1000
 NUM_COLS    = 20	; number of 8-pixel columns
@@ -55,7 +58,7 @@ MAX_SHIFT = NUM_COLS
 	sta mem::rowcolors,x
 	dex
 	bpl :-
-	jmp bm::init
+	jmp __scr_init
 .endproc
 
 .export __scr_restore

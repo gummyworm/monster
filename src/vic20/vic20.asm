@@ -1,4 +1,4 @@
-.include "../finalex.inc"
+.include "finalex.inc"
 
 .import __text_init
 

@@ -6,7 +6,6 @@
 ;*******************************************************************************
 
 .include "beep.inc"
-.include "bitmap.inc"
 .include "config.inc"
 .include "cursor.inc"
 .include "debug.inc"
@@ -14,7 +13,6 @@
 .include "edit.inc"
 .include "errors.inc"
 .include "expr.inc"
-.include "finalex.inc"
 .include "flags.inc"
 .include "key.inc"
 .include "keycodes.inc"
@@ -28,6 +26,8 @@
 .include "watches.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS

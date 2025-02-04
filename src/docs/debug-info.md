@@ -1,4 +1,4 @@
-## DEBUG INFORMATION
+## DEBUG INFORMATION TECHNICAL DETAILS
 
 Debug information is stored in a few tables as described below. At a high level, these are:
   - a "file table" for mapping file id's to file name

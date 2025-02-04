@@ -1,9 +1,9 @@
 .include "settings.inc"
 .include "../beep.inc"
 .include "../key.inc"
-.include "../finalex.inc"
 .include "../macros.inc"
 .include "../memory.inc"
+.include "finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS

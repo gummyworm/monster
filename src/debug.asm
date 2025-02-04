@@ -6,7 +6,6 @@
 
 .include "asm.inc"
 .include "asmflags.inc"
-.include "bitmap.inc"
 .include "breakpoints.inc"
 .include "console.inc"
 .include "cursor.inc"
@@ -17,7 +16,6 @@
 .include "errors.inc"
 .include "fastcopy.inc"
 .include "file.inc"
-.include "finalex.inc"
 .include "flags.inc"
 .include "gui.inc"
 .include "labels.inc"
@@ -27,7 +25,7 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "settings.inc"
+.include "screen.inc"
 .include "sim6502.inc"
 .include "source.inc"
 .include "string.inc"
@@ -38,6 +36,10 @@
 .include "view.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
+
+.include "vic20/bitmap.inc"
+.include "vic20/settings.inc"
+.include "vic20/finalex.inc"
 
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
@@ -385,12 +387,11 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	dex
 	bne :-
 
-
 	; reinit the bitmap
-	jsr bm::init
+	jsr scr::init
 
 	; restore the screen ($1100-$2000)
-	jmp bm::restore
+	jmp scr::restore
 .endproc
 
 ;******************************************************************************
@@ -1516,7 +1517,7 @@ restore_regs:
 	pha			; push 0 status
 	plp			; clear flags (.P)
 
-	jsr bm::clrcolor
+	jsr scr::clrcolor
 
 	jmp edit::init
 @done:	rts
@@ -1540,8 +1541,8 @@ restore_regs:
 	jsr edit::resize
 
 	pushcur
-	lda #(DEBUG_INFO_START_ROW)*8
-	jsr bm::clrpart
+	lda #(DEBUG_INFO_START_ROW)
+	jsr scr::clrpart
 	jsr showstate		; restore the state
 
 	lda #AUX_MEM
@@ -1570,8 +1571,8 @@ restore_regs:
 .proc __debug_edit_watches
 	lda #DEBUG_INFO_START_ROW-1
 	jsr edit::resize
-	lda #(DEBUG_INFO_START_ROW)*8
-	jsr bm::clrpart
+	lda #(DEBUG_INFO_START_ROW)
+	jsr scr::clrpart
 	jsr showstate		; restore the state
 
 	lda #AUX_GUI
@@ -1836,7 +1837,7 @@ restore_regs:
 
 @gui:	lda #REGISTERS_LINE-1
 	jsr text::print
-	jsr bm::clrcolor
+	jsr scr::clrcolor
 	jsr key::waitch		; wait for keypress
 	sec
 	rts

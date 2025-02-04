@@ -14,7 +14,6 @@
 .include "errors.inc"
 .include "expr.inc"
 .include "file.inc"
-.include "finalex.inc"
 .include "flags.inc"
 .include "labels.inc"
 .include "line.inc"
@@ -30,6 +29,8 @@
 .include "vmem.inc"
 .include "watches.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 .segment "CONSOLE"
 

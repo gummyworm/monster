@@ -6,9 +6,10 @@
 ;*******************************************************************************
 
 .include "errors.inc"
-.include "finalex.inc"
 .include "macros.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 .import __COPYBUFF_BSS_SIZE__
 

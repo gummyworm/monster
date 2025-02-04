@@ -7,11 +7,12 @@
 ;*******************************************************************************
 
 .include "errors.inc"
-.include "finalex.inc"
 .include "macros.inc"
 .include "string.inc"
 .include "ram.inc"
 .include "zeropage.inc"
+
+.include "vic20/finalex.inc"
 
 ; Debug info constants
 MAX_FILES  = 64		; max files debug info may be generated for
