@@ -23,23 +23,26 @@ and color RAM.
 
 ---
 
-## Requirements
+## REQUIREMENTS
 In order for the debugger to coexist with your program there are a few small
 requirements.
 
-#### Don't Use $7FEF-$8000
+#### DON'T USE $7FEF-$8000
+
 The address range from $7fef to $8000 is used to store the interrupts that
 return control to the debugger.
 If this range is clobbered, a BRK or NMI will not return to the debugger and the
 machine will likely JAM.
 
-#### Stack Has 6 Bytes Free
+#### STACK HAS 6 BYTES FREE
+
 The stack, at its current location for a given step, must have 3 bytes free.
 If your program uses an IRQ (correctly) this shouldn't be an issue because the Vic-20's
 interrupt sequence pushes 6 bytes (the registers, including status, plus the
 interrupt return address).
 
-### Don't overwrite BRK/NMI vectors
+### DON'T OVERWRITE BRK/NMI VECTORS
+
 The BRK vector is used to return to the debugger during normal execution of your program.
 
 The NMI vector _can_ be used by your program, but it is clobbered by the debugger
@@ -49,6 +52,7 @@ that returns to the debugger when doing this.
 ---
 
 ### DEBUG COMMANDS
+
 The following commands are supported by the debugger and are accessed by their
 respective Key in the table below.
 
@@ -71,14 +75,15 @@ respective Key in the table below.
 | SPACE        | Swap prog       | swaps in the internal memory for the user program (allows user to see screen state)  |
 | ^ (up arrow) |  Goto Break     | navigates to the address that the debugger is currently paused at                    |
 
-### Register Editor (`F2`)
+### REGISTER EDITOR (`F2`)
+
 Pressing F2 moves the cursor to the register contents and allows the user to enter
 new values for them.  Pressing `RETURN` will confirm the new register values
 and update them to those values the next time the user program is invoked.
 Pressing `<-` will abort this process and leave the old register values
 intact.
 
-### Stopwatch
+### STOPWATCH
 
 Next to the registers, under the CLK label, is a 24-bit counter that displays the
 number of cycles executed by the instructions that have been STEP'd into.
@@ -89,8 +94,10 @@ information in the debug view, which is displayed in hexadecimal.
 
 ---
 
-### Stepping through code
-#### Step Into (`z`)
+### STEPPING THROUGH CODE
+
+#### STEP INTO (`z`)
+
 Stepping is a common way to debug a program line-by-line.
 Stepping _into_ code will, if possible, return to the debugger
 after the next instruction (the one currently highlighted if we have debug
@@ -108,7 +115,8 @@ value hasn't changed*. The same is true of watches.  We can activate a watch
 even if we don't store a new value to it. In fact, we can activate them when a
 value is loaded.
 
-#### Step Over (`s`)
+#### STEP OVER (`s`)
+
 Step _over_ behaves the same as step _into_, but if the next
 instruction is a subroutine call (`JSR`), execution continues until the
 instruction _after_ the `JSR` (after the subroutine returns).
@@ -119,23 +127,27 @@ instruction, the processor will halt.  Because the overhead of tracing is
 fairly high, this may be worth the risk. Especiallly if you are calling
 routines that are trusted such as those in the KERNAL or BASIC ROM.
 
-#### Step Out (`y`)
+#### STEP OUT (`y`)
+
 Step _out_ is different from the other STEP commands in that it runs by tracing.
 The step out command traces the program until the next RTS instruction.
 The RTS instruction is run and control then returns to the debug session.
 
-#### Go (`C= + g`)
+#### GO (`C= + g`)
+
 The go command begins execution and returns to the debugger only when a
 breakpoint is encountered or when RUN/STOP is pressed.
 
-#### Trace (`t`)
+#### TRACE (`t`)
+
 Trace is similar to `GO`, but the debugger executes the program as a series
 of STEPs instead of running the program binary directly.
 This is useful because it allows the debugger to break if any watched memory
 location is accessed or if a JAM would occur.
 
 
-#### Notes on memory swapping
+#### NOTES ON MEMORY SWAPPING
+
 While the debugger and user program have isolated memory banks in the address space
 above `$1fff`, the RAM _below_ this, `[$00, $2000)`, is internal to the Vic-20
 and cannot be swapped out between debug steps. The debugger has no choice but to
@@ -166,7 +178,8 @@ screen will briefly flash with the state of the user program.
 
 ---
 
-## Auxiliary Views
+## AUXILIARY VIEWS
+
 Within the debugger, there are 3 auxiliary views that may be activated with the
 function keys.  Each shows information about the machine or debug state.
 Each viewer also contains an editor, which is activated with the keys enumerated
@@ -176,7 +189,8 @@ Pressing the `<-` key will return the user from the auxiliary editor to the
 source code editor.  And `F1` will hide the active view to maximize the
 source editor's screen size.
 
-### Memory Viewer (`F3` while debugging)
+### MEMORY VIEWER (`F3` WHILE DEBUGGING)
+
 The memory viewer displays the contents of RAM at a given address.  The memory
 viewer is updated upon reentry to the debugger (if active).
 Memory values may be updated by navigating to the value the user wishes to
@@ -192,13 +206,15 @@ are supported within the memory viewer:
 |   <-         |  Exit     | Returns to the debugger                                 |
 | ^ (up-arrow) | Set Addr  | Sets the viewer's address to the given value            |
 
-#### Set Watch (`C= + w`)
+#### SET WATCH (`C= + W`)
+
 Watches may be placed while navigating in the memory editor.  This is done
 by pressing the `C= + w` key-combination while the cursor is on the desired
 byte to watch. See the _Watch Viewer_ section for more information on
 watches.
 
-#### Find Value (`/`)
+#### FIND VALUE (`/`)
+
 Prompts the user for an 8 or 16 bit value (determined by the number of
 characters provided) and looks for that value in memory.
 If it is found, the memory view is updated to begin at the first address
@@ -208,12 +224,14 @@ Note that when seeking for a 16 bit value, the value is searched in little-endia
 format.  If the input for the search is given as `$1234` the result will be
 the first occurrence of the byte value `$34` followed by `$12`.
 
-#### Set Address (`^`/`up-arrow`)
+#### SET ADDRESS (`^`/`UP-ARROW`)
+
 Moves the cursor to the address of the viewer, then prompts the user for a new
 value to set the memory viewer to.  Pressing `RETURN` confirms the new address
 and `<-` cancels and returns the user to the editor without changing the address
 
-### Breakpoint Viewer (`F5` while debugging)
+### BREAKPOINT VIEWER (`F5` WHILE DEBUGGING)
+
 The breakpoint viewer displays all the breakpoints that have been set by the
 user.  A circle is displayed next to those that are currently active.
 The user simply navigates the list with the cursor keys and presses RETURN to
@@ -223,7 +241,8 @@ Note that breakpoints correspond to the debug information generated with
 the F4 command.  If the line numbers change after this information is generated,
 breakpoints are unlikely to behave in expected ways.
 
-### Watch Viewer (`F7` while debugging)
+### WATCH VIEWER (`F7` WHILE DEBUGGING)
+
 The watch viewer displays all watches that have been set in the memory
 viewer.  The current value of a watch is shown along with its previous
 value (if it has changed since the debugger last took over).
@@ -240,21 +259,24 @@ The following keys are supported within the watch viewer:
 |  RETURN      | Select/Edit| Enters the memory editor at the watch's address         |
 |   <-         |  Exit      | Returns to the debugger                                 |
 
-#### Add Watch (`C= + w`)
+#### ADD WATCH (`C= + W`)
+
 While in the watch editor, the `C= + w` key combination prompts the user for an
 address or address range to watch.  These are given as expressions, so you may
 provide, for example `myval+3` to set a watch at the address of the label myval plus 3.
 To set a watch for an address range, simply provide two expressions, separated by a comma,
 at the prompt.  If the expression(s) are invalid, no watch is added.
 
-#### Edit Watch (`RETURN`)
+#### EDIT WATCH (`RETURN`)
+
 Pressing RETURN will invoke the _memory editor_ at the location of the watch
 that was selected.  Returning from the memory editor will return the user
 back to the watch editor.
 
 ---
 
-## Breakpoints
+## BREAKPOINTS
+
 Breakpoints may be set/removed during both normal editing and while debugging.
 Setting a breakpoint inserts a special character into the source buffer, which
 tells the assembler to generate a breakpoint for the line that this character
@@ -269,7 +291,7 @@ it by toggling the breakpoint off _or_ by deleting the entire line.
 that, for example, you can set a breakpoint on `LDA #$00` or a macro that expands
 to such an instruction, but setting one on `.DB $00` has no effect.
 
-### Toggle Breakpoint (`C= + b`)
+### TOGGLE BREAKPOINT (`C= + B`)
 During normal editing, breakpoints may be set and removed  with the `C= + b` key combination.
 
 Pressing the same key combination (`C= + b`) will also remove a breakpoint
@@ -279,7 +301,7 @@ Breakpoints can only be added to buffers that have been named.
 
 ---
 
-## Watches
+## WATCHES
 Watches are set within the memory editor (`F3`). When the cursor is over the
 desired byte to watch, the press `C= + w` to add a watch to the address of the
 byte under the cursor.  A beep will confirm that the watch
@@ -296,6 +318,7 @@ the viewer is also activated.
 ---
 
 ## STEP MECHANISMS
+
 The manner in which the program is "stepped" depends on a variety of situations.
 There are 3 means of stepping:
  - BRK
@@ -306,11 +329,13 @@ For a given step, only one of these is used, so we don't need to worry about, fo
 example, the user pressing RESTORE during a BRK.
 
 #### BRK
+
 When possible, a BRK instruction is inserted at the address after the next
 instruction to-be-executed.
 This address is calculated by Monster using the current state of the processor.
 
-#### NMI (timer)
+#### NMI (TIMER)
+
 When a BRK point _cannot_ be inserted and when the instruction to-be-executed is
 in ROM, VIA #1 is used to generate an NMI immediately after the next instruction
 executes.  Timer 2 is loaded with a value that will count down to 1 at the time
@@ -325,7 +350,8 @@ VIA 1's timer 2 themselves.  These cannot be stepped through for this reason.
 However, these routine are timing sensitive, so stepping through them would be
 mostly useless.
 
-#### NMI (RESTORE key)
+#### NMI (RESTORE KEY)
+
 When the user runs a program with the _GO_ or _TRACE_ commands,
 they need a means of returning to the debugger.
 In these cases, the debugger enables NMI interrupts on VIA 1's control line 1 (CA1), which
