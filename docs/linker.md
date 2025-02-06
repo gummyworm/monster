@@ -3,14 +3,14 @@
 The linker is responsible for taking a number of _object_ files and turning them into a
 single executable binary file.
 
-### Object Format
+### OBJECT FORMAT
 Object files are composed of four main blocks.
 
 A header, a list of imported symbols, a map of exported symbols to their relative
 addresses, and finally the object code: a list of instructions that tell the linker
 what to emit to the binary output file.
 
-### Link File Format
+### LINK FILE FORMAT
 The link file is responsible for the mapping of _segments_ to _sections_.
 Segment usage is defined in the object files and is always relative.  The section
 definition is absolute and tells the linker where to place the segments.
@@ -19,7 +19,7 @@ The link file contains two blocks of definitions for these two concepts.
 The `MEMORY` block defines all the _sections_.
 The `SEGMENTS` block defines how the segments defined in the object code map to the memory sections.
 
-#### Example
+#### EXAMPLE
 Below is a simple example of the link configuration file format
 
 ```
@@ -35,11 +35,11 @@ SEGMENTS [
 ]
 ```
 
-### Header
+### HEADER
 The first block, the header, gives basic details about the object file.  This helps the
 linker determine the
 
-#### Segments
+#### SEGMENTS
 The first block describes the segment usage for the object file.  It details which segments
 are used (by name) and how many bytes each segment contains within the object file.
 
@@ -54,7 +54,7 @@ the object file being assembled
 |  16  | segment 1 name...
 |   2  | segment 0 usage (in bytes)
 
-#### Imports
+#### IMPORTS
 The second block in the object file, after segments, is the _imports_.
 Imports enumerate the labels that are referenced in the object file but defined in another
 one.
@@ -68,7 +68,7 @@ object file at link-time in order to produce the ouput binary.
 |  32  | import 0 name
 |  32  | import 1 name...
 
-### Link Process Overview
+### LINK PROCESS OVERVIEW
 To link multiple object files the linker follows the following procedure.
 
 1. Parse link file
@@ -89,7 +89,7 @@ To link multiple object files the linker follows the following procedure.
 6. Validate
   a. make sure sections don't overlap
 
-### Object Code Definition
+### OBJECT CODE DEFINITION
 Object code is a primitive instruction set that the linker uses to generate
 the final binary program.  The below table describes the opcodes and operands that make up
 this instruction set.

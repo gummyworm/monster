@@ -28,12 +28,12 @@ Some of its features are:
  - many more...
 
 For more information about the major components of Monster, refer to the documents
-below.
+linked below.
 
- #### [Assembler](docs/assembler.md)
- #### [Editor](docs/editor.md)
- #### [Debugger](docs/debugger.md)
- #### [Monitor](docs/monitor.md)
+ **[Assembler](docs/assembler.md)**
+ **[Editor](docs/editor.md)**
+ **[Debugger](docs/debugger.md)**
+ **[Monitor](docs/monitor.md)**
 
 ---
 

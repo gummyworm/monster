@@ -395,32 +395,3 @@ There is also a 128 macro limit.
 Each macro can be at most 16 lines or 512 bytes, whichever is lower. This restriction also applies to .REP.
 
 Comments are excluded from the internal context buffer, so using them will not count toward the byte limit.
-
-
----
-
-### Example program
-Here is a basic hello world program to demonstrate some of the assembler's
-features
-```
-.ORG $1400
-MSG:
-.DB "HELLO WORLD!",0
-START:
-  JSR $E5B5
-  LDX #$00
-  LDA #' '
-CLR:
-  STA $1000,X
-  STA $1100,X
-  DEX
-  BNE CLR
-DISP:
-  LDA MSG,X
-  BEQ DONE
-  JSR $FFD2
-  INX
-  BNE DISP
-DONE:
-  JMP DONE
-```

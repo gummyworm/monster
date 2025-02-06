@@ -5,7 +5,7 @@ Debug information is stored in a few tables as described below. At a high level,
   - a series of "blocks" that store ranges of addresses and lines for blocks of code
   - a series of _line programs_, state machines that resolve to addresses and line numbers when executed
 
-### File Table
+### FILE TABLE
 The file IDs table maps filenames (implicitly) to an ID.  The ID is simply
 the index of the filename in this table
 
@@ -15,7 +15,7 @@ the index of the filename in this table
 |   16     | filename 1                      |
 |   16     | ...                             |
 
-### Blocks
+### BLOCKS
 To simplify the storage of lines in cases like noncontiguous addresses (although these can be handled in a single block) and
 multi-file programs, mappings are broken down into "blocks".
 
@@ -40,7 +40,7 @@ In the assembler, the two psuedo-ops that force the creation of a block are:
   - including a file (`.INC`)
   - setting the address (`.ORG`)
 
-### Line Program
+### LINE PROGRAM
 The line program facilitates compact mapping of line numbers to addresses.
 It is a state machine with the following state:
  - line number
@@ -51,13 +51,13 @@ Commands modify this state in order to produce the address <-> line mapping.
 There are two types of instructions to handle this process: "basic" and "extended".
 Each type is detailed below.
 
-### Basic Instructions
+### BASIC INSTRUCTIONS
 
 The most basic operation, which is so common that it requires no special opcode, adds a small
 offset to the current line number AND program counter.
 Bits 0-3 contain the line offset to add and bits 3-7 contain the PC offset.
 
-### Extended Instructions
+### EXTENDED INSTRUCTIONS
 
 For cases when a small offset to either the line or address is not enough (e.g. a macro
 that expands to more than 16 bytes), these instructions are required.
@@ -81,7 +81,7 @@ also useful when adding a line to the existing mapping without fully recompiling
 This is the case when editing a file, which produces realtime updates to the debug info.
 When the program is assembled, the line-program is recompiled into a more optimal format.
 
-### Example
+### EXAMPLE
 
 ```
 .org $1000
@@ -119,7 +119,7 @@ Our program is defined as:
 | $22   | move line by 2 and address by 2 (we are now at `sta $900f`) |
 | $32   | move line by 2 and address by 3 (we are now at `jmp loop`)  |
 
-## Generation
+## GENERATION
 
 The flow for generating debug information is:
  1. begin block
@@ -147,29 +147,28 @@ Deletes the command that moves to the line being deleted.
 This routine copies the block back to its original location.  If necessary (the block has
 grown to overlap with another block), the other blocks are shifted to make room for the new block.
 
-## Hot Reloading
+## HOT RELOADING
 When a line is inserted or deleted, the base line for all subsequent lines must be incremented or decremented. The algorithms for doing this are described below
 
-#### Insert
+#### INSERT
 Find all blocks with a start line greater than the line being inserted and increment them
 
-#### Delete Line
+#### DELETE LINE
 Find all blocks with a start line greater than the line being inserted and decrement them
 
 ---
 
-## Using Debug Information
+## USING DEBUG INFORMATION
 Once debug information is generated, its primary function is to map lines to addresses and vise-versa.
 
-### Mapping Address to Line
+### MAPPING ADDRESS TO LINE
 
 To map a given address to its corresponding line number, the line program for the block that contains
 its address is executed.  Once the line program reaches a PC value equal to the one that is sought,
 the current line number is returned.
 
-### Mapping Line to Address
+### MAPPING LINE TO ADDRESS
 
 The line to address mapping works just address to line mapping.  The first block containing the
 file/address range being sought is executed.  When the line program's line number is equal to the one
 requested, the PC value for the program at that point is returned.
-
