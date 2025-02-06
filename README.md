@@ -31,8 +31,11 @@ For more information about the major components of Monster, refer to the documen
 linked below.
 
  **[Assembler](docs/assembler.md)**
+
  **[Editor](docs/editor.md)**
+
  **[Debugger](docs/debugger.md)**
+
  **[Monitor](docs/monitor.md)**
 
 ---
