@@ -14,7 +14,7 @@
 .export banksp
 
 bankcode:
-;******************************************************************************
+;*******************************************************************************
 ; STORE_BYTE
 ; stores the byte given in zp::bankval to address .YX in bank .A
 ; IN:
@@ -32,7 +32,7 @@ bankcode:
 	; fall through
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; STORE_BYTE_REL
 ; stores the byte given in zp::bankval to the address in .XA in bank .A
 ; IN:
@@ -57,7 +57,7 @@ bankcode:
 .endproc
 final_store_size=*-__final_store_byte
 
-;******************************************************************************
+;*******************************************************************************
 ; READ_BYTE
 ; Returns the byte in bank .A at address .YX
 ; IN:
@@ -74,7 +74,7 @@ final_store_size=*-__final_store_byte
 	; fall through
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LOAD_BYTE_OFF
 ; Returns the byte in bank .A at address .YX plus a given offset
 ; IN:
@@ -97,7 +97,7 @@ final_store_size=*-__final_store_byte
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COPY
 ; Copies up to 256 bytes from zp::bankaddr0 to zp::bankaddr1
 ; IN:
@@ -119,7 +119,7 @@ final_store_size=*-__final_store_byte
 	; fall through to return_to_x
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RETURN TO X
 ; Sets the bank to the given bank and returns (RTS)
 ; IN:
@@ -129,10 +129,10 @@ final_store_size=*-__final_store_byte
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COPY LINE
-; Copies up to LINESIZE bytes from zp::bankaddr0 to zp::bankaddr1 stopping at the
-; first $0d or $00
+; Copies up to LINESIZE bytes from zp::bankaddr0 to zp::bankaddr1 stopping at
+; the first $0d or $00
 ; IN:
 ;  - .A:            the bank to perform the copy within
 ;  - zp::bankaddr0: the source address to copy from
@@ -156,7 +156,7 @@ final_store_size=*-__final_store_byte
 @done:	beq return_to_x	; restore bank
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CALL
 ; Performs a JSR to the target address at the given bank. When the routine is
 ; done, returns to the caller's bank.
@@ -219,7 +219,7 @@ banksp:    .byte 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; COPY BANK 2 BANK
 ; Entrypoint to copy from one bank to another
 ; IN:
@@ -232,7 +232,7 @@ banksp:    .byte 0
 __final_memcpy_bank:
 	skw	; don't overwrite destination bank
 
-;******************************************************************************
+;*******************************************************************************
 ; COPY
 ; Writes the memory from (tmp0) to (tmp2)
 ; The number of bytes is given in .YX and the block # to write to is given in .A
