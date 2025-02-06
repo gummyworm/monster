@@ -7,12 +7,11 @@
 Monster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
 The design philosophy is uncompromising maximalism.  This is in contrast to most
 existing Vic-20 assemblers (and most native development tools on 8-bit computers),
-which mostly designed with memory efficiency in mind.  The primary reason for this
-was (or is) to leave the majority of the RAM available to the programmer.
+which are mostly designed with memory efficiency in mind.
 
 Large RAM expansions have become ubiquitous on the platform, so the philosophy of
-this project is to choose feature richness without much concern for the memory footprint.
-Virtually any feature that I deem valuable in an editor/assembler is included.
+this project is to choose feature richness without much concern for the cost to implement.
+Virtually any feature that I deem valuable in an assembly IDE is included.
 
 Some of its features are:
  - 40 column bitmap-based editor
@@ -27,6 +26,14 @@ Some of its features are:
  - macro support
  - user program/source/editor isolation
  - many more...
+
+For more information about the major components of Monster, refer to the documents
+below.
+
+ #### [Assembler](docs/assembler.md)
+ #### [Editor](docs/editor.md)
+ #### [Debugger](docs/debugger.md)
+ #### [Monitor](docs/monitor.md)
 
 ---
 
@@ -133,7 +140,7 @@ DONE:
 Monster holds the active source file in memory (for editing), but assembles
 all included files directly from file.
 Files are stored with $0d line endings, but if you save your file with UNIX
-style line-endings, they will be automatically converted when the file is
+style line-endings ($0a), they will be automatically converted when the file is
 read in.
 
 As with any work done with Commodore disk I/O, it is wise to regularly back up your files
@@ -150,19 +157,12 @@ able to use the debugger.
 
 ### BEST PRACTICES
 
-Although Monster strives to feel like unbothered by the physical limits of the
-Vic-20, certain usage patterns can cause issues. By following these practices,
+Although Monster is designed to feel modern in all ways, it is, at the end of
+the day, running on a computer from 1981.
+
+By following the following practices,
 you should have a smooth experience without running into some of the
 limitations that you may hit if you are unconcious about them.
-
-#### AVOID USING MANY FILES
-
-When possible, try to stick to 8 or fewer files for your project.  This will
-allow all of them to be stored in memory during assembly, which will greatly
-speed up your edit/debug loop.  When debugging, this practice will also allow
-all files to be available in RAM when you are stepping through the program,
-which will be a much smoother experience than programs that continuously must
-page to disk.
 
 #### USE ANONYMOUS LABELS
 
