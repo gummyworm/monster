@@ -153,7 +153,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 @scroll=r7
 @row=rb
 @selection=zp::tmp15
-	jsr scr::reset
+	jsr scr::save
 	lda #$00
 	sta sortby
 	sta @selection

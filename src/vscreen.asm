@@ -41,37 +41,6 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 
 MAX_SHIFT = NUM_COLS
 
-.CODE
-
-;******************************************************************************
-; RESET
-; Saves the source bitmap (we will want that later) and reinitializes the
-; bitmap
-.export __scr_reset
-.proc __scr_reset
-	jsr bm::save
-	; save the per-row colors and reset them
-	ldx #NUM_ROWS*2-1
-:	lda mem::rowcolors,x
-	sta mem::rowcolors_save,x
-	lda #DEFAULT_900F
-	sta mem::rowcolors,x
-	dex
-	bpl :-
-	jmp __scr_init
-.endproc
-
-.export __scr_restore
-__scr_restore:
-	jsr bm::restore
-	; restore the per-row colors
-	ldx #NUM_ROWS*2-1
-:	lda mem::rowcolors_save,x
-	sta mem::rowcolors,x
-	dex
-	bpl :-
-	JUMP FINAL_BANK_VSCREEN, #restore
-
 .segment "VSCREEN"
 
 ;******************************************************************************

@@ -20,6 +20,16 @@
 BITMAP_ADDR = $1100
 COLMEM_ADDR = $9400
 
+SCREEN_ADDR = $1000
+NUM_COLS    = 20	; number of 8-pixel columns
+NUM_ROWS    = 11	; number of 16-pixel rows
+
+SCREEN_ROWS = 12	; number of physical rows per column
+
+PIXELS_PER_COL = 11*16	; number of pixels per column
+
+VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
+
 .CODE
 ;*******************************************************************************
 ; INIT
@@ -129,7 +139,7 @@ COLMEM_ADDR = $9400
 .export __screen_clrline
 .proc __screen_clrline
 @dst=r0
-	jsr __bm_char_addr
+	jsr __screen_char_addr
 	stx @dst
 	sty @dst+1
 
@@ -155,10 +165,10 @@ COLMEM_ADDR = $9400
 ; Reverses 1 row of characters (8 pixels high) at the given row character row
 ; IN:
 ;  - .A: the text row to reverse (pixel number / 8)
-.export __scr_rvsline
-.proc __scr_rvsline
+.export __screen_rvsline
+.proc __screen_rvsline
 @dst=r0
-	jsr __bm_char_addr
+	jsr __screen_char_addr
 	stxy @dst
 
 	ldx #20
@@ -221,9 +231,9 @@ COLMEM_ADDR = $9400
 	; get the first column to reverse
 	tay
 	pla
-	adc __bm_columnslo,y
+	adc __screen_columnslo,y
 	sta @dst
-	lda __bm_columnshi,y
+	lda __screen_columnshi,y
 	adc #$00
 	sta @dst+1
 
@@ -305,16 +315,33 @@ COLMEM_ADDR = $9400
 ; to bm::restore
 .export __screen_save
 .proc __screen_save
-	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
+	CALL FINAL_BANK_FASTCOPY2, #fcpy::save
+
+	ldx #NUM_ROWS*2-1
+:	lda mem::rowcolors,x
+	sta mem::rowcolors_save,x
+	lda #DEFAULT_900F
+	sta mem::rowcolors,x
+	dex
+	bpl :-
+	jmp __screen_init
 .endproc
 
 ;*******************************************************************************
 ; RESTORE
 ; Restores the bitmap from the backup buffer.
 ; You should call bm::save first with the buffer you want to restore
-.export __bm_restore
-.proc __bm_restore
-	JUMP FINAL_BANK_FASTCOPY2, #fcpy::restore
+.export __screen_restore
+.proc __screen_restore
+	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
+	; restore the per-row colors
+	ldx #NUM_ROWS*2-1
+:	lda mem::rowcolors_save,x
+	sta mem::rowcolors,x
+	dex
+	bpl :-
+	rts
+	; JUMP FINAL_BANK_VSCREEN, #restore
 .endproc
 
 ;*******************************************************************************
@@ -326,8 +353,8 @@ COLMEM_ADDR = $9400
 ;  - .A: the character row to get the bitmap address of
 ; OUT:
 ;  - .XY: the bitmap address
-.export __bm_char_addr
-.proc __bm_char_addr
+.export __screen_char_addr
+.proc __screen_char_addr
 	asl
 	asl
 	asl
@@ -344,9 +371,9 @@ COLMEM_ADDR = $9400
   $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
 .linecont -
 
-.export __bm_columnslo
-.export __bm_columnshi
-__bm_columnslo: .lobytes cols
-__bm_columnshi: .hibytes cols
+.export __screen_columnslo
+.export __screen_columnshi
+__screen_columnslo: .lobytes cols
+__screen_columnshi: .hibytes cols
 
 inittab: .byte $02,$fe,$fe,$eb,$00,$0c

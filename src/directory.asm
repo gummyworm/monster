@@ -64,7 +64,7 @@ SCREEN_H = 23
 	jsr irq::on
 
 	; reset the screen so that we can print the file names normally
-	jsr scr::reset
+	jsr scr::save
 
 	ldxy #@dirbuff+5
 	stxy @line

@@ -233,7 +233,7 @@ main:	jsr key::getch
 ; MON
 ; Activates the monitor and restores the editor when it exits
 .proc mon
-	jsr scr::reset
+	jsr scr::save
 	pushcur
 	jsr __edit_enter_console
 	jsr __edit_exit_console
@@ -2332,7 +2332,7 @@ __edit_set_breakpoint:
 @result=r7
 @udg=r8
 	pushcur
-	jsr scr::reset
+	jsr scr::save
 	inc text::statusfmt
 
 	CALL FINAL_BANK_UDGEDIT, #udg::edit
