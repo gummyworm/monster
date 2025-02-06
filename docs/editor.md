@@ -1,4 +1,5 @@
-## Editor
+## EDITOR OVERVIEW
+
 The editor provideds powerful facilities for editing programs for Monster.
 Text is displayed in a 40 column bitmap to provide a higher density interface.
 
@@ -13,8 +14,7 @@ below for more info on modes).
 |--------|---------------|-----------------------------------------------------------------------|
 | C= + b | Set Breakpoint| sets a breakpoint at the current line                                 |
 | C= + c | Refresh       | refrehshes the screen by redrawing the source buffer                  |
-| C= + h | Help          | displays the help menu                                                |
-| C= + l | List          | list directory, shows the files on the current disk                   |
+|    -   | File Viewer   | list directory, shows the files on the current disk                   |
 | C= + n | New buffer    | creates a new source buffer and sets it as the active buffer          |
 | C= + q | Close buffer  | closes the current buffer and opens the next one that is open         |
 | C= + v | MemView       | enters the memory viewer/editor (press <- to exit)                    |
@@ -27,24 +27,36 @@ below for more info on modes).
 | C= + - | Prev Drive    | Selects the previous drive (limited to #8)                            |
 |    :   | Ex Command    | Accepts a command + argument(s) and executes the command              |
 
+### Function (f key) Commands
+
+|  Key   | Name             |   Description                                                         |
+|--------|------------------|-----------------------------------------------------------------------|
+|   f1   | Assemble Project | assembles current project                                             |
+|   f2   | Assemble File    | assembles the current file to memory (must specify .org)              |
+|   f3   | Debug            | begins debugging contents of memory at lowest defined origin (.org)   |
+|   f4   | Debug BASIC      | initializes BASIC and begins debugging at the lowest defined origin   |
+|   f5   | Show buffers     | displays a list of the currently open buffers                         |
+|   f6   | Show project     | displays the current project configuration                            |
+
+While debugging, f-keys 1-4 have different functionality, as described in the _Debug Commands_ section
+
 ### Ex Commands
 The following commands are entered at the "Ex Command" prompt (accessed with the `:` key).
 Most accept an argument (as described in each commands description below)
 
-|Key| Name              |   Args                          | Description                                                  |
-|---|-------------------|---------------------------------|--------------------------------------------------------------|
-| a | Assemble File     | Filename                        | assembles the given filename                                 |
-| B | export Binary     | Filename                        | exports the active assembly to a binary file (no .PRG header)|
-| d | Start Debugger    | Symbol to debug at (optional)   | begins debugging at the given label                          |
-| D | Disassemble       | Start address, End address      | Disassembles the given address range                         |
-| e | Edit              | Filename                        | loads the buffer with the contents of the given file         |
-| g | Goto              | Symbol to run at (optional)     | executes the program at the address of the given symbol      |
-| F | Disassemble File  | Filename                        | disassembles the given file to a new source buffer           |
-| P | export .PRG       | Filename                        | exports the active assembly to a .PRG file                   |
-| r | Rename            | Name                            | renames the buffer to the given name                         |
-| s | Save              | Filename                        | saves the buffer to the given filename                       |
-| S | Save All          |   N/A                           | saves all modified buffers that are open currently           |
-| x | Scratch           | Filename                        | scratches (deletes) the given filename                       |
+|Key| Name                         |   Args                          | Description                                                                                     |
+|---|------------------------------|---------------------------------|-------------------------------------------------------------------------------------------------|
+| a | Assemble File                | Filename                        | assembles the given filename                                                                    |
+| B | export Binary                | Filename                        | exports the active assembly to a binary file (no .PRG header)                                   |
+| d | Start Debugger               | Symbol to debug at (optional)   | begins debugging at the given label                                                             |
+| db| Start Debugger (with init)   | Symbol to debug at (optional)   | begins debugging at the given label. Initializes target state with the BASIC cold start handler |
+| e | Edit                         | Filename                        | loads the buffer with the contents of the given file                                            |
+| g | Goto                         | Symbol to run at (optional)     | executes the program at the address of the given symbol                                         |
+| P | export .PRG                  | Filename                        | exports the active assembly to a .PRG file                                                      |
+| r | Rename                       | Name                            | renames the buffer to the given name                                                            |
+| s | Save                         | Filename                        | saves the buffer to the given filename                                                          |
+| S | Save All                     |   N/A                           | saves all modified buffers that are open currently                                              |
+| x | Scratch                      | Filename                        | scratches (deletes) the given filename                                                          |
 
 #### Assemble File :a <filename>
 Assembles the contents of the given file. This is functionally the same as opening
@@ -74,32 +86,26 @@ details on debugging.
 Example:
 `:d START`
 
-#### Disassemble :D <start address>, <end address>
-Disassembles the contents of the _virtual_ memory between the given range.
-e.g. `:D $1001, $1040`.
-Expressions may be used in addtion to literal addresses when defining the disassembly range.
+#### Start Debugger (with init) :db [symbol]
+Begins debugging at the given symbol using the active debug information, initializing the
+system with the BASIC COLD start handler first.
 
-This could be useful, for example, if your program generates code and you want to view
-the results.
+This is useful if your program expects the system to be initialized with the default
+VIC-registers, zeropage values , etc.
 
-The result of the disassembly is opened in a new buffer, where you can edit it
-as you would any of your handwritten source.
+If no symbol is given, the program will
+begin and the debugger invoked at the _lowest_ defined origin (.ORG) in the
+program. See [Debugger](https://github.com/gummyworm/monster#debugger) for more
+details on debugging.
 
 Example:
-`:D PROC, PEND`
+`:db START`
 
 #### Edit :e <filename>
 Loads the given filename to a new buffer and activates it.
 
 Example:
 `:e HELLO.S`
-
-#### Disassemble from File :F <filename>
-Disassembles the contents of the given binary file.
-e.g. `:F EXAMPLE.PRG`
-
-The result of the disassembly is opened in a new buffer, where you can edit it
-as you would any of your handwritten source.
 
 #### Export .PRG :P <filename>
 Exports the active assembly (F3/F4) to the given file as a .PRG file.  This means
@@ -137,8 +143,7 @@ Example:
 
 ---
 
-
-### Editor Modes
+## Editor Modes
 The editor is a _modal_ editor, that is, it behaves differently depending on which _mode_ it is
 in.  The modes are all accessed from the default mode (called _COMMAND_ mode) and each mode returns
 to _COMMAND_ mode when the `<-` key is pressed.  Below is a list of the modes along with
@@ -155,8 +160,8 @@ The following keys are handled in COMMAND mode.
 | HOME       | Home       | moves the cursor to column 0                                           |
 | C= + m     | Goto line  | prompts for a line number and moves the cursor to that line            |
 | C= + [1-8] | Goto Buffer| opens the buffer corresponding to the number key that is pressed       |
-| C= + <     | Prev Buffer| opens the buffer before the active one (if there is one)               |
-| C= + >     | Next Buffer| opens the buffer after the active one (if there is one)                |
+| C= + h     | Prev Buffer| opens the buffer before the active one (if there is one)               |
+| C= + l     | Next Buffer| opens the buffer after the active one (if there is one)                |
 | C= + i     | Jump up    | jumps forward to the next source position that was "jumped" to         |
 | C= + o     | Jump back  | jumps back to the last source position that was "jumped" to            |
 |    $       | End of Line| moves the cursor to the end of the current line                        |
@@ -170,8 +175,10 @@ The following keys are handled in COMMAND mode.
 |    l       | Right      | moves the cursor right                                                 |
 |    H       | Home       | moves the cursor to the top left of the screen                         |
 |    L       | Last       | moves the cursor to the bottom left of the screen                      |
-|    dw      | Delete Word| deletes the next word                                                  |
+|    d0      | Delete To  | deletes everything on the line before the cursor                       |
+|    D/d$    | Delete Rest| deletes the contents of the line after the cursor's position           |
 |    dd      | Delete Line| deletes the next line                                                  |
+|    dw      | Delete Word| deletes the next word                                                  |
 |    J       | Join lines | moves the contents of the next line to the end of the current one      |
 |    0       | Column 0   | moves the cursor to the first column of the current line               |
 |    a       | append char| enters insert mode and moves to the next character                     |
@@ -215,6 +222,10 @@ When the paste command is executed, the buffer is cleared.
 The copy buffer is $1e00 bytes, which is enough for ~3.5 completely full screens
 of text (22 rows and 40 columns).
 
+Because the editor is limited to 40 columns in width, the first and last lines are handled
+specially.  If the first line will not fit, the paste is aborted.  If the last line will not
+fit, it is broken into two lines.
+
 ### Jump Lists
 When the user "jumps" to a different position in the source (`gg`, `G`, `goto line`,
 `find`, `[`, and `]`) the editor saves the old position.  To recall the positions
@@ -238,8 +249,23 @@ Although labels aren't _required_ to be defined, they are internally tracked
 while editing.  Because their addresses aren't valid til assembly, you cannot
 access them (e.g. in the symbol viewer) until then.
 
-### Line Mapping
-Line mapping relies on successful assembly.  A program that
-cannot be assembled will not have access to the features
-that rely on line mapping.  This includes the symbol viewer,
-and the "goto definiton" (gd) command.
+### UDG Editor
+The UDG (user defined graphics) editor is entered with the `C= + u` key combination.
+This editor allows you to visually create simple graphics for your programs.  Navigation
+is done with the same vi-like commands used in the main editor and graphics are created using the
+following commands:
+
+| Command Name  |   Key   |  Behavior
+|---------------|---------|------------------------------------------------------------------------------------------------------|
+|  Plot Color 1 |    1    | Sets the selected position to the background color                                                   |
+|  Plot Color 2 |    2    | Sets the selected position to the character color (hires mode) or the border color (multicolor mode) |
+|  Plot Color 3 |    3    | Multicolor mode only. Sets the selected position to the character color                              |
+|  Plot Color 4 |    4    | Multicolor mode only. Sets the selected position to the auxiliary color                              |
+|  Clear        |SHIFT+CLR| Multicolor mode only. Sets the selected position to the auxiliary color                              |
+|  Done         | RETURN  | Exits the editor and enters (or updates) the .db commands to create the graphic in the editor        |
+|  Quit         | STOP    | Exits the editor without creating/updating the graphic contained in the editor                       |
+| Toggle Mode   |   M     | If in hires mode, switches to multicolor mode or vise-versa                                          |
+
+Entering the editor while on a line with an 8-byte ".db" definition (e.g. `.db $ff,$00,$ff,$00,$ff,$00,$ff,$00`) will pre-populate the
+UDG editor with the character defined by these directives.
+

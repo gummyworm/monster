@@ -1,4 +1,4 @@
-### OBJECT FILE FORMAT
+### OBJECT FILE FORMAT TECHNICAL DETAILS
 
 This document describes the layout of the .O (object) file.
 
