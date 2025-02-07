@@ -330,9 +330,10 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; make sure last character is a ']'
 	cmp #']'
 	beq :+
-	sec
+	sec		; error SECTION not closed
 	rts
-:	clc
+
+:	clc		; ok
 	rts
 
 @parse_segments:
@@ -348,9 +349,10 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; make sure last character is a ']'
 	cmp #']'
 	beq :+
-	sec
+	sec		; error SEGMENT not closed
 	rts
-:	clc
+
+:	clc		; ok
 	rts
 
 @get_open_brace:
@@ -378,7 +380,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc parse_section
 @name=r0
 @val=r2
-@keybuff=r4
+@cnt=r4
+@keybuff=r5
 	; get address to store new section name to
 	lda numsections
 	asl			; *2
@@ -393,7 +396,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; read the section name
 	ldy #$00
 @l0:	lda (zp::line),y
-	beq @err		; no ':'
+	beq @err		; no ':' -> error
 	cmp #':'
 	beq @cont		; found end of section name
 	sta (@name),y
@@ -410,6 +413,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	inc zp::line
 :	jsr process_ws
 
+; read all properties defined for the SECTION
 @getprops:
 	ldxy @keybuff
 	jsr parse_kv
@@ -418,32 +422,81 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	ldxy @keybuff
 	stxy zp::str0
 
-	ldxy #@start
+	; find the key that corresponds to the one in the config file
+	ldxy #@keys
 	stxy zp::str2
+
+	lda #$00
+	sta @cnt
+@findkey:
+	lda #6
 	jsr strcmp
-	bne :+
+	bne @next
+
+@found: ; found the key, run the command to map it
+	ldx @cnt
+	lda @cmdslo,x
+	sta zp::jmpvec
+	lda @cmdshi,x
+	sta zp::jmpvec
+	jsr zp::jmpaddr
+	jmp @getprops	; repeat (get next key if there is one)
+
+@next:	ldy #$00
+	; move zp::str2 to the next key to check
+:	incw zp::str2
+	lda (zp::str2),y
+	bne :-
+
+	; are we out of keys?
+	inc @cnt
+	lda @cnt
+	cmp #@numkeys
+	bne @findkey
+
+;--------------------------------------
+; handler for the "start" key in config file
+@startvec:
 	; set the start address for the segment
 	ldx numsections
 	lda @val
 	sta segments_startlo,x
 	lda @val+1
 	sta segments_starthi,x
-	jmp @getprops
+	rts
 
-:	ldxy #@end
-	stxy zp::str2
-	jsr strcmp
-	bne @err
+;--------------------------------------
+; handler for the "stop" key in config file
+@endvec:
 	; set the end address for the segment
 	ldx numsections
 	lda @val
 	sta segments_stoplo,x
 	lda @val+1
 	sta segments_stophi,x
-	jmp @getprops
+	rts
 
-@start:    .byte "start",0
-@end:      .byte "end",0
+;--------------------------------------
+; handler for the "fill" key in config file
+@fillvec:
+	ldx numsections
+	lda #SECTION_FILL
+	sta sections_flags,x
+	rts
+;--------------------------------------
+; keys table
+@keys:
+@numkeys=3
+@start:	.byte "start",0
+@end:	.byte "end",0
+@fill:	.byte "fill",0
+
+;--------------------------------------
+; keys table handler vectors
+.define cmds @startvec, @endvec, @fillvec
+@cmdslo: .lobytes cmds
+@cmdshi: .hibytes cmds
+
 .endproc
 
 ;*******************************************************************************
@@ -897,8 +950,8 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 ;   - zp::line: points to the buffer to parse the pair from
 ;   - .XY:      buffer to store the key to
 ; OUT:
-;   - .XY: the value of the key/value pair
-;   - .C:  set if the key/value pair was not parsed successfully
+;   - .XY:      the value of the key/value pair
+;   - .C:       set if the key/value pair was not parsed successfully
 .proc parse_kv
 @buff=r0
 	stxy @buff
@@ -926,7 +979,9 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 
 @getvalue:
 	jsr process_ws
-	incw zp::line		; move passed the '='
+	incw zp::line		; move beyond the '='
+
+	; get the value for the key, value pair
 	CALL FINAL_BANK_MAIN, #util::parsehex
 	rts
 
