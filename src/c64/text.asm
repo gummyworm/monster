@@ -5,7 +5,7 @@
 ; IN:
 ;  - .XY: the string to display
 ;  - .A:  the row to display the text at
-.export puts
-.proc puts
+.export ___text_puts
+.proc __text_puts
 
 .endproc

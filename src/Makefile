@@ -13,9 +13,9 @@ CL65=cl65
 C1541=c1541
 EXOMIZER=exomizer
 
-BOOTSRC=boot.asm
-TARGET_SRC=$(wildcard $(TARGET)/*.asm)			# platform specific source files
-PI_SRC=$(filter-out $BOOTSRC, $(wildcard *.asm))	# platform independent source files
+BOOTSRC=vic20/boot.asm
+TARGET_SRC=$(filter-out $BOOTSRC, $(wildcard $(TARGET)/*.asm))	# platform specific source files
+PI_SRC=$(wildcard *.asm)					# platform independent source files
 SRC=$(TARGET_SRC) $(PI_SRC)
 TEST_TXTS=$(wildcard tests/*.txt)
 TEST_FILES=$(TESTS) $(TEST_INCS) $(TEST_TXTS)

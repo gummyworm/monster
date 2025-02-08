@@ -47,8 +47,10 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
+.ifdef vic20
 .include "vic20/udgedit.inc"
 .include "vic20/finalex.inc"
+.endif
 
 ;******************************************************************************
 ; CONSTANTS
@@ -2331,6 +2333,7 @@ __edit_set_breakpoint:
 @save=zp::editortmp+1
 @result=r7
 @udg=r8
+.ifdef vic20
 	pushcur
 	jsr scr::save
 	inc text::statusfmt
@@ -2399,6 +2402,9 @@ __edit_set_breakpoint:
 @db_text:
 	.byte " bd."	; ".db " (backwards)
 .POPSEG
+.else
+	rts
+.endif
 .endproc
 
 ;******************************************************************************

@@ -39,6 +39,10 @@ reduce the overhead of procedure calls.
 The next step is providing a means to call routines in other banks and write/read to memory locations in them.
 To do this requires implementing a couple macros.
 
+For machines that have a full 64k of RAM, it may not be necessary to ever switch banks for code execution
+(in other words the `CALL` macro can always resolve to a `JSR`), but you will still need to provide a way for
+source code, label names, etc. to be stored somewhere in the 24 bit address range.
+
 |  MACRO                  | DESCRIPTION
 |-------------------------|--------------------------------------------------------------------------------------------------
 | `CALL <PROC>`           | Within the same bank evaluates to a JSR, otherwise switches to the correct bank and calls PROC
