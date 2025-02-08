@@ -126,6 +126,8 @@ __asm_linenum: .byte 0
 ; the type of the segment being stored e.g. SEG_BSS or SEG_CODE
 segment_type: .byte 0
 
+;*******************************************************************************
+; TO OBJECT
 ; object assembly flag
 ; if !0:
 ;   tokenize will assemble the given line as object code to the current

@@ -33,7 +33,6 @@
 ; Reverses a horizontal line at the row given in .A (EOR)
 ; IN:
 ;  - .A: the row to draw a horizontal line at
-;  - .W: the pattern to draw
 .export __draw_rvs_underline
 .proc __draw_rvs_underline
 @dst=r0

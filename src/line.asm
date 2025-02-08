@@ -8,7 +8,7 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-;********************************************************************************
+;*******************************************************************************
 ; INC
 ; Increments the line pointer, which points to the current character being read
 ; during assembly or other parsing (e.g. expression evaluation)
@@ -29,7 +29,7 @@
 .proc __line_nextch
 	ldy #$00
 	lda (zp::line),y
-	beq :+
+	beq :+			; -> rts
 
 	jsr __line_inc
 

@@ -271,8 +271,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 ;*******************************************************************************
 ; PARSE LINK FILE
-; Parses the given file into sections and segments, loading those into the
-; linker's own section and segment state.
+; Parses the given linker config file into sections and segments, loading
+; those into the linker's own section and segment state.
 ; The file must follow the format:
 ;
 ; ```
@@ -284,7 +284,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;  ...
 ; ]
 ; SEGMENTS [
-;  SEGA: load = SECTIONA, run = SECTIONB
+;  SEGA: load = SECTIONA
+;  run = SECTIONB
+;  type = [BSS, RO, RW]
 ; ]
 ; ```
 ;
@@ -545,6 +547,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @secptrs=zp::tmp10 	; 2*MAX_SECTIONS bytes
 @filename=zp::link
 	stxy @filename
+
 	; init the segment/section pointers using the linker state defined by
 	; the link file
 	ldx numsegments
@@ -588,7 +591,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	bpl @l1
 
 	; load each .obj file
-
 
 	; extract header data foreach file and update pointers to each file
 	; to the main block of the .obj file
@@ -692,22 +694,22 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; OBJ REL BYTE
 .proc obj_rel_byte
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; OBJ REL ZP
 .proc obj_rel_zp
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; OBJ REL ABS
 .proc obj_rel_abs
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; OBJ REL WORD
 ; Handles the OBJ_REL_WORD command
 ; Inserts a WORD with the value of the symobl that follows + an offset to
@@ -936,8 +938,10 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 .endproc
 
 ;*******************************************************************************
-; MAP IMPORTS
+; GEN SEGMENT MAP
 ; Read the IMPORT block from the open OBJECT file and
+.proc gen_segment_map
+.endproc
 
 ;******************************************************************************
 ; GET SEGMENT BY NAME

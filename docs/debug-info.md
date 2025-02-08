@@ -130,7 +130,6 @@ Below are the specific routines used to accomplish this:
 
 1. `dbgi::startblock_<symbol/file/addr>`
 `startblock` along with the appropriate suffix is called upon encountering a global label (symbol), including a file (file), or setting the ORG (addr).
-
 This routine copies the block to the work buffer, where lines can be inserted or removed.
 
 2. `dbgi::addline` / `dbgi::removeline`
