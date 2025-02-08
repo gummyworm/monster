@@ -312,7 +312,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 ;*******************************************************************************
 ; SAVE
 ; Saves the bitmap to the backup buffer. It may then be restored with a call
-; to bm::restore
+; to scr::restore
 .export __screen_save
 .proc __screen_save
 	CALL FINAL_BANK_FASTCOPY2, #fcpy::save

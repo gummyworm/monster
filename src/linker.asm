@@ -374,6 +374,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; SECTIONA:
 ;  start=$0000
 ;  end=$1000
+;  fill=1
 ;
 ; IN:
 ;  - zp::line: points to the buffer to parse the SECTION from
@@ -483,6 +484,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	lda #SECTION_FILL
 	sta sections_flags,x
 	rts
+
 ;--------------------------------------
 ; keys table
 @keys:
@@ -1042,4 +1044,3 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	bne @l0
 :	rts
 .endproc
-
