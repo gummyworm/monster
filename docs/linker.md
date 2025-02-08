@@ -25,16 +25,19 @@ Below is a simple example of the link configuration file format
 ```
 MEMORY [
 SECTIONA:
- start=$0400
- end=$1000
- fill=1
+ START=$0400
+ END=$1000
+ FILL=1
 SECTIONB:
- start=$1000
- end=$1200
+ START=$1000
+ END=$1200
 ]
 
 SEGMENTS [
- SEGA: load = SECTIONA, run = SECTIONB
+ SEGA:
+   LOAD=SECTIONA
+   RUN=SECTIONB
+   TYPE=BSS
 ]
 ```
 
@@ -114,13 +117,13 @@ is from its respective SEGMENT _within this object file_.
 |  2   | symbol 1 offset from segment within this object file
 
 ### LINK PROCESS OVERVIEW
-To link multiple object files the linker follows the following procedure, starting with
+#### To link multiple object files the linker follows the following procedure, starting with
 the linker configuration file.
 
 * Parse link file
   * get section addresses (where to assemble the object code)
 
-Then, to build the global link context, the linker opens all the object files, one-by-one, and builds the global context.
+#### Then, to build the global link context, the linker opens all the object files, one-by-one, and builds the global context.
 
 * Read all object file's headers
 * Calculate segment start addresses in each object file and total segment sizes
@@ -128,7 +131,7 @@ Then, to build the global link context, the linker opens all the object files, o
   * in order defined by link file, set segment start addresses to SECTION start + size of all
      preceding segments
 
-Finally, for each object file, the linker uses the global link context to link it to the output file via the following steps.
+#### Finally, for each object file, the linker uses the global link context to link it to the output file via the following steps.
 
 * Store global EXPORTs
   * absolute exports: define labels at their absolute address

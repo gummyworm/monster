@@ -136,12 +136,12 @@ This routine copies the block to the work buffer, where lines can be inserted or
 2. `dbgi::addline` / `dbgi::removeline`
 These routines add or remove commands from the line program for the active block.  For both adding and removing, the first step is finding the command in the line program that references the line to be added/deleted.
 
-2a. `dbgi::addline`
-Appends command(s) that maps to the newly added line. During assembly of a full buffer these will likey be regular "basic" commands as lines/addresses will be small offsets from one line to the next.
-If the user is inserting lines, these will likely be extended commands (ADVANCE PC and ADVANCE LINE) as the user may be adding lines in the middle of the block, which will require a signed offset.
+    1. `dbgi::addline`
+       Appends command(s) that maps to the newly added line. During assembly of a full buffer these will likey be regular "basic" commands as lines/addresses will be small offsets from one line to the next.
+      If the user is inserting lines, these will likely be extended commands (ADVANCE PC and ADVANCE LINE) as the user may be adding lines in the middle of the block, which will require a signed offset.
 
-2b. `dbgi::removeline`
-Deletes the command that moves to the line being deleted.
+    2. `dbgi::removeline`
+       Deletes the command that moves to the line being deleted.
 
 3. `dbgi::endblock`
 This routine copies the block back to its original location.  If necessary (the block has
