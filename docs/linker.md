@@ -61,6 +61,16 @@ available to be imported in _other_ object files).
 |   2  | number of symbols imported
 |   2  | number of symbols exported
 
+The next parts of the header can be broken into logical blocks.  These are stored in the following order:
+
+|  FIELD         | DESCRIPTION                   |
+|----------------|-------------------------------|
+| SEGMENTS       | segments used in the file     |
+| IMPORTS        | symbols required to link      |
+| EXPORTS        | symbols exported by this file |
+
+Further details on each of these is described in the sections below.
+
 #### SEGMENTS
 After the object header, the SEGMENTS block describes the segment usage for the object file.  It details which segments
 are used (by name) and how many bytes each segment contains within the object file.
@@ -104,25 +114,32 @@ is from its respective SEGMENT _within this object file_.
 |  2   | symbol 1 offset from segment within this object file
 
 ### LINK PROCESS OVERVIEW
-To link multiple object files the linker follows the following procedure.
+To link multiple object files the linker follows the following procedure, starting with
+the linker configuration file.
 
-1. Parse link file
-  a. get section addresses (where to assemble the object code)
-2. Read all object file's headers
-3. Calculate segment start addresses in each object file and total segment sizes
-  b. sum segment usage in each object file to get total size of each segment
-  c. in order defined by link file, set segment start addresses to SECTION start + size of all
+* Parse link file
+  * get section addresses (where to assemble the object code)
+
+Then, to build the global link context, the linker opens all the object files, one-by-one, and builds the global context.
+
+* Read all object file's headers
+* Calculate segment start addresses in each object file and total segment sizes
+  * sum segment usage in each object file to get total size of each segment
+  * in order defined by link file, set segment start addresses to SECTION start + size of all
      preceding segments
-4. Calculate label addresses
-  a. absolute exports: define labels at their absolute address
-  b. relative exports: define labels at the SEGMENT base address within the object file + relative offset
-5. Assemble object files
-  a. in order provided, open object file
-  b. read imports from header for this object file (skip rest of header)
-  c. map imports to their corresponding labels
-  d. assemble object code (see object code definition in this doc below)
-6. Validate
-  a. make sure sections don't overlap
+
+Finally, for each object file, the linker uses the global link context to link it to the output file via the following steps.
+
+* Store global EXPORTs
+  * absolute exports: define labels at their absolute address
+  * relative exports: define labels at the SEGMENT base address within the object file + relative offset
+* Map IMPORTs (generate SYMBOL map)
+  * read names of all imported symbols in object header and map them to their EXPORT's address
+* Map SEGMENTs (generate SEGMENT map)
+  * read names of all segments in object header and map them to their current address
+* Assemble object code (see object code definition in this doc below)
+* Validate
+  * make sure sections don't overlap
 
 ### OBJECT CODE DEFINITION
 Object code is a primitive instruction set that the linker uses to generate

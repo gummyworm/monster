@@ -10,23 +10,25 @@ file.  A debug object file omits this information, but also contains debug
 information (line numbers, files, etc.)
 
 #### LINK FORMAT (.O)
-|  field         | description                   |
+Refer to [the linker](linker.md) document for details on the object format.
+
+|  FIELD         | DESCRIPTION                   |
 |----------------|-------------------------------|
 | Segments       | segments used in the file     |
 | Imports        | symbols required to link      |
 | Exports        | symbols exported by this file |
 | Section Header | # of headers                  |
 | Section Table  | info about each section       |
-| Sections       | .TEXT, .RODATA, .DATA         |
+| Sections       | .CODE, .RODATA, .DATA         |
 
 #### DEBUG FORMAT (.D)
-|  field         | description                 |
+|  FIELD         | DESCRIPTION                 |
 |----------------|-----------------------------|
 | Run address    | .PRG header                 |
 | Segments       | the binary (linked) program |
 | Section Header | # of headers                |
 | Section Table  | info about each section     |
-| Sections       | .TEXT, .RODATA, .DATA       |
+| Sections       | .CODE, .RODATA, .DATA       |
 | Debug Sections | .LINE, .FILES, .SYM         |
 
 #### HEADER
@@ -63,7 +65,7 @@ program.  Combined with the data sections (.DATA and .RODATA), it makes
 up the program that will be loaded into memory and is the first of the
 "executable" sections.
 
-The format of the .TEXT sections is very simple: it is the literal
+The format of the .CODE sections is very simple: it is the literal
 assembled binary.
 
 | field  |  description                                |
@@ -73,7 +75,7 @@ assembled binary.
 #### .DATA
 The data section contains mutable data (variable) definitions.
 
-Much like the .TEXT section, it has a very simple layout: a single
+Much like the .CODE section, it has a very simple layout: a single
 contiguous block representing the state of the variables at load-time
 
 | index | field  |  description                                     |
@@ -95,7 +97,6 @@ The .BSS section contains no data at all. The header, however,
 defines where uninitialized user variables are stored.
 
 ### DEBUG SECTIONS
-
 Debug sections are stripped when building the .PRG file, but they
 contain useful information for the debugger.
 

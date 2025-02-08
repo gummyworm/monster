@@ -1,4 +1,4 @@
-r# PORTING GUIDE
+## PORTING GUIDE
 
 Porting Monster to another 6502-based platform requires implementing a few components.
 

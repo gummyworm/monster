@@ -44,7 +44,7 @@ objptr=zp::link
 segptr=zp::link+2
 
 ;*******************************************************************************
-.BSS
+.segment "LINKER_BSS"
 
 numobjects:  .byte 0
 numsegments: .byte 0
@@ -105,7 +105,21 @@ segments_stophi:  .res MAX_SEGMENTS
 
 segment_names: .res 8*MAX_SEGMENTS
 
-;******************************************************************************
+;*******************************************************************************
+; SEGMENT MAP
+; This array maps the index of a local SEGMENT to its global SEGMENT
+; in the above tables.
+; The indices into this array represent the id's used in the object file that
+; is currently being linked.
+segment_map: .res MAX_SEGMENTS
+
+;*******************************************************************************
+; SYMBOL MAP
+; This array maps the (16-bit) index of a given IMPORT to its address
+; (found by looking up the value for the corresponding global EXPORT)
+symbol_map: .res 768
+
+;*******************************************************************************
 ; OBJECT CODE overview
 ; Object code is stored in a simple block format as follows
 ;  - the 1st block contains all IMPORTs required to link the file
@@ -186,7 +200,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; IN:
 ;  .XY:   the output filename of the .D (debug) file
 ;  r0:    the number of .O files
-;  r1/r2: the array of .O filenames (as 0-terminated strings)
+;  r1/r2: address of array of .O filenames (as 0-terminated strings)
 .export __link_debug
 .proc __link_debug
 .endproc
@@ -623,30 +637,31 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; from the OBJ headers.
 .proc link_object
 	ldx activeobj
+
 	; TODO: set IMPORTs for this OBJ file
 
 @l0:	ldy #$00
 	lda (objptr),y	; get an "instruction" from the OBJ code
 	incw objptr	; move past "opcode"
 	clc
-	beq @done
+	beq @done	; if we read a 0, we're at the end of the "program"
 
-	cmp #OBJ_BYTES		; bytes
-	bne :+
-	jsr obj_bytes
-	jmp @l0
+	lda @cmdslo,x
+	sta zp::jmpvec
+	lda @cmdshi,x
+	sta zp::jmpvec+1
 
-:	cmp #OBJ_RELWORD	; relative word?
-	bne :+
-	jsr obj_rel_word
-	jmp @l0
-
-:	cmp #OBJ_SETSEG		; set segment?
-	bne @done		; unrecognized "opcode"
-	jsr set_seg
-	bcc @l0			; if no, error continue loop
-
+	; run the "instruction"
+	jsr zp::jmpaddr
+	jmp @l0		; continue to the next instruction
 @done:	rts
+
+.linecont +
+.define op_vecs set_seg, obj_bytes, obj_rel_byte, obj_rel_word, obj_rel_zp, \
+	obj_rel_abs
+.linecont -
+@cmdslo: .lobytes op_vecs
+@cmdshi: .hibytes op_vecs
 .endproc
 
 ;*******************************************************************************
@@ -678,7 +693,22 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .endproc
 
 ;******************************************************************************
-; OBJ_REL_WORD
+; OBJ REL BYTE
+.proc obj_rel_byte
+.endproc
+
+;******************************************************************************
+; OBJ REL ZP
+.proc obj_rel_zp
+.endproc
+
+;******************************************************************************
+; OBJ REL ABS
+.proc obj_rel_abs
+.endproc
+
+;******************************************************************************
+; OBJ REL WORD
 ; Handles the OBJ_REL_WORD command
 ; Inserts a WORD with the value of the symobl that follows + an offset to
 ; the current address of the segment pointer
@@ -728,13 +758,14 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; IN:
 ;  - objptr: the current pointer in the object code
 .proc set_seg
-	; store the current end address of the active segment
+	; update the current end address of the active segment
 	ldx activeseg
 	lda segptr
 	sta segments_stoplo,x
 	lda segptr+1
 	sta segments_stophi,x
 
+	; get the operand (SEGMENT id)
 	ldxy objptr
 	jsr get_segment_by_name
 	bcs @done		; return error if not found
@@ -903,6 +934,10 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	ldxy @fptr
 	rts
 .endproc
+
+;*******************************************************************************
+; MAP IMPORTS
+; Read the IMPORT block from the open OBJECT file and
 
 ;******************************************************************************
 ; GET SEGMENT BY NAME
