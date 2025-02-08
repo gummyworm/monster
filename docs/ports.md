@@ -11,6 +11,38 @@ Here is a basic list of the implementation required:
  - FILE:      routines to save/load files
  - INTERRUPT: the main IRQ that handles platform specific visual, audio, etc. functionality
 
+### MEMORY
+To function _at all_, Monster needs a way to the address 24-bit space.
+The placement of your code may vary depending on the memory map of the target, so Monster needs to be
+able to call code that resides in other RAM banks.
+
+Beginning with the linker file, Monster expects certain _segments_ to be available no matter which
+bank is active.  This may require copying the code for these segments to all blocks.
+
+* IRQ
+* BANKCODE
+* BANKCODE2
+
+Monster also expects the following memory addresses to be accessible from all banks.
+* ZEROPAGE ($00-$100)
+* STACK ($100-$200)
+* SHAREBSS
+
+If your target swaps these upon switching banks, you will need to make sure an update to a value
+in this space is applied to the same address in all the other banks.  Thankfully, it is common
+to have granular control over the memory that is bank-switched, and the space needed for `SHAREBSS`
+is small.
+
+NOTE: When designing your link configuration file, try to keep most of the code in the same bank. This will
+reduce the overhead of procedure calls.
+
+The next step is providing a means to call routines in other banks and write/read to memory locations in them.
+To do this requires implementing a couple macros.
+
+|  MACRO                  | DESCRIPTION
+|-------------------------|--------------------------------------------------------------------------------------------------
+| `CALL <PROC>`           | Within the same bank evaluates to a JSR, otherwise switches to the correct bank and calls PROC
+
 ### SCREEN
 The screen routines provide the implementation for things like clearing the screen or changing its
 color. Below list of procedures that must be implemented to do this.
