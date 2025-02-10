@@ -43,6 +43,13 @@ For machines that have a full 64k of RAM, it may not be necessary to ever switch
 (in other words the `CALL` macro can always resolve to a `JSR`), but you will still need to provide a way for
 source code, label names, etc. to be stored somewhere in the 24 bit address range.
 
+If the target has, say, 32K of RAM addressable like the Commodore Vic-20, execution will need to
+happen in multiple banks.  It is important that the implementation of `CALL` for these platforms is
+bank-independent.  Calling a routine via `CALL` must return to the bank that the procedure was called from.
+
+For simplicity, a single segment should be within a single bank.  Code within a bank can `JSR` to other
+routines in the segment freely.
+
 |  MACRO                  | DESCRIPTION
 |-------------------------|--------------------------------------------------------------------------------------------------
 | `CALL <PROC>`           | Within the same bank evaluates to a JSR, otherwise switches to the correct bank and calls PROC
@@ -68,7 +75,7 @@ Rendering text only requires one procedure to be implemented.
 
 |  PROCEDURE              | DESCRIPTION
 |-------------------------|---------------------------------------------------------------------------------
-| `__text_puts`           | renders the text string whose address is given in `.YX` at the row in `.A`
+| `puts`                  | renders the text string whose address is given in `.YX` at the row in `.A`
 
 ### DRAW
 The _DRAW_ routines serve mostly to set the colors for given rows of characters.

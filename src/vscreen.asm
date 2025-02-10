@@ -1,4 +1,4 @@
-;******************************************************************************
+;*******************************************************************************
 ; SCREEN.ASM
 ;
 ; This file contains routines to manipulate the "screen".
@@ -15,17 +15,17 @@
 ; "roll over" upon crossing $2000.
 ; When the default layout is shifted left, this means that the address $1100
 ; will now refer to 8 pixels at the top right of the bitmap display.
-;******************************************************************************
+;*******************************************************************************
 
 .include "config.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "ram.inc"
 .include "settings.inc"
 .include "source.inc"
 .include "zeropage.inc"
 
 .include "vic20/bitmap.inc"
-.include "vic20/finalex.inc"
 
 .import __scr_init
 
@@ -43,7 +43,7 @@ MAX_SHIFT = NUM_COLS
 
 .segment "VSCREEN"
 
-;******************************************************************************
+;*******************************************************************************
 ; RESTORE
 ; Initializes the screen using shiftamount to determine the layout
 ; IN:
@@ -91,7 +91,7 @@ MAX_SHIFT = NUM_COLS
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SHL
 ; Shifts the CHARACTER data of the screen to the left.
 ; See SHR for documentation
@@ -138,7 +138,7 @@ MAX_SHIFT = NUM_COLS
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SHR
 ; Shifts the CHARACTER data of the screen to the right.  This means that the
 ; bitmap addresses for each column will shift by $c0
@@ -245,7 +245,7 @@ bm_columnslo: .lobytes cols
 bm_columnshi: .hibytes cols
 
 .segment "VSCREEN_BSS"
-;******************************************************************************
+;*******************************************************************************
 ; SCREEN
 ; The "virtual" screen.  This is a continuation of the bitmap at address $1000
 screen: .res $2000	; bitmap for 200 columns

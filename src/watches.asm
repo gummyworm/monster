@@ -21,6 +21,7 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "ram.inc"
 .include "source.inc"
 .include "strings.inc"
 .include "text.inc"
@@ -28,8 +29,6 @@
 .include "view.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
-
-.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS

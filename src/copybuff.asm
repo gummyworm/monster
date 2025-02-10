@@ -9,7 +9,7 @@
 .include "macros.inc"
 .include "zeropage.inc"
 
-.include "vic20/finalex.inc"
+.include "ram.inc"
 
 .import __COPYBUFF_BSS_SIZE__
 

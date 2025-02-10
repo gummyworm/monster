@@ -24,7 +24,7 @@
 .include "text.inc"
 .include "zeropage.inc"
 
-.include "vic20/finalex.inc"
+.include "ram.inc"
 
 .import is_whitespace	; from debugcmd.asm
 
@@ -99,7 +99,7 @@ screen: .res 40*24
 	; scroll everything up
 	ldx #$00
 	lda #HEIGHT-1
-	CALL FINAL_BANK_MAIN, #text::scrollup
+	CALL FINAL_BANK_MAIN, text::scrollup
 
 	; scroll the console screen buffer
 	ldxy #screen
@@ -135,7 +135,7 @@ screen: .res 40*24
 @print:	ldxy @msg
 
 	; render the message
-	CALL FINAL_BANK_MAIN, #text::render_ind
+	CALL FINAL_BANK_MAIN, text::render_ind
 	stxy @msg
 
 	lda #$00
@@ -188,7 +188,7 @@ screen: .res 40*24
 
 	ldxy @msg
 	lda __console_outfile
-	CALL FINAL_BANK_MAIN, #file::savebin
+	CALL FINAL_BANK_MAIN, file::savebin
 
 	; write a newline
 	lda #$0d
@@ -198,7 +198,7 @@ screen: .res 40*24
 	lda line
 	inc line
 	ldxy @msg
-	JUMP FINAL_BANK_MAIN, #text::print
+	JUMP FINAL_BANK_MAIN, text::print
 .endproc
 
 ;******************************************************************************
@@ -219,7 +219,7 @@ screen: .res 40*24
 @scr=r0
 @line=r2
 @linebuff=mem::spare
-	CALL FINAL_BANK_MAIN, #scr::clr
+	CALL FINAL_BANK_MAIN, scr::clr
 
 	lda line
 	beq @cont
@@ -238,7 +238,7 @@ screen: .res 40*24
 
 	lda @line
 	ldxy #@linebuff
-	CALL FINAL_BANK_MAIN, #text::print
+	CALL FINAL_BANK_MAIN, text::print
 	lda @scr
 	clc
 	adc #40
@@ -270,12 +270,12 @@ screen: .res 40*24
 
 	; treat whitespace as separator for expressions in the console
 	lda #$01
-	CALL FINAL_BANK_MAIN, #expr::end_on_ws
+	CALL FINAL_BANK_MAIN, expr::end_on_ws
 
 @prompt:
 	ldxy #mem::linebuffer
 	lda line
-	CALL FINAL_BANK_MAIN, #text::print
+	CALL FINAL_BANK_MAIN, text::print
 	lda #'>'
 	sta mem::linebuffer
 	lda #$00
@@ -291,10 +291,10 @@ screen: .res 40*24
 	sta zp::curx		; move to start of line
 	ldx #$01
 	ldy #$00
-	CALL FINAL_BANK_MAIN, #cur::setmin
+	CALL FINAL_BANK_MAIN, cur::setmin
 
 	ldxy #__console_getch
-	CALL FINAL_BANK_MAIN, #edit::gets
+	CALL FINAL_BANK_MAIN, edit::gets
 	bcs @clrline
 	pha
 
@@ -325,15 +325,15 @@ screen: .res 40*24
 	; close the output file (if not screen)
 	lda __console_outfile
 	beq :+
-	CALL FINAL_BANK_MAIN, #file::close
-	CALL FINAL_BANK_MAIN, #irq::on
+	CALL FINAL_BANK_MAIN, file::close
+	CALL FINAL_BANK_MAIN, irq::on
 
 :	pla
 	plp
 	bcc @ok			; if it succeeded, continue
 
-@err:	CALL FINAL_BANK_MAIN, #err::get
-	CALL FINAL_BANK_MAIN, #str::uncompress
+@err:	CALL FINAL_BANK_MAIN, err::get
+	CALL FINAL_BANK_MAIN, str::uncompress
 	jsr __console_puts
 
 @ok:	lda __console_quit	; was QUIT signal sent?
@@ -348,7 +348,7 @@ screen: .res 40*24
 	lda dbg::interface
 	bne :+
 	; if debug interface changed back to GUI, refresh editor
-	CALL FINAL_BANK_MAIN, #edit::refresh
+	CALL FINAL_BANK_MAIN, edit::refresh
 :	rts
 .endproc
 
@@ -389,7 +389,7 @@ screen: .res 40*24
 	pha
 
 	; disable IRQ for file IO
-	CALL FINAL_BANK_MAIN, #irq::off
+	CALL FINAL_BANK_MAIN, irq::off
 
 	; found the start of the filename
 	; open the output file
@@ -400,7 +400,7 @@ screen: .res 40*24
 	lda #>(mem::linebuffer+1)
 	adc #$00
 	tay
-	CALL FINAL_BANK_MAIN, #file::open_w
+	CALL FINAL_BANK_MAIN, file::open_w
 
 	bcs @err
 	sta __console_outfile

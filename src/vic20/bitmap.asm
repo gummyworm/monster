@@ -64,7 +64,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 ; Clears the screen
 .export __screen_clr
 .proc __screen_clr
-	CALL FINAL_BANK_FAST, #fcpy::clr
+	CALL FINAL_BANK_FAST, fcpy::clr
 	lda #TEXT_COLOR
 	; fall through
 .endproc
@@ -315,7 +315,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 ; to scr::restore
 .export __screen_save
 .proc __screen_save
-	CALL FINAL_BANK_FASTCOPY2, #fcpy::save
+	CALL FINAL_BANK_FASTCOPY2, fcpy::save
 
 	ldx #NUM_ROWS*2-1
 :	lda mem::rowcolors,x
@@ -333,7 +333,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 ; You should call bm::save first with the buffer you want to restore
 .export __screen_restore
 .proc __screen_restore
-	CALL FINAL_BANK_FASTCOPY2, #fcpy::restore
+	CALL FINAL_BANK_FASTCOPY2, fcpy::restore
 	; restore the per-row colors
 	ldx #NUM_ROWS*2-1
 :	lda mem::rowcolors_save,x
@@ -341,7 +341,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	dex
 	bpl :-
 	rts
-	; JUMP FINAL_BANK_VSCREEN, #restore
+	; JUMP FINAL_BANK_VSCREEN, restore
 .endproc
 
 ;*******************************************************************************

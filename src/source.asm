@@ -23,7 +23,7 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-.include "vic20/finalex.inc"
+.include "ram.inc"
 
 ;*******************************************************************************
 ; CONSTANTS
@@ -93,8 +93,12 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 ; DATA
 ; This buffer holds the text data.  It is a large contiguous chunk of memory
 .segment "SOURCE"
+.ifdef vic20
 .assert * & $ff = 0, error, "source buffers must be page aligned"
 data: .res BUFFER_SIZE
+.else
+data:
+.endif
 
 .CODE
 ;*******************************************************************************
@@ -1033,7 +1037,7 @@ data: .res BUFFER_SIZE
 
 	lda bank
 	sta r7		; destination bank
-	jsr fe3::copy
+	jsr ram::copy
 
 @ins:	pla
 	ldy cursorzp+1
@@ -1301,7 +1305,7 @@ __src_atcursor:
 	tay			; .Y = bytes to copy
 	dey
 	lda bank
-	jsr fe3::fcopy
+	jsr ram::fcopy
 	pla
 	tay
 	bne @done		; branch always
@@ -1309,7 +1313,7 @@ __src_atcursor:
 :	ldxy @target
 	stxy zp::bankaddr1
 	lda bank
-	jsr fe3::copyline
+	jsr ram::copyline
 
 @done:	lda #$00
 	sta (@target),y

@@ -9,9 +9,8 @@
 
 .include "errors.inc"
 .include "macros.inc"
+.include "ram.inc"
 .include "zeropage.inc"
-
-.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS
@@ -30,26 +29,6 @@ allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
 ; Flat memory procedure mappings
 __label_clr              = clr
 __label_add		 = add
-__label_find             = find
-__label_by_addr          = by_addr
-__label_by_id            = by_id
-__label_name_by_id       = name_by_id
-__label_isvalid          = is_valid
-__label_get_name         = get_name
-__label_get_addr         = getaddr
-__label_is_local         = is_local
-__label_set              = set
-__label_set24            = set24
-__label_del              = del
-__label_address          = address
-__label_setscope         = set_scope
-__label_addanon          = add_anon
-__label_get_fanon        = get_fanon
-__label_get_banon        = get_banon
-__label_index            = index
-__label_id_by_addr_index = id_by_addr_index
-__label_clr              = clr
-__label_add              = add
 __label_find             = find
 __label_by_addr          = by_addr
 __label_by_id            = by_id
@@ -102,11 +81,11 @@ ID_BY_ADDR_INDEX
 .endenum
 
 .RODATA
+
 .linecont +
-.define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
-	getaddr, is_local, set, set24, del, address, set_scope, add_anon, \
-	get_fanon, get_banon, index, id_by_addr_index
+.define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, getaddr, is_local, set, set24, del, address, set_scope, add_anon, get_fanon, get_banon, index, id_by_addr_index
 .linecont -
+
 procs_lo: .lobytes procs
 procs_hi: .hibytes procs
 
@@ -196,7 +175,12 @@ __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 ; which contains the value (address) for the label name.
 .segment "LABELNAMES"
 .export labels
+
+.ifdef vic20
 labels: .res $6000
+.else
+labels:
+.endif
 
 .segment "SHAREBSS"
 ;******************************************************************************
@@ -412,7 +396,7 @@ anon_addrs: .res MAX_ANON*2
 	stxy zp::bankaddr0
 	ldxy #@tmplabel
 	stxy zp::bankaddr1
-	CALL FINAL_BANK_MAIN, #fe3::copyline
+	CALL FINAL_BANK_MAIN, ram::copyline
 	ldxy #@tmplabel
 ; fall through
 .endproc

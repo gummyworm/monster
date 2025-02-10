@@ -3,7 +3,6 @@
 .include "screen.inc"
 .include "zeropage.inc"
 
-.include "vic20/finalex.inc"
 .include "vic20/bitmap.inc"
 
 ;******************************************************************************
@@ -77,7 +76,7 @@ fast_clr2 = $727f	; clear last 6 columns
 	sta zp::bankval
 	ldxy @addr
 	lda @bank
-	jsr fe3::store
+	jsr ram::store
 	incw @addr
 	inc @i
 	lda @i
@@ -103,7 +102,7 @@ fast_clr2 = $727f	; clear last 6 columns
 	sta zp::bankval
 	ldxy @addr
 	lda @bank
-	jsr fe3::store
+	jsr ram::store
 	incw @addr
 	inc @i
 	lda @i
@@ -128,7 +127,7 @@ fast_clr2 = $727f	; clear last 6 columns
 	sta zp::bankval
 	ldxy @addr
 	lda @bank
-	jsr fe3::store
+	jsr ram::store
 	incw @addr
 	inc @i
 	lda @i
@@ -162,7 +161,7 @@ fast_clr2 = $727f	; clear last 6 columns
 	sta zp::bankval
 	ldxy @addr
 	lda @bank
-	jsr fe3::store
+	jsr ram::store
 	incw @addr
 	inc @i
 	lda @i
@@ -188,7 +187,7 @@ fast_clr2 = $727f	; clear last 6 columns
 	sta zp::bankval
 	ldxy @addr
 	lda @bank
-	jsr fe3::store
+	jsr ram::store
 	incw @addr
 	inc @i
 	lda @i
@@ -213,7 +212,7 @@ fast_clr2 = $727f	; clear last 6 columns
 	sta zp::bankval
 	ldxy @addr
 	lda @bank
-	jsr fe3::store
+	jsr ram::store
 	incw @addr
 	inc @i
 	lda @i
@@ -222,7 +221,7 @@ fast_clr2 = $727f	; clear last 6 columns
 
 	ldxy @addr
 	lda @bank
-	jsr fe3::store
+	jsr ram::store
 
 	jmp gen_bm_clr
 

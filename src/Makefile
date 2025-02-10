@@ -1,4 +1,5 @@
-TARGET=vic20
+#TARGET=vic20
+TARGET=c64
 REGION=NTSC
 
 # default device # (for cart image)
@@ -13,7 +14,7 @@ CL65=cl65
 C1541=c1541
 EXOMIZER=exomizer
 
-BOOTSRC=vic20/boot.asm
+BOOTSRC=$(TARGET)/boot.asm
 TARGET_SRC=$(filter-out $BOOTSRC, $(wildcard $(TARGET)/*.asm))	# platform specific source files
 PI_SRC=$(wildcard *.asm)					# platform independent source files
 SRC=$(TARGET_SRC) $(PI_SRC)

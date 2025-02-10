@@ -15,7 +15,7 @@
 .export __vmem_load
 .proc __vmem_load
 	jsr __vmem_translate
-	jmp fe3::load
+	jmp ram::load
 .endproc
 
 ;*******************************************************************************
@@ -31,7 +31,7 @@
 .proc __vmem_load_off
 	sta zp::bankval
 	jsr __vmem_translate
-	jmp fe3::load_off
+	jmp ram::load_off
 .endproc
 
 ;*******************************************************************************
@@ -45,7 +45,7 @@
 .proc __vmem_store
 	sta zp::bankval
 	jsr __vmem_translate
-	jmp fe3::store
+	jmp ram::store
 .endproc
 
 ;*******************************************************************************
@@ -60,7 +60,7 @@
 .proc __vmem_store_off
 	sta zp::bankoffset
 	jsr __vmem_translate
-	jmp fe3::store_off
+	jmp ram::store_off
 .endproc
 
 ;*******************************************************************************

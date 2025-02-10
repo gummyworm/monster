@@ -12,7 +12,7 @@
 .include "ram.inc"
 .include "zeropage.inc"
 
-.include "vic20/finalex.inc"
+.include "ram.inc"
 
 ; Debug info constants
 MAX_FILES  = 64		; max files debug info may be generated for
@@ -107,7 +107,12 @@ __debug_src_line = srcline	; the line # stored by dbg::storeline
 ; The location of each block is found by summing the sizes of each block before
 ; the block in question
 .export debuginfo
+
+.ifdef vic20
 debuginfo: .res $6000
+.else
+debuginfo:
+.endif
 
 .segment "DEBUGINFO_CODE"
 
@@ -822,7 +827,7 @@ blockaddresseshi: .res MAX_FILES
 	stxy zp::bankaddr0	; copy from given address
 	ldxy #@buff
 	stxy zp::bankaddr1	; copy to temp buffer
-	jsr fe3::copyline	; copy the filename to a buffer in shared RAM
+	jsr ram::copyline	; copy the filename to a buffer in shared RAM
 	lda @buff
 	beq @notfound	; if string is 0-length, return with "not found" flag
 	lda numfiles
@@ -900,7 +905,7 @@ get_filename = get_filename_addr
 	ldxy #@buff
 	stxy zp::bankaddr1
 	lda #FINAL_BANK_DEBUG	; copy from DEBUG bank
-	jsr fe3::copyline	; copy the filename to a buffer in shared RAM
+	jsr ram::copyline	; copy the filename to a buffer in shared RAM
 	ldxy #@buff
 	clc
 @done:	rts
@@ -938,7 +943,7 @@ get_filename = get_filename_addr
 	jsr get_filename_addr	; get the destination address for ID
 	stxy @dst
 	ldxy @filename		; restore filename
-	CALL FINAL_BANK_MAIN, #str::len
+	CALL FINAL_BANK_MAIN, str::len
 
 	; bytes to copy = strlen(@filename)+1
 	tax
@@ -947,7 +952,7 @@ get_filename = get_filename_addr
 	lda #FINAL_BANK_DEBUG		; dest bank
 	sta r7
 	lda #FINAL_BANK_MAIN		; source bank
-	CALL FINAL_BANK_MAIN, #fe3::copybanked
+	CALL FINAL_BANK_MAIN, ram::copybanked
 	lda filenames
 
 	lda numfiles	; get ID of new file

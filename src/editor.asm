@@ -34,6 +34,7 @@
 .include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "ram.inc"
 .include "screen.inc"
 .include "settings.inc"
 .include "source.inc"
@@ -49,7 +50,6 @@
 
 .ifdef vic20
 .include "vic20/udgedit.inc"
-.include "vic20/finalex.inc"
 .endif
 
 ;******************************************************************************
@@ -228,7 +228,7 @@ main:	jsr key::getch
 .export __edit_enter_console
 .proc __edit_enter_console
 	jsr draw::coloroff
-	JUMP FINAL_BANK_CONSOLE, #con::enter
+	JUMP FINAL_BANK_CONSOLE, con::enter
 .endproc
 
 ;******************************************************************************
@@ -1588,8 +1588,8 @@ force_enter_insert=*+5
 	cmp #$6c	; 'l'
 	beq @left
 	rts
-@left:  JUMP FINAL_BANK_VSCREEN, #scr::shr
-@right: JUMP FINAL_BANK_VSCREEN, #scr::shl
+@left:  JUMP FINAL_BANK_VSCREEN, scr::shr
+@right: JUMP FINAL_BANK_VSCREEN, scr::shl
 .endif
 .endproc
 
@@ -2338,7 +2338,7 @@ __edit_set_breakpoint:
 	jsr scr::save
 	inc text::statusfmt
 
-	CALL FINAL_BANK_UDGEDIT, #udg::edit
+	CALL FINAL_BANK_UDGEDIT, udg::edit
 	sta @result
 
 	dec text::statusfmt

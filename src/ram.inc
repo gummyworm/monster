@@ -1,5 +1,26 @@
 .ifndef RAM_INC
+RAM_INC = 1
+
 .include "zeropage.inc"
+
+.ifdef vic20
+.include "vic20/ramex.inc"
+.endif
+
+.ifdef c64
+.include "c64/ram.inc"
+.endif
+
+.import __ram_call
+.import __ram_copy
+.import __ram_memcpy
+.import __ram_copy_banked
+.import __ram_copy_line
+.import __ram_store_byte
+.import __ram_bank_store_rel
+.import __ram_get_byte
+.import __ram_load_byte
+.import __ram_load_byte_off
 
 ;******************************************************************************
 ; SET SEGMENT
@@ -25,7 +46,7 @@
 ;		; target procedure is in another bank
 ;	.endif
 ;.endmacro
-;
+
 ;;******************************************************************************
 ;; JUMP
 ;; Jumps to the given routine.  If the routine is within the same bank as the
@@ -40,73 +61,19 @@
 ;	.endif
 ;.endmacro
 
-.ifdef vic20
-.import __final_call
-.import __final_store_byte
-.import __final_load_byte
-.import __final_load_byte_off
-.import __final_memcpy
-.import __final_copy
-.import __final_copy_line
-.import __final_bank_store_rel
-.endif
-
 .scope ram
-	call      = __final_call
-	fcopy     = __final_copy
-	copy      = __final_memcpy
-	copyline  = __final_copy_line
-	store     = __final_store_byte
-	store_off = __final_bank_store_rel
-	load      = __final_load_byte
-	load_off  = __final_load_byte_off
+	call      = __ram_call
+	fcopy     = __ram_copy
+	copy      = __ram_memcpy
+	copybanked= __ram_copy_banked
+	copyline  = __ram_copy_line
+	store     = __ram_store_byte
+	store_off = __ram_bank_store_rel
+	get_byte  = __ram_get_byte
+	load      = __ram_load_byte
+	load_off  = __ram_load_byte_off
+
+	load_byte_off  = __ram_load_byte_off
 .endscope
 
-;******************************************************************************
-; LDA24
-; Loads the given 24 bit address into .A
-.macro lda24 bank, addr, offset
-.ifdef vic20
-.ifnblank offset
-	lda offset
-	sta zp::bankval
-.endif
-.ifnblank addr
-	ldxy addr
-.endif
-	lda bank
-
-.ifblank offset
-	jsr __final_load_byte
-.else
-	lda bank
-	jsr __final_load_byte_off
-.endif
-.endif
-.endmacro
-
-;******************************************************************************
-; STA24
-; Stores the value in .A to the given 24 bit address
-.macro sta24 bank, addr
-.ifdef vic20
-	sta zp::bankval
-	ldxy addr
-	lda bank
-	jsr __final_store_byte
-.endif
-.endmacro
-
-;******************************************************************************
-; MOV
-; Moves the value from the given 24-bit source to the given 24-bit destination
-.macro mov dst24, src24
-	.if (.match (.left (1, {src24}), #))
-		; immediate mode, just load .A with the immediate value
-		lda src24
-	.else
-		lda24 src
-	.endif
-	sta24 dst24
-.endmacro
 .endif
