@@ -228,8 +228,8 @@ banksp:    .byte 0
 ;  - r2:  the source address
 ;  - r4:  the destination address
 ;  - r7:  the destination bank
-.export __ram_memcpy_bank
-__ram_memcpy_bank:
+.export __ram_copy_banked
+__ram_copy_banked:
 	skw	; don't overwrite destination bank
 
 ;*******************************************************************************

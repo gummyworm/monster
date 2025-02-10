@@ -182,7 +182,7 @@ __debuginfo_get_fileid: BANKJUMP dbgi_proc_ids::GET_FILEID
 @savex=*+1
 	ldx #$00
 	pla
-	jmp __final_call
+	jmp __ram_call
 .endproc
 
 .POPSEG

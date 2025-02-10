@@ -4,7 +4,7 @@ RAM_INC = 1
 .include "zeropage.inc"
 
 .ifdef vic20
-.include "vic20/ramex.inc"
+.include "vic20/ram.inc"
 .endif
 
 .ifdef c64

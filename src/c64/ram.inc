@@ -3,7 +3,7 @@ C64_RAM_INC = 1
 
 .import __ram_copyline
 
-FINAL_BANK_ROM0	   = $00		; ROM address $000000
+FINAL_BANK_ROM0	   = $00
 FINAL_BANK_MAIN    = $00
 FINAL_BANK_USER    = $00
 FINAL_BANK_DEBUG   = $00

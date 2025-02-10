@@ -15,6 +15,15 @@
 
 MAX_COPY_SIZE = __COPYBUFF_BSS_SIZE__
 
+.export __buff_putch
+.export __buff_getch
+.export __buff_getline
+.export __buff_clear
+.export __buff_lines_copied
+.export __buff_push
+.export __buff_pop
+.export __buff_len
+
 .if FINAL_BANK_MAIN=FINAL_BANK_BUFF
 ;*******************************************************************************
 ; Flat memory procedure mappings
@@ -55,28 +64,13 @@ buff_procs_lo: .lobytes buff_procs
 buff_procs_hi: .hibytes buff_procs
 
 .CODE
-.export __buff_putch
 __buff_putch: COPYBUFFJUMP buff_proc_ids::PUTCH
-
-.export __buff_getch
 __buff_getch: COPYBUFFJUMP buff_proc_ids::GETCH
-
-.export __buff_getline
 __buff_getline: COPYBUFFJUMP buff_proc_ids::GETLINE
-
-.export __buff_clear
 __buff_clear: COPYBUFFJUMP buff_proc_ids::CLEAR
-
-.export __buff_lines_copied
 __buff_lines_copied: COPYBUFFJUMP buff_proc_ids::LINES_COPIED
-
-.export __buff_push
 __buff_push: COPYBUFFJUMP buff_proc_ids::PUSH
-
-.export __buff_pop
 __buff_pop: COPYBUFFJUMP buff_proc_ids::POP
-
-.export __buff_len
 __buff_len: COPYBUFFJUMP buff_proc_ids::LEN
 
 ;*******************************************************************************
@@ -93,7 +87,7 @@ __buff_len: COPYBUFFJUMP buff_proc_ids::LEN
 @savex=*+1
 	ldx #$00
 	pla
-	jmp __final_call
+	jmp __ram_call
 .endproc
 .endif
 

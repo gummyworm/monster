@@ -3,8 +3,6 @@
 .include "screen.inc"
 .include "zeropage.inc"
 
-.include "vic20/bitmap.inc"
-
 ;******************************************************************************
 ; CONSTANTS
 

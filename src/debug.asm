@@ -38,7 +38,6 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-.include "vic20/bitmap.inc"
 .include "ram.inc"
 
 .import __DEBUGGER_LOAD__

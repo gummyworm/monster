@@ -1,3 +1,5 @@
+.include "memory.inc"
+.include "text.inc"
 .include "zeropage.inc"
 
 .import __cur_toggle
@@ -162,3 +164,27 @@ maxy: .byte 0
 	sty miny
 	rts
 .endproc
+
+;*******************************************************************************
+; RIGHT
+; Moves the cursor right a column
+; If moving right would move the cursor outside its limits, has no effect
+.export __cur_right
+.proc __cur_right
+	lda zp::curx
+	cmp #40
+	bcs @done
+
+	jsr text::char_index
+	lda mem::linebuffer,y
+	cmp #$09		; TAB
+	bne :+
+	jsr text::tabr_dist
+	clc
+	adc zp::curx
+	sta zp::curx
+	rts
+:	inc zp::curx
+@done:	rts
+.endproc
+

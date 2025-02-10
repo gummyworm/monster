@@ -1,4 +1,5 @@
 .include "finalex.inc"
+.include "ram.inc"
 .include "../macros.inc"
 .include "../memory.inc"
 
@@ -15,7 +16,7 @@
 .export __vmem_load
 .proc __vmem_load
 	jsr __vmem_translate
-	jmp ram::load
+	jmp fe3::load
 .endproc
 
 ;*******************************************************************************
@@ -31,7 +32,7 @@
 .proc __vmem_load_off
 	sta zp::bankval
 	jsr __vmem_translate
-	jmp ram::load_off
+	jmp fe3::load_off
 .endproc
 
 ;*******************************************************************************
@@ -45,7 +46,7 @@
 .proc __vmem_store
 	sta zp::bankval
 	jsr __vmem_translate
-	jmp ram::store
+	jmp fe3::store
 .endproc
 
 ;*******************************************************************************
@@ -60,7 +61,7 @@
 .proc __vmem_store_off
 	sta zp::bankoffset
 	jsr __vmem_translate
-	jmp ram::store_off
+	jmp fe3::store_off
 .endproc
 
 ;*******************************************************************************

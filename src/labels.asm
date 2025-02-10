@@ -23,6 +23,27 @@ MAX_LABELS    = 750
 ; ZEROPAGE
 allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
 
+.export __label_clr
+.export __label_add
+.export __label_find
+.export __label_by_addr
+.export __label_by_id
+.export __label_name_by_id
+.export __label_isvalid
+.export __label_get_name
+.export __label_get_addr
+.export __label_is_local
+.export __label_set
+.export __label_set24
+.export __label_del
+.export __label_address
+.export __label_setscope
+.export __label_addanon
+.export __label_get_fanon
+.export __label_get_banon
+.export __label_index
+.export __label_id_by_addr_index
+
 .if FINAL_BANK_SYMBOLS=FINAL_BANK_MAIN
 
 ;*******************************************************************************
@@ -90,64 +111,25 @@ procs_lo: .lobytes procs
 procs_hi: .hibytes procs
 
 .CODE
-.export __label_clr
 __label_clr: LBLJUMP proc_ids::CLR
-
-.export __label_add
 __label_add: LBLJUMP proc_ids::ADD
-
-.export __label_find
 __label_find: LBLJUMP proc_ids::FIND
-
-.export __label_by_addr
 __label_by_addr: LBLJUMP proc_ids::BY_ADDR
-
-.export __label_by_id
 __label_by_id: LBLJUMP proc_ids::BY_ID
-
-.export __label_name_by_id
 __label_name_by_id: LBLJUMP proc_ids::NAME_BY_ID
-
-.export __label_isvalid
 __label_isvalid: LBLJUMP proc_ids::IS_VALID
-
-.export __label_get_name
 __label_get_name: LBLJUMP proc_ids::GET_NAME
-
-.export __label_get_addr
 __label_get_addr: LBLJUMP proc_ids::GETADDR
-
-.export __label_is_local
 __label_is_local: LBLJUMP proc_ids::IS_LOCAL
-
-.export __label_set
 __label_set: LBLJUMP proc_ids::SET
-
-.export __label_set24
 __label_set24: LBLJUMP proc_ids::SET24
-
-.export __label_del
 __label_del: LBLJUMP proc_ids::DEL
-
-.export __label_address
 __label_address: LBLJUMP proc_ids::ADDRESS
-
-.export __label_setscope
 __label_setscope: LBLJUMP proc_ids::SET_SCOPE
-
-.export __label_addanon
 __label_addanon: LBLJUMP proc_ids::ADD_ANON
-
-.export __label_get_fanon
 __label_get_fanon: LBLJUMP proc_ids::GET_FANON
-
-.export __label_get_banon
 __label_get_banon: LBLJUMP proc_ids::GET_BANON
-
-.export __label_index
 __label_index: LBLJUMP proc_ids::INDEX
-
-.export __label_id_by_addr_index
 __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 
 ;******************************************************************************
@@ -164,7 +146,7 @@ __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 @savex=*+1
 	ldx #$00
 	pla
-	jmp __final_call
+	jmp __ram_call
 .endproc
 .export __label_clr
 .endif

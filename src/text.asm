@@ -21,13 +21,13 @@
 .include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "screen.inc"
 .include "source.inc"
 .include "string.inc"
 .include "strings.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
-.include "vic20/bitmap.inc"
 .include "ram.inc"
 
 .import puts
