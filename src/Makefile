@@ -1,5 +1,5 @@
-#TARGET=vic20
-TARGET=c64
+TARGET=vic20
+#TARGET=c64
 REGION=NTSC
 
 # default device # (for cart image)
