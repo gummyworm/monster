@@ -54,12 +54,14 @@ SCREEN_H = 23
 
 	; load the directory into dirbuff
 :	ldxy #@dirbuff-2
-	stxy __file_load_address
+	stxy file::loadaddr
 	jsr file::loadbin
-	bcs @err
 
+	php
 	lda @file
 	jsr file::close
+	plp
+	bcs @err
 
 	jsr irq::on
 

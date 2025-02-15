@@ -32,6 +32,7 @@
 .include "labels.inc"
 .include "line.inc"
 .include "linebuffer.inc"
+.include "linker.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "ram.inc"
@@ -351,9 +352,49 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
+; COMMAND_LINK
+; Opens the "LINK" file from disk, parses it, and links all object files
+; on the same disk
+.proc command_link
+@file=r8
+@linkbuffer=mem::spare
+@objlist=mem::spare
+	jsr irq::off
+
+	; load the "LINK" file into memory
+	ldxy #strings::link
+	jsr file::open_r_prg
+	sta @file
+
+	ldxy #@linkbuffer
+	stxy file::loadaddr
+	jsr file::loadbin
+
+	php
+	lda @file
+	jsr file::close
+	plp
+
+	; parse the LINK file
+	ldxy #@linkbuffer
+	jsr link::parse
+
+	; link the object files
+	ldxy #@objlist
+	stxy link::objfiles
+
+	; lda numobjs
+	; ldxy outfile
+	jsr link::link
+
+	; display the success/failure
+
+@done:	jmp irq::on
+.endproc
+
+;******************************************************************************
 ; COMMAND_ASM
 ; Assembles the entire source
-.export command_asm
 .proc command_asm
 	ldxy #strings::assembling
 	jsr print_info
@@ -2041,6 +2082,7 @@ force_enter_insert=*+5
 	.byte K_SHOW_PROJECT	; show project
 	.byte K_REFRESH		; refresh
 	.byte K_LIST_SYMBOLS	; list symbols
+	.byte K_LINK            ; link program
 	.byte K_CLOSE_BUFF	; close buffer
 	.byte K_NEW_BUFF	; new buffer
 	.byte K_SET_BREAKPOINT	; set breakpoint
@@ -2063,7 +2105,7 @@ force_enter_insert=*+5
 .linecont +
 .define specialvecs ccleft, ccright, ccup, ccdown, \
 	home, command_asm, command_asmdbg, show_buffers, show_proj, refresh, \
-	symview::enter, \
+	symview::enter, command_link, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
 	next_buffer, prev_buffer, udgedit, cancel

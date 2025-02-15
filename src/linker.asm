@@ -44,6 +44,15 @@ objptr=zp::link
 segptr=zp::link+2
 
 ;*******************************************************************************
+; OBJFILES
+; The list of object files to link
+; Represented as a 0-terminated list of 0-terminated filename
+; e.g.
+;   "FILE1.O",0,"FILE2.O",0,0
+.export __link_objfiles
+__link_objfiles=mem::spare
+
+;*******************************************************************************
 .segment "LINKER_BSS"
 
 numobjects:  .byte 0
@@ -542,6 +551,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;  - link::objfiles: array of the files to link
 ; OUT:
 ;  - .C: set on error
+.export __link_link
 .proc __link_link
 @segptrs=r0		; 2*MAX_SEGMENTS bytes
 @secptrs=zp::tmp10 	; 2*MAX_SECTIONS bytes

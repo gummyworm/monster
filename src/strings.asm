@@ -85,6 +85,9 @@ __str_segments: .byte "segments",0
 .export __str_load
 __str_load: .byte "load",0
 
+.export __str_link
+__str_link: .byte "link",0
+
 .export __str_run
 __str_run: .byte "run",0
 

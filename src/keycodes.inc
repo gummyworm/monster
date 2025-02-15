@@ -28,6 +28,7 @@ K_SET_BREAKPOINT = $bf	; C= + B
 K_ASM            = $86	; F3
 K_ASM_DEBUG      = $8a  ; F4 (shift + F3)
 K_ASM_FILE       = $b0	; C= + a
+K_LINK           = $88	; F7
 K_SHOW_BUFFERS   = $87	; F5
 K_SHOW_PROJECT	 = $8b	; F6
 K_CONSOLE        = $a3	; C= + t
