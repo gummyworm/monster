@@ -26,6 +26,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "screen.inc"
+.include "settings.inc"
 .include "sim6502.inc"
 .include "source.inc"
 .include "string.inc"
@@ -37,9 +38,7 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-.include "vic20/bitmap.inc"
-.include "vic20/settings.inc"
-.include "vic20/finalex.inc"
+.include "ram.inc"
 
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
@@ -421,7 +420,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	lda #$4c
 	sta zp::jmpaddr
 	; restore the user $1100 data
-	CALL FINAL_BANK_FASTCOPY, #fcpy::restore
+	CALL FINAL_BANK_FASTCOPY, fcpy::restore
 	rts
 .endproc
 
@@ -593,7 +592,7 @@ brkhandler2_size=*-brkhandler2
 	sty zp::bankoffset
 	ldxy @dst
 	lda #FINAL_BANK_USER
-	jsr fe3::store_off
+	jsr ram::store_off
 	dec @cnt
 	bpl @l0
 
@@ -608,7 +607,7 @@ brkhandler2_size=*-brkhandler2
 	sty zp::bankoffset
 	ldxy @dst
 	lda #FINAL_BANK_MAIN
-	jsr fe3::store_off
+	jsr ram::store_off
 	dec @cnt
 	bpl @l1
 
@@ -714,7 +713,7 @@ brkhandler2_size=*-brkhandler2
 	bne @savecolor
 
 	; backup the screen
-	JUMP FINAL_BANK_FASTCOPY2, #fcpy::save
+	JUMP FINAL_BANK_FASTCOPY2, fcpy::save
 .endproc
 
 ;******************************************************************************
@@ -782,7 +781,7 @@ brkhandler2_size=*-brkhandler2
 	bne @savecolor
 
 	; backup the user $1100-$2000 data
-	JUMP FINAL_BANK_FASTCOPY, #fcpy::save
+	JUMP FINAL_BANK_FASTCOPY, fcpy::save
 .endproc
 
 ;******************************************************************************
@@ -1045,10 +1044,10 @@ brkhandler2_size=*-brkhandler2
 
 @iface_tui:
 	; display the contents of the registers
-	CALL FINAL_BANK_CONSOLE, #dbgcmd::regs
+	CALL FINAL_BANK_CONSOLE, dbgcmd::regs
 
 @debugloop_tui:
-	CALL FINAL_BANK_CONSOLE, #con::reenter
+	CALL FINAL_BANK_CONSOLE, con::reenter
 	jmp @finishlooptui
 
 @iface_gui:
@@ -1832,7 +1831,7 @@ restore_regs:
 	beq @gui
 
 @tui:	lda #REGISTERS_LINE-1
-	CALL FINAL_BANK_CONSOLE, #con::puts
+	CALL FINAL_BANK_CONSOLE, con::puts
 	RETURN_OK
 
 @gui:	lda #REGISTERS_LINE-1

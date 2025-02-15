@@ -17,7 +17,7 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-.include "vic20/finalex.inc"
+.include "ram.inc"
 
 ;*******************************************************************************
 ; CONSTANTS
@@ -307,15 +307,15 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	pla
 
 	; load link file into filebuff
-	CALL FINAL_BANK_MAIN, #file::open_r
-	CALL FINAL_BANK_MAIN, #file::loadbin
+	CALL FINAL_BANK_MAIN, file::open_r
+	CALL FINAL_BANK_MAIN, file::loadbin
 	bcs @err
 
 	ldxy #@filebuff
 	stxy zp::line
 
 @getblock:
-	CALL FINAL_BANK_MAIN, #line::process_ws
+	CALL FINAL_BANK_MAIN, line::process_ws
 	ldy #$00
 
 	; is line "MEMORY"?
@@ -1023,7 +1023,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	incw zp::line		; move beyond the '='
 
 	; get the value for the key, value pair
-	CALL FINAL_BANK_MAIN, #util::parsehex
+	CALL FINAL_BANK_MAIN, util::parsehex
 	rts
 
 @err:	sec

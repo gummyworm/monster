@@ -21,14 +21,14 @@
 .include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "screen.inc"
 .include "source.inc"
 .include "string.inc"
 .include "strings.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
-.include "vic20/bitmap.inc"
-.include "vic20/finalex.inc"
+.include "ram.inc"
 
 .import puts
 .import putch
@@ -879,7 +879,7 @@ indirect:   .byte 0
 ;  - .A:  the row to display the string on
 .export __text_puts
 .proc __text_puts
-	JUMP FINAL_BANK_FASTTEXT, #puts
+	JUMP FINAL_BANK_FASTTEXT, puts
 .endproc
 
 ;*******************************************************************************

@@ -1,4 +1,5 @@
 .include "finalex.inc"
+.include "ram.inc"
 .include "../macros.inc"
 .include "../memory.inc"
 

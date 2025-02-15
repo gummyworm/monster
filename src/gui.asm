@@ -4,7 +4,6 @@
 ; GUI windows are created by defining a structure containing handlers for
 ; retrieving the lines of data to draw and handling key presses.
 ; Handlers should stay away from the gui zeropage area (see zeropage.inc)
-
 ;*******************************************************************************
 
 .include "draw.inc"
@@ -44,7 +43,7 @@ baserow = zp::gui+$b	; base row for active GUI (set on creation of GUI)
 num    = zp::gui+$c	; number of items (cached read from numptr)
 guitmp = zp::gui+$d
 
-;******************************************************************************
+;*******************************************************************************
 ; GUISTACK
 ; The guistack holds the gui data for each active window.
 ; Activating a new window will push the current window (if any), and

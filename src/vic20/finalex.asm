@@ -23,8 +23,8 @@ bankcode:
 ;  - zp::bankval: the byte to write
 ; CLOBBERS:
 ;  - .A
-.export __final_store_byte
-.proc __final_store_byte
+.export __ram_store_byte
+.proc __ram_store_byte
 	pha
 	lda #$00
 	sta zp::bankoffset
@@ -40,8 +40,8 @@ bankcode:
 ;  - .A:             the bank to store to
 ;  - zp::bankoffset: the offset from the base address
 ;  - zp::bankval:    the byte to write
-.export __final_bank_store_rel
-.proc __final_bank_store_rel
+.export __ram_bank_store_rel
+.proc __ram_bank_store_rel
 @dst=zp::banktmp
 	stxy @dst
 
@@ -55,7 +55,7 @@ bankcode:
 	ldxy @dst
 	rts
 .endproc
-final_store_size=*-__final_store_byte
+final_store_size=*-__ram_store_byte
 
 ;*******************************************************************************
 ; READ_BYTE
@@ -65,8 +65,8 @@ final_store_size=*-__final_store_byte
 ;  - .A:  the bank to read from
 ; OUT:
 ;  - .A: the byte that was read
-.export __final_load_byte
-.proc __final_load_byte
+.export __ram_load_byte
+.proc __ram_load_byte
 	pha
 	lda #$00
 	sta zp::bankval
@@ -84,8 +84,8 @@ final_store_size=*-__final_store_byte
 ; OUT:
 ;  - .A: the byte that was read
 ;  - .Y: contains the offset (same that was given as zp::bankval)
-.export __final_load_byte_off
-.proc __final_load_byte_off
+.export __ram_load_byte_off
+.proc __ram_load_byte_off
 @src=zp::banktmp
 	stxy @src
 	sta $9c02	; set bank
@@ -107,8 +107,8 @@ final_store_size=*-__final_store_byte
 ;  - zp::bankaddr1: the destination address to copy to
 ; DESTROYS:
 ;  .A, .Y, .X
-.export __final_copy
-.proc __final_copy
+.export __ram_copy
+.proc __ram_copy
 	sta $9c02
 :	lda (zp::bankaddr0),y
 	sta (zp::bankaddr1),y
@@ -140,8 +140,8 @@ final_store_size=*-__final_store_byte
 ;  OUT:
 ;   - .Y: the number of bytes copied
 ;   - .A: the last byte copied
-.export __final_copy_line
-.proc __final_copy_line
+.export __ram_copy_line
+.proc __ram_copy_line
 	ldx $9c02	; get current bank
 	sta $9c02	; set bank to copy within
 	ldy #$00
@@ -164,8 +164,8 @@ final_store_size=*-__final_store_byte
 ;  - zp::bank:        the bank of the procedure to call
 ;  - zp::bankjmpaddr: the procedure address
 ;  - zp::banktmp:     the destination bank address
-.export __final_call
-.proc __final_call
+.export __ram_call
+.proc __ram_call
 @a=zp::banktmp+1
 @x=zp::banktmp+2
 @bank=zp::banktmp
@@ -211,8 +211,8 @@ banksp:    .byte 0
 ;   - .A: the value for the given address in the MAIN bank
 ; CLOBBERS:
 ;   - .A, .Y, r0-r1
-.export __final_get_byte
-.proc __final_get_byte
+.export __ram_get_byte
+.proc __ram_get_byte
 	stxy r0
 	ldy #$00
 	lda (r0),y
@@ -228,8 +228,8 @@ banksp:    .byte 0
 ;  - r2:  the source address
 ;  - r4:  the destination address
 ;  - r7:  the destination bank
-.export __final_memcpy_bank
-__final_memcpy_bank:
+.export __ram_copy_banked
+__ram_copy_banked:
 	skw	; don't overwrite destination bank
 
 ;*******************************************************************************
@@ -243,8 +243,8 @@ __final_memcpy_bank:
 ;  - .XY: the number of bytes to copy
 ;  - r2:  the source address
 ;  - r4:  the destination address
-.export __final_memcpy
-.proc __final_memcpy
+.export __ram_memcpy
+.proc __ram_memcpy
 @size=r0
 @src=r2
 @dst=r4
@@ -273,13 +273,13 @@ __final_memcpy_bank:
 @l0:	; read a byte from the source bank/addr
 	ldxy @src
 	lda @bank
-	jsr __final_load_byte
+	jsr __ram_load_byte
 
 	; write the byte to the dest bank/addr
 	sta zp::bankval
 	ldxy @dst
 	lda @bankdst
-	jsr __final_store_byte
+	jsr __ram_store_byte
 
 	; move to the next location
 	decw @src

@@ -9,9 +9,8 @@
 
 .include "errors.inc"
 .include "macros.inc"
+.include "ram.inc"
 .include "zeropage.inc"
-
-.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS
@@ -24,32 +23,33 @@ MAX_LABELS    = 750
 ; ZEROPAGE
 allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
 
+.export __label_clr
+.export __label_add
+.export __label_find
+.export __label_by_addr
+.export __label_by_id
+.export __label_name_by_id
+.export __label_isvalid
+.export __label_get_name
+.export __label_get_addr
+.export __label_is_local
+.export __label_set
+.export __label_set24
+.export __label_del
+.export __label_address
+.export __label_setscope
+.export __label_addanon
+.export __label_get_fanon
+.export __label_get_banon
+.export __label_index
+.export __label_id_by_addr_index
+
 .if FINAL_BANK_SYMBOLS=FINAL_BANK_MAIN
 
 ;*******************************************************************************
 ; Flat memory procedure mappings
 __label_clr              = clr
 __label_add		 = add
-__label_find             = find
-__label_by_addr          = by_addr
-__label_by_id            = by_id
-__label_name_by_id       = name_by_id
-__label_isvalid          = is_valid
-__label_get_name         = get_name
-__label_get_addr         = getaddr
-__label_is_local         = is_local
-__label_set              = set
-__label_set24            = set24
-__label_del              = del
-__label_address          = address
-__label_setscope         = set_scope
-__label_addanon          = add_anon
-__label_get_fanon        = get_fanon
-__label_get_banon        = get_banon
-__label_index            = index
-__label_id_by_addr_index = id_by_addr_index
-__label_clr              = clr
-__label_add              = add
 __label_find             = find
 __label_by_addr          = by_addr
 __label_by_id            = by_id
@@ -102,73 +102,34 @@ ID_BY_ADDR_INDEX
 .endenum
 
 .RODATA
+
 .linecont +
-.define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
-	getaddr, is_local, set, set24, del, address, set_scope, add_anon, \
-	get_fanon, get_banon, index, id_by_addr_index
+.define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, getaddr, is_local, set, set24, del, address, set_scope, add_anon, get_fanon, get_banon, index, id_by_addr_index
 .linecont -
+
 procs_lo: .lobytes procs
 procs_hi: .hibytes procs
 
 .CODE
-.export __label_clr
 __label_clr: LBLJUMP proc_ids::CLR
-
-.export __label_add
 __label_add: LBLJUMP proc_ids::ADD
-
-.export __label_find
 __label_find: LBLJUMP proc_ids::FIND
-
-.export __label_by_addr
 __label_by_addr: LBLJUMP proc_ids::BY_ADDR
-
-.export __label_by_id
 __label_by_id: LBLJUMP proc_ids::BY_ID
-
-.export __label_name_by_id
 __label_name_by_id: LBLJUMP proc_ids::NAME_BY_ID
-
-.export __label_isvalid
 __label_isvalid: LBLJUMP proc_ids::IS_VALID
-
-.export __label_get_name
 __label_get_name: LBLJUMP proc_ids::GET_NAME
-
-.export __label_get_addr
 __label_get_addr: LBLJUMP proc_ids::GETADDR
-
-.export __label_is_local
 __label_is_local: LBLJUMP proc_ids::IS_LOCAL
-
-.export __label_set
 __label_set: LBLJUMP proc_ids::SET
-
-.export __label_set24
 __label_set24: LBLJUMP proc_ids::SET24
-
-.export __label_del
 __label_del: LBLJUMP proc_ids::DEL
-
-.export __label_address
 __label_address: LBLJUMP proc_ids::ADDRESS
-
-.export __label_setscope
 __label_setscope: LBLJUMP proc_ids::SET_SCOPE
-
-.export __label_addanon
 __label_addanon: LBLJUMP proc_ids::ADD_ANON
-
-.export __label_get_fanon
 __label_get_fanon: LBLJUMP proc_ids::GET_FANON
-
-.export __label_get_banon
 __label_get_banon: LBLJUMP proc_ids::GET_BANON
-
-.export __label_index
 __label_index: LBLJUMP proc_ids::INDEX
-
-.export __label_id_by_addr_index
 __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 
 ;******************************************************************************
@@ -185,7 +146,7 @@ __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 @savex=*+1
 	ldx #$00
 	pla
-	jmp __final_call
+	jmp __ram_call
 .endproc
 .export __label_clr
 .endif
@@ -196,7 +157,12 @@ __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 ; which contains the value (address) for the label name.
 .segment "LABELNAMES"
 .export labels
+
+.ifdef vic20
 labels: .res $6000
+.else
+labels:
+.endif
 
 .segment "SHAREBSS"
 ;******************************************************************************
@@ -234,6 +200,7 @@ numanon: .word 0	; total number of anonymous labels
 label_addresses: .res MAX_LABELS*2
 
 .assert * & $01 = $00, error, "label_addresses_sorted must be word aligned"
+
 .export label_addresses_sorted
 label_addresses_sorted:     .res MAX_LABELS*2
 label_addresses_sorted_ids: .res MAX_LABELS*2
@@ -412,7 +379,7 @@ anon_addrs: .res MAX_ANON*2
 	stxy zp::bankaddr0
 	ldxy #@tmplabel
 	stxy zp::bankaddr1
-	CALL FINAL_BANK_MAIN, #fe3::copyline
+	CALL FINAL_BANK_MAIN, ram::copyline
 	ldxy #@tmplabel
 ; fall through
 .endproc

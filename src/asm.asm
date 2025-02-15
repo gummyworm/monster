@@ -78,7 +78,7 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-.include "vic20/finalex.inc"
+.include "ram.inc"
 
 ;******************************************************************************
 MAX_IFS      = 4 ; max nesting depth for .if/.endif
@@ -127,7 +127,6 @@ __asm_linenum: .byte 0
 segment_type: .byte 0
 
 ;*******************************************************************************
-; TO OBJECT
 ; object assembly flag
 ; if !0:
 ;   tokenize will assemble the given line as object code to the current
@@ -438,7 +437,7 @@ num_illegals = *-illegal_opcodes
 	stxy zp::bankaddr0
 	ldxy #asmbuffer
 	stxy zp::bankaddr1
-	jsr fe3::copyline
+	jsr ram::copyline
 
 	ldxy #asmbuffer
 	stxy zp::line
@@ -551,7 +550,7 @@ num_illegals = *-illegal_opcodes
 
 ; check if the line contains a macro
 @macro:	ldxy zp::line
-	CALL FINAL_BANK_MACROS, #mac::get
+	CALL FINAL_BANK_MACROS, mac::get
 
 	bcs @chklabels		; if not macro, skip
 	pha			; save macro id
@@ -1386,7 +1385,9 @@ num_illegals = *-illegal_opcodes
 
 	; assemble the current line
 	ldxy #mem::ctxbuffer
+.ifdef vic20
 	lda #FINAL_BANK_MAIN	; bank doesn't matter for ctx
+.endif
 	jsr __asm_tokenize
 	bcc :+
 	sta @errcode		; save errcode
@@ -1722,7 +1723,9 @@ __asm_include:
 	lda zp::file
 	pha
 
+.ifdef vic20
 	lda #FINAL_BANK_MAIN	; any bank that is valid (low mem is used)
+.endif
 	jsr __asm_tokenize_pass
 	bcc @ok
 	jsr errlog::log
@@ -1998,7 +2001,7 @@ __asm_include:
 	pla
 
 	; create the macro
-	CALL FINAL_BANK_MACROS, #mac::add
+	CALL FINAL_BANK_MACROS, mac::add
 
 @done:	; done with this context, disable it
 	lda #$00
@@ -2015,7 +2018,7 @@ __asm_include:
 	sta ifstacksp
 	sta contextstacksp
 	jsr ctx::init
-	CALL FINAL_BANK_MACROS, #mac::init
+	CALL FINAL_BANK_MACROS, mac::init
 	jsr lbl::clr
 	; fall through to RESETPC
 .endproc
@@ -2446,7 +2449,7 @@ __asm_include:
 	RETURN_ERR ERR_INVALID_MACRO_ARGS
 
 @done:	lda @id
-	JUMP FINAL_BANK_MACROS, #mac::asm
+	JUMP FINAL_BANK_MACROS, mac::asm
 .endproc
 
 ;*******************************************************************************

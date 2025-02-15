@@ -4,7 +4,7 @@
 .include "macros.inc"
 .include "zeropage.inc"
 
-.include "vic20/finalex.inc"
+.include "ram.inc"
 
 ;*******************************************************************************
 ; CONSTANTS
@@ -218,7 +218,7 @@ macros:          .res $1400
 
 	; set the parameter to its value
 	lda #FINAL_BANK_MACROS
-	CALL FINAL_BANK_MAIN, #lbl::set24
+	CALL FINAL_BANK_MAIN, lbl::set24
 	bcs @cleanup
 
 	; read past the param name
@@ -243,7 +243,7 @@ macros:          .res $1400
 
 	; assemble this line of the macro
 	lda #FINAL_BANK_MACROS
-	CALL FINAL_BANK_MAIN, #asm::tokenize
+	CALL FINAL_BANK_MAIN, asm::tokenize
 
 	rol @err		; set error if .C was set
 	sta @errcode		; store the error code
@@ -278,7 +278,7 @@ macros:          .res $1400
 	tay
 	pla
 	tax
-	CALL FINAL_BANK_MAIN, #lbl::del
+	CALL FINAL_BANK_MAIN, lbl::del
 
 	dec @cnt
 	bne @cleanuploop

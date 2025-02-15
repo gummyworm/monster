@@ -19,6 +19,7 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "ram.inc"
 .include "settings.inc"
 .include "strings.inc"
 .include "text.inc"
@@ -27,7 +28,6 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-.include "vic20/finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS
@@ -326,7 +326,7 @@ memaddr: .word 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DOWN
 ; Handles the Down key, moving the cursor or scrolling if needed
 .proc down
@@ -393,7 +393,7 @@ memaddr: .word 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; MEM
 ; Displays the contents of memory in a large block beginning with the
 ; address in memaddr
@@ -514,7 +514,7 @@ memaddr: .word 0
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET_ADDR
 ; Gets the address of the byte under the cursor when editing memory
 ; IN:

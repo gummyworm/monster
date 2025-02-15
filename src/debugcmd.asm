@@ -30,7 +30,7 @@
 .include "watches.inc"
 .include "zeropage.inc"
 
-.include "vic20/finalex.inc"
+.include "ram.inc"
 
 .segment "CONSOLE"
 
@@ -45,7 +45,7 @@
 .export __dbgcmd_run
 .proc __dbgcmd_run
 @cnt=r0
-	CALL FINAL_BANK_MAIN, #str::toupper	; commands are case insensitive
+	CALL FINAL_BANK_MAIN, str::toupper	; commands are case insensitive
 	stxy zp::line
 
 	ldy #$00
@@ -145,7 +145,7 @@
 	stxy @addr
 	stxy r0
 
-	CALL FINAL_BANK_MAIN, #line::nextch
+	CALL FINAL_BANK_MAIN, line::nextch
 	cmp #$00				; was there a 2nd argument?
 	beq @set				; if not, continue
 
@@ -156,7 +156,7 @@
 
 @set:	ldxy @addr
 	lda @mode
-	CALL FINAL_BANK_MAIN, #watch::add		; add the watch
+	CALL FINAL_BANK_MAIN, watch::add		; add the watch
 	clc
 @err:	rts
 .endproc
@@ -171,7 +171,7 @@
 	lda #$00
 	sta @cnt
 
-	CALL FINAL_BANK_MAIN, #watch::getdata
+	CALL FINAL_BANK_MAIN, watch::getdata
 	stx @num
 	cpx #$00
 	beq @done
@@ -184,7 +184,7 @@
 	bcc @loop
 @done:	RETURN_OK
 
-@print:	CALL FINAL_BANK_MAIN, #watch::tostring
+@print:	CALL FINAL_BANK_MAIN, watch::tostring
 	jmp con::puts
 .endproc
 
@@ -198,12 +198,12 @@
 .proc remove_watch
 	; get the ID
 	ldxy zp::line
-	CALL FINAL_BANK_MAIN, #atoi
+	CALL FINAL_BANK_MAIN, atoi
 	bcs @done
 @ok:	cpy #$00
 	bne @done				; there can't be > $ff watches
 	txa
-	CALL FINAL_BANK_MAIN, #watch::remove
+	CALL FINAL_BANK_MAIN, watch::remove
 	clc
 @done:	rts
 .endproc
@@ -218,7 +218,7 @@
 	lda #$00
 	sta @cnt
 
-	CALL FINAL_BANK_MAIN, #brkpt::num
+	CALL FINAL_BANK_MAIN, brkpt::num
 	sta @num
 	cmp #$00
 	beq @done
@@ -231,7 +231,7 @@
 	bcc @loop
 @done:	RETURN_OK
 
-@print:	CALL FINAL_BANK_MAIN, #brkpt::tostring
+@print:	CALL FINAL_BANK_MAIN, brkpt::tostring
 	jmp con::puts
 .endproc
 
@@ -251,11 +251,11 @@
 	stxy @addr
 
 	; get the line/file for the given address
-	CALL FINAL_BANK_MAIN, #dbgi::addr2line
+	CALL FINAL_BANK_MAIN, dbgi::addr2line
 	bcs @skip_line
 	pha
 	stxy @line
-	CALL FINAL_BANK_MAIN, #dbg::setbrkatline
+	CALL FINAL_BANK_MAIN, dbg::setbrkatline
 
 	lda @addr
 	sta r0
@@ -263,13 +263,13 @@
 	sta r0+1
 	pla
 	ldxy @line
-	CALL FINAL_BANK_MAIN, #dbg::brksetaddr
+	CALL FINAL_BANK_MAIN, dbg::brksetaddr
 	RETURN_OK
 
 @skip_line:
 	; no line number for the address requested
 	ldxy @addr
-	CALL FINAL_BANK_MAIN, #dbg::setbrkataddr
+	CALL FINAL_BANK_MAIN, dbg::setbrkataddr
 	clc						; ok
 @done:	rts
 .endproc
@@ -303,7 +303,7 @@
 	bcc :+
 	inc zp::line+1
 
-:	CALL FINAL_BANK_MAIN, #dbgi::getfileid
+:	CALL FINAL_BANK_MAIN, dbgi::getfileid
 	bcc :+
 	;bcs @done				; no file found
 :	pha			; save file ID
@@ -320,19 +320,19 @@
 
 	; add the breakpoint
 	lda @fileid
-	CALL FINAL_BANK_MAIN, #dbg::setbrkatline
+	CALL FINAL_BANK_MAIN, dbg::setbrkatline
 
 	; get the address for the given line
 	ldxy @line
 	lda @fileid
-	CALL FINAL_BANK_MAIN, #dbgi::line2addr
+	CALL FINAL_BANK_MAIN, dbgi::line2addr
 	bcs @done				; no matching line found
 
 	stxy r0
 	; map the address we looked up to the line
 	ldxy @line
 	lda @fileid
-	CALL FINAL_BANK_MAIN, #dbg::brksetaddr
+	CALL FINAL_BANK_MAIN, dbg::brksetaddr
 	clc
 @done:	rts
 .endproc
@@ -347,14 +347,14 @@
 .proc remove_break
 	; get the ID
 	ldxy zp::line
-	CALL FINAL_BANK_MAIN, #atoi
+	CALL FINAL_BANK_MAIN, atoi
 	bcs @done
 
 @ok:	cpy #$00
 	bne @done	; there can't be > $ff breakpoints
 
 	; .X is the ID to remove
-	CALL FINAL_BANK_MAIN, #dbg::removebreakpointbyid
+	CALL FINAL_BANK_MAIN, dbg::removebreakpointbyid
 	clc
 @done:	rts
 .endproc
@@ -385,7 +385,7 @@
 @fill:	ldx @i
 	lda @list,x
 	ldxy @start
-	CALL FINAL_BANK_MAIN, #vmem::store
+	CALL FINAL_BANK_MAIN, vmem::store
 	ldx @i
 	inx
 	cpx @listlen
@@ -554,7 +554,7 @@
 .proc goto
 	jsr debugging
 	bcc :+				; can't step if not debugging
-	CALL FINAL_BANK_MAIN, #dbg::go
+	CALL FINAL_BANK_MAIN, dbg::go
 	inc con::quit
 :	rts
 .endproc
@@ -582,7 +582,7 @@
 @l0:	ldxy @start
 	jsr vmem_load
 	ldxy @target
-	CALL FINAL_BANK_MAIN, #vmem::store
+	CALL FINAL_BANK_MAIN, vmem::store
 	incw @target
 	incw @start
 	ldxy @start
@@ -661,7 +661,7 @@
 
 	ldxy #strings::debug_registers
 	jsr con::puts
-	CALL FINAL_BANK_MAIN, #dbg::regs_contents
+	CALL FINAL_BANK_MAIN, dbg::regs_contents
 	jsr con::puts
 	clc
 @done:	rts
@@ -682,7 +682,7 @@
 @l0:	ldxy #@buff
 	stxy r0
 	ldxy @addr
-	CALL FINAL_BANK_MAIN, #asm::disassemble
+	CALL FINAL_BANK_MAIN, asm::disassemble
 	bcc @ok
 	jsr @drawbyte
 	jmp @next
@@ -781,7 +781,7 @@
 	jsr eval
 	bcs @ret		; return if address is invalid expression
 	stxy @addr
-	CALL FINAL_BANK_MAIN, #asm::setpc
+	CALL FINAL_BANK_MAIN, asm::setpc
 
 	jsr process_ws
 	lda (zp::line),y
@@ -790,11 +790,11 @@
 
 @getop:	lda #FINAL_BANK_MAIN
 	ldxy zp::line
-	CALL FINAL_BANK_MAIN, #asm::tokenize	; assemble the instruction
+	CALL FINAL_BANK_MAIN, asm::tokenize	; assemble the instruction
 	bcc @nexti
 
-@err:	CALL FINAL_BANK_MAIN, #err::get
-	CALL FINAL_BANK_MAIN, #str::uncompress
+@err:	CALL FINAL_BANK_MAIN, err::get
+	CALL FINAL_BANK_MAIN, str::uncompress
 	jsr con::puts				; print the error
 	clc
 @ret:	rts
@@ -825,10 +825,10 @@
 	ldx #$08
 	stx zp::curx
 	ldy #$00
-	CALL FINAL_BANK_MAIN, #cur::setmin
+	CALL FINAL_BANK_MAIN, cur::setmin
 
 	ldxy #con::getch
-	CALL FINAL_BANK_MAIN, #edit::gets
+	CALL FINAL_BANK_MAIN, edit::gets
 	ldxy #mem::linebuffer
 	jsr __console_puts
 	ldxy #mem::linebuffer
@@ -866,7 +866,7 @@
 	inc @lines		; minimum of 1 line
 
 @l0:	ldxy @addr
-	CALL FINAL_BANK_MAIN, #view::memline
+	CALL FINAL_BANK_MAIN, view::memline
 	jsr con::puts
 
 	; move to address for next row
@@ -898,7 +898,7 @@
 .proc step
 	jsr debugging
 	bcc @done				; can't step if not debugging
-	CALL FINAL_BANK_MAIN, #dbg::step
+	CALL FINAL_BANK_MAIN, dbg::step
 
 	inc con::quit	; send QUIT signal
 @done:	rts
@@ -912,7 +912,7 @@
 .proc step_over
 	jsr debugging
 	bcc @done				; can't step if not debugging
-	CALL FINAL_BANK_MAIN, #dbg::step_over
+	CALL FINAL_BANK_MAIN, dbg::step_over
 
 	inc con::quit	; send QUIT signal
 @done:	rts
@@ -925,7 +925,7 @@
 	jsr debugging
 	bcc @done				; can't step if not debugging
 
-	CALL FINAL_BANK_MAIN, #dbg::trace
+	CALL FINAL_BANK_MAIN, dbg::trace
 
 	inc con::quit	; send QUIT signal
 @done:	rts
@@ -935,7 +935,7 @@
 ; GO
 ; Continues program execution at the current PC
 .proc go
-	CALL FINAL_BANK_MAIN, #dbg::go
+	CALL FINAL_BANK_MAIN, dbg::go
 
 	inc con::quit	; send QUIT signal
 	rts
@@ -1006,11 +1006,11 @@
 
 	; get the symbol name for this address (if there is one)
 	ldxy @addr
-	CALL FINAL_BANK_MAIN, #lbl::by_addr
+	CALL FINAL_BANK_MAIN, lbl::by_addr
 	stxy @lbl		; save the id of the label
 
 	; subtract the address we found from the address we were looking for
-	CALL FINAL_BANK_MAIN, #lbl::getaddr
+	CALL FINAL_BANK_MAIN, lbl::getaddr
 	stxy r0
 	ldxy @addr
 	sub16 r0
@@ -1026,7 +1026,7 @@
 	pha
 	sta r0
 	ldxy @lbl
-	CALL FINAL_BANK_MAIN, #lbl::getname
+	CALL FINAL_BANK_MAIN, lbl::getname
 
 @push_addr:
 	; push the address of the procedure call
@@ -1056,7 +1056,7 @@
 .proc step_out
 	jsr debugging
 	bcc @done				; can't step if not debugging
-	CALL FINAL_BANK_MAIN, #dbg::step_out
+	CALL FINAL_BANK_MAIN, dbg::step_out
 
 	inc con::quit	; send QUIT signal
 @done:	rts
@@ -1075,28 +1075,28 @@
 	ldxy @stopaddr
 	stxy file::save_address_end
 
-	CALL FINAL_BANK_MAIN, #irq::off
+	CALL FINAL_BANK_MAIN, irq::off
 
 	; open the output file for writing
 	ldxy zp::line
-	CALL FINAL_BANK_MAIN, #file::open_w
+	CALL FINAL_BANK_MAIN, file::open_w
 	bcs @err
 	pha
 
 	; save the given memory range
 	ldxy @startaddr
-	CALL FINAL_BANK_MAIN, #file::savebin
+	CALL FINAL_BANK_MAIN, file::savebin
 
 	pla
 	bcs @err				; if file save failed -> done
 
 	; close the file
-	CALL FINAL_BANK_MAIN, #file::close
+	CALL FINAL_BANK_MAIN, file::close
 	jsr @err				; restore IRQ
 	RETURN_OK
 
 @err:	pha					; save error code
-	CALL FINAL_BANK_MAIN, #irq::on
+	CALL FINAL_BANK_MAIN, irq::on
 	pla
 	sec
 @done:	rts
@@ -1352,28 +1352,28 @@
 ;  - .C:       clear on success or set on failure
 ;  - zp::line: updated to point beyond the parsed expression
 .proc eval
-	JUMP FINAL_BANK_MAIN, #expr::eval
+	JUMP FINAL_BANK_MAIN, expr::eval
 .endproc
 
 ;*******************************************************************************
 ; VMEM_LOAD
 ; Calls vmem::load
 .proc vmem_load
-	JUMP FINAL_BANK_MAIN, #vmem::load
+	JUMP FINAL_BANK_MAIN, vmem::load
 .endproc
 
 ;*******************************************************************************
 ; GETB
-; Calls "fe3::get_byte"
+; Calls "ram::get_byte"
 .proc getb
-	JUMP FINAL_BANK_MAIN, #fe3::get_byte
+	JUMP FINAL_BANK_MAIN, ram::get_byte
 .endproc
 
 ;*******************************************************************************
 ; PROCESS_WS
 ; Calls "line::process_ws" in the MAIN bank
 .proc process_ws
-	JUMP FINAL_BANK_MAIN, #line::process_ws
+	JUMP FINAL_BANK_MAIN, line::process_ws
 .endproc
 
 ;*******************************************************************************

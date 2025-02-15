@@ -1,13 +1,16 @@
-.import __final_call
-.import __final_store_byte
-.import __final_load_byte
-.import __final_load_byte_off
-.import __final_memcpy
-.import __final_copy
-.import __final_copy_line
-.import __final_bank_store_rel
-.import __final_memcpy_bank
-.import __final_get_byte
+.ifndef VIC20_FINALEX_INC
+VIC20_FINALEX_INC=1
+
+.import __ram_call
+.import __ram_store_byte
+.import __ram_load_byte
+.import __ram_load_byte_off
+.import __ram_memcpy
+.import __ram_copy
+.import __ram_copy_line
+.import __ram_bank_store_rel
+.import __ram_memcpy_bank
+.import __ram_get_byte
 
 ;******************************************************************************
 ; BANK LAYOUT
@@ -88,16 +91,15 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 
 ;******************************************************************************
 .scope fe3
-	call       = __final_call
-	fcopy      = __final_copy
-	copy       = __final_memcpy
-	copybanked = __final_memcpy_bank
-	copyline   = __final_copy_line
-	store      = __final_store_byte
-	store_off  = __final_bank_store_rel
-	load       = __final_load_byte
-	load_off   = __final_load_byte_off
-	get_byte   = __final_get_byte
+	call       = __ram_call
+	fcopy      = __ram_copy
+	copy       = __ram_memcpy
+	copyline   = __ram_copy_line
+	store      = __ram_store_byte
+	store_off  = __ram_bank_store_rel
+	load       = __ram_load_byte
+	load_off   = __ram_load_byte_off
+	get_byte   = __ram_get_byte
 .endscope
 
 ;******************************************************************************
@@ -108,22 +110,15 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 ;  proc: the procedure to call
 .macro CALL bank, proc
 	pha
-	.if .match( .left( 1, {proc} ), # )
-		lda #<(.right( .tcount( {proc} )-1, {proc} ))
-		sta zp::bankjmpvec
-		lda #>(.right( .tcount( {proc} )-1, {proc} ))
-		sta zp::bankjmpvec+1
-	.else
-		lda proc
-		sta zp::bankjmpvec
-		lda proc+1
-		sta zp::bankjmpvec+1
-	.endif
+	lda #<(proc)
+	sta zp::bankjmpvec
+	lda #>(proc)
+	sta zp::bankjmpvec+1
 
 	lda #bank
 	sta zp::banktmp
 	pla
-	jsr __final_call
+	jsr __ram_call
 .endmacro
 
 ;******************************************************************************
@@ -134,20 +129,15 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 ;  proc: the procedure to jump to
 .macro JUMP bank, proc
 	pha
-	.if .match( .left( 1, {proc} ), # )
-		lda #<(.right( .tcount( {proc} )-1, {proc} ))
-		sta zp::bankjmpvec
-		lda #>(.right( .tcount( {proc} )-1, {proc} ))
-		sta zp::bankjmpvec+1
-	.else
-		lda proc
-		sta zp::bankjmpvec
-		lda proc+1
-		sta zp::bankjmpvec+1
-	.endif
+	lda #<(proc)
+	sta zp::bankjmpvec
+	lda #>(proc)
+	sta zp::bankjmpvec+1
 
 	lda #bank
 	sta zp::banktmp
 	pla
-	jmp __final_call
+	jmp __ram_call
 .endmacro
+
+.endif
