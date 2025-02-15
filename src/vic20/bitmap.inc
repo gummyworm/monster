@@ -1,3 +1,6 @@
+.ifndef VIC20_BITMAP_INC
+.define VIC20_BITMAP_INC 1
+
 BITMAP_ADDR   = $1100
 COLMEM_ADDR   = $9400
 BITMAP_HEIGHT = 192
@@ -27,3 +30,4 @@ BITMAP_WIDTH  = 160
 	rvsline_part = __screen_rvsline_part
 .endscope
 
+.endif
