@@ -200,6 +200,7 @@ numanon: .word 0	; total number of anonymous labels
 label_addresses: .res MAX_LABELS*2
 
 .assert * & $01 = $00, error, "label_addresses_sorted must be word aligned"
+
 .export label_addresses_sorted
 label_addresses_sorted:     .res MAX_LABELS*2
 label_addresses_sorted_ids: .res MAX_LABELS*2

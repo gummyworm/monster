@@ -6,6 +6,11 @@ REGION=NTSC
 DEFAULT_DEVICE=10
 
 XVIC=xvic
+X64=x64sc
+
+EMU=$(XVIC) ifeq ($(TARGET), "vic20") else $(X64) ifeq ($(TARGET), "c64") endif
+KERNAL=JiffyDOS_VIC-20_6.01_NTSC.bin ifeq ($(TARGET), "vic20") else JiffyDOS_C64.bin ifeq ($(TARGET), "c64")
+
 FE3BIN=fe3vice.bin
 CART_IMAGE=monster.bin	# name of cart binary to produce
 TEST_IMAGE=test.bin	# name of test suite cart binary to produce
@@ -55,9 +60,7 @@ $(TEST_IMAGE): monster-cart-test.prg
 
 # create the test disk image
 test.d81: monster-disk.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
-	$(PYTHON) makeboot.py labels.txt monster-disk.prg bootloader.prg masm.prg
-	$(EXOMIZER) sfx basic -t55 -n -o boot.prg bootloader.prg
-	$(C1541) -format test,1 d81 test.d81 -attach test.d81 -write boot.prg -write masm.prg $(addprefix -write , $(TEST_FILES)) -write fe3firmware
+	$(C1541) -format test,1 d81 test.d81 -attach test.d81 -write monster-disk.prg $(addprefix -write , $(TEST_FILES)) -write fe3firmware
 
 install.d81: installer.prg $(CART_IMAGE)
 	$(C1541) -format install,1 d81 install.d81 -attach install.d81 -write installer.prg -write $(CART_IMAGE)
@@ -73,8 +76,11 @@ start-cart-jiffy: $(CART_IMAGE) test.d81
 start-disk: test.d81
 	$(XVIC) +warp -sound -cartfe $(FE3BIN) -memory all -ntsc -drive8type 1581 -8 test.d81
 
-start-disk-jiffy: test.d81
+start-disk-jiffy20: test.d81
 	$(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -sound -cartfe $(FE3BIN) -memory all -ntsc -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 test.d81
+
+start-disk-jiffy64: test.d81
+	$(X64) +warp -kernal JiffyDOS_C64.bin -sound -ntsc -drive8type 1581 -dos1581 JiffyDOS_1581.bin monster-disk.prg
 
 start-install: install.d81
 	cp fe3vice.bin fw-test.bin

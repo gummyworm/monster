@@ -75,16 +75,22 @@ start:
 	jsr draw::hline
 
 	jsr asm::reset
+	jmp *
 	jsr src::new
 
 	; initialize bitmap
+	jmp *
 	jsr scr::init
+	jmp *
 	jsr edit::clear
+	jmp *
 
 	jsr dbgi::initonce
 	jsr asm::reset
+	jmp *
 	jsr buff::clear		; clear copy buffer
 
+	jmp *
 	jsr con::init
 
 	jmp dbg::clrstate
