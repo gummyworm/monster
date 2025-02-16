@@ -325,11 +325,19 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; have all required blocks been declared?
 	lda @sections_declared
 	and @segments_declared
-	beq :+
-	; done
-	RETURN_OK
+	beq @read_block
 
-:	; look for MEMORY or SEGMENTS definition
+	; done; make sure there's no garbage after last ']'
+	ldy #$00
+:	lda (zp::line),y
+	beq @done
+	jsr is_ws
+	bne @unexpected_char
+	beq :-
+@done:	RETURN_OK
+
+@read_block:
+	; look for MEMORY or SEGMENTS definition
 	jsr process_ws
 	ldy #$00
 
@@ -361,6 +369,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; look for the '['
 	jsr @get_open_brace
 	beq :+
+@unexpected_char:
 	RETURN_ERR ERR_UNEXPECTED_CHAR
 
 	; read the section into the section definitions table
