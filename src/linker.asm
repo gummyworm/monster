@@ -101,16 +101,17 @@ import_tabshi: .res MAX_OBJS
 ;  .byte    LOAD SEGMENT id
 ;  .byte    RUN SEGMENT id
 ;  .byte    flags
-segments_load:   .res MAX_SEGMENTS
-segments_run:    .res MAX_SEGMENTS
+segments_loadlo: .res MAX_SEGMENTS
+segments_loadhi: .res MAX_SEGMENTS
+segments_runlo:  .res MAX_SEGMENTS
+segments_runhi:  .res MAX_SEGMENTS
 segments_flags:  .res MAX_SEGMENTS
 segments_sizelo: .res MAX_SEGMENTS
 segments_sizehi: .res MAX_SEGMENTS
 
-segments_startlo: .res MAX_SEGMENTS
-segments_starthi: .res MAX_SEGMENTS
-segments_stoplo:  .res MAX_SEGMENTS
-segments_stophi:  .res MAX_SEGMENTS
+; pointers for the current address of each SEGMENT during linking
+segments_addrlo: .res MAX_SEGMENTS
+segments_addrhi: .res MAX_SEGMENTS
 
 segment_names: .res 8*MAX_SEGMENTS
 
@@ -256,29 +257,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .endproc
 
 ;*******************************************************************************
-; ADD SEGMENT
-; Adds a new segment using the given parameters
-; IN:
-;  - r0:  pointer to the name for the segment
-;  - .A:  LOAD section id
-;  - .X:  RUN section id
-;  - .Y:  flags
-.export __link_add_segment
-.proc __link_add_segment
-@run=r0
-	stx @run
-
-	sta segments_load,x
-	tya
-	sta segments_flags,x
-	lda @run
-	sta segments_run,x
-
-	inc numsegments
-	rts
-.endproc
-
-;*******************************************************************************
 ; PARSE LINK FILE
 ; Parses the given linker config file into sections and segments, loading
 ; those into the linker's own section and segment state.
@@ -394,22 +372,12 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; read the section into the section definitions table
 :	incw zp::line		; move beyond the '['
 	jsr process_ws
-@l0:	jsr parse_segment
+@l1:	jsr parse_segment
 	bcs @err		; -> rts
 	jsr @get_closing_brace
-	bne @l0			; if not ']', read next segment
+	bne @l1			; if not ']', read next segment
 	incw zp::line		; else, move over the ']'
-	bne @getblock		; and get next block (SECTIONS)
-
-@parse_sections:
-	; make sure last character is a ']'
-	cmp #']'
-	beq :+
-	sec		; error SEGMENT not closed
-	rts
-
-:	clc		; ok
-	rts
+	jmp @getblock		; and get next block (SECTIONS)
 
 ; return .Z set if first non-whitespace char is a '['
 @get_open_brace:
@@ -503,8 +471,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	jsr readkey
 	bcs @err
 
-	; read past
-
 @keyfound:
 	ldxy #@keybuff
 	stxy zp::str0
@@ -556,9 +522,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; set the start address for the segment
 	ldx numsections
 	lda @val
-	sta segments_startlo,x
+	sta sections_startlo,x
 	lda @val+1
-	sta segments_starthi,x
+	sta sections_starthi,x
 	rts
 
 ;--------------------------------------
@@ -567,9 +533,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; set the end address for the segment
 	ldx numsections
 	lda @val
-	sta segments_stoplo,x
+	sta sections_stoplo,x
 	lda @val+1
-	sta segments_stophi,x
+	sta sections_stophi,x
 	rts
 
 ;--------------------------------------
@@ -590,9 +556,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 ;--------------------------------------
 ; keys table handler vectors
-.define cmds @startvec, @endvec, @fillvec
-@cmdslo: .lobytes cmds
-@cmdshi: .hibytes cmds
+.define sec_cmds @startvec, @endvec, @fillvec
+@cmdslo: .lobytes sec_cmds
+@cmdshi: .hibytes sec_cmds
 
 .endproc
 
@@ -606,9 +572,145 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;  run=$1000
 ; IN:
 ;  - zp::line: points to the buffer to parse the SEGMENT from
+; OUT:
+;  - .C: set if the segment could not be parsed
 .proc parse_segment
+@name=r0
+@val=r2
+@cnt=r4
+@keybuff=$100
+	; get address to store new segment name to
+	lda numsections
+	asl			; *2
+	asl			; *4
+	asl			; *8
+	adc #<segment_names
+	sta @name
+	lda #>segment_names
+	adc #$00
+	sta @name+1
+
+	; read the segment name (string terminated by ':')
+	jsr process_ws
+	ldy #$00
+@l0:	lda (zp::line),y
+	bne :+
+@err:   RETURN_ERR ERR_UNEXPECTED_CHAR	; line ended without ':'
+:	cmp #$0d
+	beq @err
+	cmp #$0a
+	beq @err
+	cmp #':'
+	beq @cont			; found end of section name
+	sta (@name),y
+	iny
+	cpy #$08
+	bcc @l0
+	RETURN_ERR ERR_LABEL_TOO_LONG	; section name > 8 chars
+
+@cont:	tya
+	;sec			; +1 (move pointer after the ':')
+	adc zp::line
+	sta zp::line
+	bcc @getprops
+	inc zp::line+1
+
+; read all properties defined for the SEGMENT
+@getprops:
+	jsr process_ws		; move the key name in segment
+
+	ldy #$00
+	lda (zp::line),y
+	cmp #';'		; are we at the end of the segment?
+	bne :+
+	incw zp::line		; move beyond the semicolon
+	RETURN_OK		; we're at the end, return
+
+:	; read the key of the k/v pair into keybuffer
+	ldxy #@keybuff
+	jsr readkey
+	bcs @err
+
+@keyfound:
+	ldxy #@keybuff
+	stxy zp::str0
+
+	; find the key that corresponds to the one in the config file
+	ldxy #@keys
+	stxy zp::str2
+
+	lda #$00
+	sta @cnt
+@findkey:
+	jsr strcmp
+	bne @next
+
+@found: ; found the key, run the command to map it
+	ldx @cnt
+	lda @cmdslo,x
+	sta zp::jmpvec
+	lda @cmdshi,x
+	sta zp::jmpvec+1
+
+	; evaluate the value for the handler
+	jsr parse_val
+	bcs @ret	; error -> rts
+
+	; run the handler for the given key
+	jsr zp::jmpaddr
+	jmp @getprops	; repeat (get next key if there is one)
+
+@next:	; move zp::str2 to the next key to check
+	ldy #$00
+:	lda (zp::str2),y
+	incw zp::str2
+	cmp #$00
+	bne :-
+
+	; are we out of keys?
+	inc @cnt
+	lda @cnt
+	cmp #@numkeys
+	bne @findkey
+
+	; sec (unknown key)
+@ret:	rts
+
+;--------------------------------------
+; handler for the "run" key in SEGMENT
+@runvec:
+	; set the start address for the segment
+	ldx numsegments
+	lda @val
+	sta segments_runlo,x
+	lda @val+1
+	sta segments_runhi,x
+	rts
+
+;--------------------------------------
+; handler for the "load" key in SEGMENT
+@loadvec:
+	; set the start address for the segment
+	ldx numsegments
+	lda @val
+	sta segments_loadlo,x
+	lda @val+1
+	sta segments_loadhi,x
+	rts
+
+;--------------------------------------
+; keys table
+@numkeys=2
+@keys:
 @load:     .byte "load",0
 @run:      .byte "run",0
+
+;--------------------------------------
+; keys table handler vectors
+.define seg_cmds @runvec, @loadvec
+@cmdslo: .lobytes seg_cmds
+@cmdshi: .hibytes seg_cmds
+
 .endproc
 
 ;*******************************************************************************
@@ -642,9 +744,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	txa
 	asl
 	tay
-@l0:	lda segments_startlo
+@l0:	lda segments_loadlo
 	sta @segptrs,y
-	lda segments_starthi
+	lda segments_loadhi
 	sta @segptrs+1,y
 	dex
 	dey
@@ -679,25 +781,10 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; now that we have the sizes of each SEGMENT, build the start
 	; addresses of each segment and update SECTION start pointer by the
 	; SIZE of the SEGMENT we've assigned to that SECTION.
-	ldx #$00
-	ldy segments_load,x
-	lda sections_startlo,y	; LSB of current SECTION start address
-	sta segments_startlo,x	; store as SEGMENT's start address
-	adc segments_sizelo,x
-	sta sections_startlo,y	; update SECTION's new start address by SIZE
-	lda sections_starthi,y
-	sta segments_starthi,x
-	adc segments_sizehi,x
-	sta sections_starthi,y
+	; TODO:
 
 	; make sure START is still less than STOP for the SECTION
-	lda sections_starthi,y
-	cmp sections_stophi,y
-	bcc @objects
-	bne @err			; if STARTHI > STOPHI, return err
-	lda sections_startlo,y
-	cmp sections_stoplo,y
-	bcc @objects			; if ok, link the objects
+	; TODO:
 @err:	RETURN_ERR ERR_SECTION_TOO_SMALL
 
 ; iterate over each object file and link them
@@ -840,36 +927,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; IN:
 ;  - objptr: the current pointer in the object code
 .proc set_seg
-	; update the current end address of the active segment
-	ldx activeseg
-	lda segptr
-	sta segments_stoplo,x
-	lda segptr+1
-	sta segments_stophi,x
-
-	; get the operand (SEGMENT id)
-	ldxy objptr
-	jsr get_segment_by_name
-	bcs @done		; return error if not found
-	sta activeseg
-	tax
-	lda segments_stoplo,x
-	sta segptr
-	lda segments_stophi,x
-	sta segptr+1
-
-	; move past the name
-	ldy #$ff
-:	iny
-	lda (objptr),y
-	bne :-
-
-	tya
-	sec			; +1 (get past the 0)
-	adc objptr
-	bcc @done
-	inc objptr+1
-@done:	rts
+	; TODO:
+	rts
 .endproc
 
 ;*******************************************************************************
