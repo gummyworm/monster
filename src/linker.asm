@@ -308,6 +308,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc __link_parse
 @filebuff=mem::spare
 @line=mem::linebuffer
+@segments_declared=r8
+@sections_declared=r9
+	; setup the load address
 	pha
 	lda #<@filebuff
 	sta file::loadaddr
@@ -323,18 +326,22 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	ldxy #@filebuff
 	stxy zp::line
 
+	lda #$00
+	sta @sections_declared
+	sta @segments_declared
+
 @getblock:
-	CALL FINAL_BANK_MAIN, line::process_ws
+	; look for MEMORY or SEGMENTS definition
+	jsr process_ws
 	ldy #$00
 
 	; is line "MEMORY"?
 	ldxy #@memory
-	lda #6
 	jsr cmpline
 	beq @parse_sections
 
+	; else is line "SEGMENTS"?
 	ldxy #@segments
-	lda #8
 	jsr cmpline
 	beq @parse_segments
 
@@ -343,34 +350,58 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @err:	rts
 
 @parse_sections:
+	; make sure we haven't already declared sections
+	lda @sections_declared
+	beq :+
+	sec
+	rts			; err, sections already declared
+
+:	; read past "MEMORY" declaration
+	CALL FINAL_BANK_MAIN, line::process_word
+	inc @sections_declared
+
+	; look for the '['
 	jsr @get_open_brace
-	bcs @err
+	beq :+
+	RETURN_ERR ERR_UNEXPECTED_CHAR
 
 	; read the section into the section definitions table
-:	jsr parse_section
-	bcs @err
+:	incw zp::line		; move beyond the '['
+	jsr process_ws
+@l0:	jsr parse_section
+	bcs @err		; -> rts
 	jsr @get_closing_brace
-	bcc :-
-
-	; make sure last character is a ']'
-	cmp #']'
-	beq :+
-	sec		; error SECTION not closed
-	rts
-
-:	clc		; ok
-	rts
+	bne @l0			; if not ']', read next section
+	incw zp::line		; else, move over the ']'
+	bne @getblock		; and get the next block (SEGMENTS)
 
 @parse_segments:
+	; make sure SEGMENTS weren't already declared
+	lda @segments_declared
+	beq :+
+	sec
+	rts			; err, sections already declared
+
+:	; read past "SEGMENTS"
+	CALL FINAL_BANK_MAIN, line::process_word
+	inc @segments_declared
+
+	; look for the '['
 	jsr @get_open_brace
-	bcs @err
+	beq :+
+	RETURN_ERR ERR_UNEXPECTED_CHAR
 
 	; read the section into the section definitions table
-:	jsr parse_segment
-	bcs @err
+:	incw zp::line		; move beyond the '['
+	jsr process_ws
+@l0:	jsr parse_segment
+	bcs @err		; -> rts
 	jsr @get_closing_brace
-	bcc :-
+	bne @l0			; if not ']', read next segment
+	incw zp::line		; else, move over the ']'
+	bne @getblock		; and get next block (SECTIONS)
 
+@parse_sections:
 	; make sure last character is a ']'
 	cmp #']'
 	beq :+
@@ -380,11 +411,21 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 :	clc		; ok
 	rts
 
+; return .Z set if first non-whitespace char is a '['
 @get_open_brace:
-	; TODO:
+	jsr process_ws
+	ldy #$00
+	lda (zp::line),y
+	cmp #'['
+	rts
 
+; return .Z set if first non-whitespace char is a ']'
 @get_closing_brace:
-	; TODO:
+	jsr process_ws
+	ldy #$00
+	lda (zp::line),y
+	cmp #']'
+	rts
 
 @memory:   .byte "memory",0
 @segments: .byte "segments",0
@@ -403,11 +444,13 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;
 ; IN:
 ;  - zp::line: points to the buffer to parse the SECTION from
+; OUT:
+;  - .C: set if section could not be parsed
 .proc parse_section
 @name=r0
 @val=r2
 @cnt=r4
-@keybuff=r5
+@keybuff=$100
 	; get address to store new section name to
 	lda numsections
 	asl			; *2
@@ -419,33 +462,51 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	adc #$00
 	sta @name+1
 
-	; read the section name
+	; read the section name (string terminated by ':')
+	jsr process_ws
 	ldy #$00
 @l0:	lda (zp::line),y
-	beq @err		; no ':' -> error
+	bne :+
+@err:   RETURN_ERR ERR_UNEXPECTED_CHAR	; line ended without ':'
+:	cmp #$0d
+	beq @err
+	cmp #$0a
+	beq @err
 	cmp #':'
-	beq @cont		; found end of section name
+	beq @cont			; found end of section name
 	sta (@name),y
 	iny
 	cpy #$08
 	bcc @l0
-@err:	rts
+	RETURN_ERR ERR_LABEL_TOO_LONG	; section name > 8 chars
 
 @cont:	tya
-	;sec			; +1 (move passed ':')
+	;sec			; +1 (move pointer after the ':')
 	adc zp::line
 	sta zp::line
-	bcc :+
-	inc zp::line
-:	jsr process_ws
+	bcc @getprops
+	inc zp::line+1
 
 ; read all properties defined for the SECTION
 @getprops:
-	ldxy @keybuff
-	jsr parse_kv
-	stxy @val
+	jsr process_ws		; move the key name in section
 
-	ldxy @keybuff
+	ldy #$00
+	lda (zp::line),y
+	cmp #';'		; are we at the end of the section?
+	bne :+
+	incw zp::line		; move beyond the semicolon
+	RETURN_OK		; we're at the end, return
+
+:	; read the key of the k/v pair into keybuffer
+	ldxy #@keybuff
+	jsr readkey
+	bcs @err
+
+	; read past
+
+@keyfound:
+	ldxy #@keybuff
 	stxy zp::str0
 
 	; find the key that corresponds to the one in the config file
@@ -455,7 +516,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	lda #$00
 	sta @cnt
 @findkey:
-	lda #6
 	jsr strcmp
 	bne @next
 
@@ -464,14 +524,21 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	lda @cmdslo,x
 	sta zp::jmpvec
 	lda @cmdshi,x
-	sta zp::jmpvec
+	sta zp::jmpvec+1
+
+	; evaluate the value for the handler
+	jsr parse_val
+	bcs @ret	; error -> rts
+
+	; run the handler for the given key
 	jsr zp::jmpaddr
 	jmp @getprops	; repeat (get next key if there is one)
 
-@next:	ldy #$00
-	; move zp::str2 to the next key to check
-:	incw zp::str2
-	lda (zp::str2),y
+@next:	; move zp::str2 to the next key to check
+	ldy #$00
+:	lda (zp::str2),y
+	incw zp::str2
+	cmp #$00
 	bne :-
 
 	; are we out of keys?
@@ -479,6 +546,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	lda @cnt
 	cmp #@numkeys
 	bne @findkey
+
+	; sec (unknown key)
+@ret:	rts
 
 ;--------------------------------------
 ; handler for the "start" key in config file
@@ -563,7 +633,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	ldx numsegments
 	bne @initsegments
 
-	; TODO:create a default CODE segment
+	; TODO: create a default CODE segment
 	sec
 	rts
 
@@ -991,53 +1061,116 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 .endproc
 
 ;*******************************************************************************
-; PARSE KV
-; Parses a key/value pair
-; e.g. A=120
-; The left hand side is read as a string into the given buffer and the right
-; is read a number and returned
-; A maximum of 8 characters are read for the key
+; READ KEY
+; Read the key in a key/value pair into the given buffer
+; A key/value pair is a string and value separated by an '=' sign
 ; IN:
-;   - zp::line: points to the buffer to parse the pair from
-;   - .XY:      buffer to store the key to
+;   - zp::line: the buffer to read the key from
+;   - .XY:      the address to read the key into
 ; OUT:
-;   - .XY:      the value of the key/value pair
-;   - .C:       set if the key/value pair was not parsed successfully
-.proc parse_kv
+;   - zp::line: updated to point after the '=' in the key/value pair
+;   - .C:       set if the input buffer is not a valid key/value pair
+.proc readkey
 @buff=r0
 	stxy @buff
-	jsr process_ws
-	; read the key into the buffer
+
 	ldy #$00
-:	lda (zp::line),y
-	beq @err
-	cmp #' '
-	beq @geteq
+@l0:	lda (zp::line),y
+	cmp #$0d
+	beq @err	; unexpected newline
+	cmp #$0a
+	beq @err	; unexpected newline
 	cmp #'='
-	beq @getvalue
+	beq @done	; found end of key definition
 	sta (@buff),y
 	iny
-	cpy #$08
-	bne :-
-	; sec
-	rts
+	cpy #8
+	bcc @l0
+	RETURN_ERR ERR_LABEL_TOO_LONG
 
-@geteq:
+@done:	lda #$00
+	sta (@buff),y	; terminate bufffer
+	tya
+	sec		; +1
+	adc zp::line
+	sta zp::line
+	bcc :+
+	inc zp::line+1
+:	RETURN_OK
+
+@err:	RETURN_ERR ERR_UNEXPECTED_CHAR
+.endproc
+
+;*******************************************************************************
+; PARSE VAL
+; Parses the value from the key/value pair
+; e.g. A=120
+; IN:
+;   - zp::line: points to the value of a key/value pair
+; OUT:
+;   - zp::line: points after the value in the buffer
+;   - .XY:      the value of the key/value pair
+;   - .C:       set if the key/value pair was not parsed successfully
+.proc parse_val
+@val=r0
+@buff=$100
 	jsr process_ws
+
+	; read the value into a temporary buffer
+@l0:	lda (zp::line),y
+	beq :+
+	cmp #$0d
+	beq :+
+	cmp #$0a
+	beq :+
+	cmp #';'	; SEGMENT/SECTION terminator
+	beq :+
+	sta @buff,y
+	iny
+	bne @l0
+
+:	lda #$00
+	sta @buff,y
+	tay
+
+	; check if the value is hex or decimal
 	lda (zp::line),y
-	cmp #'='
-	bne @err		; separator between key and value must be '='
+	cmp #'$'
+	beq @hex
 
-@getvalue:
-	jsr process_ws
-	incw zp::line		; move beyond the '='
+@dec:	ldxy #@buff
+	CALL FINAL_BANK_MAIN, atoi
+	bcc @cont
+	rts			; error
 
-	; get the value for the key, value pair
+@hex:	; get the value of the value string
+	ldxy #@buff+1		; +1 to get after the '$'
 	CALL FINAL_BANK_MAIN, util::parsehex
-	rts
+	bcs @ret
 
-@err:	sec
-	rts
+@cont:	stxy @val
+	; move beyond the value string (to start of next word or ';')
+	ldy #$00
+:	lda (zp::line),y
+	cmp #$0a
+	beq @done
+	cmp #$0d
+	beq @done
+	cmp #';'
+	beq @done
+	iny
+	jsr is_ws
+	bne :-
+
+@done:	tya
+	clc
+	adc zp::line
+	sta zp::line
+	bcc :+
+	inc zp::line+1
+:	ldxy @val
+	clc		; ok
+@ret:	rts
 .endproc
 
 ;*******************************************************************************
@@ -1055,22 +1188,22 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 ; COMPARE
 ; Compares the strings in (zp::str0) and (zp::str2) up to a length of .A
 ; IN:
-;  zp::line: one of the strings to compare
-;  .XY:      the other string to compare
-;  .A:       the max length to compare
+;  zp::str0: one of the strings to compare
+;  zp::str1: the other string to compare
 ; OUT:
 ;  .Z: set if the strings are equal
 .proc strcmp
-	tay		; is length to compare 0?
-	dey
-	bmi @match	; if 0-length comparison, it's a match by default
-
-@l0:	lda (zp::line),y
-	cmp (zp::str0),y
+	ldy #$00
+@l0:	lda (zp::str0),y
+	beq :+
+	jsr is_ws
+	beq :+
+	cmp (zp::str2),y
 	bne @ret
-	dey
-	bpl @l0
-@match:	lda #$00
+	iny
+	bne @l0
+
+:	lda (zp::str2),y	; make sure strings terminate at same index
 @ret:	rts
 .endproc
 
@@ -1085,11 +1218,29 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 .proc process_ws
 	ldy #$00
 @l0:	lda (zp::line),y
-	beq :+			; if end of line, we're done
+	beq @done		; if end of line, we're done
 	bmi @skip		; skip non-printing chars
-	jsr util::is_whitespace
-	bne :+			; if not space, we're done
-@skip:	jsr __line_inc
+	jsr is_ws
+	bne @done		; if not space, we're done
+@skip:	incw zp::line
 	bne @l0
+@done:	rts
+.endproc
+
+;*******************************************************************************
+; IS_WS
+; Checks if the given character is a whitespace character
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if if the character in .A is whitespace
+.proc is_ws
+	cmp #$0d	; newline
+	beq :+
+	cmp #$09	; TAB
+	beq :+
+	cmp #$0a
+	beq :+
+	cmp #' '
 :	rts
 .endproc

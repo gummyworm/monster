@@ -67,9 +67,9 @@
 .proc __line_process_word
 	ldy #$00
 	lda (zp::line),y
-	beq :-				; to RTS
+	beq :-				; -> RTS
 	jsr util::is_whitespace
-	beq :-				; to RTS
+	beq :-				; -> RTS
 	jsr __line_inc
 	jmp __line_process_word
 .endproc

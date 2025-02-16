@@ -24,13 +24,14 @@ TARGET_SRC=$(filter-out $BOOTSRC, $(wildcard $(TARGET)/*.asm))	# platform specif
 PI_SRC=$(wildcard *.asm)					# platform independent source files
 SRC=$(TARGET_SRC) $(PI_SRC)
 TEST_TXTS=$(wildcard tests/*.txt)
-TEST_FILES=$(TESTS) $(TEST_INCS) $(TEST_TXTS)
 
 UNIT=$(wildcard *.a65)
-#TESTS=$(wildcard tests/*.s)
 #TEST_INCS=$(wildcard tests/*.inc)
-TESTS=$(wildcard tests/wg/*.s)
+TESTS=$(wildcard tests/*.s)
+#TESTS=$(wildcard tests/wg/*.s)
 TEST_INCS=$(wildcard tests/wg/*.inc)
+
+TEST_FILES=$(TESTS) $(TEST_INCS) $(TEST_TXTS) tests/link
 
 all: test.d81
 

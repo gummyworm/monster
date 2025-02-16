@@ -1,17 +1,17 @@
 MEMORY [
 A:
- start=$1000
- end=$1100
+ START=$1000
+ END=$1100;
 B:
- start=$1100
- stop=$1200
+ START=$1100
+ END=$1200;
 ]
 
 SEGMENTS [
  S1:
-  load=A
-  run=A
+  LOAD=A
+  RUN=A;
  S2:
-  load=B
-  run=B
+  LOAD=B
+  RUN=B;
 ]

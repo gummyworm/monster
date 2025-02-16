@@ -101,6 +101,7 @@
 	sta @result+1
 	stxy @str
 
+	; find the end of the string
 	ldy #$ff
 @l0:	iny
 	lda (@str),y
@@ -415,6 +416,8 @@ result=mem::spare
 	cmp #$0d	; newline
 	beq :+
 	cmp #$09	; TAB
+	beq :+
+	cmp #$0a	; POSIX newline
 	beq :+
 	cmp #' '
 :	rts

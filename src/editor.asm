@@ -361,23 +361,9 @@ main:	jsr key::getch
 @objlist=mem::spare
 	jsr irq::off
 
-	; load the "LINK" file into memory
+	; parse the LINK file to setup the linking context
 	ldxy #strings::link
-	jsr file::open_r_prg
-	sta @file
-
-	ldxy #@linkbuffer
-	stxy file::loadaddr
-	jsr file::loadbin
-
-	php
-	lda @file
-	jsr file::close
-	plp
-
-	; parse the LINK file
-	ldxy #@linkbuffer
-	jsr link::parse
+	CALL FINAL_BANK_LINKER, link::parse
 
 	; link the object files
 	ldxy #@objlist
