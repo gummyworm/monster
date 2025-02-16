@@ -250,36 +250,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .endproc
 
 ;*******************************************************************************
-; ADD SECTION
-; Adds a new section using the given parameters
-; IN:
-;  - r0: the start address for the segment
-;  - r2: the stop address for the segment
-;  - .A:       flags for the segment
-.export __link_add_section
-.proc __link_add_section
-@start=r0
-@stop=r2
-@flags=r4
-	ldx numsections
-
-	sta sections_flags,x
-
-	lda @start
-	sta sections_startlo,x
-	lda @start+1
-	sta sections_starthi,x
-
-	lda @stop
-	sta sections_stoplo,x
-	lda @stop+1
-	sta sections_stophi,x
-
-	inc numsections
-	rts
-.endproc
-
-;*******************************************************************************
 ; PARSE LINK FILE
 ; Parses the given linker config file into sections and segments, loading
 ; those into the linker's own section and segment state.
@@ -332,7 +302,14 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	sta @segments_declared
 
 @getblock:
-	; look for MEMORY or SEGMENTS definition
+	; have all required blocks been declared?
+	lda @sections_declared
+	and @segments_declared
+	beq :+
+	; done
+	RETURN_OK
+
+:	; look for MEMORY or SEGMENTS definition
 	jsr process_ws
 	ldy #$00
 
@@ -398,8 +375,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 :	incw zp::line		; move beyond the '['
 	jsr process_ws
 @l1:	jsr parse_segment
-	jmp *
 	bcs @err		; -> rts
+	inc numsegments		; SEGMENT was successfully parsed
 	jsr @get_closing_brace
 	bne @l1			; if not ']', read next segment
 	incw zp::line		; else, move over the ']'

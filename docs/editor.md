@@ -58,6 +58,7 @@ The up/down cursor keys navigate between pages of symbols. Press RESTORE to retu
 |   f4   | Debug BASIC      | initializes BASIC and begins debugging at the lowest defined origin   |
 |   f5   | Show buffers     | displays a list of the currently open buffers                         |
 |   f6   | Show project     | displays the current project configuration                            |
+|   f7   | Link project     | using the LINK file on disk, links all object files in the project    |
 
 While debugging, f-keys 1-4 have different functionality, as described in the _Debug Commands_ section
 
