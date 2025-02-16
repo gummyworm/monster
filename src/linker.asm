@@ -19,6 +19,9 @@
 
 .include "ram.inc"
 
+.import __LINKER_BSS_LOAD__
+.import __LINKER_BSS_SIZE__
+
 ;*******************************************************************************
 ; CONSTANTS
 MAX_SECTIONS         = 8	; max number of memory sections
@@ -101,10 +104,8 @@ import_tabshi: .res MAX_OBJS
 ;  .byte    LOAD SEGMENT id
 ;  .byte    RUN SEGMENT id
 ;  .byte    flags
-segments_loadlo: .res MAX_SEGMENTS
-segments_loadhi: .res MAX_SEGMENTS
-segments_runlo:  .res MAX_SEGMENTS
-segments_runhi:  .res MAX_SEGMENTS
+segments_load:   .res MAX_SEGMENTS ; id of section to load to
+segments_run:    .res MAX_SEGMENTS ; id of section to run at
 segments_flags:  .res MAX_SEGMENTS
 segments_sizelo: .res MAX_SEGMENTS
 segments_sizehi: .res MAX_SEGMENTS
@@ -204,6 +205,28 @@ OBJ_RELZP   = $05	; byte value followed by relative byte "RZ $20 LAB+10"
 OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 .segment "LINKER"
+;*******************************************************************************
+; INIT
+; Initializes the linker state
+.export __link_init
+.proc __link_init
+@bss=r0
+	; clear the LINKER_BSS segment
+	ldxy #__LINKER_BSS_LOAD__
+	stxy @bss
+
+	lda #$00
+@l0:	ldy #$00
+	tya
+	sta (@bss),y
+	incw @bss
+	ldxy @bss
+	cmpw #__LINKER_BSS_LOAD__+__LINKER_BSS_SIZE__
+	bne @l0
+
+	rts
+.endproc
+
 ;*******************************************************************************
 ; LINK DEBUG
 ; Links the given object files into a .D (debug) file of the given name
@@ -348,6 +371,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	jsr process_ws
 @l0:	jsr parse_section
 	bcs @err		; -> rts
+	inc numsections		; SECTION was successfully parsed
+
 	jsr @get_closing_brace
 	bne @l0			; if not ']', read next section
 	incw zp::line		; else, move over the ']'
@@ -373,6 +398,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 :	incw zp::line		; move beyond the '['
 	jsr process_ws
 @l1:	jsr parse_segment
+	jmp *
 	bcs @err		; -> rts
 	jsr @get_closing_brace
 	bne @l1			; if not ']', read next segment
@@ -579,6 +605,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @val=r2
 @cnt=r4
 @keybuff=$100
+@sec=$100
 	; get address to store new segment name to
 	lda numsections
 	asl			; *2
@@ -652,9 +679,39 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	lda @cmdshi,x
 	sta zp::jmpvec+1
 
-	; evaluate the value for the handler
-	jsr parse_val
-	bcs @ret	; error -> rts
+	; get the section ID from the value (string)
+	; first, read the section name into a temp buffer
+	ldy #$00
+:	lda (zp::line),y
+	beq @get_section
+	cmp #';'
+	beq @get_section
+	jsr is_ws
+	beq @get_section
+	sta @sec,y
+	iny
+	bne :-
+
+@get_section:
+	lda #$00
+	sta @sec,y	; terminate the section name buffer
+
+	; update line pointer to after the name that was read
+	tya
+	clc
+	adc zp::line
+	sta zp::line
+	bcc :+
+	inc zp::line+1
+
+:	; get the section ID
+	ldxy #@sec
+	jsr get_section_by_name
+	bcs @ret		; section not found -> rts
+
+	; .A = .XY = section ID
+	tax
+	ldy #$00
 
 	; run the handler for the given key
 	jsr zp::jmpaddr
@@ -680,11 +737,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; handler for the "run" key in SEGMENT
 @runvec:
 	; set the start address for the segment
-	ldx numsegments
-	lda @val
-	sta segments_runlo,x
-	lda @val+1
-	sta segments_runhi,x
+	; TODO:
 	rts
 
 ;--------------------------------------
@@ -692,10 +745,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @loadvec:
 	; set the start address for the segment
 	ldx numsegments
-	lda @val
-	sta segments_loadlo,x
-	lda @val+1
-	sta segments_loadhi,x
+	; TODO:
 	rts
 
 ;--------------------------------------
@@ -741,16 +791,14 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 @initsegments:
 	dex
-	txa
-	asl
-	tay
-@l0:	lda segments_loadlo
-	sta @segptrs,y
-	lda segments_loadhi
-	sta @segptrs+1,y
+@l0:	ldy segments_load,x
+	lda sections_startlo,y
+	sta segments_addrlo,x
+	sta @segptrs,x
+	lda sections_starthi,y
+	sta segments_addrhi,x
+	sta @segptrs+1,x
 	dex
-	dey
-	dey
 	bpl @l0
 
 	; init secptrs to the start addresses of each section
@@ -927,8 +975,36 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; IN:
 ;  - objptr: the current pointer in the object code
 .proc set_seg
-	; TODO:
-	rts
+	; update the current end address of the active segment
+	ldx activeseg
+	lda segptr
+	sta segments_addrlo,x
+	lda segptr+1
+	sta segments_addrhi,x
+
+	; get the operand (SEGMENT id)
+	ldxy objptr
+	jsr get_segment_by_name
+	bcs @done		; return error if not found
+	sta activeseg
+	tax
+	lda segments_addrlo,x
+	sta segptr
+	lda segments_addrhi,x
+	sta segptr+1
+
+	; move past the name
+	ldy #$ff
+:	iny
+	lda (objptr),y
+	bne :-
+
+	tya
+	sec			; +1 (get past the 0)
+	adc objptr
+	bcc @done
+	inc objptr+1
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -1080,6 +1156,43 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 ; GEN SEGMENT MAP
 ; Read the IMPORT block from the open OBJECT file and
 .proc gen_segment_map
+.endproc
+
+;******************************************************************************
+; GET SECTION BY NAME
+; Returns the ID of the section from its name
+; IN:
+;  - .XY: the name of the section
+; OUT:
+;  - .A: the ID of the section
+;  - .C: set if no segment exists by the given name
+.proc get_section_by_name
+@name=zp::str0
+@other=zp::str2
+@cnt=r0
+	stxy @name
+	ldxy #section_names
+	stxy @other
+
+	lda #$00
+	sta @cnt
+@l0:	lda #$08
+	jsr strcmp
+	beq @found
+	lda @other
+	clc
+	adc #$08
+	sta @other
+	ldx @cnt
+	inx
+	stx @cnt
+	cpx numsections
+	bcc @l0
+@notfound:
+	rts
+
+@found: lda @cnt
+	RETURN_OK
 .endproc
 
 ;******************************************************************************

@@ -359,6 +359,8 @@ main:	jsr key::getch
 @file=r8
 @linkbuffer=mem::spare
 @objlist=mem::spare
+	CALL FINAL_BANK_LINKER, link::init
+
 	jsr irq::off
 
 	; parse the LINK file to setup the linking context
