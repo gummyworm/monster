@@ -366,6 +366,7 @@ main:	jsr key::getch
 	; parse the LINK file to setup the linking context
 	ldxy #strings::link
 	CALL FINAL_BANK_LINKER, link::parse
+	bcs @done		; error
 
 	; link the object files
 	ldxy #@objlist

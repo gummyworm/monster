@@ -84,6 +84,13 @@ sections_stophi:  .res MAX_SECTIONS
 sections_flags:   .res MAX_SECTIONS
 section_names:    .res MAX_SECTIONS*MAX_SECTION_NAME_LEN
 
+.export sections_startlo
+.export sections_starthi
+.export sections_stoplo
+.export sections_stophi
+.export sections_flags
+.export section_names
+
 ;*******************************************************************************
 ; IMPORT TABLES
 ; Each object file has its own table of imports. This allows the object code to
@@ -115,6 +122,19 @@ segments_addrlo: .res MAX_SEGMENTS
 segments_addrhi: .res MAX_SEGMENTS
 
 segment_names: .res 8*MAX_SEGMENTS
+
+.export segments_load
+.export segments_run
+.export segments_flags
+.export segments_sizelo
+.export segments_sizehi
+.export segment_names
+
+
+
+
+
+
 
 ;*******************************************************************************
 ; SEGMENT MAP
@@ -523,10 +543,10 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; handler for the "start" key in config file
 @startvec:
 	; set the start address for the segment
+	txa
 	ldx numsections
-	lda @val
 	sta sections_startlo,x
-	lda @val+1
+	tya
 	sta sections_starthi,x
 	rts
 
@@ -534,10 +554,10 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; handler for the "stop" key in config file
 @endvec:
 	; set the end address for the segment
+	txa
 	ldx numsections
-	lda @val
 	sta sections_stoplo,x
-	lda @val+1
+	tya
 	sta sections_stophi,x
 	rts
 
@@ -584,7 +604,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @keybuff=$100
 @sec=$100
 	; get address to store new segment name to
-	lda numsections
+	lda numsegments
 	asl			; *2
 	asl			; *4
 	asl			; *8
@@ -713,16 +733,17 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;--------------------------------------
 ; handler for the "run" key in SEGMENT
 @runvec:
-	; set the start address for the segment
-	; TODO:
+	; set the run section for the segment
+	ldx numsegments
+	sta segments_load,x
 	rts
 
 ;--------------------------------------
 ; handler for the "load" key in SEGMENT
 @loadvec:
-	; set the start address for the segment
+	; set the load section for the segment
 	ldx numsegments
-	; TODO:
+	sta segments_run,x
 	rts
 
 ;--------------------------------------
@@ -752,18 +773,15 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;  - .C: set on error
 .export __link_link
 .proc __link_link
-@segptrs=r0		; 2*MAX_SEGMENTS bytes
-@secptrs=zp::tmp10 	; 2*MAX_SECTIONS bytes
 @filename=zp::link
 	stxy @filename
 
-	; init the segment/section pointers using the linker state defined by
-	; the link file
+	; init the segment/section pointers using the current linker state
+	; (parsed from the LINK file prior to calling this procedured)
 	ldx numsegments
 	bne @initsegments
 
-	; TODO: create a default CODE segment
-	sec
+	sec		; no segments defined; return error
 	rts
 
 @initsegments:
@@ -771,36 +789,15 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @l0:	ldy segments_load,x
 	lda sections_startlo,y
 	sta segments_addrlo,x
-	sta @segptrs,x
 	lda sections_starthi,y
 	sta segments_addrhi,x
-	sta @segptrs+1,x
 	dex
 	bpl @l0
 
-	; init secptrs to the start addresses of each section
-	ldx numsections
-	bne @initsections
-	RETURN_ERR ERR_NO_SECTIONS
-
-@initsections:
-	dex
-	txa
-	asl
-	tay
-@l1:	lda sections_startlo
-	sta @secptrs,y
-	lda sections_starthi
-	sta @secptrs+1,y
-	dex
-	dey
-	dey
-	bpl @l1
-
-	; load each .obj file
+	; load each .O (object) file
 
 	; extract header data foreach file and update pointers to each file
-	; to the main block of the .obj file
+	; to the main block of the .O file
 	jsr extract_headers
 
 	; now that we have the sizes of each SEGMENT, build the start

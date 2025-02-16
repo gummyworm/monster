@@ -19,6 +19,10 @@ The link file contains two blocks of definitions for these two concepts.
 The `MEMORY` block defines all the _sections_.
 The `SEGMENTS` block defines how the segments defined in the object code map to the memory sections.
 
+The link file must always be named "LINK". Therefore, only 1 link file
+may exist on a given disk.  This is the file that the linker will
+look for to set up the MEMORY and SEGMENTS prior to linking the object files.
+
 #### EXAMPLE
 Below is a simple example of the link configuration file format
 
