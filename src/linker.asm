@@ -29,6 +29,9 @@ MAX_SEGMENTS         = 8	; max number of segments across all objects
 MAX_OBJS             = 16	; max number of object files that may be used
 MAX_SECTION_NAME_LEN = 8	; max length of a single section name
 
+MAX_IMPORTS          = 128
+MAX_EXPORTS          = 16
+
 ;*******************************************************************************
 ; SECTION flags
 SECTION_FILL = $01	; flag to pad section's unused bytes with 0
@@ -65,6 +68,13 @@ numfiles:    .byte 0
 
 activeobj: .byte 0	; the current OBJECT (id) being linked
 activeseg: .byte 0	; the current SEGMENT (id) being written
+
+;*******************************************************************************
+; OBJECT STATE
+; These variables are used in the context of a single object file
+numexports:  .byte 0
+numimports:  .byte 0
+exports:     .res MAX_EXPORTS*32
 
 ;*******************************************************************************
 ; SECTIONS
@@ -245,6 +255,68 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	bne @l0
 
 	rts
+.endproc
+
+;*******************************************************************************
+; ADD EXPORT
+; Adds the given string to the list of exports for the object file currently
+; being constructed.
+; IN:
+;   - .XY: the name of the EXPORT to add
+; OUT:
+;   - .C: set on error (e.g. too many exports)
+.export __link_add_export
+.proc __link_add_export
+@export=r0
+	lda numexports
+	cmp #MAX_EXPORTS-1
+	bcs @done		; too many exports
+
+	lda #$00
+	sta @export+1
+
+	asl		; *2
+	asl		; *4
+	asl		; *8
+	asl		; *16
+	rol @export+1
+	asl		; *32
+	rol @export+1
+	adc #<exports
+	sta @export
+	lda @export+1
+	adc #>exports
+	sta @export+1
+
+	; copy the export into its location in the EXPORT list
+	ldy #$00
+@copy:	lda (zp::line),y
+	jsr isseparator
+	beq :+
+	sta (@export),y
+	bne @copy
+
+:	inc numexports
+	clc		; ok
+@done:	rts
+.endproc
+
+;*******************************************************************************
+; LINK OBJ
+; Writes the current object file to the given filename.
+; IN:
+;   - .XY: the output filename
+; OUT:
+;   - .C: set on error
+.export __link_obj
+.proc __link_obj
+	; write the SEGMENT block (segments used in the file)
+
+	; write the IMPORT block
+
+	; write the EXPORT block
+
+	; write the OBJECT block (object code)
 .endproc
 
 ;*******************************************************************************
@@ -1398,4 +1470,58 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	beq :+
 	cmp #' '
 :	rts
+.endproc
+
+;******************************************************************************
+; is_null_space_comma_closingparen
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is: 0,$0d,' ', ',', or ')'
+.proc is_null_return_space_comma_closingparen_newline
+	cmp #$00
+	beq @done
+	jsr is_ws
+	beq @done
+	cmp #','
+	beq @done
+	cmp #')'
+@done:	rts
+.endproc
+
+;******************************************************************************
+; IS_OPERATOR
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is an operator ('+', '-', etc.)
+.proc isoperator
+@xsave=zp::util+2
+	stx @xsave
+	ldx #@numops-1
+:	cmp @ops,x
+	beq @end
+	dex
+	bpl :-
+@end:	php
+	ldx @xsave
+	plp
+	rts
+@ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.'
+@numops = *-@ops
+.endproc
+
+;******************************************************************************
+; ISSEPARATOR
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is any separator
+.proc isseparator
+	cmp #':'
+	beq @yes
+	jsr is_null_return_space_comma_closingparen_newline
+	bne :+
+@yes:	rts
+:	jmp isoperator
 .endproc

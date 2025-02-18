@@ -65,6 +65,7 @@
 .include "layout.inc"
 .include "labels.inc"
 .include "line.inc"
+.include "linker.inc"
 .include "macro.inc"
 .include "macros.inc"
 .include "math.inc"
@@ -1315,7 +1316,8 @@ num_illegals = *-illegal_opcodes
 	jsr util::is_whitespace
 	bne @next		; trailing char -> continue
 
-:	tya
+:	; move the line pointer to after the directive
+	tya
 	clc
 	adc zp::line
 	sta zp::line
@@ -1562,6 +1564,12 @@ num_illegals = *-illegal_opcodes
 ; The label is assumed to be in the absolute ($100-$ffff) address range.
 ; The actual resolution of the label will happen when the object code is linked
 .proc import
+	; define a label for the import so that references to it succeed
+	lda #$fe
+	sta zp::label_value
+	sta zp::label_value+1
+	ldxy zp::line
+	jmp lbl::add
 .endproc
 
 ;*******************************************************************************
@@ -1571,6 +1579,12 @@ num_illegals = *-illegal_opcodes
 ; The label is assumed to be in the zeropage ($00-$ff) address range.
 ; The actual resolution of the label will happen when the object code is linked
 .proc importzp
+	; define a label for the import so that references to it succeed
+	lda #$00
+	sta zp::label_value
+	sta zp::label_value+1
+	ldxy zp::line
+	jmp lbl::add
 .endproc
 
 ;*******************************************************************************
@@ -1579,6 +1593,9 @@ num_illegals = *-illegal_opcodes
 ; e.g. `EXPORT LABEL`
 ; The label is assumed to be in the absolute ($100-$ffff) address range.
 .proc export
+	; if producing an object file, add to its EXPORTs
+	ldxy zp::line
+	jmp link::add_export
 .endproc
 
 ;*******************************************************************************
