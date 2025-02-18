@@ -29,6 +29,9 @@ MAX_SEGMENTS         = 8	; max number of segments across all objects
 MAX_OBJS             = 16	; max number of object files that may be used
 MAX_SECTION_NAME_LEN = 8	; max length of a single section name
 
+MAX_EXPORT_NAME_LEN  = 32
+MAX_IMPORT_NAME_LEN  = 32
+
 MAX_IMPORTS          = 128
 MAX_EXPORTS          = 16
 
@@ -74,7 +77,8 @@ activeseg: .byte 0	; the current SEGMENT (id) being written
 ; These variables are used in the context of a single object file
 numexports:  .byte 0
 numimports:  .byte 0
-exports:     .res MAX_EXPORTS*32
+imports:     .res MAX_IMPORTS*MAX_IMPORT_NAME_LEN
+exports:     .res MAX_EXPORTS*MAX_EXPORT_NAME_LEN
 
 ;*******************************************************************************
 ; SECTIONS
@@ -310,13 +314,55 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;   - .C: set on error
 .export __link_obj
 .proc __link_obj
+@src=r0
+@cnt=r2
 	; write the SEGMENT block (segments used in the file)
 
 	; write the IMPORT block
+	ldxy #imports
+	stxy @src
+	lda numimports
+	sta @cnt
+@imports:
+	ldy #$00
+:	lda (@src),y
+	jsr $ffd2
+	iny
+	cpy #MAX_IMPORT_NAME_LEN
+	bne :-
+	lda @src
+	clc
+	adc #MAX_IMPORT_NAME_LEN
+	sta @src
+	bcc :+
+	inc @src+1
+:	dec @cnt
+	bne @imports
 
 	; write the EXPORT block
+	ldxy #exports
+	stxy @src
+	lda numexports
+	sta @cnt
+@imports:
+	ldy #$00
+:	lda (@src),y
+	jsr $ffd2
+	iny
+	cpy #MAX_EXPORT_NAME_LEN
+	bne :-
+	lda @src
+	clc
+	adc #MAX_EXPORT_NAME_LEN
+	sta @src
+	bcc :+
+	inc @src+1
+:	dec @cnt
+	bne @imports
 
 	; write the OBJECT block (object code)
+
+	rts
 .endproc
 
 ;*******************************************************************************
