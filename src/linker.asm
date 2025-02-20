@@ -28,6 +28,7 @@ MAX_SECTIONS         = 8	; max number of memory sections
 MAX_SEGMENTS         = 8	; max number of segments across all objects
 MAX_OBJS             = 16	; max number of object files that may be used
 MAX_SECTION_NAME_LEN = 8	; max length of a single section name
+MAX_SEGMENT_NAME_LEN = 8	; max length of a single segment name
 
 MAX_EXPORT_NAME_LEN  = 32
 MAX_IMPORT_NAME_LEN  = 32
@@ -135,7 +136,7 @@ segments_sizehi: .res MAX_SEGMENTS
 segments_addrlo: .res MAX_SEGMENTS
 segments_addrhi: .res MAX_SEGMENTS
 
-segment_names: .res 8*MAX_SEGMENTS
+segment_names: .res MAX_SEGMENT_NAME_LEN*MAX_SEGMENTS
 
 .export segments_load
 .export segments_run
@@ -143,12 +144,6 @@ segment_names: .res 8*MAX_SEGMENTS
 .export segments_sizelo
 .export segments_sizehi
 .export segment_names
-
-
-
-
-
-
 
 ;*******************************************************************************
 ; SEGMENT MAP
@@ -308,6 +303,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;*******************************************************************************
 ; LINK OBJ
 ; Writes the current object file to the given filename.
+; This is called after the first pass of the assembler to write all the exports,
+; imports, and other header data to the object file.
+; The assembler will then output the object code in pass 2.
 ; IN:
 ;   - .XY: the output filename
 ; OUT:
@@ -316,7 +314,44 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc __link_obj
 @src=r0
 @cnt=r2
+	; open the output file for writing
+	CALL FINAL_BANK_MAIN, file::open_w
+	bcc @write_header
+	rts			; failed to open file
+
+@write_header:
 	; write the SEGMENT block (segments used in the file)
+	lda numsegments
+	sta @cnt
+
+	ldxy #@segment_names
+	stxy @src
+@segment_names:
+	ldy #$00
+:	lda (@src),y
+	jsr $ffd2
+	iny
+	cpy #MAX_SEGMENT_NAME_LEN
+	bcc :-
+	lda @src
+	clc
+	adc #MAX_SEGMENT_NAME_LEN
+	sta @src
+	bcc :+
+	inc @src+1
+:	dec @cnt
+	bne @segment_names
+
+	; write the number of bytes used in each segment
+	ldy #$00
+@segment_sizes:
+	lda segments_sizelo,y
+	jsr $ffd2
+	lda segments_sizehi,y
+	jsr $ffd2
+	iny
+	cpy numsegments
+	bcc @segment_sizes
 
 	; write the IMPORT block
 	ldxy #imports
@@ -344,7 +379,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	stxy @src
 	lda numexports
 	sta @cnt
-@imports:
+@exports:
 	ldy #$00
 :	lda (@src),y
 	jsr $ffd2
@@ -358,11 +393,10 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	bcc :+
 	inc @src+1
 :	dec @cnt
-	bne @imports
+	bne @exports
 
-	; write the OBJECT block (object code)
-
-	rts
+	; the OBJECT block (object code) will be written by the assembler
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************
