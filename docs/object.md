@@ -72,6 +72,28 @@ assembled binary.
 |--------|---------------------------------------------|
 | binary | the binary instruction data of the program  |
 
+#### .RELCODE
+Contains relocation data for the code section.  This section contains
+a table with the following layout:
+
+| index | size | field  |  description                                                       |
+|-------|------|--------|--------------------------------------------------------------------|
+|   0   |  2   | offset | offset to the address to update                                    |
+|   2   |  1   | type   | the type of the entry (used to determine how to apply the value)   |
+|   4   |  2   | value  | the value to apply at the offset for this entry                    |
+
+The valid values for "type" are defined in this table
+
+| value |   name  |          description                                                |
+|-------|---------|---------------------------------------------------------------------|
+|   0   |  ADD    |  Adds value to the address at the offset                            |
+|   1   |  NEG    |  Negates (twos-complement) the value to the address at the offset   |
+|   2   |  MUL    |  Multiplies value with the one at the address at the offset         |
+|   3   |  DIV    |  Divides the address at the offset by value                         |
+|   4   |  AND    |  ANDs the value at the offset with value                            |
+|   5   |  OR     |  ORs the value at the offset with value                             |
+|   6   |  EOR    |  Exclusive ORs the value at the offset with value                   |
+
 #### .DATA
 The data section contains mutable data (variable) definitions.
 

@@ -395,6 +395,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 :	dec @cnt
 	bne @exports
 
+	; write the SEGMENT and offset of each EXPORT
+
 	; the OBJECT block (object code) will be written by the assembler
 	RETURN_OK
 .endproc
