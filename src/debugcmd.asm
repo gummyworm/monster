@@ -304,9 +304,8 @@
 	inc zp::line+1
 
 :	CALL FINAL_BANK_MAIN, dbgi::getfileid
-	bcc :+
-	;bcs @done				; no file found
-:	pha			; save file ID
+	bcs @done				; no file found
+	pha					; save file ID
 
 	; move past the filename and whitespace
 	jsr process_ws

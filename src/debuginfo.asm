@@ -720,6 +720,7 @@ blockaddresseshi: .res MAX_FILES
 	jsr advance
 	bcc @findline
 	lda #ERR_LINE_NOT_FOUND
+	;sec
 @done:	rts
 .endproc
 
@@ -795,11 +796,6 @@ blockaddresseshi: .res MAX_FILES
 	RETURN_OK
 
 @nextline:
-	; TODO:
-	; check if the line we read is closer than our current closest
-	lda srcline
-	cmp @closest
-
 	jsr advance
 	bcc @findaddr
 @done:	rts
