@@ -720,6 +720,12 @@ data:
 .proc on_line_inserted
 	incw lines
 
+	; find the first line of debug info greater than the current
+	; and increment its offset
+
+	; find all line programs in the current file with start lines
+	; greater than the current line and increment those
+
 	; shift breakpoints
 	jsr edit::currentfile
 	sta r0

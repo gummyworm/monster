@@ -961,6 +961,55 @@ get_filename = get_filename_addr
 .endproc
 
 ;*******************************************************************************
+; HEADER ADDR
+; Returns the address of the block header for the given ID
+; IN:
+;   - .A: the ID of the block to get
+; OUT:
+;   - .XY:
+; CLOBBERS:
+;   - r0-r1
+.proc header_addr
+@tmp0=r0
+@tmp1=r0
+	; multiply block number by sizeof(blockdata)
+	sta @tmp0
+	asl			; *2
+	asl			; *4
+	sta @tmp1
+	asl			; *8
+	adc @tmp1		; *12
+	adc @tmp0		; *13
+	adc #<blockheaders
+	tax
+	lda #>blockheaders
+	adc #$00
+	tay
+	rts
+.endproc
+
+;*******************************************************************************
+; SAVE BLOCK
+; Copies the state of the work variables (zp::block) to the given block ID
+; IN:
+;   - .A: the ID of the block to save to.
+.proc save_block
+@block=r0
+	jsr header_addr
+	stxy @block
+
+; save the header state for the block:
+; start addr, stop addr, base line, # lines, file id, program addr
+	ldy #(BLOCK_START_ADDR+SIZEOF_BLOCK_HEADER) - 1
+@copy:	lda block,y
+	sta (@block),y
+	dey
+	bpl @copy
+
+	rts
+.endproc
+
+;*******************************************************************************
 ; GET BLOCK BY ID
 ; Returns the start and stop addresses of a block by its ID.
 ; ID's are sequential, so to iterate over all blocks, you can call this
@@ -971,6 +1020,7 @@ get_filename = get_filename_addr
 ;  block:      the address of the block data
 ;  blockstart: the start address of the block
 ;  blockstop:  the stop address of the block
+;  file:       the file ID used by the block
 ;  line:       the address of the line data for the block
 ;  numlines:   the number of lines in the block
 ;  srcline:    initialized to the first line in the block
@@ -982,18 +1032,8 @@ get_filename = get_filename_addr
 	bcs @done	; return error
 
 	; multiply block number by sizeof(blockdata)
-	sta @tmp0
-	asl			; *2
-	asl			; *4
-	sta @tmp1
-	asl			; *8
-	adc @tmp1		; *12
-	adc @tmp0		; *13
-	adc #<blockheaders
-	sta block
-	lda #>blockheaders
-	adc #$00
-	sta block+1
+	jsr header_addr
+	stxy block
 
 ; copy the header state for the block:
 ; start addr, stop addr, base line, # lines, file id, program addr
@@ -1163,4 +1203,65 @@ get_filename = get_filename_addr
 	iny
 	bne :-
 @done:	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; INCREMENT AT
+; Increments all line programs in the given file that begin after the given
+; line
+; IN:
+;   - .A:  the file ID of the file to increment lines in
+;   - .XY: the line number to increment after
+.proc __dbgi_increment_at
+@file=r8
+@cnt=r9
+@line=ra
+	sta @file
+	stxy @line
+
+	; save the state of current debuginfo block being generated
+	jsr push_block
+
+	lda #$00
+	sta @cnt
+
+@l0:	lda @cnt
+	jsr get_block_by_id
+
+	; does the file in this block match the one we're incrementing in?
+	lda file
+	cmp @file
+	bne @next		; not same file, skip
+
+	; does the block contain any lines greater than the one we want?
+	lda blocklinebase
+	clc
+	adc linestop
+	tax
+	lda blocklinebase+1
+	adc linestop+1
+	tay
+	cmpw @line		; line_end >= line?
+	bcc @next		; if not, block is entirely before our line
+
+	; run the line program until we reach a line that should be incremented
+@l1:	jsr advance
+	ldxy line
+	cmpw @line		; is the program line >= the one we want?
+	bcc @l1			; repeat until it is
+
+	; we found the line that needs to be incremented,
+	; rewrite the instruction in the line program to increment this line
+
+	; persist the updates to the block
+	lda @cnt
+	jsr save_block
+
+@next:	inc @cnt
+	lda @cnt
+	cmp numblocks
+	bcc @l0			; repeat for all blocks
+
+	; restore debuginfo state
+	jmp pop_block
 .endproc

@@ -187,4 +187,3 @@ maxy: .byte 0
 :	inc zp::curx
 @done:	rts
 .endproc
-
