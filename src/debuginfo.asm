@@ -269,8 +269,7 @@ blockaddresseshi: .res MAX_FILES
 	RETURN_OK	; success
 
 @overflow:
-	sec		; stack overflow
-	rts
+	RETURN_ERR ERR_STACK_OVERFLOW
 .endproc
 
 ;*******************************************************************************
@@ -295,8 +294,7 @@ blockaddresseshi: .res MAX_FILES
 	RETURN_OK	; success
 
 @underflow:
-	sec		; stack underflow
-	rts
+	RETURN_ERR ERR_STACK_UNDERFLOW
 .endproc
 
 ;*******************************************************************************
