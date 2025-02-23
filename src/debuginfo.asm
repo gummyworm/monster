@@ -1255,6 +1255,9 @@ get_filename = get_filename_addr
 
 	; we found the line that needs to be incremented,
 	; rewrite the instruction in the line program to increment this line
+	ldy #$01		; +1 line
+	ldx #$00		; +0 address
+	jsr addcursor
 
 	; persist the updates to the block
 	lda @cnt
@@ -1364,9 +1367,9 @@ get_filename = get_filename_addr
 @basic2extended:
 	; shift the line program to make room for the extended instructions that
 	; will replace the basic one
-	lda progstop
+	lda freeptr
 	sta @src
-	lda progstop+1
+	lda freeptr+1
 	sta @src+1
 
 	; shift everything between current address (line) and progstop
@@ -1380,6 +1383,22 @@ get_filename = get_filename_addr
 	ldxy @src
 	cmpw line
 	bcs @copy
+
+	; add the amount we shifted to the block's program stop pointer
+	lda progstop
+	clc
+	adc #$03
+	sta progstop
+	bcc :+
+	inc progstop+1
+
+:	; add the amount we shifted to the free pointer
+	lda freeptr
+	clc
+	adc #$03
+	sta freeptr
+	bcc @done
+	inc freeptr+1
 
 @done:	rts
 .endproc
