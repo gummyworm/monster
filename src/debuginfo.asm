@@ -79,6 +79,7 @@ dbgi_procs_hi: .hibytes dbgi_procs
 addr    = zp::debug	; address of next line/addr to store
 srcline = zp::debug+2	; address of current source line
 block   = zp::debug+4	; address of current block pointer
+line    = zp::debug+6	; address of current line program instruction
 
 ; the offsets of these state variables correspond to the offsets
 ; of the BLOCK_ constants. e.g. BLOCK_START_ADDR -> blockstart
@@ -88,7 +89,7 @@ blockstop     = block+4		; top of active block's address range
 blocklinebase = block+6 	; base of active block's line range
 linestop      = block+8		; number of lines in active block
 file          = block+10 	; current file id being worked on
-line          = block+11	; address of PC in line program
+progstart     = block+11	; address of start of line program for block
 progstop      = block+13	; address of end of line program
 
 ; scratchpad
@@ -331,11 +332,13 @@ blockaddresseshi: .res MAX_FILES
 	sta block+1
 
 	lda freeptr
+	sta progstart
 	sta line
 	adc #$02
 	sta progstop
 
 	lda freeptr+1
+	sta progstart+1
 	sta line+1
 	adc #$00
 	sta progstop+1
@@ -1048,6 +1051,12 @@ get_filename = get_filename_addr
 	lda blocklinebase+1
 	sta srcline+1
 
+	; initialize line program for the block
+	lda progstart
+	sta line
+	lda progstart+1
+	sta line+1
+
 	; compute linestop by adding numlines to linebase and subtracting 1
 	lda linestop		; numlines
 	clc
@@ -1264,6 +1273,7 @@ get_filename = get_filename_addr
 ; ADD CURSOR
 ; Adds the given value to the line number the instruction program is currently
 ; on.
+; TODO: handle signed input
 ; IN:
 ;   - .X: the number of lines update the current line program instruction by
 ;   - .Y: the byte offset to update the current line program instruction by
@@ -1272,6 +1282,7 @@ get_filename = get_filename_addr
 .proc addcursor
 @dline=r0
 @daddr=r1
+@src=r2
 	stx @dline
 	sty @daddr
 	ldy #$00
@@ -1353,4 +1364,22 @@ get_filename = get_filename_addr
 @basic2extended:
 	; shift the line program to make room for the extended instructions that
 	; will replace the basic one
+	lda progstop
+	sta @src
+	lda progstop+1
+	sta @src+1
+
+	; shift everything between current address (line) and progstop
+@copy:
+	; need to open 3 bytes of space to go from basic to extended
+	ldy #$00
+	lda (@src),y
+	ldy #$03
+	sta (@src),y
+	decw @src
+	ldxy @src
+	cmpw line
+	bcs @copy
+
+@done:	rts
 .endproc
