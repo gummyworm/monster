@@ -18,12 +18,12 @@
 MAX_FILES  = 64		; max files debug info may be generated for
 MAX_BLOCKS = 256
 
-BLOCK_START_ADDR = 0    	; offset in block header for base address
-BLOCK_STOP_ADDR  = 2    	; offset in block header for stop address
-BLOCK_LINE_BASE  = 4		; offset in block header for base line
-BLOCK_LINE_COUNT = 6		; offset in block header for line count
-BLOCK_FILE_ID    = 8		; offset in block header to file id
-BLOCK_LINE_PROG  = 9		; offset to address of the line program data
+BLOCK_START_ADDR     = 0    	; offset in block header for base address
+BLOCK_STOP_ADDR      = 2    	; offset in block header for stop address
+BLOCK_LINE_BASE      = 4	; offset in block header for base line
+BLOCK_LINE_COUNT     = 6	; offset in block header for line count
+BLOCK_FILE_ID        = 8	; offset in block header to file id
+BLOCK_LINE_PROG      = 9	; offset to address of the line program data
 BLOCK_PROG_STOP_ADDR = 11	; offset to address of end of line program
 
 DATA_FILE = 0	; offset of FILE ID in debug info
@@ -1239,7 +1239,7 @@ get_filename = get_filename_addr
 	bcc @next		; if not, block is entirely before our line
 
 	; run the line program until we reach a line that should be incremented
-@l1:	jsr advance
+@l1:	jsr advance		; run an instruction of the program
 	ldxy line
 	cmpw @line		; is the program line >= the one we want?
 	bcc @l1			; repeat until it is
@@ -1258,4 +1258,99 @@ get_filename = get_filename_addr
 
 	; restore debuginfo state
 	jmp pop_block
+.endproc
+
+;*******************************************************************************
+; ADD CURSOR
+; Adds the given value to the line number the instruction program is currently
+; on.
+; IN:
+;   - .X: the number of lines update the current line program instruction by
+;   - .Y: the byte offset to update the current line program instruction by
+; OUT:
+;   - .C: set on error
+.proc addcursor
+@dline=r0
+@daddr=r1
+	stx @dline
+	sty @daddr
+	ldy #$00
+	lda (line),y	; get the opcode we're on
+	beq @extended	; if extended, continue
+
+@basic:
+	; basic instruction, get the bottom 4 bits (for line #)
+	pha
+	and #$0f		; get line offset
+	adc @dline		; add d-line
+	sta @new
+	cmp #$10		; overflow?
+	pla
+	bcs @basic2extended	; if so, need to replace this with extended ops
+:	lsr
+	lsr
+	lsr
+	lsr
+	clc
+	adc @daddr		; add address delta
+	cmp #$10		; overflow?
+	bcs @basic2extended	; if so, need to replace this with extended ops
+	asl
+	asl
+	asl
+	asl
+	ora @new
+	sta (line),y		; replace the instruction
+	;clc
+	rts			; and we're done
+
+@extended:
+	iny
+	lda (line),y	; get the extended instruction
+
+	cmp #OP_ADANCE_ADDR
+	bne :+
+@adv_addr:
+	; update the ADVANCE ADDR value
+	iny
+	lda @daddr
+	clc
+	adc (line),y
+	sta (line),y	; store new LSB
+	iny
+	lda (line),y
+	adc #$00
+	sta (line),y	; store new MSB
+	lda #$00
+	sta @daddr	; flag @daddr as handled
+	lda @dline	; have we handled the line update?
+	beq @done	; if so, we're done
+	bne @next
+
+:	cmp #OP_ADVANCE_LINE
+	bne @done
+@adv_line:
+	; update the ADVANCE LINE value
+	iny
+	lda @dline
+	clc
+	adc (line),y
+	sta (line),y	; store new LSB
+	iny
+	lda (line),y
+	adc #$00
+	sta (line),y	; store new MSB
+	lda #$00
+	sta @dline	; flag @dline as handled
+	lda @daddr	; have we handled the address update?
+	beq @done	; if so, we're done
+
+@next:  jsr advance	; still need to update line or addr
+	jmp addcursor	; continue to find the next op
+
+@done:	rts
+
+@basic2extended:
+	; shift the line program to make room for the extended instructions that
+	; will replace the basic one
 .endproc
