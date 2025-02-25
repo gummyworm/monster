@@ -1286,6 +1286,7 @@ get_filename = get_filename_addr
 @dline=r0
 @daddr=r1
 @src=r2
+@basic_op=r2
 	stx @dline
 	sty @daddr
 	ldy #$00
@@ -1361,10 +1362,11 @@ get_filename = get_filename_addr
 
 @next:  jsr advance	; still need to update line or addr
 	jmp addcursor	; continue to find the next op
-
-@done:	rts
+@done:  rts
 
 @basic2extended:
+	sta @basic_op
+
 	; shift the line program to make room for the extended instructions that
 	; will replace the basic one
 	lda freeptr
@@ -1374,10 +1376,10 @@ get_filename = get_filename_addr
 
 	; shift everything between current address (line) and progstop
 @copy:
-	; need to open 3 bytes of space to go from basic to extended
+	; need to open 7 bytes of space to go from basic to extended
 	ldy #$00
 	lda (@src),y
-	ldy #$03
+	ldy #$07
 	sta (@src),y
 	decw @src
 	ldxy @src
@@ -1387,7 +1389,7 @@ get_filename = get_filename_addr
 	; add the amount we shifted to the block's program stop pointer
 	lda progstop
 	clc
-	adc #$03
+	adc #$07
 	sta progstop
 	bcc :+
 	inc progstop+1
@@ -1395,10 +1397,48 @@ get_filename = get_filename_addr
 :	; add the amount we shifted to the free pointer
 	lda freeptr
 	clc
-	adc #$03
+	adc #$07
 	sta freeptr
 	bcc @done
 	inc freeptr+1
 
-@done:	rts
+	; reencode the basic instruction as 2 extended ones, updated by the
+	; line/address delta
+	; thus 1 the 1 byte basic instruction is turned into 2 4 byte ones
+	; $11 ->  |$00, $04, $01, $00|$00, $05, $01, $00|
+	lda #$00
+	tay
+	sta (line),y		; extended opcode prefix
+	iny
+	lda #OP_ADVANCE_LINE	; write the line advance component
+	sta (line),y		; extended opcode prefix
+	iny
+	lda @basic_op
+	and #$0f
+	clc
+	adc @dline
+	sta (line),y		; write the number of lines to advance
+	iny
+	lda #$00
+	rol
+	sta (line),y		; write MSB
+	iny
+	sta (line),y		; extended opcode prefix (for advance addr)
+	iny
+	lda #OP_ADVANCE_LINE	; write the line advance component
+	sta (line),y
+	lda @basic_op
+	and #$f0
+	lsr
+	lsr
+	lsr
+	lsr
+	clc
+	adc @daddr
+	sta (line),y		; write the number of bytes to advance
+	iny
+	lda #$00
+	rol
+	sta (line),y		; write MSB
+	rts			; and we're done
 .endproc
