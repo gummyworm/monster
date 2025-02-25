@@ -5,6 +5,7 @@
 .import __debug_end_block
 .import __debug_get_filename
 .import __debuginfo_get_fileid
+.import __debuginfo_increment_at
 .import __debug_line2addr
 .import __debug_init
 .import __debug_initonce
@@ -21,6 +22,7 @@
 	file         = __debug_file
 	get_filename = __debug_get_filename
 	getfileid    = __debuginfo_get_fileid
+	increment_at = __debuginfo_increment_at
 	line2addr    = __debug_line2addr
 	init         = __debug_init
 	initonce     = __debug_initonce

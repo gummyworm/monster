@@ -11,6 +11,7 @@
 .include "config.inc"
 .include "cursor.inc"
 .include "debug.inc"
+.include "debuginfo.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
@@ -714,17 +715,15 @@ data:
 ; ON LINE INSERTED
 ; Callback to handle a line insertion. Various state needs to be shifted when
 ; this occurs (breakpoints, etc.)
-; TODO:
-;   - update label addresses after PC
-;   - update line program (insert new instruction to inc line)
 .proc on_line_inserted
 	incw lines
 
-	; find the first line of debug info greater than the current
-	; and increment its offset
-
-	; find all line programs in the current file with start lines
-	; greater than the current line and increment those
+	; update debug info: find all line programs in the current file with
+	; start lines greater than the current line and increment those
+	jsr __src_get_filename
+	jsr dbgi::getfileid
+	ldxy __src_line
+	jsr dbgi::increment_at
 
 	; shift breakpoints
 	jsr edit::currentfile

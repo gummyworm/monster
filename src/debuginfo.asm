@@ -1215,7 +1215,8 @@ get_filename = get_filename_addr
 ; IN:
 ;   - .A:  the file ID of the file to increment lines in
 ;   - .XY: the line number to increment after
-.proc __dbgi_increment_at
+.export __debuginfo_increment_at
+.proc __debuginfo_increment_at
 @file=r8
 @cnt=r9
 @line=ra
@@ -1257,9 +1258,9 @@ get_filename = get_filename_addr
 	; rewrite the instruction in the line program to increment this line
 	ldy #$01		; +1 line
 	ldx #$00		; +0 address
-	jsr addcursor
+	jsr addcursor		; rewrite the instruction
 
-	; persist the updates to the block
+	; persist the update to the block
 	lda @cnt
 	jsr save_block
 
@@ -1298,11 +1299,11 @@ get_filename = get_filename_addr
 	pha
 	and #$0f		; get line offset
 	adc @dline		; add d-line
-	sta @new
+	sta @basic_op
 	cmp #$10		; overflow?
 	pla
 	bcs @basic2extended	; if so, need to replace this with extended ops
-:	lsr
+	lsr
 	lsr
 	lsr
 	lsr
@@ -1314,7 +1315,7 @@ get_filename = get_filename_addr
 	asl
 	asl
 	asl
-	ora @new
+	ora @basic_op
 	sta (line),y		; replace the instruction
 	;clc
 	rts			; and we're done
@@ -1323,7 +1324,7 @@ get_filename = get_filename_addr
 	iny
 	lda (line),y	; get the extended instruction
 
-	cmp #OP_ADANCE_ADDR
+	cmp #OP_ADVANCE_ADDR
 	bne :+
 @adv_addr:
 	; update the ADVANCE ADDR value
