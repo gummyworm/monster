@@ -735,9 +735,13 @@ data:
 ;*******************************************************************************
 ; ON LINE DELETED
 ; Callback to handle a line deletion. Various state needs to be shifted when
-; this occurs (breakpoints for now, TODO: symbols)
+; this occurs (breakpoints for now, TODO: debug info)
 .proc on_line_deleted
 	decw lines
+
+	; update debug info: find all line programs in the current file with
+	; start lines greater than the current line and decrement them
+	; TODO:
 
 	; shift breakpoints
 	jsr edit::currentfile

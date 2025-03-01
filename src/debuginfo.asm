@@ -62,12 +62,13 @@ STORE_LINE
 PUSH_BLOCK
 POP_BLOCK
 GET_FILEID
+INCREMENT_AT
 .endenum
 
 .RODATA
 .linecont +
 .define dbgi_procs addr2line, line2addr, end_block, init, initonce, get_filename, new_block, \
-	set_file, set_name, set_addr, store_line, push_block, pop_block, get_fileid
+	set_file, set_name, set_addr, store_line, push_block, pop_block, get_fileid, increment_at
 .linecont -
 dbgi_procs_lo: .lobytes dbgi_procs
 dbgi_procs_hi: .hibytes dbgi_procs
@@ -132,6 +133,7 @@ debuginfo:
 .export __debug_pop_block
 
 .export __debuginfo_get_fileid
+.export __debuginfo_increment_at
 
 ;******************************************************************************
 .if FINAL_BANK_MAIN=FINAL_BANK_DEBUG
@@ -148,26 +150,27 @@ debuginfo:
 	__debug_store_line        = store_line
 	__debug_push_block        = push_block
 	__debug_pop_block         = pop_block
-
-	__debuginfo_get_fileid   = get_fileid
+	__debuginfo_get_fileid    = get_fileid
+	__debug_increment_at	  = increment_at
 .else
 .PUSHSEG
 .CODE
 
-__debug_addr2line:      BANKJUMP dbgi_proc_ids::ADDR2LINE
-__debug_line2addr:      BANKJUMP dbgi_proc_ids::LINE2ADDR
-__debug_end_block:      BANKJUMP dbgi_proc_ids::END_BLOCK
-__debug_init:           BANKJUMP dbgi_proc_ids::INIT
-__debug_initonce:       BANKJUMP dbgi_proc_ids::INITONCE
-__debug_get_filename:   BANKJUMP dbgi_proc_ids::GET_FILENAME
-__debug_new_block:      BANKJUMP dbgi_proc_ids::NEW_BLOCK
-__debug_set_file:       BANKJUMP dbgi_proc_ids::SET_FILE
-__debug_set_name:       BANKJUMP dbgi_proc_ids::SET_NAME
-__debug_set_addr:       BANKJUMP dbgi_proc_ids::SET_ADDR
-__debug_store_line:     BANKJUMP dbgi_proc_ids::STORE_LINE
-__debug_push_block:     BANKJUMP dbgi_proc_ids::PUSH_BLOCK
-__debug_pop_block:      BANKJUMP dbgi_proc_ids::POP_BLOCK
-__debuginfo_get_fileid: BANKJUMP dbgi_proc_ids::GET_FILEID
+__debug_addr2line:        BANKJUMP dbgi_proc_ids::ADDR2LINE
+__debug_line2addr:        BANKJUMP dbgi_proc_ids::LINE2ADDR
+__debug_end_block:        BANKJUMP dbgi_proc_ids::END_BLOCK
+__debug_init:             BANKJUMP dbgi_proc_ids::INIT
+__debug_initonce:         BANKJUMP dbgi_proc_ids::INITONCE
+__debug_get_filename:     BANKJUMP dbgi_proc_ids::GET_FILENAME
+__debug_new_block:        BANKJUMP dbgi_proc_ids::NEW_BLOCK
+__debug_set_file:         BANKJUMP dbgi_proc_ids::SET_FILE
+__debug_set_name:         BANKJUMP dbgi_proc_ids::SET_NAME
+__debug_set_addr:         BANKJUMP dbgi_proc_ids::SET_ADDR
+__debug_store_line:       BANKJUMP dbgi_proc_ids::STORE_LINE
+__debug_push_block:       BANKJUMP dbgi_proc_ids::PUSH_BLOCK
+__debug_pop_block:        BANKJUMP dbgi_proc_ids::POP_BLOCK
+__debuginfo_get_fileid:   BANKJUMP dbgi_proc_ids::GET_FILEID
+__debuginfo_increment_at: BANKJUMP dbgi_proc_ids::INCREMENT_AT
 
 ;*******************************************************************************
 ; Entrypoint for routines
@@ -1215,15 +1218,18 @@ get_filename = get_filename_addr
 ; IN:
 ;   - .A:  the file ID of the file to increment lines in
 ;   - .XY: the line number to increment after
-.export __debuginfo_increment_at
-.proc __debuginfo_increment_at
-@file=r8
-@cnt=r9
-@line=ra
+.proc increment_at
+@file=r4
+@cnt=r5
+@line=r6
 	sta @file
 	stxy @line
 
-	; save the state of current debuginfo block being generated
+	lda numblocks
+	bne :+
+	rts			; no debug info has been generated - return
+
+:	; save the state of current debuginfo block being generated
 	jsr push_block
 
 	lda #$00
