@@ -195,9 +195,9 @@ __debug_numbreakpoints:     .byte 0
 NUM_BREAKPOINT_TABLES=7
 breakpoint_data:
 __debug_breakpointslo:
-breakpointslo:      .res MAX_BREAKPOINTS	; LSB's of the break points
+breakpointslo:              .res MAX_BREAKPOINTS	; LSB's of the break points
 __debug_breakpointshi:
-breakpointshi:      .res MAX_BREAKPOINTS	; MSB's of the break points
+breakpointshi:              .res MAX_BREAKPOINTS	; MSB's of the break points
 __debug_breakpoint_lineslo: .res MAX_BREAKPOINTS	; breakpoint line # (LSB)
 __debug_breakpoint_lineshi: .res MAX_BREAKPOINTS	; breakpoint line # (MSB)
 __debug_breakpoint_fileids: .res MAX_BREAKPOINTS	; breakpoint file ID's
@@ -2366,7 +2366,7 @@ __debug_remove_breakpoint:
 @refresh:
 	lda #REGISTERS_LINE+1
 	ldxy #mem::linebuffer2
-	jsr text::print
+	jsr text::puts
 	jmp @edit
 
 ;--------------------------------------
@@ -2435,8 +2435,7 @@ __debug_remove_breakpoint:
 
 	jsr __debug_regs_contents
 	lda #REGISTERS_LINE+1
-	jsr text::print
-	rts
+	jmp text::puts
 .endproc
 
 ;*******************************************************************************
