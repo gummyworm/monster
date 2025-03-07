@@ -103,7 +103,7 @@ NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
 TRACE_STACK_DEPTH = 16
 
 ;*******************************************************************************
-debugtmp       = zp::debuggertmp	; scratchpad
+debugtmp = zp::debuggertmp	; scratchpad
 
 ;*******************************************************************************
 ; Program state variables

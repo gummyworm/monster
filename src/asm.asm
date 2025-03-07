@@ -2596,6 +2596,7 @@ __asm_include:
 	cmp #ASM_ORG
 	bne @ok
 
+	; if we assembled a .ORG in pass 2, create a new block at the new address
 	ldxy zp::virtualpc	; address of new block
 	jmp dbgi::newblock	; create a block
 	bcs @done

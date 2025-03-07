@@ -4,7 +4,6 @@
 .import __debug_addr2line
 .import __debug_end_block
 .import __debug_get_filename
-.import __debuginfo_get_fileid
 .import __debug_line2addr
 .import __debug_init
 .import __debug_initonce
@@ -15,6 +14,9 @@
 .import __debug_push_block
 .import __debug_pop_block
 
+.import __debuginfo_get_fileid
+.import __debuginfo_increment_at
+
 .scope dbgi
 	addr2line    = __debug_addr2line
 	endblock     = __debug_end_block
@@ -23,6 +25,7 @@
 	getfileid    = __debuginfo_get_fileid
 	line2addr    = __debug_line2addr
 	init         = __debug_init
+	increment_at = __debuginfo_increment_at
 	initonce     = __debug_initonce
 	newblock     = __debug_new_block
 	setfile      = __debug_set_file

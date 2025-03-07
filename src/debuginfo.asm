@@ -151,7 +151,7 @@ debuginfo:
 	__debug_push_block        = push_block
 	__debug_pop_block         = pop_block
 	__debuginfo_get_fileid    = get_fileid
-	__debug_increment_at	  = increment_at
+	__debuginfo_increment_at  = increment_at
 .else
 .PUSHSEG
 .CODE
@@ -303,7 +303,15 @@ blockaddresseshi: .res MAX_FILES
 
 ;*******************************************************************************
 ; NEW BLOCK
-; Creates a new block (as with .ORG)
+; Creates a new block of debug information
+; Blocks are created any time the file is changed or the address is changed
+; (as with a .ORG directive)
+; e.g.
+;   .org $1000  ; block 0
+;   asl		; block 1
+;   .inc "a"	; block 2 (everything in file "a")
+;   asl		; block 3
+;   .org $1200	; block 4
 ; IN:
 ;   - .XY:     the start address of the block
 ;   - srcline: the base line for the new block
@@ -1223,11 +1231,7 @@ get_filename = get_filename_addr
 	sta @file
 	stxy @line
 
-	lda numblocks
-	bne :+
-	rts			; no debug info has been generated - return
-
-:	; save the state of current debuginfo block being generated
+	; save the state of current debuginfo block being generated
 	jsr push_block
 
 	lda #$00
@@ -1235,6 +1239,8 @@ get_filename = get_filename_addr
 
 @l0:	lda @cnt
 	jsr get_block_by_id
+
+	jmp *
 
 	; does the file in this block match the one we're incrementing in?
 	lda file
@@ -1268,9 +1274,9 @@ get_filename = get_filename_addr
 	lda @cnt
 	jsr save_block
 
-@next:	inc @cnt
-	lda @cnt
+@next:	lda @cnt
 	cmp numblocks
+	inc @cnt
 	bcc @l0			; repeat for all blocks
 
 	; restore debuginfo state
