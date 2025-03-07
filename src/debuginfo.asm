@@ -79,8 +79,8 @@ dbgi_procs_hi: .hibytes dbgi_procs
 ; state machine
 addr    = zp::debug	; address of next line/addr to store
 srcline = zp::debug+2	; address of current source line
-block   = zp::debug+4	; address of current block pointer
-line    = zp::debug+6	; address of current line program instruction
+line    = zp::debug+4	; address of current line program instruction
+block   = zp::debug+6	; address of current block pointer
 
 ; the offsets of these state variables correspond to the offsets
 ; of the BLOCK_ constants. e.g. BLOCK_START_ADDR -> blockstart
