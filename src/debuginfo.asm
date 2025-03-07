@@ -971,7 +971,7 @@ get_filename = get_filename_addr
 ;   - r0-r1
 .proc header_addr
 @tmp0=r0
-@tmp1=r0
+@tmp1=r1
 	; multiply block number by sizeof(blockdata)
 	sta @tmp0
 	asl			; *2
@@ -1026,8 +1026,6 @@ get_filename = get_filename_addr
 ;  srcline:    initialized to the first line in the block
 ;  .C:         set if the block doesn't exist, clear on success
 .proc get_block_by_id
-@tmp0=r0
-@tmp1=r1
 	cmp numblocks
 	bcs @done	; return error
 
