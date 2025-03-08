@@ -1757,9 +1757,10 @@ __asm_include:
 	lda file::eof		; EOF?
 	beq @doline		; repeat til we are
 
-@close: pla		; get the file ID for the include file to close
-	jsr file::close	; close the file
+@close: pla			; get the file ID for the include file to close
+	jsr file::close		; close the file
 	pla
+
 	sta dbgi::file
 
 	lda zp::pass
@@ -2596,7 +2597,7 @@ __asm_include:
 	cmp #ASM_ORG
 	bne @ok
 
-	; if we assembled a .ORG in pass 2, create a new block at the new address
+@org:	; if we assembled a .ORG in pass 2, create a new block at the new address
 	ldxy zp::virtualpc	; address of new block
 	jmp dbgi::newblock	; create a block
 	bcs @done

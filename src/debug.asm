@@ -376,6 +376,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 .proc restore_debug_state
 	ldx #$10
 :	lda mem::dbg9000-1,x
+	sta $9000-1,x
 	dex
 	bne :-
 
@@ -450,7 +451,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	ldxy sim::pc
 	lda #$00
 	sta aux_mode		; initialize auxiliary views
-	sta watch::num	; clear watches
+	sta watch::num		; clear watches
 	jsr vmem::store
 
 	lda #DEFAULT_RVS

@@ -1240,8 +1240,6 @@ get_filename = get_filename_addr
 @l0:	lda @cnt
 	jsr get_block_by_id
 
-	jmp *
-
 	; does the file in this block match the one we're incrementing in?
 	lda file
 	cmp @file
