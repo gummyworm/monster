@@ -140,6 +140,7 @@ timers:
     bne *-1
     stx $9115  ; start reference timer
 pointers:
+    sei
     lda #<irq
     sta $0314
     lda #>irq
@@ -147,7 +148,7 @@ pointers:
     lda #$c0
 ; enable timer A underflow interrupts
     sta $912e
-
+    cli
     jmp *
 
     .org $1100

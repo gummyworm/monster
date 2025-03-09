@@ -714,7 +714,7 @@ brkhandler2_size=*-brkhandler2
 	bne @savecolor
 
 	; backup the screen
-	JUMP FINAL_BANK_FASTCOPY2, fcpy::save
+	jmp scr::save
 .endproc
 
 ;******************************************************************************
