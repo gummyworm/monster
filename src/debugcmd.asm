@@ -683,12 +683,13 @@
 	ldxy @addr
 	CALL FINAL_BANK_MAIN, asm::disassemble
 	bcc @ok
+
+	; if invalid, just draw a literal byte value
 	jsr @drawbyte
+
 	jmp @next
-	jmp *
 @ok:	jsr @drawline
 @next:	ldxy @addr
-	jmp *
 	cmpw @stopaddr
 	bcc @l0
 @done:	clc

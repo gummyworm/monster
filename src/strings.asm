@@ -103,6 +103,9 @@ __str_invalid_command: .byte "invalid command", 0
 .export __str_jam_detected
 __str_jam_detected: .byte "jam detected",0
 
+.export __str_illegal_detected
+__str_illegal_detected: .byte "illegal detected",0
+
 .export __str_vital_addr_clobber_detected
 __str_vital_addr_clobber_detected: .byte "vital address clobber detected",0
 

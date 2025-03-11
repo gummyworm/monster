@@ -1637,9 +1637,9 @@ restore_regs:
 	jsr asm::disassemble	; disassemble it to get its size (BRK offset)
 	stx sim::op_mode
 	bcc @ok
-	lda #$01		; unrecognized op, treat next opcode as 1 byte
-				; TODO: give warning?
 
+	jsr illegal_detected
+	lda #$01		; unrecognized op, treat next opcode as 1 byte
 @ok:	pha			; save instruction size
 
 	; preemptively disable mem swapping
@@ -1841,6 +1841,17 @@ restore_regs:
 	jsr key::waitch		; wait for keypress
 	sec
 	rts
+.endproc
+
+;*******************************************************************************
+; ILLEGAL DETECTED
+; Prints a message that an illegal opcode was detected and waits for
+; user input
+.proc illegal_detected
+	; illegal instruction detected, give a warning
+	ldx #<strings::illegal_detected
+	ldy #>strings::illegal_detected
+	bne print_msg
 .endproc
 
 ;*******************************************************************************

@@ -55,6 +55,10 @@ __sim_next_pc: .word 0
 .export __sim_jammed
 __sim_jammed: .byte 0
 
+; set if the CPU has encountered an "illegal" (undocumented) opcode
+.export __sim_illegal
+__sim_illegal: .byte 0
+
 ; next opcode that will be executed
 .export __sim_op
 __sim_op: .byte 0
@@ -310,9 +314,9 @@ __sim_via2: .res $10
 ; This essentially involves checking if the instruction accesses any RAM and,
 ; if it does, settting __sim_effective_addr to the address that will be affected
 ; IN:
-;  - .XY: address of the binary instruction
-;  - .A: the size of the instruction
-;  - r0: the address modes for the instruction (see asm::disassemble)
+;  - .XY:         address of the binary instruction
+;  - .A:          the size of the instruction
+;  - sim::opmode: the address modes for the instruction (see asm::disassemble)
 ; OUT:
 ;  - __sim_effective_addr: holds the address of the byte that will be
 ;                          loaded/stored

@@ -17,6 +17,7 @@
 .import __str_errors
 .import __str_file_open_failed
 .import __str_invalid_command
+.import __str_illegal_detected
 .import __str_jam_detected
 .import __str_link
 .import __str_load
@@ -61,6 +62,7 @@
 	edit_line_err           = __str_edit_line_err
 	endrep                  = __str_endrep
 	errors                  = __str_errors
+	illegal_detected        = __str_illegal_detected
 	invalid_command         = __str_invalid_command
 	file_open_failed        = __str_file_open_failed
 	link                    = __str_link
