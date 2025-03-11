@@ -374,15 +374,17 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ; RESTORE_DEBUG_STATE
 ; Restores the saved debugger state
 .proc restore_debug_state
+@vicsave=mem::dbg9000
+@colorsave=mem::dbg9400
 	ldx #$10
-:	lda mem::dbg9000-1,x
+:	lda @vicsave-1,x
 	sta $9000-1,x
 	dex
 	bne :-
 
 	ldx #$f0
 ; save $9400-$94f0
-:	lda mem::dbg9400-1,x
+:	lda @colorsave-1,x
 	sta $9400-1,x
 	dex
 	bne :-
@@ -1851,7 +1853,7 @@ restore_regs:
 	; illegal instruction detected, give a warning
 	ldx #<strings::illegal_detected
 	ldy #>strings::illegal_detected
-	bne print_msg
+	bne print_msg			 ; branch always
 .endproc
 
 ;*******************************************************************************
@@ -2037,7 +2039,7 @@ restore_regs:
 
 	ldy @tosave+1,x
 	cpy #$02
-	bcc @next		; skip ZP and stack (already handled)
+	bcc @next		; skip ZP, stack, & VIC (already handled)
 	sty @addr+1
 	lda @tosave,x
 	sta @addr
@@ -2690,13 +2692,12 @@ __debug_remove_breakpoint:
 	bcc @internal
 	cmpw #$8000
 	bcc @external
-	cmpw #$94f0	; $8000-$94f0 is VIC/color/etc.
-	bcc @internal
-	; $94f0 - $9600 is unused by debugger, we can pretend it's external
+	cmpw #$9000
+	bcc @internal	; $9000-$94f0 is internal
+	cmpw #$94f0
+	bcc @internal	; $94f0-$9600 unused by debugger, pretend it's external
 	cmpw #$c000
-	bcs @external	; ROM is untouchable, consider external
-	cmpw #$9801
-	bcs @internal
+	bcc @internal	; ROM is untouchable, consider external
 @external:
 	lda #$ff
 	rts

@@ -333,6 +333,13 @@ __sim_via2: .res $10
 	sta @opsz
 	pha
 
+	; initialize effective address to bogus value
+	; this avoids setting it to a volatile register (e.g. the VIC) and
+	; confusing the debugger
+	ldx #$ff
+	stx __sim_effective_addr
+	stx __sim_effective_addr+1
+
 	ldxy @instruction
 	jsr vmem::load			; opcode
 	sta @opcode
