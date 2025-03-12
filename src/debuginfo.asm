@@ -68,7 +68,7 @@ INCREMENT_AT
 .RODATA
 .linecont +
 .define dbgi_procs addr2line, line2addr, end_block, init, initonce, get_filename, new_block, \
-	set_file, set_name, set_addr, store_line, push_block, pop_block, get_fileid
+	set_file, set_name, set_addr, store_line, push_block, pop_block, get_fileid, increment_at
 .linecont -
 dbgi_procs_lo: .lobytes dbgi_procs
 dbgi_procs_hi: .hibytes dbgi_procs
@@ -133,6 +133,7 @@ debuginfo:
 .export __debug_pop_block
 
 .export __debuginfo_get_fileid
+.export __debuginfo_increment_at
 
 ;******************************************************************************
 .if FINAL_BANK_MAIN=FINAL_BANK_DEBUG
@@ -150,6 +151,7 @@ debuginfo:
 	__debug_push_block        = push_block
 	__debug_pop_block         = pop_block
 	__debuginfo_get_fileid    = get_fileid
+	__debuginfo_increment_at  = increment_at
 .else
 .PUSHSEG
 .CODE
@@ -168,6 +170,7 @@ __debug_store_line:       BANKJUMP dbgi_proc_ids::STORE_LINE
 __debug_push_block:       BANKJUMP dbgi_proc_ids::PUSH_BLOCK
 __debug_pop_block:        BANKJUMP dbgi_proc_ids::POP_BLOCK
 __debuginfo_get_fileid:   BANKJUMP dbgi_proc_ids::GET_FILEID
+__debuginfo_increment_at: BANKJUMP dbgi_proc_ids::INCREMENT_AT
 
 ;*******************************************************************************
 ; Entrypoint for routines
@@ -1192,4 +1195,259 @@ get_filename = get_filename_addr
 	bne @l0
 	lda #$ff		; not equal
 @done:	rts
+.endproc
+
+;*******************************************************************************
+; COPY
+; Copies one 0-terminated string to another. A maximum of 255 chars are copied
+; IN:
+;  - .XY: the source string to copy
+;  - r0:  the destination string to copy to
+;  - .C:  set on error (in practice always clear)
+.proc strcopy
+@src=zp::str0
+@dst=r0
+	stxy @src
+	ldy #$00
+:	lda (@src),y
+	sta (@dst),y
+	beq @done
+	iny
+	bne :-
+@done:	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; INCREMENT AT
+; Increments all line programs in the given file that begin after the given
+; line
+; IN:
+;   - .A:  the file ID of the file to increment lines in
+;   - .XY: the line number to increment after
+.proc increment_at
+@file=r4
+@cnt=r5
+@line=r6
+	sta @file
+	stxy @line
+
+	; save the state of current debuginfo block being generated
+	jsr push_block
+
+	lda #$00
+	sta @cnt
+
+@l0:	lda @cnt
+	jsr get_block_by_id
+
+	; does the file in this block match the one we're incrementing in?
+	lda file
+	cmp @file
+	bne @next		; not same file, skip
+
+	; does the block contain any lines greater than the one we want?
+	lda blocklinebase
+	clc
+	adc linestop
+	tax
+	lda blocklinebase+1
+	adc linestop+1
+	tay
+	cmpw @line		; line_end >= line?
+	bcc @next		; if not, block is entirely before our line
+
+	; run the line program until we reach a line that should be incremented
+@l1:	jsr advance		; run an instruction of the program
+	ldxy line
+	cmpw @line		; is the program line >= the one we want?
+	bcc @l1			; repeat until it is
+
+	; we found the line that needs to be incremented,
+	; rewrite the instruction in the line program to increment this line
+	ldy #$01		; +1 line
+	ldx #$00		; +0 address
+	jsr addcursor		; rewrite the instruction
+
+	; persist the update to the block
+	lda @cnt
+	jsr save_block
+
+@next:	lda @cnt
+	cmp numblocks
+	inc @cnt
+	bcc @l0			; repeat for all blocks
+
+	; restore debuginfo state
+	jmp pop_block
+.endproc
+
+;*******************************************************************************
+; ADD CURSOR
+; Adds the given value to the line number the instruction program is currently
+; on.
+; TODO: handle signed input
+; IN:
+;   - .X: the number of lines update the current line program instruction by
+;   - .Y: the byte offset to update the current line program instruction by
+; OUT:
+;   - .C: set on error
+.proc addcursor
+@dline=r0
+@daddr=r1
+@src=r2
+@basic_op=r2
+	stx @dline
+	sty @daddr
+	ldy #$00
+	lda (line),y	; get the opcode we're on
+	beq @extended	; if extended, continue
+
+@basic:
+	; basic instruction, get the bottom 4 bits (for line #)
+	pha
+	and #$0f		; get line offset
+	adc @dline		; add d-line
+	sta @basic_op
+	cmp #$10		; overflow?
+	pla
+	bcs @basic2extended	; if so, need to replace this with extended ops
+	lsr
+	lsr
+	lsr
+	lsr
+	clc
+	adc @daddr		; add address delta
+	cmp #$10		; overflow?
+	bcs @basic2extended	; if so, need to replace this with extended ops
+	asl
+	asl
+	asl
+	asl
+	ora @basic_op
+	sta (line),y		; replace the instruction
+	;clc
+	rts			; and we're done
+
+@extended:
+	iny
+	lda (line),y	; get the extended instruction
+
+	cmp #OP_ADVANCE_ADDR
+	bne :+
+@adv_addr:
+	; update the ADVANCE ADDR value
+	iny
+	lda @daddr
+	clc
+	adc (line),y
+	sta (line),y	; store new LSB
+	iny
+	lda (line),y
+	adc #$00
+	sta (line),y	; store new MSB
+	lda #$00
+	sta @daddr	; flag @daddr as handled
+	lda @dline	; have we handled the line update?
+	beq @done	; if so, we're done
+	bne @next
+
+:	cmp #OP_ADVANCE_LINE
+	bne @done
+@adv_line:
+	; update the ADVANCE LINE value
+	iny
+	lda @dline
+	clc
+	adc (line),y
+	sta (line),y	; store new LSB
+	iny
+	lda (line),y
+	adc #$00
+	sta (line),y	; store new MSB
+	lda #$00
+	sta @dline	; flag @dline as handled
+	lda @daddr	; have we handled the address update?
+	beq @done	; if so, we're done
+
+@next:  jsr advance	; still need to update line or addr
+	jmp addcursor	; continue to find the next op
+@done:  rts
+
+@basic2extended:
+	sta @basic_op
+
+	; shift the line program to make room for the extended instructions that
+	; will replace the basic one
+	lda freeptr
+	sta @src
+	lda freeptr+1
+	sta @src+1
+
+	; shift everything between current address (line) and progstop
+@copy:
+	; need to open 7 bytes of space to go from basic to extended
+	ldy #$00
+	lda (@src),y
+	ldy #$07
+	sta (@src),y
+	decw @src
+	ldxy @src
+	cmpw line
+	bcs @copy
+
+	; add the amount we shifted to the block's program stop pointer
+	lda progstop
+	clc
+	adc #$07
+	sta progstop
+	bcc :+
+	inc progstop+1
+
+:	; add the amount we shifted to the free pointer
+	lda freeptr
+	clc
+	adc #$07
+	sta freeptr
+	bcc @done
+	inc freeptr+1
+
+	; reencode the basic instruction as 2 extended ones, updated by the
+	; line/address delta
+	; thus 1 the 1 byte basic instruction is turned into 2 4 byte ones
+	; $11 ->  |$00, $04, $01, $00|$00, $05, $01, $00|
+	lda #$00
+	tay
+	sta (line),y		; extended opcode prefix
+	iny
+	lda #OP_ADVANCE_LINE	; write the line advance component
+	sta (line),y		; extended opcode prefix
+	iny
+	lda @basic_op
+	and #$0f
+	clc
+	adc @dline
+	sta (line),y		; write the number of lines to advance
+	iny
+	lda #$00
+	rol
+	sta (line),y		; write MSB
+	iny
+	sta (line),y		; extended opcode prefix (for advance addr)
+	iny
+	lda #OP_ADVANCE_LINE	; write the line advance component
+	sta (line),y
+	lda @basic_op
+	and #$f0
+	lsr
+	lsr
+	lsr
+	lsr
+	clc
+	adc @daddr
+	sta (line),y		; write the number of bytes to advance
+	iny
+	lda #$00
+	rol
+	sta (line),y		; write MSB
+	rts			; and we're done
 .endproc

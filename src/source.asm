@@ -721,6 +721,8 @@ data:
 	; start lines greater than the current line and increment those
 	jsr __src_get_filename
 	jsr dbgi::getfileid
+	ldxy __src_line
+	jsr dbgi::increment_at
 
 	; shift breakpoints
 	jsr edit::currentfile
