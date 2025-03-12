@@ -9,9 +9,11 @@ data as you execute your program.
 
 Upon entering the debugger, a view of the system state is displayed at the
 current step or breakpoint.
+
 This include the state of the registers (A, X, Y, P, SP, and PC) as well as
 any effective address that was calculated for reading/writing by the last
-instruction.
+instruction.  Note that if the last instruction executed did not read or write to memory,
+the effective address field is set to $ffff.
 
 While debugging, most navigation commands work as normal. Breakpoints may
 be set as they would in the editor prior to assembly, and they will be installed

@@ -2978,7 +2978,7 @@ goto_buffer:
 	lda #$00
 	sta zp::gendebuginfo
 
-	; tokenize (1st pass) to check if the current line is valid
+	; tokenize (1st pass) to check if the line is valid
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize

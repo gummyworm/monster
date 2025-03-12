@@ -2064,7 +2064,7 @@ restore_regs:
 	rts			; done
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SETBRKATLINE
 ; Sets a breakpoint at the given line.  During assembly the address will be
 ; populated.
