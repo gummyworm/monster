@@ -1,13 +1,14 @@
-### TODO
+### TODO V2
 - [ ] Update debug info while editing
-- [ ] Directive to forward declare labels .lbl
+- [ ] Implement linker (WIP on linkage branch)
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor
   - [ ] Show current scope in status bar (why not)
-- [ ] Startup animation
 - [ ] Support variable width characters (8x8 UDG's)
-- [ ] Implement linker (WIP on linkage branch)
 - [ ] Add settings / project configuration file
+
+### TODO V1
+- [ ] Startup animation
 - [ ] Symbolic disassembly
 - [x] Multicolor support for UDG editor
 - [x] Don't paste when it would create line > 40 columns
