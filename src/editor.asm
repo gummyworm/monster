@@ -383,7 +383,7 @@ main:	jsr key::getch
 
 ;******************************************************************************
 ; COMMAND_ASM
-; Assembles the entire source
+; Assembles the entire source of the active source buffer
 .proc command_asm
 	ldxy #strings::assembling
 	jsr print_info

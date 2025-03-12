@@ -1,9 +1,13 @@
+.ifndef CONFIG_INC
+.define CONFIG_INC
+
 ;******************************************************************************
 ; PREFERENCES/COLORS
 
 CUR_BLINK_SPEED = 250	; number of updates before blink
 
-MAX_SEARCH_LEN = 16	; max size of search term in "find"
+MAX_SEARCH_LEN = 16		; max size of search term in "find"
+MAX_BUFFER_NAME_LEN = 16	; max length of names for each buffer
 
 ;******************************************************************************
 ; SOURCE FORMATTING
@@ -12,3 +16,4 @@ TAB_WIDTH = 10
 ;******************************************************************************
 LINESIZE = 40	; the size of the buffer for 1 line on the screen
 
+.endif

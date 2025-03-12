@@ -31,7 +31,6 @@
 MAX_SOURCES         = 8		; # of source buffers that can be loaded at once
 GAPSIZE             = $100	; size of gap in gap buffer
 POS_STACK_SIZE      = 32 	; size of source position stack
-MAX_BUFFER_NAME_LEN = 16	; max length of names for each buffer
 BUFFER_SIZE         = $6000	; max size of buffer
 
 ;*******************************************************************************

@@ -6,18 +6,21 @@
 ; debug information.  If successful, the old debug information is replaced.
 ;*******************************************************************************
 
+.include "config.inc"
+
 DAEMON_QUEUE_DEPTH = 8
 
 .BSS
 
 ;*******************************************************************************
 ; JOBS
-; The stack (LIFO) of the file IDs to reassemble.  If the full, the daemon will
+; The stack (LIFO) of the files to reassemble.  If the full, the daemon will
 ; hog the CPU until it can catch back up.
 ; A stack is used because the user will likely expect recently edited
 ; files to be prioritzed.
-jobs:     .res DAEMON_QUEUE_DEPTH
-num_jobs: .byte 0			; # of items in jobs stack
+jobs:     .res DAEMON_QUEUE_DEPTH*MAX_BUFFER_NAME_LEN
+
+num_jobs: .byte 0	; # of items in jobs stack
 
 active_job: .byte 0	; the file being processed (assembled)
 
@@ -50,6 +53,7 @@ active_job: .byte 0	; the file being processed (assembled)
 ; If reassembly is already in process, continues assembling.
 ; If reassembly is in process AND a new edit is made, aborts the reassembly
 ; and restarts again.
+; If a file fails to reassemble, the processing will be aborted
 .export __daemon_update
 .proc __daemon_update
 	lda active_job
@@ -61,6 +65,8 @@ active_job: .byte 0	; the file being processed (assembled)
 	rts		; done, nothing to process
 
 @start_job:
+	; TODO:
 
 @continue_job:
+	; TODO:
 .endproc
