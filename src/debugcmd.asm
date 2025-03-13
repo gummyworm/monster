@@ -381,7 +381,9 @@
 	lda #$00
 	sta @i
 	beq @chk		; branch to check if start == stop on 1st iter
-@fill:	ldx @i
+@fill:	lda con::int
+	bne @done		; SIGINT, quit
+	ldx @i
 	lda @list,x
 	ldxy @start
 	CALL FINAL_BANK_MAIN, vmem::store
@@ -395,7 +397,7 @@
 @chk:	ldxy @start
 	cmpw @stop
 	bne @fill
-	clc		; OK
+@done:	clc		; OK
 @ret:	rts
 .endproc
 
@@ -496,7 +498,9 @@
 	ora @num+1
 	beq @done		; if comparing 0 bytes, we're done
 
-@l0:	ldxy @block0
+@l0:	lda con::int
+	bne @ok		; SIGINT, quit
+	ldxy @block0
 	jsr vmem_load	; get a byte from block 0
 	sta @tmp
 	ldxy @block1
@@ -511,8 +515,7 @@
 	incw @block1
 	decw @num
 	bne @l0
-	clc
-
+@ok:	clc
 @done:	rts
 
 ;--------------------------------------
@@ -578,7 +581,9 @@
 	bcs @ret
 
 	; move the data
-@l0:	ldxy @start
+@l0:	lda con::int
+	bne @done		; SIGINT, quit
+	ldxy @start
 	jsr vmem_load
 	ldxy @target
 	CALL FINAL_BANK_MAIN, vmem::store
@@ -587,7 +592,7 @@
 	ldxy @start
 	cmpw @end
 	bne @l0
-	clc
+@done:	clc
 @ret:	rts
 .endproc
 
@@ -612,7 +617,9 @@
 
 	lda #$00
 	sta @i
-@l0:	ldxy @start
+@l0:	lda con::int
+	bne @done		; SIGINT, quit
+	ldxy @start
 	jsr vmem_load
 	ldx @i
 	inc @i
@@ -647,7 +654,7 @@
 	iny
 :	jsr print_word	; print the address where we found the value
 
-	RETURN_OK
+@done:	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -867,7 +874,9 @@
 	bne @l0
 	inc @lines		; minimum of 1 line
 
-@l0:	ldxy @addr
+@l0:	lda con::int
+	bne @done		; SIGINT, quit
+	ldxy @addr
 	CALL FINAL_BANK_MAIN, view::memline
 	jsr con::puts
 
@@ -880,7 +889,7 @@
 	inc @addr+1
 :	dec @lines		; (max 255 lines)
 	bne @l0
-	clc			; OK
+@done:	clc			; OK
 @ret:	rts
 .endproc
 
@@ -982,7 +991,9 @@
 	lda #>$0100		; MSB of stack base
 	sta @sp+1
 
-@l0:	jsr @draw_item		; draw the stack contents for this offset
+@l0:	lda con::int
+	bne @done		; SIGINT, quit
+	jsr @draw_item		; draw the stack contents for this offset
 	inc @sp			; move to next procedure in the stack
 	beq @ok
 	inc @sp
@@ -1116,9 +1127,12 @@
 @buff=mem::spare+40
 	lda #8*8			; default size of range
 	jsr get_range_or_default
-	bcs @done
+	bcc @l0
+:	jmp @done
 
-@l0:	ldxy #@buff+4
+@l0:	lda con::int
+	bne :-				; SIGINT, quit
+	ldxy #@buff+4
 	stxy @line
 
 	lda #'.'
@@ -1178,8 +1192,9 @@
 :	tax
 	ldy @addr+1
 	cmpw @stop
-	bcc @l0		; next row
-	clc		; ok
+	bcs :+
+	jmp @l0		; next row
+:	clc		; ok
 @done:	rts
 .endproc
 
