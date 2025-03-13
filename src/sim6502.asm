@@ -33,13 +33,13 @@ __sim_reg_sp: .byte 0
 __sim_reg_p:  .byte 0
 
 ; VIA state
-__sim_via1_t1:  .byte 0
-__sim_via1_t2:  .byte 0
+__sim_via1_t1:  .word 0
+__sim_via1_t2:  .word 0
 __sim_via1_ier: .byte 0
 __sim_via1_ifr: .byte 0
 
-__sim_via2_t1:  .byte 0
-__sim_via2_t2:  .byte 0
+__sim_via2_t1:  .word 0
+__sim_via2_t2:  .word 0
 __sim_via2_ier: .byte 0
 __sim_via2_ifr: .byte 0
 

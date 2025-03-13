@@ -2,6 +2,10 @@
 ; VIDEO SETTINGS
 
 ;******************************************************************************
+LOGO_HEIGHT=90
+LOGO_WIDTH=90/8
+
+;******************************************************************************
 ; available color schemes
 COLORSCHEME_DEFAULT = 1
 COLORSCHEME_BW      = 2

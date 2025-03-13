@@ -2573,7 +2573,7 @@ goto_buffer:
 	jsr dbgi::setfile	; replace existing name for this ID
 
 @new:	ldxy @file		; restore new file name
-	jmp src::name		; rename to the name in .XY
+	jmp src::name		; rename to the "source" name to string in .XY
 .endproc
 
 ;*******************************************************************************

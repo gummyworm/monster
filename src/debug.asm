@@ -810,10 +810,23 @@ brkhandler2_size=*-brkhandler2
 	sta $911e	; disable all NMI's
 	sta $912e	; disable all NMI's
 
-	tsx
-	lda $104,x	; get status
-	and #$10	; mask BRK flag
-	sta is_brk
+	; TODO: save VIA timers?
+	;lda $9114
+	;sta sim::via1_t1
+	;lda $9114+1
+	;sta sim::via1_t1+1
+	;lda $9118
+	;sta sim::via1_t2
+	;lda $9118+1
+	;sta sim::via1_t2+1
+	;lda $9124
+	;sta sim::via2_t1
+	;lda $9124+1
+	;sta sim::via2_t1+1
+	;lda $9128
+	;sta sim::via2_t2
+	;lda $9128+1
+	;sta sim::via2_t2+1
 
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
 	pla
@@ -822,8 +835,12 @@ brkhandler2_size=*-brkhandler2
 	sta sim::reg_x
 	pla
 	sta sim::reg_a
+
 	pla
 	sta sim::reg_p
+	and #$10	; mask BRK flag
+	sta is_brk
+
 	pla
 	sta sim::pc
 	pla
