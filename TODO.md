@@ -7,6 +7,10 @@
 - [ ] Support variable width characters (8x8 UDG's)
 - [ ] Add settings / project configuration file
 
+### TODO V1.1
+- [ ] Save/restore VIA timers while debugging
+- [ ] Save/restore raster position while debugging
+
 ### TODO V1
 - [ ] Startup animation
 - [ ] Symbolic disassembly

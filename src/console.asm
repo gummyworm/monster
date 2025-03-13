@@ -28,6 +28,8 @@
 
 .import is_whitespace	; from debugcmd.asm
 
+NMI_HANDLER_ADDR = mem::spare+120
+
 ;*******************************************************************************
 HEIGHT = 24
 
@@ -49,8 +51,10 @@ __console_outfile: .byte 0
 
 ;*******************************************************************************
 ; SIGNALS
+.export __console_int
 .export __console_quit
 __console_quit: .byte 0	; if !0, console will quit when command returns to it
+__console_int: .byte 0	; if !0, behaved commands will stop running gracefully
 
 ;*******************************************************************************
 ; SCREEN
@@ -264,9 +268,11 @@ screen: .res 40*24
 ; Activates the console without clearing the screen
 .export __console_reenter
 .proc __console_reenter
-	; initialize QUIT signal state
+	; initialize QUIT and INT signal states
 	lda #$00
 	sta __console_quit
+
+	jsr install_nmi
 
 	; treat whitespace as separator for expressions in the console
 	lda #$01
@@ -298,8 +304,12 @@ screen: .res 40*24
 	bcs @clrline
 	pha
 
+	lda #$7f
+	sta $911d	; ack all interrupts
+
 	lda #$00
-	sta __console_outfile
+	sta __console_outfile	; default to screen
+	sta __console_int	; reset SIGINT
 
 	ldxy #mem::linebuffer
 	jsr __console_puts
@@ -340,7 +350,10 @@ screen: .res 40*24
 	bne @done
 	jmp @prompt
 
-@done:	lda cursave_x
+@done:	lda #$7f
+	sta $911e		; disable NMIs
+
+	lda cursave_x
 	sta zp::curx
 	lda cursave_y
 	sta zp::cury
@@ -349,7 +362,8 @@ screen: .res 40*24
 	bne :+
 	; if debug interface changed back to GUI, refresh editor
 	CALL FINAL_BANK_MAIN, edit::refresh
-:	rts
+:
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -414,4 +428,44 @@ screen: .res 40*24
 	; display error
 	ldxy #strings::nofile
 	jmp __console_puts
+.endproc
+
+;*******************************************************************************
+; INSTALL NMI
+; Copies the NMI handler to shared RAM and enables CA1 (RESTORE key)
+; interrupts to catch INT signal
+.proc install_nmi
+@src=r0
+@dst=r2
+	ldxy #@nmi_handler
+	stxy @src
+	ldxy #NMI_HANDLER_ADDR
+	stxy @dst
+
+	ldy #@nmi_handler_end-@nmi_handler-1
+:	lda (@src),y
+	sta (@dst),y
+	dey
+	bpl :-
+
+	ldxy #NMI_HANDLER_ADDR
+	stxy $0318
+	lda #$82
+	sta $911e		; enable NMIs from RESTORE key
+	rts
+
+; The NMI handler - simply sets the INT signal
+@nmi_handler:
+	pha
+	lda $9c02
+	pha			; save current bank
+	lda #FINAL_BANK_CONSOLE
+	sta $9c02
+	lda #$01
+	sta __console_int	; set INT flag
+	pla
+	sta $9c02		; restore bank
+	pla
+	rti
+@nmi_handler_end:
 .endproc

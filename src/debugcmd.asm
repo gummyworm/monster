@@ -678,7 +678,9 @@
 	jsr get_range_or_default
 	bcs @ret
 
-@l0:	ldxy #@buff
+@l0:	lda con::int
+	bne @done		; SIGINT, quit
+	ldxy #@buff
 	stxy r0
 	ldxy @addr
 	CALL FINAL_BANK_MAIN, asm::disassemble
