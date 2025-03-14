@@ -203,7 +203,7 @@ START:
 	stx $9000		; horizontal centering
 	sty $9001		; vertical centering
 
-	ldx #end-@unlock
+	ldx #@end-@unlock
 :	lda @unlock-1,x
 	sta $200-1,x
 	dex
@@ -246,7 +246,7 @@ START:
 	sta zp::device
 
 	jmp start
-end:
+@end:
 .segment "SETUP"
 .endif	; CART
 

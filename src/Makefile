@@ -87,14 +87,16 @@ $(TEST_IMAGE): monster-cart-test.prg
 
 # create the test disk image
 test.d81: monster-disk.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
-	$(C1541) -format test,1 d81 test.d81 -attach test.d81 -write monster-disk.prg $(addprefix -write , $(TEST_FILES)) -write fe3firmware
+	$(PYTHON) makeboot.py labels.txt monster-disk.prg bootloader.prg masm.prg
+	$(EXOMIZER) sfx basic -t55 -n -o boot.prg bootloader.prg
+	$(C1541) -format test,1 d81 test.d81 -attach test.d81 -write boot.prg -write masm.prg $(addprefix -write , $(TEST_FILES)) -write fe3firmware
 
 install.d81: installer.prg $(CART_IMAGE)
 	$(C1541) -format install,1 d81 install.d81 -attach install.d81 -write installer.prg -write $(CART_IMAGE)
 
 start-cart: $(CART_IMAGE) $(KERNAL) test.d81
 	$(C1541) -format disk,1 d81 empty.d81
-	$(XVIC) +warp -sound -cartfe $(CART_IMAGE) -memory all $(EMU_REGION) -drive10type 1581 -10 test.d81 -drive8type 1581 -8 empty.d81 -moncommands moncommands
+	$(XVIC) +warp -sound -cartfe $(CART_IMAGE) -memory all $(EMU_REGION) -drive10type 1581 -10 test.d81 -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 empty.d81 -moncommands moncommands
 
 start-cart-jiffy: $(CART_IMAGE) $(KERNAL) test.d81
 	$(C1541) -format disk,1 d81 empty.d81

@@ -11,7 +11,7 @@
 .ifdef PAL
 LINES           = 312
 CYCLES_PER_LINE = 71
-IRQ_START_LINE  = $20
+IRQ_START_LINE  = $0f
 .else ;NTSC
 LINES           = 261
 CYCLES_PER_LINE = 65
