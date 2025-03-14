@@ -186,11 +186,11 @@ START:
 	jsr $fdf9	; init I/O
 	jsr $e518	; init I/O 2
 
-	ldx #@end-@unlock-1
-:	lda @unlock,x
-	sta $200,x
+	ldx #end-@unlock
+:	lda @unlock-1,x
+	sta $200-1,x
 	dex
-	bpl :-
+	bne :-
 
 	; run the unlock code
 	jmp $200
@@ -229,7 +229,7 @@ START:
 	sta zp::device
 
 	jmp start
-@end:
+end:
 .segment "SETUP"
 .endif	; CART
 
@@ -295,10 +295,41 @@ START:
 .endproc
 
 ;*******************************************************************************
+; drawlogo
+.macro drawlogo
+	; set all color to blue
+	lda #$06
+	ldx #$00
+:	sta $9400,x
+	dex
+	bne :-
+
+	lda #$1b
+	sta $900f		; white BG/cyan border
+	lda #$c0
+	sta $9005		; screen @ $1000
+	lda #18			; # of columns
+	sta $9002
+	lda #7<<1		; # of rows
+	sta $9003
+
+	; draw the boot screen (RLE)
+	ldx #18*7
+:	lda bootlogo-1,x
+	sta $1000-1,x
+	dex
+	bne :-
+.endmacro
+
+;*******************************************************************************
 ; START
 ; Entrypoint to program
 start:
 	sei
+
+.ifdef CART
+	drawlogo
+.endif
 
 	; enable all memory
 	lda #FINAL_BANK_MAIN
@@ -412,6 +443,11 @@ start:
 	bpl :-
 
 	jmp lowinit
+
+.ifdef CART
+bootlogo:
+	.include "bootlogo.dat"
+.endif
 
 ;*******************************************************************************
 ; RELOCS
