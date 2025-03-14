@@ -312,6 +312,15 @@ end:
 	sta $9002
 	lda #7<<1		; # of rows
 	sta $9003
+.ifdef NTSC
+	ldx #$08
+	ldy #$20
+.else
+	ldx #$10
+	ldy #$20
+.endif
+	stx $9000		; horizontal centering
+	sty $9001		; vertical centering
 
 	; draw the boot screen (RLE)
 	ldx #18*7

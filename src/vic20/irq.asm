@@ -8,14 +8,14 @@
 ;*******************************************************************************
 ; CONSTANTS
 
-IRQ_START_LINE = $0f
-
 .ifdef PAL
 LINES           = 312
 CYCLES_PER_LINE = 71
+IRQ_START_LINE  = $20
 .else ;NTSC
 LINES           = 261
 CYCLES_PER_LINE = 65
+IRQ_START_LINE  = $0f
 .endif
 TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster int.
 CYCLES_PER_ROW  = 8 * (CYCLES_PER_LINE - 2) - 25
