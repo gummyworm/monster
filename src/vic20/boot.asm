@@ -275,8 +275,10 @@ START:
 	sei
 	lda #FINAL_BANK_FASTCOPY
 	jsr fcpy::init
+	jsr update_load_progress
 	lda #FINAL_BANK_FASTCOPY2
 	jsr fcpy::init
+	jsr update_load_progress
 
 	lda #CUR_BLINK_SPEED
 	sta zp::curtmr
@@ -297,7 +299,11 @@ START:
 	iny
 	bne @l0
 	inc r0+1	; next page
-	dex
+	cpx #$30
+	bne :+
+	jsr update_load_progress
+	ldy #$00
+:	dex
 	bne @l0
 
 	lda #FINAL_BANK_MAIN
@@ -457,9 +463,9 @@ start:
 	sta @relocs
 	bcc :+
 	inc @relocs+1
-:
-	dec @cnt
+:	dec @cnt
 	bne @reloc
+	jsr update_load_progress
 
 	; perform the machine-specific initialization
 	jsr vic20::init
@@ -486,6 +492,19 @@ start:
 
 bootlogo:
 	.include "bootlogo.dat"
+
+;*******************************************************************************
+; UPDATE LOAD PROGRESS
+; Updates the loading progress "bar"
+.proc update_load_progress
+BAR_ADDRESS=$1000+(18*6)+7
+	lda #'.'|$80
+	ldy @index
+	sta BAR_ADDRESS,y
+	inc @index
+	rts
+@index: .byte 0
+.endproc
 
 ;*******************************************************************************
 ; RELOCS
