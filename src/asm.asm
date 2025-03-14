@@ -940,7 +940,9 @@ num_illegals = *-illegal_opcodes
 	ldxy zp::line
 	jsr lbl::setscope	; set the non-local label as the new scope
 
-:	lda zp::pass
+:	lda state::verify
+	bne @ok			; if verifying, don't add/check label
+	lda zp::pass
 	ldxy zp::line
 	cmp #$01
 	bne @validate		; if not pass 1, don't add the label
