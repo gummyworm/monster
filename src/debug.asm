@@ -413,6 +413,13 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	dex
 	bne :-
 
+	ldx #$10
+; restore $9000-$9010
+:	lda mem::prog9000-1,x
+	sta $9000-1,x
+	dex
+	bne :-
+
 	ldx #$f0
 ; restore $9400-$94f0
 :	lda mem::prog9400-1,x
@@ -480,7 +487,6 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	lda #$01
 	sta swapmem			; on 1st iteration, swap entire RAM back
 
-@basic:	; initialize machine state
 	ldxy #BRK_HANDLER_ADDR+1
 	stxy $0316			; BRK
 	ldxy #NMI_HANDLER_ADDR
@@ -729,24 +735,44 @@ brkhandler2_size=*-brkhandler2
 	jsr save_debug_state
 	jsr save_debug_zp
 
+	lda #$7f
+	sta $911e			; disable NMI's
+
 	; TODO: check memory configuration; skip this for 8+K expanded
-	;jsr $fd8d	; initialize and test RAM
+	; initalize RAM ($00-$400)
+	lda #$00
+	tax
+:	sta $00,x
+	sta $100,x
+	sta $200,x
+	sta $300,x
+	dex
+	bne :-
+
 	jsr $fd52	; restore default I/O vectors
 	jsr $fdf9	; initialize I/O registers
 	jsr $fdca	; set top of RAM to $2000 (for unexpanded)
 	jsr $e518	; initialize hardware
 	jsr $e45b	; init BASIC vectors
-	jsr $e3a4
-	jsr $e404
+	jsr $e3a4	; init BASIC RAM locations
+	jsr $e404	; print startup message and init pointers
 	save_user_zp
-	jsr __debug_save_prog_state
 
 	sei
 	lda #$7f
 	sta $911e			; disable NMI's
 
+	; restore the debug (Monster's) low memory
+	; this has the routines (in the shared RAM space) we need to do the rest
+	; of the banekd program state save (save_prog_state)
 	jsr restore_debug_zp
 	jsr restore_debug_low
+
+	; save the initialized hi RAM ($1000-$2000) and other misc locations of
+	; the user program
+	jsr __debug_save_prog_state
+
+	; restore the rest of Monster's RAM and enter the application
 	jsr restore_debug_state
 	jsr irq::on
 	jmp edit::init
@@ -757,7 +783,6 @@ brkhandler2_size=*-brkhandler2
 ; saves memory clobbered by the debugger (screen, VIC registers and color)
 .export __debug_save_prog_state
 .proc __debug_save_prog_state
-@losave=mem::prog00+$100
 @vicsave=mem::prog9000
 @internalmem=mem::prog1000
 @colorsave=mem::prog9400
@@ -1356,6 +1381,7 @@ restore_regs:
 	bne :-
 
 	; copy around the NMI vector
+	ldx #$100-$1a
 :	lda mem::dbg00+$31a,x
 	sta $31a,x
 	dex

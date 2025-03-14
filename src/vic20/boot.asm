@@ -510,7 +510,7 @@ num_relocs=(*-relocs)/7
 	CALL FINAL_BANK_CONSOLE, con::init
 
 .ifndef TEST
-	jmp dbg::clrstate
+	jmp dbg::clrstate	; initialize user state by init'ing BASIC
 .else
 	.import testsuite
 	jmp testsuite
