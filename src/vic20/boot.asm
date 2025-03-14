@@ -186,6 +186,23 @@ START:
 	jsr $fdf9	; init I/O
 	jsr $e518	; init I/O 2
 
+	lda #$3b
+	sta $900f		; white BG/cyan border
+	lda #$c0
+	sta $9005		; screen @ $1000
+	lda #00			; # of columns and rows
+	sta $9002
+	sta $9003
+.ifdef NTSC
+	ldx #$08
+	ldy #$20
+.else
+	ldx #$10
+	ldy #$20
+.endif
+	stx $9000		; horizontal centering
+	sty $9001		; vertical centering
+
 	ldx #end-@unlock
 :	lda @unlock-1,x
 	sta $200-1,x
@@ -304,14 +321,6 @@ end:
 	dex
 	bne :-
 
-	lda #$1b
-	sta $900f		; white BG/cyan border
-	lda #$c0
-	sta $9005		; screen @ $1000
-	lda #18			; # of columns
-	sta $9002
-	lda #7<<1		; # of rows
-	sta $9003
 .ifdef NTSC
 	ldx #$08
 	ldy #$20
@@ -322,12 +331,18 @@ end:
 	stx $9000		; horizontal centering
 	sty $9001		; vertical centering
 
-	; draw the boot screen (RLE)
+	; draw the boot screen
 	ldx #18*7
 :	lda bootlogo-1,x
 	sta $1000-1,x
 	dex
 	bne :-
+
+	; now update the # of rows and columns to make the screen visible
+	lda #18			; # of columns
+	sta $9002
+	lda #7<<1		; # of rows
+	sta $9003
 .endmacro
 
 ;*******************************************************************************
