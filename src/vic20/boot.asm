@@ -351,9 +351,9 @@ START:
 start:
 	sei
 
-.ifdef CART
+;.ifdef CART
 	drawlogo
-.endif
+;.endif
 
 	; enable all memory
 	lda #FINAL_BANK_MAIN
@@ -468,10 +468,8 @@ start:
 
 	jmp lowinit
 
-.ifdef CART
 bootlogo:
 	.include "bootlogo.dat"
-.endif
 
 ;*******************************************************************************
 ; RELOCS
