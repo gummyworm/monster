@@ -158,7 +158,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 
 .segment "SETUP"
 
-.ifndef CART
+.ifndef CART	; DISK
 ;*******************************************************************************
 ; BASIC header: SYS 4621
 .word @head
@@ -167,6 +167,22 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 .byte $9e
 .asciiz "4621"
 @next: .word 0
+	lda #$3b
+	sta $900f		; white BG/cyan border
+	lda #$c0
+	sta $9005		; screen @ $1000
+	lda #00			; # of columns and rows
+	sta $9002
+	sta $9003
+.ifdef NTSC
+	ldx #$08
+	ldy #$20
+.else
+	ldx #$10
+	ldy #$20
+.endif
+	stx $9000		; horizontal centering
+	sty $9001		; vertical centering
 	jmp start
 
 ;*******************************************************************************
