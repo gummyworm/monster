@@ -107,7 +107,7 @@ PROGRAM_STACK_START = $f4
 ; Max depth the debugger may reach during handling of a step during the TRACE
 ; command. This amount will be saved/restored by the debugger before handling
 ; the debugged program's next instruction.
-TRACE_STACK_DEPTH = 16
+TRACE_STACK_DEPTH = $100-PROGRAM_STACK_START
 
 ;*******************************************************************************
 debugtmp = zp::debuggertmp	; scratchpad
