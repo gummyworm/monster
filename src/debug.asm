@@ -229,12 +229,6 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	sta $d0,x
 	dex
 	bpl :-
-
-	ldx #TRACE_STACK_DEPTH-1
-:	lda mem::dbg00+$200-TRACE_STACK_DEPTH,x
-	sta $200-TRACE_STACK_DEPTH,x
-	dex
-	bpl :-
 .endmacro
 
 ;******************************************************************************
@@ -936,6 +930,8 @@ brkhandler2_size=*-brkhandler2
 	lda #$82
 	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
 
+	; save the state that the debugger might clobber and bring in a few
+	; essential zeropage locations used by the debugger
 	save_user_zp_trace
 	restore_debug_zp_trace
 	jmp @swapout
