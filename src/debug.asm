@@ -102,7 +102,7 @@ NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
 ; stepping, tracing, etc.
 ; When using the "GO" command, you may use the entire stack
 ; TODO: calculate the maximum value for this
-PROGRAM_STACK_START = $f0
+PROGRAM_STACK_START = $f2
 
 ; Max depth the debugger may reach during handling of a step during the TRACE
 ; command. This amount will be saved/restored by the debugger before handling
