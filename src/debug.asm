@@ -97,6 +97,13 @@ NMI_TIMER_VAL = (2+3+4+4+6)+5
 NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
 					; before returning from debugger
 
+; Initial stack offset for user program.
+; The debugger will utilize everything above this for its own purposes when
+; stepping, tracing, etc.
+; When using the "GO" command, you may use the entire stack
+; TODO: calculate the maximum value for this
+PROGRAM_STACK_START = $e0
+
 ; Max depth the debugger may reach during handling of a step during the TRACE
 ; command. This amount will be saved/restored by the debugger before handling
 ; the debugged program's next instruction.
@@ -275,8 +282,8 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	sta mem::prog00+rb
 
 	ldx #TRACE_STACK_DEPTH-1
-:	lda $200-TRACE_STACK_DEPTH,x
-	sta mem::prog00+$200-TRACE_STACK_DEPTH,x
+:	lda $200-TRACE_STACK_DEPTH-($100-PROGRAM_STACK_START),x
+	sta mem::prog00+$200-($100-PROGRAM_STACK_START)-TRACE_STACK_DEPTH,x
 	dex
 	bpl :-
 .endmacro
@@ -345,8 +352,8 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	sta rb
 
 	ldx #TRACE_STACK_DEPTH-1
-:	lda mem::prog00+$200-TRACE_STACK_DEPTH,x
-	sta $200-TRACE_STACK_DEPTH,x
+:	lda mem::prog00+$200-TRACE_STACK_DEPTH-($100-PROGRAM_STACK_START),x
+	sta $200-TRACE_STACK_DEPTH-($100-PROGRAM_STACK_START),x
 	dex
 	bpl :-
 .endmacro
@@ -481,7 +488,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	restore_user_zp
 
 	; initialize the user program stack
-	ldx #$e0		; TODO: calculate max value
+	ldx #PROGRAM_STACK_START
 	txs
 
 	lda #$01
@@ -1203,7 +1210,6 @@ brkhandler2_size=*-brkhandler2
 	jsr tracing
 	bne @notrace
 
-	jsr save_debug_zp_trace
 	restore_user_zp_trace
 	jmp restore_regs
 
@@ -1413,22 +1419,6 @@ restore_regs:
 	sta @zp+$300,x
 	dex
 	bne @l0
-	rts
-.endproc
-
-;******************************************************************************
-; SAVE DEBUG ZP TRACE
-; Saves the state of the debugger's zeropage
-.proc save_debug_zp_trace
-@zp=mem::dbg00
-	; no need to save zeropage (it's either temp or static from start of
-	; trace)
-
-	ldx #TRACE_STACK_DEPTH-1
-:	lda $200-TRACE_STACK_DEPTH,x
-	sta @zp+$200-TRACE_STACK_DEPTH,x
-	dex
-	bpl :-
 	rts
 .endproc
 
