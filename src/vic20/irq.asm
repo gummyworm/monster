@@ -11,7 +11,7 @@
 .ifdef PAL
 LINES           = 312
 CYCLES_PER_LINE = 71
-IRQ_START_LINE  = $0f
+IRQ_START_LINE  = $1c
 .else ;NTSC
 LINES           = 261
 CYCLES_PER_LINE = 65
@@ -157,7 +157,7 @@ rowcnt: .byte 0
 	cld
 	sec
 .ifdef PAL
-	lda #$58
+	lda #$44
 .else
 	; base phase value minus all instructions
 	; executed in handler before this
@@ -231,12 +231,10 @@ rowcnt: .byte 0
 .proc row_handler
 	cld
 	sec
-.ifdef PAL
-	lda #$58
-.else
+
 	;lda #$4+3+4+2+4+6+2+2+8+$10+ 24
 	lda #$be
-.endif
+
 	sbc $9128	; add signed overflow value from timer
 	cmp #$0a
 	bcc @s0
