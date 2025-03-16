@@ -455,7 +455,7 @@ blockaddresseshi: .res MAX_FILES
 	sta (block),y	; right the MSB of stop address to the block header
 
 	; check if progstop > freeptr and set freeptr to progstop if it is
-	cmp freeptr
+	cmp freeptr+1
 	bcc @close	; progstop is < freeptr, this isn't the new free ptr
 	bne @set_freetop
 
