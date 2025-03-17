@@ -1,6 +1,7 @@
-# MONSTER
-
-<img width="718" alt="Screenshot 2024-09-17 at 7 52 42 PM" src="https://github.com/user-attachments/assets/c8d3dae7-52f2-420b-95de-56edf8c89d2e">
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/719e5b98-4783-4a45-a204-a710607629de" />
+  <img width="718" alt="Screenshot 2024-09-17 at 7 52 42 PM" src="https://github.com/user-attachments/assets/c8d3dae7-52f2-420b-95de-56edf8c89d2e">
+</p>
 
 ## OVERVIEW
 
