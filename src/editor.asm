@@ -2266,9 +2266,7 @@ __edit_set_breakpoint:
 	lda #ERR_UNNAMED_BUFFER
 	jmp report_typein_error
 
-:	pha			; save the file ID
-	jsr brkpt::getbyline	; is there already a breakpoint?
-	pla			; restore the file ID
+:	jsr brkpt::getbyline	; is there already a breakpoint?
 	bcs @set		; if not, add one
 
 @remove:
@@ -2276,14 +2274,11 @@ __edit_set_breakpoint:
 	lda #DEFAULT_900F
 	bne @done
 
-@set:	jsr src::currline
+@set:	jsr __edit_current_file	; get the debug file ID and line #
 	jsr dbg::setbrkatline
-	jsr __edit_current_file
-	pha
 	jsr dbgi::line2addr
 	stxy r0
-	jsr src::currline
-	pla
+	jsr __edit_current_file	; get the debug file ID and line #
 	jsr dbg::brksetaddr
 
 	lda #BREAKPOINT_ON_COLOR
@@ -2665,7 +2660,7 @@ goto_buffer:
 ; EDIT
 ; Configures the cursor/screen/etc. for editing
 .proc edit
-	lda #$02
+	lda #$7f
 	sta $911e		; disable CA1 (RESTORE key) interrupts
 
 	lda #TEXT_INSERT

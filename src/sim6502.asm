@@ -128,6 +128,7 @@ __sim_via2: .res $10
 	lda #$00
 	sta __sim_branch_taken 	; clear branch taken flag
 	sta __sim_jammed	; clear JAM'd flag
+	sta __sim_illegal	; clear illegal opcode flag
 
 	; get the opcode
 	ldxy @op

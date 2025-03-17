@@ -71,6 +71,7 @@ BREAKPOINT_ENABLED = 1
 
 ;*******************************************************************************
 ; TOGGLE_BREAKPOINT
+; Toggles the given breakpoint, turning it off it was on or on if it was off
 ; IN:
 ;  - .A: the breakpoint to toggle active/inactive
 .proc toggle_breakpoint

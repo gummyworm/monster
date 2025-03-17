@@ -81,7 +81,7 @@ ACTION_GO             = 5	; action for subsequent GO instructions
 ACTION_TRACE_START    = 6
 ACTION_TRACE          = 7	; action for TRACE command
 ACTION_STEP_OUT_START = 8
-ACTION_STEP_OUT       = 9	; action for STEP OUT command
+ACTION_STEP_OUT       = 9	; action for STEP OUT command (must be last)
 
 ;*******************************************************************************
 ; IFACE (interface) constants
@@ -102,7 +102,7 @@ NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
 ; stepping, tracing, etc.
 ; When using the "GO" command, you may use the entire stack
 ; TODO: calculate the maximum value for this
-PROGRAM_STACK_START = $f4
+PROGRAM_STACK_START = $e0
 
 ; Max depth the debugger may reach during handling of a step during the TRACE
 ; command. This amount will be saved/restored by the debugger before handling
@@ -874,8 +874,6 @@ brkhandler2_size=*-brkhandler2
 	tsx
 	stx sim::reg_sp
 
-	; TODO: save timer values
-
 	; clear decimal in case user set it
 	cld
 
@@ -919,7 +917,22 @@ brkhandler2_size=*-brkhandler2
 
 	jsr tracing
 	beq @backup_for_trace
-	jmp @notrace
+
+@notrace:
+	; save the user's zeropage and restore the debugger's
+	save_user_zp
+	jsr restore_debug_low
+	jsr restore_debug_zp
+
+	; save program state and swap the debugger state in
+	jsr swapout
+        jsr irq::on		; reinstall the main IRQ
+
+	;  uninstall breakpoints and reinstall updated ones
+	; if there is a breakpoint at the current PC, we will ignore it
+	jsr uninstall_breakpoints
+	jsr install_breakpoints
+	jmp @backup_done
 
 @backup_for_trace:
 	; if tracing, for the duration the debugger is active, enable an NMI to
@@ -934,38 +947,18 @@ brkhandler2_size=*-brkhandler2
 	; essential zeropage locations used by the debugger
 	save_user_zp_trace
 	restore_debug_zp_trace
-	jmp @swapout
-
-	; save the user's zeropage and restore the debugger's
-@notrace:
-	save_user_zp
-	jsr restore_debug_low
-	jsr restore_debug_zp
-
-@swapout:
-	; save program state and swap the debugger state in
 	jsr swapout
 
-	; reinstall the main IRQ
-        jsr irq::on
-
+@backup_done:
 	; unless we can figure out the exact RAM we will affect, we'll have to
 	; swap in the entire user RAM before we return from this BRK
-	lda #$01
-	sta swapmem
+	ldx #$00
+	stx lineset		; flag that line # is (yet) unknown
+	inx
+	stx swapmem		; flag to swap ALL mem
 
-	lda #$00
-	sta lineset		; flag that line # is (yet) unknown
-
-@uninstall_brks:
-	jsr tracing
-	beq :+
-	; unless tracing, uninstall breakpoints and reinstall updated ones
-	; if there is a breakpoint at the current PC, we will ignore it
-	jsr uninstall_breakpoints
-	jsr install_breakpoints
-
-:	; update TRACE_START, STEP_OUT_START, and GO to their subsequent actions
+@update_actions:
+	; update TRACE_START & STEP_OUT_START to their subsequent actions
 	lda action
 	cmp #ACTION_TRACE_START
 	beq @update_trace_action
@@ -977,8 +970,10 @@ brkhandler2_size=*-brkhandler2
 	inc action
 	ldxy #strings::tracing
 	lda #REGISTERS_LINE-1
-	jsr text::print
-	jmp @continue_debug
+	jsr text::print			; print the TRACING message
+	jsr uninstall_breakpoints
+	jsr install_breakpoints
+	jmp __debug_done		; continue the trace
 
 :	; if we're beginning a GO, get on with it
 	cmp #ACTION_GO_START
@@ -988,17 +983,14 @@ brkhandler2_size=*-brkhandler2
 	jsr step_restore
 	inc action
 
-@continue_debug:
 	jmp __debug_done	; continue execution
 
 @update_watches:
+	; check watches, flagging any that were affected since our last update
 	jsr watch::update
 
-	; check if action was STEP or TRACE
-	lda action
-	cmp #ACTION_STEP
-	beq @handle_action
-	cmp #ACTION_TRACE
+	; check if action was STEP or TRACE TODO: just check for !GO
+	jsr stepping
 	beq @handle_action
 
 @reset_affected:
@@ -1033,7 +1025,7 @@ brkhandler2_size=*-brkhandler2
 	pha
 	jsr __debug_step_out_next	; run one more STEP to get out of subroutine
 	pla				; get previous opcode
-	rol stop_tracing	; stop tracing if STEP OUT says we should
+	bcs @exit_trace			; stop tracing if STEP OUT says we should
 
 	cmp #$20		; did we run a JSR?
 	bne :+
@@ -1042,11 +1034,7 @@ brkhandler2_size=*-brkhandler2
 	bne @continue_trace
 	dec step_out_depth
 	bpl @continue_trace	; continue trace
-
-@stepout_done:
-	lda #ACTION_STEP	; if we found the RTS, quit
-	sta action		; flag that we're done stepping out
-	bne @continue_trace
+	bmi @exit_trace
 
 @chktrace:
 	cmp #ACTION_TRACE
@@ -1060,20 +1048,25 @@ brkhandler2_size=*-brkhandler2
 	lda stop_tracing	; should we stop the trace?
 	bne @exit_trace		; if so, return to debugger
 	jsr __debug_trace_next	; run the next step of the trace
-	rol stop_tracing	; stop tracing if STEP OUT says we should
+	bcs @exit_trace		; stop tracing if STEP OUT says we should
+
 @continue_trace:
 	jmp __debug_done
 
 @exit_trace:
 	lda #$7f
 	sta $911e		; disable all NMI's
-	jsr restore_debug_zp
-	jsr restore_debug_low
-	jsr restore_debug_state
+
+	; handle special cases that may have caused us to stop the trace
+	lda sim::illegal
+	beq :+
+	jsr illegal_detected
+
+:	; do one last step to clean things up
 	inc swapmem
-	jsr irq::on
-	jsr uninstall_breakpoints
-	jsr install_breakpoints
+	lda #ACTION_STEP
+	sta action
+	jmp __debug_done
 .endproc
 
 ;******************************************************************************
@@ -1200,12 +1193,12 @@ brkhandler2_size=*-brkhandler2
 	; can't call anything after restoring stack/sp
 	; get state variables for "tracing" and "stepping"
 	jsr stepping
-	lda #$00
-	rol
+	adc #$00
 	sta is_step
 	jsr tracing
 	bne @notrace
 
+	; if tracing, restore just the state clobbered during a trace
 	restore_user_zp_trace
 	jmp restore_regs
 
@@ -1473,7 +1466,7 @@ restore_regs:
 	inc swapmem
 	lda #ACTION_STEP_OUT_START
 	sta action
-	clc
+	;clc
 @done:	rts
 .endproc
 
@@ -1484,8 +1477,6 @@ restore_regs:
 ; OUT:
 ;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .proc __debug_step_out_next
-	; for the first instruction, just STEP, this lets us keep the breakpoint
-	; we are on (if there is one) intact
 	jsr __debug_step
 	lda #ACTION_STEP_OUT
 	sta action
@@ -1496,15 +1487,21 @@ restore_regs:
 ; TRACE
 ; Puts the debugger into TRACE mode and steps to the next instruction to
 ; begin the trace
+; OUT:
+;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .export __debug_trace
 .proc __debug_trace
 	lda #$00
 	sta stop_tracing
+
 	jsr __debug_trace_next
+	bcs @done
+
 	inc swapmem
 	lda #ACTION_TRACE_START
 	sta action
-	rts
+	;clc
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1514,14 +1511,9 @@ restore_regs:
 ;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .proc __debug_trace_next
 	jsr __debug_step
-	bcc :+
-	rts
-
-:	lda stop_tracing
-	bne @done
 	lda #ACTION_TRACE
 	sta action
-@done:	rts
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1668,9 +1660,10 @@ restore_regs:
 	jsr asm::disassemble	; disassemble it to get its size (BRK offset)
 	stx sim::op_mode
 	bcc @ok
+	inc sim::illegal
+	;sec
+	rts
 
-	jsr illegal_detected
-	lda #$01		; unrecognized op, treat next opcode as 1 byte
 @ok:	pha			; save instruction size
 
 	; preemptively disable mem swapping
@@ -1889,9 +1882,9 @@ restore_regs:
 ; STEP RESTORE
 ; Restores the opcode destroyed by the last STEP.
 .proc step_restore
-	lda stepsave
-	ldxy brkaddr
-	jmp vmem::store
+	lda stepsave		; get the opcode that we replaced with the BRK
+	ldxy brkaddr		; get its address
+	jmp vmem::store		; restore it
 .endproc
 
 ;*******************************************************************************
@@ -2714,7 +2707,6 @@ __debug_remove_breakpoint:
 ; [$2000,$8000) or [$94f0,$ffff]
 ; Note that $94f0-$9600 is considered "external". This is because the debugger
 ; only uses $9400-$94f0 for color, so these values can be left untouched when
-; switching between the debugger and user program
 ;
 ; IN:
 ;  - .XY: the address to test
@@ -2743,20 +2735,11 @@ __debug_remove_breakpoint:
 ;   - .Z: set if the active action is a "tracing" command
 ;   - .C: set if the active action is a "tracing" command
 .proc tracing
-	ldx #@num_tracecmds-1
 	lda action
-:	cmp @tracecmds,x
+	cmp #ACTION_TRACE
 	beq @done
-	dex
-	bpl :-
-	clc		; not trace
+	cmp #ACTION_STEP_OUT
 @done:	rts
-.PUSHSEG
-.RODATA
-@tracecmds:
-	.byte ACTION_TRACE, ACTION_STEP_OUT
-@num_tracecmds=*-@tracecmds
-.POPSEG
 .endproc
 
 ;******************************************************************************
