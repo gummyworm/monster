@@ -959,23 +959,16 @@ force_enter_insert=*+5
 
 	jsr refresh	; unhighlight selection (if we were in VISUAL mode)
 
+; entering command mode moves us one character to the left
 @left:	; if we're on a TAB, move cursor to the end of it
-	jsr src::after_cursor
-	cmp #$09
-	bne :+
-	jsr text::tabr_dist
-	clc
-	adc zp::curx
-	sta zp::curx
-	dec zp::curx
-
-:	lda mode
+	lda mode
 	cmp #MODE_INSERT
 	bne :+
 	jsr ccleft	; insert places cursor after char
 
 :	lda #MODE_COMMAND
 	sta mode
+
 	; if we're on a TAB after moving left, move to the end of it
 	jsr src::after_cursor
 	cmp #$09
