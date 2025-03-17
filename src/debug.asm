@@ -2711,22 +2711,22 @@ __debug_remove_breakpoint:
 ;*******************************************************************************
 ; IS INTERNAL ADDRESS
 ; Returns with .Z set if the given address is outside of the address ranges
-; [$2000,$8000) or [$a000,$c000)
+; [$2000,$8000) or [$94f0,$ffff]
+; Note that $94f0-$9600 is considered "external". This is because the debugger
+; only uses $9400-$94f0 for color, so these values can be left untouched when
+; switching between the debugger and user program
+;
 ; IN:
 ;  - .XY: the address to test
 ; OUT:
-;  - .Z: set if the address in [$00,$2000), [$8000,$a000), or [$c000,$10000)
+;  - .Z: set if the address in [$00,$2000) or [$8000,$94f0) (internal or I/O)
 .proc is_internal_address
 	cmpw #$2000
 	bcc @internal
 	cmpw #$8000
 	bcc @external
-	cmpw #$9000
-	bcc @internal	; $9000-$94f0 is internal
 	cmpw #$94f0
-	bcc @internal	; $94f0-$9600 unused by debugger, pretend it's external
-	cmpw #$c000
-	bcc @internal	; ROM is untouchable, consider external
+	bcc @internal
 @external:
 	lda #$ff
 	rts

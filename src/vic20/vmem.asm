@@ -114,7 +114,9 @@
 :	cpy #>$9400
 	bne @done
 
-@9400:	; $9400-$9500 is stored in the prog9400 buffer
+@9400:	; $9400-$94f0 is stored in the prog9400 buffer
+	cpx #$f0
+	bcs @done			; if addr > $94ef, not virtual
 	add16 #(mem::prog9400-$9400)
 	lda #FINAL_BANK_MAIN
 	rts
