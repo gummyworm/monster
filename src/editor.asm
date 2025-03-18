@@ -2257,9 +2257,10 @@ __edit_refresh:
 .export __edit_set_breakpoint
 __edit_set_breakpoint:
 .proc set_breakpoint
-@savex=zp::editortmp
+@addr=zp::editortmp
 	jsr __edit_current_file	; get the debug file ID and line #
 	bcc :+
+@noname:
 	lda #ERR_UNNAMED_BUFFER
 	jmp report_typein_error
 
@@ -2272,14 +2273,27 @@ __edit_set_breakpoint:
 	bne @done
 
 @set:	jsr __edit_current_file	; get the debug file ID and line #
-	jsr dbg::setbrkatline
+	jsr dbg::setbrkatline	; create the breakpoint
+
+	; if possible try to map the address to the breakpoint
+	jsr __edit_current_file
 	jsr dbgi::line2addr
-	stxy r0
+
+	; if we can't get the address, but we are not debugging, that's
+	; fine, but we will need to reassemble before it takes affect
+	bcs @on
+
+	stxy @addr
 	jsr __edit_current_file	; get the debug file ID and line #
+	pha
+	lda @addr
+	sta r0
+	lda @addr+1
+	sta r0+1
+	pla
 	jsr dbg::brksetaddr
 
-	lda #BREAKPOINT_ON_COLOR
-
+@on:	lda #BREAKPOINT_ON_COLOR
 @done:	ldx zp::cury
 	jsr draw::hline
 	jmp gui::refresh
