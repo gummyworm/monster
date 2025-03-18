@@ -25,6 +25,7 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "nmi.inc"
 .include "screen.inc"
 .include "settings.inc"
 .include "sim6502.inc"
@@ -810,7 +811,9 @@ brkhandler2_size=*-brkhandler2
 	bne @savecolor
 
 	; backup the user $1100-$2000 data
-	JUMP FINAL_BANK_FASTCOPY, fcpy::save
+	jsr nmi::off
+	CALL FINAL_BANK_FASTCOPY, fcpy::save
+	jmp nmi::on
 .endproc
 
 ;******************************************************************************
@@ -939,15 +942,14 @@ brkhandler2_size=*-brkhandler2
 	; catch the user's signal to stop the trace (RESTORE)
 	ldxy #debug_restore
 	stxy $0318
+	lda #$82
+	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
 
 	; save the state that the debugger might clobber and bring in a few
 	; essential zeropage locations used by the debugger
 	save_user_zp_trace
 	restore_debug_zp_trace
 	jsr swapout
-
-	lda #$82
-	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
 
 @backup_done:
 	; unless we can figure out the exact RAM we will affect, we'll have to

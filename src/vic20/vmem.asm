@@ -2,6 +2,7 @@
 .include "ram.inc"
 .include "../macros.inc"
 .include "../memory.inc"
+.include "../nmi.inc"
 
 .CODE
 
@@ -15,14 +16,10 @@
 ;  - .A: the byte at the physical address
 .export __vmem_load
 .proc __vmem_load
-	lda $911e
-	sta @ier
 	jsr __vmem_translate
+	jsr nmi::off
 	jsr fe3::load
-@ier=*+1
-	ldx #$00
-	stx $911e
-	rts
+	jmp nmi::on
 .endproc
 
 ;*******************************************************************************
@@ -38,7 +35,9 @@
 .proc __vmem_load_off
 	sta zp::bankval
 	jsr __vmem_translate
-	jmp fe3::load_off
+	jsr nmi::off
+	jsr fe3::load_off
+	jmp nmi::on
 .endproc
 
 ;*******************************************************************************
@@ -51,15 +50,10 @@
 .export __vmem_store
 .proc __vmem_store
 	sta zp::bankval
-	lda $911e
-	pha
 	jsr __vmem_translate
-	lda #$7f
-	sta $911e		; disable NMI's while we're in another bank
+	jsr nmi::off
 	jsr fe3::store
-	pla
-	sta $911e		; restore VIA IER
-	rts
+	jmp nmi::on
 .endproc
 
 ;*******************************************************************************
