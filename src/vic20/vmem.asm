@@ -2,7 +2,6 @@
 .include "ram.inc"
 .include "../macros.inc"
 .include "../memory.inc"
-.include "../nmi.inc"
 
 .CODE
 
@@ -17,9 +16,7 @@
 .export __vmem_load
 .proc __vmem_load
 	jsr __vmem_translate
-	jsr nmi::off
-	jsr fe3::load
-	jmp nmi::on
+	jmp fe3::load
 .endproc
 
 ;*******************************************************************************
@@ -35,9 +32,7 @@
 .proc __vmem_load_off
 	sta zp::bankval
 	jsr __vmem_translate
-	jsr nmi::off
-	jsr fe3::load_off
-	jmp nmi::on
+	jmp fe3::load_off
 .endproc
 
 ;*******************************************************************************
@@ -51,9 +46,7 @@
 .proc __vmem_store
 	sta zp::bankval
 	jsr __vmem_translate
-	jsr nmi::off
-	jsr fe3::store
-	jmp nmi::on
+	jmp fe3::store
 .endproc
 
 ;*******************************************************************************

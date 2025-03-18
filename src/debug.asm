@@ -25,7 +25,6 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
-.include "nmi.inc"
 .include "screen.inc"
 .include "settings.inc"
 .include "sim6502.inc"
@@ -105,6 +104,13 @@ NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
 ; TODO: calculate the maximum value for this
 PROGRAM_STACK_START = $e0
 
+; Stop tracing state/NMI
+; This NMI is installed programatically and catches the RESTORE key as a
+; signal to stop a trace
+; These values must be between PRORGAM_STACK_START and $100
+STOP_TRACING_NMI = PROGRAM_STACK_START
+stop_tracing     = STOP_TRACING_NMI+4
+
 ; Max depth the debugger may reach during handling of a step during the TRACE
 ; command. This amount will be saved/restored by the debugger before handling
 ; the debugged program's next instruction.
@@ -182,7 +188,7 @@ is_brk: .byte 0		; set if interrupt was triggered by BRK
 
 step_out_depth: .byte 0 ; # of RTS's to wait for when "stepping out"
 
-stop_tracing: .byte 0	; if !0, debugger will stop a TRACE at the next STEP
+;stop_tracing: .byte 0	; if !0, debugger will stop a TRACE at the next STEP
 
 
 ;******************************************************************************
@@ -811,18 +817,16 @@ brkhandler2_size=*-brkhandler2
 	bne @savecolor
 
 	; backup the user $1100-$2000 data
-	jsr nmi::off
-	CALL FINAL_BANK_FASTCOPY, fcpy::save
-	jmp nmi::on
+	JUMP FINAL_BANK_FASTCOPY, fcpy::save
 .endproc
 
 ;******************************************************************************
 ; DEBUG_RESTORE
 ; Handles the RESTORE NMI while the debugger is active
-.proc debug_restore
-	inc stop_tracing
-	rti
-.endproc
+;.proc debug_restore
+;	inc stop_tracing
+;	rti
+;.endproc
 
 ;******************************************************************************
 ; DEBUG_BRK
@@ -934,13 +938,18 @@ brkhandler2_size=*-brkhandler2
 	;  uninstall breakpoints and reinstall updated ones
 	; if there is a breakpoint at the current PC, we will ignore it
 	jsr uninstall_breakpoints
-	jsr install_breakpoints
 	jmp @backup_done
 
 @backup_for_trace:
 	; if tracing, for the duration the debugger is active, enable an NMI to
 	; catch the user's signal to stop the trace (RESTORE)
-	ldxy #debug_restore
+	lda #$e6		; INC zp
+	sta STOP_TRACING_NMI
+	lda #stop_tracing
+	sta STOP_TRACING_NMI+1
+	lda #$40
+	sta STOP_TRACING_NMI+2
+	ldxy #STOP_TRACING_NMI
 	stxy $0318
 	lda #$82
 	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
@@ -974,7 +983,6 @@ brkhandler2_size=*-brkhandler2
 	lda #REGISTERS_LINE-1
 	jsr text::print			; print the TRACING message
 	jsr uninstall_breakpoints
-	jsr install_breakpoints
 	jmp __debug_done		; continue the trace
 
 :	; if we're beginning a GO, get on with it
@@ -1077,8 +1085,6 @@ brkhandler2_size=*-brkhandler2
 	jsr restore_debug_low
 	jsr restore_debug_state
 	jsr irq::on			; reinstall the main IRQ
-	jsr uninstall_breakpoints
-	jsr install_breakpoints
 	jsr illegal_detected		; display warning message
 .endproc
 
@@ -1188,6 +1194,7 @@ brkhandler2_size=*-brkhandler2
 ; continue execution of the program.
 .export __debug_done
 .proc __debug_done
+	jsr install_breakpoints
 	jsr swapin
 
 @dummyirq:
@@ -1213,13 +1220,13 @@ brkhandler2_size=*-brkhandler2
 
 	; if tracing, restore just the state clobbered during a trace
 	restore_user_zp_trace
-	jmp restore_regs
+	jmp @restore_regs
 
 @notrace:
 	jsr save_debug_zp
 	restore_user_zp
 
-restore_regs:
+@restore_regs:
 	ldx sim::reg_sp	; restore SP
 	txs
 
