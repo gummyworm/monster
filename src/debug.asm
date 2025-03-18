@@ -940,14 +940,14 @@ brkhandler2_size=*-brkhandler2
 	ldxy #debug_restore
 	stxy $0318
 
-	lda #$82
-	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
-
 	; save the state that the debugger might clobber and bring in a few
 	; essential zeropage locations used by the debugger
 	save_user_zp_trace
 	restore_debug_zp_trace
 	jsr swapout
+
+	lda #$82
+	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
 
 @backup_done:
 	; unless we can figure out the exact RAM we will affect, we'll have to
