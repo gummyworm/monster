@@ -15,14 +15,8 @@
 ;  - .A: the byte at the physical address
 .export __vmem_load
 .proc __vmem_load
-	lda $911e
-	sta @ier
 	jsr __vmem_translate
-	jsr fe3::load
-@ier=*+1
-	ldx #$00
-	stx $911e
-	rts
+	jmp fe3::load
 .endproc
 
 ;*******************************************************************************
@@ -51,15 +45,8 @@
 .export __vmem_store
 .proc __vmem_store
 	sta zp::bankval
-	lda $911e
-	pha
 	jsr __vmem_translate
-	lda #$7f
-	sta $911e		; disable NMI's while we're in another bank
-	jsr fe3::store
-	pla
-	sta $911e		; restore VIA IER
-	rts
+	jmp fe3::store
 .endproc
 
 ;*******************************************************************************
