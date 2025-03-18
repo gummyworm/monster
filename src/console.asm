@@ -69,13 +69,13 @@ screen: .res 40*24
 .export __console_getch
 .proc __console_getch
 	jsr key::getch
-	beq :+
+	beq @done
 	cmp #K_SWAP_USERMEM_TUI
-	bne :+
+	bne @done
 	jsr dbg::swapusermem
 	dec mem::coloron	; (re-disable color)
 	lda #$00
-:	rts
+@done:	rts
 .endproc
 
 .segment "CONSOLE"
@@ -212,6 +212,34 @@ screen: .res 40*24
 .proc __console_init
 	lda #$00
 	sta line
+	rts
+.endproc
+
+;******************************************************************************
+; CLEAR
+; Clears the console's contents
+.export __console_clear
+.proc __console_clear
+@scr=r0
+	; clear the screen
+	CALL FINAL_BANK_MAIN, bm::clr
+
+	; clear the console buffer
+	ldxy #screen
+	stxy @scr
+	ldx #HEIGHT
+	ldy #$00
+@l0:	tya
+	sta (@scr),y
+	lda @scr
+	clc
+	adc #40
+	sta @scr
+	bcc :+
+	inc @scr+1
+:	dex
+	bne @l0
+	stx line	; go back to first line
 	rts
 .endproc
 

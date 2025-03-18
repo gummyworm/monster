@@ -1199,6 +1199,14 @@
 .endproc
 
 ;*******************************************************************************
+; CLEAR
+; Clears the terminal
+.proc clear
+	jsr con::clear
+	RETURN_OK
+.endproc
+
+;*******************************************************************************
 ; GET RANGE OR DEFAULT
 ; Evaluate one-two arguments representing an address range and stores the
 ; results.
@@ -1396,6 +1404,7 @@
 ;*******************************************************************************
 ; COMMANDS
 commands:
+.byte "clear",0	; clear the terminal
 .byte "wa",0	; watch add
 .byte "wal",0	; watch add load
 .byte "was",0	; watch add store
@@ -1425,7 +1434,7 @@ commands:
 .byte "s",0	; save memory
 
 .linecont +
-.define command_vectors add_watch, add_watch_load, add_watch_store, \
+.define command_vectors clear, add_watch, add_watch_load, add_watch_store, \
 	remove_watch, list_watches, list_breakpoints, add_break_addr, \
 	add_break_line, remove_break, fill, dump, move, goto, compare, hunt, \
 	__dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
