@@ -1063,7 +1063,11 @@ force_enter_insert=*+5
 	jsr key::waitch		; get the character to replace with
 	pha
 	jsr src::replace
-	jsr text::char_index
+	bcc :+
+	pla
+	rts
+
+:	jsr text::char_index
 	pla
 	sta mem::linebuffer,y
 

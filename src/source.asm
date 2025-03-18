@@ -1095,11 +1095,10 @@ data:
 	jsr mark_dirty
 	jsr __src_delete
 	pla
-	bcc @ok
-	rts
+	bcs @ret
 @ok:	jsr __src_insert
-	jsr __src_left
-	RETURN_OK
+	clc
+@ret:	rts
 .endproc
 
 ;*******************************************************************************
