@@ -58,7 +58,6 @@
 ; OUT:
 ;  - .X: the character representation of the low nybble
 ;  - .Y: the character representation of the  high nybble
-;
 .export __util_hextostr
 .proc __util_hextostr
 	pha

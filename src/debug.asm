@@ -1059,16 +1059,27 @@ brkhandler2_size=*-brkhandler2
 	lda #$7f
 	sta $911e		; disable all NMI's
 
-	; handle special cases that may have caused us to stop the trace
-	lda sim::illegal
-	beq :+
-	jsr illegal_detected
-
-:	; do one last step to clean things up
+	; set the action back to STEP from whatever TRACE command we were doing
 	inc swapmem
 	lda #ACTION_STEP
 	sta action
+
+	; handle special cases that may have caused us to stop the trace
+	lda sim::illegal
+	bne @illegal		; if an illegal op halted the trace, notify
+
+@graceful_exit:
+	; do one last step to clean things up
 	jmp __debug_done
+
+@illegal:
+	jsr restore_debug_zp
+	jsr restore_debug_low
+	jsr restore_debug_state
+	jsr irq::on			; reinstall the main IRQ
+	jsr uninstall_breakpoints
+	jsr install_breakpoints
+	jsr illegal_detected		; display warning message
 .endproc
 
 ;******************************************************************************
@@ -2657,7 +2668,19 @@ __debug_remove_breakpoint:
 	stxy r0
 	ldxy sim::pc
 	jsr asm::disassemble
-	lda #>$100
+	bcc :+
+
+	; couldn't disassemble (illegal opcode?), just get the hex value for
+	; the byte
+	ldxy sim::pc
+	jsr vmem::load
+	jsr util::hextostr
+	sty $100
+	stx $101
+	lda #$00
+	sta $102
+
+:	lda #>$100
 	pha
 	lda #<$100
 	pha
