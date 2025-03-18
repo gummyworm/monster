@@ -167,8 +167,8 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 .byte $9e
 .asciiz "4621"
 @next: .word 0
-	lda #$3b
-	sta $900f		; white BG/cyan border
+	lda #$19
+	sta $900f		; white/white
 	lda #$c0
 	sta $9005		; screen @ $1000
 	lda #00			; # of columns and rows
@@ -194,7 +194,7 @@ START:
 	jsr $e518	; init I/O 2
 
 	lda #$19
-	sta $900f		; cyan BG/cyan border
+	sta $900f		; white/white
 	lda #$c0
 	sta $9005		; screen @ $1000
 	lda #00			; # of columns and rows
