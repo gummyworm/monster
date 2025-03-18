@@ -376,9 +376,13 @@ blockaddresseshi: .res MAX_FILES
 	ldy #BLOCK_LINE_BASE
 	lda srcline
 	sta (block),y
+	sta blocklinebase
+	sta linestop
 	iny
 	lda srcline+1
 	sta (block),y
+	sta blocklinebase+1
+	sta linestop+1
 
 	; store the file ID
 	ldy #BLOCK_FILE_ID
@@ -670,9 +674,9 @@ blockaddresseshi: .res MAX_FILES
 ; ADDR2LINE
 ; returns the filename and address that correspond
 ; to the given address
-; in:
+; IN:
 ;  - .XY: the address to get the location of
-; out:
+; OUT:
 ;  - .A:  file-id of the address
 ;  - .XY: line number of the address
 ;  - .C:  set on error

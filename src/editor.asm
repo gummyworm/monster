@@ -4868,7 +4868,8 @@ __edit_gotoline:
 
 ;******************************************************************************
 ; CURRENT FILE ID
-; Returns the debug file ID of the active source buffer.
+; Returns the debug file ID of the active source buffer as well as the current
+; line we are on in that buffer
 ; OUT:
 ;  - .A:  the debug file ID of the current file
 ;  - .XY: the current line in the file
