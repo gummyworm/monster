@@ -4,10 +4,14 @@
 
 ## OVERVIEW
 
+<img width="718" alt="Screenshot 2024-09-17 at 7 52 42 PM" src="https://github.com/user-attachments/assets/c8d3dae7-52f2-420b-95de-56edf8c89d2e">
+
+
 Monster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
 The design philosophy is uncompromising maximalism.  This is in contrast to most
 existing Vic-20 assemblers (and most native development tools on 8-bit computers),
 which are mostly designed with memory efficiency in mind.
+
 
 Large RAM expansions have become ubiquitous on the platform, so the philosophy of
 this project is to choose feature richness without much concern for the cost to implement.
