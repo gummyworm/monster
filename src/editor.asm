@@ -1873,9 +1873,9 @@ force_enter_insert=*+5
 	cmp #$67		; get second 'g' to confirm movement
 	bne @ret
 
-@top:	ldxy #1
-	jsr gotoline
-	jmp add_jump_point
+@top:	jsr add_jump_point
+	ldxy #1
+	jmp gotoline
 
 ;--------------------------------------
 @gotodef:
@@ -3968,17 +3968,21 @@ goto_buffer:
 
 ;******************************************************************************
 ; COMMAND_GOTOLINE
-; Gets a line number from the user and moves the cursor and source to that line
+; Converts the given string to a line number and navigates to it (if possible)
+; IN:
+;   - .XY: the string containing the line number to navigate to
 .proc command_gotoline
+@line=r2
 	jsr atoi		; convert (YX) to line #
 	bcs @done
-	txa			; LSB 0?
-	bne :+
-	tya			; MSB 0?
-	bne :+
-	inx			; set .XY to 1
+	stxy @line
+	jsr add_jump_point	; save the current position as a jump point
+	ldx @line
+	bne :+			; LSB 0?
+	ldy @line+1
+	bne :+			; MSB 0?
+	inx			; if 0, set .XY to 1
 :	jsr gotoline		; go to the target line
-	jmp add_jump_point	; save the current position as a jump point
 @done:	rts
 .endproc
 
@@ -4872,9 +4876,6 @@ __edit_gotoline:
 swapwin = gui::reenter
 
 .RODATA
-;******************************************************************************
-controlcodes:
-numccodes=*-controlcodes
 
 ;******************************************************************************
 commands:
