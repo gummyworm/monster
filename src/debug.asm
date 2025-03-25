@@ -54,10 +54,10 @@ RTI_ADDR         = BRK_HANDLER_ADDR+3
 
 .export STEP_HANDLER_ADDR
 .export STEP_EXEC_BUFFER
-STEP_HANDLER_ADDR = BRK_HANDLER_ADDR-stephandler_size
+STEP_HANDLER_ADDR = NMI_HANDLER_ADDR-stephandler_size
 STEP_EXEC_BUFFER  = STEP_HANDLER_ADDR+7
 TRAMPOLINE = STEP_HANDLER_ADDR - trampoline_size
-TRAMPOLINE_ADDR = TRAMPOLINE+8
+TRAMPOLINE_ADDR = TRAMPOLINE+13
 .export TRAMPOLINE_ADDR
 .export STEP_HANDLER_ADDR
 
@@ -471,6 +471,8 @@ stephandler_size=*-stephandler
 trampoline:
 	lda #FINAL_BANK_USER
 	sta $9c02
+	lda #$82		; enable RESTORE key interrupt
+	sta $911e
 	pla			; restore .A
 	plp			; restore status
 	jmp $f00d
@@ -1182,6 +1184,12 @@ debug_done:
 	sta $900f
 	jsr save_debug_zp
 	restore_user_zp
+
+	; reinstall NMI
+	lda #<NMI_HANDLER_ADDR
+	sta $0318
+	lda #>NMI_HANDLER_ADDR
+	sta $0318+1
 
 	ldx sim::reg_sp
 	txs			; restore user stack
