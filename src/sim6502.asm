@@ -13,6 +13,9 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
+.import STEP_HANDLER_ADDR
+.import STEP_EXEC_BUFFER
+
 ;*******************************************************************************
 .BSS
 
@@ -86,12 +89,63 @@ __sim_stopwatch: .res 3
 .export __sim_via2
 __sim_via2: .res $10
 
+.export save_sp
+save_sp: .byte 0
+
 .segment "DEBUGGER"
 
 ;*******************************************************************************
-; NEXT_INSTRUCTION
-; Given the address of the current instruction, returns the address of the next
-; instruction that will be executed.
+; STEP DONE
+; Return point for instruction execution via STEP
+.import return_to_debugger
+.export step_done
+.proc step_done
+	; update registers state
+	sta __sim_reg_a
+	stx __sim_reg_x
+	sty __sim_reg_y
+	pla
+	sta __sim_reg_p
+	tsx
+	stx __sim_reg_sp
+
+	ldx save_sp
+	txs
+
+	cld
+	cli
+
+; if the effective address was INTERNAL, restore the debugger's byte at
+; that address
+	ldxy __sim_effective_addr
+	jsr is_internal_address
+	bne :+
+
+	stxy msave_src
+	jsr vmem::translate
+	stxy msave_dst
+.endproc
+	; save user byte to its buffer
+msave_src=*+1
+	lda $f00d
+msave_dst=*+1
+	sta $f00d
+
+	; restore the byte that was clobbered at the effective address
+	ldxy __sim_effective_addr
+	stxy r0
+	ldy #$00
+msave=*+1
+	lda #$00
+	sta (r0),y
+
+:	ldx save_sp
+	txs
+	rts
+
+;*******************************************************************************
+; STEP
+; Runs the next instruction (the one at sim::pc's address)
 ; Instructions that are considered for branches are:
 ;  - JSR
 ;  - JMP
@@ -109,22 +163,74 @@ __sim_via2: .res $10
 ;  - __sim_jammed:    set if the next opcode is a JAM
 ; TODO: handle interrupts (VIA timers)
 ; TODO: handle BRK
-.export __sim_next_instruction
-.proc __sim_next_instruction
+.export __sim_step
+.proc __sim_step
 @op=r0
 @sz=r2
+@cnt=r3
 @y=r3
 @msb=r4
 @opcode=r5
 @operand=r6
-	jsr @getnextpc
-	stxy __sim_next_pc
-	rts
-
-@getnextpc:
+@backup=r8
 	sta @sz
 	stxy @op
 
+	jsr @getnextpc
+	stxy __sim_next_pc
+
+	; copy the instruction to the execution buffer, appending
+	; NOPs as needed to fill the 3 byte space
+	lda #$00
+	sta @cnt
+@l0:	ldx @cnt
+	lda __sim_op,x
+	cpx @sz
+	bcc :+
+	lda #$ea		; NOP
+:	sta zp::bankval
+	ldxy #STEP_EXEC_BUFFER
+	lda @cnt
+	jsr vmem::store_off
+	inc @cnt
+	lda @cnt
+	cmp #$03
+	bne @l0
+
+@execute:
+	ldxy __sim_effective_addr
+	jsr is_internal_address
+	bne :+
+
+	; swap the debugger/user bytes
+	; save the value at the effective address and replace it with the user
+	; byte
+	stxy @backup
+	jsr vmem::load
+	tax
+	ldy #$00
+	lda (@backup),y
+	sta msave		; save debugger byte
+	txa
+	sta (@backup),y		; store user byte
+
+:	; restore registers for instruction execution
+	tsx
+	stx save_sp
+
+	ldx __sim_reg_sp
+	txs			; restore user stack pointer
+	lda __sim_reg_p
+	pha			; push status flags
+	lda __sim_reg_a
+	pha
+	ldx __sim_reg_x
+	ldy __sim_reg_y
+
+	; perform the instruction
+	jmp STEP_HANDLER_ADDR
+
+@getnextpc:
 	lda #$00
 	sta __sim_branch_taken 	; clear branch taken flag
 	sta __sim_jammed	; clear JAM'd flag
@@ -136,12 +242,14 @@ __sim_via2: .res $10
 	sta @opcode
 	sta __sim_op
 
+	; get the operand (LSB)
 	ldxy @op
 	lda #$01
 	jsr vmem::load_off
 	sta @operand
 	sta __sim_operand
 
+	; operand MSB
 	ldxy @op
 	lda #$02
 	jsr vmem::load_off
@@ -158,57 +266,87 @@ __sim_via2: .res $10
 	rts
 
 :	cmp #$20	; JSR?
-	beq @jmpjsr
-
-@notjsr:
-	beq @jmpjsr
-	cmp #$6c	; JMP (ind)?
 	bne :+
+@jsr:	; fully simulate JSR
+	; "push" the return address-1 and then set the PC to the operand
+	ldy __sim_reg_sp
+	lda __sim_pc
+	clc
+	adc #$02
+	sta mem::prog00+$100-1,y	; store LSB of return address
+	lda __sim_pc+1
+	adc #$00
+	sta mem::prog00+$100,y		; store MSB of return address
+	decw __sim_reg_sp		; SP -= 2
+	decw __sim_reg_sp
+	lda @operand
+	sta __sim_pc
+	lda @operand+1
+	sta __sim_pc+1
+	jmp @step_handled
 
+:	cmp #$4c
+	bne :+
+@jmp:	; fully simulate JMP
+	; set the PC to the operand
+	lda __sim_operand
+	sta __sim_pc
+	lda __sim_operand+1
+	sta __sim_pc+1
+	jmp @step_handled
+
+:	cmp #$6c	; JMP (ind)?
+	bne :+
+@jmpind:
+	; fully simulate JMP (ind):
+	; load the value at the operand, and set the PC to it
 	ldxy @operand
-	jsr vmem::load
-	pha
+	jsr vmem::load		; get the LSB
+	sta __sim_pc
 	incw @operand
 	ldxy @operand
-	jsr vmem::load
-	tay
-	pla
-	tax
-	rts
+	jsr vmem::load		; get the MSB
+	sta __sim_pc+1
+	jmp @step_handled
 
-:	cmp #$4c	; JMP?
-	bne @notjmp
-
-; for JMP and JSR just set PC to the operand
-@jmpjsr:
-	ldxy @operand
-	rts
-
-@notjmp:
-	cmp #$60
-	bne @notrts
-
-; next instruction is stack address + 1
-@rts:   ldy __sim_reg_sp
+:	cmp #$60
+	bne :+
+@rts:   ; fully simulate RTS:
+	; pull the return address, add 1 to it, and set it as the new
+	; PC. Then add 2 to the stack pointer
+	ldy __sim_reg_sp
 	lda mem::prog00+$100+1,y
 	clc
 	adc #$01
-	tax
+	sta __sim_pc
 	lda mem::prog00+$100+2,y
 	adc #$00
-	tay
-	rts
+	sta __sim_pc+1
+	; SP += 2
+	inc __sim_reg_sp
+	inc __sim_reg_sp
+	jmp @step_handled
 
-@notrts:
-	cmp #$40
-	bne @notrti
+:	cmp #$40
+	bne :+
 
-@rti:	ldy __sim_reg_sp
-	ldx mem::prog00+$100,y
+@rti:	; fully simulate the RTI:
+	; "pull" status then return address
+	; TODO: check this
+	ldy __sim_reg_sp
 	lda mem::prog00+$100+1,y
-	tay
+	sta __sim_reg_p
+	lda mem::prog00+$100+2,y
+	sta __sim_pc
+	lda mem::prog00+$100+3,y
+	sta __sim_pc+1
+	lda __sim_reg_sp
+	clc
+	adc #$03
+	sta __sim_reg_sp
+	jmp @step_handled
 
-@notrti:
+:	; check if opcode is a relative branch
 	and #$1f
 	cmp #$10
 	beq @branch
@@ -218,13 +356,12 @@ __sim_via2: .res $10
 	lda __sim_pc
 	clc
 	adc @sz
-	tax
-	lda __sim_pc+1
-	adc #$00
-	tay
-	rts
+	sta __sim_pc
+	bcc :+
+	inc __sim_pc+1
+:	rts
 
-; handle branches. branch is taken if corresponding flag for top two bits
+; Simulate branches. branch is taken if corresponding flag for top two bits
 ; of branch opcode equal bit 5 of the opcode
 ; e.g. 11010000 will branch if the Z (zero) flag, which is the flag represented
 ; by bits 6 & 7 (11) is clear- the 0 in bit 5 in this example.
@@ -245,8 +382,8 @@ __sim_via2: .res $10
 :	sta @y
 
 	lda branch_masks,x
-	and __sim_reg_p	; isolate the bit we're interested in
-	eor @y		; if y != .P[xx], no branch
+	and __sim_reg_p		; isolate the bit we're interested in
+	eor @y			; if y != .P[xx], no branch
 	beq @takebranch
 
 ; branch isn't taken, just add 2 to the PC
@@ -254,11 +391,10 @@ __sim_via2: .res $10
 	lda __sim_pc
 	clc
 	adc #$02
-	tax
-	lda __sim_pc+1
-	adc #$00
-	tay
-	rts
+	sta __sim_pc
+	bcc :+
+	inc __sim_pc+1
+:	jmp @step_handled
 
 ; branch is taken, add the operand (offset) + 2
 @takebranch:
@@ -275,20 +411,27 @@ __sim_via2: .res $10
 	adc @operand
 	tax
 
-	iny
 	lda __sim_pc+1
 	adc @msb
 	tay
 
+	; add 2 to the encoded offset
 	txa
 	clc
 	adc #$02
-	tax
+	sta __sim_pc
 	tya
 	adc #$00
-	tay
+	sta __sim_pc+1
+
+;--------------------------------------
+@step_handled:
+	; eat return address
+	pla
+	pla
 	rts
 
+;--------------------------------------
 ; IN:  - .A: the opcode to check if JAM
 ; OUT: - .Z: set if the instruction is a JAM
 @isjam:
@@ -359,7 +502,21 @@ __sim_via2: .res $10
 	cmp #$48		; PHA?
 	beq @stack_ea
 	cmp #$08		; PHP?
+	beq @stack_ea
+@check_pla_plp:
+	cmp #$28		; PLP
+	beq @stack_pop
+	cmp #$68		; PLA
 	bne :+			; no memory affected
+@stack_pop:
+	ldx __sim_reg_sp
+	inx
+	stx __sim_effective_addr
+	lda #$01
+	sta __sim_effective_addr+1
+	lda #OP_STACK|OP_LOAD
+	sta __sim_affected
+	rts
 
 @stack_ea:
 	lda __sim_reg_sp
@@ -513,14 +670,14 @@ __sim_via2: .res $10
 
 ;*******************************************************************************
 ; COUNT CYCLES
-; Counts the number of cycles that the given instruction will execute
-; IN:
-;  - .A: the opcode of the instruction
+; Counts the number of cycles that the instruction last run via STEP
+; used.
 ; OUT:
 ;  - .A: the number of cycles the instruction will use
 .export __sim_count_cycles
 .proc __sim_count_cycles
 @cycles=r0
+	lda __sim_op
 	lsr
 	tax
 	bcc @l
@@ -572,6 +729,31 @@ __sim_via2: .res $10
 	inc @cycles
 
 @done:	lda @cycles
+	rts
+.endproc
+
+;*******************************************************************************
+; IS INTERNAL ADDRESS
+; Returns with .Z set if the given address is outside of the address ranges
+; [$2000,$8000] or [$a000,$ffff]
+;
+; IN:
+;  - .XY: the address to test
+; OUT:
+;  - .Z: set if the address in [$00,$2000] or [$8000,$a000]
+.export is_internal_address
+.proc is_internal_address
+	cmpw #$2000
+	bcc @internal
+	cmpw #$8000
+	bcc @external
+	cmpw #$a000
+	bcc @internal
+@external:
+	lda #$ff
+	rts
+@internal:
+	lda #$00
 	rts
 .endproc
 

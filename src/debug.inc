@@ -6,7 +6,6 @@
 .import __debug_breakpoint_flags
 .import __debug_brksetaddr
 .import __debug_clrstate
-.import __debug_done
 .import __debug_setbrkatline
 .import __debug_edit_watches
 .import __debug_gotoaddr
@@ -39,7 +38,6 @@
 	breakpoint_flags   = __debug_breakpoint_flags
 	brksetaddr         = __debug_brksetaddr
 	clrstate           = __debug_clrstate
-	done               = __debug_done
 	setbrkatline       = __debug_setbrkatline
 	setbrkataddr       = __debug_setbrkataddr
 	edit_watches       = __debug_edit_watches

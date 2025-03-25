@@ -52,6 +52,15 @@ NMI_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size
 BRK_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size+5-1 ; 5 = sizeof NMI portion
 RTI_ADDR         = BRK_HANDLER_ADDR+3
 
+.export STEP_HANDLER_ADDR
+.export STEP_EXEC_BUFFER
+STEP_HANDLER_ADDR = BRK_HANDLER_ADDR-stephandler_size
+STEP_EXEC_BUFFER  = STEP_HANDLER_ADDR+7
+TRAMPOLINE = STEP_HANDLER_ADDR - trampoline_size
+TRAMPOLINE_ADDR = TRAMPOLINE+8
+.export TRAMPOLINE_ADDR
+.export STEP_HANDLER_ADDR
+
 .segment "NMI_HANDLER"
 .res 17 ;brkhandler1_size
 
@@ -75,7 +84,6 @@ REG_SP_OFFSET = 14
 ; debugger via a BRK or NMI
 ACTION_STEP           = 1	; action for STEP command
 ACTION_STEP_OVER      = 2	; action for STEP OVER command
-ACTION_START          = 3	; action for initial debug entry
 ACTION_GO_START       = 4	; action for first instruction of GO command
 ACTION_GO             = 5	; action for subsequent GO instructions
 ACTION_TRACE_START    = 6
@@ -90,13 +98,6 @@ ACTION_STEP_OUT       = 9	; action for STEP OUT command (must be last)
 DEBUG_IFACE_GUI  = 0	; GUI interface (returns to visual debugger)
 DEBUG_IFACE_TEXT = 1	; text interface (returns to TUI)
 
-; The number of cycles to load into the VIA timer for the timer "step"
-; interrupt.  This value is exactly enough to countdown to 1 by the time the
-; next user instruction is executed
-NMI_TIMER_VAL = (2+3+4+4+6)+5
-NMI_IER       = NMI_HANDLER_ADDR+11	; address of the value to set $911e to
-					; before returning from debugger
-
 ; Initial stack offset for user program.
 ; The debugger will utilize everything above this for its own purposes when
 ; stepping, tracing, etc.
@@ -108,8 +109,8 @@ PROGRAM_STACK_START = $e0
 ; This NMI is installed programatically and catches the RESTORE key as a
 ; signal to stop a trace
 ; These values must be between PRORGAM_STACK_START and $100
-STOP_TRACING_NMI = PROGRAM_STACK_START
-stop_tracing     = STOP_TRACING_NMI+4
+STOP_TRACING_NMI = PROGRAM_STACK_START+1
+stop_tracing     = STOP_TRACING_NMI+5
 
 ; Max depth the debugger may reach during handling of a step during the TRACE
 ; command. This amount will be saved/restored by the debugger before handling
@@ -128,7 +129,6 @@ debugtmp = zp::debuggertmp	; scratchpad
 __debug_interface: .byte DEBUG_IFACE_GUI
 
 .BSS
-swapmem: .byte 0	; not zero if we need to swap in user RAM
 
 ;******************************************************************************
 ; Up to 4 bytes need to be saved in a given STEP.
@@ -144,7 +144,6 @@ swapmem: .byte 0	; not zero if we need to swap in user RAM
 ; To restore the debugger:
 ;  1. save user value at sim::effective_addr (address of effected memory)
 ;  2. restore 3 bytes of debug memory at (prev_pc)
-startsave:
 stepsave:  .byte 0	; opcode to save under BRK
 brkaddr:   .word 0 	; address where our brakpoint is set
 
@@ -174,13 +173,10 @@ prev_mem_saveaddr: .word 0
 
 step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
 lineset:   .byte 0	; not zero if we know the line number we're on
-advance:   .byte 0	; not zero if a command continues program execution
 
 aux_mode:       .byte 0	; the active auxiliary view
 highlight_line: .word 0 ; the line we are highlighting
 highlight_file: .word 0	; filename of line we are highlighting
-
-action:	.byte 0		; the last action performed e.g. ACTION_STEP
 
 brkcond: .word 0	; if !0, address to handler to break TRACE on
 
@@ -221,6 +217,7 @@ __debug_breakpoint_flags:
 breakpoint_flags: .res MAX_BREAKPOINTS ; active state of breakpoints
 breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
+.export in_rom
 in_rom:   .byte 0	; !0: the next instruction is in $c000-$ffff
 is_step:  .byte 0	; !0: we are running a STEP instruction
 
@@ -234,57 +231,6 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	sta $00,x
 	lda mem::dbg00+$d0,x
 	sta $d0,x
-	dex
-	bpl :-
-.endmacro
-
-;******************************************************************************
-; SAVE USER ZP TRACE
-; Saves just the state of the user's zeropage that is clobbered while tracing
-.macro save_user_zp_trace
-	; TODO: what is clobbering this?
-	ldx #$0a
-:	lda $d0,x
-	sta mem::prog00+$d0,x
-	dex
-	bpl :-
-
-	lda zp::bankval
-	sta mem::prog00+zp::bankval
-	lda zp::banktmp
-	sta mem::prog00+zp::banktmp
-	lda zp::banktmp+1
-	sta mem::prog00+zp::banktmp+1
-	lda zp::bankoffset
-	sta mem::prog00+zp::bankoffset
-	lda r0
-	sta mem::prog00+r0
-	lda r1
-	sta mem::prog00+r1
-	lda r2
-	sta mem::prog00+r2
-	lda r3
-	sta mem::prog00+r3
-	lda r4
-	sta mem::prog00+r4
-	lda r5
-	sta mem::prog00+r5
-	lda r6
-	sta mem::prog00+r6
-	lda r7
-	sta mem::prog00+r7
-	lda r8
-	sta mem::prog00+r8
-	lda r9
-	sta mem::prog00+r9
-	lda ra
-	sta mem::prog00+ra
-	lda rb
-	sta mem::prog00+rb
-
-	ldx #TRACE_STACK_DEPTH-1
-:	lda $200-TRACE_STACK_DEPTH-($100-PROGRAM_STACK_START),x
-	sta mem::prog00+$200-($100-PROGRAM_STACK_START)-TRACE_STACK_DEPTH,x
 	dex
 	bpl :-
 .endmacro
@@ -304,59 +250,6 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	sta mem::prog00+$300,x
 	dex
 	bne :-
-.endmacro
-
-;******************************************************************************
-; RESTORE USER ZP TRACE
-; Restores the state of the user's zeropage that is clobbered during a trace
-.macro restore_user_zp_trace
-	ldx #$0f
-
-	; TODO: what is clobbering this?
-:	lda mem::prog00+$d0,x
-	sta $d0,x
-	dex
-	bpl :-
-
-	lda mem::prog00+zp::bankval
-	sta zp::bankval
-	lda mem::prog00+zp::banktmp
-	sta zp::banktmp
-	lda mem::prog00+zp::banktmp+1
-	sta zp::banktmp+1
-	lda mem::prog00+zp::bankoffset
-	sta zp::bankoffset
-
-	lda mem::prog00+r0
-	sta r0
-	lda mem::prog00+r1
-	sta r1
-	lda mem::prog00+r2
-	sta r2
-	lda mem::prog00+r3
-	sta r3
-	lda mem::prog00+r4
-	sta r4
-	lda mem::prog00+r5
-	sta r5
-	lda mem::prog00+r6
-	sta r6
-	lda  mem::prog00+r7
-	sta r7
-	lda mem::prog00+r8
-	sta r8
-	lda mem::prog00+r9
-	sta r9
-	lda mem::prog00+ra
-	sta ra
-	lda mem::prog00+rb
-	sta rb
-
-	ldx #TRACE_STACK_DEPTH-1
-:	lda mem::prog00+$200-TRACE_STACK_DEPTH-($100-PROGRAM_STACK_START),x
-	sta $200-TRACE_STACK_DEPTH-($100-PROGRAM_STACK_START),x
-	dex
-	bpl :-
 .endmacro
 
 ;******************************************************************************
@@ -453,72 +346,39 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 .proc __debug_start
 	lda #CUR_SELECT
 	sta cur::mode
-	lda #ACTION_START
-	sta action
 
-	; set the simulator's PC value
+	; set the simulator's initial PC value
 	stxy sim::pc
 	stxy prev_pc
 
-	; backup the byte that will be overwritten by our BRK
-	jsr vmem::load
-	sta startsave
-
-	; and install the first BRK at the debug start address
-	ldxy sim::pc
+	; init state
 	lda #$00
 	sta aux_mode		; initialize auxiliary views
 	sta watch::num		; clear watches
-	jsr vmem::store
 
+	; set color for the message row
 	lda #DEFAULT_RVS
 	ldx #DEBUG_MESSAGE_LINE
 	jsr draw::hline
 
 	jsr reset_stopwatch
-
-	jsr install_brk			; install the BRK handler IRQ
-
-	jsr save_debug_state 		; save the debug state
-	jsr save_debug_zp
-
-	jsr __debug_restore_progstate	; copy in user program
-
-	sei	; disable IRQ's (user's interrupt will be installed)
-
-	restore_user_zp
+	jsr install_brk		; install the BRK/NMI handler
+	jsr install_step	; install the STEP handler
+	jsr install_trampoline
 
 	; initialize the user program stack
-	ldx #PROGRAM_STACK_START
-	txs
-
-	lda #$01
-	sta swapmem			; on 1st iteration, swap entire RAM back
+	lda #PROGRAM_STACK_START
+	sta sim::reg_sp
 
 	ldxy #BRK_HANDLER_ADDR+1
 	stxy $0316			; BRK
 	ldxy #NMI_HANDLER_ADDR
 	stxy $0318			; NMI
 
-	ldx #@bootloader_size
-:	lda @bootloader-1,x
-	sta r0-1,x
-	dex
-	bne :-
-	ldxy sim::pc
-	stxy re
-	jmp r0
-.PUSHSEG
-.RODATA
-@bootloader:
-	lda #FINAL_BANK_USER
-	; TODO: use different FE3 mode to enable write-protect
-	; when running unexpanded program
-	sta $9c02
-	jmp (re)
-@bootloader_size=*-@bootloader
+	ldx #$ff
+	txs
 
-.POPSEG
+	jmp return_to_debugger		; enter the debugger
 .endproc
 
 ;******************************************************************************
@@ -578,7 +438,99 @@ brkhandler2:
 ; this portion runs in the debugger bank
 	jmp debug_brk
 brkhandler2_size=*-brkhandler2
+
+;******************************************************************************
+; STEPHANDLER
+; The step handler runs a single instruction and returns to the
+; debugger.
+.import step_done
+stephandler:
+	; switch to USER bank
+	lda #FINAL_BANK_USER
+	sta $9c02
+	pla			; restore .A
+	plp			; restore status flags
+
+	; run the instruction
+step_buffer:
+	nop
+	nop
+	nop
+
+	php
+	pha
+	; switch back to DEBUGGER bank
+	lda #FINAL_BANK_MAIN
+	sta $9c02
+	pla
+	jmp step_done
+stephandler_size=*-stephandler
+
+;******************************************************************************
+; TRAMPOLINE
+trampoline:
+	lda #FINAL_BANK_USER
+	sta $9c02
+	pla			; restore .A
+	plp			; restore status
+	jmp $f00d
+trampoline_size=*-trampoline
+
 .POPSEG
+
+;******************************************************************************
+; INSTALL STEP
+; Installs the STEP code at the top of the user and debug RAM
+; This code includes a buffer that switches to the user RAM, executes an
+; instruction there, switches back to the debugger RAM, and jumps back to the
+; debugger's "return from step" function to capture any changes that took place.
+.proc install_step
+@cnt=r0
+@dst=r2
+	ldxy #STEP_HANDLER_ADDR
+	stxy @dst
+	lda #stephandler_size-1
+	sta @cnt
+; copy the STEP handler to the user program and our RAM
+@l0:	ldy @cnt
+	lda stephandler,y
+	sta STEP_HANDLER_ADDR,y
+	sta zp::bankval
+	sty zp::bankoffset
+	ldxy @dst
+	lda #FINAL_BANK_USER
+	jsr ram::store_off
+	dec @cnt
+	bpl @l0
+
+	rts
+.endproc
+
+;******************************************************************************
+; INSTALL TRAMPOLINE
+; Installs the "trampoline" code at the top of the user and debug RAM
+; This code lets us switch to the user bank and begin executing code there
+.proc install_trampoline
+@cnt=r0
+@dst=r2
+	ldxy #TRAMPOLINE
+	stxy @dst
+	lda #trampoline_size-1
+	sta @cnt
+; copy the STEP handler to the user program and our RAM
+@l0:	ldy @cnt
+	lda trampoline,y
+	sta TRAMPOLINE,y
+	sta zp::bankval
+	sty zp::bankoffset
+	ldxy @dst
+	lda #FINAL_BANK_USER
+	jsr ram::store_off
+	dec @cnt
+	bpl @l0
+
+	rts
+.endproc
 
 ;******************************************************************************
 ; INSTALL BRK
@@ -613,19 +565,11 @@ brkhandler2_size=*-brkhandler2
 	dec @cnt
 	bpl @l0
 
-	ldxy #BRK_HANDLER_ADDR
-	stxy @dst
-	lda #brkhandler2_size-1
-	sta @cnt
+	ldy #brkhandler2_size-1
 ; copy part 2 of the BRK handler to our memory
-@l1:	ldy @cnt
-	lda brkhandler2,y
-	sta zp::bankval
-	sty zp::bankoffset
-	ldxy @dst
-	lda #FINAL_BANK_MAIN
-	jsr ram::store_off
-	dec @cnt
+@l1:	lda brkhandler2,y
+	sta BRK_HANDLER_ADDR,y
+	dey
 	bpl @l1
 
 	; fall through to install_breakpoints
@@ -821,14 +765,6 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
-; DEBUG_RESTORE
-; Handles the RESTORE NMI while the debugger is active
-;.proc debug_restore
-;	inc stop_tracing
-;	rti
-;.endproc
-
-;******************************************************************************
 ; DEBUG_BRK
 ; This is the BRK handler for the debugger.
 ; It saves the user program's state and other sensitive memory areas that are
@@ -922,10 +858,6 @@ brkhandler2_size=*-brkhandler2
 	ldx #$ff
 	txs
 
-	jsr tracing
-	beq @backup_for_trace
-
-@notrace:
 	; save the user's zeropage and restore the debugger's
 	save_user_zp
 	jsr restore_debug_low
@@ -934,171 +866,21 @@ brkhandler2_size=*-brkhandler2
 	; save program state and swap the debugger state in
 	jsr swapout
         jsr irq::on		; reinstall the main IRQ
-
-	;  uninstall breakpoints and reinstall updated ones
-	; if there is a breakpoint at the current PC, we will ignore it
 	jsr uninstall_breakpoints
-	jmp @backup_done
 
-@backup_for_trace:
-	; if tracing, for the duration the debugger is active, enable an NMI to
-	; catch the user's signal to stop the trace (RESTORE)
-	lda #$e6		; INC zp
-	sta STOP_TRACING_NMI
-	lda #stop_tracing
-	sta STOP_TRACING_NMI+1
-	lda #$40
-	sta STOP_TRACING_NMI+2
-	ldxy #STOP_TRACING_NMI
-	stxy $0318
-	lda #$82
-	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
-
-	; save the state that the debugger might clobber and bring in a few
-	; essential zeropage locations used by the debugger
-	save_user_zp_trace
-	restore_debug_zp_trace
-	jsr swapout
-
-@backup_done:
-	; unless we can figure out the exact RAM we will affect, we'll have to
-	; swap in the entire user RAM before we return from this BRK
-	ldx #$00
-	stx lineset		; flag that line # is (yet) unknown
-	inx
-	stx swapmem		; flag to swap ALL mem
-
-@update_actions:
-	; update TRACE_START & STEP_OUT_START to their subsequent actions
-	lda action
-	cmp #ACTION_TRACE_START
-	beq @update_trace_action
-	cmp #ACTION_STEP_OUT_START
-	bne :+
-
-@update_trace_action:
-	; move from TRACE_START -> TRACE, install breakpoints, and begin trace
-	inc action
-	ldxy #strings::tracing
-	lda #REGISTERS_LINE-1
-	jsr text::print			; print the TRACING message
-	jsr uninstall_breakpoints
-	jmp __debug_done		; continue the trace
-
-:	; if we're beginning a GO, get on with it
-	cmp #ACTION_GO_START
-	bne @update_watches
-
-	; continue the GO command
-	jsr step_restore
-	inc action
-
-	jmp __debug_done	; continue execution
-
-@update_watches:
-	; check watches, flagging any that were affected since our last update
-	jsr watch::update
-
-	; check if action was STEP or TRACE TODO: just check for !GO
-	jsr stepping
-	beq @handle_action
-
-@reset_affected:
-	; if action wasn't STEP or TRACE, we don't know enough to say
-	; what was affected since last BRK
-	lda #$00
-	sta sim::affected
-
-@handle_action:
-	lda action
-	cmp #ACTION_START
-	bne :+
-	lda startsave		; restore opcode
-	ldxy sim::pc
-	jsr vmem::store
-	jmp return_to_debugger
-
-:	jsr stepping		; are we stepping?
-	bne return_to_debugger
-@restore_step:
-	jsr step_restore
-
-	; if we are doing a TRACE, install breakpoints and continue
-	; TODO: replace below with more flexbile condition based BRK (brkcond)
-	lda action
-	cmp #ACTION_STEP_OUT
-	bne @chktrace
-@stepout:
-	lda stop_tracing	; should we stop the trace?
-	bne @exit_trace		; if so, return to debugger
-	lda stepsave		; get the opcode we BRK'd on
-	pha
-	jsr __debug_step_out_next	; run one more STEP to get out of subroutine
-	pla				; get previous opcode
-	bcs @exit_trace			; stop tracing if STEP OUT says we should
-
-	cmp #$20		; did we run a JSR?
-	bne :+
-	inc step_out_depth	; if we called another subroutine, inc depth
-:	cmp #$60		; did we RTS?
-	bne @continue_trace
-	dec step_out_depth
-	bpl @continue_trace	; continue trace
-	bmi @exit_trace
-
-@chktrace:
-	cmp #ACTION_TRACE
-	bne return_to_debugger	; if not TRACE/STEP_OUT, return to debugger
-
-@trace:	; check if the BRK that was triggered is a breakpoint or just the
-	; step point. If the latter, continue tracing
-	ldxy sim::pc
-	jsr get_breakpoint
-	bcc @exit_trace		; breakpoint, return control to debugger
-	lda stop_tracing	; should we stop the trace?
-	bne @exit_trace		; if so, return to debugger
-	jsr __debug_trace_next	; run the next step of the trace
-	bcs @exit_trace		; stop tracing if STEP OUT says we should
-
-@continue_trace:
-	jmp __debug_done
-
-@exit_trace:
-	lda #$7f
-	sta $911e		; disable all NMI's
-
-	; set the action back to STEP from whatever TRACE command we were doing
-	inc swapmem
-	lda #ACTION_STEP
-	sta action
-
-	; handle special cases that may have caused us to stop the trace
-	lda sim::illegal
-	bne @illegal		; if an illegal op halted the trace, notify
-
-@graceful_exit:
-	; do one last step to clean things up
-	jmp __debug_done
-
-@illegal:
-	jsr restore_debug_zp
-	jsr restore_debug_low
-	jsr restore_debug_state
-	jsr irq::on			; reinstall the main IRQ
-	jsr illegal_detected		; display warning message
+	; fall through to return_to_debugger
 .endproc
 
 ;******************************************************************************
 ; RETURN TO DEBUGGER
 ; Entrypoint to the debugger
+.export return_to_debugger
 .proc return_to_debugger
-	lda #$00
-	sta action
-	sta advance	; by default, don't return to program after command
-
 ; we're done updating state, check which interface we should transfer
 ; execution to
 @enter_iface:
+	lda #$00
+	sta lineset		; flag that line # is (yet) unknown
 	lda __debug_interface
 	beq @iface_gui		; if interface is GUI, continue
 
@@ -1108,13 +890,14 @@ brkhandler2_size=*-brkhandler2
 
 @debugloop_tui:
 	CALL FINAL_BANK_CONSOLE, con::reenter
-	jmp @finishlooptui
+	jmp @loopdone
 
 @iface_gui:
 	jsr show_aux		; display the auxiliary mode
 
 @showbrk:
 	; get the address before the BRK and go to it
+	jsr cur::off
 	ldxy sim::pc
 	jsr __debug_gotoaddr
 	bcs @print		; if we failed to get line #, continue
@@ -1161,30 +944,21 @@ brkhandler2_size=*-brkhandler2
 
 ; propagate the key to the editor
 @nocmd:	jsr edit::handlekey
-	jmp @loopdone
+	jmp @debugloop
 
 @runcmd:
+	lda #$4c		; JMP
+	sta $00
 	lda command_vectorslo,x	 ; vector LSB
 	sta zp::jmpvec
 	lda command_vectorshi,x  ; vector MSB
 	sta zp::jmpvec+1
-
 	jsr zp::jmpaddr		; call the command
-	jsr cur::on
-
-@finishlooptui:
-	lda __debug_interface
-	bne @loopdone
-
-@finishloopgui:
-	jsr showstate		; restore the register display (may be changed)
+	jmp @enter_iface
 
 @loopdone:
-	lda advance		; are we ready to execute program? (GO, STEP)
-	beq @debugloop		; not yet, loop and get another command
-	jsr cur::off
-
-	; fall through to __debug_done
+	;jsr cur::on
+	jmp @debugloop
 .endproc
 
 ;******************************************************************************
@@ -1192,8 +966,7 @@ brkhandler2_size=*-brkhandler2
 ; Returns from the debug BRK interrupt.
 ; The text debugger also returns here to restore the program state and
 ; continue execution of the program.
-.export __debug_done
-.proc __debug_done
+debug_done:
 	jsr install_breakpoints
 	jsr swapin
 
@@ -1206,23 +979,7 @@ brkhandler2_size=*-brkhandler2
 	lda #DEFAULT_900F
 	sta $900f
 
-	; restore VIA state that was clobbered
-	lda sim::via2+$e
-	sta $912e
-
-	; can't call anything after restoring stack/sp
-	; get state variables for "tracing" and "stepping"
-	jsr stepping
-	adc #$00
-	sta is_step
-	jsr tracing
-	bne @notrace
-
-	; if tracing, restore just the state clobbered during a trace
-	restore_user_zp_trace
-	jmp @restore_regs
-
-@notrace:
+	; save the debugger's ZP and bring in the user's
 	jsr save_debug_zp
 	restore_user_zp
 
@@ -1241,12 +998,12 @@ brkhandler2_size=*-brkhandler2
 	lda sim::reg_p	; restore processor status (RTI will pull)
 	pha
 
+.proc debug_rti
 	lda #$7f
+	sta $911e
 	sta $911d	; ack all interrupts
 	sta $912d
-.endproc
 
-.proc debug_rti
 	lda sim::reg_a
 	sta prev_reg_a
 	ldx sim::reg_x
@@ -1258,58 +1015,20 @@ brkhandler2_size=*-brkhandler2
 
 	pha		; save .A (to be pulled after bank select)
 
-	lda #$7f
-	sta $911e	; disable NMI's
+	; install the GO NMI handler for the user program to return to debugger
+	; when RESTORE is pressed
 
-	lda action
-	cmp #ACTION_GO
-	bne @dummynmi
-
-	; install the GO NMI handler for the user program
 	lda #<NMI_HANDLER_ADDR
 	sta $0318
 	lda #>NMI_HANDLER_ADDR
 	sta $0319
-	bne @rti
-
-@dummynmi:
-	lda #<$ff56
-	sta $0318
-	lda #>$ff56
-	sta $0319
-
-	; if we are executing in ROM, we couldn't set a breakpoint
-	; use an alternate means of breking: set timer 2 on VIA 1 to immediately
-	; expire. This will generate an NMI which will return us to the debugger
-	; after one instruction runs
-	; The timer value is the sum of all the instructions executed up to
-	; (and including) the RTI
-	; When the user program starts executing, the timer value will be 1
-	lda is_step
-	beq @rti
-	lda in_rom
-	beq @rti	; if not in ROM, we added a BRK
-
-@go_rom_nmi:
-	; install the GO NMI handler for the user program
-	lda #<NMI_HANDLER_ADDR
-	sta $0318
-	lda #>NMI_HANDLER_ADDR
-	sta $0319
-
-@nmidone:
-	lda #$00	; enable Timer 2 (one-shot mode) on VIA #1
-	sta $911b
-
-	lda #<NMI_TIMER_VAL
-	sta $9118		; set low-order latch for the timer
-	lda #>NMI_TIMER_VAL
-	sta $9119		; start the timer
 
 @rti:	; return from the BRK/NMI
 	lda #FINAL_BANK_USER	; 2
 	jmp RTI_ADDR		; 3
 	; sta $9c02		; 4
+	; lda #$a0		; 2
+	; sta $911e		; 4
 	; pla			; 4
 	; rti			; 6
 .endproc
@@ -1436,21 +1155,49 @@ brkhandler2_size=*-brkhandler2
 ; Runs the user program until the next breakpoint or an NMI occurs
 .export __debug_go
 .proc __debug_go
-	; for the first instruction, just STEP, this lets us keep the breakpoint
-	; we are on (if there is one) intact
-	jsr __debug_step
-	bcc :+
-	rts
-
-:	lda #$00
+	lda #$00
 	sta sw_valid		; invalidate stopwatch
-	lda #ACTION_GO_START
-	sta action
-	inc advance		; continue program execution
 
-	ldxy #NMI_IER
-	lda #$80|$02		; enable RESTORE interrupts only
-	jmp vmem::store
+	; bounce to the user's program
+	lda sim::pc
+	sta zp::bankval
+	ldxy #TRAMPOLINE_ADDR
+	lda #FINAL_BANK_USER
+	jsr ram::store
+
+	lda sim::pc+1
+	sta zp::bankval
+	ldxy #TRAMPOLINE_ADDR+1
+	lda #FINAL_BANK_USER
+	jsr ram::store
+
+	jsr swapin
+
+	sei
+	lda #<$eb15
+	sta $0314
+	lda #>$eb15
+	sta $0314+1
+	lda #DEFAULT_900F
+	sta $900f
+	jsr save_debug_zp
+	restore_user_zp
+
+	ldx sim::reg_sp
+	txs			; restore user stack
+
+	lda sim::reg_p
+	pha			; save status (will pull after bank select)
+	lda sim::reg_a
+	sta prev_reg_a
+	pha			; save .A (to be pulled after bank select)
+
+	ldx sim::reg_x
+	stx prev_reg_x
+	ldy sim::reg_y
+	sty prev_reg_y
+
+	jmp TRAMPOLINE
 .endproc
 
 ;******************************************************************************
@@ -1480,27 +1227,20 @@ brkhandler2_size=*-brkhandler2
 	sta step_out_depth
 	sta stop_tracing
 
-	jsr __debug_step_out_next
-	bcs @done
+@trace: lda stop_tracing
+	bne @done
+	jsr __debug_step	; run one STEP
+	bcs @done		; stop tracing if STEP OUT says we should
 
-	inc swapmem
-	lda #ACTION_STEP_OUT_START
-	sta action
-	;clc
+	lda sim::op		; get opcode we just ran
+	cmp #$20		; did we run a JSR?
+	bne :+
+	inc step_out_depth	; if we called another subroutine, inc depth
+:	cmp #$60		; did we RTS?
+	bne @trace
+	dec step_out_depth
+	bpl @trace		; continue trace until depth is negative
 @done:	rts
-.endproc
-
-;******************************************************************************
-; STEP OUT NEXT
-; Runs the next step of a "STEP OUT" command.  This is called each step after
-; executing a "STEP OUT" until the RTS we're looking for is executed
-; OUT:
-;   - .C: set if we should stop tracing (e.g. if a watch was activated)
-.proc __debug_step_out_next
-	jsr __debug_step
-	lda #ACTION_STEP_OUT
-	sta action
-	rts
 .endproc
 
 ;******************************************************************************
@@ -1513,26 +1253,12 @@ brkhandler2_size=*-brkhandler2
 .proc __debug_trace
 	lda #$00
 	sta stop_tracing
-
-	jsr __debug_trace_next
-	bcs @done
-
-	inc swapmem
-	lda #ACTION_TRACE_START
-	sta action
-	;clc
-@done:	rts
-.endproc
-
-;******************************************************************************
-; TRACE NEXT
-; Runs the next step of a TRACE
-; OUT:
-;   - .C: set if we should stop tracing (e.g. if a watch was activated)
-.proc __debug_trace_next
+@trace: lda stop_tracing
+	bne @done
 	jsr __debug_step
-	lda #ACTION_TRACE
-	sta action
+	jmp @trace
+
+@done:  clc
 	rts
 .endproc
 
@@ -1646,16 +1372,29 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;******************************************************************************
-; STEP_OVER
+; PRINT TRACING
+; Prints the "tracing" info
+.proc print_tracing
+	ldxy #strings::tracing
+	lda #REGISTERS_LINE-1
+	jsr text::print			; print the TRACING message
+	rts
+.endproc
+
+;******************************************************************************
+; STEP OVER
 ; Runs the next instruction from the .PC and returns to the debug prompt.
-; This works by inserting a BRK instruction after
-; the current instruction and RUNning.
 ; Unlike STEP, if the next instruction is a JSR, execution will continue
 ; at the line after the subroutine (after the subroutine has run)
 .export __debug_step_over
 .proc __debug_step_over
-	lda #ACTION_STEP_OVER
-	skw			; fall through to __debug_step
+	jsr __debug_step	; run one STEP
+	bcs @done		; stop tracing if STEP errored
+	lda sim::op		; get opcode we just ran
+	cmp #$20		; did we run a JSR?
+	bne @done		; if not, we're done
+	jsr __debug_step_out	; if we did enter a subroutine, STEP OUT
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -1667,12 +1406,13 @@ brkhandler2_size=*-brkhandler2
 ;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .export __debug_step
 .proc __debug_step
-	lda #ACTION_STEP
-	sta action		; flag that we are STEPing
-
-	ldxy #NMI_IER
-	lda #$80|$20		; enable TIMER interrupts only
-	jsr vmem::store
+	; save the state of the registers before the STEP
+	lda sim::reg_a
+	sta prev_reg_a
+	lda sim::reg_x
+	sta prev_reg_x
+	lda sim::reg_y
+	sta prev_reg_y
 
 	ldxy #$f00d		; use ROM address because we don't need string
 	stxy r0
@@ -1680,17 +1420,13 @@ brkhandler2_size=*-brkhandler2
 	jsr asm::disassemble	; disassemble it to get its size (BRK offset)
 	stx sim::op_mode
 	bcc @ok
+
 	inc sim::illegal
+	; TODO: handle illegals here?
 	;sec
 	rts
 
-@ok:	pha			; save instruction size
-
-	; preemptively disable mem swapping
-	; unless we encounter ROM for the next target (in which case we will
-	; increment this again) we know exactly what will be written
-	dec swapmem
-
+@ok:	pha				; save instruction size
 	ldxy sim::pc			; address of instruction
 	jsr sim::get_side_effects	; get state that will be clobbered/used
 
@@ -1708,100 +1444,41 @@ brkhandler2_size=*-brkhandler2
 @check_effects:
 	lda sim::affected
 	and #OP_LOAD|OP_STORE		; was there a memory read/write?
-	beq @setbrk			; if not, skip ahead to setting the next BRK
+	beq @step			; if not, skip ahead to setting the next BRK
 	ldxy sim::effective_addr	; if yes, mark the watch if there is one
 	jsr watch::mark			; check if there's a watch at this addr
-	bcc @setbrk			; if there's no watch at addr, continue
+	bcc @step			; if there's no watch at addr, continue
 
 	; activate the watch window so user sees change
 	; restore zp (if we were tracing, must be restored)
 	pha
 	jsr save_debug_zp
 	jsr restore_debug_zp
-
-	; display a message indicating watch was triggered
 	pla
-	jsr watch_triggered
+	jsr watch_triggered ; display a message indicating watch was triggered
+	rts
 
-	lda #ACTION_STEP
-	sta action
-
-@setbrk:
-	pla			; get instruction size
+; perform the step
+@step:	pla			; get instruction size
 	ldxy sim::pc		; and address of instruction to-be-executed
-
-	; get the address of the next instruction into sim::next_pc
-	jsr sim::next_instruction
-	stxy brkaddr
-
+	jsr sim::step		; execute the STEP
 	jsr safety_check	; check for JAMs/suspicious writes/etc.
-	bcc @safe
-	rts			; return to debugger
+	bcc @countcycles	; if ok, continue to count cycles
+	;sec
+	rts			; unsafe instruction- return to debugger
 
-@safe:	lda sim::op
-	cmp #$20		; JSR?
-	bne @countcycles
-	lda #ACTION_STEP_OVER
-	cmp action		; are we stepping over?
-	bne @chkrom		; skip if not
-
-; if stepping over a JSR, set breatpoint at current PC + 3
-; also flag that we need to save all RAM
-@stepover:
-	lda #$00
-	sta sw_valid	; invalidate stopwatch
-	inc swapmem
-
-	lda sim::pc
-	clc
-	adc #$03
-	sta brkaddr
-	lda sim::pc+1
-	adc #$00
-	sta brkaddr+1
-
-; check if next instruction is in ROM. If so, we can't step IN, we must step
-; OVER. Re-increment swapmem to force full RAM swap
-@chkrom:
-	ldxy brkaddr
-	cmpw #$c000
-	lda #$00
-	rol
-	sta in_rom
-	beq @countcycles
-
-	; if next STEP is in ROM, we won't be able to set a BRK
-	; enable a timer NMI to return to debugger
-	ldxy #NMI_IER
-	lda #$80|$20		; enable TIMER interrupts only
-	jsr vmem::store
-
-; count the number of cycles that the next instruction will take
 @countcycles:
-	lda stepsave		; get the opcode
+	; count the number of cycles that the next instruction will take
 	jsr sim::count_cycles	; get the # of cycles for the instruction
 	clc
 	adc sim::stopwatch
 	sta sim::stopwatch
-	bcc @addbrk
+	bcc @done
 	inc sim::stopwatch+1
-	bne @addbrk
+	bne @done
 	inc sim::stopwatch+2
 
-; add the breakpoint
-@addbrk:
-	ldxy brkaddr
-	jsr vmem::load
-	sta stepsave
-
-	; add breakpoint (note that this is a NOP if the address is in ROM)
-	lda #$00		; BRK
-	ldxy brkaddr
-	jsr vmem::store
-
-@brkdone:
-	inc advance		; continue program execution
-	RETURN_OK		; return to the debugger
+@done:	RETURN_OK		; return to the debugger
 .endproc
 
 ;*******************************************************************************
@@ -1899,211 +1576,24 @@ brkhandler2_size=*-brkhandler2
 .endproc
 
 ;*******************************************************************************
-; STEP RESTORE
-; Restores the opcode destroyed by the last STEP.
-.proc step_restore
-	lda stepsave		; get the opcode that we replaced with the BRK
-	ldxy brkaddr		; get its address
-	jmp vmem::store		; restore it
-.endproc
-
-;*******************************************************************************
 ; SWAPIN
-; Either swaps in the 3-4 bytes that were saved (if we were able to resolve the
-; exact memory affected by an instruction or the _entire_ internal RAM
-; state [$00-$2000) if we were unable to resolve the exact memory addresses
-; affected.
 ; This routine is called _before_ returning from the BRK interrupt and executing
 ; the user program.
 .proc swapin
-@cnt=r0
-@addr=r1
-@tosave=r3
-	lda swapmem
-	beq @fastswap
-
-@swapall:
 	; swap entire user RAM in (needed if we don't know what memory will
 	; be changed before next BRK)
 	jsr save_debug_state
 	jmp __debug_restore_progstate
-
-@fastswap:
-	; save [effective_addr], [pc, pc+2], and [brkaddr] for the debugger
-	lda sim::pc+1
-	sta @tosave+1
-	sta @tosave+3
-	sta @tosave+5
-
-	ldx sim::pc
-	stx @tosave
-	inx
-	bne :+
-	inc @tosave+3
-	inc @tosave+5
-:	stx @tosave+2
-	inx
-	bne :+
-	inc @tosave+5
-:	stx @tosave+4
-
-	ldxy sim::effective_addr
-	stxy @tosave+6
-	ldxy brkaddr
-	stxy @tosave+8
-
-; save the debugger's memory values at affected addresses
-	ldy #8
-	sty @cnt
-	ldx #5-1
-@save:	ldy @cnt
-	lda @tosave,y
-	sta @addr
-	lda @tosave+1,y
-	cmp #$02
-	bcc :+			; skip zeropage/stack (saved elsewhere)
-	sta @addr+1
-	jsr is_internal_address
-	bne :+
-	ldy #$00
-	lda (@addr),y
-	sta debug_state_save,x
-:	dec @cnt
-	dec @cnt
-	dex
-	bpl @save
-
-; read the virtual memory values for the affected locations and store
-; them to their physical addresses
-	ldx #8
-	stx @cnt
-@store: ldx @cnt
-	lda @tosave,x
-	sta @addr
-	ldy @tosave+1,x
-	beq @next
-	sty @addr+1
-	tax
-	jsr is_internal_address
-	bne @next		; skip if not internal address
-
-	jsr vmem::load
-	ldx @addr+1
-	cpx #$02
-	bcc @next
-	ldy #$00
-	sta (@addr),y		; store it to the physical address
-@next:	dec @cnt
-	dec @cnt
-	bpl @store
-
-	rts			; done
 .endproc
 
-;******************************************************************************
 ;******************************************************************************
 ; SWAPOUT
 ; Swaps *out* the user memory that needs to be saved in order to restore the
 ; debug state.
-; This occurs after we encounter a BRK.  If we were able to figure out the exact
-; areas that would be affected before we encountered the BRK, only swap those
-; values for the debugger's values of those.
-; If not, swap the entire internal RAM state
-; The following state is saved/swapped when we can avoid swapping all memory:
-;  [prevpc, prevpc+2]: area of the instruction that will be executed
-;  (sim::next_pc):     address of the BRK that we will install
-;  (msave):            effective address of the instruction we will execute
 .proc swapout
-@cnt=r0
-@addr=r1
-@ysave=r3
-@tosave=r4
-	lda swapmem
-	beq @fastswap
-@swapall:
 	; save the program state before we restore the debugger's
 	jsr __debug_save_prog_state
 	jmp restore_debug_state		; restore debugger state
-
-@fastswap:
-	; save [prevpc, prevpc+2], (msave), and (sim::next_pc) for the user
-	; program
-	lda prev_pc+1
-	sta @tosave+1
-	sta @tosave+3
-	sta @tosave+5
-	ldx prev_pc
-	stx @tosave
-	inx
-	bne :+
-	inc @tosave+3
-	inc @tosave+5
-:	stx @tosave+2
-	inx
-	bne :+
-	inc @tosave+5
-:	stx @tosave+4
-
-	ldxy sim::effective_addr
-	stxy @tosave+6
-	ldxy brkaddr
-	stxy @tosave+8
-
-	; save the user values affected by the previous instruction
-	; to their virtual address
-	ldx #8
-	stx @cnt
-@save:	ldx @cnt
-	lda @tosave,x
-	sta @addr
-	ldy @tosave+1,x
-	cpy #$02
-	bcc :+			; skip ZP and stack (saved elsewhere)
-	sty @addr+1
-	tax
-	jsr is_internal_address
-	bne :+			; if not internal, don't do this
-	ldy #$00
-	lda (@addr),y		; read the physical address
-	ldy @addr+1
-	jsr vmem::store		; store to the virtual (user) address
-:	dec @cnt
-	dec @cnt
-	bpl @save
-
-	; restore the debug values at the affected locations
-	ldx #8
-	stx @cnt
-@store: lda @cnt
-	tax
-	lsr
-	sta @ysave
-
-	ldy @tosave+1,x
-	cpy #$02
-	bcc @next		; skip ZP, stack, & VIC (already handled)
-	sty @addr+1
-	lda @tosave,x
-	sta @addr
-	tax
-	jsr is_internal_address	; if not an internal address, leave it alone
-	bne @next
-
-	ldy @ysave
-	lda debug_state_save,y	; get the byte to restore
-
-	ldx @addr+1
-	bne :+
-	ldx @addr
-	sta mem::dbg00,x
-	jmp @next
-
-:	ldy #$00
-	sta (@addr),y		; restore the byte
-@next:	dec @cnt
-	dec @cnt
-	bpl @store
-	rts			; done
 .endproc
 
 ;*******************************************************************************
@@ -2731,74 +2221,6 @@ __debug_remove_breakpoint:
 @mem:	jmp view::mem		; refresh the memory viewer
 @gui:	jmp gui::refresh	; refresh the active GUI
 @none:	rts
-.endproc
-
-;*******************************************************************************
-; IS INTERNAL ADDRESS
-; Returns with .Z set if the given address is outside of the address ranges
-; [$2000,$8000) or [$94f0,$ffff]
-; Note that $94f0-$9600 is considered "external". This is because the debugger
-; only uses $9400-$94f0 for color, so these values can be left untouched when
-;
-; IN:
-;  - .XY: the address to test
-; OUT:
-;  - .Z: set if the address in [$00,$2000) or [$8000,$94f0) (internal or I/O)
-.proc is_internal_address
-	cmpw #$2000
-	bcc @internal
-	cmpw #$8000
-	bcc @external
-	cmpw #$94f0
-	bcc @internal
-@external:
-	lda #$ff
-	rts
-@internal:
-	lda #$00
-	rts
-.endproc
-
-;*******************************************************************************
-; TRACING
-; Checks if the debugger is currently "tracing"
-; The definition of tracing is any command that automatically STEPs
-; OUT:
-;   - .Z: set if the active action is a "tracing" command
-;   - .C: set if the active action is a "tracing" command
-.proc tracing
-	lda action
-	cmp #ACTION_TRACE
-	beq @done
-	cmp #ACTION_STEP_OUT
-@done:	rts
-.endproc
-
-;******************************************************************************
-; STEPPING
-; Checks if we are currently "stepping"
-; This means that we are inserting a BRK after each instruction during
-; execution so that the debugger can control how to proceed based on various
-; circumstances
-; OUT:
-;   - .Z: set if the active action is one which executes by stepping
-;   - .C: set if the active action is one which executes by stepping
-.proc stepping
-	ldx #@num_stepcmds-1
-	lda action
-:	cmp @stepcmds,x
-	beq @done
-	dex
-	bpl :-
-	clc		; not step
-@done:	rts
-.PUSHSEG
-.RODATA
-@stepcmds:
-	.byte ACTION_GO_START, ACTION_TRACE_START, ACTION_STEP, ACTION_STEP_OVER
-	.byte ACTION_STEP_OUT, ACTION_TRACE, ACTION_STEP_OUT_START
-@num_stepcmds=*-@stepcmds
-.POPSEG
 .endproc
 
 ;*******************************************************************************
