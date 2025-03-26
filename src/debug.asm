@@ -822,32 +822,8 @@ trampoline_size=*-trampoline
 	; clear decimal in case user set it
 	cld
 
-	lda is_brk	; was interrupt triggered  by a BRK?
-	bne @notnmi	; if so, skip NMI handler
-
-; An NMI interrupt occurred while we were returning to the user program (while
-; we were still in the NMI/BRK ISR).
-; Most commonly this will occur during tracing.  When tracing, we don't
-; acknowledge NMI's because that is how the user breaks from the trace.
-; If there is a pending NMI (there was a rising edge on CA1 while the debugger
-; was running the next step of the TRACE) when we reenable interrupts,
-; it will trigger.
-; There are also a few cycles when a user could theoretically trigger an
-; NMI by pressing RESTORE immediately after executing a STEP or similar
-; instruction.  We acknowledge NMI's right before running the user
-; program, but it is possible to trigger one while we are still in the process.
-; In either case, when this is detected (by the PC being in the NMI/BRK handler
-; range), we return from the interrupt to allow the ISR (debugger) to finish
-; returning to the user program.
-; If we were tracing, we also set the action to STEP so that tracing halts.
-@nmi:	ldxy sim::pc
-	cmpw #NMI_HANDLER_ADDR
-	bcc @restore_debugger
-	cmpw #BRK_HANDLER_TOP+1
-	bcs @restore_debugger
-	lda #$7f
-	sta $911d	; ack all interrupts
-	jmp debug_rti	; finish the ISR that was interrupted by the NMI
+	lda is_brk		; was interrupt triggered a BRK?
+	beq @restore_debugger	; if not, skip PC decrement
 
 @notnmi:
 	decw sim::pc	; BRK pushes PC + 2, subtract 2 from PC
@@ -961,78 +937,6 @@ trampoline_size=*-trampoline
 @loopdone:
 	;jsr cur::on
 	jmp @debugloop
-.endproc
-
-;******************************************************************************
-; DONE
-; Returns from the debug BRK interrupt.
-; The text debugger also returns here to restore the program state and
-; continue execution of the program.
-debug_done:
-	jsr install_breakpoints
-	jsr swapin
-
-@dummyirq:
-	sei
-	lda #<$eb15
-	sta $0314
-	lda #>$eb15
-	sta $0314+1
-	lda #DEFAULT_900F
-	sta $900f
-
-	; save the debugger's ZP and bring in the user's
-	jsr save_debug_zp
-	restore_user_zp
-
-@restore_regs:
-	ldx sim::reg_sp	; restore SP
-	txs
-
-	; from top to bottom: [STATUS, <PC, >PC]
-	lda sim::pc+1
-	sta prev_pc+1
-	pha
-	lda sim::pc	; restore PC
-	sta prev_pc
-	pha
-
-	lda sim::reg_p	; restore processor status (RTI will pull)
-	pha
-
-.proc debug_rti
-	lda #$7f
-	sta $911e
-	sta $911d	; ack all interrupts
-	sta $912d
-
-	lda sim::reg_a
-	sta prev_reg_a
-	ldx sim::reg_x
-	stx prev_reg_x
-	ldy sim::reg_y
-	sty prev_reg_y
-
-	; TODO: restore timer values
-
-	pha		; save .A (to be pulled after bank select)
-
-	; install the GO NMI handler for the user program to return to debugger
-	; when RESTORE is pressed
-
-	lda #<NMI_HANDLER_ADDR
-	sta $0318
-	lda #>NMI_HANDLER_ADDR
-	sta $0319
-
-@rti:	; return from the BRK/NMI
-	lda #FINAL_BANK_USER	; 2
-	jmp RTI_ADDR		; 3
-	; sta $9c02		; 4
-	; lda #$a0		; 2
-	; sta $911e		; 4
-	; pla			; 4
-	; rti			; 6
 .endproc
 
 ;******************************************************************************
@@ -1190,6 +1094,15 @@ debug_done:
 	sta $0318
 	lda #>NMI_HANDLER_ADDR
 	sta $0318+1
+	lda #<(BRK_HANDLER_ADDR+1)
+	sta $0316
+	lda #>(BRK_HANDLER_ADDR+1)
+	sta $0316+1
+
+	lda #$7f
+	sta $911e
+	sta $911d	; ack all interrupts
+	sta $912d
 
 	ldx sim::reg_sp
 	txs			; restore user stack

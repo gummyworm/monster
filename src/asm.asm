@@ -284,6 +284,7 @@ bbb00_modes:
 	.byte MODE_ZP | MODE_X_INDEXED  ; 101
 	.byte $ff		        ; 110
 	.byte MODE_ABS | MODE_X_INDEXED	; 111
+
 bbb01_modes:
 	.byte MODE_ZP | MODE_X_INDEXED | MODE_INDIRECT
 	.byte MODE_ZP
