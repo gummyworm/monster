@@ -68,7 +68,7 @@ __sim_op: .byte 0
 
 ; operand of next instruction that will be executed
 .export __sim_operand
-__sim_operand: .byte 0
+__sim_operand: .word 0
 
 ; address modes used by current instruction
 .export __sim_op_mode
@@ -120,16 +120,12 @@ save_sp: .byte 0
 	ldxy __sim_effective_addr
 	jsr is_internal_address
 	bne :+
-
 	stxy msave_src
-	jsr vmem::translate
-	stxy msave_dst
 .endproc
-	; save user byte to its buffer
+
 msave_src=*+1
-	lda $f00d
-msave_dst=*+1
-	sta $f00d
+	lda $f00d	; get the affected user byte
+	jsr vmem::store	; save it to its buffer
 
 	; restore the byte that was clobbered at the effective address
 	ldxy __sim_effective_addr
@@ -179,6 +175,28 @@ msave=*+1
 	jsr @getnextpc
 	stxy __sim_next_pc
 
+	lda __sim_op_mode
+	cmp #(MODE_ZP | MODE_X_INDEXED | MODE_INDIRECT)	; x, ind?
+	beq @translate_ind
+	cmp #(MODE_ZP | MODE_Y_INDEXED | MODE_INDIRECT)	; y, ind?
+	bne @write_instruction
+
+@translate_ind:
+	; rewrite the opcode as an absolute one (change the bbb bits to 011)
+	lda __sim_op
+	and #%11100011	; clear bbb
+	ora #%00001100	; set to %011 (absolute)
+	sta __sim_op
+
+	; rewrite the operand with the effective address
+	lda __sim_effective_addr
+	sta __sim_operand
+	lda __sim_effective_addr+1
+	sta __sim_operand+1
+	lda #$03
+	sta @sz
+
+@write_instruction:
 	; copy the instruction to the execution buffer, appending
 	; NOPs as needed to fill the 3 byte space
 	lda #$00
@@ -569,7 +587,7 @@ msave=*+1
 ;  - .XY: the operand
 ;  - .A:  the opcode
 ;  - r0:  the address mode of the instruction
-; OUT:
+; OUT
 ;  - .XY: the effective address of the instruction
 .proc get_effective_addr
 @target=r5
