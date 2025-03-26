@@ -765,7 +765,7 @@ msave=*+1
 	bcc @internal
 	cmpw #$8000
 	bcc @external
-	cmpw #$a000
+	cmpw #$94f0
 	bcc @internal
 @external:
 	lda #$ff

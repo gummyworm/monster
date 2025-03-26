@@ -927,15 +927,14 @@ trampoline_size=*-trampoline
 @runcmd:
 	lda #$4c		; JMP
 	sta $00
-	lda command_vectorslo,x	 ; vector LSB
+	lda command_vectorslo,x	; vector LSB
 	sta zp::jmpvec
-	lda command_vectorshi,x  ; vector MSB
+	lda command_vectorshi,x	; vector MSB
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr		; call the command
 	jmp @enter_iface
 
 @loopdone:
-	;jsr cur::on
 	jmp @debugloop
 .endproc
 
