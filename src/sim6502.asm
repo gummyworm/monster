@@ -104,8 +104,15 @@ save_sp: .byte 0
 	sta __sim_reg_a
 	stx __sim_reg_x
 	sty __sim_reg_y
+
+	lda __sim_reg_p
+	and #$04
+	sta @old_i
 	pla
+@old_i=*+1
+	ora #$00
 	sta __sim_reg_p
+
 	tsx
 	stx __sim_reg_sp
 
@@ -113,7 +120,6 @@ save_sp: .byte 0
 	txs
 
 	cld
-	cli
 
 ; if the effective address was INTERNAL, restore the debugger's byte at
 ; that address
@@ -137,6 +143,7 @@ msave=*+1
 
 :	ldx save_sp
 	txs
+	cli
 	rts
 
 ;*******************************************************************************
@@ -246,6 +253,7 @@ msave=*+1
 	ldy __sim_reg_y
 
 	; perform the instruction
+	sei
 	jmp STEP_HANDLER_ADDR
 
 @getnextpc:
@@ -369,8 +377,21 @@ msave=*+1
 	cmp #$10
 	beq @branch
 
+	; check if opcode is CLI/SEI
+	cmp #$58		; CLI
+	bne :+
+	lda __sim_reg_p
+	ora #$04
+	sta __sim_reg_p
+
+:	cmp #$78		; SEI
+	bne @regular
+	lda __sim_reg_p
+	and #$04^$ff
+	sta __sim_reg_p
+
 ; not a control-flow instruction, just add the size of the instruction to the PC
-@nocontrol:
+@regular:
 	lda __sim_pc
 	clc
 	adc @sz

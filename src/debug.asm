@@ -55,7 +55,10 @@ RTI_ADDR         = BRK_HANDLER_ADDR+3
 .export STEP_HANDLER_ADDR
 .export STEP_EXEC_BUFFER
 STEP_HANDLER_ADDR = NMI_HANDLER_ADDR-stephandler_size
-STEP_EXEC_BUFFER  = STEP_HANDLER_ADDR+7
+
+STEP_EXEC_BUFFER  = STEP_HANDLER_ADDR+16
+STEP_RESTORE_A    = STEP_EXEC_BUFFER-2
+
 TRAMPOLINE = STEP_HANDLER_ADDR - trampoline_size
 TRAMPOLINE_ADDR = TRAMPOLINE+13
 .export TRAMPOLINE_ADDR
@@ -449,7 +452,14 @@ stephandler:
 	lda #FINAL_BANK_USER
 	sta $9c02
 	pla			; restore .A
-	plp			; restore status flags
+	sta STEP_RESTORE_A
+
+	pla			; get status flags
+	and #$04		; set I flag
+	pha			; push altered status
+
+	lda #$00		; SMC - restore A
+	plp			; restore altered status flags
 
 	; run the instruction
 step_buffer:
@@ -459,6 +469,8 @@ step_buffer:
 
 	php
 	pha
+	sei			; disable IRQs
+
 	; switch back to DEBUGGER bank
 	lda #FINAL_BANK_MAIN
 	sta $9c02
