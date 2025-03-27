@@ -365,18 +365,16 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	jsr draw::hline
 
 	jsr reset_stopwatch
+
+	sei
 	jsr install_brk		; install the BRK/NMI handler
 	jsr install_step	; install the STEP handler
 	jsr install_trampoline
+	cli
 
 	; initialize the user program stack
 	lda #PROGRAM_STACK_START
 	sta sim::reg_sp
-
-	ldxy #BRK_HANDLER_ADDR+1
-	stxy $0316			; BRK
-	ldxy #NMI_HANDLER_ADDR
-	stxy $0318			; NMI
 
 	ldx #$ff
 	txs
@@ -558,13 +556,11 @@ trampoline_size=*-trampoline
 .proc install_brk
 @dst=r0
 @cnt=r2
-	sei
 	ldxy #BRK_HANDLER_ADDR+1
 	stxy $0316		; BRK
 	ldxy #NMI_HANDLER_ADDR
 	stxy @dst
 	stxy $0318		; NMI
-	cli
 
 	lda #brkhandler1_size-1
 	sta @cnt
@@ -1157,7 +1153,7 @@ trampoline_size=*-trampoline
 .proc __debug_step_out
 	lda #$00
 	sta step_out_depth
-	sta stop_tracing
+	jsr install_trace_nmi
 
 @trace: lda stop_tracing
 	bne @done
@@ -1176,6 +1172,29 @@ trampoline_size=*-trampoline
 .endproc
 
 ;******************************************************************************
+; INSTALL TRACE NMI
+; Installs an NMI that increments stop_tracing when the RESTORE
+; key is pressed.
+; This should be installed for commands that automatically STEP
+; repeatedly, like TRACE and STEP OUT
+.proc install_trace_nmi
+	lda #$00
+	sta stop_tracing
+
+	lda #$e6		; INC zp
+	sta STOP_TRACING_NMI
+	lda #stop_tracing
+	sta STOP_TRACING_NMI+1
+	lda #$40
+	sta STOP_TRACING_NMI+2
+	ldxy #STOP_TRACING_NMI
+	stxy $0318
+	lda #$82
+	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
+	rts
+.endproc
+
+;******************************************************************************
 ; TRACE
 ; Puts the debugger into TRACE mode and steps to the next instruction to
 ; begin the trace
@@ -1185,13 +1204,19 @@ trampoline_size=*-trampoline
 .proc __debug_trace
 	lda #$00
 	sta stop_tracing
+
+	lda #$7f
+	sta $911e
+	sta $911d	; ack all interrupts
+	sta $912d
+	jsr install_trace_nmi
+
 @trace: lda stop_tracing
 	bne @done
 	jsr __debug_step
 	jmp @trace
 
-@done:  clc
-	rts
+@done:  rts
 .endproc
 
 ;******************************************************************************
@@ -1320,6 +1345,8 @@ trampoline_size=*-trampoline
 ; at the line after the subroutine (after the subroutine has run)
 .export __debug_step_over
 .proc __debug_step_over
+	jsr install_trace_nmi
+
 	jsr __debug_step	; run one STEP
 	bcs @done		; stop tracing if STEP errored
 	lda sim::op		; get opcode we just ran
@@ -1346,17 +1373,16 @@ trampoline_size=*-trampoline
 	lda sim::reg_y
 	sta prev_reg_y
 
+	lda #$00
+	sta sim::illegal
+
 	ldxy #$f00d		; use ROM address because we don't need string
 	stxy r0
 	ldxy sim::pc		; get address of next instruction
 	jsr asm::disassemble	; disassemble it to get its size (BRK offset)
 	stx sim::op_mode
 	bcc @ok
-
-	inc sim::illegal
-	; TODO: handle illegals here?
-	;sec
-	rts
+	inc sim::illegal	; flag that we couldn't disassemble the instruction
 
 @ok:	pha				; save instruction size
 	ldxy sim::pc			; address of instruction
@@ -1394,10 +1420,12 @@ trampoline_size=*-trampoline
 @step:	pla			; get instruction size
 	ldxy sim::pc		; and address of instruction to-be-executed
 	jsr sim::step		; execute the STEP
-	jsr safety_check	; check for JAMs/suspicious writes/etc.
 	bcc @countcycles	; if ok, continue to count cycles
-	;sec
-	rts			; unsafe instruction- return to debugger
+
+	; display the error explaining why we couldn't STEP
+	jsr safety_check
+	sec
+	rts
 
 @countcycles:
 	; count the number of cycles that the next instruction will take

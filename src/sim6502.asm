@@ -180,8 +180,10 @@ msave=*+1
 	stxy @op
 
 	jsr @getnextpc
-	stxy __sim_next_pc
+	bcc @ok
+	rts
 
+@ok:	stxy __sim_next_pc
 	lda __sim_op_mode
 	cmp #(MODE_ZP | MODE_X_INDEXED | MODE_INDIRECT)	; x, ind?
 	beq @translate_ind
@@ -260,7 +262,6 @@ msave=*+1
 	lda #$00
 	sta __sim_branch_taken 	; clear branch taken flag
 	sta __sim_jammed	; clear JAM'd flag
-	sta __sim_illegal	; clear illegal opcode flag
 
 	; get the opcode
 	ldxy @op
@@ -283,12 +284,12 @@ msave=*+1
 	sta __sim_operand+1
 
 	lda @opcode
-
 @chkjam:
 	jsr @isjam
 	bne :+
 	inc __sim_jammed
 	ldxy __sim_pc	; return same PC
+	sec
 	rts
 
 :	cmp #$20	; JSR?
@@ -398,6 +399,7 @@ msave=*+1
 	sta __sim_pc
 	bcc :+
 	inc __sim_pc+1
+	clc
 :	rts
 
 ; Simulate branches. branch is taken if corresponding flag for top two bits
@@ -468,6 +470,7 @@ msave=*+1
 	; eat return address
 	pla
 	pla
+	clc
 	rts
 
 ;--------------------------------------

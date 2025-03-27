@@ -7,6 +7,7 @@
 - [ ] Support variable width characters (8x8 UDG's)
 - [ ] Add settings / project configuration file
 - [ ] History in monitor
+- [ ] Support illegal opcodes
 
 ### TODO V1.1
 - [ ] Save/restore VIA timers while debugging
