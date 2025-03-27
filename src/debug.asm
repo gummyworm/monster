@@ -940,6 +940,7 @@ trampoline_size=*-trampoline
 	lda command_vectorshi,x	; vector MSB
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr		; call the command
+	jsr irq::on		; re-enable IRQ if it was disabled
 	jmp @enter_iface
 
 @loopdone:
@@ -1151,6 +1152,8 @@ trampoline_size=*-trampoline
 ;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .export __debug_step_out
 .proc __debug_step_out
+	jsr irq::off
+
 	lda #$00
 	sta step_out_depth
 	jsr install_trace_nmi
@@ -1203,6 +1206,8 @@ trampoline_size=*-trampoline
 ;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .export __debug_trace
 .proc __debug_trace
+	jsr irq::off
+
 	lda #$00
 	sta stop_tracing
 
@@ -1298,10 +1303,6 @@ trampoline_size=*-trampoline
 ; Transfers control to the watch viewer/editor until the user exits it
 .export __debug_edit_watches
 .proc __debug_edit_watches
-	lda #DEBUG_INFO_START_ROW-1
-	jsr edit::resize
-	lda #(DEBUG_INFO_START_ROW)
-	jsr scr::clrpart
 	jsr showstate		; restore the state
 
 	lda #AUX_GUI
@@ -1352,6 +1353,7 @@ trampoline_size=*-trampoline
 ; at the line after the subroutine (after the subroutine has run)
 .export __debug_step_over
 .proc __debug_step_over
+	jsr irq::off
 	jsr install_trace_nmi
 
 	jsr __debug_step	; run one STEP
@@ -1362,6 +1364,14 @@ trampoline_size=*-trampoline
 	jsr print_tracing
 	jsr __debug_step_out	; if we did enter a subroutine, STEP OUT
 @done:	rts
+.endproc
+
+;******************************************************************************
+; STEP
+; Runs the step command
+.proc step
+	jsr irq::off
+	; fall through to dbg::step
 .endproc
 
 ;******************************************************************************
@@ -2240,7 +2250,7 @@ commands:
 num_commands=*-commands
 
 .linecont +
-.define command_vectors quit, edit_source, __debug_step, __debug_step_over, \
+.define command_vectors quit, edit_source, step, __debug_step_over, \
 	__debug_go, jump, __debug_step_out, __debug_trace, edit_source, \
 	edit_mem, edit_breakpoints, __debug_edit_watches, \
 	__debug_swap_user_mem, reset_stopwatch, edit_state, \
