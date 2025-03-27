@@ -1155,6 +1155,7 @@ trampoline_size=*-trampoline
 	sta step_out_depth
 	jsr install_trace_nmi
 
+	jsr print_tracing
 @trace: lda stop_tracing
 	bne @done
 	jsr __debug_step	; run one STEP
@@ -1210,6 +1211,8 @@ trampoline_size=*-trampoline
 	sta $911d	; ack all interrupts
 	sta $912d
 	jsr install_trace_nmi
+
+	jsr print_tracing
 
 @trace: lda stop_tracing
 	bne @done
@@ -1333,7 +1336,11 @@ trampoline_size=*-trampoline
 ; Prints the "tracing" info
 .proc print_tracing
 	ldxy #strings::tracing
-	lda #REGISTERS_LINE-1
+	lda __debug_interface
+	beq @gui
+	JUMP FINAL_BANK_CONSOLE, con::puts
+
+@gui:	lda #REGISTERS_LINE-1
 	jsr text::print			; print the TRACING message
 	rts
 .endproc
@@ -1352,6 +1359,7 @@ trampoline_size=*-trampoline
 	lda sim::op		; get opcode we just ran
 	cmp #$20		; did we run a JSR?
 	bne @done		; if not, we're done
+	jsr print_tracing
 	jsr __debug_step_out	; if we did enter a subroutine, STEP OUT
 @done:	rts
 .endproc
