@@ -19,11 +19,13 @@
 .import __sim_reg_p
 .import __sim_effective_addr
 .import __sim_stopwatch
+.import __sim_at_brk
 
 .import __sim_via2
 
 .scope sim
 	affected         = __sim_affected
+	at_brk           = __sim_at_brk
 	branch_taken     = __sim_branch_taken
 	count_cycles     = __sim_count_cycles
 	get_side_effects = __sim_get_side_effects

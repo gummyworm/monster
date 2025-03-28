@@ -133,33 +133,6 @@ __debug_interface: .byte DEBUG_IFACE_GUI
 
 .BSS
 
-;******************************************************************************
-; Up to 4 bytes need to be saved in a given STEP.
-;  1. The instruction at the PC (up to 3 bytes)
-;  2. The memory value read/written by the instruction (up to 1 byte)
-;
-; We need to save all these before we complete a STEP and execute that
-; instruction:
-;  1. save user instruction at (PC)
-;  2. get effective address of instruction's operand
-;   2a. if there is an address and it's in [0,$2000), save the value there
-;
-; To restore the debugger:
-;  1. save user value at sim::effective_addr (address of effected memory)
-;  2. restore 3 bytes of debug memory at (prev_pc)
-stepsave:  .byte 0	; opcode to save under BRK
-brkaddr:   .word 0 	; address where our brakpoint is set
-
-;*******************************************************************************
-; Debug state values for internal RAM locations
-; NOTE:
-; these must be stored next to each other as they are backed up/restored as
-; a unit.
-debug_state_save:
-debug_instruction_save: .res 3	; buffer for debugger RAM at current instruction
-mem_debugsave:          .byte 0 ; byte under effective address during STEP
-debug_stepsave: 	.byte 0 ; debugger byte under BRK (if internal)
-
 ;*******************************************************************************
 ; previous values for registers etc.
 prev_reg_a:  .byte 0
@@ -171,11 +144,9 @@ prev_pc:     .word 0
 
 sw_valid:    .byte 0    ; if !0, stopwatch is valid
 
-prev_mem_save:     .byte 0
-prev_mem_saveaddr: .word 0
+breakpoints_active: .byte 0	; if !0 breakpoints are installed
 
-step_mode: .byte 0	; which type of stepping we're doing (INTO, OVER)
-lineset:   .byte 0	; not zero if we know the line number we're on
+lineset: .byte 0	; not zero if we know the line number we're on
 
 aux_mode:       .byte 0	; the active auxiliary view
 highlight_line: .word 0 ; the line we are highlighting
@@ -186,9 +157,6 @@ brkcond: .word 0	; if !0, address to handler to break TRACE on
 is_brk: .byte 0		; set if interrupt was triggered by BRK
 
 step_out_depth: .byte 0 ; # of RTS's to wait for when "stepping out"
-
-;stop_tracing: .byte 0	; if !0, debugger will stop a TRACE at the next STEP
-
 
 ;******************************************************************************
 ; BREAKPOINTS
@@ -358,6 +326,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	lda #$00
 	sta aux_mode		; initialize auxiliary views
 	sta watch::num		; clear watches
+	sta breakpoints_active
 
 	; set color for the message row
 	lda #DEFAULT_RVS
@@ -550,7 +519,6 @@ trampoline_size=*-trampoline
 ; code to enter the handler to the user program's RAM at BRK_HANDLER_ADDR.
 ; This handler switches back to the debuggers RAM bank, where the debugger takes
 ; over.
-; Also installs the active breakpoints
 ; IN:
 ;  - .XY: the address to install the BRK handler to
 .proc install_brk
@@ -581,8 +549,7 @@ trampoline_size=*-trampoline
 	sta BRK_HANDLER_ADDR,y
 	dey
 	bpl @l1
-
-	; fall through to install_breakpoints
+	rts
 .endproc
 
 ;******************************************************************************
@@ -637,6 +604,9 @@ trampoline_size=*-trampoline
 .proc uninstall_breakpoints
 @addr=r0
 @cnt=r2
+	lda #$00
+	sta breakpoints_active
+
 	ldx __debug_numbreakpoints
 	beq @done
 	dex
@@ -852,6 +822,9 @@ trampoline_size=*-trampoline
 	; save program state and swap the debugger state in
 	jsr swapout
         jsr irq::on		; reinstall the main IRQ
+
+	lda breakpoints_active
+	beq return_to_debugger
 	jsr uninstall_breakpoints
 
 	; fall through to return_to_debugger
@@ -939,6 +912,7 @@ trampoline_size=*-trampoline
 	sta zp::jmpvec
 	lda command_vectorshi,x	; vector MSB
 	sta zp::jmpvec+1
+
 	jsr zp::jmpaddr		; call the command
 	jsr irq::on		; re-enable IRQ if it was disabled
 	jmp @enter_iface
@@ -961,12 +935,12 @@ trampoline_size=*-trampoline
 .endproc
 
 ;******************************************************************************
-; GOTO BREAK
+; GOTO PC
 ; Navigates the editor to the line that corresponds to the address where the
 ; debugger is currently at in the user program.
-.proc goto_break
+.proc goto_pc
 .endproc
-	ldxy brkaddr
+	ldxy sim::pc
 
 	; fall through to __debug_gotoaddr
 
@@ -1072,18 +1046,26 @@ trampoline_size=*-trampoline
 	lda #$00
 	sta sw_valid		; invalidate stopwatch
 
-	; bounce to the user's program
+	; run one step to get over breakpoint (if we're on one)
+	jsr __debug_step
+	bcc :+
+	rts			; failed to execute next instruction
+
+:	inc breakpoints_active
+	jsr install_breakpoints
+
+	; write the address to bounce to
 	lda sim::pc
 	sta zp::bankval
 	ldxy #TRAMPOLINE_ADDR
 	lda #FINAL_BANK_USER
-	jsr ram::store
+	jsr ram::store		; LSB
 
 	lda sim::pc+1
 	sta zp::bankval
 	ldxy #TRAMPOLINE_ADDR+1
 	lda #FINAL_BANK_USER
-	jsr ram::store
+	jsr ram::store		; MSB
 
 	jsr swapin
 
@@ -1211,6 +1193,13 @@ trampoline_size=*-trampoline
 	lda #$00
 	sta stop_tracing
 
+	jsr __debug_step
+	bcs @ret
+
+	; install the breakpoints
+	inc breakpoints_active
+	jsr install_breakpoints
+
 	lda #$7f
 	sta $911e
 	sta $911d	; ack all interrupts
@@ -1222,9 +1211,12 @@ trampoline_size=*-trampoline
 @trace: lda stop_tracing
 	bne @done
 	jsr __debug_step
-	jmp @trace
+	bcs @done
+	lda sim::at_brk
+	beq @trace
 
-@done:  rts
+@done:  jsr uninstall_breakpoints
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -1426,12 +1418,8 @@ trampoline_size=*-trampoline
 	bcc @step			; if there's no watch at addr, continue
 
 	; activate the watch window so user sees change
-	; restore zp (if we were tracing, must be restored)
-	pha
-	jsr save_debug_zp
-	jsr restore_debug_zp
-	pla
-	jsr watch_triggered ; display a message indicating watch was triggered
+	jsr watch_triggered	; display a message indicating watch triggered
+	sec			; flag that traces should stop
 	rts
 
 ; perform the step
@@ -1442,7 +1430,7 @@ trampoline_size=*-trampoline
 
 	; display the error explaining why we couldn't STEP
 	jsr safety_check
-	sec
+	sec			; flag that traces should stop
 	rts
 
 @countcycles:
@@ -2254,7 +2242,7 @@ num_commands=*-commands
 	__debug_go, jump, __debug_step_out, __debug_trace, edit_source, \
 	edit_mem, edit_breakpoints, __debug_edit_watches, \
 	__debug_swap_user_mem, reset_stopwatch, edit_state, \
-	goto_break, activate_monitor
+	goto_pc, activate_monitor
 .linecont -
 command_vectorslo: .lobytes command_vectors
 command_vectorshi: .hibytes command_vectors

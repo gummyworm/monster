@@ -62,6 +62,10 @@ __sim_jammed: .byte 0
 .export __sim_illegal
 __sim_illegal: .byte 0
 
+; set if the CPU has encountered a BRK
+.export __sim_at_brk
+__sim_at_brk: .byte 0
+
 ; next opcode that will be executed
 .export __sim_op
 __sim_op: .byte 0
@@ -144,28 +148,18 @@ msave=*+1
 :	ldx save_sp
 	txs
 	cli
-	rts
+	RETURN_OK
 
 ;*******************************************************************************
 ; STEP
-; Runs the next instruction (the one at sim::pc's address)
-; Instructions that are considered for branches are:
-;  - JSR
-;  - JMP
-;  - JMP (indirect)
-;  - Bxx (all the conditional branches)
-;  - RTI
-;  - RTS
+; Runs the next instruction
 ; IN:
 ;  - .XY: the address of the current instruction
 ;  - .A:  the size of the current instruction
 ; OUT:
-;  - .XY:           the address of the next instruction that will be executed
-;  - __sim_op:      the next opcode that will be executed
-;  - __sim_next_pc: the address of the next instruction that will be executed
-;  - __sim_jammed:    set if the next opcode is a JAM
+;  - __sim_op:     the opcode that was executed
+;  - __sim_jammed: set if the opcode is a JAM
 ; TODO: handle interrupts (VIA timers)
-; TODO: handle BRK
 .export __sim_step
 .proc __sim_step
 @op=r0
@@ -262,6 +256,7 @@ msave=*+1
 	lda #$00
 	sta __sim_branch_taken 	; clear branch taken flag
 	sta __sim_jammed	; clear JAM'd flag
+	sta __sim_at_brk	; clear BRK flag
 
 	; get the opcode
 	ldxy @op
@@ -386,10 +381,18 @@ msave=*+1
 	sta __sim_reg_p
 
 :	cmp #$78		; SEI
-	bne @regular
+	bne :+
 	lda __sim_reg_p
 	and #$04^$ff
 	sta __sim_reg_p
+
+:	cmp #$00		; BRK?
+	bne @regular
+
+	; BRK is not executed, we use this to return to the debugger
+	inc __sim_at_brk
+	sec
+	rts
 
 ; not a control-flow instruction, just add the size of the instruction to the PC
 @regular:
