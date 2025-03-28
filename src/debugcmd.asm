@@ -557,7 +557,6 @@
 	jsr debugging
 	bcc :+				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, dbg::go
-	inc con::quit
 :	rts
 .endproc
 
@@ -910,7 +909,7 @@
 	jsr debugging
 	bcc @done				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, dbg::step
-	inc con::quit	; send QUIT signal
+	jmp __dbgcmd_regs
 @done:	rts
 .endproc
 
@@ -923,9 +922,7 @@
 	jsr debugging
 	bcc @done				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, dbg::step_over
-
-	inc con::quit	; send QUIT signal
-	clc		; ok
+	jmp __dbgcmd_regs
 @done:	rts
 .endproc
 
@@ -937,8 +934,7 @@
 	bcc @done				; can't step if not debugging
 
 	CALL FINAL_BANK_MAIN, dbg::trace
-
-	inc con::quit	; send QUIT signal
+	jmp __dbgcmd_regs
 @done:	rts
 .endproc
 
@@ -946,10 +942,7 @@
 ; GO
 ; Continues program execution at the current PC
 .proc go
-	CALL FINAL_BANK_MAIN, dbg::go
-
-	inc con::quit	; send QUIT signal
-	rts
+	JUMP FINAL_BANK_MAIN, dbg::go
 .endproc
 
 ;*******************************************************************************
@@ -1070,8 +1063,7 @@
 	jsr debugging
 	bcc @done				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, dbg::step_out
-
-	inc con::quit	; send QUIT signal
+	jmp __dbgcmd_regs
 @done:	rts
 .endproc
 

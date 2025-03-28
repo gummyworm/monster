@@ -844,7 +844,6 @@ trampoline_size=*-trampoline
 	beq @iface_gui		; if interface is GUI, continue
 
 @debugloop_tui:
-	CALL FINAL_BANK_CONSOLE, dbgcmd::regs	; display registers
 	CALL FINAL_BANK_CONSOLE, con::reenter	; re-enter console (get input)
 	jmp @debugloop_tui
 
