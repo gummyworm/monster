@@ -388,12 +388,8 @@ screen: .res 40*24
 	lda cursave_y
 	sta zp::cury
 
-	lda dbg::interface
-	bne :+
 	; if debug interface changed back to GUI, refresh editor
-	CALL FINAL_BANK_MAIN, edit::refresh
-:
-	rts
+	JUMP FINAL_BANK_MAIN, edit::refresh
 .endproc
 
 ;*******************************************************************************

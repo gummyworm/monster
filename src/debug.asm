@@ -852,6 +852,11 @@ trampoline_size=*-trampoline
 	jsr show_aux		; display the auxiliary mode
 
 @showbrk:
+	; set color for the message row
+	lda #DEFAULT_RVS
+	ldx #DEBUG_MESSAGE_LINE
+	jsr draw::hline
+
 	; get the address before the BRK and go to it
 	jsr cur::off
 	ldxy sim::pc
