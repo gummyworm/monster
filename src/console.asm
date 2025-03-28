@@ -327,6 +327,8 @@ screen: .res 40*24
 	ldy #$00
 	CALL FINAL_BANK_MAIN, cur::setmin
 
+	CALL FINAL_BANK_MAIN, irq::on
+
 	ldxy #__console_getch
 	CALL FINAL_BANK_MAIN, edit::gets
 	bcs @clrline

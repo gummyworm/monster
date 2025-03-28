@@ -910,7 +910,6 @@
 	jsr debugging
 	bcc @done				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, dbg::step
-
 	inc con::quit	; send QUIT signal
 @done:	rts
 .endproc
@@ -926,6 +925,7 @@
 	CALL FINAL_BANK_MAIN, dbg::step_over
 
 	inc con::quit	; send QUIT signal
+	clc		; ok
 @done:	rts
 .endproc
 

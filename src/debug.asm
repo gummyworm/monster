@@ -843,13 +843,10 @@ trampoline_size=*-trampoline
 	lda __debug_interface
 	beq @iface_gui		; if interface is GUI, continue
 
-@iface_tui:
-	; display the contents of the registers
-	CALL FINAL_BANK_CONSOLE, dbgcmd::regs
-
 @debugloop_tui:
-	CALL FINAL_BANK_CONSOLE, con::reenter
-	jmp @loopdone
+	CALL FINAL_BANK_CONSOLE, dbgcmd::regs	; display registers
+	CALL FINAL_BANK_CONSOLE, con::reenter	; re-enter console (get input)
+	jmp @debugloop_tui
 
 @iface_gui:
 	jsr show_aux		; display the auxiliary mode
@@ -1154,6 +1151,7 @@ trampoline_size=*-trampoline
 	bne @trace
 	dec step_out_depth
 	bpl @trace		; continue trace until depth is negative
+	clc			; ok
 @done:	rts
 .endproc
 
@@ -1353,7 +1351,6 @@ trampoline_size=*-trampoline
 	lda sim::op		; get opcode we just ran
 	cmp #$20		; did we run a JSR?
 	bne @done		; if not, we're done
-	jsr print_tracing
 	jsr __debug_step_out	; if we did enter a subroutine, STEP OUT
 @done:	rts
 .endproc
