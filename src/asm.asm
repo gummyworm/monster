@@ -2747,6 +2747,8 @@ __asm_include:
 	sta zp::bankval
 	lda pcset
 	bne :+
+	lda state::verify
+	bne @ok
 	RETURN_ERR ERR_NO_ORIGIN
 
 :	stx @savex
@@ -2762,7 +2764,7 @@ __asm_include:
 :	jsr vmem::store_off
 	ldx @savex
 	ldy @savey
-	RETURN_OK
+@ok:	RETURN_OK
 .endproc
 
 ;*******************************************************************************
