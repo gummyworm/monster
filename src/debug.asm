@@ -1401,7 +1401,7 @@ trampoline_size=*-trampoline
 
 	; clear watch flags
 	ldx watch::num
-	beq @check_watches
+	beq @step
 :	lda #$ff^WATCH_DIRTY
 	and watch::flags-1,x
 	sta watch::flags-1,x

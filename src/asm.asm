@@ -576,7 +576,9 @@ num_illegals = *-illegal_opcodes
 	beq :+
 	jsr util::is_whitespace	; anon label must be followed by whitespace
 	bne @retlabel		; if not whitespace, go on
-:	lda zp::pass
+:	lda state::verify
+	bne @label_done		; if verifying, don't add a label
+	lda zp::pass
 	ldxy zp::virtualpc
 	cmp #$01		; pass 1?
 	bne @validate_anon	; if not, just validate
@@ -611,6 +613,7 @@ num_illegals = *-illegal_opcodes
 
 	; if we found another label, return error
 	RETURN_ERR ERR_UNEXPECTED_CHAR
+
 @retlabel:
 	lda #ASM_LABEL		; return as LABEL (don't indent this line)
 	RETURN_OK

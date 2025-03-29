@@ -65,7 +65,7 @@
 @linecontent=r6
 @tmp=r4
 	cmp #$00
-	beq @done
+	beq @done		; no format
 	sta @linecontent	; save the types to format
 
 	; remove spaces from start of line
@@ -78,7 +78,7 @@
 	jsr util::is_whitespace
 	bne @left_aligned
 
-@del:	jsr src::delete
+	jsr src::delete
 	ldx @tmp
 	ldy #39
 	jsr linebuff::shl
