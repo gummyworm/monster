@@ -247,8 +247,8 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 @next:	dec @cnt
 	bpl @l0
 @done:	ldx @found
-	cpx #$01		; set .C if @found >= 1
 	lda @match
+	cpx #$01		; set .C if @found >= 1
 	rts
 .endproc
 

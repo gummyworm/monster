@@ -1399,35 +1399,20 @@ trampoline_size=*-trampoline
 	ldxy sim::pc			; address of instruction
 	jsr sim::get_side_effects	; get state that will be clobbered/used
 
-; for updating watches and just general info for the user, save the current
-; state of memory that will be altered
 	; clear watch flags
 	ldx watch::num
-	beq @check_effects
+	beq @check_watches
 :	lda #$ff^WATCH_DIRTY
 	and watch::flags-1,x
 	sta watch::flags-1,x
 	dex
 	bne :-
 
-@check_effects:
-	lda sim::affected
-	and #OP_LOAD|OP_STORE		; was there a memory read/write?
-	beq @step			; if not, skip ahead to setting the next BRK
-	ldxy sim::effective_addr	; if yes, mark the watch if there is one
-	jsr watch::mark			; check if there's a watch at this addr
-	bcc @step			; if there's no watch at addr, continue
-
-	; activate the watch window so user sees change
-	jsr watch_triggered	; display a message indicating watch triggered
-	sec			; flag that traces should stop
-	rts
-
 ; perform the step
 @step:	pla			; get instruction size
 	ldxy sim::pc		; and address of instruction to-be-executed
 	jsr sim::step		; execute the STEP
-	bcc @countcycles	; if ok, continue to count cycles
+	bcc @countcycles	; if ok, continue
 
 	; display the error explaining why we couldn't STEP
 	jsr safety_check
@@ -1440,10 +1425,23 @@ trampoline_size=*-trampoline
 	clc
 	adc sim::stopwatch
 	sta sim::stopwatch
-	bcc @done
+	bcc @check_watches
 	inc sim::stopwatch+1
-	bne @done
+	bne @check_watches
 	inc sim::stopwatch+2
+
+@check_watches:
+	lda sim::affected
+	and #OP_LOAD|OP_STORE		; was there a memory read/write?
+	beq @done			; if not, skip watches check
+	ldxy sim::effective_addr	; if yes, mark the watch if there is one
+	jsr watch::mark			; check if there's a watch at this addr
+	bcc @done			; if there's no watch at addr, done
+
+	; activate the watch window so user sees change
+	jsr watch_triggered	; display a message indicating watch triggered
+	sec
+	rts
 
 @done:	RETURN_OK		; return to the debugger
 .endproc
@@ -1526,6 +1524,7 @@ trampoline_size=*-trampoline
 @gui:	lda #REGISTERS_LINE-1
 	jsr text::print
 	jsr scr::clrcolor
+	jsr irq::on
 	jsr key::waitch		; wait for keypress
 	sec
 	rts
