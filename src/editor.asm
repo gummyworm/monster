@@ -1933,19 +1933,23 @@ force_enter_insert=*+5
 .endproc
 
 ;*******************************************************************************
+; JOIN LINE
+; Joins the contents of the line below the current one with the current line
 .proc join_line
-@ch_index=r0
-@max_linesize=r0
 	jsr exit_visual
 	jsr is_readonly
 	bne @cont
 @quit:	rts
 
 @cont:	jsr src::on_last_line
-	beq @quit		; no next line to join
+	beq @quit			; no next line to join
 
-	jsr end_of_line			; set curx to the correct index
+	jsr text::linelen
+	txa
+	bne :+
+	jmp delete_line
 
+:	jsr end_of_line			; set curx to the correct index
 	jsr src::next
 	jsr src::delete			; delete the newline
 	jsr src::prev
