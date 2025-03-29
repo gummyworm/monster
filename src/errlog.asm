@@ -144,12 +144,14 @@ numerrs: .byte 0
 ;  - .A:  the error code
 ; OUT:
 ;  - .C: set if MAX_ERRORS have been logged since log was cleared
+;        or if the error we provided is considered fatal
 .export __errlog_log
 .proc __errlog_log
-	pha
 	ldx numerrs
 	cpx #MAX_ERRORS-1
 	bcs @done		; if already at max errors, return with .C set
+
+	pha
 	sta errcodes,x
 
 	; map the line # and file ID
@@ -159,11 +161,25 @@ numerrs: .byte 0
 	sta errlineshi,x
 	lda dbgi::file
 	sta errfileids,x
-
 	inc numerrs
-	clc
-@done:	pla
-	rts
+
+	pla
+	ldx #@num_fatal_errors-1
+@isfatal:
+	cmp @fatal_errors,x
+	beq @done		; fatal -> exit
+	dex
+	bpl @isfatal
+
+	clc			; not fatal
+@done:	rts
+
+.PUSHSEG
+.RODATA
+@fatal_errors:
+	.byte ERR_NO_ORIGIN
+@num_fatal_errors=*-@fatal_errors
+.POPSEG
 .endproc
 
 ;******************************************************************************
