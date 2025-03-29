@@ -606,6 +606,9 @@ num_illegals = *-illegal_opcodes
 	jsr storedebuginfo	; store debug info for label
 	jsr line::process_word	; read past the label name
 	ldxy zp::line
+
+	lda state::verify
+	bne @retlabel		; if verifying, don't bother assembling rest
 	jsr @assemble		; assemble the rest of the line
 	bcs @ret0		; return error
 	cmp #ASM_LABEL

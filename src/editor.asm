@@ -2994,12 +2994,6 @@ goto_buffer:
 	jsr asm::tokenize
 	bcc @fmt
 
-	; TODO: hack
-	; allow an undefined label reference in the linedone
-	cmp #ERR_LABEL_UNDEFINED
-	bne @err
-	lda #ASM_OPCODE
-
 ; format the line based on the line's contents (in .A from tokenize)
 @fmt:	ldx autoindent
 	beq @nextline		; if indent disabled, skip

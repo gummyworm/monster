@@ -368,12 +368,7 @@ msave=*+1
 	sta __sim_reg_sp
 	jmp @step_handled
 
-:	; check if opcode is a relative branch
-	and #$1f
-	cmp #$10
-	beq @branch
-
-	; check if opcode is CLI/SEI
+:	; check if opcode is CLI/SEI
 	cmp #$58		; CLI
 	bne :+
 	lda __sim_reg_p
@@ -387,14 +382,19 @@ msave=*+1
 	sta __sim_reg_p
 
 :	cmp #$00		; BRK?
-	bne @regular
+	bne :+
 
 	; BRK is not executed, we use this to return to the debugger
 	inc __sim_at_brk
 	sec
 	rts
 
-; not a control-flow instruction, just add the size of the instruction to the PC
+:	; check if opcode is a relative branch
+	and #$1f
+	cmp #$10
+	beq @branch
+
+; not a simulated instruction: just add the size of the instruction to the PC
 @regular:
 	lda __sim_pc
 	clc
