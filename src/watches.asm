@@ -290,6 +290,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	jsr vmem::load
 	ldx __watches_num
 	sta __watches_watch_vals,x
+	sta __watches_watch_prevs,x
 
 	lda @flags
 	sta __watches_watch_flags,x
@@ -454,9 +455,10 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	lda @val
 	pha
 
+	txa				; get flags
+
 	; is this watch dirty?
 	ldxy #strings::watches_line	; default to "clean" string
-	txa				; get flags
 	and #WATCH_DIRTY		; dirty?
 	beq :+				; if NOT dirty, don't push previous value
 
