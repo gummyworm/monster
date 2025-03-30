@@ -1374,8 +1374,10 @@ force_enter_insert=*+5
 
 @visline:
 	; visual line, move to next line and paste there
-	jsr open_line_below_noindent
-	jmp paste_buff
+	jsr end_of_line
+	jsr append_to_line
+	jsr paste_buff
+	jmp ccdown
 
 @vis:	; visual, move to next character and paste there
 	jsr append_char
@@ -1390,7 +1392,9 @@ force_enter_insert=*+5
 	cmp #MODE_VISUAL
 	beq @vis
 
-@line:	jsr open_line_above
+@line:	jsr ccup
+	jsr end_of_line
+	jsr append_char
 	jsr paste_buff
 	jmp ccdown
 
@@ -1971,6 +1975,7 @@ force_enter_insert=*+5
 	; the join would have made the line too long, undo the newline deletion
 	jsr beep::short
 	jsr src::popgoto
+	jsr src::next
 	lda #$0d
 	jsr src::insert			; re-add the newline
 	jsr src::prev
