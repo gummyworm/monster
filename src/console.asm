@@ -29,7 +29,7 @@
 .import is_whitespace	; from debugcmd.asm
 
 NMI_HANDLER_ADDR = mem::spare+120
-CMD_BUFF         = $140
+CMD_BUFF         = $101			; written by edit::gets
 
 ;*******************************************************************************
 HEIGHT = 24
@@ -358,7 +358,7 @@ screen: .res 40*24
 	jmp @prompt		; if command length is 0, there is no command
 
 @run:	; run the command
-	ldxy #$101
+	ldxy #CMD_BUFF
 	jsr dbgcmd::run
 	php
 	pha
@@ -418,7 +418,7 @@ screen: .res 40*24
 @redir:	; get the filename to redirect the ouput to
 	lda #$00
 	sta mem::linebuffer+1,x	; terminate the line where the redirect was
-	sta CMD_BUFF+1,x
+	sta $100+1,x
 @l0:	inx
 	lda mem::linebuffer+1,x
 	beq @err_nofile
@@ -433,7 +433,7 @@ screen: .res 40*24
 	CALL FINAL_BANK_MAIN, irq::off
 
 	; found the start of the filename
-	; open the output file
+	; open the output fil$100e
 	pla
 	clc
 	adc #<(mem::linebuffer+1)

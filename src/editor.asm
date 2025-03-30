@@ -1386,9 +1386,16 @@ force_enter_insert=*+5
 ; PASTE ABOVE
 ; Pastes the contents of the copy buffer to the line above the cursor
 .proc paste_above
-	jsr home
+	lda selection_type
+	cmp #MODE_VISUAL
+	beq @vis
+
+@line:	jsr open_line_above
 	jsr paste_buff
-	jmp ccup
+	jmp ccdown
+
+@vis:	; visual mode, just paste
+	jsr enter_insert
 .endproc
 
 ;******************************************************************************

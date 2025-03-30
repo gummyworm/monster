@@ -32,6 +32,8 @@
 
 .include "ram.inc"
 
+CMD_BUFF = $101
+
 .segment "CONSOLE"
 
 ;*******************************************************************************
@@ -377,8 +379,7 @@
 
 	jsr parse_exprs		; parse the list of values to fill
 	bcs @ret
-
-	; require at least two value
+	jmp *
 
 	lda #$00
 	sta @i
@@ -424,21 +425,23 @@
 @l0:	jsr eval
 	bcs @ret
 
-	incw zp::line		; move past separator
-
 	cmp #$02		; was expression 2 bytes?
 	tya
 	ldy @listlen
 	bcc :+			; if < 2 bytes, only store LSB
 	sta @list+1,y		; store MSB of the expression as a fill val
 	inc @listlen
-	skw			; don't reload listlen
 :	stx @list,y		; store LSB of expression as fill val
 	inc @listlen
 	ldy #$00
 	lda (zp::line),y	; are we at the end?
-	bne @l0
-	clc			; OK
+	beq @ok
+
+	incw zp::line		; move past separator
+	jsr eat_whitespace
+	jmp @l0
+
+@ok:	clc			; OK
 @ret:	rts
 .endproc
 

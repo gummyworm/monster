@@ -61,9 +61,9 @@ __expr_label_size_hint: .byte 0
 @num_operands=zp::expr+5	; num operands * 2
 @may_be_unary=zp::expr+6
 
-@operators=$100
-@operands=$120
-@priorities=$130
+@operators=$128+1
+@operands=@operators+MAX_OPERATORS
+@priorities=@operands+(MAX_OPERANDS*2)
 	lda #$00
 	sta @num_operators
 	sta @num_operands
@@ -164,7 +164,7 @@ __expr_label_size_hint: .byte 0
 
 @label: ldxy zp::line
 	jsr get_label		; is it a label?
-	bcs @err
+	bcs @err		; no
 
 @pushoperand:
 	jsr @pushval
