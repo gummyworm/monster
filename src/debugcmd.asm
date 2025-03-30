@@ -361,6 +361,33 @@ CMD_BUFF = $101
 .endproc
 
 ;******************************************************************************
+; POKE
+; p <address> <value>
+; Sets the given address to the provided value
+; IN:
+;  - .XY: the parameters for the command
+.proc poke
+@addr=zp::debuggertmp
+	jsr eval
+	bcs @ret
+	stxy @addr
+
+	jsr eat_whitespace
+
+	; get the byte value
+	jsr eval
+	cmp #$02
+	bcc :+
+	RETURN_ERR ERR_OVERSIZED_OPERAND
+
+:	txa
+	ldxy @addr
+	jsr vmem_store
+	clc		; ok
+@ret:	rts
+.endproc
+
+;******************************************************************************
 ; FILL
 ; f <start> <stop> a [, b, c, ...]
 ; Fills the range between the two addresses/expressions with the given fill
@@ -389,7 +416,7 @@ CMD_BUFF = $101
 	ldx @i
 	lda @list,x
 	ldxy @start
-	CALL FINAL_BANK_MAIN, vmem::store
+	jsr vmem_store
 	ldx @i
 	inx
 	cpx @listlen
@@ -590,7 +617,7 @@ CMD_BUFF = $101
 	ldxy @start
 	jsr vmem_load
 	ldxy @target
-	CALL FINAL_BANK_MAIN, vmem::store
+	jsr vmem_store
 	incw @target
 	incw @start
 	ldxy @start
@@ -1385,6 +1412,13 @@ CMD_BUFF = $101
 .endproc
 
 ;*******************************************************************************
+; VMEM STORE
+; Calls vmem::store
+.proc vmem_store
+	JUMP FINAL_BANK_MAIN, vmem::store
+.endproc
+
+;*******************************************************************************
 ; GETB
 ; Calls "ram::get_byte"
 .proc getb
@@ -1428,6 +1462,7 @@ commands:
 .byte "g",0	; go (continue program execution) (if debugging)
 .byte "bt",0	; backtrace (if debugging)
 .byte "zo",0	; step out of current subroutine (if debugging)
+.byte "p",0	; poke a single byte to the given address
 .byte "s",0	; save memory
 
 .linecont +
@@ -1435,7 +1470,7 @@ commands:
 	remove_watch, list_watches, list_breakpoints, add_break_addr, \
 	add_break_line, remove_break, fill, dump, move, goto, compare, hunt, \
 	__dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
-	step_over, go, backtrace, step_out, savemem
+	step_over, go, backtrace, step_out, poke, savemem
 .linecont -
 commandslo: .lobytes command_vectors
 commandshi: .hibytes command_vectors
