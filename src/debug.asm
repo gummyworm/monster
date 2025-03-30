@@ -1169,6 +1169,11 @@ trampoline_size=*-trampoline
 	lda #$00
 	sta stop_tracing
 
+	lda #$7f
+	sta $911e
+	sta $911d	; ack all interrupts
+	sta $912d
+
 	lda #$e6		; INC zp
 	sta STOP_TRACING_NMI
 	lda #stop_tracing
@@ -1192,9 +1197,6 @@ trampoline_size=*-trampoline
 .proc __debug_trace
 	jsr irq::off
 
-	lda #$00
-	sta stop_tracing
-
 	jsr __debug_step
 	bcs @ret
 
@@ -1202,10 +1204,6 @@ trampoline_size=*-trampoline
 	inc breakpoints_active
 	jsr install_breakpoints
 
-	lda #$7f
-	sta $911e
-	sta $911d	; ack all interrupts
-	sta $912d
 	jsr install_trace_nmi
 
 	jsr print_tracing

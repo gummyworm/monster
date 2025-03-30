@@ -1754,7 +1754,7 @@ force_enter_insert=*+5
 	cmp #MODE_VISUAL_LINE	; are we selecting in LINE mode?
 	bne @ok
 
-	ldxy @cur
+@line:	ldxy @cur
 	jsr src::goto
 
 	jsr src::home	; if cursor is not at start of line, move it there
