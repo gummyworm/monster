@@ -378,6 +378,8 @@
 	jsr parse_exprs		; parse the list of values to fill
 	bcs @ret
 
+	; require at least two value
+
 	lda #$00
 	sta @i
 	beq @chk		; branch to check if start == stop on 1st iter

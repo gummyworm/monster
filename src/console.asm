@@ -29,6 +29,7 @@
 .import is_whitespace	; from debugcmd.asm
 
 NMI_HANDLER_ADDR = mem::spare+120
+CMD_BUFF         = $140
 
 ;*******************************************************************************
 HEIGHT = 24
@@ -417,7 +418,7 @@ screen: .res 40*24
 @redir:	; get the filename to redirect the ouput to
 	lda #$00
 	sta mem::linebuffer+1,x	; terminate the line where the redirect was
-	sta $100+1,x
+	sta CMD_BUFF+1,x
 @l0:	inx
 	lda mem::linebuffer+1,x
 	beq @err_nofile
