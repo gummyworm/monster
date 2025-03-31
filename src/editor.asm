@@ -1297,7 +1297,8 @@ force_enter_insert=*+5
 	rts
 
 :	; delete the contents of the current line
-	jsr src::lineend
+	jsr src::lineend	; go to end of line
+	jsr buff::clear		; clear copy buffer
 @l0:	jsr src::atcursor
 	cmp #$0d
 	beq @moveup
@@ -1666,6 +1667,8 @@ force_enter_insert=*+5
 	jsr buff::putch
 	bcc @yankline
 @yydone:
+	lda #$0d
+	jsr buff::putch
 	jsr src::popgoto
 	RETURN_OK
 
@@ -1684,7 +1687,10 @@ force_enter_insert=*+5
 	sta selection_type
 
 @copy:	jsr src::atcursor
-	jsr buff::putch		; add the character to the copy buffer
+	cmp #$00
+	bne :+
+	lda #$0d
+:	jsr buff::putch		; add the character to the copy buffer
 	bcc @next
 
 	; copy selection is too large
@@ -3421,6 +3427,9 @@ goto_buffer:
 	beq @nodel
 	jsr src::before_newl
 	beq @nodel
+	pha
+	jsr buff::clear		; clear the copy buffer
+	pla
 @del:	jsr buff::putch
 	jmp src::delete
 @nodel:	sec
