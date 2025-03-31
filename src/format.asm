@@ -98,7 +98,8 @@
 @ident: jsr __fmt_opcode 	; anything else- indent
 
 @refresh:
-	jsr src::up	; back to start of line
+	jsr src::home
+	;jsr src::up	; back to start of line
 	jsr src::get	; refresh linebuffer
 	jmp src::down	; and go to end of line
 
