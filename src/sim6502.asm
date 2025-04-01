@@ -219,6 +219,10 @@ msave=*+1
 	bne @l0
 
 @execute:
+	sei
+	lda #$7f
+	sta $911e		; disable NMIs
+
 	ldxy __sim_effective_addr
 	jsr is_internal_address
 	bne :+
@@ -249,7 +253,6 @@ msave=*+1
 	ldy __sim_reg_y
 
 	; perform the instruction
-	sei
 	jmp STEP_HANDLER_ADDR
 
 @getnextpc:

@@ -248,6 +248,11 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 .proc restore_debug_state
 @vicsave=mem::dbg9000
 @colorsave=mem::dbg9400
+	; disable NMI/IRQs (we will be clobbering their vectors)
+	lda #$7f
+	sta $911e
+	sta $912e
+
 	ldx #$10
 :	lda @vicsave-1,x
 	sta $9000-1,x
@@ -757,6 +762,7 @@ trampoline_size=*-trampoline
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
 	lda #$7f
 	sta $911e	; disable all NMI's
+	sta $911d
 	sta $912e	; disable all NMI's
 
 	; TODO: save VIA timers?
@@ -1147,6 +1153,9 @@ trampoline_size=*-trampoline
 	jsr __debug_step	; run one STEP
 	bcs @done		; stop tracing if STEP OUT says we should
 
+	lda #$82
+	sta $911e		; reenable NMIs
+
 	lda sim::op		; get opcode we just ran
 	cmp #$20		; did we run a JSR?
 	bne :+
@@ -1169,9 +1178,10 @@ trampoline_size=*-trampoline
 	lda #$00
 	sta stop_tracing
 
+	; ack/disable all interrupts
 	lda #$7f
 	sta $911e
-	sta $911d	; ack all interrupts
+	sta $911d
 	sta $912d
 
 	lda #$e6		; INC zp
@@ -1182,6 +1192,7 @@ trampoline_size=*-trampoline
 	sta STOP_TRACING_NMI+2
 	ldxy #STOP_TRACING_NMI
 	stxy $0318
+
 	lda #$82
 	sta $911e	; enable CA1 (RESTORE key) NMIs while in debugger
 	rts
@@ -1197,6 +1208,8 @@ trampoline_size=*-trampoline
 .proc __debug_trace
 	jsr irq::off
 
+	jsr install_trace_nmi
+
 	jsr __debug_step
 	bcs @ret
 
@@ -1204,14 +1217,14 @@ trampoline_size=*-trampoline
 	inc breakpoints_active
 	jsr install_breakpoints
 
-	jsr install_trace_nmi
-
 	jsr print_tracing
 
 @trace: lda stop_tracing
 	bne @done
 	jsr __debug_step
 	bcs @done
+	lda #$82
+	sta $911e		; reenable NMIs
 	lda sim::at_brk
 	beq @trace
 
@@ -1362,6 +1375,11 @@ trampoline_size=*-trampoline
 ; Runs the step command
 .proc step
 	jsr irq::off
+
+	; disable NMIs
+	lda #$7f
+	sta $911e
+
 	; fall through to dbg::step
 .endproc
 
