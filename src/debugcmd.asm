@@ -942,7 +942,30 @@ CMD_BUFF = $101
 	jsr debugging
 	bcc @done				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, dbg::step
-	jmp __dbgcmd_regs
+	; print the registers
+	jsr __dbgcmd_regs
+
+	; disassemble the instruction that we're at now
+	ldxy #sim::pc
+	jsr getb
+	pha
+	ldxy #sim::pc+1
+	jsr getb
+	tay
+	pla
+	tax
+	lda #<$100
+	sta r0
+	lda #>$100
+	sta r0+1
+	CALL FINAL_BANK_MAIN, asm::disassemble
+
+	; print the disassembled instruction of ??? if we couldn't disassemble
+	ldxy #strings::question_marks
+	bcs @print
+	ldxy #$100
+@print:	jsr con::puts
+	clc
 @done:	rts
 .endproc
 
