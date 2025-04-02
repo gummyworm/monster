@@ -940,33 +940,13 @@ CMD_BUFF = $101
 ; Steps to the next instruction while debugging
 .proc step
 	jsr debugging
-	bcc @done				; can't step if not debugging
-	CALL FINAL_BANK_MAIN, dbg::step
+	bcs :+
+	rts		; can't step if not debugging
+
+:	CALL FINAL_BANK_MAIN, dbg::step
 	; print the registers
 	jsr __dbgcmd_regs
-
-	; disassemble the instruction that we're at now
-	ldxy #sim::pc
-	jsr getb
-	pha
-	ldxy #sim::pc+1
-	jsr getb
-	tay
-	pla
-	tax
-	lda #<$100
-	sta r0
-	lda #>$100
-	sta r0+1
-	CALL FINAL_BANK_MAIN, asm::disassemble
-
-	; print the disassembled instruction of ??? if we couldn't disassemble
-	ldxy #strings::question_marks
-	bcs @print
-	ldxy #$100
-@print:	jsr con::puts
-	clc
-@done:	rts
+	jmp put_instruction
 .endproc
 
 ;*******************************************************************************
@@ -978,7 +958,8 @@ CMD_BUFF = $101
 	jsr debugging
 	bcc @done				; can't step if not debugging
 	CALL FINAL_BANK_MAIN, dbg::step_over
-	jmp __dbgcmd_regs
+	jsr __dbgcmd_regs
+	jmp put_instruction
 @done:	rts
 .endproc
 
@@ -990,7 +971,8 @@ CMD_BUFF = $101
 	bcc @done				; can't step if not debugging
 
 	CALL FINAL_BANK_MAIN, dbg::trace
-	jmp __dbgcmd_regs
+	jsr __dbgcmd_regs
+	jmp put_instruction
 @done:	rts
 .endproc
 
@@ -1117,10 +1099,12 @@ CMD_BUFF = $101
 ; Continues execution til the current subroutine returns with an RTS
 .proc step_out
 	jsr debugging
-	bcc @done				; can't step if not debugging
-	CALL FINAL_BANK_MAIN, dbg::step_out
-	jmp __dbgcmd_regs
-@done:	rts
+	bcs :+
+	rts		; can't step if not debugging
+
+:	CALL FINAL_BANK_MAIN, dbg::step_out
+	jsr __dbgcmd_regs
+	jmp put_instruction
 .endproc
 
 ;*******************************************************************************
@@ -1389,6 +1373,33 @@ CMD_BUFF = $101
 :	adc #'a'-$a-1
 :	tax
 	rts
+.endproc
+
+;*******************************************************************************
+; PUT INSTRUCTION
+; Prints the instruction at the .PC
+.proc put_instruction
+	; disassemble the instruction that we're at now
+	ldxy #sim::pc
+	jsr getb
+	pha
+	ldxy #sim::pc+1
+	jsr getb
+	tay
+	pla
+	tax
+	lda #<$100
+	sta r0
+	lda #>$100
+	sta r0+1
+	CALL FINAL_BANK_MAIN, asm::disassemble
+
+	; print the disassembled instruction of ??? if we couldn't disassemble
+	ldxy #strings::question_marks
+	bcs @print
+	ldxy #$100
+@print:	jsr con::puts
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************
