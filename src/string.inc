@@ -4,6 +4,7 @@
 .import __str_len
 .import __str_toupper
 .import __str_uncompress
+.import __str_breakpoints_line_noname
 
 .scope str
 	cat        = __str_cat

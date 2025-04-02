@@ -147,7 +147,9 @@ CMD_BUFF = $101
 	stxy @addr
 	stxy r0
 
-	CALL FINAL_BANK_MAIN, line::nextch
+	jsr eat_whitespace
+	ldy #$00
+	lda (zp::line),y
 	cmp #$00				; was there a 2nd argument?
 	beq @set				; if not, continue
 
@@ -255,7 +257,7 @@ CMD_BUFF = $101
 	; get the line/file for the given address
 	CALL FINAL_BANK_MAIN, dbgi::addr2line
 	bcs @skip_line
-	pha
+	pha			; save file id
 	stxy @line
 	CALL FINAL_BANK_MAIN, dbg::setbrkatline
 
@@ -263,7 +265,7 @@ CMD_BUFF = $101
 	sta r0
 	lda @addr+1
 	sta r0+1
-	pla
+	pla			; restore file id
 	ldxy @line
 	CALL FINAL_BANK_MAIN, dbg::brksetaddr
 	RETURN_OK
@@ -406,8 +408,6 @@ CMD_BUFF = $101
 
 	jsr parse_exprs		; parse the list of values to fill
 	bcs @ret
-	jmp *
-
 	lda #$00
 	sta @i
 	beq @chk		; branch to check if start == stop on 1st iter
@@ -643,6 +643,7 @@ CMD_BUFF = $101
 	jsr eval
 	stxy @start
 	bcs @ret
+	jsr eat_whitespace
 
 	jsr parse_exprs		; get the values to hunt for
 

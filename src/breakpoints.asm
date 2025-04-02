@@ -146,8 +146,8 @@ BREAKPOINT_ENABLED = 1
 ;  - .C:  set if there is no breakpoint for the given ID
 .export __brkpt_tostring
 .proc __brkpt_tostring
-@offset=zp::tmp13
-@addr=zp::tmp14
+@offset=zp::tmp14
+@format_str=zp::tmp15
 @namebuff=mem::spare+40
 	sta @offset
 	tax
@@ -164,7 +164,6 @@ BREAKPOINT_ENABLED = 1
 	pha
 
 	; get/push the symbol name for this address (if there is one)
-	stxy @addr
 	jsr lbl::by_addr
 	bcc @getname
 @noname:
@@ -185,7 +184,16 @@ BREAKPOINT_ENABLED = 1
 
 @lineno:
 	ldx @offset
-	; get the line number and file name
+	; check if there is a file ID for this breakpoint
+	lda dbg::breakpoint_fileids,x
+	cmp #$ff
+	bne :+
+
+	ldxy #strings::breakpoints_line_noname
+	stxy @format_str
+	jmp @print
+
+:	; get the line number and file name
 	lda dbg::breakpoint_lineslo,x
 	pha
 	lda dbg::breakpoint_lineshi,x
@@ -197,6 +205,9 @@ BREAKPOINT_ENABLED = 1
 	pha
 	txa
 	pha
+
+	ldxy #strings::breakpoints_line
+	stxy @format_str
 
 @print:
 	; display a symbol if the breakpoint is active
@@ -212,7 +223,7 @@ BREAKPOINT_ENABLED = 1
 	pha
 
 	; print the breakpoint info
-	ldxy #strings::breakpoints_line
+	ldxy @format_str
 	jsr text::render
 
 @datadone:

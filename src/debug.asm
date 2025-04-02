@@ -1626,10 +1626,13 @@ trampoline_size=*-trampoline
 	lda #BREAKPOINT_ENABLED
 	sta breakpoint_flags,x
 
+	; set file ID to $ff
+	lda #$ff
+	sta __debug_breakpoint_fileids,x
+
 	inc __debug_numbreakpoints
 	rts
 .endproc
-
 
 ;*******************************************************************************
 ; BRKSETADDR

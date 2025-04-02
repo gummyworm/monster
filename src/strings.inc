@@ -2,6 +2,7 @@
 .import __str_assembling
 .import __str_breakpoints_title
 .import __str_breakpoints_line
+.import __str_breakpoints_line_noname
 .import __str_debug_brk_line
 .import __str_debug_brk_addr
 .import __str_debug_registers
@@ -49,6 +50,7 @@
 	buffers                 = __str_buffers
 	breakpoints_title       = __str_breakpoints_title
 	breakpoints_line        = __str_breakpoints_line
+	breakpoints_line_noname = __str_breakpoints_line_noname
 	question_marks          = __str_question_marks
 	debug_brk_line          = __str_debug_brk_line
 	debug_brk_addr          = __str_debug_brk_addr

@@ -139,6 +139,9 @@ __str_watches_changed_line:
 .export __str_breakpoints_line
 __str_breakpoints_line: .byte "  ", ESCAPE_BYTE," ", ESCAPE_STRING, " l:", ESCAPE_VALUE_DEC, " [", ESCAPE_STRING, "] $", ESCAPE_VALUE,0
 
+.export __str_breakpoints_line_noname
+__str_breakpoints_line_noname: .byte "  ", ESCAPE_BYTE," ", ESCAPE_STRING, " $", ESCAPE_VALUE,0
+
 .export __str_watch_added
 __str_watch_added:
 .byte "watch added @ ", $fe, 0
