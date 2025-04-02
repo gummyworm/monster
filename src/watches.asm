@@ -122,45 +122,6 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 .endproc
 
 ;*******************************************************************************
-; UPDATE
-; Reads the new values of all locations being watched and stores them
-; If the watch represents a RANGE of values, does not store new value.
-; OUT:
-;  - .A: the ID of the first watch triggered (if any)
-;  - .C: set if any watch was triggered
-.export __watches_update
-.proc __watches_update
-@cnt=r0
-@addr=r1
-	ldx __watches_num
-	beq @done
-	dex
-	stx @cnt
-@l0:	ldx @cnt
-	lda __watches_watch_vals,x
-	sta __watches_watch_prevs,x	; store curr value as prev
-
-	ldx @cnt
-	lda __watches_watcheslo,x
-	ldy __watches_watcheshi,x
-	tax
-
-	jsr vmem::load
-	ldx @cnt
-	cmp __watches_watch_prevs,x	; same as old value?
-	beq :+
-	pha
-	lda #WATCH_DIRTY
-	ora __watches_watch_flags,x
-	sta __watches_watch_flags,x	; mark value as DIRTY
-	pla
-:	sta __watches_watch_vals,x	; store new value
-	dec @cnt
-	bpl @l0
-@done:	rts
-.endproc
-
-;*******************************************************************************
 ; IN RANGE
 ; Checks if the given address is in the range of the given watch
 ; IN:
@@ -217,12 +178,17 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 @found=r9
 @mode=ra
 @match=rb
+@val=rc
 	sta @mode
 
 	lda #$00
 	sta @found
 
 	stxy @addr
+	; get the new value for the watch's address
+	jsr vmem::load
+	sta @val
+
 	ldx __watches_num
 	beq @done
 	dex
@@ -241,6 +207,8 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	lda #WATCH_DIRTY
 	ora __watches_watch_flags,x
 	sta __watches_watch_flags,x	; mark this watchpoint as DIRTY
+	lda @val
+	sta __watches_watch_vals,x
 	inc @found
 	stx @match
 
