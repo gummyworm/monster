@@ -430,6 +430,9 @@ memaddr: .word 0
 	jsr __view_mem_line
 	lda @row
 	jsr text::print	; draw the row of rendered bytes
+	lda #DEFAULT_900F
+	ldx @row
+	jsr draw::hline
 	inc @row
 	lda @row
 	cmp #MEMVIEW_STOP	; have we drawn all rows?

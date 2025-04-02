@@ -1296,11 +1296,14 @@ trampoline_size=*-trampoline
 ; EDIT_BREAKPOINTS
 ; Transfers control to the breakpoint viewer/editor until the user exits it
 .proc edit_breakpoints
+	pushcur
 	jsr showstate		; restore the state
 
 	lda #AUX_GUI
 	sta aux_mode
-	jmp brkpt::edit
+	jsr brkpt::edit
+	popcur
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1308,11 +1311,14 @@ trampoline_size=*-trampoline
 ; Transfers control to the watch viewer/editor until the user exits it
 .export __debug_edit_watches
 .proc __debug_edit_watches
+	pushcur
 	jsr showstate		; restore the state
 
 	lda #AUX_GUI
 	sta aux_mode
-	jmp watch::edit
+	jsr watch::edit
+	popcur
+	rts
 .endproc
 
 ;******************************************************************************

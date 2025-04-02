@@ -105,6 +105,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	lda __watches_watcheshi,x
 	sta view::addr+1
 	jsr view::edit		; invoke the memory editor
+	jsr edit::refresh
 	sec			; after returning from mem editor, quit
 	rts
 
