@@ -1397,7 +1397,9 @@ force_enter_insert=*+5
 	jsr end_of_line
 	jsr append_char
 	jsr paste_buff
-	jmp ccdown
+	jsr ccdown
+	dec zp::cury			; move back up a row
+	jmp scrollup_whole_screen	; and keep screen consistent
 
 @vis:	; visual mode, just paste
 	jsr enter_insert
