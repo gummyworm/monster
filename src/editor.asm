@@ -1403,6 +1403,8 @@ force_enter_insert=*+5
 
 @vis:	; visual mode, just paste
 	jsr enter_insert
+
+	; fall through to paste_buff
 .endproc
 
 ;******************************************************************************
@@ -2002,15 +2004,40 @@ force_enter_insert=*+5
 .endproc
 
 ;******************************************************************************
+; OPEN LINE ABOVE NO INDENT
+; Opens a line above the cursor without indenting
+.proc open_line_above_noindent
+	lda autoindent
+	pha
+	lda #$00
+	sta autoindent		; temporarily overwrite autoindent flag
+	jsr open_line_above
+	pla
+	sta autoindent		; restore autoindent flag
+	rts
+.endproc
+
+;******************************************************************************
 .proc open_line_above
 	jsr is_readonly
 	bne :+
 @done:	rts
 
 :	jsr insert_start
+	jsr src::after_cursor
+	pha
 	lda #$0d
 	jsr insert
-	jmp ccup		; go up
+	jsr ccup		; go up
+
+	pla			; did line start with TAB?
+	cmp #$09
+	bne @done
+
+	; indent if auto-indent is enabled
+	ldx autoindent
+	beq @done
+	jmp insert
 .endproc
 
 ;******************************************************************************
@@ -2037,18 +2064,9 @@ force_enter_insert=*+5
 	jsr is_readonly
 	beq @done
 
-	lda mem::linebuffer	; get the character at the start of the line
-	pha			; and save it
 	jsr enter_insert
 	jsr end_of_line		; move to end of current line
-	jsr newl		; and insert a newline
-	pla			; restore character at start of previous line
-
-	ldx autoindent		; get auto-indent flag
-	beq @done		; if clear, don't indent
-	cmp #$09		; if set, check if last line started with TAB
-	bne @done		; if it didn't, don't indent
-	jmp insert		; if it did, indent the new line too
+	jmp newl		; and insert a newline
 @done:	rts
 .endproc
 
