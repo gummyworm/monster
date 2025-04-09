@@ -2984,11 +2984,7 @@ goto_buffer:
 ; COMMAND_LOAD
 ; Handles the load command
 .proc command_load
-	jsr __edit_load
-	bcs @err
-	jsr asm::reset		; reinitialize
-	jmp command_asmdbg	; assemble the loaded file
-@err:	rts
+	jmp __edit_load
 .endproc
 
 ;******************************************************************************
