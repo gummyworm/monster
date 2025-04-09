@@ -78,8 +78,16 @@ activeseg: .byte 0	; the current SEGMENT (id) being written
 ; These variables are used in the context of a single object file
 numexports:  .byte 0
 numimports:  .byte 0
-imports:     .res MAX_IMPORTS*MAX_IMPORT_NAME_LEN
-exports:     .res MAX_EXPORTS*MAX_EXPORT_NAME_LEN
+imports:
+.ifdef vic20
+	.res MAX_IMPORTS*MAX_IMPORT_NAME_LEN
+.else
+.endif
+exports:
+.ifdef vic20
+	.res MAX_EXPORTS*MAX_EXPORT_NAME_LEN
+.else
+.endif
 
 ;*******************************************************************************
 ; SECTIONS
@@ -157,7 +165,11 @@ segment_map: .res MAX_SEGMENTS
 ; SYMBOL MAP
 ; This array maps the (16-bit) index of a given IMPORT to its address
 ; (found by looking up the value for the corresponding global EXPORT)
-symbol_map: .res 768
+symbol_map:
+.ifdef vic20
+	.res 768
+.else
+.endif
 
 ;*******************************************************************************
 ; OBJECT CODE overview
