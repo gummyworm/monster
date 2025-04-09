@@ -1398,7 +1398,12 @@ force_enter_insert=*+5
 	jsr append_char
 	jsr paste_buff
 	jsr ccdown
-	dec zp::cury			; move back up a row
+
+	lda zp::cury
+	cmp #$01
+	beq :+
+	rts
+:	dec zp::cury			; move back up a row
 	jmp scrollup_whole_screen	; and keep screen consistent
 
 @vis:	; visual mode, just paste

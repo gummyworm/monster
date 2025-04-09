@@ -319,7 +319,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .proc __screen_save
 	CALL FINAL_BANK_FASTCOPY2, fcpy::save
 
-	ldx #NUM_ROWS*2-1
+	ldx #SCREEN_ROWS*2-1
 :	lda mem::rowcolors,x
 	sta mem::rowcolors_save,x
 	lda #DEFAULT_900F
@@ -337,7 +337,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .proc __screen_restore
 	CALL FINAL_BANK_FASTCOPY2, fcpy::restore
 	; restore the per-row colors
-	ldx #NUM_ROWS*2-1
+	ldx #SCREEN_ROWS*2-1
 :	lda mem::rowcolors_save,x
 	sta mem::rowcolors,x
 	dex

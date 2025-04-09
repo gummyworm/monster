@@ -83,6 +83,11 @@ SCREEN_H = 23
 	lda #DEFAULT_RVS
 	jsr draw::hline
 
+	; and the bottom (status) row
+	ldx #SCREEN_H
+	lda #DEFAULT_RVS
+	jsr draw::hline
+
 @getdiskname:
 	ldx #@dirmsglen
 :	lda @dirmsg-1,x
