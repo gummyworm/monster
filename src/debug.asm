@@ -14,7 +14,6 @@
 .include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
-.include "fastcopy.inc"
 .include "file.inc"
 .include "flags.inc"
 .include "gui.inc"
@@ -39,6 +38,10 @@
 .include "zeropage.inc"
 
 .include "ram.inc"
+
+.ifdef vic20
+	.include "vic20/fastcopy.inc"
+.endif
 
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
@@ -277,6 +280,7 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 ; RESTORE_PROGSTATE
 ; restores the saved program state
 .proc __debug_restore_progstate
+.ifdef vic20
 ; restore $9000-$9010
 	ldx #$10
 :	lda mem::prog9000-1,x
@@ -309,6 +313,9 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	; restore the user $1100 data
 	CALL FINAL_BANK_FASTCOPY, fcpy::restore
 	rts
+.else
+	rts
+.endif
 .endproc
 
 ;******************************************************************************
@@ -723,6 +730,7 @@ trampoline_size=*-trampoline
 @vicsave=mem::prog9000
 @internalmem=mem::prog1000
 @colorsave=mem::prog9400
+.ifdef vic20
 	ldx #$10
 @savevic:
 	lda $9000-1,x
@@ -747,6 +755,9 @@ trampoline_size=*-trampoline
 
 	; backup the user $1100-$2000 data
 	JUMP FINAL_BANK_FASTCOPY, fcpy::save
+.else
+	rts
+.endif
 .endproc
 
 ;******************************************************************************
@@ -2048,6 +2059,7 @@ __debug_remove_breakpoint:
 	stx @buff+3
 
 ; if registers were affected, highlight them (GUI only)
+.ifdef vic20
 	lda __debug_interface
 	bne @colordone
 
@@ -2080,6 +2092,7 @@ __debug_remove_breakpoint:
 	beq :+
 	ldx #DEBUG_REG_CHANGED_COLOR
 :	stx COLMEM_ADDR+(20*$b)+7
+.endif
 
 @colordone:
 ; if memory was loaded or stored, show the effective address

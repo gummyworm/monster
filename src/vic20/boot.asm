@@ -13,7 +13,6 @@
 .include "../debuginfo.inc"
 .include "../draw.inc"
 .include "../edit.inc"
-.include "../fastcopy.inc"
 .include "../irq.inc"
 .include "../labels.inc"
 .include "../macros.inc"
@@ -24,6 +23,7 @@
 .include "../vmem.inc"
 .include "../zeropage.inc"
 
+.include "fastcopy.inc"
 .include "vic20.inc"
 
 .import __SETUP_LOAD__

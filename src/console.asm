@@ -223,7 +223,7 @@ screen: .res 40*24
 .proc __console_clear
 @scr=r0
 	; clear the screen
-	CALL FINAL_BANK_MAIN, bm::clr
+	CALL FINAL_BANK_MAIN, scr::clr
 
 	; clear the console buffer
 	ldxy #screen

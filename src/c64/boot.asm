@@ -6,7 +6,6 @@
 .include "../debuginfo.inc"
 .include "../draw.inc"
 .include "../edit.inc"
-.include "../fastcopy.inc"
 .include "../irq.inc"
 .include "../labels.inc"
 .include "../macros.inc"

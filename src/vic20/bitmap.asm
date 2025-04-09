@@ -7,8 +7,8 @@
 ; This configuration is popularly known as MINIGRAFIK, created by Mike
 ;*******************************************************************************
 
+.include "fastcopy.inc"
 .include "finalex.inc"
-.include "../fastcopy.inc"
 .include "../macros.inc"
 .include "../memory.inc"
 .include "../settings.inc"

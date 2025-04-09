@@ -30,3 +30,38 @@
 	bcc @l0
 	rts
 .endproc
+
+;*******************************************************************************
+; SCROLLUP
+; Scrolls all lines from .X to .A up
+; IN:
+;  - .X: the top line that characters are scrolled to
+;  - .A: the bottom line that is scrolled
+.proc __text_scrollup
+.export __text_scrollup
+	; TODO:
+.endproc
+
+;*******************************************************************************
+; SCROLLDOWN
+; Scrolls all rows from .A to .X
+; IN:
+;  - .A: the first column to scroll down
+;  - .X: the last column to scroll down to
+.export __text_scrolldown
+.proc __text_scrolldown
+	; TODO:
+.endproc
+
+;*******************************************************************************
+; SCROLLDOWNN
+; Scrolls all rows in the given range down by the given number of rows
+; IN:
+;  - .A: the first row to scroll down
+;  - .X: the last row to scroll down
+;  - .Y: the number of characters to scroll each row by
+.export __text_scrolldownn
+.proc __text_scrolldownn
+	; TODO:
+.endproc
+
