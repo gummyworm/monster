@@ -59,14 +59,15 @@ start:
 	sta (r0),y		; last byte
 
 @zero_bss_done:
+	jmp *
         jsr irq::on
-	sei
 
 	lda #<start
 	sta $0316		; BRK
 	lda #>start
 	sta $0317		; BRK
 	cli
+	jmp *
 
 	; initialize the status row reverse
 	lda #DEFAULT_RVS

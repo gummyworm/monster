@@ -95,7 +95,11 @@ __buff_len: COPYBUFFJUMP buff_proc_ids::LEN
 buffptr:  		.word 0 	; buffer pointer
 buffsave: 		.word 0		; backup buffer pointer (see buff::push)
 visual_lines_copied:	.byte 0		; number of lines copied in VISUAL modes
-copybuff: 		.res $1e00	; buffer for copy data
+copybuff:
+.ifdef vic20
+	.res $1e00	; buffer for copy data
+.else
+.endif
 
 .segment "COPYBUFF"
 

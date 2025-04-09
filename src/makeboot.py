@@ -1,9 +1,25 @@
+# MAKEBOOT
+# This script splits the app and boot files out from the input "mega-binary"
+# The boot segments are combined to make the bootloader and the remaining
+# segments are combined to make the app file.
+#
+# A label file is required to get the start addresses and sizes of each
+# segment.  This can be produced with the `-Ln <file>` argument from `cl65`.
+#
+# Example:
+# `python3 makeboot.py labels.txt monster-disk.prg bootloader.prg masm.prg`
+# This will take the given "mega-binary" called "monster-disk.prg" and produce
+# a boot file named "bootloader.prg" and an application binary named "masm.prg"
+# The "labels.txt" file is used to source info about the segments that are
+# used to do this.
+# In this file, the bootsegments list contains the specific segments that are
+# taken out of the mega-binary and placed in the bootloader.
+
 import sys
 
-HIGHLIGHT = "\033[32m"+"\033[1m"
-RESET = "\033[0m"
-
-print(f'{HIGHLIGHT}creating bootloader and app files...')
+# segments to store in the bootloader (everything else will be written to
+# the app file)
+bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE" "SETUP", "FASTTEXT", "MACROCODE", "VSCREEN", "IRQ", "DATA", "LABELS", "UDGEDIT", "CONSOLE", "COPYBUFF", "RODATA"]
 
 if len(sys.argv) != 5:
     print('extracts the boot segments and writes them to a bootloader .PRG file')
@@ -15,8 +31,9 @@ infile = sys.argv[2]
 bootfile = sys.argv[3]
 appfile = sys.argv[4]
 
-# segments to crunch in the bootloader
-bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE" "SETUP", "FASTTEXT", "MACROCODE", "VSCREEN", "IRQ", "DATA", "LABELS", "UDGEDIT", "CONSOLE", "COPYBUFF", "RODATA"]
+HIGHLIGHT = "\033[32m"+"\033[1m"
+RESET = "\033[0m"
+print(f'{HIGHLIGHT}creating bootloader and app files...')
 
 # open map file and extract the segment to crunch in the bootloader
 segments = {}
