@@ -294,6 +294,27 @@ num_chars = (*-charmap)/8
 	rts
 .endproc
 
+;******************************************************************************
+.linecont +
+.define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
+  $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
+.linecont -
+bmcolumnslo: .lobytes cols
+bmcolumnshi: .hibytes cols
+
+;******************************************************************************
+.segment "FASTTEXT_BSS"
+charaddrlo: .res num_chars
+;.repeat  num_chars, i
+;	.byte <((charmap)+(i*8))
+;.endrepeat
+
+charaddrhi: .res num_chars
+;.repeat num_chars, i
+;	.byte >((charmap)+(i*8))
+;.endrepeat
+
+.CODE
 ;*******************************************************************************
 ; SCROLLUP
 ; Scrolls all lines from .X to .A up
@@ -455,24 +476,3 @@ num_chars = (*-charmap)/8
 	bne @l0
 @done:	rts
 .endproc
-
-
-;******************************************************************************
-.linecont +
-.define cols $1100, $11c0, $1280, $1340, $1400, $14c0, $1580, $1640, $1700, \
-  $17c0, $1880, $1940, $1a00, $1ac0, $1b80, $1c40, $1d00, $1dc0, $1e80, $1f40
-.linecont -
-bmcolumnslo: .lobytes cols
-bmcolumnshi: .hibytes cols
-
-;******************************************************************************
-.segment "FASTTEXT_BSS"
-charaddrlo: .res num_chars
-;.repeat  num_chars, i
-;	.byte <((charmap)+(i*8))
-;.endrepeat
-
-charaddrhi: .res num_chars
-;.repeat num_chars, i
-;	.byte >((charmap)+(i*8))
-;.endrepeat
