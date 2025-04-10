@@ -1962,6 +1962,8 @@ force_enter_insert=*+5
 ; JOIN LINE
 ; Joins the contents of the line below the current one with the current line
 .proc join_line
+@i=r6
+@join_idx=r7
 	jsr exit_visual
 	jsr is_readonly
 	bne @cont
@@ -1971,39 +1973,55 @@ force_enter_insert=*+5
 	beq @quit			; no next line to join
 
 	jsr text::linelen
+	stx @i
+	stx @join_idx
 	txa
 	bne :+
 	jmp delete_line
 
-:	jsr end_of_line			; set curx to the correct index
-	jsr src::next
-	jsr src::delete			; delete the newline
-	jsr src::prev
+:	jsr end_of_line		; set curx to the correct index
+	jsr src::pushp		; save our start position in the source
+	jsr src::next		; move to the newline
+	jsr src::next		; move past the newline
 
-	jsr src::pushp
-	jsr src::home			; go to the start of the new joined line
-	jsr src::get			; refresh the linebuffer
-	jsr text::rendered_line_len
+	; read the new line contents into the text buffer
+@readline:
+	jsr src::right
+	bcs @validate
+	ldx @i
 	cpx #40
-	bcc @bump
+	bcs @validate
+	sta mem::linebuffer,x
+	inc @i
+	bne @readline
 
-	; the join would have made the line too long, undo the newline deletion
-	jsr beep::short
-	jsr src::popgoto
-	jsr src::next
-	lda #$0d
-	jsr src::insert			; re-add the newline
+	; make sure the rendered line is <= 40 characters
+@validate:
+	ldx @i
+	cpx #40
+	bcs :+
+	lda #$00
+	sta mem::linebuffer,x
+
+:	jsr text::rendered_line_len
+	cpx #40+1			; too long?
+	bcc @bump			; if not, continue
+
+	; the join would have made the line too long, don't join it
+	ldx @join_idx
+	lda #$00
+	sta mem::linebuffer,x	; re-terminate the line buffer
+	jmp src::popgoto
+
+@bump:	jsr src::popgoto
+	jsr src::next		; move to the newline
+	jsr src::delete		; delete the newline
 	jsr src::prev
-	jsr src::pushp
-	jsr src::home
-	jsr src::get			; restore the line
-	jmp @done
-
-@bump:	jsr text::savebuff
+	jsr text::savebuff
 	inc zp::cury
 	jsr bumpup
 	jsr text::restorebuff
-@done:	jsr src::popgoto
+
 	lda zp::cury
 	jmp text::drawline
 .endproc

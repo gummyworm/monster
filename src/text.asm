@@ -763,8 +763,7 @@ indirect:   .byte 0
 	adc @tabsz
 	tax
 	dex			; undo the INX
-:	cpx #40
-	bcc @l0
+:	jmp @l0
 @done:	rts
 .endproc
 

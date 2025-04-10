@@ -1179,7 +1179,7 @@ __src_atcursor:
 .proc __src_readline
 @cnt=r4
 	lda #$00
-	sta mem::linebuffer
+	sta mem::linebuffer	; initialize the buffer
 	sta @cnt
 
 	jsr __src_end
