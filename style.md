@@ -43,6 +43,30 @@ inner:
 	bne outer
 ```
 
+#### TABS
+
+Tabs are preferred to spaces.  Monster tabs are 8 characters wide and a single tab should
+indent all opcodes.  Comments should be indented by as many tabs are needed so that the comment
+does not overlap another instruction in a given "block".  A "block" is a group of instructions
+separated by newlines on either side.
+
+For example
+Good block:
+
+```
+@loop:
+        asl	        ; okay
+	rol hello,x
+```
+
+Bad block:
+
+```
+@loop:
+        asl	; okay
+	rol hello,x
+```
+
 ### COMMENTS
 
 Comments are essential in assembly and this is one area where I think a strong opinion
