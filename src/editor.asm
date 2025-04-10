@@ -3031,7 +3031,7 @@ goto_buffer:
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize
-	bcs @nextline		; failed to assemble, skip formatting
+	bcs @err		; failed to assemble, skip formatting
 
 ; format the line based on the line's contents (in .A from tokenize)
 @fmt:	ldx autoindent

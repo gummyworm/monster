@@ -22,8 +22,7 @@
 ;******************************************************************************
 ; LABEL
 ; Formats linebuffer as a label.
-.export __fmt_label
-.proc __fmt_label
+.proc label
 	; read past the label
 @l0:	jsr src::right_rep
 	bcs @done			; nothing on the line after the label
@@ -33,6 +32,8 @@
 	; delete all spaces until the opcode/macro/etc.
 @l1:	jsr src::after_cursor
 	bcs @done
+	cmp #$0d
+	beq @done
 	jsr util::is_whitespace
 	bne @tab
 	jsr src::delete
@@ -47,8 +48,7 @@
 ;******************************************************************************
 ; OPCODE
 ; Formats linebuffer as an opcode.
-.export __fmt_opcode
-.proc __fmt_opcode
+.proc opcode
 @cnt=r8
 	; indent the linebuffer and source
 	lda #$09
@@ -63,23 +63,19 @@
 .export __fmt_line
 .proc __fmt_line
 @linecontent=r6
-@tmp=r4
 	cmp #$00
 	beq @done		; no format
 	sta @linecontent	; save the types to format
 
 	; remove spaces from start of line
 	jsr src::up
-	lda #$00
-	sta @tmp
-
 @removespaces:
 	jsr src::after_cursor
 	jsr util::is_whitespace
 	bne @left_aligned
 
 	jsr src::delete
-	ldx @tmp
+	ldx #$00
 	ldy #39
 	jsr linebuff::shl
 	beq @removespaces	; branch always
@@ -88,18 +84,17 @@
 	lda @linecontent 	; get the type of line we're formatting
 	and #ASM_LABEL		; if formatting includes label, do __fmt_label
 	beq @notlabel
-	jsr __fmt_label
+	jsr label
 	jmp @refresh
 
 @notlabel:
 	lda @linecontent
 	and #ASM_COMMENT 	; if comment, don't format at all
 	bne @done
-@ident: jsr __fmt_opcode 	; anything else- indent
+@ident: jsr opcode		; anything else- indent
 
 @refresh:
-	jsr src::home
-	;jsr src::up	; back to start of line
+	jsr src::home	; back to start of line
 	jsr src::get	; refresh linebuffer
 	jmp src::down	; and go to end of line
 

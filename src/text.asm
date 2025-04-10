@@ -357,8 +357,7 @@ indirect:   .byte 0
 	cmp cur::maxx
 	bcs @err		; can't fit the new TAB
 
-:	lda @ch
-	lda __text_insertmode
+:	lda __text_insertmode
 	beq @fastput	; if REPLACE, no need to shift, do fast put
 
 @slowput:
