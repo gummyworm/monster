@@ -1308,6 +1308,7 @@ force_enter_insert=*+5
 	jmp @l0
 
 @moveup:
+	jsr buff::putch		; store the newline in copy buffer
 	lda #$00
 	sta zp::curx
 	jsr enter_insert
@@ -1318,6 +1319,10 @@ force_enter_insert=*+5
 	jsr home
 	jsr src::get
 	jsr src::popp
+
+	lda #MODE_VISUAL_LINE
+	sta selection_type	; set copy mode to LINE
+
 	lda zp::cury
 	jmp text::drawline
 .endproc

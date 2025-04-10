@@ -14,8 +14,8 @@
 - [ ] Save/restore raster position while debugging
 
 ### TODO V1
-- [ ] Startup animation
-- [ ] Symbolic disassembly
+- [x] Startup animation
+- [x] Symbolic disassembly
 - [x] Multicolor support for UDG editor
 - [x] Don't paste when it would create line > 40 columns
 - [x] Cleanup hack that requires "jmp gui::ret" in GUI (call text::render instead of pushing format strings)
