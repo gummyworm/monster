@@ -29,13 +29,6 @@ and color RAM.
 In order for the debugger to coexist with your program there are a few small
 requirements.
 
-#### DON'T USE $7FEF-$8000
-
-The address range from $7fef to $8000 is used to store the interrupts that
-return control to the debugger.
-If this range is clobbered, a BRK or NMI will not return to the debugger and the
-machine will likely JAM.
-
 #### STACK HAS 6 BYTES FREE
 
 The stack, at its current location for a given step, must have 3 bytes free.
@@ -43,13 +36,25 @@ If your program uses an IRQ (correctly) this shouldn't be an issue because the V
 interrupt sequence pushes 6 bytes (the registers, including status, plus the
 interrupt return address).
 
+#### DON'T USE $7FCE-$8000
+
+The address range from $7fce to $8000 is used to store the interrupts that
+return control to the debugger.
+If this range is clobbered, a BRK or NMI will not return to the debugger and the
+machine will likely JAM.
+
+The debugger will protect these areas during steps/traces, but if you free-run
+your program, care must be taken.
+
 ### DON'T OVERWRITE BRK/NMI VECTORS
 
-The BRK vector is used to return to the debugger during normal execution of your program.
+This requirement only applies when you are free-running your program.
+During free-run, the NMI vector (via RESTORE) is used to return to the debugger during normal
+execution of your program.
 
-The NMI vector _can_ be used by your program, but it is clobbered by the debugger
-when stepping through ROM.  VIA #1's timer is used to trigger the NMI
-that returns to the debugger when doing this.
+The BRK vector is used to return to the debugger when a breakpoint is encountered.
+If your program has its own idea of how to handle breakpoints, it may overwrite the BRK
+vector, but the debugger will be unable to handle them consequently.
 
 ---
 
@@ -98,24 +103,24 @@ information in the debug view, which is displayed in hexadecimal.
 
 ### STEPPING THROUGH CODE
 
+There are a variety of ways to execute the program that allow us to gather
+quite a lot of information about the instructions we executed.  The debugger
+also contains a 6502 simulator.  This simulato knows what registers an
+instruction uses/modifies, the effective address that is read/written, and mode.
+
+How does this help us, the user?  For example, when an instruction affects a given register,
+that register is highlighted in the debugger *even if the register
+value hasn't changed*. We can also activate a watch even if we don't store a new value to it.
+We can even activate a watch when a value is loaded from the watched address.
+
+The simulator also counts cycles, allowing us to keep track of how many have elapsed
+since the program began or the stopwatch was reset.
+
 #### STEP INTO (`z`)
 
-Stepping is a common way to debug a program line-by-line.
-Stepping _into_ code will, if possible, return to the debugger
+Stepping _into_ code will return to the debugger
 after the next instruction (the one currently highlighted if we have debug
-information) is executed. There is a scenario where this is not possible: if
-the next instruction is in ROM.  In this case, step _into_ behaves the same
-as step _over_: execution begins after the current instruction.  Note that
-because we don't know what will happen in ROM, it is possible execution will
-never return to the debugger.
-
-Keeping in mind the aforementioned caveat with ROM, stepping _into_ code gives
-us a lot of information about the instructions we are executed.  The debugger
-behaves almost as a 6502 simulator in this scenario.  When an instruction that
-affects a given register, that register is highlighted *even if the register
-value hasn't changed*. The same is true of watches.  We can activate a watch
-even if we don't store a new value to it. In fact, we can activate them when a
-value is loaded.
+information) is executed.
 
 #### STEP OVER (`s`)
 
@@ -123,30 +128,24 @@ Step _over_ behaves the same as step _into_, but if the next
 instruction is a subroutine call (`JSR`), execution continues until the
 instruction _after_ the `JSR` (after the subroutine returns).
 
-This command is considered somewhat dangerous because this command doesn't
-trace the execution.  If the subroutine that is stepped over runs a JAM
-instruction, the processor will halt.  Because the overhead of tracing is
-fairly high, this may be worth the risk. Especiallly if you are calling
-routines that are trusted such as those in the KERNAL or BASIC ROM.
-
 #### STEP OUT (`y`)
 
-Step _out_ is different from the other STEP commands in that it runs by tracing.
 The step out command traces the program until the next RTS instruction.
-The RTS instruction is run and control then returns to the debug session.
-
-#### GO (`C= + g`)
-
-The go command begins execution and returns to the debugger only when a
-breakpoint is encountered or when RUN/STOP is pressed.
+The RTS instruction is run and control then returns to the debugger.
 
 #### TRACE (`t`)
 
-Trace is similar to `GO`, but the debugger executes the program as a series
-of STEPs instead of running the program binary directly.
-This is useful because it allows the debugger to break if any watched memory
-location is accessed or if a JAM would occur.
+Trace executes the program as a series of STEPs until the user indicates we
+should halt the trace by pressing the `RESTORE` key.
 
+### Free Run (GO) (`C= + g`)
+
+The `GO` command begins execution and returns to the debugger only when a
+breakpoint is encountered or when RUN/STOP is pressed.  Unlike any of the step/trace
+commands, Go will _not_ simulate anything.  Control is given entirely over
+to the user program.  This could be dangerous, but is likely necessary in many
+cases.  A nearly finished game, for example, will require the user gives over
+control to the program in order to play that game.
 
 #### NOTES ON MEMORY SWAPPING
 
@@ -315,52 +314,3 @@ value of a watch and what it was changed to when it is updated.
 When a value is changed the watch view is activated to alert the user to the
 alteration.  If a read or write is detected while stepping _into_ the code,
 the viewer is also activated.
-
-
----
-
-## STEP MECHANISMS
-
-The manner in which the program is "stepped" depends on a variety of situations.
-There are 3 means of stepping:
- - BRK
- - NMI (timer)
- - NMI (RESTORE)
-
-For a given step, only one of these is used, so we don't need to worry about, for
-example, the user pressing RESTORE during a BRK.
-
-#### BRK
-
-When possible, a BRK instruction is inserted at the address after the next
-instruction to-be-executed.
-This address is calculated by Monster using the current state of the processor.
-
-#### NMI (TIMER)
-
-When a BRK point _cannot_ be inserted and when the instruction to-be-executed is
-in ROM, VIA #1 is used to generate an NMI immediately after the next instruction
-executes.  Timer 2 is loaded with a value that will count down to 1 at the time
-the next instruction begins.
-
-The 6502 waits for the current instruction to complete
-before handling interrupts, so, although the timer expires before the next
-instruction completes, it still finishes before the interrupt handler takes over.
-
-A handful of ROM routines, specifically those dealing with RS-232 transfer, use
-VIA 1's timer 2 themselves.  These cannot be stepped through for this reason.
-However, these routine are timing sensitive, so stepping through them would be
-mostly useless.
-
-#### NMI (RESTORE KEY)
-
-When the user runs a program with the _GO_ or _TRACE_ commands,
-they need a means of returning to the debugger.
-In these cases, the debugger enables NMI interrupts on VIA 1's control line 1 (CA1), which
-is connected to the RESTORE key.
-
-When the user presses the RESTORE key, control returns to the debugger.
-
-Note that the _TRACE_ command itself utilizes the other "step" methods, BRK and NMI timers,
-to execute individual instructions.  In this case, RESTORE simply tells the debugger
-to stop automatically stepping into the next instruction.
