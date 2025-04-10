@@ -1250,7 +1250,7 @@ force_enter_insert=*+5
 	sta zp::jmpvec+1
 
 	jsr buff::clear		; clear the copy buffer
-	jmp zp::jmpaddr		; execute the delete command
+	jmp (zp::jmpvec)	; execute the delete command
 
 .PUSHSEG
 .RODATA
@@ -2088,16 +2088,22 @@ force_enter_insert=*+5
 	beq @special
 	dex
 	bpl @l0
+
 @normal:
 	clc		; not a universal key code; return to be handled
 	rts
 
 @special:
+	; TODO: what is corrupting this (on rare occasion)?
+	lda #$4c
+	sta zp::jmpaddr
+
 	lda @specialvecslo,x
 	sta zp::jmpvec
 	lda @specialvecshi,x
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr
+
 	sec		; key was handled
 	rts
 
@@ -3031,7 +3037,7 @@ goto_buffer:
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize
-	bcs @err		; failed to assemble, skip formatting
+	bcs @nextline		; failed to assemble, skip formatting
 
 ; format the line based on the line's contents (in .A from tokenize)
 @fmt:	ldx autoindent
@@ -3062,9 +3068,6 @@ goto_buffer:
 @indentdone:
 	lda zp::cury
 	jmp text::drawline
-
-@err:	jsr report_typein_error
-	jmp @nextline
 .endproc
 
 ;******************************************************************************

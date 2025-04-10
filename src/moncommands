@@ -1,0 +1,1 @@
+watch store $00 if @cpu:$00 == $52
