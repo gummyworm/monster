@@ -1329,6 +1329,17 @@ force_enter_insert=*+5
 .endproc
 
 ;*******************************************************************************
+; CHANGE LINE
+; Deletes everything from the current character under the cursor to the end of
+; the line and enters insert mode.
+.proc change_line
+	jsr delete_to_end
+	jmp append_char
+.endproc
+
+;*******************************************************************************
+; DELETE CHAR
+; Deletes the character under the cursor
 .proc delete_char
 	jsr delch
 	bcc @ok
@@ -1336,7 +1347,10 @@ force_enter_insert=*+5
 @ok:	jmp redraw_to_end_of_line
 .endproc
 
+
 ;*******************************************************************************
+; DELETE TO END
+; Deletes everything from the character under the cursor to the end of the line
 .proc delete_to_end
 @l0:	jsr delch
 	jsr src::after_cursor
@@ -1347,6 +1361,10 @@ force_enter_insert=*+5
 .endproc
 
 ;*******************************************************************************
+; DELETE WORD
+; This is a subcommand of the 'd' (delete) command.  Deletes everything from
+; the character under the cursor to the first non-whitespace (if we're on a WS
+; character) or until the first whitespace character if we are.
 .proc delete_word
 @endonalpha=r1
 	; if we're on an alphanum char, end on the first non-alphanum char
@@ -4985,6 +5003,7 @@ commands:
 	.byte $52		; R (replace mode)
 	.byte $41		; A (append to line/insert)
 	.byte $61		; a (append to character)
+	.byte $43		; C (change line)
 	.byte $64		; d (delete)
 	.byte $44		; D (delete to end)
 	.byte $70		; p (paste below)
@@ -5023,12 +5042,12 @@ numcommands=*-commands
 
 ; command tables for COMMAND mode key commands
 .linecont +
-.define cmd_vecs dir::view, swapwin, ccleft, ccright, ccup, ccdown, endofword, beginword, \
-	insert_start, enter_insert, replace_char, replace, append_to_line, \
-	append_char, delete, delete_to_end, paste_below, paste_above, delete_char, \
-	word_advance, home, last_line, home_line, ccdel, ccright, goto_end, \
-	goto_start, find_next, find_prev, open_line_above, open_line_below,  \
-	join_line, end_of_line, \
+.define cmd_vecs dir::view, swapwin, ccleft, ccright, ccup, ccdown, endofword, \
+	beginword, insert_start, enter_insert, replace_char, replace, \
+	append_to_line, append_char, change_line, delete, delete_to_end, \
+	paste_below, paste_above, delete_char, word_advance, home, last_line, \
+	home_line, ccdel, ccright, goto_end, goto_start, find_next, find_prev, \
+	open_line_above, open_line_below, join_line, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
 	command_find, next_drive, prev_drive, get_command, mon, next_err
