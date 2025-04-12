@@ -525,13 +525,6 @@ msave=*+1
 	sta @opsz
 	pha
 
-	; initialize effective address to bogus value
-	; this avoids setting it to a volatile register (e.g. the VIC) and
-	; confusing the debugger
-	ldx #$ff
-	stx __sim_effective_addr
-	stx __sim_effective_addr+1
-
 	ldxy @instruction
 	jsr vmem::load			; opcode
 	sta @opcode
@@ -555,25 +548,21 @@ msave=*+1
 	cmp #$28		; PLP
 	beq @stack_pop
 	cmp #$68		; PLA
-	bne :+			; no memory affected
+	bne @get_affected	; no memory affected
 @stack_pop:
 	ldx __sim_reg_sp
 	inx
 	stx __sim_effective_addr
 	lda #$01
 	sta __sim_effective_addr+1
-	lda #OP_STACK|OP_LOAD
-	sta __sim_affected
-	rts
+	bne @get_affected
 
 @stack_ea:
 	lda __sim_reg_sp
 	sta __sim_effective_addr
 	lda #$01
 	sta __sim_effective_addr+1
-	lda #OP_STACK|OP_STORE
-	sta __sim_affected
-:	rts			; done
+	bne @get_affected
 
 	; save the debugger's contents at the @instruction address
 @cont:	; get the instruction opcode/operand at the @instruction address
@@ -591,21 +580,21 @@ msave=*+1
 	jsr vmem::load			; operand (2nd byte)
 :	sta @target+1
 
+@get_affected:
 	; get the side-effects for this operation
 	ldx @opcode
 	lda side_effects_tab,x
-	sta __sim_affected			; save the side-effects for aux uses
-
+	sta __sim_affected		; save the side-effects for aux uses
 	and #OP_STORE | OP_LOAD		; is operation a load or store?
 	bne :+
-	ldxy #$6666
-	stxy __sim_effective_addr	; don't save anything
+	and #OP_STACK
+	bne :+				; stack ops already computed EA
 
-:	; get effective target address of this instruction and save it
+	; get effective target address of this instruction and save it
 	; we will save/restore state before/after a BRK using this
 	jsr get_effective_addr
 	stxy __sim_effective_addr
-	rts
+:	rts
 .endproc
 
 ;*******************************************************************************
