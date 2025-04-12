@@ -384,6 +384,7 @@ screen: .res 40*24
 @done:	lda #$7f
 	sta $911e		; disable NMIs
 
+	; restore the cursor
 	lda cursave_x
 	sta zp::curx
 	lda cursave_y

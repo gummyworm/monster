@@ -2272,7 +2272,11 @@ __edit_refresh:
 	jsr scr::clrline		; clear the bitmap data for this row
 	jmp @clr
 
-@done:	; restore source position
+@done:	lda #DEFAULT_RVS
+	ldx #STATUS_ROW
+	jsr draw::hline		; re-init status row's color
+
+	; restore source position
 	jsr src::popgoto
 	pla
 	sta zp::cury		; restore .Y position
