@@ -217,8 +217,11 @@ The following keys are handled in COMMAND mode.
 |    0       | Column 0   | moves the cursor to the first column of the current line               |
 |    a       | append char| enters insert mode and moves to the next character                     |
 |    A       | append line| enters insert mode and moves to the last character in the current line |
+|    C       | change line| deletes the from the cursor to the end of the line and enters insert   |
 |    o       | open line  | opens a new line below the cursror and moves to it                     |
 |    O       | open line ^| opens a new line above the cursor and moves to it                      |
+|    s       | sub char   | deletes the character under the cursor and enters insert mode          |
+|    S       | sub line   | deletes the line under the cursor and enters insert mode               |
 |    p       | paste below| pastes the contents of the copy-buffer to the line below the cursor    |
 |    P       | paste above| pastes the contents of the copy-buffer to the line above the cursor    |
 |    I       | Insert line| enters insert mode and moves to the first character in the current line|

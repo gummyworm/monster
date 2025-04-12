@@ -1338,6 +1338,23 @@ force_enter_insert=*+5
 .endproc
 
 ;*******************************************************************************
+; SUB CHAR
+; Deletes the character under the cursor and enters insert mode.
+.proc sub_char
+	jsr delete_char
+	jmp enter_insert
+.endproc
+
+;*******************************************************************************
+; SUB LINE
+; Deletes the contents of the line that the cursor is on and enters insert mode.
+.proc sub_line
+	jsr home
+	jsr delete_to_end
+	jmp enter_insert
+.endproc
+
+;*******************************************************************************
 ; DELETE CHAR
 ; Deletes the character under the cursor
 .proc delete_char
@@ -1346,7 +1363,6 @@ force_enter_insert=*+5
 	rts
 @ok:	jmp redraw_to_end_of_line
 .endproc
-
 
 ;*******************************************************************************
 ; DELETE TO END
@@ -5031,6 +5047,8 @@ commands:
 	.byte $56		; V (enter visual line mode)
 	.byte $79		; y (yank)
 	.byte $7a		; z (move screen prefix)
+	.byte $73		; s (substitute char)
+	.byte $53		; S (substitute line)
 
 	.byte K_FIND		; / (find)
 	.byte K_NEXT_DRIVE	; next drive
@@ -5050,6 +5068,7 @@ numcommands=*-commands
 	open_line_above, open_line_below, join_line, end_of_line, \
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
+	sub_char, sub_line, \
 	command_find, next_drive, prev_drive, get_command, mon, next_err
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
