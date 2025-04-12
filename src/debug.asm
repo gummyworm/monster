@@ -2092,6 +2092,15 @@ __debug_remove_breakpoint:
 	beq :+
 	ldx #DEBUG_REG_CHANGED_COLOR
 :	stx COLMEM_ADDR+(20*$b)+7
+
+	; if memory was WRITTEN to, highlight it as well
+	ldx #TEXT_COLOR
+	lda sim::affected
+	and #OP_STORE
+	beq :+
+	ldx #DEBUG_REG_CHANGED_COLOR
+:	stx COLMEM_ADDR+(20*$b)+13
+	stx COLMEM_ADDR+(20*$b)+14
 .endif
 
 @colordone:
@@ -2101,20 +2110,20 @@ __debug_remove_breakpoint:
 	and #OP_LOAD|OP_STORE
 	bne :+
 	lda #'-'
+	sta @buff+26
 	sta @buff+27
 	sta @buff+28
 	sta @buff+29
-	sta @buff+30
 	bne @clk
 
 :	lda sim::effective_addr+1
 	jsr util::hextostr
-	sty @buff+27
-	stx @buff+28
+	sty @buff+26
+	stx @buff+27
 	lda sim::effective_addr
 	jsr util::hextostr
-	sty @buff+29
-	stx @buff+30
+	sty @buff+28
+	stx @buff+29
 
 @clk:	lda sw_valid
 	bne :+
