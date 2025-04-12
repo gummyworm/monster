@@ -555,14 +555,18 @@ msave=*+1
 	stx __sim_effective_addr
 	lda #$01
 	sta __sim_effective_addr+1
-	bne @get_affected
+	lda #OP_STACK|OP_LOAD
+	sta __sim_affected
+	rts
 
 @stack_ea:
 	lda __sim_reg_sp
 	sta __sim_effective_addr
 	lda #$01
 	sta __sim_effective_addr+1
-	bne @get_affected
+	lda #OP_STACK|OP_STORE
+	sta __sim_affected
+	rts			; done
 
 	; save the debugger's contents at the @instruction address
 @cont:	; get the instruction opcode/operand at the @instruction address
@@ -585,16 +589,15 @@ msave=*+1
 	ldx @opcode
 	lda side_effects_tab,x
 	sta __sim_affected		; save the side-effects for aux uses
+
 	and #OP_STORE | OP_LOAD		; is operation a load or store?
-	bne :+
-	and #OP_STACK
-	bne :+				; stack ops already computed EA
+	beq @done
 
 	; get effective target address of this instruction and save it
 	; we will save/restore state before/after a BRK using this
 	jsr get_effective_addr
 	stxy __sim_effective_addr
-:	rts
+@done:	rts
 .endproc
 
 ;*******************************************************************************
