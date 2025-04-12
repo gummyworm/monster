@@ -88,7 +88,9 @@ numparams = zp::ctx+10	; the number of parameters for the context
 @ok:	jsr getctx
 	jsr reset
 	jmp __ctx_rewind
-@err:	lda #ERR_STACK_OVERFLOW
+
+@err:	;sec
+	lda #ERR_STACK_OVERFLOW
 	rts
 .endproc
 
@@ -238,7 +240,9 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	iny
 	cpy #40
 	bne @write
-@err:	RETURN_ERR ERR_LINE_TOO_LONG
+@err:	; sec
+	lda #ERR_LINE_TOO_LONG
+	rts
 
 @done:	lda #$00
 	sta (cur),y	; terminate this line in the buffer
@@ -251,7 +255,8 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	sta cur
 	bcc :+
 	inc cur+1
-:	RETURN_OK
+	clc		; ok
+:	rts
 .endproc
 
 ;*******************************************************************************
@@ -335,6 +340,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	sty @len
 	beq @next
 
+	; count the number of terminating 0's in the context
 @l0:	ldy #$00
 	lda (@base),y
 	bne :+
@@ -360,7 +366,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 
 	; get the MSB (ctx_id << 1)
 	ldx activectx
-	dex	; make id 0-based
+	dex		; make id 0-based
 	txa
 	asl
 	ora #>contexts

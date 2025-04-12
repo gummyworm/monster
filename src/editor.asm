@@ -1308,7 +1308,8 @@ force_enter_insert=*+5
 	jmp @l0
 
 @moveup:
-	jsr buff::putch		; store the newline in copy buffer
+	lda #$0d
+	jsr buff::putch		; store newline in copy buffer
 	lda #$00
 	sta zp::curx
 	jsr enter_insert
@@ -1474,7 +1475,7 @@ force_enter_insert=*+5
 	;
 	; [ pre-paste ] [ first line]
 	; ...
-	; [ last paste ] [ post-paste]
+	; [ last line ] [ post-paste]
 
 	; read the first buffer line into the proper textbuffer location
 	jsr text::savebuff
@@ -1532,7 +1533,7 @@ force_enter_insert=*+5
 	jmp @l1
 
 @lastline:
-	; copy the text after the cursor upon insertion to the buffer again
+	; copy the text after the cursor upon insertion to the line buffer again
 	jsr text::linelen
 	ldy #$00
 :	lda @posttext,y

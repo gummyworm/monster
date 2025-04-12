@@ -3,6 +3,12 @@
 ; This file contains the procedures to read and write from/to the copy buffer.
 ; This is used by the editor to store data that was copied in VISUAL mode
 ; or deleted.
+;
+; Internally, the copy buffer is implemented as a stack.  To copy a selection,
+; we call putch for every character to copy beginning at the start of the copy
+; range.
+; To paste, we call buff::getline until the buffer is empty and insert each
+; line that is returned.
 ;*******************************************************************************
 
 .include "errors.inc"
