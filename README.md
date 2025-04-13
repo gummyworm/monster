@@ -57,6 +57,40 @@ a couply tiny interrupt handlers is preserved when control moves between the
 editor and the user program.  Moreso even than small monitor cartridges,
 the program itself is virtually unaware of the resident tooling.
 
+## RUNNING
+
+Prebuilt binaries can be found for all the necessary files in the `bin/` directory.
+These can also be built from source with the Makefile. Build instructions can be found in the
+next section of this README.
+
+To run from _Disk_ find the BOOT.PRG and MASM.PRG files.
+Write these to your disk of choice and load Monster as you would any other program on your Vic-20:
+
+```
+LOAD "BOOT.PRG",8,1
+RUN
+```
+
+The cartridge binary, `monster.bin`, can be flashed to your FE3 to boot Monster directly from ROM.
+Copy this file to your IEC storage device along with the installer (`install.prg`). Then run
+the following commands on your Vic-20 from the BASIC prompt:
+
+```
+LOAD "INSTALLER.PRG",8,1
+RUN
+```
+
+This will flash Monster to the Final Expansion.  Reset the computer to enter Monster.
+
+If you wish to run Monster in an emulator (VICE), ensure that VICE is installed on your
+machine and run `make start-disk` or `make start-cart` from the root of the project to attach the
+corresponding disk or cartridge image.
+Alternatively, simply run VICE with the `-cartfe` argument:
+
+```
+xvic -cartfe monster.bin
+```
+
 ## BUILD INSTRUCTIONS
 
 ### DEPENDENCIES
@@ -85,30 +119,6 @@ To build the disk version, run
 To build the cart version, run
 `make cart`
 
-## RUNNING
-
-The _Disk_ Makefile generates two PRG's: BOOT.PRG and MASM.PRG.
-You may write these to your disk of choice and load Monster as you would any other program on your Vic-20:
-
-```
-LOAD "BOOT.PRG",8,1
-RUN
-```
-
-The _Cart_ Makefile produces a single binary file, which is the cartridge image
-for the Final Expansion 3. To flash this to your FE3 for use on real hardware, copy it to
-your IEC storage device along with the installer (`install.prg`).
-
-```
-LOAD "INSTALLER.PRG",8,1
-RUN
-```
-
-This will flash Monster to the Final Expansion.  Reset the computer to enter Monster.
-
-If you wish to run Monster in an emulator (VICE), ensure that VICE is installed on your
-machine and run `make start-disk` or `make start-cart` from the root of the project to attach the
-corresponding disk or cartridge image.
 
 ---
 

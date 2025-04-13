@@ -1413,12 +1413,8 @@ force_enter_insert=*+5
 	cmp #MODE_VISUAL
 	beq @vis
 
-@visline:
-	; visual line, move to next line and paste there
-	jsr end_of_line
-	jsr append_to_line
-	jsr paste_buff
-	jmp ccdown
+@line:	jsr open_line_below_noindent
+	jmp paste_buff
 
 @vis:	; visual, move to next character and paste there
 	jsr append_char
@@ -1433,18 +1429,8 @@ force_enter_insert=*+5
 	cmp #MODE_VISUAL
 	beq @vis
 
-@line:	jsr ccup
-	jsr end_of_line
-	jsr append_char
-	jsr paste_buff
-	jsr ccdown
-
-	lda zp::cury
-	cmp #$01
-	beq :+
-	rts
-:	dec zp::cury			; move back up a row
-	jmp scrollup_whole_screen	; and keep screen consistent
+@line:	jsr open_line_above_noindent
+	jmp paste_buff
 
 @vis:	; visual mode, just paste
 	jsr enter_insert
@@ -1708,16 +1694,13 @@ force_enter_insert=*+5
 
 	; go to the end of the line and copy everything to the start of it
 	jsr src::lineend
+
 @yankline:
 	jsr src::left
 	bcs @yydone
-	cmp #$0d
-	beq @yydone
 	jsr buff::putch
 	bcc @yankline
 @yydone:
-	lda #$0d
-	jsr buff::putch
 	jsr src::popgoto
 	RETURN_OK
 
@@ -1824,6 +1807,7 @@ force_enter_insert=*+5
 	jsr src::goto
 
 	jsr src::home	; if cursor is not at start of line, move it there
+	jsr src::next
 	jsr src::pos
 	stxy @cur
 

@@ -69,6 +69,7 @@ suite: $(TEST_IMAGE)
 
 installer.prg: installer/install.asm
 	$(CL65) -t $(TARGET) -o $@ -C installer/link-installer.config $^
+	cp installer.prg ../bin/
 
 monster-cart.prg: $(BOOTSRC) $(SRC)
 	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) --asm-define $(REGION) --asm-define CART --asm-define DEFAULT_DEVICE=$(DEFAULT_DEVICE) -C link-$(TARGET)-cart.config $^ -Ln labels.txt -v -m map.txt
@@ -78,6 +79,7 @@ monster-cart-test.prg: $(BOOTSRC) $(SRC) $(UNIT)
 
 $(CART_IMAGE): monster-cart.prg
 	$(PYTHON) makecart.py labels.txt monster-cart.prg $(CART_IMAGE)
+	cp $(CART_IMAGE) ../bin/
 
 $(TEST_IMAGE): monster-cart-test.prg
 	$(PYTHON) makecart.py labels.txt monster-cart-test.prg $(TEST_IMAGE)
@@ -89,6 +91,8 @@ boot.prg: monster-disk.prg
 ifeq ($(TARGET),vic20)
 	$(PYTHON) makeboot.py labels.txt monster-disk.prg bootloader.prg masm.prg
 	$(EXOMIZER) sfx basic -t55 -n -o $@ bootloader.prg
+	cp boot.prg ../bin/
+	cp masm.prg ../bin/
 endif
 ifeq ($(TARGET),c64)
 	#$(PYTHON) makeboot.py labels.txt monster-disk.prg bootloader.prg masm.prg
