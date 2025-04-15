@@ -97,25 +97,22 @@ SLASH = SPECIAL_CHARS_START+2
 ; OUT:
 ;  - .XY:         the address to a buffer containing the combined string
 ;  - .C:          set if the string is too large (>40 chars)
-;  - linebuffer2: contains the result of the concatenation
 .export __str_cat
 .proc __str_cat
 @buff=mem::spare
 @str1=r2
 @str2=r0
-	; copy the first string to the buffer
+	; copy the first string to a spare buffer
 	stxy @str1
 	ldy #$00
 :	lda (@str1),y
 	sta @buff,y
 	beq @cat
 	iny
-	cpy #40
 	bne :-
+
 @toolong:
-	;sec
-	lda #ERR_LINE_TOO_LONG
-	rts
+	RETURN_ERR ERR_LINE_TOO_LONG
 
 @cat:	tya
 	clc
@@ -130,13 +127,11 @@ SLASH = SPECIAL_CHARS_START+2
 	sta (@str1),y
 	beq @done
 	iny
-	cpy #40
-	bcs @toolong
-	bcc :-
+	bne :-
+	beq @toolong
 
 @done:	ldxy #@buff
-	; clc
-	rts
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************

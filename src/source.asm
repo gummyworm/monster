@@ -562,6 +562,8 @@ data:
 ; Pushes the current source position to an internal stack.
 ; OUT:
 ;   - .C: set on error (the stack is full)
+; CLOBBERS:
+;   - .A, .X
 .export __src_pushp
 .proc __src_pushp
 	lda sp

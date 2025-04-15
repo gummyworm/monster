@@ -1438,7 +1438,115 @@ force_enter_insert=*+5
 	; fall through to paste_buff
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
+; VALIDATE PASTE
+; Checks if the paste can be completed at the cursor's current position
+; OUT:
+;  - .C: set if the cursor cannot be completed based on the current cursor pos
+.proc validate_paste
+@splitindex=re
+@posttext=$100
+	lda selection_type
+	cmp #MODE_VISUAL
+	beq @validate
+
+	; if pasting from visual LINE mode, we won't be affecting any existing
+	; lines- return OK
+	RETURN_OK
+
+@validate:
+	; we must consider 2 cases:
+	; 1) if there's no newline in our paste:
+	;      then [ pretext | paste | posttext ]
+	;    must all fit in one line
+	; 2) if there is a newline:
+	;       then [pretext | paste[0] ] and [ paste[n] | posttext ]
+	;    must all fit in one line (where paste[0] is the first line of
+	;    our copy buffer and paste[n] is the last)
+
+	; first, get the index we are "splitting" at
+	jsr text::char_index
+	sty @splitindex
+
+	; save the part of the line after the split, we call this "posttext"
+	ldx @splitindex		; get index of text to save
+	ldy #$00
+:	lda mem::linebuffer,x
+	sta @posttext,y
+	beq @copydone
+	inx
+	iny
+	bne :-
+
+@copydone:
+	jsr text::savebuff
+	jsr buff::push
+
+	; populate mem::linebuffer with [ pretext | paste[0] ], we will need
+	; this to validate both cases
+	lda @splitindex
+	clc
+	adc #<mem::linebuffer
+	tax
+	lda #>mem::linebuffer
+	adc #$00
+	tay
+	jsr buff::getline	; append paste[0] to the linebuffer
+	bcc :+
+	clc
+	bcc @done		; buffer is empty (paste is NOP)
+
+:	jsr text::rendered_line_len	; check length of [pretext | paste[0]]
+	bcs @done			; oversized -> return
+
+	; is there a newline in the lines we're pasting?
+	jsr buff::lines_copied
+	bcs @case2		; if there is a newline, continue to case 2
+
+@case1:	; validate case 1: build [ pretext | paste[0] | posttext ] and make
+	; sure it is not oversized
+	; since we already have [ pretext | paste[0] ] in the linebuffer, just
+	; append posttext to the linebuffer and check it
+	jsr text::linelen
+	ldy #$00
+:	lda @posttext,y
+	sta mem::linebuffer,x
+	beq @checklen
+	iny
+	inx
+	bne :-
+	beq @checklen		; should be unreachable
+
+@case2:	; validate case 2: build [ pretext | paste[0] ] and
+	; [ posttext | paste[n]] and make sure it is not oversized
+	; we've already validated [ pretext | paste[0] ],
+	; make sure [paste[n] | posttext] isn't too big
+	ldxy #mem::linebuffer
+	jsr buff::lastline
+	bcc @cont
+	clc
+	bcc @done		; last line empty -> return OK
+
+	; copy posttext to the end of the linebuffer
+@cont:	ldx #$00
+:	lda @posttext,x
+	sta mem::linebuffer,y
+	beq @checklen
+	inx
+	iny
+	bne :-
+
+@checklen:
+	; get the line length- .C will be set if oversized
+	jsr text::rendered_line_len
+@done:	php
+	jsr text::restorebuff
+	jsr buff::pop
+	plp
+	rts
+.endproc
+
+;*******************************************************************************
 ; PASTE BUFF
 ; Inserts the contents of the buffer at the current cursor position and returns
 ; to command mode
@@ -1450,8 +1558,13 @@ force_enter_insert=*+5
 	; save the current buffer pointer
 	jsr buff::push
 
+	jsr validate_paste
+	bcc :+
+	jsr beep::short
+	jmp enter_command
+
 ; paste between [linebuffer, char_index(curx)] with the first line from buffer
-	lda zp::cury
+:	lda zp::cury
 	sta @row
 	jsr text::char_index
 	sty @splitindex
@@ -1466,7 +1579,7 @@ force_enter_insert=*+5
 	; multi-line pastes don't move the cursor / source position
 	jsr src::pushp
 
-	; scroll down by the number of lines we're pasting
+	; scroll down by the number of lines we're pasting (.Y)
 	ldx height
 	lda @row
 	jsr text::scrolldownn
@@ -1480,6 +1593,7 @@ force_enter_insert=*+5
 @scrolldone:
 	ldx @splitindex	; get index of text to save
 	ldy #$00
+
 	; save the part of the line that we're inserting BEFORE
 :	lda mem::linebuffer,x
 	sta @posttext,y
@@ -1489,14 +1603,6 @@ force_enter_insert=*+5
 	bne :-
 
 @copydone:
-	; TODO:
-	; make sure that the lines that are being joined with pasted lines are
-	; less than the max line length
-	;
-	; [ pre-paste ] [ first line]
-	; ...
-	; [ last line ] [ post-paste]
-
 	; read the first buffer line into the proper textbuffer location
 	jsr text::savebuff
 	lda @splitindex
@@ -1507,19 +1613,9 @@ force_enter_insert=*+5
 	adc #$00
 	tay
 	jsr buff::getline
-	bcc :+
-	jmp @done		; buffer empty (nothing to paste)
-:	pha			; save newline flag
-
-	jsr text::rendered_line_len
-	cmp #40
-	bcc @ok
-	jsr text::restorebuff
-	jsr beep::short		; line would be too long after the paste
-	pla			; clean stack
-	jmp @done
-
-@ok:	ldxy r9
+	bcs @done		; buffer is empty
+@ok:	pha			; save newline flag
+	ldxy r9
 	jsr src::insertline	; insert the first line from the paste buffer
 	pla
 	cmp #$0d		; did line end with a newline?
@@ -1546,57 +1642,26 @@ force_enter_insert=*+5
 	cmp #$0d		; was this line a newline?
 	bne @lastline		; if not continue to merge it with last line
 
-	jsr src::insert
+	jsr src::insert			; insert the newline
 	lda @row
-	inc @row
-	jsr draw_line_if_visible
-	jmp @l1
+	jsr draw_line_if_visible	; redraw current row
+	inc @row			; move to the next row
+	bne @l1				; and continue
 
 @lastline:
 	; copy the text after the cursor upon insertion to the line buffer again
 	jsr text::linelen
+	txa
+	pha
 	ldy #$00
 :	lda @posttext,y
 	sta mem::linebuffer,x
-	beq @chklast
+	beq @lastdone
 	inx
 	iny
 	bne :-
 
-@chklast:
-	; does the last line fit on screen?
-	jsr text::rendered_line_len
-	cpx #40
-	bcc @lastdone			; it fits, continue
-
-	; redraw the original line without the pasted portion
-	lda #$00
-	ldy @linelen
-	sta mem::linebuffer,y
-	lda @row
-	inc @row
-	jsr draw_line_if_visible
-
-	; last line doesn't fit on screen, insert a newline between the
-	; original and pasted line
-	lda #$0d
-	jsr src::insert
-
-	; print the pasted line and scroll down one more line
-	lda @row
-	ldx height
-	jsr text::scrolldown
-	jsr src::get
-	ldx @row
-	ldy height
-	jsr draw::scrollcolorsd1
-
-	ldy #$00			; go back to start of original line
-
 @lastdone:
-	tya
-	pha				; save index of char
-
 	lda @row
 	jsr draw_line_if_visible
 
@@ -1613,7 +1678,7 @@ force_enter_insert=*+5
 	pla
 	bpl @done			; branch always
 
-:	pla
+:	pla				; restore index
 	jsr text::index2cursor
 	stx zp::curx
 

@@ -21,14 +21,17 @@
 
 MAX_COPY_SIZE = __COPYBUFF_BSS_SIZE__
 
+.export __buff_clear
 .export __buff_putch
 .export __buff_getch
 .export __buff_getline
-.export __buff_clear
+.export __buff_lastline
 .export __buff_lines_copied
 .export __buff_push
 .export __buff_pop
 .export __buff_len
+
+SAVESTACK_DEPTH = 4
 
 .if FINAL_BANK_MAIN=FINAL_BANK_BUFF
 ;*******************************************************************************
@@ -37,6 +40,7 @@ __buff_putch        = putch
 __buff_getch        = getch
 __buff_getline      = getline
 __buff_clear        = clear
+__buff_lastline     = lastline
 __buff_lines_copied = lines_copied
 __buff_push         = push
 __buff_pop          = pop
@@ -56,6 +60,7 @@ PUTCH
 GETCH
 GETLINE
 CLEAR
+LASTLINE
 LINES_COPIED
 PUSH
 POP
@@ -64,7 +69,8 @@ LEN
 
 .RODATA
 .linecont +
-.define buff_procs putch, getch, getline, clear, lines_copied, push, pop, len
+.define buff_procs putch, getch, getline, clear, lastline, lines_copied, push, \
+	pop, len
 .linecont -
 buff_procs_lo: .lobytes buff_procs
 buff_procs_hi: .hibytes buff_procs
@@ -74,6 +80,7 @@ __buff_putch: COPYBUFFJUMP buff_proc_ids::PUTCH
 __buff_getch: COPYBUFFJUMP buff_proc_ids::GETCH
 __buff_getline: COPYBUFFJUMP buff_proc_ids::GETLINE
 __buff_clear: COPYBUFFJUMP buff_proc_ids::CLEAR
+__buff_lastline: COPYBUFFJUMP buff_proc_ids::LASTLINE
 __buff_lines_copied: COPYBUFFJUMP buff_proc_ids::LINES_COPIED
 __buff_push: COPYBUFFJUMP buff_proc_ids::PUSH
 __buff_pop: COPYBUFFJUMP buff_proc_ids::POP
@@ -99,7 +106,12 @@ __buff_len: COPYBUFFJUMP buff_proc_ids::LEN
 
 .segment "COPYBUFF_BSS"
 buffptr:  		.word 0 	; buffer pointer
-buffsave: 		.word 0		; backup buffer pointer (see buff::push)
+
+; backup buffer pointer stack (see buff::push)
+buffsavelo: 		.res SAVESTACK_DEPTH
+buffsavehi: 		.res SAVESTACK_DEPTH
+buffsave_sp:		.byte 0
+
 visual_lines_copied:	.byte 0		; number of lines copied in VISUAL modes
 copybuff:
 .ifdef vic20
@@ -158,6 +170,56 @@ copybuff:
 .endproc
 
 ;*******************************************************************************
+; LASTLINE
+; Returns the contents of the oldest line in the copy buffer.
+; This is useful because we may need to know that this line plus the contents
+; of a line that will be joined with it are oversized.
+; Middle lines are implicitly correctly sized because they will not be joined
+; with anything. This procedure does not modify the buffer pointers (it only
+; "peeks" at the data)
+; IN:
+;  - .XY: the address to store the line to
+; OUT:
+;  - .Y: the number of characters that were read to the buffer
+;  - .C: set if the buffer is empty
+.proc lastline
+@buff=r9
+@dst=rb
+	stxy @dst
+
+	jsr push	; save the buffer pointers
+	ldxy #copybuff
+	stxy @buff
+
+	; make sure buffer is not empty
+	lda (@buff),y
+	beq @done	; buffer is empty
+
+	; seek for the start of the oldest line
+:	lda (@buff),y
+	cmp #$0d
+	beq @found
+	iny
+	bne :-
+
+@found:	dey
+	tya
+	clc
+	adc @dst
+	sta buffptr
+	bcc @done
+	inc buffptr+1
+
+@done:	ldxy @dst
+	jsr getline
+
+	php
+	jsr pop		; restore the buffer
+	plp
+	rts
+.endproc
+
+;*******************************************************************************
 ; GETLINE
 ; Gets the last line that was PUT to the buffer
 ; IN:
@@ -166,6 +228,7 @@ copybuff:
 ;  - .A: $0d if last character is a newline
 ;  - .Y: the number of characters that were read to the buffer
 ;  - .C: set if the buffer is empty
+;  - r9: the address of the string that was read (same as given)
 .proc getline
 @dst=r9
 @buff=rb
@@ -206,6 +269,7 @@ copybuff:
 ; Initializes the copy buffer by clearing it
 .proc clear
 	ldx #$00
+	stx buffsave_sp
 	stx visual_lines_copied
 	ldxy #copybuff
 	stxy buffptr
@@ -228,23 +292,38 @@ copybuff:
 ; PUSH
 ; Saves the current location of the buffer pointer. Call buff::pop to restore
 ; it
+; OUT:
+;   - .C: set on overflow
 .proc push
-	lda buffptr
-	sta buffsave
+	ldx buffsave_sp
+	cpx #SAVESTACK_DEPTH-1
+	bcc :+
+	RETURN_ERR ERR_STACK_OVERFLOW
+
+:	lda buffptr
+	sta buffsavelo,x
 	lda buffptr+1
-	sta buffsave+1
+	sta buffsavehi,x
+	inc buffsave_sp
 	rts
 .endproc
 
 ;*******************************************************************************
 ; POP
 ; Pops the buffer pointer that was saved by calling buff::push
+; OUT:
+;   - .C: set on underflow
 .proc pop
-	lda buffsave+1
+	dec buffsave_sp
+	bpl :+
+	RETURN_ERR ERR_STACK_UNDERFLOW
+
+:	ldx buffsave_sp
+	lda buffsavehi,x
 	sta buffptr+1
-	lda buffsave
+	lda buffsavelo,x
 	sta buffptr
-	rts
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************

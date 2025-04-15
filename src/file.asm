@@ -309,8 +309,11 @@ __file_load_src:
 
 @err:   jsr @close
 	RETURN_ERR ERR_IO_ERROR
+.PUSHSEG
+.RODATA
 @s_colon:
 	.byte "s:",0
+.POPSEG
 .endproc
 
 ;*******************************************************************************
@@ -330,7 +333,10 @@ __file_load_src:
 	jsr str::cat	; filename + ",p,w"
 	lda #$03	; SA
 	jmp __file_open
+.PUSHSEG
+.RODATA
 @p_w:	.byte ",p,w",0
+.POPSEG
 .endproc
 
 ;*******************************************************************************

@@ -741,6 +741,7 @@ indirect:   .byte 0
 ; OUT:
 ;  - .X: the length of mem::linebuffer as it appears on screen
 ;  - .Y: the length of the linebuffer in characters
+;  - .C: set if the line size is oversized
 .proc __text_rendered_line_len
 .export __text_rendered_line_len
 @tabsz=r0
@@ -764,7 +765,8 @@ indirect:   .byte 0
 	tax
 	dex			; undo the INX
 :	jmp @l0
-@done:	rts
+@done:	cpx #LINESIZE+1
+	rts
 .endproc
 
 ;*******************************************************************************
