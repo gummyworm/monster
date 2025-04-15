@@ -1672,6 +1672,8 @@ force_enter_insert=*+5
 
 	; if we pasted multiple lines, restore source position and don't move cursor
 	jsr src::popgoto
+	jsr src::home
+	jsr src::get
 	lda #$00
 	jsr text::index2cursor
 	stx zp::curx
