@@ -1554,7 +1554,7 @@ force_enter_insert=*+5
 @row=rd
 @splitindex=re
 @linelen=rf
-@posttext=$100
+@posttext=$148
 	; save the current buffer pointer
 	jsr buff::push
 

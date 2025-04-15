@@ -996,6 +996,8 @@ data:
 ;  - .A: the character to insert
 ; OUT:
 ;  - .C: set if the character could not be inserted (buffer full)
+; CLOBBERS:
+;  - $120-$130: may be clobbered if newline is inserted
 .export __src_insert
 .proc __src_insert
 @len=r0
