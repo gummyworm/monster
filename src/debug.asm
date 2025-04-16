@@ -2190,7 +2190,8 @@ __debug_remove_breakpoint:
 	lda #$00
 	sta $102
 
-:	lda #>$100
+:	; push the disassembled instruction strings's address
+	lda #>$100
 	pha
 	lda #<$100
 	pha

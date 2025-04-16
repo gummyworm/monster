@@ -143,7 +143,12 @@ rowcnt: .byte 0
 	cli
 	rts
 
-@i6:	ldx #$17	; delay
+@i6:
+.ifdef PAL
+	ldx #$19	; delay
+.else
+	ldx #$17	; delay
+.endif
 @i7:	dex
 	bne @i7
 	nop
