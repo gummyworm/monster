@@ -267,6 +267,24 @@ SCREEN_H = 23
 	beq @exit
 
 ; if 'G', go to bottom of directory list
+@checkgototop:
+	cmp #$67		; 'g'
+	bne @checkbottom
+	jsr key::waitch
+	cmp #$67		; gg?
+	bne @nextkey
+
+	ldx @select
+	lda #DEFAULT_900F
+	jsr draw::hline		; deselect the current selection
+
+	lda #$01
+	sta @select
+	lda #$00
+	sta @scroll
+	beq @redraw
+
+; if 'G', go to bottom of directory list
 @checkbottom:
 	cmp #$47		; 'G'
 	bne @nextkey
@@ -283,9 +301,10 @@ SCREEN_H = 23
 	ldx @cnt
 	cpx #SCREEN_H
 	bcc :+
-	ldx #SCREEN_H-1
+	ldx #SCREEN_H
 :	dex
 	stx @select
+@redraw:
 	jsr @refresh
 	jmp @hiselection
 
