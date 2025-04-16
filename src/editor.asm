@@ -1652,7 +1652,7 @@ force_enter_insert=*+5
 	; copy the text after the cursor upon insertion to the line buffer again
 	jsr text::linelen
 	txa
-	pha
+	pha			; save the index of where the paste ended
 	ldy #$00
 :	lda @posttext,y
 	sta mem::linebuffer,x
@@ -1676,12 +1676,12 @@ force_enter_insert=*+5
 	jsr src::home
 	jsr src::get
 	jsr src::popgoto
-	pla
-	lda @splitindex
-	pha
-:	pla				; restore index
+:	pla				; restore index where paste ended
 	jsr text::index2cursor
 	stx zp::curx
+
+	; fix source pos - cursor will be on char after paste (if there is one)
+	jsr src::right_rep
 
 @done:	; restore the buffer pointer
 	jsr buff::pop
