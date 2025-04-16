@@ -134,7 +134,7 @@ start-test: $(TEST_IMAGE) test.d81
 	$(XVIC) +warp -sound -cartfe $(TEST_IMAGE) -memory all $(EMU_REGION) -drive10type 1581 -10 test.d81 -moncommands moncommands
 
 vstart:
-	# $(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -cartfe $(FE3BIN) -memory all $(EMU_REGION) +drive10truedrive -virtualdev10 -10 test.d81
+	$(XVIC) +warp -default -cartfe $(FE3BIN) -memory all $(EMU_REGION) +drive10truedrive -virtualdev10 -10 test.d81
 
 clean:
 	rm -f *.prg *.o test.d81 $(CART_IMAGE)

@@ -38,8 +38,8 @@ SCREEN_H = 23
 @row=ra
 @select=rb
 @cnt=rc			; number of files extracted from listing
-@scrollmax=rc		; maximum amount to allow scrolling
-@scroll=rd
+@scrollmax=rd		; maximum amount to allow scrolling
+@scroll=re
 @dirbuff=mem::spare+42		; 0-40 will be corrupted by text routines
 				; 40-41 is load address
 @namebuff=mem::spareend-40	; buffer for the file name
@@ -59,7 +59,7 @@ SCREEN_H = 23
 
 	php
 	lda @file
-	jsr file::close
+	jsr file::close		; close the directory file
 	plp
 	bcs @err
 
@@ -254,15 +254,40 @@ SCREEN_H = 23
 	tax
 	lda #DEFAULT_RVS
 	jsr draw::hline
+@nextkey:
 	jmp @key
 
 ; check the RETURN key (to open a file)
 @checkret:
 	cmp #$0d		; select file and load
 	beq @loadselection
+
+@checkexit:
 	cmp #$5f		; <-
 	beq @exit
-	jmp @key
+
+; if 'G', go to bottom of directory list
+@checkbottom:
+	cmp #$47		; 'G'
+	bne @nextkey
+
+	ldx @select
+	lda #DEFAULT_900F
+	jsr draw::hline		; deselect the current selection
+
+	; set scroll to scrollmax
+	lda @scrollmax
+	sta @scroll
+
+	; set selection (row) to min(SCREEN_H, @cnt)
+	ldx @cnt
+	cpx #SCREEN_H
+	bcc :+
+	ldx #SCREEN_H-1
+:	dex
+	stx @select
+	jsr @refresh
+	jmp @hiselection
 
 ; user selected a file (RETURN), load it and exit the directory view
 @loadselection:
@@ -285,6 +310,42 @@ SCREEN_H = 23
 	jmp edit::load		; load the file
 
 @exit:  jmp scr::restore
+
+;--------------------------------------
+; refresh (redraw) all visible rows
+@refresh:
+@i=r8
+	lda #$01
+	sta @i
+
+:	lda @i
+	clc
+	adc @scroll
+	asl
+	tax
+	ldy @fptrs+1,x
+	lda @fptrs,x
+	tax
+	lda #<@namebuff
+	sta r0
+	lda #>@namebuff
+	sta r0+1
+	jsr util::parse_enquoted_string
+	ldxy #@namebuff
+	lda @i
+	jsr text::print
+
+	inc @i
+	lda @i
+	cmp #SCREEN_H
+	bcs @refresh_done
+	adc @scroll
+	cmp @cnt
+	bcc :-
+
+@refresh_done:
+	rts
+
 .PUSHSEG
 .RODATA
 @dirmsg: .byte "disk:",0
