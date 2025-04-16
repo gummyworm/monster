@@ -1668,20 +1668,25 @@ force_enter_insert=*+5
 	jsr enter_command
 
 	jsr buff::lines_copied
-	bcc :+				; if no lines, skip
+	bcs @finish_multi
 
+	; fix source pos - cursor will be on char after paste (if there is one)
+	jsr src::right_rep
+	jmp @setcur
+
+@finish_multi:
 	; if we pasted multiple lines, restore source position and don't move cursor
 	jsr src::popgoto
 	jsr src::pushp
 	jsr src::home
 	jsr src::get
 	jsr src::popgoto
-:	pla				; restore index where paste ended
+	jmp @setcur
+
+@setcur:
+	pla				; restore index where paste ended
 	jsr text::index2cursor
 	stx zp::curx
-
-	; fix source pos - cursor will be on char after paste (if there is one)
-	jsr src::right_rep
 
 @done:	; restore the buffer pointer
 	jsr buff::pop
