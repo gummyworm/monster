@@ -42,6 +42,9 @@ This tool presents a paginated view of all files on the disk.
 Pressing `RETURN` while the cursor is on the desired file will load
 that file into a new buffer and switch to that buffer.
 
+While in the directory viewer, pressing 'G' navigates to the last file in the directory and 'gg' goes
+to the first one.
+
 #### SYMBOL VIEWER
 
 The symbol viewer, activated with the `C= + Y` key combination displays all the labels in the program
