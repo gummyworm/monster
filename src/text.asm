@@ -358,10 +358,12 @@ indirect:   .byte 0
 	lda @ch
 	cmp #$09		; is char to print a TAB?
 	bne :+
+
 	jsr __text_tabr_dist
 	clc
 	adc @len2		; check if we can fit the new TAB char
 	cmp cur::maxx
+	beq :+
 	bcs @err		; can't fit the new TAB
 
 :	lda __text_insertmode
