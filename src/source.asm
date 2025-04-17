@@ -1068,13 +1068,14 @@ data:
 	sta24 bank, cursorzp
 
 	cmp #$0d
-	bne :+
+	bne @insdone
 	incw line
 	lda @skip_insert_logic
 	bne :+
 	jsr on_line_inserted
-:	incw cursorzp
-	incw lines
+:	incw lines
+@insdone:
+	incw cursorzp
 @done:	RETURN_OK
 .endproc
 
