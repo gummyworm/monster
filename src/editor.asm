@@ -1921,7 +1921,7 @@ force_enter_insert=*+5
 @check_ban_up:
 	cmp #':'	; SHIFT-; (generate banner above)
 	bne @done
-	jsr open_line_above
+	jsr open_line_above_noindent
 	jsr comment_banner
 	jmp ccdown
 
@@ -2145,17 +2145,7 @@ force_enter_insert=*+5
 	jsr src::after_cursor
 	pha
 
-	lda autoindent
-	pha
-	lda #$00
-	sta autoindent		; temporarily disable indent
-
-	lda #$0d
-	jsr insert
-
-	pla
-	sta autoindent		; restore indent
-
+	jsr newl
 	jsr ccup		; go up
 
 	pla			; did line start with TAB?
@@ -2195,6 +2185,7 @@ force_enter_insert=*+5
 	jsr enter_insert
 	jsr end_of_line		; move to end of current line
 	jmp newl		; and insert a newline
+
 @done:	rts
 .endproc
 
@@ -3123,6 +3114,7 @@ goto_buffer:
 ;******************************************************************************
 ; NEWL
 ; Inserts a newline at the current cursor position
+; The indentation flag is ignored (line will not be indented)
 .proc newl
 	jsr is_readonly
 	bne @insert
@@ -3130,8 +3122,17 @@ goto_buffer:
 	jmp begin_next_line
 
 @insert:
+	lda autoindent
+	pha
+	lda #$00
+	sta autoindent		; temporarily overwrite autoindent flag
+
 	lda #$0d
-	jmp insert
+	jsr insert
+
+	pla
+	sta autoindent		; restore autoindent flag
+	rts
 .endproc
 
 ;******************************************************************************
