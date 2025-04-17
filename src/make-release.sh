@@ -1,7 +1,5 @@
-make clean
-
 # make the installer
-make installer.prg
+make clean; make installer.prg
 cp installer.prg ../bin/
 
 # make the NTSC cart binary

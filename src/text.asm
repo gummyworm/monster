@@ -291,7 +291,14 @@ indirect:   .byte 0
 	stx @len
 
 	lda @ch
-	cmp #$14
+	bne :+
+@zero:
+	jsr __text_char_index
+	lda #$00
+	sta mem::linebuffer,y
+	jmp @redraw
+
+:	cmp #$14
 	bne @printing
 
 	; backspace
@@ -339,7 +346,7 @@ indirect:   .byte 0
 @printing:
 	jsr __text_rendered_line_len
 	stx @len2
-	cpx #40			; is line already maxed out?
+	cpx #LINESIZE		; is line already maxed out?
 	bcs @err		; if so, no chance we can insert
 
 	ldx zp::curx
@@ -862,15 +869,18 @@ indirect:   .byte 0
 .export __text_tabr_dist
 __text_tabr_dist_a=*+2
 .proc __text_tabr_dist
+@xstart=zp::util
 	lda zp::curx
-	sta zp::util
+@tabr_dist_a:
+	sta @xstart
 	ldy #$00
 :	iny
 	cmp tabs,y
 	bcs :-
+
 	lda tabs,y
 	sec
-	sbc zp::util
+	sbc @xstart
 	rts
 .endproc
 

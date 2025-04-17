@@ -3130,8 +3130,8 @@ goto_buffer:
 ; If successful, formats the source according to the type of the assembled line
 ; (instruction, label, etc.) and creates a line/address mapping.
 .proc linedone
-@indent=ra	; indent boolean (!0 = indent)
-@i=ra		; loop counter for indentation loop
+@indent=ra		; indent boolean (!0 = indent)
+@i=ra			; loop counter for indentation loop
 	sta @indent
 
 	jsr is_readonly
@@ -3178,8 +3178,21 @@ goto_buffer:
 	beq @indentdone		; skip indent if curx == 0
 	lda format
 	beq @indentdone
+
+	; make sure indent won't overflow line
+	jsr text::rendered_line_len
+	txa
+	clc
+	adc #TAB_WIDTH		; full width tab
+	cmp #LINESIZE
+	bcs @indentdone		; can't indent, line would overflow
+
+	jsr src::after_cursor
+	cmp #$09
+	beq @indentdone		; already indented, skip
 	lda #$09		; TAB
 	jsr src::insert
+	lda #$09		; TAB
 	jsr text::putch
 
 @indentdone:
