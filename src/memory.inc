@@ -27,6 +27,7 @@
 .import __mem_prog1000
 .import __mem_prog9000
 .import __mem_prog9400
+.import __mem_prog9110
 
 .scope mem
 	asmbuffer       = __mem_asmbuffer
@@ -48,6 +49,7 @@
 	prog00		= __mem_prog00
 	prog1000	= __mem_prog1000
 	prog9000	= __mem_prog9000
+	prog9110	= __mem_prog9110
 	prog9400	= __mem_prog9400
 	debugsave	= __mem_debugsave
 	dbg00           = __mem_dbg00

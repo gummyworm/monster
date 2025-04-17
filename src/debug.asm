@@ -301,6 +301,13 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 	dex
 	bne :-
 
+; restore $9110-$9130
+	ldx #$20
+:	lda mem::prog9110-1,x
+	sta $9110-1,x
+	dex
+	bne :-
+
 	ldx #$f0
 ; restore $9400-$94f0
 :	lda mem::prog9400-1,x
@@ -693,13 +700,18 @@ trampoline_size=*-trampoline
 	dex
 	bne :-
 
+	jsr $fd8d	; RAM test & init RAM locations
 	jsr $fd52	; restore default I/O vectors
 	jsr $fdf9	; initialize I/O registers
-	jsr $fdca	; set top of RAM to $2000 (for unexpanded)
 	jsr $e518	; initialize hardware
 	jsr $e45b	; init BASIC vectors
 	jsr $e3a4	; init BASIC RAM locations
 	jsr $e404	; print startup message and init pointers
+	ldx #PROGRAM_STACK_START
+	stx sim::reg_sp
+	;txs
+	;jmp $C474
+
 	save_user_zp
 
 	sei
@@ -728,6 +740,7 @@ trampoline_size=*-trampoline
 .export __debug_save_prog_state
 .proc __debug_save_prog_state
 @vicsave=mem::prog9000
+@viasave=mem::prog9110
 @internalmem=mem::prog1000
 @colorsave=mem::prog9400
 .ifdef vic20
@@ -737,6 +750,13 @@ trampoline_size=*-trampoline
 	sta @vicsave-1,x
 	dex
 	bne @savevic
+
+	ldx #$20
+@savevias:
+	lda $9110-1,x
+	sta @viasave-1,x
+	dex
+	bne @savevias
 
 ; save $1000-$1100
 @save1000:
@@ -1061,8 +1081,18 @@ trampoline_size=*-trampoline
 ; Runs the user program until the next breakpoint or an NMI occurs
 .export __debug_go
 .proc __debug_go
+	jsr install_brk
+	jsr install_step	; install the STEP handler
+	jsr install_trampoline
+
 	lda #$00
 	sta sw_valid		; invalidate stopwatch
+
+	jsr irq::off
+	; disable NMIs
+	lda #$7f
+	sta $911e
+	sei
 
 	; run one step to get over breakpoint (if we're on one)
 	jsr __debug_step
@@ -1126,6 +1156,8 @@ trampoline_size=*-trampoline
 	ldy sim::reg_y
 	sty prev_reg_y
 
+	;jsr $fdf9
+	cli
 	jmp TRAMPOLINE
 .endproc
 

@@ -37,6 +37,7 @@
 .include "memory.inc"
 .include "ram.inc"
 .include "screen.inc"
+.include "sim6502.inc"
 .include "settings.inc"
 .include "source.inc"
 .include "state.inc"
@@ -747,6 +748,15 @@ main:	jsr key::getch
 	sta zp::editor_mode	; restore editor mode
 	lda @len
 	rts
+.endproc
+
+;*******************************************************************************
+; GO BASIC
+; Installs an NMI to return to the editor and (re)enters BASIC.
+.proc go_basic
+	ldxy #$c474
+	stxy sim::pc
+	jmp dbg::go
 .endproc
 
 ;*******************************************************************************
@@ -2254,6 +2264,7 @@ force_enter_insert=*+5
 	.byte K_PREV_BUFF	; C= + < previous buffer
 	.byte K_UDG_EDIT	; C= + U activate udg editor
 	.byte K_QUIT		; <- (return to COMMAND mode)
+	.byte K_GO_BASIC	; F2 (enter BASIC)
 @num_special_keys=*-@specialkeys
 .linecont +
 .define specialvecs ccleft, ccright, ccup, ccdown, \
@@ -2261,7 +2272,7 @@ force_enter_insert=*+5
 	symview::enter, command_link, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
-	next_buffer, prev_buffer, udgedit, cancel
+	next_buffer, prev_buffer, udgedit, cancel, go_basic
 .linecont -
 @specialvecslo: .lobytes specialvecs
 @specialvecshi: .hibytes specialvecs
