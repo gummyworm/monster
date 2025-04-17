@@ -2144,8 +2144,18 @@ force_enter_insert=*+5
 :	jsr insert_start
 	jsr src::after_cursor
 	pha
+
+	lda autoindent
+	pha
+	lda #$00
+	sta autoindent		; temporarily disable indent
+
 	lda #$0d
 	jsr insert
+
+	pla
+	sta autoindent		; restore indent
+
 	jsr ccup		; go up
 
 	pla			; did line start with TAB?
