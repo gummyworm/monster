@@ -553,7 +553,7 @@ __file_load_src:
 @done:	incw __file_load_address
 	RETURN_OK
 
-@src:	jmp src::insert
+@src:	jmp src::insert_on_load
 .endproc
 
 .BSS

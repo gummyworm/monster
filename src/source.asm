@@ -717,8 +717,6 @@ data:
 ; Callback to handle a line insertion. Various state needs to be shifted when
 ; this occurs (breakpoints, etc.)
 .proc on_line_inserted
-	incw lines
-
 	; update debug info: find all line programs in the current file with
 	; start lines greater than the current line and increment those
 	jsr __src_get_filename
@@ -988,6 +986,18 @@ data:
 .endproc
 
 ;*******************************************************************************
+; INSERT ON LOAD
+; Inserts a character into a buffer that is known to be "clean"
+; That means the user has not added breakpoints, debug-info, etc.
+; This should be used when loading a source file but not otherwise
+.export __src_insert_on_load
+.proc __src_insert_on_load
+	ldx #$01
+	skw
+	; fall through
+.endproc
+
+;*******************************************************************************
 ; INSERT
 ; Adds the character in .A to the buffer at the gap position (gap).
 ; If the character is not valid, it is not inserted, but the operation is
@@ -1000,12 +1010,12 @@ data:
 ;  - $120-$130: may be clobbered if newline is inserted
 .export __src_insert
 .proc __src_insert
-@len=r0
+@skip_insert_logic=r0
 @src=r2
 @dst=r4
-	; make sure char is displayable
-	cmp #$80
-	bcs @done
+	ldx #$00
+	stx @skip_insert_logic
+
 	cmp #$0d
 	beq :+
 	cmp #$0a
@@ -1014,6 +1024,8 @@ data:
 	beq :+
 	cmp #$20
 	bcc @done
+	cmp #$80
+	bcs @done	; not displayable
 
 :	pha
 	jsr mark_dirty
@@ -1058,8 +1070,11 @@ data:
 	cmp #$0d
 	bne :+
 	incw line
+	lda @skip_insert_logic
+	bne :+
 	jsr on_line_inserted
 :	incw cursorzp
+	incw lines
 @done:	RETURN_OK
 .endproc
 
