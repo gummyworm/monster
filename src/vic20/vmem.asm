@@ -1,5 +1,6 @@
 .include "finalex.inc"
 .include "ram.inc"
+.include "vaddrs.inc"
 .include "../macros.inc"
 .include "../memory.inc"
 
@@ -74,13 +75,12 @@
 ;  - .A:  the bank number of the physical address
 .export __vmem_translate
 .proc __vmem_translate
-	lda #FINAL_BANK_USER	; default to user's bank
 	cpy #>$0400
 	bcs :+
 
 @00:	; $00-$400 is stored in the prog00 buffer
-	add16 #(mem::prog00-$00)
-	lda #FINAL_BANK_MAIN
+	add16 #(prog00-$00)
+	lda #FINAL_BANK_FASTCOPY
 	rts
 
 :	cpy #>$1000
@@ -89,8 +89,8 @@
 	bcs :+
 
 @1000:	; $1000-$1100 is stored in the prog1000 buffer
-	add16 #(mem::prog1000-$1000)
-	lda #FINAL_BANK_MAIN
+	add16 #(prog1000-$1000)
+	lda #FINAL_BANK_FASTCOPY
 	rts
 
 :	cpy #>$2000
@@ -107,8 +107,8 @@
 	bcs @done		; $9010-$9100 is not buffered anywhere
 
 @9000:	; $9000-$9010 is stored in the prog9000 buffer
-	add16 #(mem::prog9000-$9000)
-	lda #FINAL_BANK_MAIN
+	add16 #(prog9000-$9000)
+	lda #FINAL_BANK_FASTCOPY
 	rts
 
 :	cpy #>$9400
@@ -117,8 +117,8 @@
 @9400:	; $9400-$94f0 is stored in the prog9400 buffer
 	cpx #$f0
 	bcs @done			; if addr > $94ef, not virtual
-	add16 #(mem::prog9400-$9400)
-	lda #FINAL_BANK_MAIN
+	add16 #(prog9400-$9400)
+	lda #FINAL_BANK_FASTCOPY
 	rts
 
 @done:	; everything else is stored at its unaltered address in the

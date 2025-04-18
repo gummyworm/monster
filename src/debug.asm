@@ -195,135 +195,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 in_rom:   .byte 0	; !0: the next instruction is in $c000-$ffff
 is_step:  .byte 0	; !0: we are running a STEP instruction
 
-;******************************************************************************
-; RESTORE DEBUG ZP TRACE
-; Restores the state of the debugger's zeropage for traces
-.macro restore_debug_zp_trace
-	ldx #$0f
-	; TODO: figure out what exactly must be saved
-:	lda mem::dbg00,x
-	sta $00,x
-	lda mem::dbg00+$d0,x
-	sta $d0,x
-	dex
-	bpl :-
-.endmacro
-
-;******************************************************************************
-; SAVE USER ZP
-; Saves the state of the user's zeropage
-.macro save_user_zp
-	ldx #$00
-:	lda $00,x
-	sta mem::prog00,x
-	lda $100,x
-	sta mem::prog00+$100,x
-	lda $200,x
-	sta mem::prog00+$200,x
-	lda $300,x
-	sta mem::prog00+$300,x
-	dex
-	bne :-
-.endmacro
-
-;******************************************************************************
-; RESTORE USER ZP
-; Restores the state of the user's zeropage
-.macro restore_user_zp
-	ldx #$00
-:	lda mem::prog00,x
-	sta $00,x
-	lda mem::prog00+$100,x
-	sta $100,x
-	lda mem::prog00+$200,x
-	sta $200,x
-	lda mem::prog00+$300,x
-	sta $300,x
-	dex
-	bne :-
-.endmacro
-
 .CODE
-
-;******************************************************************************
-; RESTORE_DEBUG_STATE
-; Restores the saved debugger state
-.proc restore_debug_state
-@vicsave=mem::dbg9000
-@colorsave=mem::dbg9400
-	; disable NMI/IRQs (we will be clobbering their vectors)
-	lda #$7f
-	sta $911e
-	sta $912e
-
-	ldx #$10
-:	lda @vicsave-1,x
-	sta $9000-1,x
-	dex
-	bne :-
-
-	ldx #$f0
-; save $9400-$94f0
-:	lda @colorsave-1,x
-	sta $9400-1,x
-	dex
-	bne :-
-
-	; reinit the bitmap
-	jsr scr::init
-
-	; restore the screen ($1100-$2000)
-	jmp scr::restore
-.endproc
-
-;******************************************************************************
-; RESTORE_PROGSTATE
-; restores the saved program state
-.proc __debug_restore_progstate
-.ifdef vic20
-; restore $9000-$9010
-	ldx #$10
-:	lda mem::prog9000-1,x
-	sta $9000-1,x
-	dex
-	bne :-
-
-; restore $1000-$1100
-:	lda mem::prog1000,x
-	sta $1000,x
-	dex
-	bne :-
-
-	ldx #$10
-; restore $9000-$9010
-:	lda mem::prog9000-1,x
-	sta $9000-1,x
-	dex
-	bne :-
-
-; restore $9110-$9130
-	ldx #$20
-:	lda mem::prog9110-1,x
-	sta $9110-1,x
-	dex
-	bne :-
-
-	ldx #$f0
-; restore $9400-$94f0
-:	lda mem::prog9400-1,x
-	sta $9400-1,x
-	dex
-	bne :-
-
-	lda #$4c
-	sta zp::jmpaddr
-	; restore the user $1100 data
-	CALL FINAL_BANK_FASTCOPY, fcpy::restore
-	rts
-.else
-	rts
-.endif
-.endproc
 
 ;******************************************************************************
 ; START
@@ -426,6 +298,7 @@ brkhandler2:
 ;--------------------------------------
 ; this portion runs in the debugger bank
 	jmp debug_brk
+	; jmp nmi_edit (when installed for editor)
 brkhandler2_size=*-brkhandler2
 
 ;******************************************************************************
@@ -529,6 +402,19 @@ trampoline_size=*-trampoline
 	dec @cnt
 	bpl @l0
 
+	rts
+.endproc
+
+;******************************************************************************
+; INSTALL BRK EDIT
+.proc install_brk_edit
+	jsr install_brk
+
+	; overwrite the JMP address to go to edit handler
+	lda #<nmi_edit
+	sta BRK_HANDLER_ADDR+(brkhandler2_size-2)
+	lda #>nmi_edit
+	sta BRK_HANDLER_ADDR+(brkhandler2_size-1)
 	rts
 .endproc
 
@@ -650,31 +536,6 @@ trampoline_size=*-trampoline
 @done:	rts
 .endproc
 
-;******************************************************************************
-; SAVE_DEBUG_STATE
-; saves memory likely to be clobbered by the user's
-; program (namely the screen)
-.proc save_debug_state
-@vicsave=mem::dbg9000
-@colorsave=mem::dbg9400
-	ldx #$10
-@savevic:
-	lda $9000-1,x
-	sta @vicsave-1,x
-	dex
-	bne @savevic
-
-	ldx #$f0
-; save $9400-$94f0
-@savecolor:
-	lda $9400-1,x
-	sta @colorsave-1,x
-	dex
-	bne @savecolor
-
-	; backup the screen
-	jmp scr::save
-.endproc
 
 ;******************************************************************************
 ; CLRSTATE
@@ -683,8 +544,8 @@ trampoline_size=*-trampoline
 .export __debug_clrstate
 .proc __debug_clrstate
 	sei
-	jsr save_debug_state
-	jsr save_debug_zp
+	jsr fcpy::save_debug_state
+	jsr fcpy::save_debug_zp
 
 	lda #$7f
 	sta $911e			; disable NMI's
@@ -712,8 +573,10 @@ trampoline_size=*-trampoline
 	;txs
 	;jmp $C474
 
-	save_user_zp
+	ldxy #@save_done	; need to pass return address
+	jmp fcpy::save_user_zp
 
+@save_done:
 	sei
 	lda #$7f
 	sta $911e			; disable NMI's
@@ -721,63 +584,70 @@ trampoline_size=*-trampoline
 	; restore the debug (Monster's) low memory
 	; this has the routines (in the shared RAM space) we need to do the rest
 	; of the banekd program state save (save_prog_state)
-	jsr restore_debug_zp
-	jsr restore_debug_low
+	jsr fcpy::restore_debug_zp
+	jsr fcpy::restore_debug_low
 
 	; save the initialized hi RAM ($1000-$2000) and other misc locations of
 	; the user program
-	jsr __debug_save_prog_state
+	jsr fcpy::save_prog_state
 
 	; restore the rest of Monster's RAM and enter the application
-	jsr restore_debug_state
+	jsr fcpy::restore_debug_state
 	jsr irq::on
 	jmp edit::init
 .endproc
 
 ;******************************************************************************
-; SAVE_PROG_STATE
-; saves memory clobbered by the debugger (screen, VIC registers and color)
-.export __debug_save_prog_state
-.proc __debug_save_prog_state
-@vicsave=mem::prog9000
-@viasave=mem::prog9110
-@internalmem=mem::prog1000
-@colorsave=mem::prog9400
-.ifdef vic20
-	ldx #$10
-@savevic:
-	lda $9000-1,x
-	sta @vicsave-1,x
-	dex
-	bne @savevic
+; NMI EDIT
+; This is the NMI handler for invoking BASIC from the editor.
+; It simply saves the state of BASIC and jumps back to the editor main loop
+.proc nmi_edit
+	lda $912e
+	sta sim::via2+$e
+	lda #$7f
+	sta $911e	; disable all NMI's
+	sta $911d
 
-	ldx #$20
-@savevias:
-	lda $9110-1,x
-	sta @viasave-1,x
-	dex
-	bne @savevias
+	pla
+	sta sim::reg_y
+	pla
+	sta sim::reg_x
+	pla
+	sta sim::reg_a
 
-; save $1000-$1100
-@save1000:
-	lda $1000,x
-	sta @internalmem,x
-	dex
-	bne @save1000
+	pla
+	sta sim::reg_p
+	and #$10	; mask BRK flag
+	sta is_brk
 
-	ldx #$f0
-; save $9400-$94f0
-@savecolor:
-	lda $9400-1,x
-	sta @colorsave-1,x
-	dex
-	bne @savecolor
+	pla
+	sta sim::pc
+	pla
+	sta sim::pc+1
+	tsx
+	stx sim::reg_sp
 
-	; backup the user $1100-$2000 data
-	JUMP FINAL_BANK_FASTCOPY, fcpy::save
-.else
-	rts
-.endif
+	; clear decimal in case user set it
+	cld
+
+	sei
+
+	; reinit the debugger's SP
+	ldx #$ff
+	txs
+
+	; save the user's zeropage and restore the debugger's
+	ldxy #@save_done	; need to pass return address
+	jmp fcpy::save_user_zp
+
+@save_done:
+	jsr fcpy::restore_debug_low
+	jsr fcpy::restore_debug_zp
+
+	; save program state and swap the debugger state in
+	jsr swapout
+        jsr irq::on		; reinstall the main IRQ
+	jmp edit::init
 .endproc
 
 ;******************************************************************************
@@ -794,7 +664,6 @@ trampoline_size=*-trampoline
 	lda #$7f
 	sta $911e	; disable all NMI's
 	sta $911d
-	sta $912e	; disable all NMI's
 
 	; TODO: save VIA timers?
 	;lda $9114
@@ -852,9 +721,12 @@ trampoline_size=*-trampoline
 	txs
 
 	; save the user's zeropage and restore the debugger's
-	save_user_zp
-	jsr restore_debug_low
-	jsr restore_debug_zp
+	ldxy #@save_done	; need to pass return address
+	jmp fcpy::save_user_zp
+
+@save_done:
+	jsr fcpy::restore_debug_low
+	jsr fcpy::restore_debug_zp
 
 	; save program state and swap the debugger state in
 	jsr swapout
@@ -1007,73 +879,33 @@ trampoline_size=*-trampoline
 @done:	rts
 .endproc
 
-;*****************************************************************************
-; RESTORE DEBUG ZP
-; Restores the $00-$100 values for the debugger
-.proc restore_debug_zp
-	ldx #$00
-:	lda mem::dbg00,x
-	sta $00,x
-	dex
-	bne :-
-	rts
-.endproc
-
 ;******************************************************************************
-; RESTORE DEBUG ZP
-; Restores the state of the debugger's zeropage
-.proc restore_debug_low
-	; get return address (stack will be clobbered)
-	pla
-	clc
-	adc #$01
-	sta @ret
-	pla
-	adc #$00
-	sta @ret+1
+; GO BASIC
+.export __debug_go_basic
+.proc __debug_go_basic
+	; install the NMI handler to return to editor
+	jsr install_brk_edit
 
-	ldx #$00
-:	lda mem::dbg00+$100,x
-	sta $100,x
-	lda mem::dbg00+$200,x
-	sta $200,x
-	dex
-	bne :-
+	; install trampoline code
+	jsr install_trampoline
 
-	; copy around the NMI vector
-	ldx #$100-$1a
-:	lda mem::dbg00+$31a,x
-	sta $31a,x
-	dex
-	bne :-
+	; disable NMIs
+	lda #$7f
+	sta $911e
+	sei
 
-	ldx #$18-1
-:	lda mem::dbg00+$300,x
-	sta $300,x
-	dex
-	bpl :-
+	jsr irq::off
 
-@ret=*+1
-	jmp $f00d
-.endproc
+	; write jsr $fe39 (init timer) to the pre-run buffer
+	lda #$20
+	sta go_pre_run
+	lda #$39
+	sta go_pre_run+1
+	lda #$fe
+	sta go_pre_run+2
 
-;******************************************************************************
-; SAVE DEBUG ZP
-; Saves the state of the debugger's zeropage
-.proc save_debug_zp
-@zp=mem::dbg00
-	ldx #$00
-@l0:	lda $00,x
-	sta @zp,x
-	lda $100,x
-	sta @zp+$100,x
-	lda $200,x
-	sta @zp+$200,x
-	lda $300,x
-	sta @zp+$300,x
-	dex
-	bne @l0
-	rts
+	; begin execution
+	jmp __debug_go_trampoline
 .endproc
 
 ;******************************************************************************
@@ -1081,14 +913,16 @@ trampoline_size=*-trampoline
 ; Runs the user program until the next breakpoint or an NMI occurs
 .export __debug_go
 .proc __debug_go
+	; install the NMI, STEP, and TRAMPOLINE handlers
 	jsr install_brk
-	jsr install_step	; install the STEP handler
+	jsr install_step
 	jsr install_trampoline
 
 	lda #$00
 	sta sw_valid		; invalidate stopwatch
 
 	jsr irq::off
+
 	; disable NMIs
 	lda #$7f
 	sta $911e
@@ -1102,6 +936,21 @@ trampoline_size=*-trampoline
 :	inc breakpoints_active
 	jsr install_breakpoints
 
+	; write NOP; NOP; NOP to the pre-run buffer
+	lda #$ea
+	sta go_pre_run
+	sta go_pre_run+1
+	sta go_pre_run+2
+
+	; fall through to __debug_go_trampoline
+.endproc
+
+;******************************************************************************
+; GO TRAMPOLINE
+; Saves the debugger state and begins execution at the current simulator
+; PC value
+.export __debug_go_trampoline
+.proc __debug_go_trampoline
 	; write the address to bounce to
 	lda sim::pc
 	sta zp::bankval
@@ -1124,9 +973,12 @@ trampoline_size=*-trampoline
 	sta $0314+1
 	lda #DEFAULT_900F
 	sta $900f
-	jsr save_debug_zp
-	restore_user_zp
 
+	jsr fcpy::save_debug_zp
+	ldxy #@restore_done	; need to pass return address
+	jmp fcpy::restore_user_zp
+
+@restore_done:
 	; reinstall NMI
 	lda #<NMI_HANDLER_ADDR
 	sta $0318
@@ -1141,6 +993,13 @@ trampoline_size=*-trampoline
 	sta $911e
 	sta $911d	; ack all interrupts
 	sta $912d
+.endproc
+
+go_pre_run:
+	; jsr $fccf		; restore for STOP
+	nop
+	nop
+	nop
 
 	ldx sim::reg_sp
 	txs			; restore user stack
@@ -1156,10 +1015,8 @@ trampoline_size=*-trampoline
 	ldy sim::reg_y
 	sty prev_reg_y
 
-	;jsr $fdf9
 	cli
 	jmp TRAMPOLINE
-.endproc
 
 ;******************************************************************************
 ; JUMP
@@ -1373,8 +1230,8 @@ trampoline_size=*-trampoline
 	; disable coloring in the IRQ
 	jsr draw::coloroff
 
-	jsr save_debug_state
-	jsr __debug_restore_progstate
+	jsr fcpy::save_debug_state
+	jsr fcpy::restore_progstate
 
 	; wait for a key to swap the state back
 	jsr key::waitch
@@ -1383,7 +1240,7 @@ trampoline_size=*-trampoline
 	inc mem::coloron
 
 	; restore debugger state
-	jmp restore_debug_state
+	jmp fcpy::restore_debug_state
 .endproc
 
 ;******************************************************************************
@@ -1613,8 +1470,8 @@ trampoline_size=*-trampoline
 .proc swapin
 	; swap entire user RAM in (needed if we don't know what memory will
 	; be changed before next BRK)
-	jsr save_debug_state
-	jmp __debug_restore_progstate
+	jsr fcpy::save_debug_state
+	jmp fcpy::restore_progstate
 .endproc
 
 ;******************************************************************************
@@ -1623,8 +1480,8 @@ trampoline_size=*-trampoline
 ; debug state.
 .proc swapout
 	; save the program state before we restore the debugger's
-	jsr __debug_save_prog_state
-	jmp restore_debug_state		; restore debugger state
+	jsr fcpy::save_prog_state
+	jmp fcpy::restore_debug_state		; restore debugger state
 .endproc
 
 ;*******************************************************************************
@@ -2288,7 +2145,7 @@ __debug_remove_breakpoint:
 .proc activate_monitor
 	lda #DEBUG_IFACE_TEXT
 	sta __debug_interface
-	jsr save_debug_state
+	jsr fcpy::save_debug_state
 	jmp edit::enterconsole
 .endproc
 

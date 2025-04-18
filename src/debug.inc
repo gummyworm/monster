@@ -11,6 +11,7 @@
 .import __debug_gotoaddr
 .import __debug_load_file
 .import __debug_go
+.import __debug_go_basic
 .import __debug_init
 .import __debug_interface
 .import __debug_numbreakpoints
@@ -44,13 +45,13 @@
 	gotoaddr           = __debug_gotoaddr
 	loadfile           = __debug_load_file
 	go                 = __debug_go
+	go_basic           = __debug_go_basic
 	init               = __debug_init
 	interface          = __debug_interface
 	numbreakpoints     = __debug_numbreakpoints
 	regs_contents      = __debug_regs_contents
 	removebreakpoint   = __debug_remove_breakpoint
 	removebreakpointbyid = __debug_removebreakpointbyid
-	save_progstate     = __debug_save_prog_state
 	shift_breakpointsd = __debug_shift_breakpointsd
 	shift_breakpointsu = __debug_shift_breakpointsu
 	start              = __debug_start

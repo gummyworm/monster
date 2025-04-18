@@ -3,305 +3,376 @@
 .include "../screen.inc"
 .include "../zeropage.inc"
 
+; TODO
+RETURN_ADDR = $7fff
+
+.export prog00
+.export prog1000
+.export prog9000
+.export prog9110
+.export prog9400
+.export dbg00
+.export dbg9000
+.export dbg9400
+
+
+.SEGMENT "SETUP"
+
 ;******************************************************************************
-; CONSTANTS
+; INIT
+.export __fastcopy_init
+.proc __fastcopy_init
+	rts
+.endproc
+
+.SEGMENT "FASTCOPY_BSS"
+
+;******************************************************************************
+; PROG
+; backup for the user's program during debug
+progsave:
+prog00:   .res $400	; $00-$0400
+prog1000: .res $1000	; $1000-$2000
+prog9000: .res $10	; $9000-$9010
+prog9110: .res $20	; $9110-$9130
+prog9400: .res $f0	; $9400-$94f0
+
+;******************************************************************************
+; DBG
+; backup for debugger/editor memory
+; we back up less for debug because we can just re-init some state
+dbg00:   .res $400	; $00-$400
+dbg9000: .res $10	; $9000-$9010
+dbg9400: .res $f0	; $9400-$94f0
+
+.CODE
+
+;******************************************************************************
+; SAVE USER ZP
+; Saves the state of the user's zeropage
+; IN:
+;  - .XY: the resturn address (the stack s clobbered by this procedure)
+.export __fastcopy_save_user_zp
+.proc __fastcopy_save_user_zp
+	stxy RETURN_ADDR
+	JUMP FINAL_BANK_FASTCOPY, save_user_zp
+.endproc
+
+;******************************************************************************
+; RESTORE USER ZP
+; Restores the state of the user's zeropage
+; IN:
+;  - .XY: the resturn address (the stack s clobbered by this procedure)
+.export __fastcopy_restore_user_zp
+.proc __fastcopy_restore_user_zp
+	stxy RETURN_ADDR
+	JUMP FINAL_BANK_FASTCOPY, restore_user_zp
+.endproc
 
 .SEGMENT "FASTCOPY"
 
 ;******************************************************************************
-; SCREEN
-; Copies the screen ($1100) to ($a000)
-; this is the address that the generated unrolled loop
-; will reside in
-.export __fastcopy_save
-__fastcopy_save = $2000
+.proc return
+	; install trampoline for returning to debugger/editor
+	lda #FINAL_BANK_MAIN
+	sta $9c02
+	; -- in user bank
+	;    jmp <return address>
+.endproc
 
-.export __fastcopy_restore
-__fastcopy_restore = $2000 + $2f00
-
-.export __fast_clr
-__fast_clr = $a000	; fast clear entrypoint
-fast_clr2 = $727f	; clear last 6 columns
-
-.segment "SETUP"
-;******************************************************************************
-; INIT
-; Initializes the fast copy routine to the given bank
-; IN:
-;  - .A: the bank to store the fast copy code to
-.export __fastcopy_init
-.proc __fastcopy_init
-@src=r1
-@dst=r3
-@cnt=r5
-@addr=r7
-@i=r9
-@bank=ra
-	sta @bank
-
-	ldxy #BITMAP_ADDR
-	stxy @src	; source for backup
-	ldxy #$a000
-	stxy @dst	; destination for backup
-	ldxy #$f00/2
-	stxy @cnt	; bytes to copy
-	ldxy #__fastcopy_save
-	stxy @addr
-
-;--------------------------------------
-; assemble the following code
-;COPY:
-; LDA $1100,x
-; STA $a000,x
-; LDA $1102,x
-; STA $a002,x
-; ...
-; LDA $1ff0-1,x
-; STA $aff0-1,x
-; INX
-; CPX #2
-; BEQ DONE
-; JMP COPY
-;DONE:
-; RTS
-;--------------------------------------
-; LDX #$00
-	lda #$00
-	sta @i
-@prefix0:
-	ldx @i
-	lda @prefix,x
-	sta zp::bankval
-	ldxy @addr
-	lda @bank
-	jsr ram::store
-	incw @addr
-	inc @i
-	lda @i
-	cmp #2
-	bcc @prefix0
-
-; COPY LDA ABS,X; STA ABS,X, ....
-@copy_save:
-	lda #$00
-	sta @i
-	lda @src
-	sta @loadstore+1
-	lda @src+1
-	sta @loadstore+2
-
-	lda @dst
-	sta @loadstore+4
-	lda @dst+1
-	sta @loadstore+5
-
-@l0:	ldx @i
-	lda @loadstore,x
-	sta zp::bankval
-	ldxy @addr
-	lda @bank
-	jsr ram::store
-	incw @addr
-	inc @i
-	lda @i
-	cmp #6
-	bcc @l0
-
-	incw @src
-	incw @src
-	incw @dst
-	incw @dst
-	decw @cnt
-	ldxy @cnt
-	cmpw #0
-	bne @copy_save
-
-; copy the suffix
-	lda #$00
-	sta @i
-@save_addendum:
-	ldx @i
-	lda @save_suffix,x
-	sta zp::bankval
-	ldxy @addr
-	lda @bank
-	jsr ram::store
-	incw @addr
-	inc @i
-	lda @i
-	cmp #9
-	bcc @save_addendum
-
-@savescr_done:
-;--------------------------------------
-; assemble the following code
-; LDA $a000
-; STA $1100
-; ...
-; LDA $aeff
-; STA $1fff
-; RTS
-;--------------------------------------
-	ldxy #$a000
-	stxy @src	; source for restore
-	ldxy #BITMAP_ADDR
-	stxy @dst	; destination for restore
-	ldxy #$f00/2
-	stxy @cnt	; bytes to copy
-	ldxy #__fastcopy_restore
-	stxy @addr
-
-	lda #$00
-	sta @i
-@prefix1:
-	ldx @i
-	lda @prefix,x
-	sta zp::bankval
-	ldxy @addr
-	lda @bank
-	jsr ram::store
-	incw @addr
-	inc @i
-	lda @i
-	cmp #2
-	bcc @prefix1
-
-; COPY LDA ABS,X; STA ABS,X, ....
-@copy_restore:
-	lda #$00
-	sta @i
-	lda @src
-	sta @loadstore+1
-	lda @src+1
-	sta @loadstore+2
-
-	lda @dst
-	sta @loadstore+4
-	lda @dst+1
-	sta @loadstore+5
-
-@l1:	ldx @i
-	lda @loadstore,x
-	sta zp::bankval
-	ldxy @addr
-	lda @bank
-	jsr ram::store
-	incw @addr
-	inc @i
-	lda @i
-	cmp #6
-	bcc @l1
-
-	incw @src
-	incw @src
-	incw @dst
-	incw @dst
-	decw @cnt
-	ldxy @cnt
-	cmpw #0
-	bne @copy_restore
-
-; copy the suffix
-	lda #$00
-	sta @i
-@restore_addendum:
-	ldx @i
-	lda @restore_suffix,x
-	sta zp::bankval
-	ldxy @addr
-	lda @bank
-	jsr ram::store
-	incw @addr
-	inc @i
-	lda @i
-	cmp #9
-	bcc @restore_addendum
-
-	ldxy @addr
-	lda @bank
-	jsr ram::store
-
-	jmp gen_bm_clr
-
-@prefix:
+;*****************************************************************************
+; RESTORE DEBUG ZP
+; Restores the $00-$100 values for the debugger
+.export __fastcopy_restore_debug_zp
+.proc __fastcopy_restore_debug_zp
 	ldx #$00
-
-@loadstore:
-	lda $f00d,x
-	sta $f00d,x
-
-@save_suffix:
-	inx
-	cpx #2
-	beq :+
-	jmp __fastcopy_save+2
-:	rts
-
-@restore_suffix:
-	inx
-	cpx #2
-	beq :+
-	jmp __fastcopy_restore+2
-:	rts
+:	lda dbg00,x
+	sta $00,x
+	dex
+	bne :-
+	rts
 .endproc
 
 ;******************************************************************************
-; GEN_BM_CLR
-; Generates the code to clear the bitmap
-; The entrypoint is at __fast_clr.
-; The routine jumps to another block of RAM when the current one is full
-.proc gen_bm_clr
-@addr=r0
-@target=r2
-@row=r4
-	lda #$a9	; LDA #
-	sta24 #FINAL_BANK_FAST, #__fast_clr
+; SAVE DEBUG ZP
+; Saves the state of the debugger's zeropage
+.export __fastcopy_save_debug_zp
+.proc __fastcopy_save_debug_zp
+@zp=dbg00
+	ldx #$00
+@l0:	lda $00,x
+	sta @zp,x
+	lda $100,x
+	sta @zp+$100,x
+	lda $200,x
+	sta @zp+$200,x
+	lda $300,x
+	sta @zp+$300,x
+	dex
+	bne @l0
+	rts
+.endproc
 
-	lda #$00	; #$00
-	sta @target
-	sta24 #FINAL_BANK_FAST, #__fast_clr+1
 
-	ldxy #__fast_clr+2
-	stxy @addr
+;******************************************************************************
+; RESTORE DEBUG ZP
+; Restores the state of the debugger's zeropage
+.export __fastcopy_restore_debug_low
+.proc __fastcopy_restore_debug_low
+	; get return address (stack will be clobbered)
+	pla
+	clc
+	adc #$01
+	sta @ret
+	pla
+	adc #$00
+	sta @ret+1
 
-	lda #$11
-	sta @target+1
-@gen_sta:
-	lda #$8d	; STA abs
-	sta24 #FINAL_BANK_FAST, @addr
-	incw @addr
+	ldx #$00
+:	lda dbg00+$100,x
+	sta $100,x
+	lda dbg00+$200,x
+	sta $200,x
+	dex
+	bne :-
 
-	lda @target	; LSB
-	sta24 #FINAL_BANK_FAST, @addr
-	incw @addr
+	; copy around the NMI vector
+	ldx #$100-$1a
+:	lda dbg00+$31a,x
+	sta $31a,x
+	dex
+	bne :-
 
-	lda @target+1	; MSB
-	sta24 #FINAL_BANK_FAST, @addr
-	incw @addr
+	ldx #$18-1
+:	lda dbg00+$300,x
+	sta $300,x
+	dex
+	bpl :-
 
-	incw @target
+	; TODO: trampoline (switch bank)
+@ret=*+1
+	jmp $f00d
+.endproc
 
-	ldxy @addr
-	cmpw #fast_clr2+(192*6*3)	; sizeof(sta abs)*192*6
-	beq @done
-	cmpw #__fast_clr+(192*14*3)+2	; sizeof(lda #$00)+192*14*sizeof(sta abs)
-	bne @gen_sta
+;******************************************************************************
+; RESTORE_DEBUG_STATE
+; Restores the saved debugger state
+.export __fastcopy_restore_debug_state
+.proc __fastcopy_restore_debug_state
+@vicsave=dbg9000
+@colorsave=dbg9400
+	; disable NMI/IRQs (we will be clobbering their vectors)
+	lda #$7f
+	sta $911e
+	sta $912e
 
-	lda #$4c	; JMP
-	sta24 #FINAL_BANK_FAST, @addr
-	incw @addr
-	lda #<fast_clr2	; LSB
-	sta24 #FINAL_BANK_FAST, @addr
-	incw @addr
-	lda #>fast_clr2	; MSB
-	sta24 #FINAL_BANK_FAST, @addr
-	incw @addr
+	ldx #$10
+:	lda @vicsave-1,x
+	sta $9000-1,x
+	dex
+	bne :-
 
-	ldxy #fast_clr2
-	stxy @addr
-	jmp @gen_sta
+	ldx #$f0
+; save $9400-$94f0
+:	lda @colorsave-1,x
+	sta $9400-1,x
+	dex
+	bne :-
 
-@done:	lda #$60			; RTS
-	sta24 #FINAL_BANK_FAST, @addr
+; restore $1000-$2000
+	lda #>prog1000
+	sta @addr+1
+	lda #$10
+	sta @addr2+1		; start from $1000
+:
+@addr=*+1
+	lda prog1000,x
+@addr2=*+1
+	sta $1000,x
+	dex
+	bne :-
+	inc @addr+1		; next page
+	inc @addr2
+	lda @addr2+1
+	cmp #$20		; at $2000 yet?
+	bne :-			; loop until we are
+
+	; reinit the bitmap and return
+	JUMP FINAL_BANK_MAIN, scr::init
+.endproc
+
+;******************************************************************************
+; SAVE_DEBUG_STATE
+; saves memory likely to be clobbered by the user's
+; program (namely the screen)
+.export __fastcopy_save_debug_state
+.proc __fastcopy_save_debug_state
+@vicsave=dbg9000
+@colorsave=dbg9400
+	ldx #$10
+@savevic:
+	lda $9000-1,x
+	sta @vicsave-1,x
+	dex
+	bne @savevic
+
+	ldx #$f0
+; save $9400-$94f0
+@savecolor:
+	lda $9400-1,x
+	sta @colorsave-1,x
+	dex
+	bne @savecolor
+
+	; backup the screen
+	jmp scr::save
+.endproc
+
+;******************************************************************************
+; SAVE USER ZP
+; Saves the state of the user's zeropage
+.proc save_user_zp
+	ldx #$00
+:	lda $00,x
+	sta prog00,x
+	lda $100,x
+	sta prog00+$100,x
+	lda $200,x
+	sta prog00+$200,x
+	lda $300,x
+	sta prog00+$300,x
+	dex
+	bne :-
+@ret:	jmp RETURN_ADDR
+.endproc
+
+;******************************************************************************
+; RESTORE USER ZP
+; Restores the state of the user's zeropage
+; IN:
+;  - .XY: the resturn address (the stack s clobbered by this procedure)
+.proc restore_user_zp
+	stxy @ret
+
+	ldx #$00
+:	lda prog00,x
+	sta $00,x
+	lda prog00+$100,x
+	sta $100,x
+	lda prog00+$200,x
+	sta $200,x
+	lda prog00+$300,x
+	sta $300,x
+	dex
+	bne :-
+
+@ret:	jmp $f00d
+.endproc
+
+;******************************************************************************
+; RESTORE_PROGSTATE
+; restores the saved program state
+.export __fastcopy_restore_prog_state
+.proc __fastcopy_restore_prog_state
+.ifdef vic20
+; restore $9000-$9010
+	ldx #$10
+:	lda prog9000-1,x
+	sta $9000-1,x
+	dex
+	bne :-
+
+; restore $1000-$2000
+	lda #>prog1000
+	sta @addr+1
+	lda #$10
+	sta @addr2+1		; start from $1000
+:
+@addr=*+1
+	lda prog1000,x
+@addr2=*+1
+	sta $1000,x
+	dex
+	bne :-
+	inc @addr+1		; next page
+	inc @addr2
+	lda @addr2+1
+	cmp #$20		; at $2000 yet?
+	bne :-			; loop until we are
+
+; restore $9110-$9130 (VIAs)
+	ldx #$20
+:	lda prog9110-1,x
+	sta $9110-1,x
+	dex
+	bne :-
+
+	ldx #$f0
+; restore $9400-$94f0
+:	lda prog9400-1,x
+	sta $9400-1,x
+	dex
+	bne :-
+.endif
+	rts
+.endproc
+
+;******************************************************************************
+; SAVE_PROG_STATE
+; Saves memory clobbered by the debugger (screen, VIC registers and color)
+.export __fastcopy_save_prog_state
+.proc __fastcopy_save_prog_state
+@vicsave=prog9000
+@viasave=prog9110
+@internalmem=prog1000
+@colorsave=prog9400
+.ifdef vic20
+	ldx #$10
+@savevic:
+	lda $9000-1,x
+	sta @vicsave-1,x
+	dex
+	bne @savevic
+
+	ldx #$20
+@savevias:
+	lda $9110-1,x
+	sta @viasave-1,x
+	dex
+	bne @savevias
+
+; save $1000-$1100
+@save1000:
+	lda $1000,x
+	sta @internalmem,x
+	dex
+	bne @save1000
+
+; save $1000-$2000
+	lda #>prog1000
+	sta @addr+1
+	lda #$10
+	sta @addr2+1		; start from $1000
+:
+@addr=*+1
+	lda prog1000,x
+@addr2=*+1
+	sta $1000,x
+	dex
+	bne :-
+	inc @addr+1		; next page
+	inc @addr2+1
+	lda @addr2+1
+	cmp #$20		; at $2000 yet?
+	bne :-			; loop until we are
+
+	ldx #$f0
+; save $9400-$94f0
+@savecolor:
+	lda $9400-1,x
+	sta @colorsave-1,x
+	dex
+	bne @savecolor
+.endif
 	rts
 .endproc

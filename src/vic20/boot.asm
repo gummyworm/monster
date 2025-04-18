@@ -17,8 +17,9 @@
 .include "../labels.inc"
 .include "../macros.inc"
 .include "../memory.inc"
-.include "../settings.inc"
 .include "../screen.inc"
+.include "../settings.inc"
+.include "../sim6502.inc"
 .include "../source.inc"
 .include "../vmem.inc"
 .include "../zeropage.inc"
@@ -72,6 +73,10 @@
 .import __LABELS_LOAD__
 .import __LABELS_RUN__
 .import __LABELS_SIZE__
+
+.import __FASTCOPY_LOAD__
+.import __FASTCOPY_RUN__
+.import __FASTCOPY_SIZE__
 
 .import __UDGEDIT_LOAD__
 .import __UDGEDIT_RUN__
@@ -532,6 +537,10 @@ relocs:
 .word __LABELS_LOAD__, __LABELS_RUN__, __LABELS_SIZE__
 .byte FINAL_BANK_SYMBOLS
 
+; FASTCOPY
+.word __FASTCOPY_LOAD__, __FASTCOPY_RUN__, __FASTCOPY_SIZE__
+.byte FINAL_BANK_FASTCOPY
+
 ; UDG EDITOR
 .word __UDGEDIT_LOAD__, __UDGEDIT_RUN__, __UDGEDIT_SIZE__
 .byte FINAL_BANK_UDGEDIT
@@ -581,6 +590,10 @@ num_relocs=(*-relocs)/7
 	jsr dbgi::initonce
 	jsr asm::reset
 	jsr buff::clear		; clear copy buffer
+
+	; initialize PC to warm start
+	ldxy #$c474
+	stxy sim::pc
 
 	CALL FINAL_BANK_CONSOLE, con::init
 

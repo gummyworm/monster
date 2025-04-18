@@ -12,6 +12,7 @@
 .include "memory.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
+.include "vic20/vaddrs.inc"
 
 .import STEP_HANDLER_ADDR
 .import STEP_EXEC_BUFFER
@@ -298,10 +299,10 @@ msave=*+1
 	lda __sim_pc
 	clc
 	adc #$02
-	sta mem::prog00+$100-1,y	; store LSB of return address
+	sta prog00+$100-1,y	; store LSB of return address
 	lda __sim_pc+1
 	adc #$00
-	sta mem::prog00+$100,y		; store MSB of return address
+	sta prog00+$100,y		; store MSB of return address
 	decw __sim_reg_sp		; SP -= 2
 	decw __sim_reg_sp
 	lda @operand
@@ -340,11 +341,11 @@ msave=*+1
 	; pull the return address, add 1 to it, and set it as the new
 	; PC. Then add 2 to the stack pointer
 	ldy __sim_reg_sp
-	lda mem::prog00+$100+1,y
+	lda prog00+$100+1,y
 	clc
 	adc #$01
 	sta __sim_pc
-	lda mem::prog00+$100+2,y
+	lda prog00+$100+2,y
 	adc #$00
 	sta __sim_pc+1
 	; SP += 2
@@ -359,11 +360,11 @@ msave=*+1
 	; "pull" status then return address
 	; TODO: check this
 	ldy __sim_reg_sp
-	lda mem::prog00+$100+1,y
+	lda prog00+$100+1,y
 	sta __sim_reg_p
-	lda mem::prog00+$100+2,y
+	lda prog00+$100+2,y
 	sta __sim_pc
-	lda mem::prog00+$100+3,y
+	lda prog00+$100+3,y
 	sta __sim_pc+1
 	lda __sim_reg_sp
 	clc
@@ -621,10 +622,10 @@ msave=*+1
 	; THEN load the address at this target
 	ldx __sim_reg_x
 	ldy @target
-	lda mem::prog00,y
+	lda prog00,y
 	sta @target
 	iny
-	lda mem::prog00,x
+	lda prog00,x
 	sta @target+1
 	jmp @get_ind
 
@@ -635,10 +636,10 @@ msave=*+1
 	bne @check_rel_y
 	; get the value of the ZP location in the *user* ZP
 	ldy @target
-	lda mem::prog00,y
+	lda prog00,y
 	sta @target
 	iny
-	lda mem::prog00,y
+	lda prog00,y
 	sta @target+1
 	; add the .Y register value to the address from the ZP
 	lda __sim_reg_y

@@ -754,9 +754,7 @@ main:	jsr key::getch
 ; GO BASIC
 ; Installs an NMI to return to the editor and (re)enters BASIC.
 .proc go_basic
-	ldxy #$c474
-	stxy sim::pc
-	jmp dbg::go
+	jmp dbg::go_basic
 .endproc
 
 ;*******************************************************************************
