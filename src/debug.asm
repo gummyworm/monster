@@ -346,6 +346,7 @@ trampoline:
 	sta $911e
 	pla			; restore .A
 	plp			; restore status
+;TRAMPOLINE_ADDR=*+1
 	jmp $f00d
 trampoline_size=*-trampoline
 
@@ -570,8 +571,6 @@ trampoline_size=*-trampoline
 	jsr $e404	; print startup message and init pointers
 	ldx #PROGRAM_STACK_START
 	stx sim::reg_sp
-	;txs
-	;jmp $C474
 
 	ldxy #@save_done	; need to pass return address
 	jmp fcpy::save_user_zp
@@ -592,7 +591,7 @@ trampoline_size=*-trampoline
 	jsr fcpy::save_prog_state
 
 	; restore the rest of Monster's RAM and enter the application
-	jsr fcpy::restore_debug_state
+	;jsr fcpy::restore_debug_state
 	jsr irq::on
 	jmp edit::init
 .endproc

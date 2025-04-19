@@ -165,6 +165,7 @@ autoindent: .byte 0		; auto-indent enable flag (0=don't auto-indent)
 
 main:	jsr key::getch
 	beq @done
+	jmp *
 
 	jsr is_visual
 	beq :+ 		; leave cursor on if in VISUAL/VISUAL_LINE mode
@@ -884,6 +885,7 @@ main:	jsr key::getch
 force_enter_insert=*+5
 .proc enter_insert
 @tabcnt=r2
+	jmp *
 	jsr is_readonly
 	beq @done		; can't INSERT in r/o mode
 	lda #MODE_INSERT

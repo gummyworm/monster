@@ -3,8 +3,9 @@
 .include "../screen.inc"
 .include "../zeropage.inc"
 
-; TODO
-RETURN_ADDR = $7fff
+.import TRAMPOLINE_ADDR
+
+RETURN_ADDR = TRAMPOLINE_ADDR
 
 .export prog00
 .export prog1000
@@ -14,7 +15,6 @@ RETURN_ADDR = $7fff
 .export dbg00
 .export dbg9000
 .export dbg9400
-
 
 .SEGMENT "SETUP"
 
@@ -375,4 +375,22 @@ dbg9400: .res $f0	; $9400-$94f0
 	bne @savecolor
 .endif
 	rts
+.endproc
+
+;******************************************************************************
+; INSTALL TRAMPOLINE
+; Installs a small procedure that switches to the MAIN bank
+; The end of this procedure must align with the MAIN bank's trampoline jump
+.proc install_trampoline
+@trampoline_dst=TRAMPOLINE_ADDR-1-@proc_size
+	ldx #@proc_size-1
+:	lda @proc,x
+	sta @trampoline_dst,x
+	dex
+	bpl :-
+	rts
+
+@proc:	lda #FINAL_BANK_MAIN
+	sta $9c02
+@proc_size=*-@proc
 .endproc

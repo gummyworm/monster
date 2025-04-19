@@ -98,6 +98,9 @@ rowcnt: .byte 0
 	ldxy #sys_update
 	stxy $0314
 
+	ldxy #brk_handler
+	stxy $0316
+
 	ldy #IRQ_START_LINE
 
 	lda #<TIMER_VALUE
@@ -277,4 +280,11 @@ rowcnt: .byte 0
 	lda #$00|$20		; disable T2 interrupts
 	sta $912e
 	rts
+.endproc
+
+;*******************************************************************************
+; BRK HANDLER
+.proc brk_handler
+	inc $900f
+	jmp *-3
 .endproc

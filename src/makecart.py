@@ -2,6 +2,7 @@ import sys
 
 BASE_ADDR = 0x1100
 
+ERROR_HIGHLIGHT = "\033[0;31m"
 HIGHLIGHT = "\033[32m"+"\033[1m"
 RESET = "\033[0m"
 
@@ -17,9 +18,10 @@ infile = sys.argv[2]
 imgfile = sys.argv[3]
 
 # segments to crunch in the bootloader
-bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE", "SETUP", "FASTTEXT", "MACROCODE", "VSCREEN", "IRQ", "DATA", "LABELS", "FASTCOPY", "UDGEDIT", "CONSOLE", "COPYBUFF", "RODATA"]
+setup_segments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE", "SETUP", "FASTTEXT", "MACROCODE", "VSCREEN", "IRQ", "DATA", "LABELS", "UDGEDIT", "CONSOLE", "COPYBUFF", "RODATA"]
 
-cartsegmentnames = ["CART"]
+
+cartsegmentnames = ["CART", "FASTCOPY"]
 
 # open map file and extract the segment to crunch in the bootloader
 cartsegments = {}
@@ -40,7 +42,7 @@ for line in f:
                 'load': int(parts[1], 16),
                 'size': 0,
             }
-        elif seg in bootsegments:
+        elif seg in setup_segments:
             segments[seg] = {
                 'load': int(parts[1], 16),
                 'size': 0,
@@ -51,7 +53,7 @@ for line in f:
         seg = parts[2].removesuffix('_SIZE__').removeprefix('.__')
         if seg in cartsegments:
             cartsegments[seg]['size'] = int(parts[1], 16)
-        elif seg in bootsegments:
+        elif seg in setup_segments:
             segments[seg]['size'] = int(parts[1], 16)
 
 start_addr = BASE_ADDR
@@ -65,13 +67,17 @@ for s in segments.values():
         stop_addr = s['load'] + s['size']
 
 for s in cartsegments.values():
-    cart_header_size = s['size']
+    cart_header_size += s['size']
 
 # get the total size of the boot segments and cart-boot segments
 size = stop_addr - start_addr
 
 print(f'  setup block | $0000-${size:02x} | ${size:02x} bytes')
 print(f'  boot block  | $6000-${0x6000+cart_header_size:02x} | ${cart_header_size:02x} bytes')
+
+if size > 0x6000:
+    print(f'{ERROR_HIGHLIGHT} Warning: SETUP BLOCK is too big ({size:02x} bytes) must be < $6000 bytes')
+    exit()
 
 with open(infile, 'rb') as file:
     # read the entire mega-file

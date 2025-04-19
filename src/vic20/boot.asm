@@ -110,7 +110,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 ;  - r0r1: source address
 ;  - r2r3: dest address
 ;  - r4:   number of bytes to copy
-.macro reloc
+.macro reloc BANK
 @src=r0
 @dst=r2
 @size=r4
@@ -121,7 +121,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 
 	ldy #$00
 @pageloop:
-	lda #$a1
+	lda #BANK
 	sta $9c02	; source bank
 
 	lda (@src),y
@@ -150,15 +150,12 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 	bne :-
 
 @lastbyte:
-	lda #$a1
+	lda #BANK
 	sta $9c02
 	lda (@src),y
 	ldx @bank
 	stx $9c02
 	sta (@dst),y
-
-	lda #$a1
-	sta $9c02
 .endmacro
 
 .segment "SETUP"
@@ -193,7 +190,6 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 
 ; copy cart binary ($0000-$6000) to RAM
 START:
-	;jsr $fd8d	; RAMTAS
 	jsr $fd52	; init vectors
 	jsr $fdf9	; init I/O
 	jsr $e518	; init I/O 2
@@ -215,6 +211,7 @@ START:
 	; run the unlock code
 	jmp $200
 
+;-----------------------
 @unlock:
 	ldx $a000
 	stx $a000
@@ -244,12 +241,25 @@ START:
 	dex			; next page
 	bne @reloc
 
+	; install FASTCOPY code
+	lda #FINAL_BANK_FASTCOPY
+	sta r6
+	ldxy #__FASTCOPY_LOAD__
+	stxy r0
+	ldxy #__FASTCOPY_RUN__
+	stxy r2
+	ldxy #__FASTCOPY_SIZE__
+	stxy r4
+
+	reloc $40		; relocate from ROM bank 0
+
 	; set default device number
 	lda #DEFAULT_DEVICE
 	sta zp::device
 
 	jmp start
 @end:
+;-----------------------
 .segment "SETUP"
 .endif	; CART
 
@@ -260,11 +270,7 @@ START:
 ; Once the initialization in complete, jumps to enter to begin the app
 .proc lowinit
 	sei
-	lda #FINAL_BANK_FASTCOPY
-	jsr fcpy::init
 	jsr update_load_progress
-	lda #FINAL_BANK_FASTCOPY2
-	jsr fcpy::init
 	jsr update_load_progress
 
 	lda #CUR_BLINK_SPEED
@@ -442,7 +448,7 @@ start:
 	cmp #$ad
 	bne :+
 
-:	reloc
+:	reloc FINAL_BANK_MAIN
 
 	lda @relocs
 	clc
@@ -537,10 +543,6 @@ relocs:
 .word __LABELS_LOAD__, __LABELS_RUN__, __LABELS_SIZE__
 .byte FINAL_BANK_SYMBOLS
 
-; FASTCOPY
-.word __FASTCOPY_LOAD__, __FASTCOPY_RUN__, __FASTCOPY_SIZE__
-.byte FINAL_BANK_FASTCOPY
-
 ; UDG EDITOR
 .word __UDGEDIT_LOAD__, __UDGEDIT_RUN__, __UDGEDIT_SIZE__
 .byte FINAL_BANK_UDGEDIT
@@ -598,6 +600,12 @@ num_relocs=(*-relocs)/7
 	CALL FINAL_BANK_CONSOLE, con::init
 
 .ifndef TEST
+	sei
+	lda #$7f
+	sta $911e			; disable NMI's
+	jsr irq::on
+	jmp edit::init
+
 	jmp dbg::clrstate	; initialize user state by init'ing BASIC
 .else
 	.import testsuite
