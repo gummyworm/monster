@@ -80,7 +80,7 @@
 
 @00:	; $00-$400 is stored in the prog00 buffer
 	add16 #(prog00-$00)
-	lda #FINAL_BANK_FASTCOPY
+	lda #FINAL_BANK_MAIN
 	rts
 
 :	cpy #>$1000

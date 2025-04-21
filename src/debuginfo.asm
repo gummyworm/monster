@@ -121,8 +121,8 @@ debuginfo:
 .export __debug_addr2line
 .export __debug_end_block
 .export __debug_line2addr
-.export __debug_init
-.export __debug_initonce
+.export __debuginfo_init
+.export __debuginfo_initonce
 .export __debug_get_filename
 .export __debug_new_block
 .export __debug_set_file
@@ -139,8 +139,8 @@ debuginfo:
 	__debug_addr2line         = addr2line
 	__debug_end_block         = end_block
 	__debug_line2addr         = line2addr
-	__debug_init              = init
-	__debug_initonce          = initonce
+	__debuginfo_init          = init
+	__debuginfo_initonce      = initonce
 	__debug_get_filename      = get_filename
 	__debug_new_block         = new_block
 	__debug_set_file          = set_file
@@ -157,8 +157,8 @@ debuginfo:
 __debug_addr2line:        BANKJUMP dbgi_proc_ids::ADDR2LINE
 __debug_line2addr:        BANKJUMP dbgi_proc_ids::LINE2ADDR
 __debug_end_block:        BANKJUMP dbgi_proc_ids::END_BLOCK
-__debug_init:             BANKJUMP dbgi_proc_ids::INIT
-__debug_initonce:         BANKJUMP dbgi_proc_ids::INITONCE
+__debuginfo_init:         BANKJUMP dbgi_proc_ids::INIT
+__debuginfo_initonce:     BANKJUMP dbgi_proc_ids::INITONCE
 __debug_get_filename:     BANKJUMP dbgi_proc_ids::GET_FILENAME
 __debug_new_block:        BANKJUMP dbgi_proc_ids::NEW_BLOCK
 __debug_set_file:         BANKJUMP dbgi_proc_ids::SET_FILE

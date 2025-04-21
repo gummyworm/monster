@@ -198,6 +198,15 @@ is_step:  .byte 0	; !0: we are running a STEP instruction
 .CODE
 
 ;******************************************************************************
+; INIT
+; Initializes essential debugger state.
+; Notably this includes the "trampoline"
+.export __debug_init
+.proc __debug_init
+	jmp install_trampoline
+.endproc
+
+;******************************************************************************
 ; START
 ; Begins debugging at the given address
 ; Execution will continue until a BRK instruction occurs at which point the
@@ -391,6 +400,7 @@ trampoline_size=*-trampoline
 	stxy @dst
 	lda #trampoline_size-1
 	sta @cnt
+
 ; copy the STEP handler to the user program and our RAM
 @l0:	ldy @cnt
 	lda trampoline,y
@@ -545,6 +555,8 @@ trampoline_size=*-trampoline
 .export __debug_clrstate
 .proc __debug_clrstate
 	sei
+	jsr __debug_init
+	jsr fcpy::init
 	jsr fcpy::save_debug_state
 	jsr fcpy::save_debug_zp
 
@@ -569,6 +581,7 @@ trampoline_size=*-trampoline
 	jsr $e45b	; init BASIC vectors
 	jsr $e3a4	; init BASIC RAM locations
 	jsr $e404	; print startup message and init pointers
+
 	ldx #PROGRAM_STACK_START
 	stx sim::reg_sp
 
@@ -591,7 +604,7 @@ trampoline_size=*-trampoline
 	jsr fcpy::save_prog_state
 
 	; restore the rest of Monster's RAM and enter the application
-	;jsr fcpy::restore_debug_state
+	jsr fcpy::restore_debug_state
 	jsr irq::on
 	jmp edit::init
 .endproc

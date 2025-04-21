@@ -330,25 +330,9 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 ; to scr::restore
 .export __screen_save
 .proc __screen_save
-@buff=r0
-@bm=r2
-	ldxy #mem::backbuff
-	stxy @buff
-	ldxy #$1100
-	stxy @bm
+	CALL FINAL_BANK_VSCREEN, save
 
-	; restore screen from the backbuff
-	ldy #$00
-:	lda (@bm),y
-	sta (@buff),y
-	iny
-	bne :-
-	inc @bm+1
-	inc @buff+1
-	lda @bm+1
-	cmp #>$2000
-	bne :-
-
+	; save colors
 	ldx #SCREEN_ROWS*2-1
 :	lda mem::rowcolors,x
 	sta mem::rowcolors_save,x
@@ -356,6 +340,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	sta mem::rowcolors,x
 	dex
 	bpl :-
+
 	jmp __screen_init
 .endproc
 
@@ -367,22 +352,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .proc __screen_restore
 @buff=r0
 @bm=r2
-	ldxy #mem::backbuff
-	stxy @buff
-	ldxy #$1100
-	stxy @bm
-
-	; restore screen from the backbuff
-	ldy #$00
-:	lda (@buff),y
-	sta (@bm),y
-	iny
-	bne :-
-	inc @bm+1
-	inc @buff+1
-	lda @bm+1
-	cmp #>$2000
-	bne :-
+	CALL FINAL_BANK_VSCREEN, restore
 
 	; restore the per-row colors
 	ldx #SCREEN_ROWS*2-1
@@ -390,6 +360,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	sta mem::rowcolors,x
 	dex
 	bpl :-
+
 	rts
 .endproc
 
@@ -428,6 +399,58 @@ __screen_columnshi: .hibytes cols
 inittab: .byte $02,$fe,$fe,$eb,$00,$0c
 
 .segment "VSCREEN"
+
+;*******************************************************************************
+; SAVE
+; Saves the bitmap to the backup buffer. It may then be restored with a call
+; to scr::restore
+.proc save
+@buff=r0
+@bm=r2
+	ldxy #backbuff
+	stxy @buff
+	ldxy #$1100
+	stxy @bm
+
+	; save bitmap to back-buffer
+	ldy #$00
+:	lda (@bm),y
+	sta (@buff),y
+	iny
+	bne :-
+	inc @bm+1
+	inc @buff+1
+	lda @bm+1
+	cmp #>$2000
+	bne :-
+	rts
+.endproc
+
+;*******************************************************************************
+; RESTORE
+; Restores the bitmap from the backup buffer.
+; to scr::restore
+.proc restore
+@buff=r0
+@bm=r2
+	ldxy #backbuff
+	stxy @buff
+	ldxy #$1100
+	stxy @bm
+
+	; restore screen from the backbuff
+	ldy #$00
+:	lda (@buff),y
+	sta (@bm),y
+	iny
+	bne :-
+	inc @bm+1
+	inc @buff+1
+	lda @bm+1
+	cmp #>$2000
+	bne :-
+	rts
+.endproc
 
 ;*******************************************************************************
 ; SHL
@@ -587,51 +610,52 @@ bm_columnshi: .hibytes vcols
 ; Initializes the screen using shiftamount to determine the layout
 ; IN:
 ;  - .A: the number of columns to shift the screen
-.proc restore
-@scr=r0
-@row=r2
-	lda #$00
-	sta @row
-	ldxy #SCREEN_ADDR
-	stxy @scr
-
-@l0:	lda shiftamount
-	beq @done
-	lda #NUM_COLS
-	sec
-	sbc shiftamount
-	tay
-
-	lda #$10
-	clc
-	adc @row
-
-	ldx #NUM_COLS
-@l1:	sta (@scr),y
-	iny
-	cpy #NUM_COLS
-	bcc :+
-	ldy #$00
-:	clc
-	adc #SCREEN_ROWS
-	dex
-	bne @l1
-
-	; move to next screen row
-	lda @scr
-	clc
-	adc #NUM_COLS
-	sta @scr
-
-	inc @row
-	lda @row
-	cmp #NUM_ROWS
-	bne @l0
-@done:	rts
-.endproc
+;.proc restore
+;@scr=r0
+;@row=r2
+;	lda #$00
+;	sta @row
+;	ldxy #SCREEN_ADDR
+;	stxy @scr
+;
+;@l0:	lda shiftamount
+;	beq @done
+;	lda #NUM_COLS
+;	sec
+;	sbc shiftamount
+;	tay
+;
+;	lda #$10
+;	clc
+;	adc @row
+;
+;	ldx #NUM_COLS
+;@l1:	sta (@scr),y
+;	iny
+;	cpy #NUM_COLS
+;	bcc :+
+;	ldy #$00
+;:	clc
+;	adc #SCREEN_ROWS
+;	dex
+;	bne @l1
+;
+;	; move to next screen row
+;	lda @scr
+;	clc
+;	adc #NUM_COLS
+;	sta @scr
+;
+;	inc @row
+;	lda @row
+;	cmp #NUM_ROWS
+;	bne @l0
+;@done:	rts
+;.endproc
 
 .segment "VSCREEN_BSS"
 ;*******************************************************************************
 ; SCREEN
 ; The "virtual" screen.  This is a continuation of the bitmap at address $1000
-screen: .res $2000	; bitmap for 200 columns
+screen:   .res $2000	; bitmap for 200 columns
+backbuff: .res $f00	; backup for 1 bitmap screen

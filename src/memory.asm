@@ -9,15 +9,10 @@
 .BSS
 
 ;*******************************************************************************
-__mem_keybuff=$277
-
 .export __mem_spare
 .export __mem_spareend
 __mem_spare=$0500
 __mem_spareend = $1000
-
-.export __mem_backbuff
-__mem_backbuff: .res $f00
 
 .export __mem_ctxbuffer
 __mem_ctxbuffer = $140+40	; the buffer for the context during assembly

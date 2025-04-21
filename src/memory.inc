@@ -1,6 +1,5 @@
 .import __mem_asmbuffer
 .import __mem_asmctx
-.import __mem_backbuff
 .import __mem_ctxbuffer
 .import __mem_debugsave
 .import __mem_drive_err
@@ -24,7 +23,6 @@
 	ctxbuffer       = __mem_ctxbuffer
         spare           = __mem_spare
 	spareend	= __mem_spareend
-	backbuff        = __mem_backbuff
 	findbuff        = __mem_findbuff
 	linebuffer      = __linebuffer
 	linebuffer2     = __linebuffer2

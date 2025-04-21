@@ -257,6 +257,8 @@ START:
 	lda #DEFAULT_DEVICE
 	sta zp::device
 
+	jsr $fd52	; init vectors
+
 	jmp start
 @end:
 ;-----------------------
@@ -559,6 +561,11 @@ relocs:
 .word __RODATA_LOAD__, __RODATA_RUN__, __RODATA_SIZE__
 .byte FINAL_BANK_MAIN
 
+.ifndef CART
+.word __FASTCOPY_LOAD__, __FASTCOPY_RUN__, __FASTCOPY_SIZE__
+.byte FINAL_BANK_FASTCOPY
+.endif
+
 num_relocs=(*-relocs)/7
 
 .CODE
@@ -600,12 +607,6 @@ num_relocs=(*-relocs)/7
 	CALL FINAL_BANK_CONSOLE, con::init
 
 .ifndef TEST
-	sei
-	lda #$7f
-	sta $911e			; disable NMI's
-	jsr irq::on
-	jmp edit::init
-
 	jmp dbg::clrstate	; initialize user state by init'ing BASIC
 .else
 	.import testsuite
