@@ -99,7 +99,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 	     __FASTTEXT_SIZE__+__MACROCODE_SIZE__+__VSCREEN_SIZE__+ \
 	     __IRQ_SIZE__+__LINKER_SIZE__+__LABELS_SIZE__+__UDGEDIT_SIZE__+ \
 	     __CONSOLE_SIZE__+__COPYBUFF_SIZE__+__RODATA_SIZE__+ \
-	     __DEBUGINFO_CODE_SIZE__
+	     __DEBUGINFO_CODE_SIZE__+__FASTCOPY_SIZE__
 .linecont -
 
 ;*******************************************************************************
@@ -156,6 +156,9 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 	ldx @bank
 	stx $9c02
 	sta (@dst),y
+
+	lda #BANK
+	sta $9c02
 .endmacro
 
 .segment "SETUP"
@@ -241,23 +244,9 @@ START:
 	dex			; next page
 	bne @reloc
 
-	; install FASTCOPY code
-	lda #FINAL_BANK_FASTCOPY
-	sta r6
-	ldxy #__FASTCOPY_LOAD__
-	stxy r0
-	ldxy #__FASTCOPY_RUN__
-	stxy r2
-	ldxy #__FASTCOPY_SIZE__
-	stxy r4
-
-	reloc $40		; relocate from ROM bank 0
-
 	; set default device number
 	lda #DEFAULT_DEVICE
 	sta zp::device
-
-	jsr $fd52	; init vectors
 
 	jmp start
 @end:
@@ -447,10 +436,8 @@ start:
 	; bank
 	iny
 	lda (@relocs),y
-	cmp #$ad
-	bne :+
 
-:	reloc FINAL_BANK_MAIN
+	reloc FINAL_BANK_MAIN
 
 	lda @relocs
 	clc
@@ -561,10 +548,9 @@ relocs:
 .word __RODATA_LOAD__, __RODATA_RUN__, __RODATA_SIZE__
 .byte FINAL_BANK_MAIN
 
-.ifndef CART
+; FASTCOPY
 .word __FASTCOPY_LOAD__, __FASTCOPY_RUN__, __FASTCOPY_SIZE__
 .byte FINAL_BANK_FASTCOPY
-.endif
 
 num_relocs=(*-relocs)/7
 

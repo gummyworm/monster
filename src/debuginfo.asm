@@ -189,6 +189,8 @@ __debuginfo_get_fileid:   BANKJUMP dbgi_proc_ids::GET_FILEID
 .POPSEG
 .endif
 
+.segment "DEBUGINFO_BSS"
+
 ;*******************************************************************************
 ; number of files that we have debug info for
 numfiles: .byte 0
@@ -216,6 +218,8 @@ blockheaders: .res MAX_BLOCKS * SIZEOF_BLOCK_HEADER
 ; these will map to somewhere in the debuginfo buffer
 blockaddresseslo: .res MAX_FILES
 blockaddresseshi: .res MAX_FILES
+
+.segment "DEBUGINFO_CODE"
 
 ;*******************************************************************************
 ; INITONCE
