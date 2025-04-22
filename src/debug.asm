@@ -903,7 +903,9 @@ trampoline_size=*-trampoline
 
 	; disable NMIs
 	lda #$7f
+	sta $911d
 	sta $911e
+	sta $912e
 	sei
 
 	jsr irq::off
@@ -986,8 +988,15 @@ trampoline_size=*-trampoline
 	lda #DEFAULT_900F
 	sta $900f
 
+	lda #$7f
+	sta $911e
+	sta $911d	; ack all interrupts
+	sta $912d
+	sta $912e
+
 	jsr fcpy::save_debug_zp
-	ldxy #@restore_done	; need to pass return address
+
+	ldxy #@restore_done		; need to pass return address
 	jmp fcpy::restore_user_zp
 
 @restore_done:
@@ -1000,21 +1009,16 @@ trampoline_size=*-trampoline
 	sta $0316
 	lda #>(BRK_HANDLER_ADDR+1)
 	sta $0316+1
-
-	lda #$7f
-	sta $911e
-	sta $911d	; ack all interrupts
-	sta $912d
 .endproc
-
-go_pre_run:
-	; jsr $fccf		; restore for STOP
-	nop
-	nop
-	nop
 
 	ldx sim::reg_sp
 	txs			; restore user stack
+
+go_pre_run:
+	; buffer for pre-run command
+	nop
+	nop
+	nop
 
 	lda sim::reg_p
 	pha			; save status (will pull after bank select)
@@ -1244,6 +1248,8 @@ go_pre_run:
 
 	jsr fcpy::save_debug_state
 	jsr fcpy::restore_progstate
+
+	; TODO: setup VIA's for input
 
 	; wait for a key to swap the state back
 	jsr key::waitch

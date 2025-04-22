@@ -330,11 +330,11 @@ dbg9400: .res $f0	; $9400-$94f0
 	bne :-			; loop until we are
 
 ; restore $9110-$9130 (VIAs)
-;	ldx #$20
-;:	lda prog9110-1,x
-;	sta $9110-1,x
-;	dex
-;	bne :-
+	ldx #$20
+:	lda prog9110-1,x
+	sta $9110-1,x
+	dex
+	bne :-
 
 	ldx #$f0
 ; restore $9400-$94f0
