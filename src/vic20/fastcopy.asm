@@ -329,13 +329,6 @@ dbg9400: .res $f0	; $9400-$94f0
 	cmp #$20		; at $2000 yet?
 	bne :-			; loop until we are
 
-; restore $9110-$9130 (VIAs)
-	ldx #$20
-:	lda prog9110-1,x
-	sta $9110-1,x
-	dex
-	bne :-
-
 	ldx #$f0
 ; restore $9400-$94f0
 :	lda prog9400-1,x
@@ -351,7 +344,6 @@ dbg9400: .res $f0	; $9400-$94f0
 .export save_prog_state
 .proc save_prog_state
 @vicsave=prog9000
-@viasave=prog9110
 @internalmem=prog1000
 @colorsave=prog9400
 	ldx #$10
@@ -360,13 +352,6 @@ dbg9400: .res $f0	; $9400-$94f0
 	sta @vicsave-1,x
 	dex
 	bne @savevic
-
-	ldx #$20
-@savevias:
-	lda $9110-1,x
-	sta @viasave-1,x
-	dex
-	bne @savevias
 
 ; save $1000-$2000
 @savescreen:

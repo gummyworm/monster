@@ -616,9 +616,9 @@ trampoline_size=*-trampoline
 .proc nmi_edit
 	lda $912e
 	sta sim::via2+$e
+
 	lda #$7f
 	sta $911e	; disable all NMI's
-	sta $911d
 
 	pla
 	sta sim::reg_y
@@ -905,7 +905,6 @@ trampoline_size=*-trampoline
 	lda #$7f
 	sta $911d
 	sta $911e
-	sta $912e
 	sei
 
 	jsr irq::off
@@ -992,7 +991,6 @@ trampoline_size=*-trampoline
 	sta $911e
 	sta $911d	; ack all interrupts
 	sta $912d
-	sta $912e
 
 	jsr fcpy::save_debug_zp
 
@@ -1250,6 +1248,12 @@ go_pre_run:
 	jsr fcpy::restore_progstate
 
 	; TODO: setup VIA's for input
+	LDX	#$FF		; all outputs, keyboard column
+	STX	$9122		; set VIA 2 DDRB
+
+	LDX	#$00		; all inputs, keyboard row
+	STX	$9123		; set VIA 2 DDRA
+
 
 	; wait for a key to swap the state back
 	jsr key::waitch
