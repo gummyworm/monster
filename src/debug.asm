@@ -917,6 +917,11 @@ trampoline_size=*-trampoline
 	lda #$fe
 	sta go_pre_run+2
 
+	; empty the keyboard buffer
+	lda #$00
+	ldxy #$c6
+	jsr vmem::store
+
 	; begin execution
 	jmp __debug_go_trampoline
 .endproc
