@@ -6,7 +6,7 @@
 
 .include "asm.inc"
 .include "breakpoints.inc"
-.include "console.inc"
+.include "monitor.inc"
 .include "cursor.inc"
 .include "debug.inc"
 .include "debuginfo.inc"
@@ -189,7 +189,7 @@ CMD_BUFF = $101
 @done:	RETURN_OK
 
 @print:	CALL FINAL_BANK_MAIN, watch::tostring
-	jmp con::puts
+	jmp mon::puts
 .endproc
 
 ;******************************************************************************
@@ -236,7 +236,7 @@ CMD_BUFF = $101
 @done:	RETURN_OK
 
 @print:	CALL FINAL_BANK_MAIN, brkpt::tostring
-	jmp con::puts
+	jmp mon::puts
 .endproc
 
 ;*******************************************************************************
@@ -411,7 +411,7 @@ CMD_BUFF = $101
 	lda #$00
 	sta @i
 	beq @chk		; branch to check if start == stop on 1st iter
-@fill:	lda con::int
+@fill:	lda mon::int
 	bne @done		; SIGINT, quit
 	ldx @i
 	lda @list,x
@@ -494,7 +494,7 @@ CMD_BUFF = $101
 	lda #$00
 	sta @buff+5		; 0 terminate the buffer
 	ldxy #@buff
-	jmp con::puts
+	jmp mon::puts
 .endproc
 
 ;*******************************************************************************
@@ -530,7 +530,7 @@ CMD_BUFF = $101
 	ora @num+1
 	beq @done		; if comparing 0 bytes, we're done
 
-@l0:	lda con::int
+@l0:	lda mon::int
 	bne @ok		; SIGINT, quit
 	ldxy @block0
 	jsr vmem_load	; get a byte from block 0
@@ -572,7 +572,7 @@ CMD_BUFF = $101
 	pha
 
 	ldxy #@compare_msg
-	jmp con::puts
+	jmp mon::puts
 
 .PUSHSEG
 .RODATA
@@ -612,7 +612,7 @@ CMD_BUFF = $101
 	bcs @ret
 
 	; move the data
-@l0:	lda con::int
+@l0:	lda mon::int
 	bne @done		; SIGINT, quit
 	ldxy @start
 	jsr vmem_load
@@ -649,7 +649,7 @@ CMD_BUFF = $101
 
 	lda #$00
 	sta @i
-@l0:	lda con::int
+@l0:	lda mon::int
 	bne @done		; SIGINT, quit
 	ldxy @start
 	jsr vmem_load
@@ -698,9 +698,9 @@ CMD_BUFF = $101
 	bcc @done	; registers aren't meaningful to user if not debugging
 
 	ldxy #strings::debug_registers
-	jsr con::puts
+	jsr mon::puts
 	CALL FINAL_BANK_MAIN, dbg::regs_contents
-	jsr con::puts
+	jsr mon::puts
 	clc
 @done:	rts
 .endproc
@@ -717,7 +717,7 @@ CMD_BUFF = $101
 	jsr get_range_or_default
 	bcs @ret
 
-@l0:	lda con::int
+@l0:	lda mon::int
 	bne @done		; SIGINT, quit
 	ldxy #@buff
 	stxy r0
@@ -743,10 +743,10 @@ CMD_BUFF = $101
 	pha
 
 	; if outputting to file, don't render addresses
-	lda con::outfile
+	lda mon::outfile
 	beq @db_with_addr
 	ldxy #@byte_msg_no_addr
-	jmp con::puts
+	jmp mon::puts
 
 @db_with_addr:
 	; push the address
@@ -757,13 +757,13 @@ CMD_BUFF = $101
 
 	incw @addr
 	ldxy #@byte_msg
-	jmp con::puts
+	jmp mon::puts
 
 @drawline:
 	tax		; save instruction size
 
 	; if outputting to file, don't render addresses
-	lda con::outfile
+	lda mon::outfile
 	beq @with_addr
 
 	; update the address pointer
@@ -775,7 +775,7 @@ CMD_BUFF = $101
 	inc @addr+1
 
 :	ldxy #@buff
-	jmp con::puts	; if address rendering is off, just print
+	jmp mon::puts	; if address rendering is off, just print
 
 @with_addr:
 	; push the disassembled string
@@ -799,7 +799,7 @@ CMD_BUFF = $101
 	inc @addr+1
 
 :	ldxy #@disasm_msg
-	jmp con::puts
+	jmp mon::puts
 .PUSHSEG
 .RODATA
 @byte_msg:
@@ -836,7 +836,7 @@ CMD_BUFF = $101
 
 @err:	CALL FINAL_BANK_MAIN, err::get
 	CALL FINAL_BANK_MAIN, str::uncompress
-	jsr con::puts				; print the error
+	jsr mon::puts				; print the error
 	clc
 @ret:	rts
 
@@ -860,7 +860,7 @@ CMD_BUFF = $101
 	lda #$00
 	sta mem::linebuffer+8
 
-	lda con::line
+	lda mon::line
 	sta zp::cury
 
 	ldx #$08
@@ -868,10 +868,10 @@ CMD_BUFF = $101
 	ldy #$00
 	CALL FINAL_BANK_MAIN, cur::setmin
 
-	ldxy #con::getch
+	ldxy #mon::getch
 	CALL FINAL_BANK_MAIN, edit::gets
 	ldxy #mem::linebuffer
-	jsr __console_puts
+	jsr __monitor_puts
 	ldxy #mem::linebuffer
 	jmp __dbgcmd_run
 .endproc
@@ -906,11 +906,11 @@ CMD_BUFF = $101
 	bne @l0
 	inc @lines		; minimum of 1 line
 
-@l0:	lda con::int
+@l0:	lda mon::int
 	bne @done		; SIGINT, quit
 	ldxy @addr
 	CALL FINAL_BANK_MAIN, view::memline
-	jsr con::puts
+	jsr mon::puts
 
 	; move to address for next row
 	lda @addr
@@ -931,7 +931,7 @@ CMD_BUFF = $101
 .proc quit
 	lda #$00
 	sta dbg::interface
-	inc con::quit		; send QUIT signal
+	inc mon::quit		; send QUIT signal
 	rts
 .endproc
 
@@ -1022,7 +1022,7 @@ CMD_BUFF = $101
 	lda #>$0100		; MSB of stack base
 	sta @sp+1
 
-@l0:	lda con::int
+@l0:	lda mon::int
 	bne @done		; SIGINT, quit
 	jsr @draw_item		; draw the stack contents for this offset
 	inc @sp			; move to next procedure in the stack
@@ -1084,7 +1084,7 @@ CMD_BUFF = $101
 	pha
 
 	ldxy #@backtrace_msg
-	jmp con::puts
+	jmp mon::puts
 
 .PUSHSEG
 .RODATA
@@ -1162,7 +1162,7 @@ CMD_BUFF = $101
 	bcc @l0
 :	jmp @done
 
-@l0:	lda con::int
+@l0:	lda mon::int
 	bne :-				; SIGINT, quit
 	ldxy #@buff+4
 	stxy @line
@@ -1213,7 +1213,7 @@ CMD_BUFF = $101
 	sta (@line),y	; terminate buffer
 
 	ldxy #@buff
-	jsr con::puts
+	jsr mon::puts
 
 	lda @addr
 	clc
@@ -1234,7 +1234,7 @@ CMD_BUFF = $101
 ; CLEAR
 ; Clears the terminal
 .proc clear
-	jsr con::clear
+	jsr mon::clear
 	RETURN_OK
 .endproc
 
@@ -1398,7 +1398,7 @@ CMD_BUFF = $101
 	ldxy #strings::question_marks
 	bcs @print
 	ldxy #$100
-@print:	jsr con::puts
+@print:	jsr mon::puts
 	RETURN_OK
 .endproc
 
@@ -1416,7 +1416,7 @@ CMD_BUFF = $101
 	bcs :+
 
 	ldxy #@not_debugging_msg
-	jsr con::puts
+	jsr mon::puts
 	clc
 :	rts
 .PUSHSEG

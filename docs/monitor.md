@@ -8,7 +8,7 @@ manipulate the program state.
 
 ### ACTIVATION
 
-The monitor is activated with the `C= + T` key combination. It can be activated from the editor both during
+The monitor is activated with the `C= + M` key combination. It can be activated from the editor both during
 and not during a debug session.
 When activated while debugging, a number of additional commands related to the state of the debugged program
 become available.

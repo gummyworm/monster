@@ -1,7 +1,7 @@
 ;*******************************************************************************
 ; CONSOLE.ASM
-; This file contains procedures for interacting with the "console".
-; The console is a text-based interface that can be used for interacting with
+; This file contains procedures for interacting with the "monitor".
+; The monitor is a text-based interface that can be used for interacting with
 ; program state as well as debugging.
 ;*******************************************************************************
 
@@ -35,10 +35,10 @@ CMD_BUFF         = $101			; written by edit::gets
 HEIGHT = 24
 
 .segment "CONSOLE_BSS"
-.export __console_line
+.export __monitor_line
 
-__console_line:
-line:      .byte 0	; the line that the console is on
+__monitor_line:
+line:      .byte 0	; the line that the monitor is on
 repeatcmd: .byte 0	; if set, empty line repeats last command
 
 cursave_x: .byte 0
@@ -46,29 +46,29 @@ cursave_y: .byte 0
 
 ;*******************************************************************************
 ; OUTFILE
-; Screen (0) or file handle to output con::puts to
-.export __console_outfile
-__console_outfile: .byte 0
+; Screen (0) or file handle to output mon::puts to
+.export __monitor_outfile
+__monitor_outfile: .byte 0
 
 ;*******************************************************************************
 ; SIGNALS
-.export __console_int
-.export __console_quit
-__console_quit: .byte 0	; if !0, console will quit when command returns to it
-__console_int: .byte 0	; if !0, behaved commands will stop running gracefully
+.export __monitor_int
+.export __monitor_quit
+__monitor_quit: .byte 0	; if !0, console will quit when command returns to it
+__monitor_int: .byte 0	; if !0, behaved commands will stop running gracefully
 
 ;*******************************************************************************
 ; SCREEN
-; This buffer stores the complete contents of the console.  It is used to
-; restore the console to its last state when it is re-entered
+; This buffer stores the complete contents of the monitor.  It is used to
+; restore the monitor to its last state when it is re-entered
 screen: .res 40*24
 
 .CODE
 ;******************************************************************************
 ; GETCH
 ; Handles the key (called by the keyboard gets handler)
-.export __console_getch
-.proc __console_getch
+.export __monitor_getch
+.proc __monitor_getch
 	jsr key::getch
 	beq @done
 	cmp #K_SWAP_USERMEM_TUI
@@ -83,13 +83,13 @@ screen: .res 40*24
 
 ;*******************************************************************************
 ; PUTS
-; Prints the given line to the console
+; Prints the given line to the monitor
 ; IN:
 ;   - .XY: the address of the line to print
 ; OUT:
 ;   - .C: set on error (failed to write to output file)
-.export __console_puts
-.proc __console_puts
+.export __monitor_puts
+.proc __monitor_puts
 @msg=r0
 @scr0=r2
 @scr1=r4
@@ -106,7 +106,7 @@ screen: .res 40*24
 	lda #HEIGHT-1
 	CALL FINAL_BANK_MAIN, text::scrollup
 
-	; scroll the console screen buffer
+	; scroll the monitor screen buffer
 	ldxy #screen
 	stxy @scr0
 	ldxy #screen+40
@@ -164,14 +164,14 @@ screen: .res 40*24
 	adc #>screen
 	sta @scr0+1
 
-	; store the text we are about to draw to the console buffer
+	; store the text we are about to draw to the monitor buffer
 	ldy #39
 @copy:	lda (@msg),y
 	sta (@scr0),y
 	dey
 	bpl @copy
 
-	lda __console_outfile
+	lda __monitor_outfile
 	beq @screen
 
 @file:	; write the line to file
@@ -192,7 +192,7 @@ screen: .res 40*24
 	sta file::save_address_end+1
 
 	ldxy @msg
-	lda __console_outfile
+	lda __monitor_outfile
 	CALL FINAL_BANK_MAIN, file::savebin
 
 	; write a newline
@@ -208,9 +208,9 @@ screen: .res 40*24
 
 ;******************************************************************************
 ; INIT
-; Initializes the console
-.export __console_init
-.proc __console_init
+; Initializes the monitor
+.export __monitor_init
+.proc __monitor_init
 	lda #$00
 	sta line
 	rts
@@ -218,14 +218,14 @@ screen: .res 40*24
 
 ;******************************************************************************
 ; CLEAR
-; Clears the console's contents
-.export __console_clear
-.proc __console_clear
+; Clears the monitor's contents
+.export __monitor_clear
+.proc __monitor_clear
 @scr=r0
 	; clear the screen
 	CALL FINAL_BANK_MAIN, scr::clr
 
-	; clear the console buffer
+	; clear the monitor buffer
 	ldxy #screen
 	stxy @scr
 	ldx #HEIGHT
@@ -246,9 +246,9 @@ screen: .res 40*24
 
 ;******************************************************************************
 ; ENTER
-; Activates the console.
-.export __console_enter
-.proc __console_enter
+; Activates the monitor.
+.export __monitor_enter
+.proc __monitor_enter
 @scr=r0
 @line=r2
 @linebuff=mem::spare
@@ -257,7 +257,7 @@ screen: .res 40*24
 	lda line
 	beq @cont
 
-	; restore the contents of the console screen buffer
+	; restore the contents of the monitor screen buffer
 	lda #$00
 	sta @line
 	ldxy #screen
@@ -289,21 +289,21 @@ screen: .res 40*24
 	lda zp::cury
 	sta cursave_y
 
-	; fall through to __console_reenter
+	; fall through to __monitor_reenter
 .endproc
 
 ;******************************************************************************
 ; REENTER
-; Activates the console without clearing the screen
-.export __console_reenter
-.proc __console_reenter
+; Activates the monitor without clearing the screen
+.export __monitor_reenter
+.proc __monitor_reenter
 	; initialize QUIT and INT signal states
 	lda #$00
-	sta __console_quit
+	sta __monitor_quit
 
 	jsr install_nmi
 
-	; treat whitespace as separator for expressions in the console
+	; treat whitespace as separator for expressions in the monitor
 	lda #$01
 	CALL FINAL_BANK_MAIN, expr::end_on_ws
 
@@ -330,7 +330,7 @@ screen: .res 40*24
 
 	CALL FINAL_BANK_MAIN, irq::on
 
-	ldxy #__console_getch
+	ldxy #__monitor_getch
 	CALL FINAL_BANK_MAIN, edit::gets
 	bcs @clrline
 	pha
@@ -339,14 +339,14 @@ screen: .res 40*24
 	sta $911d	; ack all interrupts
 
 	lda #$00
-	sta __console_outfile	; default to screen
-	sta __console_int	; reset SIGINT
+	sta __monitor_outfile	; default to screen
+	sta __monitor_int	; reset SIGINT
 
 	ldxy #mem::linebuffer
-	jsr __console_puts
+	jsr __monitor_puts
 
 	ldxy #mem::linebuffer
-	jsr set___console_outfile
+	jsr set___monitor_outfile
 
 	lda line
 	cmp #HEIGHT-1
@@ -364,7 +364,7 @@ screen: .res 40*24
 	pha
 
 	; close the output file (if not screen)
-	lda __console_outfile
+	lda __monitor_outfile
 	beq :+
 	CALL FINAL_BANK_MAIN, file::close
 	CALL FINAL_BANK_MAIN, irq::on
@@ -375,9 +375,9 @@ screen: .res 40*24
 
 @err:	CALL FINAL_BANK_MAIN, err::get
 	CALL FINAL_BANK_MAIN, str::uncompress
-	jsr __console_puts
+	jsr __monitor_puts
 
-@ok:	lda __console_quit	; was QUIT signal sent?
+@ok:	lda __monitor_quit	; was QUIT signal sent?
 	bne @done
 	jmp @prompt
 
@@ -400,9 +400,9 @@ screen: .res 40*24
 ; for the debug command to be executed as appropriate.
 ; The default output "file" is the screen.
 ; OUT:
-;   - __console_outfile: the file ID to store to
+;   - __monitor_outfile: the file ID to store to
 ;   - .C: set on error (failed to open file)
-.proc set___console_outfile
+.proc set___monitor_outfile
 	ldx #$00
 
 @findredir:
@@ -445,17 +445,17 @@ screen: .res 40*24
 	CALL FINAL_BANK_MAIN, file::open_w
 
 	bcs @err
-	sta __console_outfile
+	sta __monitor_outfile
 @done:	rts
 
 @err:	; display error
 	ldxy #strings::file_open_failed
-	jmp __console_puts
+	jmp __monitor_puts
 
 @err_nofile:
 	; display error
 	ldxy #strings::nofile
-	jmp __console_puts
+	jmp __monitor_puts
 .endproc
 
 ;*******************************************************************************
@@ -487,10 +487,10 @@ screen: .res 40*24
 	pha
 	lda $9c02
 	pha			; save current bank
-	lda #FINAL_BANK_CONSOLE
+	lda #FINAL_BANK_MONITOR
 	sta $9c02
 	lda #$01
-	sta __console_int	; set INT flag
+	sta __monitor_int	; set INT flag
 	pla
 	sta $9c02		; restore bank
 	pla

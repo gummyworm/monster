@@ -57,7 +57,6 @@ The up/down cursor keys navigate between pages of symbols. Press RESTORE to retu
 |--------|------------------|-----------------------------------------------------------------------|
 |   f1   | Assemble Project | assembles current project                                             |
 |   f2   | Assemble File    | assembles the current file to memory (must specify .org)              |
-|   f3   | Debug            | begins debugging contents of memory at lowest defined origin (.org)   |
 |   f4   | Debug BASIC      | initializes BASIC and begins debugging at the lowest defined origin   |
 |   f5   | Show buffers     | displays a list of the currently open buffers                         |
 |   f6   | Show project     | displays the current project configuration                            |
@@ -154,12 +153,14 @@ Example:
 Saves the active buffer to a file with the given name.  If no name is given,
 the active buffer's name is used.
 
+**NOTE**
 Adding an `@` to this command (`s@`) will delete the file before saving. This
 allows you to overwrite the existing file if it exists.
 
 Examples:
 `:s NEW.S`
 `:s@ OLD.S`
+`:S@` (save all)
 
 #### SAVE ALL :S
 

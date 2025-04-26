@@ -7,7 +7,7 @@
 .include "asm.inc"
 .include "asmflags.inc"
 .include "breakpoints.inc"
-.include "console.inc"
+.include "monitor.inc"
 .include "cursor.inc"
 .include "debuginfo.inc"
 .include "debugcmd.inc"
@@ -765,7 +765,7 @@ trampoline_size=*-trampoline
 	beq @iface_gui		; if interface is GUI, continue
 
 @debugloop_tui:
-	CALL FINAL_BANK_CONSOLE, con::reenter	; re-enter console (get input)
+	CALL FINAL_BANK_MONITOR, mon::reenter	; re-enter monitor (get input)
 	jmp @debugloop_tui
 
 @iface_gui:
@@ -1277,7 +1277,7 @@ go_pre_run:
 	ldxy #strings::tracing
 	lda __debug_interface
 	beq @gui
-	JUMP FINAL_BANK_CONSOLE, con::puts
+	JUMP FINAL_BANK_MONITOR, mon::puts
 
 @gui:	lda #REGISTERS_LINE-1
 	jsr text::print			; print the TRACING message
@@ -1467,7 +1467,7 @@ go_pre_run:
 	beq @gui
 
 @tui:	lda #REGISTERS_LINE-1
-	CALL FINAL_BANK_CONSOLE, con::puts
+	CALL FINAL_BANK_MONITOR, mon::puts
 	RETURN_OK
 
 @gui:	lda #REGISTERS_LINE-1
@@ -2173,7 +2173,7 @@ __debug_remove_breakpoint:
 	lda #DEBUG_IFACE_TEXT
 	sta __debug_interface
 	jsr fcpy::save_debug_state
-	jmp edit::enterconsole
+	jmp edit::entermonitor
 .endproc
 
 .RODATA
@@ -2198,7 +2198,7 @@ commands:
 	.byte K_RESET_STOPWATCH
 	.byte K_EDIT_STATE
 	.byte K_GOTO_BREAK
-	.byte K_CONSOLE
+	.byte K_MONITOR
 num_commands=*-commands
 
 .linecont +

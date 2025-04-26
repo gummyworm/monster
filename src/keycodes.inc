@@ -31,7 +31,7 @@ K_ASM_FILE       = $b0	; C= + a
 K_LINK           = $88	; F7
 K_SHOW_BUFFERS   = $87	; F5
 K_SHOW_PROJECT	 = $8b	; F6
-K_CONSOLE        = $a3	; C= + t
+K_MONITOR        = $a7	; C= + m
 K_REFRESH        = $bc  ; C= + c
 K_RENAME         = $b2  ; C= + r
 K_DIR            = $2d  ; -

@@ -7,7 +7,7 @@
 ;*******************************************************************************
 .include "../asm.inc"
 .include "../config.inc"
-.include "../console.inc"
+.include "../monitor.inc"
 .include "../copybuff.inc"
 .include "../debug.inc"
 .include "../debuginfo.inc"
@@ -538,7 +538,7 @@ relocs:
 
 ; CONSOLE
 .word __CONSOLE_LOAD__, __CONSOLE_RUN__, __CONSOLE_SIZE__
-.byte FINAL_BANK_CONSOLE
+.byte FINAL_BANK_MONITOR
 
 ; COPYBUFF
 .word __COPYBUFF_LOAD__, __COPYBUFF_RUN__, __COPYBUFF_SIZE__
@@ -590,7 +590,7 @@ num_relocs=(*-relocs)/7
 	ldxy #$c474
 	stxy sim::pc
 
-	CALL FINAL_BANK_CONSOLE, con::init
+	CALL FINAL_BANK_MONITOR, mon::init
 
 .ifndef TEST
 	jmp dbg::clrstate	; initialize user state by init'ing BASIC

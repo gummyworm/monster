@@ -76,12 +76,11 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	iny
 	bne :-
 	inc @bm+1
-	lda @bm+1
-	cmp #>$2000
+	ldx @bm+1
+	cpx #>$2000
 	bne :-
 
-	lda #TEXT_COLOR
-	; fall through
+	; fall through to clrcolor
 .endproc
 
 ;*******************************************************************************

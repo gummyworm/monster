@@ -11,7 +11,6 @@
 .include "breakpoints.inc"
 .include "codes.inc"
 .include "config.inc"
-.include "console.inc"
 .include "copybuff.inc"
 .include "ctx.inc"
 .include "cursor.inc"
@@ -35,6 +34,7 @@
 .include "linker.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "monitor.inc"
 .include "ram.inc"
 .include "screen.inc"
 .include "sim6502.inc"
@@ -225,22 +225,22 @@ main:	jsr key::getch
 .endproc
 
 ;******************************************************************************
-; ENTER CONSOLE
-; Activates the console
-.export __edit_enter_console
-.proc __edit_enter_console
+; ENTER MONITOR
+; Activates the monitor
+.export __edit_enter_monitor
+.proc __edit_enter_monitor
 	jsr draw::coloroff
-	JUMP FINAL_BANK_CONSOLE, con::enter
+	JUMP FINAL_BANK_MONITOR, mon::enter
 .endproc
 
 ;******************************************************************************
-; MON
+; MONITOR
 ; Activates the monitor and restores the editor when it exits
-.proc mon
+.proc monitor
 	jsr scr::save
 	pushcur
-	jsr __edit_enter_console
-	jsr __edit_exit_console
+	jsr __edit_enter_monitor
+	jsr __edit_exit_monitor
 	popcur
 	jmp scr::restore
 .endproc
@@ -248,8 +248,8 @@ main:	jsr key::getch
 ;******************************************************************************
 ; EXIT CONSOLE
 ; Returns from the console
-.export __edit_exit_console
-.proc __edit_exit_console
+.export __edit_exit_monitor
+.proc __edit_exit_monitor
 	inc mem::coloron
 	rts
 .endproc
@@ -2650,14 +2650,15 @@ goto_buffer:
 	jmp refresh
 @done:	rts
 
-;******************************************************************************
+;*******************************************************************************
 ; SHOW_PROJ
 ; Displays the project configuration for the current project
 .proc show_proj
 	; TODO:
+	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SHOW_BUFFERS
 ; Displays the filenames and their respective ID's for every open buffer.
 ; Then prompts the user for a selection via the standard GUI.  This window
@@ -5142,7 +5143,7 @@ commands:
 	.byte K_NEXT_DRIVE	; next drive
 	.byte K_PREV_DRIVE	; prev drive
 	.byte K_GETCMD		; get command
-	.byte K_CONSOLE		; enter console
+	.byte K_MONITOR		; enter console
 	.byte K_NEXT_ERR	; go to next error from error log
 numcommands=*-commands
 
@@ -5157,7 +5158,7 @@ numcommands=*-commands
 	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, command_move_scr, \
 	sub_char, sub_line, \
-	command_find, next_drive, prev_drive, get_command, mon, next_err
+	command_find, next_drive, prev_drive, get_command, monitor, next_err
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs
