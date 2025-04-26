@@ -1334,10 +1334,13 @@ __src_atcursor:
 	tay			; .Y = bytes to copy
 	dey
 	lda bank
-	jsr ram::fcopy
-	pla
+	jsr ram::copyline	; may copy garbage
+
+	pla			; restore end of line index
 	tay
-	bne @done		; branch always
+	lda #$00
+	sta (@target),y		; terminate line at end
+	beq @done		; branch always
 
 :	ldxy @target
 	stxy zp::bankaddr1

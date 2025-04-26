@@ -11,7 +11,6 @@ bankval     = $07	; the value written by store_byte
 bankjmpaddr = $08	; JMP in struction for banked calls
 bankjmpvec  = $09	; JMP vector
 
-math = $0b		; $0b-$0f math routine scratchpad
 debug = $10		; $10-$28 debug info generation
 
 debugger    = $28	; $28-$29 used by debugger

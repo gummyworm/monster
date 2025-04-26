@@ -1231,6 +1231,14 @@ CMD_BUFF = $101
 .endproc
 
 ;*******************************************************************************
+; NEW
+; Reinitializes BASIC in "virtual" (user) memory
+.proc new
+	jsr dbg::clrstate
+	RETURN_OK
+.endproc
+
+;*******************************************************************************
 ; CLEAR
 ; Clears the terminal
 .proc clear
@@ -1483,6 +1491,7 @@ commands:
 .byte "f",0	; fill memory in the given address range with the given data
 .byte "dump",0	; dumps the given address range
 .byte "move",0	; move memory from the given address range to the target address
+.byte "new",0	; reinitializes BASIC
 .byte "g",0	; goto given expression/address
 .byte "c",0	; compare the memory in the two given ranges
 .byte "h",0	; hunts the given address range for the given data
@@ -1503,8 +1512,8 @@ commands:
 .linecont +
 .define command_vectors clear, add_watch, add_watch_load, add_watch_store, \
 	remove_watch, list_watches, list_breakpoints, add_break_addr, \
-	add_break_line, remove_break, fill, dump, move, goto, compare, hunt, \
-	__dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
+	add_break_line, remove_break, fill, dump, move, new, goto, compare, \
+	hunt, __dbgcmd_regs, disasm, assemble, showmem, trace, quit, step, \
 	step_over, go, backtrace, step_out, poke, savemem
 .linecont -
 commandslo: .lobytes command_vectors

@@ -71,12 +71,22 @@ screen: .res 40*24
 .proc __monitor_getch
 	jsr key::getch
 	beq @done
+
+	; handle special keys
+	;  f1: show virtual machine state
+	;  f2: run machine state
 	cmp #K_SWAP_USERMEM_TUI
-	bne @done
+	bne :+
 	jsr dbg::swapusermem
 	dec mem::coloron	; (re-disable color)
+	jmp @handled
+
+:	cmp #K_GO_BASIC_TUI
+	bne @done
+	jsr dbg::go_basic
+@handled:
 	lda #$00
-@done:	rts
+@done:	rts			; propagate keypress
 .endproc
 
 .segment "CONSOLE"
@@ -301,6 +311,11 @@ screen: .res 40*24
 	lda #$00
 	sta __monitor_quit
 
+	; set the interface so the debugger knows to return to the monitor
+	; and not editor (GUI)
+	lda #$01		; DEBUG_IFACE_TEXT
+	sta dbg::interface
+
 	jsr install_nmi
 
 	; treat whitespace as separator for expressions in the monitor
@@ -390,7 +405,7 @@ screen: .res 40*24
 	lda cursave_y
 	sta zp::cury
 
-	; if debug interface changed back to GUI, refresh editor
+	; debug interface changed back to GUI, refresh editor
 	JUMP FINAL_BANK_MAIN, edit::refresh
 .endproc
 

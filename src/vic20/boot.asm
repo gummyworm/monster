@@ -564,6 +564,11 @@ num_relocs=(*-relocs)/7
         jsr irq::on
 	sei
 
+	lda #$00
+	sta zp::banksp
+	lda #$4c
+	sta zp::bankjmpaddr	; write the JMP instruction
+
 	lda #<start
 	sta $0316		; BRK
 	lda #>start
@@ -586,14 +591,11 @@ num_relocs=(*-relocs)/7
 	jsr asm::reset
 	jsr buff::clear		; clear copy buffer
 
-	; initialize PC to warm start
-	ldxy #$c474
-	stxy sim::pc
-
 	CALL FINAL_BANK_MONITOR, mon::init
 
 .ifndef TEST
-	jmp dbg::clrstate	; initialize user state by init'ing BASIC
+	jsr dbg::clrstate	; initialize user state by init'ing BASIC
+	jmp edit::init
 .else
 	.import testsuite
 	jmp testsuite

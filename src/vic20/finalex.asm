@@ -11,7 +11,6 @@
 .include "../zeropage.inc"
 
 .segment "BANKCODE"
-.export banksp
 
 bankcode:
 ;*******************************************************************************
@@ -98,28 +97,6 @@ final_store_size=*-__ram_store_byte
 .endproc
 
 ;*******************************************************************************
-; COPY
-; Copies up to 256 bytes from zp::bankaddr0 to zp::bankaddr1
-; IN:
-;  - .A:            the bank to perform the copy within
-;  - .Y:            the number of bytes to copy
-;  - zp::bankaddr0: the source address to copy from
-;  - zp::bankaddr1: the destination address to copy to
-; DESTROYS:
-;  .A, .Y, .X
-.export __ram_copy
-.proc __ram_copy
-	sta $9c02
-:	lda (zp::bankaddr0),y
-	sta (zp::bankaddr1),y
-	dey
-	bpl :-
-	ldx #$80
-
-	; fall through to return_to_x
-.endproc
-
-;*******************************************************************************
 ; RETURN TO X
 ; Sets the bank to the given bank and returns (RTS)
 ; IN:
@@ -147,7 +124,7 @@ final_store_size=*-__ram_store_byte
 	ldy #$00
 :	lda (zp::bankaddr0),y
 	sta (zp::bankaddr1),y
-	beq @done
+	beq return_to_x
 	cmp #$0d
 	beq @done
 	iny
@@ -175,8 +152,8 @@ final_store_size=*-__ram_store_byte
 	lda #$4c
 	sta zp::bankjmpaddr	; write the JMP instruction
 	lda $9c02
-	ldx banksp
-	inc banksp
+	ldx zp::banksp
+	inc zp::banksp
 	sta zp::bankstack,x
 
 	lda @bank
@@ -187,8 +164,8 @@ final_store_size=*-__ram_store_byte
 	sta @a			; save .A
 	stx @x			; save .X
 
-	dec banksp
-	ldx banksp
+	dec zp::banksp
+	ldx zp::banksp
 	lda zp::bankstack,x	; get the caller's bank
 	sta $9c02		; restore bank
 
@@ -197,7 +174,18 @@ final_store_size=*-__ram_store_byte
 	rts
 .endproc
 
-banksp:    .byte 0
+;*******************************************************************************
+; JMP
+.export __ram_jmp
+.proc __ram_jmp
+@bank=zp::banktmp
+@a=zp::banktmp+1
+	sta @a
+	lda @bank
+	sta $9c02		; swap in the target bank
+	lda @a			; restore .A
+	jmp (zp::bankjmpvec)	; call the target routine
+.endproc
 
 .CODE
 

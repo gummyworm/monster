@@ -1,4 +1,3 @@
-.import __fastcopy_init
 .import __fastcopy_save_prog_state
 .import __fastcopy_save_debug_state
 .import __fastcopy_restore_debug_state
@@ -10,7 +9,6 @@
 .import __fastcopy_restore_user_zp
 
 .scope fcpy
-	init                = __fastcopy_init
 	restore_debug_state = __fastcopy_restore_debug_state
 	restore_debug_low   = __fastcopy_restore_debug_low
 	restore_debug_zp    = __fastcopy_restore_debug_zp

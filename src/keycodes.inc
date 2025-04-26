@@ -63,6 +63,7 @@ K_BRKVIEW		= $87	; F5
 K_WATCHVIEW		= $88	; F7
 K_SWAP_USERMEM		= $20	; SPACE
 K_SWAP_USERMEM_TUI	= $85	; F1
+K_GO_BASIC_TUI		= $89	; F2
 K_RESET_STOPWATCH	= $b2	; C= + r
 K_QUIT_DEBUGGER		= $bd	; C= + x
 K_GOTO_BREAK		= $5e	; up-arrow

@@ -555,8 +555,13 @@ trampoline_size=*-trampoline
 .export __debug_clrstate
 .proc __debug_clrstate
 	sei
+
+	pla
+	sta @ret0
+	pla
+	sta @ret1
+
 	jsr __debug_init
-	jsr fcpy::init
 	jsr fcpy::save_debug_state
 	jsr fcpy::save_debug_zp
 
@@ -605,8 +610,21 @@ trampoline_size=*-trampoline
 
 	; restore the rest of Monster's RAM and enter the application
 	jsr fcpy::restore_debug_state
+
+	; initialize PC to warm start
+	ldxy #$c474
+	stxy sim::pc
+
 	jsr irq::on
-	jmp edit::init
+
+@ret1=*+1
+	lda #$00
+	pha
+@ret0=*+1
+	lda #$00
+	pha
+
+	rts
 .endproc
 
 ;******************************************************************************
@@ -659,7 +677,16 @@ trampoline_size=*-trampoline
 	; save program state and swap the debugger state in
 	jsr swapout
         jsr irq::on		; reinstall the main IRQ
-	jmp edit::init
+
+	; return to the editor or monitor (whichever is active)
+	lda __debug_interface
+	beq @edit
+@mon:	; need to clear bank stack (will grow each time user enters monitor
+	; from BASIC)
+	lda #$00
+	sta zp::banksp
+	CALL FINAL_BANK_MONITOR, mon::reenter
+@edit:	jmp edit::init
 .endproc
 
 ;******************************************************************************
@@ -2170,8 +2197,6 @@ __debug_remove_breakpoint:
 ; ACTIVATE MONITOR
 ; Activates the text user interface debugger (monitor)
 .proc activate_monitor
-	lda #DEBUG_IFACE_TEXT
-	sta __debug_interface
 	jsr fcpy::save_debug_state
 	jmp edit::entermonitor
 .endproc

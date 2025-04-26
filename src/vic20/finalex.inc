@@ -2,15 +2,15 @@
 VIC20_FINALEX_INC=1
 
 .import __ram_call
-.import __ram_store_byte
+.import __ram_jmp
 .import __ram_load_byte
 .import __ram_load_byte_off
 .import __ram_memcpy
-.import __ram_copy
 .import __ram_copy_line
 .import __ram_bank_store_rel
 .import __ram_memcpy_bank
 .import __ram_get_byte
+.import __ram_store_byte
 
 ;******************************************************************************
 ; BANK LAYOUT
@@ -92,7 +92,7 @@ FINAL_BANK_FASTTEXT  = $a0|$e
 ;******************************************************************************
 .scope fe3
 	call       = __ram_call
-	fcopy      = __ram_copy
+	jump       = __ram_jmp
 	copy       = __ram_memcpy
 	copyline   = __ram_copy_line
 	store      = __ram_store_byte

@@ -12,6 +12,7 @@ RAM_INC = 1
 .endif
 
 .import __ram_call
+.import __ram_jmp
 .import __ram_copy
 .import __ram_memcpy
 .import __ram_copy_banked
@@ -63,10 +64,10 @@ RAM_INC = 1
 
 .scope ram
 	call      = __ram_call
-	fcopy     = __ram_copy
 	copy      = __ram_memcpy
 	copybanked= __ram_copy_banked
 	copyline  = __ram_copy_line
+	jump      = __ram_jmp
 	store     = __ram_store_byte
 	store_off = __ram_bank_store_rel
 	get_byte  = __ram_get_byte

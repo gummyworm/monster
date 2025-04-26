@@ -46,13 +46,6 @@ dbg9400: .res $f0	; $9400-$94f0
 .CODE
 
 ;******************************************************************************
-; INIT
-.export __fastcopy_init
-.proc __fastcopy_init
-	rts
-.endproc
-
-;******************************************************************************
 ; SAVE USER ZP
 ; Saves the state of the user's zeropage
 ; IN:
