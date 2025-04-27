@@ -561,10 +561,16 @@ trampoline_size=*-trampoline
 	pla
 	sta @ret1
 
+	tsx
+	stx @save_sp
+
 	jsr __debug_init
 	jsr fcpy::save_debug_state
-	jsr fcpy::save_debug_zp
 
+	ldxy #@restore_dbg_done		; need to pass return address
+	jmp fcpy::save_debug_zp
+
+@restore_dbg_done:
 	lda #$7f
 	sta $911e			; disable NMI's
 
@@ -602,7 +608,14 @@ trampoline_size=*-trampoline
 	; this has the routines (in the shared RAM space) we need to do the rest
 	; of the banekd program state save (save_prog_state)
 	jsr fcpy::restore_debug_zp
-	jsr fcpy::restore_debug_low
+
+	ldxy #@restore_debug_done
+	jmp fcpy::restore_debug_low
+
+@restore_debug_done:
+@save_sp=*+1
+	ldx #$00
+	txs
 
 	; save the initialized hi RAM ($1000-$2000) and other misc locations of
 	; the user program
@@ -671,7 +684,10 @@ trampoline_size=*-trampoline
 	jmp fcpy::save_user_zp
 
 @save_done:
-	jsr fcpy::restore_debug_low
+	ldxy #@restore_debug_done
+	jmp fcpy::restore_debug_low
+
+@restore_debug_done:
 	jsr fcpy::restore_debug_zp
 
 	; save program state and swap the debugger state in
@@ -764,7 +780,10 @@ trampoline_size=*-trampoline
 	jmp fcpy::save_user_zp
 
 @save_done:
-	jsr fcpy::restore_debug_low
+	ldxy #@restore_debug_done
+	jmp fcpy::restore_debug_low
+
+@restore_debug_done:
 	jsr fcpy::restore_debug_zp
 
 	; save program state and swap the debugger state in
@@ -1024,8 +1043,10 @@ trampoline_size=*-trampoline
 	sta $911d	; ack all interrupts
 	sta $912d
 
-	jsr fcpy::save_debug_zp
+	ldxy #@restore_dbg_done		; need to pass return address
+	jmp fcpy::save_debug_zp
 
+@restore_dbg_done:
 	ldxy #@restore_done		; need to pass return address
 	jmp fcpy::restore_user_zp
 

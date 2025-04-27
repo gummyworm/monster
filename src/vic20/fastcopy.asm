@@ -111,16 +111,11 @@ dbg9400: .res $f0	; $9400-$94f0
 ;******************************************************************************
 ; RESTORE DEBUG LOW
 ; Restores the state of the debugger's "low" memory
+; IN:
+;   - .XY: the return address (stack can't be used)
 .export __fastcopy_restore_debug_low
 .proc __fastcopy_restore_debug_low
-	; get return address (stack will be clobbered)
-	pla
-	clc
-	adc #$01
-	sta @ret
-	pla
-	adc #$00
-	sta @ret+1
+	stxy @ret
 
 	ldx #$00
 :	lda dbg00+$100,x
@@ -142,6 +137,7 @@ dbg9400: .res $f0	; $9400-$94f0
 	sta $300,x
 	dex
 	bpl :-
+
 @ret=*+1
 	jmp	$f00d
 .endproc
@@ -149,9 +145,12 @@ dbg9400: .res $f0	; $9400-$94f0
 ;******************************************************************************
 ; SAVE DEBUG ZP
 ; Saves the state of the debugger's zeropage
+; IN:
+;   - .XY: the return address (stack can't be used)
 .export __fastcopy_save_debug_zp
 .proc __fastcopy_save_debug_zp
 @zp=dbg00
+	stxy @ret
 	ldx #$00
 @l0:	lda $00,x
 	sta @zp,x
@@ -163,7 +162,8 @@ dbg9400: .res $f0	; $9400-$94f0
 	sta @zp+$300,x
 	dex
 	bne @l0
-	rts
+@ret=*+1
+	jmp	$f00d
 .endproc
 
 ;******************************************************************************
