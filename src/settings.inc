@@ -7,4 +7,4 @@
 .endif
 
 
-MONITOR_PROMPT = '>'
+MONITOR_PROMPT = '$'
