@@ -158,12 +158,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	sta sortby
 	sta @selection
 
-@start:	ldxy lbl::num
-	cmpw #0
-	bne :+
-	jmp @done
-
-:	ldxy #$00
+@start: ldxy #$00
 	stxy @scroll
 
 @l0:	jsr edit::clear
@@ -177,6 +172,11 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	ldxy #sort_by_name_msg
 :	lda #23
 	jsr text::print
+
+	ldxy lbl::num
+	cmpw #0
+	beq @done
+
 	lda #$00
 	sta @row
 
