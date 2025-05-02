@@ -8,7 +8,7 @@
 .include "config.inc"
 .include "cursor.inc"
 .include "debug.inc"
-.include "debugcmd.inc"
+.include "monitorcmd.inc"
 .include "edit.inc"
 .include "errors.inc"
 .include "expr.inc"
@@ -27,7 +27,7 @@
 
 .include "ram.inc"
 
-.import is_whitespace	; from debugcmd.asm
+.import is_whitespace	; from monitorcmd.asm
 
 NMI_HANDLER_ADDR = mem::spare+120
 CMD_BUFF         = $101			; written by edit::gets
@@ -393,7 +393,7 @@ screen: .res 40*24
 
 @run:	; run the command
 	ldxy #CMD_BUFF
-	jsr dbgcmd::run
+	jsr moncmd::run
 	php
 	pha
 

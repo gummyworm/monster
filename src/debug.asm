@@ -10,7 +10,6 @@
 .include "monitor.inc"
 .include "cursor.inc"
 .include "debuginfo.inc"
-.include "debugcmd.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "errors.inc"
