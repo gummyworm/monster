@@ -701,7 +701,7 @@ trampoline_size=*-trampoline
 .endproc
 
 ;******************************************************************************
-; DEBUG_BRK
+; DEBUG BRK
 ; This is the BRK handler for the debugger.
 ; It saves the user program's state and other sensitive memory areas that are
 ; needed by the debugger for display etc, then it restores the debugger's state
@@ -1225,7 +1225,7 @@ go_pre_run:
 .endproc
 
 ;******************************************************************************
-; EDIT_SOURCE
+; EDIT SOURCE
 ; Disable all views and reenable (almost) fullscreen editing
 .proc edit_source
 	lda #$00
@@ -1235,7 +1235,7 @@ go_pre_run:
 .endproc
 
 ;******************************************************************************
-; EDIT_MEM
+; EDIT MEM
 ; Transfers control to the memory viewer/editor until the user exits it
 .proc edit_mem
 	lda #DEBUG_INFO_START_ROW-1
@@ -1255,7 +1255,7 @@ go_pre_run:
 .endproc
 
 ;******************************************************************************
-; EDIT_BREAKPOINTS
+; EDIT BREAKPOINTS
 ; Transfers control to the breakpoint viewer/editor until the user exits it
 .proc edit_breakpoints
 	pushcur
@@ -1269,7 +1269,7 @@ go_pre_run:
 .endproc
 
 ;******************************************************************************
-; EDIT_WATCHES
+; EDIT WATCHES
 ; Transfers control to the watch viewer/editor until the user exits it
 .export __debug_edit_watches
 .proc __debug_edit_watches
@@ -1284,7 +1284,7 @@ go_pre_run:
 .endproc
 
 ;******************************************************************************
-; SWAP_USER_MEM
+; SWAP USER MEM
 ; Command that swaps in the user program memory, waits for a keypress, and
 ; returns with the debugger's memory swapped back in
 .export __debug_swap_user_mem
@@ -1295,13 +1295,10 @@ go_pre_run:
 	jsr fcpy::save_debug_state
 	jsr fcpy::restore_progstate
 
-	; TODO: setup VIA's for input
-	LDX	#$FF		; all outputs, keyboard column
-	STX	$9122		; set VIA 2 DDRB
-
-	LDX	#$00		; all inputs, keyboard row
-	STX	$9123		; set VIA 2 DDRA
-
+	ldx #$ff	; all outputs
+	stx $9122	; set VIA 2 DDRB
+	ldx #$00	; all inputs
+	stx $9123	; set VIA 2 DDRA
 
 	; wait for a key to swap the state back
 	jsr key::waitch
@@ -1439,7 +1436,7 @@ go_pre_run:
 .endproc
 
 ;*******************************************************************************
-; SAFETY_CHECK
+; SAFETY CHECK
 ; Checks if the CPU will be jammed after executing the next instruction or if
 ; a critical memory location will be clobbered.
 .proc safety_check
@@ -1480,7 +1477,7 @@ go_pre_run:
 .endproc
 
 ;*******************************************************************************
-; JAM_DETECTED
+; JAM DETECTED
 ; This procedure is called when STEP (via step, trace, etc.) encounters a JAM
 ; instruction
 .proc jam_detected
@@ -1490,7 +1487,7 @@ go_pre_run:
 .endproc
 
 ;*******************************************************************************
-; WATCH_TRIGGERED
+; WATCH TRIGGERED
 ; This procedure is called when STEP (via step, trace, etc.) reads/writes to a
 ; memory location that is being watched
 .proc watch_triggered
@@ -1946,7 +1943,7 @@ __debug_remove_breakpoint:
 .endproc
 
 ;*******************************************************************************
-; REGS_CONTENTS
+; REGS CONTENTS
 ; Returns a line containing the contents of the registers
 ; OUT: mem::linebuffer: a line of text containing the values for each tegister
 ;      matches the format: PC  A  X  Y  SP NV-BDIZC ADDR
@@ -2183,7 +2180,7 @@ __debug_remove_breakpoint:
 .endproc
 
 ;*******************************************************************************
-; SHOW_AUX
+; SHOW AUX
 ; Displays the memory viewer, breakpoint viewer, or watchpoint viewer depending
 ; on which is enabled
 .proc show_aux

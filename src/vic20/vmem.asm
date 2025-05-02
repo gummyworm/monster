@@ -85,19 +85,12 @@
 
 :	cpy #>$1000
 	bcc @done
-	cpy #>$1100
+
+	cpy #>$2000
 	bcs :+
 
 @1000:	; $1000-$1100 is stored in the prog1000 buffer
 	add16 #(prog1000-$1000)
-	lda #FINAL_BANK_FASTCOPY
-	rts
-
-:	cpy #>$2000
-	bcs :+
-
-@1100:	; $1100-$2000 is stored in the "fast copy" bank
-	add16 #($a000-$1100)
 	lda #FINAL_BANK_FASTCOPY
 	rts
 

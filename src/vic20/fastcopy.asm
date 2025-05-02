@@ -201,7 +201,7 @@ dbg9400: .res $f0	; $9400-$94f0
 .SEGMENT "FASTCOPY"
 
 ;******************************************************************************
-; RESTORE_DEBUG_STATE
+; RESTORE DEBUG STATE
 ; Restores the saved debugger state
 .export restore_debug_state
 .proc restore_debug_state
