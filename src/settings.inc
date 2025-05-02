@@ -5,3 +5,6 @@
 .ifdef c64
 .include "c64/settings.inc"
 .endif
+
+
+MONITOR_PROMPT = '>'

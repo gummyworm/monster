@@ -55,7 +55,7 @@ K_EDIT_STATE     = $89	; F2
 K_SWAP_WINS      = $b3	; C= + s
 K_NEXT_ERR       = $b1  ; C= + e
 
-;******************************************************************************
+;*******************************************************************************
 ; DEBUGGER KEYS
 K_SRCVIEW		= $85	; F1
 K_MEMVIEW		= $86	; F3
@@ -63,7 +63,6 @@ K_BRKVIEW		= $87	; F5
 K_WATCHVIEW		= $88	; F7
 K_SWAP_USERMEM		= $20	; SPACE
 K_SWAP_USERMEM_TUI	= $85	; F1
-K_GO_BASIC_TUI		= $89	; F2
 K_RESET_STOPWATCH	= $b2	; C= + r
 K_QUIT_DEBUGGER		= $bd	; C= + x
 K_GOTO_BREAK		= $5e	; up-arrow
@@ -81,6 +80,13 @@ K_SET_WATCH = $b3	; C= + w (for use in MEMORY editor)
 K_ADD_WATCH = $b3	; C= + w (for use in WATCH editor)
 K_DEL_WATCH = $ac	; C= + d
 
+;*******************************************************************************
+; MONITOR KEYS
+K_GO_BASIC_TUI		= $89	; F2
+K_MON_CLEAR		= $b6	; C= + l
+
+;*******************************************************************************
+; KEY REMAPPINGS
 K_BACKSLASH   = $5c	; Euro symbol
 K_CARET       = $5e	; up-arrow
 K_UNDERSCORE  = $5f	; SHIFT + minus

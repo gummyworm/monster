@@ -19,6 +19,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "screen.inc"
+.include "settings.inc"
 .include "string.inc"
 .include "strings.inc"
 .include "text.inc"
@@ -73,9 +74,20 @@ screen: .res 40*24
 	beq @done
 
 	; handle special keys
-	;  f1: show virtual machine state
-	;  f2: run machine state
-	cmp #K_SWAP_USERMEM_TUI
+	; C=+l: clear monitor
+	;   f1: show virtual machine state
+	;   f2: run machine state
+	cmp #K_MON_CLEAR
+	bne :+
+	CALL FINAL_BANK_MONITOR, __monitor_clear
+	lda #MONITOR_PROMPT
+	sta mem::linebuffer
+	lda #$00
+	sta mem::linebuffer+1
+	jmp text::drawline
+	rts
+
+:	cmp #K_SWAP_USERMEM_TUI
 	bne :+
 	jsr dbg::swapusermem
 	dec mem::coloron	; (re-disable color)
@@ -250,7 +262,14 @@ screen: .res 40*24
 	inc @scr+1
 :	dex
 	bne @l0
+	stx zp::cury
 	stx line	; go back to first line
+	inx
+	stx zp::curx
+	lda #MONITOR_PROMPT
+	sta mem::linebuffer
+	lda #$00
+	sta mem::linebuffer+1
 	rts
 .endproc
 
@@ -326,7 +345,7 @@ screen: .res 40*24
 	ldxy #mem::linebuffer
 	lda line
 	CALL FINAL_BANK_MAIN, text::print
-	lda #'>'
+	lda #MONITOR_PROMPT
 	sta mem::linebuffer
 	lda #$00
 	sta mem::linebuffer+1
