@@ -20,15 +20,6 @@ MAX_OPERANDS  = MAX_OPERATORS/2
 .BSS
 end_on_whitespace: .byte 0
 
-
-; HINT VALUE
-; This value will be used if a label cannot be resolved when evaluating the
-; expression
-.export __expr_label_hint
-.export __expr_label_size_hint
-__expr_label_hint:      .word 0
-__expr_label_size_hint: .byte 0
-
 .CODE
 
 ;******************************************************************************

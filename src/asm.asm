@@ -124,8 +124,9 @@ top: .word 0	; the highest address in the program
 .export __asm_linenum
 __asm_linenum: .byte 0
 
+; TODO: use
 ; the type of the segment being stored e.g. SEG_BSS or SEG_CODE
-segment_type: .byte 0
+;segment_type: .byte 0
 
 ;*******************************************************************************
 ; object assembly flag
@@ -135,7 +136,8 @@ segment_type: .byte 0
 ; if 0:
 ;   lines will be assembled directly to memory at the address in
 ;   zp::asmresult
-to_object: .byte 0
+; TODO: use
+;to_object: .byte 0
 
 ;*******************************************************************************
 ; ASMBUFFER

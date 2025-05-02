@@ -78,9 +78,9 @@ AUX_GUI  = 2		; enables viewers that use the standard GUI list menu
 
 ; layout constants for the register view
 REG_PC_OFFSET = 0
-REG_A_OFFSET = 5
-REG_X_OFFSET = 8
-REG_Y_OFFSET = 11
+REG_A_OFFSET  = 5
+REG_X_OFFSET  = 8
+REG_Y_OFFSET  = 11
 REG_SP_OFFSET = 14
 
 ;*******************************************************************************
@@ -189,10 +189,6 @@ __debug_breakpoint_fileids: .res MAX_BREAKPOINTS	; breakpoint file ID's
 __debug_breakpoint_flags:
 breakpoint_flags: .res MAX_BREAKPOINTS ; active state of breakpoints
 breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
-
-.export in_rom
-in_rom:   .byte 0	; !0: the next instruction is in $c000-$ffff
-is_step:  .byte 0	; !0: we are running a STEP instruction
 
 .CODE
 

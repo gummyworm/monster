@@ -177,7 +177,7 @@ numanon: .word 0	; total number of anonymous labels
 .segment "LABEL_BSS"
 
 ;******************************************************************************
-; LABEL_ADDRESSES
+; LABEL ADDRESSES
 ; Table of addresses for each label
 ; The address of a given label id is label_addresses + (id * 2)
 ; Labels are also stored sorted by address in label_addresses_sorted.
@@ -381,7 +381,8 @@ anon_addrs: .res MAX_ANON*2
 	stxy zp::bankaddr1
 	CALL FINAL_BANK_MAIN, ram::copyline
 	ldxy #@tmplabel
-; fall through
+
+	; fall through to SET
 .endproc
 
 ;******************************************************************************
@@ -394,8 +395,9 @@ anon_addrs: .res MAX_ANON*2
 ;  - .C: set on error or clear if the label was successfully added
 .proc set
 	lda #$01
-	sta allow_overwrite
-	bne addlabel
+	skw
+
+	; fallthrough to ADD
 .endproc
 
 ;******************************************************************************
@@ -408,8 +410,8 @@ anon_addrs: .res MAX_ANON*2
 ;  - .C: set on error or clear if the label was successfully added
 .proc add
 	lda #$00
-	sta allow_overwrite
-	; fallthrough
+
+	; fallthrough to ADDLABEL
 .endproc
 
 ;******************************************************************************
@@ -429,6 +431,8 @@ anon_addrs: .res MAX_ANON*2
 @dst=r8
 @cnt=ra
 @addr=rc
+	sta allow_overwrite	; set overwrite flag (SET) or clear (ADD)
+
 	stxy @name
 	jsr is_valid
 	bcc @seek
@@ -624,7 +628,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; ADD_ANON
+; ADD ANON
 ; Adds an anonymous label at the given address
 ; IN:
 ;  - .XY: the address to add an anonymous label at
@@ -783,7 +787,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; GET_FANON
+; GET FANON
 ; Returns the address of the nth forward anonymous label relative to the given
 ; address. That is the nth anonymous label whose address is greater than
 ; the given address.
@@ -857,7 +861,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; GET_BANON
+; GET BANON
 ; Returns the address of the nth backward anonymous address relative to the
 ; given  address. That is the nth anonymous label whose address is less than
 ; the given address.
@@ -938,7 +942,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; LABEL_ADDRESS
+; LABEL ADDRESS
 ; Returns the address of the label in (.YX)
 ; The size of the label is returned in .A (1 if zeropage, 2 if not)
 ; line is updated to the character after the label.
@@ -1087,7 +1091,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; IS_LOCAL
+; IS LOCAL
 ; Returns with .Z set if the given label is a local label (begins with '@')
 ; IN:
 ;  - .XY: the label to test
@@ -1108,7 +1112,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; LABEL_BY_ID
+; LABEL BY ID
 ; Returns the address of the label ID in .YX in .YX
 ; IN:
 ;  - .XY: the id of the label to get the address of
@@ -1135,7 +1139,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; BY_ADDR
+; BY ADDR
 ; Returns the label for a given address by performing a binary search on the
 ; cache of sorted label addresses
 ; NOTE: Labels must be indexed (lbl::index) in order for this function to return
@@ -1296,7 +1300,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; NAME_BY_ID
+; NAME BY ID
 ; Returns the address name of the label ID in .YX in .YX
 ; IN:
 ;  - .XY: the id of the label to get the address of
@@ -1373,7 +1377,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; GET_NAME
+; GET NAME
 ; Copies the name of the label ID given to the provided buffer
 ; IN:
 ;  - .XY: the ID of the label to get the name of
@@ -1398,7 +1402,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; GET_ADDR
+; GET ADDR
 ; Returns the address of the given label ID.
 ; IN:
 ;  - .XY: the ID of the label to get the name of
@@ -1435,7 +1439,7 @@ anon_addrs: .res MAX_ANON*2
 .endproc
 
 ;******************************************************************************
-; is_null_space_comma_closingparen
+; IS NULL SPACE COMMA CLOSINGPAREN
 ; IN:
 ;  - .A: the character to test
 ; OUT:

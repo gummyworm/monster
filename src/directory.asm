@@ -11,6 +11,7 @@
 .include "irq.inc"
 .include "key.inc"
 .include "keycodes.inc"
+.include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
 .include "settings.inc"
@@ -19,8 +20,6 @@
 .include "text.inc"
 .include "util.inc"
 .include "zeropage.inc"
-
-SCREEN_H = 23
 
 .CODE
 
@@ -84,7 +83,7 @@ SCREEN_H = 23
 	jsr draw::hline
 
 	; and the bottom (status) row
-	ldx #SCREEN_H
+	ldx #SCREEN_HEIGHT-1
 	lda #DEFAULT_RVS
 	jsr draw::hline
 
@@ -142,7 +141,7 @@ SCREEN_H = 23
 	; print the line
 	ldxy #@namebuff
 	lda @row
-	cmp #SCREEN_H
+	cmp #SCREEN_HEIGHT-1
 	bcs :+			; if line isn't visible, don't draw
 	jsr text::print
 	inc @row
@@ -151,12 +150,12 @@ SCREEN_H = 23
 	inc @cnt
 	jmp @l0
 
-@cont:	; max a user can scroll is (# of files - SCREEN_H)
+@cont:	; max a user can scroll is (# of files - SCREEN_HEIGHT-1)
 	ldx #$00
 	lda @cnt
-	cmp #SCREEN_H
+	cmp #SCREEN_HEIGHT-1
 	bcc :+
-	sbc #SCREEN_H
+	sbc #SCREEN_HEIGHT-1
 	tax
 :	stx @scrollmax
 
@@ -194,7 +193,7 @@ SCREEN_H = 23
 
 	; scroll up and redraw the bottom line
 	ldx #1
-	lda #SCREEN_H-1
+	lda #SCREEN_HEIGHT-1-1
 	jsr text::scrollup
 
 	ldxy #@namebuff
@@ -208,7 +207,7 @@ SCREEN_H = 23
 	lda @fptrs,x
 	tax
 	jsr util::parse_enquoted_string
-	lda #SCREEN_H-1			; bottom row
+	lda #SCREEN_HEIGHT-1-1			; bottom row
 	ldxy #@namebuff
 	jsr text::print
 	jmp @hiselection
@@ -229,7 +228,7 @@ SCREEN_H = 23
 
 	; scroll down and redraw the bottom line
 	lda #1
-	ldx #SCREEN_H-1
+	ldx #SCREEN_HEIGHT-1-1
 	jsr text::scrolldown
 
 	ldxy #@namebuff
@@ -297,11 +296,11 @@ SCREEN_H = 23
 	lda @scrollmax
 	sta @scroll
 
-	; set selection (row) to min(SCREEN_H, @cnt)
+	; set selection (row) to min(SCREEN_HEIGHT-1, @cnt)
 	ldx @cnt
-	cpx #SCREEN_H
+	cpx #SCREEN_HEIGHT-1
 	bcc :+
-	ldx #SCREEN_H
+	ldx #SCREEN_HEIGHT-1
 :	dex
 	stx @select
 @redraw:
@@ -356,7 +355,7 @@ SCREEN_H = 23
 
 	inc @i
 	lda @i
-	cmp #SCREEN_H
+	cmp #SCREEN_HEIGHT-1
 	bcs @refresh_done
 	adc @scroll
 	cmp @cnt

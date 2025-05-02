@@ -7,7 +7,6 @@
 .import __key_isright
 .import __key_isup
 .import __key_is_printing
-.import __key_num_processed
 .import __key_waitch
 
 .scope key
@@ -20,6 +19,5 @@
 	isright      = __key_isright
 	isup         = __key_isup
 	isprinting   = __key_is_printing
-	numprocessed = __key_num_processed
 	waitch       = __key_waitch
 .endscope

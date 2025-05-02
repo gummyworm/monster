@@ -21,6 +21,7 @@
 .include "linebuffer.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "ram.inc"
 .include "screen.inc"
 .include "source.inc"
 .include "string.inc"
@@ -28,7 +29,6 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-.include "ram.inc"
 
 .import puts
 .import putch

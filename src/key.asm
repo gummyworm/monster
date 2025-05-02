@@ -11,14 +11,6 @@ CBM_KEY_TABLE       = $ece0
 CTRL_KEY_TABLE      = $eda3
 CURSOR_LR_MASK      = 2
 
-;******************************************************************************
-.BSS
-
-; the number of keys handled since the last scan of the keyboard in the IRQ
-; the IRQ will shift the key buffer by this amount andreset it to 0
-.export __key_num_processed
-__key_num_processed: .byte 0
-
 .CODE
 
 ;******************************************************************************
