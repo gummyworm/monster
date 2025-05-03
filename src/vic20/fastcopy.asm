@@ -191,6 +191,15 @@ dbg9400: .res $f0	; $9400-$94f0
 .endproc
 
 ;******************************************************************************
+; RESTORE PROG VISUAL
+; Restores the user program state that affects the screen ($1000-$2000 and
+; the VIC registers at $9000-$9010)
+.export __fastcopy_restore_prog_visual
+.proc __fastcopy_restore_prog_visual
+	JUMP FINAL_BANK_FASTCOPY, restore_prog_visual
+.endproc
+
+;******************************************************************************
 ; RESTORE_DEBUG_STATE
 ; Restores the saved debugger state
 .export __fastcopy_restore_debug_state
@@ -297,6 +306,19 @@ dbg9400: .res $f0	; $9400-$94f0
 ; restores the saved program state
 .export restore_prog_state
 .proc restore_prog_state
+; restore VIA2 ($9120-$9130)
+	ldx #$10
+:	lda prog9110+$10-1,x
+	sta $9120-1,x
+	dex
+	bne :-
+
+	; fall through to RESTORE PROG INTERNAL
+.endproc
+
+;******************************************************************************
+; RESTORE PROG VISUAL
+.proc restore_prog_visual
 ; restore $9000-$9010
 	ldx #$10
 :	lda prog9000-1,x
@@ -343,6 +365,8 @@ dbg9400: .res $f0	; $9400-$94f0
 @savevic:
 	lda $9000-1,x
 	sta @vicsave-1,x
+	lda $9120-1,x
+	sta prog9110+$10-1,x
 	dex
 	bne @savevic
 

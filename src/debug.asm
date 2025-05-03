@@ -583,6 +583,9 @@ trampoline_size=*-trampoline
 	jsr $fd8d	; RAM test & init RAM locations
 	jsr $fd52	; restore default I/O vectors
 	jsr $fdf9	; initialize I/O registers
+
+	jsr $fdca	; set top of RAM to $2000 (for unexpanded)
+
 	jsr $e518	; initialize hardware
 	jsr $e45b	; init BASIC vectors
 	jsr $e3a4	; init BASIC RAM locations
@@ -1293,12 +1296,7 @@ go_pre_run:
 	jsr draw::coloroff
 
 	jsr fcpy::save_debug_state
-	jsr fcpy::restore_progstate
-
-	ldx #$ff	; all outputs
-	stx $9122	; set VIA 2 DDRB
-	ldx #$00	; all inputs
-	stx $9123	; set VIA 2 DDRA
+	jsr fcpy::restore_prog_visual
 
 	; wait for a key to swap the state back
 	jsr key::waitch
@@ -1307,7 +1305,8 @@ go_pre_run:
 	inc mem::coloron
 
 	; restore debugger state
-	jmp fcpy::restore_debug_state
+	jsr fcpy::restore_debug_state
+	jmp irq::on
 .endproc
 
 ;******************************************************************************
