@@ -189,16 +189,11 @@ __debuginfo_get_fileid:   BANKJUMP dbgi_proc_ids::GET_FILEID
 .POPSEG
 .endif
 
-.segment "DEBUGINFO_BSS"
+.segment "DEBUGINFO_VARS"
 
 ;*******************************************************************************
 ; number of files that we have debug info for
 numfiles: .byte 0
-
-; file table (stored as table of 0-terminated filenames)
-.export __debug_filenames
-__debug_filenames:
-filenames: .res MAX_FILES * 16
 
 numblocks: .byte 0	; number of blocks that we have debug info for
 
@@ -208,6 +203,16 @@ block_open: .byte 0	; if !0, we are creating a block, when this is set
 freeptr: .word 0	; pointer to next available address in debuginfo
 
 blocksp:    .byte 0	; stack pointer for block stack
+
+;*******************************************************************************
+; BSS
+.segment "DEBUGINFO_BSS"
+
+; file table (stored as table of 0-terminated filenames)
+.export __debug_filenames
+__debug_filenames:
+filenames: .res MAX_FILES * 16
+
 blockstack: .res $100	; stack for line program state machine
 
 ; table of headers for each block

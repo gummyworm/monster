@@ -104,15 +104,22 @@ __buff_len: COPYBUFFJUMP buff_proc_ids::LEN
 .endproc
 .endif
 
-.segment "COPYBUFF_BSS"
+;*******************************************************************************
+; VARS
+.segment "COPYBUFF_VARS"
+
 buffptr:  		.word 0 	; buffer pointer
 
 ; backup buffer pointer stack (see buff::push)
 buffsavelo: 		.res SAVESTACK_DEPTH
 buffsavehi: 		.res SAVESTACK_DEPTH
 buffsave_sp:		.byte 0
-
 visual_lines_copied:	.byte 0		; number of lines copied in VISUAL modes
+
+;*******************************************************************************
+; BSS
+.segment "COPYBUFF_BSS"
+
 copybuff:
 .ifdef vic20
 	.res $1e00	; buffer for copy data

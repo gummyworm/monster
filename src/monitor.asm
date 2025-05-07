@@ -35,7 +35,7 @@ CMD_BUFF         = $101			; written by edit::gets
 ;*******************************************************************************
 HEIGHT = 24
 
-.segment "CONSOLE_BSS"
+.segment "CONSOLE_VARS"
 .export __monitor_line
 
 __monitor_line:
@@ -57,6 +57,8 @@ __monitor_outfile: .byte 0
 .export __monitor_quit
 __monitor_quit: .byte 0	; if !0, console will quit when command returns to it
 __monitor_int: .byte 0	; if !0, behaved commands will stop running gracefully
+
+.segment "CONSOLE_BSS"
 
 ;*******************************************************************************
 ; SCREEN
