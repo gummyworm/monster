@@ -122,7 +122,7 @@ top: .word 0	; the highest address in the program
 ; TOKENIZE uses this as the line number to map the address of the assembled
 ; instruction to
 .export __asm_linenum
-__asm_linenum: .byte 0
+__asm_linenum: .word 0
 
 ; TODO: use
 ; the type of the segment being stored e.g. SEG_BSS or SEG_CODE

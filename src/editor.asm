@@ -399,7 +399,6 @@ main:	jsr key::getch
 	jsr text::savebuff
 	jsr src::pushp
 	jsr src::rewind
-	jsr asm::reset
 
 ;--------------------------------------
 ; Pass 1
