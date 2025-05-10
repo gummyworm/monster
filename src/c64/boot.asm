@@ -1,6 +1,5 @@
 .include "../asm.inc"
 .include "../config.inc"
-.include "../console.inc"
 .include "../copybuff.inc"
 .include "../debug.inc"
 .include "../debuginfo.inc"
@@ -10,6 +9,7 @@
 .include "../labels.inc"
 .include "../macros.inc"
 .include "../memory.inc"
+.include "../monitor.inc"
 .include "../settings.inc"
 .include "../screen.inc"
 .include "../source.inc"
@@ -91,6 +91,6 @@ start:
 	jsr buff::clear		; clear copy buffer
 
 	jmp *
-	jsr con::init
+	jsr mon::init
 
 	jmp dbg::clrstate

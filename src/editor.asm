@@ -36,6 +36,7 @@
 .include "memory.inc"
 .include "monitor.inc"
 .include "ram.inc"
+.include "runtime.inc"
 .include "screen.inc"
 .include "sim6502.inc"
 .include "settings.inc"
@@ -753,7 +754,7 @@ main:	jsr key::getch
 ; GO BASIC
 ; Installs an NMI to return to the editor and (re)enters BASIC.
 .proc go_basic
-	jmp dbg::go_basic
+	jmp run::go_basic
 .endproc
 
 ;*******************************************************************************

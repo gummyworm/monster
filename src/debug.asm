@@ -37,6 +37,7 @@
 .include "zeropage.inc"
 
 .include "ram.inc"
+.include "runtime.inc"
 
 .ifdef vic20
 	.include "vic20/fastcopy.inc"
@@ -45,29 +46,6 @@
 .import __DEBUGGER_LOAD__
 .import __DEBUGGER_SIZE__
 
-;*******************************************************************************
-; BRK/NMI HANDLER ADDRESSES
-; address in user program where the BRK handler will reside
-; NOTE: the user program cannot use the space occupied by these handlers
-BRK_HANDLER_TOP  = $8000
-NMI_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size
-BRK_HANDLER_ADDR = BRK_HANDLER_TOP-brkhandler1_size+5-1 ; 5 = sizeof NMI portion
-RTI_ADDR         = BRK_HANDLER_ADDR+3
-
-.export STEP_HANDLER_ADDR
-.export STEP_EXEC_BUFFER
-STEP_HANDLER_ADDR = NMI_HANDLER_ADDR-stephandler_size
-
-STEP_EXEC_BUFFER  = STEP_HANDLER_ADDR+16
-STEP_RESTORE_A    = STEP_EXEC_BUFFER-2
-
-TRAMPOLINE = STEP_HANDLER_ADDR - trampoline_size
-TRAMPOLINE_ADDR = TRAMPOLINE+13
-.export TRAMPOLINE_ADDR
-.export STEP_HANDLER_ADDR
-
-.segment "NMI_HANDLER"
-.res 17 ;brkhandler1_size
 
 ;*******************************************************************************
 MAX_BREAKPOINTS = 16	; max number of breakpoints that may be set
@@ -137,11 +115,6 @@ __debug_interface: .byte DEBUG_IFACE_GUI
 
 ;*******************************************************************************
 ; previous values for registers etc.
-prev_reg_a:  .byte 0
-prev_reg_x:  .byte 0
-prev_reg_y:  .byte 0
-prev_reg_p:  .byte 0
-prev_reg_sp: .byte 0
 prev_pc:     .word 0
 
 sw_valid:    .byte 0    ; if !0, stopwatch is valid
@@ -156,7 +129,9 @@ highlight_file: .word 0	; filename of line we are highlighting
 
 brkcond: .word 0	; if !0, address to handler to break TRACE on
 
-is_brk: .byte 0		; set if interrupt was triggered by BRK
+; set if interrupt was triggered by BRK
+.export __debug_is_brk
+__debug_is_brk: .byte 0
 
 step_out_depth: .byte 0 ; # of RTS's to wait for when "stepping out"
 
@@ -202,15 +177,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 .CODE
 
 ;******************************************************************************
-; INIT
-; Initializes essential debugger state.
-; Notably this includes the "trampoline"
-.export __debug_init
-.proc __debug_init
-	jmp install_trampoline
-.endproc
-
-;******************************************************************************
 ; START
 ; Begins debugging at the given address
 ; Execution will continue until a BRK instruction occurs at which point the
@@ -239,11 +205,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 	jsr reset_stopwatch
 
-	sei
-	jsr install_brk		; install the BRK/NMI handler
-	jsr install_step	; install the STEP handler
-	jsr install_trampoline
-	cli
+	jsr run::init
 
 	; initialize the user program stack
 	lda #PROGRAM_STACK_START
@@ -253,223 +215,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	txs
 
 	jmp return_to_debugger		; enter the debugger
-.endproc
-
-;******************************************************************************
-; BRKHANDLER
-; Handles the BRK interrupt by returning control to the main bank
-; and continuing execution there.
-; Part 1 of the handler is copied to the user program and part 2 is copied to
-; the editor, where execution will pick up after switching banks
-;
-; This is the layout of the code in each bank:
-; | User         |  Debugger                     |
-; |--------------|-------------------------------|
-; | PHA          |	--                       |
-; | TXA          |	--                       |
-; | PHA          |	--                       |
-; | TYA          |	--                       |
-; | PHA          |      PHA                      |
-; | LDA #$80     |	LDA #$80                 |
-; | STA $9C02    |	STA $9C02                |
-; | LDA #$82     |      PLA                      |
-; | STA $911e    |      JMP DEBUG_BRK            |
-; | PLA          |	                         |
-; | RTI          | 	                         |
-; | -- (0 bytes) |  -- (3 bytes)                 |
-;
-; handler1 (the User handler) has 1 empty bytes at the end
-; handler2 (the Debug handler) has 5 empty bytes at the start
-.PUSHSEG
-.RODATA
-brkhandlers:
-brkhandlernmi:
-brkhandler1:
-; this portion runs in the DEBUGGER bank
-	pha		; NMI handler
-	txa
-	pha
-	tya
-	pha
-
-	lda #$80	; start of BRK handler
-	sta $9c02	; switch to DEBUGGER bank
-;--------------------------------------
-; this portion runs in the USER bank
-	lda #$82
-	sta $911e	; enable CA1 (RESTORE key) interrupts
-	pla
-	rti		; return from BRK/NMI
-brkhandler1_size=*-brkhandler1
-.export brkhandler1_size
-
-brkhandler2:
-; this portion runs in the user bank
-	pha
-	lda #$80
-	sta $9c02	; switch to DEBUGGER bank
-;--------------------------------------
-; this portion runs in the debugger bank
-	jmp debug_brk
-	; jmp nmi_edit (when installed for editor)
-brkhandler2_size=*-brkhandler2
-
-;******************************************************************************
-; STEPHANDLER
-; The step handler runs a single instruction and returns to the
-; debugger.
-.import step_done
-stephandler:
-	; switch to USER bank
-	lda #FINAL_BANK_USER
-	sta $9c02
-	pla			; restore .A
-	sta STEP_RESTORE_A
-
-	pla			; get status flags
-	and #$04		; set I flag
-	pha			; push altered status
-
-	lda #$00		; SMC - restore A
-	plp			; restore altered status flags
-
-	; run the instruction
-step_buffer:
-	nop
-	nop
-	nop
-
-	php
-	pha
-	sei			; disable IRQs
-
-	; switch back to DEBUGGER bank
-	lda #FINAL_BANK_MAIN
-	sta $9c02
-	pla
-	jmp step_done
-stephandler_size=*-stephandler
-
-;******************************************************************************
-; TRAMPOLINE
-trampoline:
-	lda #FINAL_BANK_USER
-	sta $9c02
-	lda #$82		; enable RESTORE key interrupt
-	sta $911e
-	pla			; restore .A
-	plp			; restore status
-;TRAMPOLINE_ADDR=*+1
-	jmp $f00d
-trampoline_size=*-trampoline
-
-.POPSEG
-
-;******************************************************************************
-; INSTALL STEP
-; Installs the STEP code at the top of the user and debug RAM
-; This code includes a buffer that switches to the user RAM, executes an
-; instruction there, switches back to the debugger RAM, and jumps back to the
-; debugger's "return from step" function to capture any changes that took place.
-.proc install_step
-@cnt=r0
-@dst=r2
-	ldxy #STEP_HANDLER_ADDR
-	stxy @dst
-	lda #stephandler_size-1
-	sta @cnt
-; copy the STEP handler to the user program and our RAM
-@l0:	ldy @cnt
-	lda stephandler,y
-	sta STEP_HANDLER_ADDR,y
-	sta zp::bankval
-	sty zp::bankoffset
-	ldxy @dst
-	lda #FINAL_BANK_USER
-	jsr ram::store_off
-	dec @cnt
-	bpl @l0
-
-	rts
-.endproc
-
-;******************************************************************************
-; INSTALL TRAMPOLINE
-; Installs the "trampoline" code at the top of the user and debug RAM
-; This code lets us switch to the user bank and begin executing code there
-.proc install_trampoline
-@cnt=r0
-@dst=r2
-	ldxy #TRAMPOLINE
-	stxy @dst
-	lda #trampoline_size-1
-	sta @cnt
-
-; copy the STEP handler to the user program and our RAM
-@l0:	ldy @cnt
-	lda trampoline,y
-	sta TRAMPOLINE,y
-	sta zp::bankval
-	sty zp::bankoffset
-	ldxy @dst
-	lda #FINAL_BANK_USER
-	jsr ram::store_off
-	dec @cnt
-	bpl @l0
-
-	rts
-.endproc
-
-;******************************************************************************
-; INSTALL BRK EDIT
-.proc install_brk_edit
-	jsr install_brk
-
-	; overwrite the JMP address to go to edit handler
-	lda #<nmi_edit
-	sta BRK_HANDLER_ADDR+(brkhandler2_size-2)
-	lda #>nmi_edit
-	sta BRK_HANDLER_ADDR+(brkhandler2_size-1)
-	rts
-.endproc
-
-;******************************************************************************
-; INSTALL BRK
-; Installs the debugger BRK handler to the BRK and NMI vectors and copies the
-; code to enter the handler to the user program's RAM at BRK_HANDLER_ADDR.
-; This handler switches back to the debuggers RAM bank, where the debugger takes
-; over.
-; IN:
-;  - .XY: the address to install the BRK handler to
-.proc install_brk
-@dst=r0
-@cnt=r2
-	ldxy #BRK_HANDLER_ADDR+1
-	stxy $0316		; BRK
-	ldxy #NMI_HANDLER_ADDR
-	stxy @dst
-	stxy $0318		; NMI
-
-	lda #brkhandler1_size-1
-	sta @cnt
-; copy part 1 of the BRK handler to the user program
-@l0:	ldy @cnt
-	lda brkhandlers,y
-	sta zp::bankval
-	sty zp::bankoffset
-	ldxy @dst
-	lda #FINAL_BANK_USER
-	jsr ram::store_off
-	dec @cnt
-	bpl @l0
-
-	ldy #brkhandler2_size-1
-; copy part 2 of the BRK handler to our memory
-@l1:	lda brkhandler2,y
-	sta BRK_HANDLER_ADDR,y
-	dey
-	bpl @l1
-	rts
 .endproc
 
 ;******************************************************************************
@@ -551,13 +296,13 @@ trampoline_size=*-trampoline
 @done:	rts
 .endproc
 
-
 ;******************************************************************************
 ; CLRSTATE
 ; Clears the state of the user program memory area and initializes it the
 ; state that BASIC would leave it in.
 .export __debug_clrstate
 .proc __debug_clrstate
+.ifdef vic20
 	sei
 
 	pla
@@ -568,7 +313,8 @@ trampoline_size=*-trampoline
 	tsx
 	stx @save_sp
 
-	jsr __debug_init
+	jsr run::init
+
 	jsr fcpy::save_debug_state
 
 	ldxy #@restore_dbg_done		; need to pass return address
@@ -647,80 +393,23 @@ trampoline_size=*-trampoline
 	pha
 
 	rts
+.else
+	rts
+.endif
 .endproc
 
-;******************************************************************************
-; NMI EDIT
-; This is the NMI handler for invoking BASIC from the editor.
-; It simply saves the state of BASIC and jumps back to the editor main loop
-.proc nmi_edit
-	lda $912e
-	sta sim::via2+$e
-
-	lda #$7f
-	sta $911e	; disable all NMI's
-
-	pla
-	sta sim::reg_y
-	pla
-	sta sim::reg_x
-	pla
-	sta sim::reg_a
-
-	pla
-	sta sim::reg_p
-	and #$10	; mask BRK flag
-	sta is_brk
-
-	pla
-	sta sim::pc
-	pla
-	sta sim::pc+1
-	tsx
-	stx sim::reg_sp
-
-	; clear decimal in case user set it
-	cld
-
-	sei
-
-	; reinit the debugger's SP
-	ldx #$ff
-	txs
-
-	; save the user's zeropage and restore the debugger's
-	ldxy #@save_done	; need to pass return address
-	jmp fcpy::save_user_zp
-
-@save_done:
-	ldxy #@restore_debug_done
-	jmp fcpy::restore_debug_low
-
-@restore_debug_done:
-	jsr fcpy::restore_debug_zp
-
-	; save program state and swap the debugger state in
-	jsr swapout
-        jsr irq::on		; reinstall the main IRQ
-
-	; return to the editor or monitor (whichever is active)
-	lda __debug_interface
-	beq @edit
-@mon:	; need to clear bank stack (will grow each time user enters monitor
-	; from BASIC)
-	lda #$00
-	sta zp::banksp
-	CALL FINAL_BANK_MONITOR, mon::reenter
-@edit:	jmp edit::init
-.endproc
 
 ;******************************************************************************
-; DEBUG BRK
-; This is the BRK handler for the debugger.
+; DEBUG REENTER
+; Reenters the debugger.
+; This is the entrypoint that the platform specific runtime returns to when
+; execution is halted by a BRK or other interruption outside of the single-step
+; or trace flows.
 ; It saves the user program's state and other sensitive memory areas that are
 ; needed by the debugger for display etc, then it restores the debugger's state
 ; and finally transfers control to the debugger
-.proc debug_brk
+.export __debug_reenter
+.proc __debug_reenter
 	lda $912e
 	sta sim::via2+$e
 
@@ -758,7 +447,7 @@ trampoline_size=*-trampoline
 	pla
 	sta sim::reg_p
 	and #$10	; mask BRK flag
-	sta is_brk
+	sta __debug_is_brk
 
 	pla
 	sta sim::pc
@@ -770,8 +459,8 @@ trampoline_size=*-trampoline
 	; clear decimal in case user set it
 	cld
 
-	lda is_brk		; was interrupt triggered a BRK?
-	beq @restore_debugger	; if not, skip PC decrement
+	lda __debug_is_brk		; was interrupt triggered a BRK?
+	beq @restore_debugger		; if not, skip PC decrement
 
 @notnmi:
 	decw sim::pc	; BRK pushes PC + 2, subtract 2 from PC
@@ -796,7 +485,7 @@ trampoline_size=*-trampoline
 	jsr fcpy::restore_debug_zp
 
 	; save program state and swap the debugger state in
-	jsr swapout
+	jsr __debug_swap_out
         jsr irq::on		; reinstall the main IRQ
 
 	lda breakpoints_active
@@ -947,152 +636,22 @@ trampoline_size=*-trampoline
 .endproc
 
 ;******************************************************************************
-; GO BASIC
-.export __debug_go_basic
-.proc __debug_go_basic
-	; install the NMI handler to return to editor
-	jsr install_brk_edit
-
-	; install trampoline code
-	jsr install_trampoline
-
-	; disable NMIs
-	lda #$7f
-	sta $911d
-	sta $911e
-	sei
-
-	jsr irq::off
-
-	; write jsr $fe39 (init timer) to the pre-run buffer
-	lda #$20
-	sta go_pre_run
-	lda #$39
-	sta go_pre_run+1
-	lda #$fe
-	sta go_pre_run+2
-
-	; empty the keyboard buffer
-	lda #$00
-	ldxy #$c6
-	jsr vmem::store
-
-	; begin execution
-	jmp __debug_go_trampoline
-.endproc
-
-;******************************************************************************
 ; GO
 ; Runs the user program until the next breakpoint or an NMI occurs
 .export __debug_go
 .proc __debug_go
-	; install the NMI, STEP, and TRAMPOLINE handlers
-	jsr install_brk
-	jsr install_step
-	jsr install_trampoline
-
-	lda #$00
-	sta sw_valid		; invalidate stopwatch
-
-	jsr irq::off
-
-	; disable NMIs
-	lda #$7f
-	sta $911e
-	sei
-
 	; run one step to get over breakpoint (if we're on one)
-	jsr __debug_step
+	jsr step
 	bcc :+
 	rts			; failed to execute next instruction
 
 :	inc breakpoints_active
 	jsr install_breakpoints
 
-	; write NOP; NOP; NOP to the pre-run buffer
-	lda #$ea
-	sta go_pre_run
-	sta go_pre_run+1
-	sta go_pre_run+2
-
-	; fall through to __debug_go_trampoline
+	lda #$00
+	sta sw_valid
+	jmp run::go
 .endproc
-
-;******************************************************************************
-; GO TRAMPOLINE
-; Saves the debugger state and begins execution at the current simulator
-; PC value
-.export __debug_go_trampoline
-.proc __debug_go_trampoline
-	; write the address to bounce to
-	lda sim::pc
-	sta zp::bankval
-	ldxy #TRAMPOLINE_ADDR
-	lda #FINAL_BANK_USER
-	jsr ram::store		; LSB
-
-	lda sim::pc+1
-	sta zp::bankval
-	ldxy #TRAMPOLINE_ADDR+1
-	lda #FINAL_BANK_USER
-	jsr ram::store		; MSB
-
-	jsr swapin
-
-	sei
-	lda #<$eb15
-	sta $0314
-	lda #>$eb15
-	sta $0314+1
-	lda #DEFAULT_900F
-	sta $900f
-
-	lda #$7f
-	sta $911e
-	sta $911d	; ack all interrupts
-	sta $912d
-
-	ldxy #@restore_dbg_done		; need to pass return address
-	jmp fcpy::save_debug_zp
-
-@restore_dbg_done:
-	ldxy #@restore_done		; need to pass return address
-	jmp fcpy::restore_user_zp
-
-@restore_done:
-	; reinstall NMI
-	lda #<NMI_HANDLER_ADDR
-	sta $0318
-	lda #>NMI_HANDLER_ADDR
-	sta $0318+1
-	lda #<(BRK_HANDLER_ADDR+1)
-	sta $0316
-	lda #>(BRK_HANDLER_ADDR+1)
-	sta $0316+1
-.endproc
-
-	ldx sim::reg_sp
-	txs			; restore user stack
-
-go_pre_run:
-	; buffer for pre-run command
-	nop
-	nop
-	nop
-
-	lda sim::reg_p
-	pha			; save status (will pull after bank select)
-	lda sim::reg_a
-	sta prev_reg_a
-	pha			; save .A (to be pulled after bank select)
-
-	ldx sim::reg_x
-	stx prev_reg_x
-	ldy sim::reg_y
-	sty prev_reg_y
-
-	cli
-	jmp TRAMPOLINE
 
 ;******************************************************************************
 ; JUMP
@@ -1375,14 +934,6 @@ go_pre_run:
 ;   - .C: set if we should stop tracing (e.g. if a watch was activated)
 .export __debug_step
 .proc __debug_step
-	; save the state of the registers before the STEP
-	lda sim::reg_a
-	sta prev_reg_a
-	lda sim::reg_x
-	sta prev_reg_x
-	lda sim::reg_y
-	sta prev_reg_y
-
 	lda #$00
 	sta sim::illegal
 
@@ -1544,7 +1095,8 @@ go_pre_run:
 ; SWAPIN
 ; This routine is called _before_ returning from the BRK interrupt and executing
 ; the user program.
-.proc swapin
+.export __debug_swap_in
+.proc __debug_swap_in
 	; swap entire user RAM in (needed if we don't know what memory will
 	; be changed before next BRK)
 	jsr fcpy::save_debug_state
@@ -1555,7 +1107,8 @@ go_pre_run:
 ; SWAPOUT
 ; Swaps *out* the user memory that needs to be saved in order to restore the
 ; debug state.
-.proc swapout
+.export __debug_swap_out
+.proc __debug_swap_out
 	; save the program state before we restore the debugger's
 	jsr fcpy::save_prog_state
 	jmp fcpy::restore_debug_state		; restore debugger state
@@ -2251,7 +1804,7 @@ num_commands=*-commands
 
 .linecont +
 .define command_vectors quit, edit_source, step, __debug_step_over, \
-	__debug_go, jump, __debug_step_out, __debug_trace, edit_source, \
+	run::go, jump, __debug_step_out, __debug_trace, edit_source, \
 	edit_mem, edit_breakpoints, __debug_edit_watches, \
 	__debug_swap_user_mem, reset_stopwatch, edit_state, \
 	goto_pc, activate_monitor

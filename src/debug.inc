@@ -13,9 +13,10 @@
 .import __debug_load_file
 .import __debug_go
 .import __debug_go_basic
-.import __debug_init
 .import __debug_interface
+.import __debug_is_brk
 .import __debug_numbreakpoints
+.import __debug_reenter
 .import __debug_regs_contents
 .import __debug_remove_breakpoint
 .import __debug_removebreakpointbyid
@@ -27,6 +28,8 @@
 .import __debug_step
 .import __debug_step_out
 .import __debug_step_over
+.import __debug_swap_in
+.import __debug_swap_out
 .import __debug_trace
 .import __debug_swap_user_mem
 .import __debug_setbrkataddr
@@ -47,11 +50,10 @@
 	enable_expansion   = __debug_enable_expansion
 	gotoaddr           = __debug_gotoaddr
 	loadfile           = __debug_load_file
-	go                 = __debug_go
-	go_basic           = __debug_go_basic
-	init               = __debug_init
+	is_brk             = __debug_is_brk
 	interface          = __debug_interface
 	numbreakpoints     = __debug_numbreakpoints
+	reenter            = __debug_reenter
 	regs_contents      = __debug_regs_contents
 	removebreakpoint   = __debug_remove_breakpoint
 	removebreakpointbyid = __debug_removebreakpointbyid
@@ -61,6 +63,8 @@
 	step               = __debug_step
 	step_out           = __debug_step_out
 	step_over          = __debug_step_over
+	swap_in            = __debug_swap_in
+	swap_out           = __debug_swap_out
 	swapusermem        = __debug_swap_user_mem
 	trace              = __debug_trace
 .endscope

@@ -33,6 +33,7 @@ MAX_COPY_SIZE = __COPYBUFF_BSS_SIZE__
 
 SAVESTACK_DEPTH = 4
 
+.linecont +
 .if FINAL_BANK_MAIN=FINAL_BANK_BUFF
 ;*******************************************************************************
 ; Flat memory procedure mappings
@@ -68,10 +69,8 @@ LEN
 .endenum
 
 .RODATA
-.linecont +
 .define buff_procs putch, getch, getline, clear, lastline, lines_copied, push, \
 	pop, len
-.linecont -
 buff_procs_lo: .lobytes buff_procs
 buff_procs_hi: .hibytes buff_procs
 
@@ -103,6 +102,7 @@ __buff_len: COPYBUFFJUMP buff_proc_ids::LEN
 	jmp __ram_call
 .endproc
 .endif
+.linecont -
 
 ;*******************************************************************************
 ; VARS

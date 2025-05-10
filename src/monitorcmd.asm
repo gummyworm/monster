@@ -20,6 +20,7 @@
 .include "irq.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "runtime.inc"
 .include "sim6502.inc"
 .include "string.inc"
 .include "strings.inc"
@@ -588,7 +589,7 @@ CMD_BUFF = $101
 .proc goto
 	jsr debugging
 	bcc :+				; can't step if not debugging
-	CALL FINAL_BANK_MAIN, dbg::go
+	CALL FINAL_BANK_MAIN, run::go
 :	rts
 .endproc
 
@@ -980,7 +981,7 @@ CMD_BUFF = $101
 ; GO
 ; Continues program execution at the current PC
 .proc go
-	JUMP FINAL_BANK_MAIN, dbg::go
+	JUMP FINAL_BANK_MAIN, run::go
 .endproc
 
 ;*******************************************************************************

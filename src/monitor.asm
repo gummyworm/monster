@@ -18,6 +18,7 @@
 .include "keycodes.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "runtime.inc"
 .include "screen.inc"
 .include "settings.inc"
 .include "string.inc"
@@ -97,7 +98,7 @@ screen: .res 40*24
 
 :	cmp #K_GO_BASIC_TUI
 	bne @done
-	jsr dbg::go_basic
+	jsr run::go_basic
 @handled:
 	lda #$00
 @done:	rts			; propagate keypress
