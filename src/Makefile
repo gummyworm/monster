@@ -97,8 +97,13 @@ ifeq ($(TARGET),c64)
 endif
 
 test.d81: boot.prg $(TESTS) $(TEST_INCS) $(TEST_TXTS)
+ifeq ($(TARGET),vic20)
 	# create the test disk image
 	$(C1541) -format test,1 d81 test.d81 -attach test.d81 -write boot.prg -write masm.prg $(addprefix -write , $(TEST_FILES)) -write fe3firmware
+endif
+ifeq ($(TARGET),c64)
+	$(C1541) -format test,1 d81 test.d81 -attach test.d81 -write monster-disk.prg $(addprefix -write , $(TEST_FILES))
+endif
 
 install.d81: installer.prg $(CART_IMAGE)
 	# create the FE3 installer image
