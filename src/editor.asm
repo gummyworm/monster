@@ -288,7 +288,7 @@ main:	jsr key::getch
 	bcc :+
 @ret:	rts			; address not found
 
-	jsr src::anydirty
+:	jsr src::anydirty
 	beq :+			; if no dirty buffers, continue
 	jsr prompt_saveall	; ask user if they want to save buffers
 	jsr prompt_assemble	; prompt to re-assemble
@@ -665,7 +665,11 @@ main:	jsr key::getch
 	pha
 	lda text::insertmode	; save current insertion mode
 	pha
-	jsr force_enter_insert
+
+	lda #MODE_INSERT
+	sta zp::editor_mode
+	lda #TEXT_INSERT
+	sta text::insertmode
 
 	ldx zp::curx
 	stx @result_offset	; offset to the user-input in line buffer
@@ -881,7 +885,6 @@ main:	jsr key::getch
 ;*******************************************************************************
 ; ENTER_INSERT
 ; Enters INSERT mode
-force_enter_insert=*+5
 .proc enter_insert
 @tabcnt=r2
 	jsr is_readonly

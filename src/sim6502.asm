@@ -91,7 +91,6 @@ save_sp: .byte 0
 ;*******************************************************************************
 ; STEP DONE
 ; Return point for instruction execution via STEP
-.import return_to_debugger
 .export step_done
 .proc step_done
 	; update registers state

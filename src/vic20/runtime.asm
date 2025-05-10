@@ -13,8 +13,11 @@
 .include "../monitor.inc"
 .include "../ram.inc"
 .include "../sim6502.inc"
+.include "../text.inc"
 .include "../vmem.inc"
 .include "../zeropage.inc"
+
+.import return_to_debugger
 
 ;*******************************************************************************
 ; BRK/NMI HANDLER ADDRESSES
@@ -319,11 +322,25 @@ go_pre_run:
 	; return to the editor or monitor (whichever is active)
 	lda dbg::interface
 	beq @edit
+
 @mon:	; need to clear bank stack (will grow each time user enters monitor
 	; from BASIC)
 	lda #$00
 	sta zp::banksp
 	CALL FINAL_BANK_MONITOR, mon::reenter
+
+	; return to the editor or monitor (whichever is active)
+	lda edit::debugging
+	beq @edit
+
+	; edit::gets likely changed the editor mode
+	lda #MODE_COMMAND
+	sta zp::editor_mode
+
+	; re-init debugger at current PC and enter it
+	ldxy sim::pc
+	jmp dbg::start
+
 @edit:	jmp edit::init
 .endproc
 
@@ -464,5 +481,3 @@ trampoline_size=*-trampoline
 
 	rts
 .endproc
-
-
