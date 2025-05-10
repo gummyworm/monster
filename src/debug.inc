@@ -8,6 +8,7 @@
 .import __debug_clrstate
 .import __debug_setbrkatline
 .import __debug_edit_watches
+.import __debug_enable_expansion
 .import __debug_gotoaddr
 .import __debug_load_file
 .import __debug_go
@@ -29,6 +30,7 @@
 .import __debug_trace
 .import __debug_swap_user_mem
 .import __debug_setbrkataddr
+.import __debug_enable_expansion
 
 .scope dbg
 	breakpointslo      = __debug_breakpointslo
@@ -42,6 +44,7 @@
 	setbrkatline       = __debug_setbrkatline
 	setbrkataddr       = __debug_setbrkataddr
 	edit_watches       = __debug_edit_watches
+	enable_expansion   = __debug_enable_expansion
 	gotoaddr           = __debug_gotoaddr
 	loadfile           = __debug_load_file
 	go                 = __debug_go

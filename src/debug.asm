@@ -161,6 +161,15 @@ is_brk: .byte 0		; set if interrupt was triggered by BRK
 step_out_depth: .byte 0 ; # of RTS's to wait for when "stepping out"
 
 ;******************************************************************************
+; ENABLE EXPANSION
+; This flag controls how BASIC is initialized with the NEW command. Setting it
+; to 0 will initialize BASIC as if a 8+K expansion is installed.
+; When this flag is !0, NEW will initialize BASIC as if no expanision is
+; installed
+.export __debug_enable_expansion
+__debug_enable_expansion: .byte 0
+
+;******************************************************************************
 ; BREAKPOINTS
 .export __debug_breakpointslo
 .export __debug_breakpointshi
@@ -569,7 +578,6 @@ trampoline_size=*-trampoline
 	lda #$7f
 	sta $911e			; disable NMI's
 
-	; TODO: check memory configuration; skip this for 8+K expanded
 	; initalize RAM ($00-$400)
 	lda #$00
 	tax
@@ -584,9 +592,12 @@ trampoline_size=*-trampoline
 	jsr $fd52	; restore default I/O vectors
 	jsr $fdf9	; initialize I/O registers
 
-	jsr $fdca	; set top of RAM to $2000 (for unexpanded)
+	; check expansion disable flag
+	lda __debug_enable_expansion
+	beq :+
+	jsr $fdca	; set top of RAM to $2000 (emulate unexpanded config)
 
-	jsr $e518	; initialize hardware
+:	jsr $e518	; initialize hardware
 	jsr $e45b	; init BASIC vectors
 	jsr $e3a4	; init BASIC RAM locations
 	jsr $e404	; print startup message and init pointers
