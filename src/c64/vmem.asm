@@ -1,6 +1,16 @@
 .include "../macros.inc"
 .include "../memory.inc"
 
+.BSS
+.export prog00
+prog00: .res $400
+
+.export STEP_EXEC_BUFFER
+.export STEP_HANDLER_ADDR
+STEP_HANDLER_ADDR:
+STEP_EXEC_BUFFER: .res 10
+
+
 .CODE
 
 ;*******************************************************************************

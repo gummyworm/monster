@@ -49,3 +49,8 @@
 	rts
 .endproc
 
+.export	__ram_jmp
+.proc __ram_jmp
+	; TODO:
+	rts
+.endproc

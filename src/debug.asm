@@ -473,6 +473,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	ldx #$ff
 	txs
 
+.ifdef vic20
 	; save the user's zeropage and restore the debugger's
 	ldxy #@save_done	; need to pass return address
 	jmp fcpy::save_user_zp
@@ -483,6 +484,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 @restore_debug_done:
 	jsr fcpy::restore_debug_zp
+.endif
 
 	; save program state and swap the debugger state in
 	jsr __debug_swap_out
@@ -862,6 +864,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; returns with the debugger's memory swapped back in
 .export __debug_swap_user_mem
 .proc __debug_swap_user_mem
+.ifdef vic20
 	; disable coloring in the IRQ
 	jsr draw::coloroff
 
@@ -877,6 +880,9 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	; restore debugger state
 	jsr fcpy::restore_debug_state
 	jmp irq::on
+.else
+	rts
+.endif
 .endproc
 
 ;******************************************************************************
@@ -1097,10 +1103,13 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; the user program.
 .export __debug_swap_in
 .proc __debug_swap_in
+.ifdef vic20
 	; swap entire user RAM in (needed if we don't know what memory will
 	; be changed before next BRK)
 	jsr fcpy::save_debug_state
 	jmp fcpy::restore_progstate
+.else
+.endif
 .endproc
 
 ;******************************************************************************
@@ -1109,9 +1118,12 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; debug state.
 .export __debug_swap_out
 .proc __debug_swap_out
+.ifdef vic20
 	; save the program state before we restore the debugger's
 	jsr fcpy::save_prog_state
 	jmp fcpy::restore_debug_state		; restore debugger state
+.else
+.endif
 .endproc
 
 ;*******************************************************************************
@@ -1773,7 +1785,10 @@ __debug_remove_breakpoint:
 ; ACTIVATE MONITOR
 ; Activates the text user interface debugger (monitor)
 .proc activate_monitor
+.ifdef vic20
 	jsr fcpy::save_debug_state
+.else
+.endif
 	jmp edit::entermonitor
 .endproc
 

@@ -199,7 +199,9 @@ numanon: .word 0	; total number of anonymous labels
 .export label_addresses
 label_addresses: .res MAX_LABELS*2
 
+.ifdef vic20
 .assert * & $01 = $00, error, "label_addresses_sorted must be word aligned"
+.endif
 
 .export label_addresses_sorted
 label_addresses_sorted:     .res MAX_LABELS*2

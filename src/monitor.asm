@@ -500,6 +500,7 @@ screen: .res 40*24
 ; Copies the NMI handler to shared RAM and enables CA1 (RESTORE key)
 ; interrupts to catch INT signal
 .proc install_nmi
+.ifdef vic20
 @src=r0
 @dst=r2
 	ldxy #@nmi_handler
@@ -533,4 +534,7 @@ screen: .res 40*24
 	pla
 	rti
 @nmi_handler_end:
+.else
+	rts
+.endif
 .endproc
