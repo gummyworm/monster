@@ -331,7 +331,7 @@ go_pre_run:
 
 	; return to the editor or monitor (whichever is active)
 	lda edit::debugging
-	beq @edit
+	beq @edit		; if not debugging, reinit editor
 
 	; edit::gets likely changed the editor mode
 	lda #MODE_COMMAND
