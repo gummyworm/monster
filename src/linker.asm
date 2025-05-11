@@ -5,7 +5,6 @@
 ;
 ; See the OBJECT CODE overview below for details on the object format.
 ;*******************************************************************************
-
 .include "errors.inc"
 .include "file.inc"
 .include "labels.inc"

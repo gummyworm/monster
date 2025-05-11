@@ -31,6 +31,7 @@
 @next: .word 0
 start:
 	sei
+	jmp *
 
 ;--------------------------------------
 ; zero the BSS segment
