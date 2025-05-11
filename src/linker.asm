@@ -30,8 +30,8 @@ MAX_OBJS             = 16	; max number of object files that may be used
 MAX_SECTION_NAME_LEN = 8	; max length of a single section name
 MAX_SEGMENT_NAME_LEN = 8	; max length of a single segment name
 
-MAX_SYMBOL_NAME_LEN  = 32
-MAX_SYMBOLS          = 128	; max # of symbols per object file
+MAX_SYMBOL_NAME_LEN = 32
+MAX_SYMBOLS         = 128	; max # of symbols per object file
 
 SYM_IMPORT_BYTE     = 1
 SYM_IMPORT_WORD     = 2
@@ -1257,8 +1257,6 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	lda (@fptr),y
 	bne @getsymbols ; if not end of block, continue
 	incw @fptr	; move past terminating 0
-
-; TODO: deal with IMPORT block
 
 ; sum the SEGMENT sizes for the header with our existing sizes for those
 ; segments and set the STOP addresses accordingly

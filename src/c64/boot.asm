@@ -10,6 +10,7 @@
 .include "../macros.inc"
 .include "../memory.inc"
 .include "../monitor.inc"
+.include "../runtime.inc"
 .include "../settings.inc"
 .include "../screen.inc"
 .include "../source.inc"
@@ -93,4 +94,4 @@ start:
 	jmp *
 	jsr mon::init
 
-	jmp dbg::clrstate
+	jmp run::clr

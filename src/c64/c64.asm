@@ -15,4 +15,3 @@ SCREEN+SCREEN_W*21, SCREEN+SCREEN_W*22, SCREEN+SCREEN_W*23, SCREEN+SCREEN_W*24
 .export __c64_rowshi
 __c64_rowslo: .lobytes row_addrs
 __c64_rowshi: .hibytes row_addrs
-

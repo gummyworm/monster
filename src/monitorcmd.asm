@@ -1235,7 +1235,7 @@ CMD_BUFF = $101
 ; NEW
 ; Reinitializes BASIC in "virtual" (user) memory
 .proc new
-	CALL FINAL_BANK_MAIN, dbg::clrstate
+	CALL FINAL_BANK_MAIN, run::clr
 	RETURN_OK
 .endproc
 

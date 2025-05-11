@@ -86,6 +86,7 @@ DEBUG_IFACE_TEXT = 1	; text interface (returns to TUI)
 ; stepping, tracing, etc.
 ; When using the "GO" command, you may use the entire stack
 ; TODO: calculate the maximum value for this
+.exportzp PROGRAM_STACK_START
 PROGRAM_STACK_START = $e0
 
 ; Stop tracing state/NMI
@@ -295,109 +296,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	bpl @uninstall
 @done:	rts
 .endproc
-
-;******************************************************************************
-; CLRSTATE
-; Clears the state of the user program memory area and initializes it the
-; state that BASIC would leave it in.
-.export __debug_clrstate
-.proc __debug_clrstate
-.ifdef vic20
-	sei
-
-	pla
-	sta @ret0
-	pla
-	sta @ret1
-
-	tsx
-	stx @save_sp
-
-	jsr run::init
-
-	jsr fcpy::save_debug_state
-
-	ldxy #@restore_dbg_done		; need to pass return address
-	jmp fcpy::save_debug_zp
-
-@restore_dbg_done:
-	lda #$7f
-	sta $911e			; disable NMI's
-
-	; initalize RAM ($00-$400)
-	lda #$00
-	tax
-:	sta $00,x
-	sta $100,x
-	sta $200,x
-	sta $300,x
-	dex
-	bne :-
-
-	jsr $fd8d	; RAM test & init RAM locations
-	jsr $fd52	; restore default I/O vectors
-	jsr $fdf9	; initialize I/O registers
-
-	; check expansion disable flag
-	lda __debug_enable_expansion
-	beq :+
-	jsr $fdca	; set top of RAM to $2000 (emulate unexpanded config)
-
-:	jsr $e518	; initialize hardware
-	jsr $e45b	; init BASIC vectors
-	jsr $e3a4	; init BASIC RAM locations
-	jsr $e404	; print startup message and init pointers
-
-	ldx #PROGRAM_STACK_START
-	stx sim::reg_sp
-
-	ldxy #@save_done	; need to pass return address
-	jmp fcpy::save_user_zp
-
-@save_done:
-	sei
-	lda #$7f
-	sta $911e			; disable NMI's
-
-	; restore the debug (Monster's) low memory
-	; this has the routines (in the shared RAM space) we need to do the rest
-	; of the banekd program state save (save_prog_state)
-	jsr fcpy::restore_debug_zp
-
-	ldxy #@restore_debug_done
-	jmp fcpy::restore_debug_low
-
-@restore_debug_done:
-@save_sp=*+1
-	ldx #$00
-	txs
-
-	; save the initialized hi RAM ($1000-$2000) and other misc locations of
-	; the user program
-	jsr fcpy::save_prog_state
-
-	; restore the rest of Monster's RAM and enter the application
-	jsr fcpy::restore_debug_state
-
-	; initialize PC to warm start
-	ldxy #$c474
-	stxy sim::pc
-
-	jsr irq::on
-
-@ret1=*+1
-	lda #$00
-	pha
-@ret0=*+1
-	lda #$00
-	pha
-
-	rts
-.else
-	rts
-.endif
-.endproc
-
 
 ;******************************************************************************
 ; DEBUG REENTER

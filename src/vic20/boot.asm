@@ -17,6 +17,7 @@
 .include "../labels.inc"
 .include "../macros.inc"
 .include "../memory.inc"
+.include "../runtime.inc"
 .include "../screen.inc"
 .include "../settings.inc"
 .include "../sim6502.inc"
@@ -594,7 +595,7 @@ num_relocs=(*-relocs)/7
 	CALL FINAL_BANK_MONITOR, mon::init
 
 .ifndef TEST
-	jsr dbg::clrstate	; initialize user state by init'ing BASIC
+	jsr run::clr	; initialize user state by init'ing BASIC
 	jmp edit::init
 .else
 	.import testsuite
