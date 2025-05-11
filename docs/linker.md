@@ -6,8 +6,7 @@ single executable binary file.
 ### OBJECT FORMAT
 Object files are composed of four main blocks.
 
-A header, a list of imported symbols, a map of exported symbols to their relative
-addresses, and finally the object code: a list of instructions that tell the linker
+A header, a symbol map, and finally the object code: a list of instructions that tell the linker
 what to emit to the binary output file.
 
 ### LINK FILE FORMAT
@@ -59,22 +58,19 @@ Note that any nonzero value for these flags will enable them while the zero valu
 
 ### HEADER
 The first block, the header, gives basic details about the object file.  This tells the linker how
-many segments are used and which symbols are imported (used in this object file) and exported (made
-available to be imported in _other_ object files).
+many segments are used and which symbols are imported (_available_ in other object files) or exported (_used_ in other object files).
 
 | size |  description
 |------|---------------------------------------------------------
 |   1  | number of segments used
-|   2  | number of symbols imported
-|   2  | number of symbols exported
+|   2  | number of symbols in object file
 
 The next parts of the header can be broken into logical blocks.  These are stored in the following order:
 
 |  FIELD         | DESCRIPTION                   |
 |----------------|-------------------------------|
 | SEGMENTS       | segments used in the file     |
-| IMPORTS        | symbols required to link      |
-| EXPORTS        | symbols exported by this file |
+| SYMBOLS        | symbols required to link      |
 
 Further details on each of these is described in the sections below.
 
@@ -93,32 +89,23 @@ the object file being assembled
 |   2  | segment 0 usage (in bytes)
 |   2  | segment 1 usage (in bytes)
 
-#### IMPORTS
-The next block in the object file, after segments, is the _imports_.
-Imports enumerate the labels that are referenced in the object file but defined in another
-one.
+#### SYMBOLS
+The next block in the object file, after segments, is the _symbols_.
+This table contains all labels that are imported and exported from the object file.
 
 All imports must have a coresponding export of the same name in another
 object file at link-time in order to produce the ouput binary.
 
-| size | description
-|------|---------------------------------------
-|  32  | import 0 name
-|  32  | import 1 name...
-
-### EXPORTS
-The final block in the object file before the object code itself is the EXPORTS block.
-This block tells the linker the relative offset that each symbol exported by the object file
-is from its respective SEGMENT _within this object file_.
-
-| size | description
-|------|---------------------------------------------------------
-|  32  | symbol 0 name
-|  32  | symbol 1 name
-|  2   | symbol 0 segment ID (index in SEGMENTS block)
-|  2   | symbol 1 segment ID (index in SEGMENTS block)
-|  2   | symbol 0 offset from segment within this object file
-|  2   | symbol 1 offset from segment within this object file
+| size   | description
+|--------|---------------------------------------
+|  1-32  | symbol 0 name
+|   1    | symbol 0 type (IMPORT, RELATIVEEXPORT, RELATIVE IMPORT)
+|   1    | symbol 0 segment ID (index in SEGMENTS block)
+|   2    | symbol 0 offset from segment within this object file
+|  1-32  | symbol 1 name
+|   1    | symbol 1 type (IMPORT, RELATIVEEXPORT, RELATIVE IMPORT)
+|   1    | symbol 1 segment ID (index in SEGMENTS block)
+|   2    | symbol 1 offset from segment within this object file
 
 ### LINK PROCESS OVERVIEW
 #### To link multiple object files the linker follows the following procedure, starting with
@@ -134,14 +121,13 @@ the linker configuration file.
   * sum segment usage in each object file to get total size of each segment
   * in order defined by link file, set segment start addresses to SECTION start + size of all
      preceding segments
+* Build global symbol table from symbol tables in each object file
+   * each IMPORT symbol that was found should contain a corresponding EXPORT
 
 #### Finally, for each object file, the linker uses the global link context to link it to the output file via the following steps.
 
-* Store global EXPORTs
-  * absolute exports: define labels at their absolute address
-  * relative exports: define labels at the SEGMENT base address within the object file + relative offset
-* Map IMPORTs (generate SYMBOL map)
-  * read names of all imported symbols in object header and map them to their EXPORT's address
+* Map IMPORTs/EXPORTs (generate global SYMBOL map)
+  * read names of all symbols in object header and map them to their EXPORT's address
 * Map SEGMENTs (generate SEGMENT map)
   * read names of all segments in object header and map them to their current address
 * Assemble object code (see object code definition in this doc below)
@@ -156,8 +142,9 @@ this instruction set.
 |  Instruction   |Opcode| Operands (size)             | Description
 |----------------|------|-----------------------------|------------------------------------------------------------------------------------------------------|
 | Set Segment    |  1   | name (16)                   | Sets the current segment to the operand.                                                             |
-| Emit Bytes     |  2   | num (1)                     | Outputs the given number of bytes (up to 255) The byte sequence immediately follows this instruction |
-| Relative Byte  |  3   | symbol id (2), offset (2)   | Outputs a byte that's value is the given symbol plus the given offset                                |
-| Relative Word  |  4   | symbol id (2), offset (2)   | Outputs a _word_that's value is the given symbol plus the given offset                               |
-| Relative ZP Op |  5   | symbol id (2), offset (2)   | Outputs an _instruction_, one absolute byte and one _byte_, whose value is the given symbol + offset |
-| Relative Abs Op|  6   | symbol id (2), offset (2)   | Outputs an _instruction_, one absolute byte and one _word_, whose value is the given symbol + offset |
+| Emit Byte      |  2   |                             | Outputs one byte, which immediately follows this instruction opcode                                  |
+| Emit Bytes     |  3   | num (1)                     | Outputs the given number of bytes (up to 255) The byte sequence immediately follows this instruction |
+| Relative Byte  |  4   | symbol id (2), addend (2)   | Outputs a byte that's value is the given symbol plus the given addend                                |
+| Relative Word  |  5   | symbol id (2), addend (2)   | Outputs a _word_that's value is the given symbol plus the given addend                               |
+| Relative ZP Op |  6   | symbol id (2), addend (2)   | Outputs an _instruction_, one absolute byte and one _byte_, whose value is the given symbol + addend |
+| Relative Abs Op|  7   | symbol id (2), addend (2)   | Outputs an _instruction_, one absolute byte and one _word_, whose value is the given symbol + addend |

@@ -137,7 +137,7 @@ __asm_linenum: .word 0
 ;   lines will be assembled directly to memory at the address in
 ;   zp::asmresult
 ; TODO: use
-;to_object: .byte 0
+to_object: .byte 0
 
 ;*******************************************************************************
 ; ASMBUFFER
@@ -540,13 +540,20 @@ num_illegals = *-illegal_opcodes
 ; check if the line contains an instruction
 @opcode:
 	jsr getopcode
-	bcs @macro
+	bcs @macro	; not opcode -> check macro
 
 	; we found an opcode, store it and continue to operand, etc.
 	lda #ASM_OPCODE
 	sta resulttype
 	stx opcode	; save the opcode
-	txa
+
+	lda to_object
+	beq :+			; not linking -> write straight to memory
+	jsr link::emitb		; write the opcode as immediate data
+	bcs @ret0
+	jmp @getopws
+
+:	txa
 	ldy #$00
 	jsr writeb	; store the opcode
 	bcs @ret0	; return err

@@ -30,11 +30,12 @@ MAX_OBJS             = 16	; max number of object files that may be used
 MAX_SECTION_NAME_LEN = 8	; max length of a single section name
 MAX_SEGMENT_NAME_LEN = 8	; max length of a single segment name
 
-MAX_EXPORT_NAME_LEN  = 32
-MAX_IMPORT_NAME_LEN  = 32
+MAX_SYMBOL_NAME_LEN  = 32
+MAX_SYMBOLS          = 128	; max # of symbols per object file
 
-MAX_IMPORTS          = 128
-MAX_EXPORTS          = 16
+SYM_IMPORT     = 1
+SYM_REL_EXPORT = 2
+SYM_ABS_EXPORT = 3
 
 ;*******************************************************************************
 ; SECTION flags
@@ -44,6 +45,11 @@ SECTION_FILL = $01	; flag to pad section's unused bytes with 0
 ; SEGMENT flags
 SEGMENT_RO     = $01	; RO (readonly) writes to segment will be error
 SEGMENT_DEFINE = $02
+
+;*******************************************************************************
+; INSTRUCTION OPCODES
+I_SET_SEG   = 1
+I_EMIT_BYTE = 2
 
 ;*******************************************************************************
 ; ZEROPAGE variables
@@ -76,16 +82,39 @@ activeseg: .byte 0	; the current SEGMENT (id) being written
 ;*******************************************************************************
 ; OBJECT STATE
 ; These variables are used in the context of a single object file
-numexports:  .byte 0
-numimports:  .byte 0
-imports:
+numsymbols:  .byte 0
+
+;*******************************************************************************
+; SYMBOL NAMES
+; This table contains the name for each symbol used in the object file
+symbol_names:
 .ifdef vic20
-	.res MAX_IMPORTS*MAX_IMPORT_NAME_LEN
+	.res MAX_SYMBOLS*MAX_SYMBOL_NAME_LEN
 .else
 .endif
-exports:
+
+;*******************************************************************************
+; SYMBOL INFO
+; This table contains corresponding flags for each symbol.
+; It defines the type of symbol in the object file.
+;  - ABS RELATIVE: an exported symbol with an relative (from SEGMENT) value
+;    e.g. ```
+;         .export LABEL`
+;         LABEL:
+;         ````
+;  - ABS EXPORT: an exported symbol with an absolute value
+;    e.g. ```
+;         .export LABEL`
+;         LABEL=$100
+;         ````
+;  - IMPORT: a symbol that is used in the object file but defined in another
+;    e.g. ```
+;         .IMPORT LABEL
+;         jsr LABEL
+;         ```
+symbol_info:
 .ifdef vic20
-	.res MAX_EXPORTS*MAX_EXPORT_NAME_LEN
+	.res MAX_SYMBOLS
 .else
 .endif
 
@@ -113,14 +142,6 @@ section_names:    .res MAX_SECTIONS*MAX_SECTION_NAME_LEN
 .export sections_stophi
 .export sections_flags
 .export section_names
-
-;*******************************************************************************
-; IMPORT TABLES
-; Each object file has its own table of imports. This allows the object code to
-; store refrences to external labels in a more efficient manner: by storing the
-; index to the label in the IMPORT table instead of the label itself.
-import_tabslo: .res MAX_OBJS
-import_tabshi: .res MAX_OBJS
 
 ;*******************************************************************************
 ; SEGMENTS
@@ -210,10 +231,6 @@ symbol_map:
 ; Debug (.d) files are binary files that contain the linked object code.
 ; They are similar to the object files that they are built from.
 ;
-; To assist in debugging, they _also_ contain information like line numbers
-; and files. The imports and exports tables are also replaced with a single
-; "symbol" table.
-;
 ; Debug files cannot be run outside the Monster environment. To produce a
 ; standalone .PRG use dbg::linkprg
 ;
@@ -270,22 +287,27 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 ;*******************************************************************************
 ; ADD EXPORT
-; Adds the given string to the list of exports for the object file currently
-; being constructed.
+; Adds the given string to the symbol table for the object file currently
+; being constructed as an EXPORT
 ; IN:
 ;   - .XY: the name of the EXPORT to add
 ; OUT:
-;   - .C: set on error (e.g. too many exports)
+;   - .C: set on error (e.g. too many symbols)
+; TODO: verify SYMBOL is not already IMPORTed or otherwise conflicting
 .export __link_add_export
 .proc __link_add_export
 @export=r0
-	lda numexports
-	cmp #MAX_EXPORTS-1
-	bcs @done		; too many exports
+	ldx numsymbols
+	cpx #MAX_SYMBOLS-1
+	bcs @done		; too many symbols
+
+	lda #SYM_REL_EXPORT
+	sta symbol_info,x
 
 	lda #$00
 	sta @export+1
 
+	txa
 	asl		; *2
 	asl		; *4
 	asl		; *8
@@ -293,13 +315,13 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	rol @export+1
 	asl		; *32
 	rol @export+1
-	adc #<exports
+	adc #<symbol_names
 	sta @export
 	lda @export+1
-	adc #>exports
+	adc #>symbol_names
 	sta @export+1
 
-	; copy the export into its location in the EXPORT list
+	; copy the symbol name into its location in the symbol_names table
 	ldy #$00
 @copy:	lda (zp::line),y
 	jsr isseparator
@@ -307,7 +329,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	sta (@export),y
 	bne @copy
 
-:	inc numexports
+:	inc numsymbols
 	clc		; ok
 @done:	rts
 .endproc
@@ -365,47 +387,26 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	cpy numsegments
 	bcc @segment_sizes
 
-	; write the IMPORT block
-	ldxy #imports
+	; write the SYMBOL TABLE
+	ldxy #symbol_names
 	stxy @src
-	lda numimports
+	lda numsymbols
 	sta @cnt
-@imports:
+@symbols:
 	ldy #$00
 :	lda (@src),y
 	jsr $ffd2
 	iny
-	cpy #MAX_IMPORT_NAME_LEN
+	cpy #MAX_SYMBOL_NAME_LEN
 	bne :-
 	lda @src
 	clc
-	adc #MAX_IMPORT_NAME_LEN
+	adc #MAX_SYMBOL_NAME_LEN
 	sta @src
 	bcc :+
 	inc @src+1
 :	dec @cnt
-	bne @imports
-
-	; write the EXPORT block
-	ldxy #exports
-	stxy @src
-	lda numexports
-	sta @cnt
-@exports:
-	ldy #$00
-:	lda (@src),y
-	jsr $ffd2
-	iny
-	cpy #MAX_EXPORT_NAME_LEN
-	bne :-
-	lda @src
-	clc
-	adc #MAX_EXPORT_NAME_LEN
-	sta @src
-	bcc :+
-	inc @src+1
-:	dec @cnt
-	bne @exports
+	bne @symbols
 
 	; write the SEGMENT and offset of each EXPORT
 
@@ -1168,40 +1169,30 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; ---------------------------------
 ; |  Property       | Size (bytes)|
 ; |-----------------|-------------|
+; | Segment 0 Name  |  1-32       |
 ; | Segment 1 Name  |  1-32       |
-; | Segment 2 Name  |  1-32       |
 ; | end marker (0)  |  1          |
 ; ---------------------------------
 ;
-; The next block contains the EXPORTs for the block.
-; The EXPORT block contains the names of all symbols exported by the object
-; file as well as their relative segment offsets
+; The next block contains the SYMBOL table for the block
+; Exported symbols may be relative to a SEGMENT. To identify the SEGMENT
+; they contain a 1 byte ID, which refers to their index in the segment
+; table for the object file
 ;
-; Segments are identified by a 1 byte ID, which refers to their index in
-; the segment table for the object file
+; -----------------------------------------------
+; |  Property                     | Size (bytes)|
+; |-------------------------------|-------------|
+; | Symbol 0 Name                 |  1-32       |
+; | Symbol 0 Type                 |  1-32       |
+; | (if export: Export 0 Segment) |    1        |
+; | (if export: Export 0 Offset)  |    2        |
+; | Symbol 1 Name                 |  1-32       |
+; | Symbol 1 Type                 |  1-32       |
+; | (if export: Export 1 Segment) |    1        |
+; | (if export: Export 1 Offset)  |    2        |
+; -----------------------------------------------
 ;
-; -----------------------------------------
-; |  Property               | Size (bytes)|
-; |-------------------------|-------------|
-; | Export 1 Name           |  1-32       |
-; | Export 1 Segment        |    1        |
-; | Export 1 Segment Offset |    1        |
-; | Export 2 Name           |  1-32       |
-; | Export 2 Segment        |    1        |
-; | Export 2 Segment Offset |    1        |
-; -----------------------------------------
-;
-; The second block contains the IMPORTs for the block
-; This is a list of 0-terminated strings
-; --------------------------------
-; |  Property      | Size (bytes)|
-; |----------------|-------------|
-; | Import 1 Name  |  1-32       |
-; | Import 2 Name  |  1-32       |
-; | end marker (0) |  1          |
-; --------------------------------
-;
-; The 3rd block of headers tells the linker the name and size of each SEGMENT
+; The next block of headers tells the linker the name and size of each SEGMENT
 ; in the .obj file
 ; --------------------------------
 ; |  Property      | Size (bytes)|
@@ -1231,7 +1222,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	ldx numfiles
 @getsegments:
 
-@getexports:
+@getsymbols:
 	; get the absolute address of the segment
 	lda #EXPORT_SEG
 	clc
@@ -1266,7 +1257,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	inc @fptr
 :	ldy #$00
 	lda (@fptr),y
-	bne @getexports ; if not end of block, continue
+	bne @getsymbols ; if not end of block, continue
 	incw @fptr	; move past terminating 0
 
 ; TODO: deal with IMPORT block
@@ -1378,6 +1369,66 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	rts
 
 @found: lda @cnt
+	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; EMITB
+; Outputs an instruction to write a direct value to the open object file
+; IN:
+;  - .A: the byte to write
+; OUT:
+;  - .C: set on error
+.export __link_emitb
+.proc __link_emitb
+	pha
+	lda #I_EMIT_BYTE
+	jsr $ffd2
+	pla
+	jmp $ffd2	; CHROUT
+.endproc
+
+;******************************************************************************
+; WRITE SYMTAB
+; Writes all currently exported symbols to the symbol table
+.export __link_write_symtab
+.proc __link_write_symtab
+@cnt=r0
+@name=r2
+	ldxy #symbol_names
+	stxy @name
+	ldx #$00
+
+@l0:	ldy #$00
+
+	; write the symbol name to the object file
+@l1:	lda (@name),y
+	beq :+
+	jsr $ffd2
+	iny
+	cpy #MAX_SYMBOL_NAME_LEN
+	bcc @l1
+
+:	; write the symbol type identifier
+	lda symbol_info,x
+	jsr $ffd2
+	cmp #SYM_IMPORT
+	bne @next
+
+	; if EXPORT, write information about its segment and offset
+	; TODO:
+
+@next:	lda @name
+	clc
+	adc #MAX_SYMBOL_NAME_LEN
+	sta @name
+	bcc :+
+	inc @name+1
+
+:	inx
+	cpx numsymbols
+	bne @l0
+
 	RETURN_OK
 .endproc
 
