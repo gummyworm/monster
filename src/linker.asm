@@ -33,9 +33,12 @@ MAX_SEGMENT_NAME_LEN = 8	; max length of a single segment name
 MAX_SYMBOL_NAME_LEN  = 32
 MAX_SYMBOLS          = 128	; max # of symbols per object file
 
-SYM_IMPORT     = 1
-SYM_REL_EXPORT = 2
-SYM_ABS_EXPORT = 3
+SYM_IMPORT_BYTE     = 1
+SYM_IMPORT_WORD     = 2
+SYM_REL_EXPORT_BYTE = 3
+SYM_REL_EXPORT_WORD = 4
+SYM_ABS_EXPORT_BYTE = 5
+SYM_ABS_EXPORT_WORD = 6
 
 ;*******************************************************************************
 ; SECTION flags
@@ -119,6 +122,33 @@ symbol_info:
 .endif
 
 ;*******************************************************************************
+; SYMBOL SEGMENT IDS
+; This table contains the index of each SYMBOL to its SEGMENT in the SEGMENTS
+; table.
+symbol_segment_ids:
+.ifdef vic20
+	.res MAX_SYMBOLS
+.else
+.endif
+
+;*******************************************************************************
+; SYMBOL OFFSETS
+; This table contains the relative offsets for each symbol from their
+; designated SEGMENTs (identified in the SEGMENT IDs table).
+symbol_offsetslo:
+.ifdef vic20
+	.res MAX_SYMBOLS
+.else
+.endif
+
+symbol_offsetshi:
+.ifdef vic20
+	.res MAX_SYMBOLS
+.else
+
+.endif
+
+;*******************************************************************************
 ; SECTIONS
 ; The memory section contains up to MAX_SECTIONS of memory blocks.  Each
 ; defines the start and end addresses of the section plus a byte of flag
@@ -181,16 +211,6 @@ segment_names: .res MAX_SEGMENT_NAME_LEN*MAX_SEGMENTS
 ; The indices into this array represent the id's used in the object file that
 ; is currently being linked.
 segment_map: .res MAX_SEGMENTS
-
-;*******************************************************************************
-; SYMBOL MAP
-; This array maps the (16-bit) index of a given IMPORT to its address
-; (found by looking up the value for the corresponding global EXPORT)
-symbol_map:
-.ifdef vic20
-	.res 768
-.else
-.endif
 
 ;*******************************************************************************
 ; OBJECT CODE overview
@@ -299,9 +319,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @export=r0
 	ldx numsymbols
 	cpx #MAX_SYMBOLS-1
-	bcs @done		; too many symbols
+	bcs @done			; too many symbols
 
-	lda #SYM_REL_EXPORT
+	lda #SYM_REL_EXPORT_WORD	; TODO: handle other types
 	sta symbol_info,x
 
 	lda #$00
@@ -388,27 +408,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	bcc @segment_sizes
 
 	; write the SYMBOL TABLE
-	ldxy #symbol_names
-	stxy @src
-	lda numsymbols
-	sta @cnt
-@symbols:
-	ldy #$00
-:	lda (@src),y
-	jsr $ffd2
-	iny
-	cpy #MAX_SYMBOL_NAME_LEN
-	bne :-
-	lda @src
-	clc
-	adc #MAX_SYMBOL_NAME_LEN
-	sta @src
-	bcc :+
-	inc @src+1
-:	dec @cnt
-	bne @symbols
-
-	; write the SEGMENT and offset of each EXPORT
+	jsr write_symtab
 
 	; the OBJECT block (object code) will be written by the assembler
 	RETURN_OK
@@ -1005,8 +1005,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc link_object
 	ldx activeobj
 
-	; TODO: set IMPORTs for this OBJ file
-
 @l0:	ldy #$00
 	lda (objptr),y	; get an "instruction" from the OBJ code
 	incw objptr	; move past "opcode"
@@ -1032,7 +1030,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .endproc
 
 ;*******************************************************************************
-; OBJ_BYTES
+; OBJ BYTES
 ; Handles the OBJ_BYTES command
 ; Assembles the bytes that follow to the address of the current segment pointer,
 ; which is updated upon doing so
@@ -1390,9 +1388,10 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 
 ;******************************************************************************
 ; WRITE SYMTAB
-; Writes all currently exported symbols to the symbol table
-.export __link_write_symtab
-.proc __link_write_symtab
+; Writes all symbols to the symbol table, thus generating the symbol table for
+; the object file
+.export write_symtab
+.proc write_symtab
 @cnt=r0
 @name=r2
 	ldxy #symbol_names
@@ -1412,11 +1411,20 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 :	; write the symbol type identifier
 	lda symbol_info,x
 	jsr $ffd2
-	cmp #SYM_IMPORT
-	bne @next
 
-	; if EXPORT, write information about its segment and offset
-	; TODO:
+	; if the symbol is an IMPORT, we're done with this one
+	cmp #SYM_IMPORT_BYTE
+	beq @next
+	cmp #SYM_IMPORT_WORD
+	beq @next
+
+	; if symbol is an EXPORT, write the SEGMENT ID and SEGMENT OFFSET
+	lda symbol_segment_ids,x
+	jsr $ffd2
+	lda symbol_offsetslo,x
+	jsr $ffd2
+	lda symbol_offsetshi,x
+	jsr $ffd2
 
 @next:	lda @name
 	clc
@@ -1580,7 +1588,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 .endproc
 
 ;*******************************************************************************
-; PROCESS_WS
+; PROCESS WS
 ; Reads (line) and updates it to point past ' ' chars and non-printing chars
 ; out:
 ;  .Z: set if we're at the end of the line
@@ -1600,7 +1608,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 .endproc
 
 ;*******************************************************************************
-; IS_WS
+; IS WS
 ; Checks if the given character is a whitespace character
 ; IN:
 ;  - .A: the character to test
@@ -1618,7 +1626,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 .endproc
 
 ;******************************************************************************
-; is_null_space_comma_closingparen
+; IS NULL SPACE COMMA CLOSINGPAREN
 ; IN:
 ;  - .A: the character to test
 ; OUT:
@@ -1635,7 +1643,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 .endproc
 
 ;******************************************************************************
-; IS_OPERATOR
+; IS OPERATOR
 ; IN:
 ;  - .A: the character to test
 ; OUT:
