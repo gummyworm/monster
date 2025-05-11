@@ -893,6 +893,7 @@ CMD_BUFF = $101
 	ldxy @stop
 	sub16 @addr
 	stx @lines
+	sty @lines+1
 	tya
 	lsr
 	ror @lines
@@ -922,6 +923,8 @@ CMD_BUFF = $101
 	inc @addr+1
 :	dec @lines		; (max 255 lines)
 	bne @l0
+	dec @lines+1
+	bpl @l0
 @done:	clc			; OK
 @ret:	rts
 .endproc
