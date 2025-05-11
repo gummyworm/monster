@@ -1,3 +1,6 @@
+.include "c64.inc"
+.include "../zeropage.inc"
+
 .export __screen_init
 .proc __screen_init
 .endproc
@@ -40,9 +43,24 @@
 	rts
 .endproc
 
+;*******************************************************************************
+; CLRLINE
+; Clears the given character row
+; IN:
+;  - .A: the row to clear
 .export __screen_clrline
 .proc __screen_clrline
-	; TODO:
+@row=r0
+	tax
+	lda c64::rowslo,x
+	sta @row
+	lda c64::rowshi,x
+	sta @row+1
+	lda #' '
+	ldy #40-1
+@l0:	sta (@row),y
+	dey
+	bpl @l0
 	rts
 .endproc
 

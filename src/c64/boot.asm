@@ -31,7 +31,6 @@
 @next: .word 0
 start:
 	sei
-	jmp *
 
 ;--------------------------------------
 ; zero the BSS segment
@@ -61,7 +60,6 @@ start:
 	sta (r0),y		; last byte
 
 @zero_bss_done:
-	jmp *
         jsr irq::on
 
 	lda #<start
@@ -69,7 +67,6 @@ start:
 	lda #>start
 	sta $0317		; BRK
 	cli
-	jmp *
 
 	; initialize the status row reverse
 	lda #DEFAULT_RVS
@@ -77,22 +74,16 @@ start:
 	jsr draw::hline
 
 	jsr asm::reset
-	jmp *
 	jsr src::new
 
 	; initialize bitmap
-	jmp *
 	jsr scr::init
-	jmp *
 	jsr edit::clear
-	jmp *
 
 	jsr dbgi::initonce
 	jsr asm::reset
-	jmp *
 	jsr buff::clear		; clear copy buffer
 
-	jmp *
 	jsr mon::init
-
-	jmp run::clr
+	jsr run::clr
+	jmp edit::init

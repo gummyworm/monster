@@ -119,7 +119,7 @@ autoindent: .byte 0		; auto-indent enable flag (0=don't auto-indent)
 
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; INIT
 ; Initializes the editor state
 .export __edit_init
@@ -151,11 +151,12 @@ autoindent: .byte 0		; auto-indent enable flag (0=don't auto-indent)
 	stx zp::curx
 
 	jsr refresh
+	jmp *
 
 	; fall through to __edit_run
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; RUN
 ; Runs the main loop for the editor
 .export __edit_run
