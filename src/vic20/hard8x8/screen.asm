@@ -176,8 +176,11 @@ SCREEN_ROWS = 12	; number of physical rows per column
 	sta @dst+1
 
 	ldy @stop
-	beq :+
-	dey
+	beq @col0
+	cpy #NUM_COLS+1
+	bcc :+
+	ldy #NUM_COLS
+:	dey
 @l0:	lda (@dst),y
 	eor #$80
 	sta (@dst),y
@@ -185,7 +188,7 @@ SCREEN_ROWS = 12	; number of physical rows per column
 	cpy @start
 	bne @l0
 
-:	; do last char
+@col0:	; do last char
 	lda (@dst),y
 	eor #$80
 	sta (@dst),y
