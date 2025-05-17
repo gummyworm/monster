@@ -315,17 +315,16 @@ SCREEN_ROWS = 12	; number of physical rows per column
 ;  - .Y: the number of characters to scroll each row by
 .export __text_scrolldownn
 .proc __text_scrolldownn
-@src=r0
-@dst=r2
-@rowstart=r4
-@offset=r5
+@src=zp::text
+@dst=zp::text+2
+@rowstart=zp::text+4
+@offset=zp::text+5
 	sta @rowstart
 	cpx @rowstart
 	beq @done	; if first and last rows are equal, no scroll
 
 	sty @offset
 
-	dex
 @l0:	lda __screen_rowslo,x
 	sta @src
 	lda __screen_rowshi,x
@@ -349,6 +348,7 @@ SCREEN_ROWS = 12	; number of physical rows per column
 	bpl @l1
 
 @next:	dex		; decrement row counter
+	bmi @done
 	cpx @rowstart
 	bcs @l0
 
