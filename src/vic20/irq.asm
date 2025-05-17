@@ -15,7 +15,13 @@ IRQ_START_LINE  = $1c
 .else ;NTSC
 LINES           = 261
 CYCLES_PER_LINE = 65
-IRQ_START_LINE  = $0f
+
+.ifdef soft4x8
+IRQ_START_LINE = $0f
+.else
+IRQ_START_LINE = $11
+.endif
+
 .endif
 TIMER_VALUE     = LINES * CYCLES_PER_LINE - 2 ; timer value for stable raster int.
 CYCLES_PER_ROW  = 8 * (CYCLES_PER_LINE - 2) - 25

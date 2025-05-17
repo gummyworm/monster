@@ -154,30 +154,41 @@ SCREEN_ROWS = 12	; number of physical rows per column
 .proc __screen_rvsline_part
 @dst=r0
 @start=r2
+@stop=r3
+@row=r4
+	sta @row
+
 	; swap Y and X if (X < Y)
 	sty @start
+	cpx @start
+	bcs :+
+	txa
+	tay
+	ldx @start
+
+:	stx @stop
 
 	; get the row address to reverse
-	tay
-	adc __screen_rowslo,y
+	ldx @row
+	lda __screen_rowslo,x
 	sta @dst
-	lda __screen_rowshi,y
-	adc #$00
+	lda __screen_rowshi,x
 	sta @dst+1
 
-	ldy @start
-	cpx @start
-	bcs @l0
-	txa
-	ldx @start
-	tay
-
+	ldy @stop
+	beq :+
+	dey
 @l0:	lda (@dst),y
 	eor #$80
 	sta (@dst),y
 	dey
 	cpy @start
-	bpl @l0
+	bne @l0
+
+:	; do last char
+	lda (@dst),y
+	eor #$80
+	sta (@dst),y
 
 @done:	rts
 .endproc
