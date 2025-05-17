@@ -755,9 +755,10 @@ data:
 ;  - .C: set if there is nothing to delete (cursor is at END)
 .export __src_delete
 .proc __src_delete
-	jsr mark_dirty
 	jsr __src_end
 	beq @skip
+
+	jsr mark_dirty
 	jsr __src_after_cursor
 	cmp #$0d
 	bne :+
@@ -1116,12 +1117,10 @@ data:
 .export __src_replace
 .proc __src_replace
 	pha
-	jsr mark_dirty
 	jsr __src_delete
 	pla
 	bcs @ret
-@ok:	jsr __src_insert
-	clc
+	jmp __src_insert
 @ret:	rts
 .endproc
 

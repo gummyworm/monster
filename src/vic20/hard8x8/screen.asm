@@ -472,7 +472,7 @@ __text_puts:
 @convtab:
 .byte $20,$40,$60,$80,$a0,$c0,$e0,$ff
 @offset:
-.byte $80,$00,$00,$a0,$40,$c0,$80,$80
+.byte $80,$00,$c0,$a0,$40,$c0,$80,$80
 .POPSEG
 
 .endproc
