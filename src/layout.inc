@@ -1,3 +1,6 @@
+.ifdef hard8x8
+	.include "vic20/hard8x8/layout.inc"
+.else
 SCREEN_HEIGHT = 24
 
 ERROR_ROW = 21
@@ -25,3 +28,4 @@ WATCHVIEW_STOP = DEBUG_MESSAGE_LINE-1
 
 DEBUG_INFO_START_ROW = MEMVIEW_START
 DEBUG_INFO_STOP_ROW = 23
+.endif

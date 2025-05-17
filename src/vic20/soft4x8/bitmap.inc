@@ -29,5 +29,4 @@ BITMAP_WIDTH  = 160
 	rvsline      = __screen_rvsline
 	rvsline_part = __screen_rvsline_part
 .endscope
-
 .endif

@@ -140,6 +140,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 
 @lastpage:
 	ldy @size
+	beq @done
 	dey
 :	lda #$a1
 	sta $9c02	; source bank
@@ -148,17 +149,10 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 	stx $9c02	; dest bank
 	sta (@dst),y
 	dey
+	cpy #$ff
 	bne :-
 
-@lastbyte:
-	lda #BANK
-	sta $9c02
-	lda (@src),y
-	ldx @bank
-	stx $9c02
-	sta (@dst),y
-
-	lda #BANK
+@done:	lda #BANK
 	sta $9c02
 .endmacro
 
@@ -355,12 +349,10 @@ START:
 ;*******************************************************************************
 ; START
 ; Entrypoint to program
-start:
+.proc start
 	sei
 
-;.ifdef CART
 	drawlogo
-;.endif
 
 	; enable all memory
 	lda #FINAL_BANK_MAIN
@@ -472,7 +464,9 @@ start:
 	bpl :-
 
 	jmp lowinit
+.endproc
 
+;*******************************************************************************
 bootlogo:
 	.include "bootlogo.dat"
 
@@ -584,9 +578,8 @@ num_relocs=(*-relocs)/7
 	jsr asm::reset
 	jsr src::new
 
-	; initialize bitmap
+	; initialize screen
 	jsr scr::init
-	jsr edit::clear
 
 	jsr dbgi::initonce
 	jsr asm::reset
@@ -596,6 +589,7 @@ num_relocs=(*-relocs)/7
 
 .ifndef TEST
 	jsr run::clr	; initialize user state by init'ing BASIC
+	jsr edit::clear
 	jmp edit::init
 .else
 	.import testsuite

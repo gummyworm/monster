@@ -29,7 +29,6 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-
 .import puts
 .import putch
 
@@ -106,7 +105,7 @@ indirect:   .byte 0
 .export __text_status
 .proc __text_status
 	ldxy #mem::statusline
-	jmp __text_puts
+	jmp puts
 .endproc
 
 ;*******************************************************************************
@@ -116,6 +115,7 @@ indirect:   .byte 0
 ;  - mem::statusline: contains the new status info
 .export __text_update_statusline
 .proc __text_update_statusline
+.ifndef LORES
 @filename=zp::text
 @tmp=zp::text
 @leftend=zp::text+2
@@ -240,6 +240,9 @@ indirect:   .byte 0
 :	lda #'#'
 	sta mem::statusline-3,y
 @done:	rts
+.else
+	rts
+.endif
 .endproc
 
 ;*******************************************************************************
@@ -714,18 +717,7 @@ indirect:   .byte 0
 	lda @row
 
 	; fall through to __text_puts
-.endproc
-
-;*******************************************************************************
-; PUTS
-; Displays the given string at the given row.  Regardless of the contents of
-; the string, text::len characters are displayed (including 0's etc.)
-; IN:
-;  - .XY: the string to display
-;  - .A:  the row to display the string on
-.export __text_puts
-.proc __text_puts
-	JUMP FINAL_BANK_FASTTEXT, puts
+	jmp puts
 .endproc
 
 ;*******************************************************************************

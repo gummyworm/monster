@@ -8,6 +8,11 @@ DEFAULT_DEVICE=10
 XVIC=xvic
 X64=x64sc
 
+SCREEN_MODE=soft4x8
+#SCREEN_MODE=hard8x8
+
+ASMFLAGS=--asm-define $(TARGET) --asm-define $(REGION) --asm-define $(SCREEN_MODE)
+
 # set KERNAL based on configured TARGET and REGION
 ifeq ($(TARGET),vic20)
 	ifeq ($(REGION),NTSC)
@@ -46,9 +51,15 @@ C1541=c1541
 EXOMIZER=exomizer
 
 BOOTSRC=$(TARGET)/boot.asm
-TARGET_SRC=$(filter-out $BOOTSRC, $(wildcard $(TARGET)/*.asm))	# platform specific source files
-PI_SRC=$(wildcard *.asm)					# platform independent source files
-SRC=$(TARGET_SRC) $(PI_SRC)
+
+# platform specific source files
+TARGET_SRC=$(filter-out $BOOTSRC, $(wildcard $(TARGET)/*.asm))
+MODE_SRC=$(wildcard $(TARGET)/$(SCREEN_MODE)/*.asm)
+
+# platform independent source files
+PI_SRC=$(wildcard *.asm)
+
+SRC=$(TARGET_SRC) $(PI_SRC) $(MODE_SRC)
 TEST_TXTS=$(wildcard tests/*.txt)
 
 UNIT=$(wildcard *.a65)
@@ -71,10 +82,10 @@ installer.prg: installer/install.asm
 	$(CL65) -t $(TARGET) -o $@ -C installer/link-installer.config $^
 
 monster-cart.prg: $(BOOTSRC) $(SRC)
-	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) --asm-define $(REGION) --asm-define CART --asm-define DEFAULT_DEVICE=$(DEFAULT_DEVICE) -C link-$(TARGET)-cart.config $^ -Ln labels.txt -v -m map.txt
+	$(CL65) -t $(TARGET) -o $@ --asm-define CART --asm-define DEFAULT_DEVICE=$(DEFAULT_DEVICE) $(ASMFLAGS) -C link-$(TARGET)-cart.config $^ -Ln labels.txt -v -m map.txt
 
 monster-cart-test.prg: $(BOOTSRC) $(SRC) $(UNIT)
-	$(CL65) -t $(TARGET) -o $@ --asm-define TEST --asm-define $(TARGET) --asm-define $(REGION) --asm-define CART --asm-define DEFAULT_DEVICE=$(DEFAULT_DEVICE) -C link-$(TARGET)-cart.config $^ -Ln labels.txt -v -m map.txt
+	$(CL65) -t $(TARGET) -o $@ --asm-define TEST --asm-define CART --asm-define DEFAULT_DEVICE=$(DEFAULT_DEVICE) $(ASMFLAGS) -C link-$(TARGET)-cart.config $^ -Ln labels.txt -v -m map.txt
 
 $(CART_IMAGE): monster-cart.prg
 	$(PYTHON) makecart.py labels.txt monster-cart.prg $(CART_IMAGE)
@@ -83,7 +94,7 @@ $(TEST_IMAGE): monster-cart-test.prg
 	$(PYTHON) makecart.py labels.txt monster-cart-test.prg $(TEST_IMAGE)
 
 monster-disk.prg: $(BOOTSRC) $(SRC)
-	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) --asm-define $(REGION) -C link-$(TARGET)-disk.config $^ -Ln labels.txt -v -m map.txt
+	$(CL65) -t $(TARGET) -o $@ $(ASMFLAGS) -C link-$(TARGET)-disk.config $^ -Ln labels.txt -v -m map.txt
 
 boot.prg: monster-disk.prg
 ifeq ($(TARGET),vic20)
@@ -125,7 +136,7 @@ start-disk-jiffy20: test.d81
 	$(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -sound -cartfe $(FE3BIN) -memory all $(EMU_REGION) -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 test.d81
 
 start-disk-jiffy64: test.d81
-	$(X64) +warp -kernal JiffyDOS_C64.bin -sound $(EMU_REGION) -drive8type 1581 -dos1581 JiffyDOS_1581.bin monster-disk.prg
+	$(X64) +warp -kernal JiffyDOS_C64.bin -sound $(EMU_REGION) -drive8type 1581 -dos1581 JiffyDOS_1581.bin -reu -reusize 16384 monster-disk.prg
 
 start-install: install.d81
 	cp fe3vice.bin fw-test.bin
@@ -140,4 +151,6 @@ vstart:
 clean:
 	rm -f *.prg *.o test.d81 $(CART_IMAGE) monster.d81
 	rm -rf vic20/*.o
+	rm -rf vic20/hard8x8.o/*.o
+	rm -rf vic20/soft4x8.o/*.o
 	rm -rf c64/*.o

@@ -1,11 +1,26 @@
 .include "bitmap.inc"
-.include "../macros.inc"
-.include "../zeropage.inc"
+.include "../finalex.inc"
+.include "../../macros.inc"
+.include "../../zeropage.inc"
+
+.CODE
+
+;*******************************************************************************
+; PUTS
+; Displays the given string at the given row.  Regardless of the contents of
+; the string, text::len characters are displayed (including 0's etc.)
+; IN:
+;  - .XY: the string to display
+;  - .A:  the row to display the string on
+.export puts
+.proc puts
+	JUMP FINAL_BANK_FASTTEXT, _puts
+.endproc
 
 .segment "FASTTEXT"
 
 ;******************************************************************************
-; FAST PUTCH
+; PUTCH
 ; Puts the character given at the current cursor position
 ; IN:
 ;  - .A: the character to plot
@@ -70,12 +85,11 @@
 ;******************************************************************************
 ; PUTS
 ; Displays the given string at the given row.  Regardless of the contents of
-; the string, text::len characters are displayed (including 0's etc.)
+; the string, 40 characters are displayed (including 0's etc.)
 ; IN:
 ;  - .XY: the string to display
 ;  - .A:  the row to display the text at
-.export puts
-.proc puts
+.proc _puts
 @txtbyte  = zp::text
 @txtsrc   = zp::text+7
 @ysave	  = zp::text+9
@@ -305,11 +319,13 @@ bmcolumnshi: .hibytes cols
 ;******************************************************************************
 .segment "FASTTEXT_BSS"
 charaddrlo: .res num_chars
+; generated table
 ;.repeat  num_chars, i
 ;	.byte <((charmap)+(i*8))
 ;.endrepeat
 
 charaddrhi: .res num_chars
+; generated table
 ;.repeat num_chars, i
 ;	.byte >((charmap)+(i*8))
 ;.endrepeat

@@ -13,14 +13,16 @@
 ; the created graphic
 ;*******************************************************************************
 
-.include "../cursor.inc"
-.include "../key.inc"
-.include "../keycodes.inc"
-.include "../macros.inc"
-.include "../text.inc"
-.include "../zeropage.inc"
+.segment "UDGEDIT"
+
+.include "../../cursor.inc"
+.include "../../key.inc"
+.include "../../keycodes.inc"
+.include "../../macros.inc"
+.include "../../text.inc"
+.include "../../zeropage.inc"
+.include "../finalex.inc"
 .include "bitmap.inc"
-.include "finalex.inc"
 
 ;*******************************************************************************
 PIXEL_SIZE = 4		; size of each pixel in the editor

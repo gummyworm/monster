@@ -25,6 +25,7 @@
 .include "string.inc"
 .include "strings.inc"
 .include "text.inc"
+.include "ui.inc"
 .include "util.inc"
 .include "view.inc"
 .include "vmem.inc"
@@ -700,7 +701,7 @@ CMD_BUFF = $101
 
 	ldxy #strings::debug_registers
 	jsr mon::puts
-	CALL FINAL_BANK_MAIN, dbg::regs_contents
+	CALL FINAL_BANK_MAIN, ui::regs_contents
 	jsr mon::puts
 	clc
 @done:	rts
