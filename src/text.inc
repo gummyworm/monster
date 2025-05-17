@@ -27,7 +27,6 @@
 .import __text_tabl_dist
 .import __text_tabr_dist
 .import __text_update
-.import __text_update_statusline
 
 ; ESCAPE CODES
 ESCAPE_STRING    = $ff	; 2 byte: address of string
@@ -77,5 +76,4 @@ CH_R_ARROW	    = 135
 	tabl_dist        = __text_tabl_dist
 	tabr_dist        = __text_tabr_dist
 	update           = __text_update
-	updatestatusline = __text_update_statusline
 .endscope

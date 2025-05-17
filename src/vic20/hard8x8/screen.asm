@@ -445,8 +445,13 @@ __text_puts:
 	stx @savex
 	cmp #$ff
 	beq @done
+	cmp #$40
+	bne :+
+	lda #$00
+	rts
 
-	ldx #$ff
+:	ldx #$ff
+
 :	inx
 	cmp @convtab,x
 	bcs :-
@@ -459,7 +464,7 @@ __text_puts:
 .PUSHSEG
 .RODATA
 ;|  Code   | Conversion Offset |
-;| ----------------------------|
+;|-----------------------------|
 ;| $00-$1F | $80               |
 ;| $20-$3F | $00               |
 ;| $40-$5F | $C0               |
@@ -470,7 +475,7 @@ __text_puts:
 ;| $E0-$FE | $80               |
 ;| $FF     | $00               |
 @convtab:
-.byte $20,$40,$60,$80,$a0,$c0,$e0,$ff
+.byte $20,$5a,$60,$80,$a0,$c0,$e0,$ff
 @offset:
 .byte $80,$00,$c0,$a0,$40,$c0,$80,$80
 .POPSEG

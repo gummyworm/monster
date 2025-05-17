@@ -4,12 +4,153 @@
 .include "../../macros.inc"
 .include "../../memory.inc"
 .include "../../sim6502.inc"
+.include "../../source.inc"
+.include "../../string.inc"
+.include "../../text.inc"
 .include "../../util.inc"
 .include "../../zeropage.inc"
 
 COLMEM_ADDR=$9400
+STATUS_COL=0		; start column for status line
 
 .CODE
+
+;*******************************************************************************
+; UPDATE STATUSLINE
+; Updates mem::statusline with new information (cursor pos, etc.)
+; SIDE-EFFECTS:
+;  - mem::statusline: contains the new status info
+.export __ui_update_statusline
+.proc __ui_update_statusline
+.ifndef LORES
+@filename=zp::text
+@tmp=zp::text
+@leftend=zp::text+2
+@columnstart=STATUS_COL+3
+@linestart=STATUS_COL+6
+@sizestart=STATUS_COL+13
+@modestart=STATUS_COL
+	lda #' '
+	ldx #39
+@clr:	sta mem::statusline,x
+	dex
+	bpl @clr
+
+	lda zp::curx
+	jsr util::todec8
+
+	; display the column
+	ldy #$00
+	cpx #'0'
+	beq :+
+	stx mem::statusline+@columnstart
+	iny
+:	sta mem::statusline+@columnstart,y
+
+	lda #','
+	sta mem::statusline+@columnstart+1,y
+
+	; display current line
+	lda text::statusfmt
+	beq @fmt_default
+
+@fmtxy:	lda zp::cury
+	jsr util::todec8
+
+	; display the row
+	ldy #$00
+	cpx #'0'
+	beq :+
+	stx mem::statusline+@linestart
+	iny
+:	sta mem::statusline+@linestart,y
+	jmp @mode
+
+@fmt_default:
+	ldxy src::line
+	jsr util::todec
+	ldx #$00
+@l0:	lda mem::spare,x
+	beq :+
+	sta mem::statusline+@linestart,x
+	inx
+	bne @l0
+
+:	lda #'/'
+	sta mem::statusline+@linestart,x
+
+	stx @tmp
+
+	; display total lines
+	ldxy src::lines
+	jsr util::todec
+
+	ldx @tmp
+	ldy #$00
+@l1:	lda mem::spare,y
+	beq @mode
+	sta mem::statusline+@linestart+1,x
+	iny
+	inx
+	bne @l1
+
+@mode:	; add the editor mode
+	lda text::statusmode
+	sta mem::statusline+@modestart
+
+	ldy #$00
+@copyinfo:
+	lda mem::statusinfo,y
+	beq @copy_filename
+	sta mem::statusline+@linestart+2,x
+	iny
+	inx
+	cpx #38
+	bcc @copyinfo
+
+@copy_filename:
+	; filename
+	lda src::activebuff
+	jsr src::filename
+	stxy @filename
+	jsr str::len
+	tay
+	dey
+	beq @drive
+	ldx #39
+:	lda (@filename),y
+	sta mem::statusline,x
+	dex
+	dey
+	bpl :-
+
+; display a '*' if the file is dirty
+	jsr src::isdirty
+	beq @drive
+	lda #'*'
+	sta mem::statusline,x
+
+; display the drive name followed by a colon to the left of the filename
+@drive:	lda #':'
+	sta mem::statusline-1,x
+
+	stx @tmp
+	lda zp::device
+	jsr util::todec8
+	ldy @tmp
+	sta mem::statusline-2,y
+	cpx #'0'
+	beq :+
+	txa
+	dey
+	sta mem::statusline-2,y
+:	lda #'#'
+	sta mem::statusline-3,y
+@done:	rts
+.else
+	rts
+.endif
+.endproc
 
 ;*******************************************************************************
 ; REGS CONTENTS

@@ -19,6 +19,7 @@
 .include "../../key.inc"
 .include "../../keycodes.inc"
 .include "../../macros.inc"
+.include "../../ui.inc"
 .include "../../text.inc"
 .include "../../zeropage.inc"
 .include "../finalex.inc"
@@ -156,7 +157,7 @@ linebuffer = $0400
 ; REFRESH STATUS
 ; Updates the status lines with the new row/column/mode info for the editor
 .proc refresh_status
-	CALL FINAL_BANK_MAIN, text::updatestatusline
+	CALL FINAL_BANK_MAIN, ui::update_statusline
 	lda #23
 	JUMP FINAL_BANK_MAIN, text::status
 .endproc

@@ -26,6 +26,7 @@
 .include "source.inc"
 .include "string.inc"
 .include "strings.inc"
+.include "ui.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
@@ -47,9 +48,6 @@ ESCAPE_CHAR      = $fa
 ESCAPE_8x8UDG    = $f9
 ESCAPE_GOTO_COL  = $f8
 NUM_ESCAPE_CODES = 8
-
-STATUS_LINE      = 23
-STATUS_COL       = 0
 
 STATUS_FORMAT_DEFAULT = 0	; display x, line/total lines
 STATUS_FORMAT_XY      = 1	; display x,y position of cursor
@@ -109,143 +107,6 @@ indirect:   .byte 0
 .endproc
 
 ;*******************************************************************************
-; UPDATE_STATUSLINE
-; Updates mem::statusline with new information (cursor pos, etc.)
-; SIDE-EFFECTS:
-;  - mem::statusline: contains the new status info
-.export __text_update_statusline
-.proc __text_update_statusline
-.ifndef LORES
-@filename=zp::text
-@tmp=zp::text
-@leftend=zp::text+2
-@columnstart=STATUS_COL+3
-@linestart=STATUS_COL+6
-@sizestart=STATUS_COL+13
-@modestart=STATUS_COL
-	lda #' '
-	ldx #39
-@clr:	sta mem::statusline,x
-	dex
-	bpl @clr
-
-	lda zp::curx
-	jsr util::todec8
-
-	; display the column
-	ldy #$00
-	cpx #'0'
-	beq :+
-	stx mem::statusline+@columnstart
-	iny
-:	sta mem::statusline+@columnstart,y
-
-	lda #','
-	sta mem::statusline+@columnstart+1,y
-
-	; display current line
-	lda __text_status_fmt
-	beq @fmt_default
-
-@fmtxy:	lda zp::cury
-	jsr util::todec8
-
-	; display the row
-	ldy #$00
-	cpx #'0'
-	beq :+
-	stx mem::statusline+@linestart
-	iny
-:	sta mem::statusline+@linestart,y
-	jmp @mode
-
-@fmt_default:
-	ldxy src::line
-	jsr util::todec
-	ldx #$00
-@l0:	lda mem::spare,x
-	beq :+
-	sta mem::statusline+@linestart,x
-	inx
-	bne @l0
-
-:	lda #'/'
-	sta mem::statusline+@linestart,x
-
-	stx @tmp
-
-	; display total lines
-	ldxy src::lines
-	jsr util::todec
-
-	ldx @tmp
-	ldy #$00
-@l1:	lda mem::spare,y
-	beq @mode
-	sta mem::statusline+@linestart+1,x
-	iny
-	inx
-	bne @l1
-
-@mode:	; add the editor mode
-	lda __text_status_mode
-	sta mem::statusline+@modestart
-
-	ldy #$00
-@copyinfo:
-	lda mem::statusinfo,y
-	beq @copy_filename
-	sta mem::statusline+@linestart+2,x
-	iny
-	inx
-	cpx #38
-	bcc @copyinfo
-
-@copy_filename:
-	; filename
-	lda src::activebuff
-	jsr src::filename
-	stxy @filename
-	jsr str::len
-	tay
-	dey
-	beq @drive
-	ldx #39
-:	lda (@filename),y
-	sta mem::statusline,x
-	dex
-	dey
-	bpl :-
-
-; display a '*' if the file is dirty
-	jsr src::isdirty
-	beq @drive
-	lda #'*'
-	sta mem::statusline,x
-
-; display the drive name followed by a colon to the left of the filename
-@drive:	lda #':'
-	sta mem::statusline-1,x
-
-	stx @tmp
-	lda zp::device
-	jsr util::todec8
-	ldy @tmp
-	sta mem::statusline-2,y
-	cpx #'0'
-	beq :+
-	txa
-	dey
-	sta mem::statusline-2,y
-:	lda #'#'
-	sta mem::statusline-3,y
-@done:	rts
-.else
-	rts
-.endif
-.endproc
-
-;*******************************************************************************
 ; UPDATE
 ; updates the statusline according to the current cursor position
 ; and blinks the cursor if it's time
@@ -253,7 +114,7 @@ indirect:   .byte 0
 ;   - .Z: always clear
 .export __text_update
 .proc __text_update
-	jsr __text_update_statusline
+	jsr ui::update_statusline
 @blink: lda cur::mode
 	bne @done			; if not NORMAL (SELECT), don't blink
 	dec zp::curtmr
