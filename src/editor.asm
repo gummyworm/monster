@@ -151,7 +151,6 @@ autoindent: .byte 0		; auto-indent enable flag (0=don't auto-indent)
 	stx zp::curx
 
 	jsr refresh
-	jmp *
 
 	; fall through to __edit_run
 .endproc
@@ -291,8 +290,8 @@ main:	jsr key::getch
 
 :	jsr src::anydirty
 	beq :+			; if no dirty buffers, continue
-	jsr prompt_saveall	; ask user if they want to save buffers
-	jsr prompt_assemble	; prompt to re-assemble
+	;jsr prompt_saveall	; ask user if they want to save buffers
+	;jsr prompt_assemble	; prompt to re-assemble
 
 :	jsr enter_command
 

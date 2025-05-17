@@ -1,7 +1,6 @@
-.include "finalex.inc"
+.include "../finalex.inc"
 
 .import __text_init
-
 .segment "SETUP"
 
 ;*******************************************************************************
@@ -13,7 +12,6 @@
 	lda #FINAL_BANK_FASTTEXT
 	sta $9c02
 	jsr __text_init
-
 	; TODO: enable write-protection for the $2000-$8000 blocks when
 	; all SMC is removed from the segments in that range
 	lda #$a1

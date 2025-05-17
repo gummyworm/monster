@@ -116,6 +116,7 @@ indirect:   .byte 0
 ;  - mem::statusline: contains the new status info
 .export __text_update_statusline
 .proc __text_update_statusline
+.ifndef LORES
 @filename=zp::text
 @tmp=zp::text
 @leftend=zp::text+2
@@ -240,6 +241,9 @@ indirect:   .byte 0
 :	lda #'#'
 	sta mem::statusline-3,y
 @done:	rts
+.else
+	rts
+.endif
 .endproc
 
 ;*******************************************************************************
@@ -725,7 +729,15 @@ indirect:   .byte 0
 ;  - .A:  the row to display the string on
 .export __text_puts
 .proc __text_puts
+.ifdef vic20
+.ifdef LORES
+	jmp puts
+.else
 	JUMP FINAL_BANK_FASTTEXT, puts
+.endif
+.else
+	jmp puts
+.endif
 .endproc
 
 ;*******************************************************************************

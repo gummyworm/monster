@@ -7,13 +7,13 @@
 ; This configuration is popularly known as MINIGRAFIK, created by Mike
 ;*******************************************************************************
 
-.include "fastcopy.inc"
-.include "finalex.inc"
-.include "../macros.inc"
-.include "../memory.inc"
-.include "../settings.inc"
-.include "../util.inc"
-.include "../zeropage.inc"
+.include "../fastcopy.inc"
+.include "../finalex.inc"
+.include "../../macros.inc"
+.include "../../memory.inc"
+.include "../../settings.inc"
+.include "../../util.inc"
+.include "../../zeropage.inc"
 
 MAX_SHIFT = NUM_COLS
 
@@ -27,8 +27,6 @@ NUM_COLS    = 20	; number of 8-pixel columns
 NUM_ROWS    = 11	; number of 16-pixel rows
 
 SCREEN_ROWS = 12	; number of physical rows per column
-
-PIXELS_PER_COL = 11*16	; number of pixels per column
 
 VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 

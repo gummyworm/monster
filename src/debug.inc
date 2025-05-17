@@ -16,7 +16,6 @@
 .import __debug_is_brk
 .import __debug_numbreakpoints
 .import __debug_reenter
-.import __debug_regs_contents
 .import __debug_remove_breakpoint
 .import __debug_removebreakpointbyid
 .import __debug_setbreakpoint
@@ -27,6 +26,7 @@
 .import __debug_step
 .import __debug_step_out
 .import __debug_step_over
+.import __debug_sw_valid
 .import __debug_swap_in
 .import __debug_swap_out
 .import __debug_trace
@@ -52,7 +52,6 @@
 	interface          = __debug_interface
 	numbreakpoints     = __debug_numbreakpoints
 	reenter            = __debug_reenter
-	regs_contents      = __debug_regs_contents
 	removebreakpoint   = __debug_remove_breakpoint
 	removebreakpointbyid = __debug_removebreakpointbyid
 	shift_breakpointsd = __debug_shift_breakpointsd
@@ -61,6 +60,7 @@
 	step               = __debug_step
 	step_out           = __debug_step_out
 	step_over          = __debug_step_over
+	sw_valid           = __debug_sw_valid
 	swap_in            = __debug_swap_in
 	swap_out           = __debug_swap_out
 	swapusermem        = __debug_swap_user_mem

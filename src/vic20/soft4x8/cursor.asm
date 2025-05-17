@@ -5,12 +5,12 @@
 ; as code to render it.
 ;*******************************************************************************
 
-.include "../config.inc"
-.include "../edit.inc"
-.include "../macros.inc"
-.include "../memory.inc"
-.include "../text.inc"
-.include "../zeropage.inc"
+.include "../../config.inc"
+.include "../../edit.inc"
+.include "../../macros.inc"
+.include "../../memory.inc"
+.include "../../text.inc"
+.include "../../zeropage.inc"
 .include "bitmap.inc"
 
 ;*******************************************************************************

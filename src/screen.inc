@@ -29,8 +29,4 @@ SCREEN_INC = 1
 	shr     = __scr_shr
 .endscope
 
-.ifdef vic20
-.include "vic20/bitmap.inc"
-.endif
-
 .endif
