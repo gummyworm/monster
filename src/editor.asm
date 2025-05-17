@@ -151,7 +151,6 @@ autoindent: .byte 0		; auto-indent enable flag (0=don't auto-indent)
 	stx zp::curx
 
 	jsr refresh
-	jmp *
 
 	; fall through to __edit_run
 .endproc
