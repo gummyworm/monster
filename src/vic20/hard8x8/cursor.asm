@@ -5,6 +5,7 @@
 ; as code to render it.
 ;*******************************************************************************
 
+.include "screen.inc"
 .include "../../config.inc"
 .include "../../edit.inc"
 .include "../../macros.inc"
@@ -30,8 +31,22 @@ R_REPLACE_MASK = $0f	; mask for right half of 8x8 char in REPLACE mode
 ; TOGGLE
 ; Toggles the cursor (turns it off if its on or vise-versa)
 .export __cur_toggle
-__cur_toggle:
+.proc __cur_toggle
 @dst=r0
-	ldx zp::curx
-	ldy zp::cury
+	ldx zp::cury
+	lda scr::rowslo,x
+	sta @dst
+	lda scr::rowshi,x
+	sta @dst+1
+
+	ldy zp::curx
+	lda (@dst),y
+	eor #$80
+	sta (@dst),y
+
+	lda #1
+	eor __cur_status
+	sta __cur_status
+
 	rts
+.endproc
