@@ -253,10 +253,8 @@ SCREEN_ROWS = 12	; number of physical rows per column
 @numrows=zp::text+4
 	stx @numrows
 	cmp @numrows
-	bcs :+
-	rts
-
-:	sec
+	bcc @done
+	sec
 	sbc @numrows
 	sta @numrows
 
@@ -290,7 +288,7 @@ SCREEN_ROWS = 12	; number of physical rows per column
 	inc @dst+1
 :	dex
 	bne @l0
-	rts
+@done:	rts
 .endproc
 
 ;*******************************************************************************

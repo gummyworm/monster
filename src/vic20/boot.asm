@@ -578,7 +578,7 @@ num_relocs=(*-relocs)/7
 	jsr asm::reset
 	jsr src::new
 
-	; initialize bitmap
+	; initialize screen
 	jsr scr::init
 
 	jsr dbgi::initonce
