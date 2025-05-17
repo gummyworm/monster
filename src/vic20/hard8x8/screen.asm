@@ -407,6 +407,8 @@ SCREEN_ROWS = 12	; number of physical rows per column
 ; IN:
 ;  - .XY: the string to display
 ;  - .A:  the row to display the text at
+.export __text_puts
+__text_puts:
 .export puts
 .proc puts
 @src = zp::text

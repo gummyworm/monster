@@ -83,9 +83,9 @@ COLMEM_ADDR=$9400
 	sty @buff+2
 	stx @buff+3
 
-	; if registers were affected, highlight them (GUI only)
+; if registers were affected, highlight them (GUI only)
 	lda __debug_interface
-	bne @colordone		; if monitor is active, skip color
+	bne @colordone
 
 	ldx #TEXT_COLOR
 	lda sim::affected

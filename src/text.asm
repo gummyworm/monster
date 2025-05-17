@@ -29,7 +29,6 @@
 .include "util.inc"
 .include "zeropage.inc"
 
-
 .import puts
 .import putch
 
@@ -106,7 +105,7 @@ indirect:   .byte 0
 .export __text_status
 .proc __text_status
 	ldxy #mem::statusline
-	jmp __text_puts
+	jmp puts
 .endproc
 
 ;*******************************************************************************
@@ -718,26 +717,7 @@ indirect:   .byte 0
 	lda @row
 
 	; fall through to __text_puts
-.endproc
-
-;*******************************************************************************
-; PUTS
-; Displays the given string at the given row.  Regardless of the contents of
-; the string, text::len characters are displayed (including 0's etc.)
-; IN:
-;  - .XY: the string to display
-;  - .A:  the row to display the string on
-.export __text_puts
-.proc __text_puts
-.ifdef vic20
-.ifdef LORES
 	jmp puts
-.else
-	JUMP FINAL_BANK_FASTTEXT, puts
-.endif
-.else
-	jmp puts
-.endif
 .endproc
 
 ;*******************************************************************************
