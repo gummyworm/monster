@@ -12,7 +12,7 @@ X64=x64sc
 SCREEN_MODE=hard8x8
 
 #ASMFLAGS=--asm-define LORES
-ASMFLAGS=
+ASMFLAGS=--asm-define $(TARGET) --asm-define $(REGION) --asm-define $(SCREEN_MODE)
 
 # set KERNAL based on configured TARGET and REGION
 ifeq ($(TARGET),vic20)
@@ -83,10 +83,10 @@ installer.prg: installer/install.asm
 	$(CL65) -t $(TARGET) -o $@ -C installer/link-installer.config $^
 
 monster-cart.prg: $(BOOTSRC) $(SRC)
-	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) --asm-define $(REGION) --asm-define CART --asm-define DEFAULT_DEVICE=$(DEFAULT_DEVICE) $(ASMFLAGS) -C link-$(TARGET)-cart.config $^ -Ln labels.txt -v -m map.txt
+	$(CL65) -t $(TARGET) -o $@ --asm-define CART --asm-define DEFAULT_DEVICE=$(DEFAULT_DEVICE) $(ASMFLAGS) -C link-$(TARGET)-cart.config $^ -Ln labels.txt -v -m map.txt
 
 monster-cart-test.prg: $(BOOTSRC) $(SRC) $(UNIT)
-	$(CL65) -t $(TARGET) -o $@ --asm-define TEST --asm-define $(TARGET) --asm-define $(REGION) --asm-define CART --asm-define DEFAULT_DEVICE=$(DEFAULT_DEVICE) -C link-$(TARGET)-cart.config $^ -Ln labels.txt -v -m map.txt
+	$(CL65) -t $(TARGET) -o $@ --asm-define TEST --asm-define CART --asm-define DEFAULT_DEVICE=$(DEFAULT_DEVICE) $(ASMFLAGS) -C link-$(TARGET)-cart.config $^ -Ln labels.txt -v -m map.txt
 
 $(CART_IMAGE): monster-cart.prg
 	$(PYTHON) makecart.py labels.txt monster-cart.prg $(CART_IMAGE)
@@ -95,7 +95,7 @@ $(TEST_IMAGE): monster-cart-test.prg
 	$(PYTHON) makecart.py labels.txt monster-cart-test.prg $(TEST_IMAGE)
 
 monster-disk.prg: $(BOOTSRC) $(SRC)
-	$(CL65) -t $(TARGET) -o $@ --asm-define $(TARGET) --asm-define $(REGION) $(ASMFLAGS) -C link-$(TARGET)-disk.config $^ -Ln labels.txt -v -m map.txt
+	$(CL65) -t $(TARGET) -o $@ $(ASMFLAGS) -C link-$(TARGET)-disk.config $^ -Ln labels.txt -v -m map.txt
 
 boot.prg: monster-disk.prg
 ifeq ($(TARGET),vic20)
