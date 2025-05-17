@@ -254,6 +254,7 @@ SCREEN_ROWS = 12	; number of physical rows per column
 	stx @numrows
 	cmp @numrows
 	bcc @done
+
 	sec
 	sbc @numrows
 	sta @numrows
@@ -262,10 +263,10 @@ SCREEN_ROWS = 12	; number of physical rows per column
 	sta @dst
 	lda __screen_rowshi,x
 	sta @dst+1
-	tax
-	lda __screen_rowslo,x
+
+	lda __screen_rowslo+1,x
 	sta @src
-	lda __screen_rowshi,x
+	lda __screen_rowshi+1,x
 	sta @src+1
 
 	ldx @numrows
@@ -274,7 +275,8 @@ SCREEN_ROWS = 12	; number of physical rows per column
 	sta (@dst),y
 	dey
 	bpl @l1
-	lda @src
+
+@next:	lda @src
 	clc
 	adc #NUM_COLS
 	sta @src
