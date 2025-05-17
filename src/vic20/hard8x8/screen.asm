@@ -57,18 +57,11 @@ SCREEN_ROWS = 12	; number of physical rows per column
 ; Clears the screen
 .export __screen_clr
 .proc __screen_clr
-@bm=r0
-	ldxy #$1100
-	stxy @bm
-
-	lda #$00
-	tay
-:	sta (@bm),y
-	iny
-	bne :-
-	inc @bm+1
-	ldx @bm+1
-	cpx #>$2000
+	ldx #$00
+	lda #$20
+:	sta SCREEN_ADDR,x
+	sta SCREEN_ADDR+$100,x
+	dex
 	bne :-
 
 	; fall through to clrcolor
@@ -84,7 +77,8 @@ SCREEN_ROWS = 12	; number of physical rows per column
 	ldy #$00
 	lda #TEXT_COLOR
 @l0:    sta COLMEM_ADDR,y
-        dey
+        sta COLMEM_ADDR+$100,y
+	dey
         bne @l0
         rts
 .endproc
@@ -326,55 +320,37 @@ SCREEN_ROWS = 12	; number of physical rows per column
 @rowstart=r4
 @offset=r5
 	sta @rowstart
-	sty @offset
-	dec @offset
-
 	cpx @rowstart
 	beq @done	; if first and last rows are equal, no scroll
 
-	; calculate number of rows: (last_row - first_row - offset)
-	txa
-	sec
-	sbc @rowstart
-	sbc @offset
-	tax
+	sty @offset
 
-	ldy @rowstart
-	lda __screen_rowslo,y
+	dex
+@l0:	lda __screen_rowslo,x
 	sta @src
-	lda __screen_rowshi,y
+	lda __screen_rowshi,x
 	sta @src+1
-
-	lda @rowstart
+	txa
 	clc
 	adc @offset
+	cmp #NUM_ROWS
+	bcs @next		; destination is off screen, skip
+
 	tay
 	lda __screen_rowslo,y
 	sta @dst
 	lda __screen_rowshi,y
 	sta @dst+1
 
-@l0:	ldy #NUM_COLS-1
+	ldy #NUM_COLS-1
 @l1:	lda (@src),y
 	sta (@dst),y
 	dey
 	bpl @l1
 
-	lda @src
-	clc
-	adc #NUM_COLS
-	sta @src
-	bcc :+
-	inc @src+1
-
-:	lda @dst
-	clc
-	adc #NUM_COLS
-	sta @dst
-	bcc :+
-	inc @dst+1
-:	dex		; decrement row counter
-	bne @l0
+@next:	dex		; decrement row counter
+	cpx @rowstart
+	bcs @l0
 
 @done:	rts
 .endproc

@@ -580,7 +580,6 @@ num_relocs=(*-relocs)/7
 
 	; initialize bitmap
 	jsr scr::init
-	jsr edit::clear
 
 	jsr dbgi::initonce
 	jsr asm::reset
@@ -590,6 +589,7 @@ num_relocs=(*-relocs)/7
 
 .ifndef TEST
 	jsr run::clr	; initialize user state by init'ing BASIC
+	jsr edit::clear
 	jmp edit::init
 .else
 	.import testsuite
