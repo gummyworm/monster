@@ -7,7 +7,6 @@
 .include "../zeropage.inc"
 
 .import __src_bank
-.import __src_atcursor
 .import __src_get_filename
 .import __src_mark_dirty
 .import __src_on_last_line
@@ -308,7 +307,7 @@ data: .res BUFFER_SIZE
 .export __src_atcursor
 .proc __src_atcursor
 	decw cursorzp
-	lda24 bank, cursorzp
+	lda24 __src_bank, cursorzp
 	incw cursorzp
 	rts
 .endproc
