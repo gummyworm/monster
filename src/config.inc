@@ -15,5 +15,5 @@ TAB_WIDTH = 10
 
 ;******************************************************************************
 LINESIZE = 40	; the size of the buffer for 1 line on the screen
-
+.define LINESIZE 40
 .endif

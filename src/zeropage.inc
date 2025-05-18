@@ -3,8 +3,8 @@ ZEROPAGE_INC = 1
 
 .scope zp
 
-jmpaddr = $00		; JMP instruction
-jmpvec  = $01 		; JMP vector for calling vectors
+jmpaddr = $02		; JMP instruction
+jmpvec  = $03 		; JMP vector for calling vectors
 
 banksp      = $05	; bank stack pointer
 bankval     = $07	; the value written by store_byte

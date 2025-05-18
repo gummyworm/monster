@@ -147,9 +147,6 @@ STATUS_COL=0		; start column for status line
 :	lda #'#'
 	sta mem::statusline-3,y
 @done:	rts
-.else
-	rts
-.endif
 .endproc
 
 ;*******************************************************************************

@@ -1,15 +1,15 @@
 .include "layout.inc"
 .include "../settings.inc"
-.include "../../asmflags.inc"
-.include "../../debug.inc"
-.include "../../macros.inc"
-.include "../../memory.inc"
-.include "../../sim6502.inc"
-.include "../../source.inc"
-.include "../../string.inc"
-.include "../../text.inc"
-.include "../../util.inc"
-.include "../../zeropage.inc"
+.include "../asmflags.inc"
+.include "../debug.inc"
+.include "../macros.inc"
+.include "../memory.inc"
+.include "../sim6502.inc"
+.include "../source.inc"
+.include "../string.inc"
+.include "../text.inc"
+.include "../util.inc"
+.include "../zeropage.inc"
 
 COLMEM_ADDR=$9400
 
@@ -206,7 +206,7 @@ COLMEM_ADDR=$9400
 @sizestart=STATUS_COL+13
 @modestart=STATUS_COL
 	lda #' '
-	ldx #SCREEN_WIDTH
+	ldx #39
 @clr:	sta mem::statusline,x
 	dex
 	bpl @clr
@@ -229,6 +229,18 @@ COLMEM_ADDR=$9400
 	lda text::statusfmt
 	beq @fmt_default
 
+@fmtxy:	lda zp::cury
+	jsr util::todec8
+
+	; display the row
+	ldy #$00
+	cpx #'0'
+	beq :+
+	stx mem::statusline+@linestart
+	iny
+:	sta mem::statusline+@linestart,y
+	jmp @mode
+
 @fmt_default:
 	ldxy src::line
 	jsr util::todec
@@ -239,7 +251,23 @@ COLMEM_ADDR=$9400
 	inx
 	bne @l0
 
-:	stx @tmp
+:	lda #'/'
+	sta mem::statusline+@linestart,x
+
+	stx @tmp
+
+	; display total lines
+	ldxy src::lines
+	jsr util::todec
+
+	ldx @tmp
+	ldy #$00
+@l1:	lda mem::spare,y
+	beq @mode
+	sta mem::statusline+@linestart+1,x
+	iny
+	inx
+	bne @l1
 
 @mode:	; add the editor mode
 	lda text::statusmode
@@ -264,8 +292,7 @@ COLMEM_ADDR=$9400
 	tay
 	dey
 	beq @drive
-
-	ldx #SCREEN_WIDTH
+	ldx #39
 :	lda (@filename),y
 	sta mem::statusline,x
 	dex

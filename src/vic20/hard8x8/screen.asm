@@ -2,10 +2,9 @@
 ; SCREEN23.ASM
 ;*******************************************************************************
 
-.linecont +
-
 .include "../fastcopy.inc"
 .include "../finalex.inc"
+.include "../../config.inc"
 .include "../../macros.inc"
 .include "../../memory.inc"
 .include "../../settings.inc"
@@ -14,11 +13,16 @@
 
 ;*******************************************************************************
 ; CONSTANTS
-COLMEM_ADDR = $9400
+COLMEM_ADDR = $9400	; page 1
+;COLMEM_ADDR2 = $9600	; page 2
 
-SCREEN_ADDR = $1000
-NUM_COLS    = 22	; number of 8-pixel columns
-NUM_ROWS    = 23	; number of 8-pixel rows
+SCREEN_ADDR = $1800	; page 1
+SCREEN_ADDR2 = $1a00	; page 2
+
+;NUM_COLS    = 22	; number of 8-pixel columns
+;NUM_ROWS    = 23	; number of 8-pixel rows
+.define NUM_COLS 22
+.define NUM_ROWS 23
 
 SCREEN_ROWS = 12	; number of physical rows per column
 
@@ -43,7 +47,7 @@ SCREEN_ROWS = 12	; number of physical rows per column
 .proc __screen_init
 	jsr $e5c3
 
-	lda #$c2
+	lda #$e2	; lowercase chars / screen @ $1800
 	sta $9005
 
 	lda #(BG_COLOR<<4 | BORDER_COLOR)
@@ -302,6 +306,8 @@ SCREEN_ROWS = 12	; number of physical rows per column
 	sta @dst
 	bcc :+
 	inc @dst+1
+	ldy #$00
+
 :	dex
 	bne @l0
 @done:	rts
@@ -412,6 +418,7 @@ __text_puts:
 	sta @dst+1
 
 	ldy #$00
+	ldx #1+((LINESIZE-1)/NUM_COLS)	; # of extra pages to render
 @l0:	lda (@src),y
 	jsr asc2scr
 	sta (@dst),y
@@ -419,6 +426,28 @@ __text_puts:
 	cpy #NUM_COLS
 	bne @l0
 
+	; move to next destination page
+	inc @dst+1
+	inc @dst+1
+	lda @src
+	clc
+	adc #NUM_COLS
+	sta @src
+	bcc :+
+	inc @src+1
+	ldy #$00	; reset column
+	dex		; decrement page count
+	bne @l0		; repeat for all pages
+
+.if (LINESIZE .mod NUM_COLS) <> 0
+	; fill all spaces past line length
+	ldy #(LINESIZE .mod NUM_COLS)-1
+	lda #$ff	; symbol to fill uneditable spaces with
+:	sta (@dst),y
+	iny
+	cpy #NUM_COLS
+	bne :-
+.endif
 	rts
 .endproc
 
@@ -484,6 +513,7 @@ __text_puts:
 
 .RODATA
 ;*******************************************************************************
+.linecont +
 .define rows \
 	SCREEN_ADDR+$00, \
 	SCREEN_ADDR+$16, \
@@ -508,10 +538,9 @@ __text_puts:
 	SCREEN_ADDR+$1b8,\
 	SCREEN_ADDR+$1ce,\
 	SCREEN_ADDR+$1e4
+.linecont -
 
 .export __screen_rowslo
 .export __screen_rowshi
 __screen_rowslo: .lobytes rows
 __screen_rowshi: .hibytes rows
-
-.linecont -

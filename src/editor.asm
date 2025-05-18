@@ -2855,8 +2855,10 @@ goto_buffer:
 ; EDIT
 ; Configures the cursor/screen/etc. for editing
 .proc edit
+.ifdef vic20
 	lda #$7f
 	sta $911e		; disable CA1 (RESTORE key) interrupts
+.endif
 
 	lda #TEXT_INSERT
 	sta text::insertmode

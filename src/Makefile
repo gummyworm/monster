@@ -8,8 +8,8 @@ DEFAULT_DEVICE=10
 XVIC=xvic
 X64=x64sc
 
-SCREEN_MODE=soft4x8
-#SCREEN_MODE=hard8x8
+#SCREEN_MODE=soft4x8
+SCREEN_MODE=hard8x8
 
 ASMFLAGS=--asm-define $(TARGET) --asm-define $(REGION) --asm-define $(SCREEN_MODE)
 

@@ -13,7 +13,7 @@ COLORSCHEME = COLORSCHEME_DEFAULT	; colorscheme
 ;******************************************************************************
 ; DEFAULT COLORSCHEME
 .if COLORSCHEME=COLORSCHEME_DEFAULT
-TEXT_COLOR	        = $06
+TEXT_COLOR	        = $07
 BORDER_COLOR	        = $03|$08
 BG_COLOR	        = $01
 DEFAULT_900F            = (BG_COLOR<<4 | BORDER_COLOR)
