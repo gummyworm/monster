@@ -1,3 +1,4 @@
+.include "layout.inc"
 .include "../asm.inc"
 .include "../config.inc"
 .include "../copybuff.inc"
@@ -70,7 +71,7 @@ start:
 
 	; initialize the status row reverse
 	lda #DEFAULT_RVS
-	ldx #23
+	ldx #STATUS_ROW
 	jsr draw::hline
 
 	jsr asm::reset

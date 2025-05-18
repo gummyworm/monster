@@ -6,14 +6,15 @@
 
 .include "config.inc"
 
-.BSS
 
 ;*******************************************************************************
+.segment "SPARE"
 .export __mem_spare
 .export __mem_spareend
-__mem_spare=$0500
-__mem_spareend = $1000
+__mem_spare: .res $500
+__mem_spareend = *-__mem_spare
 
+.BSS
 .export __mem_ctxbuffer
 __mem_ctxbuffer = $140+40	; the buffer for the context during assembly
 

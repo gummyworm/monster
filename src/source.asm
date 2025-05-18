@@ -26,12 +26,18 @@
 
 .include "ram.inc"
 
+.import __src_atcursor
+.import __src_insert
+.import __src_init_buff
+.import __src_copy_line
+.import __src_next
+.import __src_prev
+.import __src_start
+
 ;*******************************************************************************
 ; CONSTANTS
 MAX_SOURCES         = 8		; # of source buffers that can be loaded at once
-GAPSIZE             = $100	; size of gap in gap buffer
 POS_STACK_SIZE      = 32 	; size of source position stack
-BUFFER_SIZE         = $6000	; max size of buffer
 
 ;*******************************************************************************
 ; FLAGS
@@ -81,24 +87,14 @@ numsrcs:    .byte 0		; number of buffers
 __src_activebuff:
 activesrc:  .byte 0		; index of active buffer (also bank offset)
 
+.export __src_bank
+__src_bank:
 bank:	    .byte 0
 buffs_curx: .res MAX_SOURCES	; cursor X positions for each inactive buffer
 buffs_cury: .res MAX_SOURCES	; cursor Y positions for each inactive buffer
 banks:      .res MAX_SOURCES	; the corresponding bank for each buffer
 
 flags:	.res MAX_SOURCES	; flags for each source buffer
-;*******************************************************************************
-
-;*******************************************************************************
-; DATA
-; This buffer holds the text data.  It is a large contiguous chunk of memory
-.segment "SOURCE"
-.ifdef vic20
-.assert * & $ff = 0, error, "source buffers must be page aligned"
-data: .res BUFFER_SIZE
-.else
-data:
-.endif
 
 .CODE
 ;*******************************************************************************
@@ -241,17 +237,7 @@ data:
 	dex
 	bne :-
 
-	lda #<data
-	sta cursorzp
-	lda #>data
-	sta cursorzp+1
-
-	lda #<(data+GAPSIZE)
-	sta end
-	sta poststartzp
-	lda #>(data+GAPSIZE)
-	sta end+1
-	sta poststartzp+1
+	jsr __src_init_buff
 
 	; init line and lines to 1
 	inc line
@@ -674,20 +660,6 @@ data:
 .endproc
 
 ;*******************************************************************************
-; START
-; Returns .Z set if the cursor is at the start of the buffer.
-; OUT:
-;  - .Z: set if the cursor is at the start of the buffer
-.export __src_start
-.proc __src_start
-	ldx cursorzp
-	bne @done	; if LSB is !0, not the start
-	ldx cursorzp+1
-	cpx #>data
-@done:	rts
-.endproc
-
-;*******************************************************************************
 ; BACKSPACE
 ; Deletes the character immediately before the current cursor position.
 ; OUT:
@@ -695,10 +667,10 @@ data:
 ;  - .C: set if the backspace failed (we're at the START of the source)
 .export __src_backspace
 .proc __src_backspace
-	jsr mark_dirty
+	jsr __src_mark_dirty
 	jsr __src_start
 	beq @skip
-	jsr atcursor
+	jsr __src_atcursor
 	pha
 	cmp #$0d
 	bne :+
@@ -710,23 +682,6 @@ data:
 	rts
 @skip:	sec
 	rts
-.endproc
-
-;*******************************************************************************
-; ON LINE INSERTED
-; Callback to handle a line insertion. Various state needs to be shifted when
-; this occurs (breakpoints, etc.)
-.proc on_line_inserted
-	; update debug info: find all line programs in the current file with
-	; start lines greater than the current line and increment those
-	jsr __src_get_filename
-	jsr dbgi::getfileid
-
-	; shift breakpoints
-	jsr edit::currentfile
-	sta r0
-	lda #$01
-	jmp dbg::shift_breakpointsd
 .endproc
 
 ;*******************************************************************************
@@ -758,7 +713,7 @@ data:
 	jsr __src_end
 	beq @skip
 
-	jsr mark_dirty
+	jsr __src_mark_dirty
 	jsr __src_after_cursor
 	cmp #$0d
 	bne :+
@@ -770,88 +725,6 @@ data:
 	rts
 .endproc
 
-.PUSHSEG
-.segment "BANKCODE2"
-;******************************************************************************
-; NEXT
-; Moves the cursor up one character in the gap buffer
-; OUT:
-;  - .A: the character at the new cursor position in .A
-;  - .C: clear on success (always clear)
-.export __src_next
-.proc __src_next
-	; do __src_end inline to save the cycles from JSR and RTS
-	ldx poststartzp
-	cpx end
-	bne @cont
-	ldx poststartzp+1
-	cpx end+1
-	beq @done
-
-@cont:	; switch to the bank that contains the source buffer's data
-	lda bank
-	sta $9c02
-
-	; move one byte from the end of the gap to the start
-	ldy #$00
-	lda (poststartzp),y
-	sta (cursorzp),y
-
-	incw cursorzp
-	incw poststartzp
-
-	; switch back to main bank
-	ldx #FINAL_BANK_MAIN
-	stx $9c02
-
-	cmp #$0d
-	bne @done
-	incw line
-@done:	RETURN_OK
-.endproc
-
-;*******************************************************************************
-; PREV
-; Moves the cursor back one character in the gap buffer.
-; OUT:
-;  - .A: the character at the new cursor position (if not at the start of buff)
-;  - .C: set if we're at the start of the buffer and couldn't move back
-.export __src_prev
-.proc __src_prev
-	jsr __src_start
-	bne :+
-	jsr atcursor
-	sec
-	rts
-
-:	; move char from start of gap to the end of the gap
-	decw cursorzp
-	decw poststartzp
-
-	; switch to the bank that contains the source buffer's data
-	lda bank
-	sta $9c02
-
-	; move one byte from the start of the gap to the end
-	ldy #$00
-	lda (cursorzp),y
-	sta (poststartzp),y
-
-	cmp #$0d
-	bne :+
-	decw line
-
-:	; get the character at the new cursor position
-	decw cursorzp
-	lda (cursorzp),y
-	incw cursorzp
-
-	; switch back to main bank
-	ldx #FINAL_BANK_MAIN
-	stx $9c02
-	RETURN_OK
-.endproc
-.POPSEG;
 
 ;*******************************************************************************
 ; HOME
@@ -998,90 +871,7 @@ data:
 .export __src_insert_on_load
 .proc __src_insert_on_load
 	ldx #$01
-	skw
-	; fall through
-.endproc
-
-;*******************************************************************************
-; INSERT
-; Adds the character in .A to the buffer at the gap position (gap).
-; If the character is not valid, it is not inserted, but the operation is
-; still considereed a success (.C is returned clear)
-; IN:
-;  - .A: the character to insert
-; OUT:
-;  - .C: set if the character could not be inserted (buffer full)
-; CLOBBERS:
-;  - $120-$130: may be clobbered if newline is inserted
-.export __src_insert
-.proc __src_insert
-@skip_insert_logic=r0
-@src=r2
-@dst=r4
-	ldx #$00
-	stx @skip_insert_logic
-
-	cmp #$0d
-	beq :+
-	cmp #$0a
-	beq :+
-	cmp #$09
-	beq :+
-	cmp #$20
-	bcc @done
-	cmp #$80
-	bcs @done	; not displayable
-
-:	pha
-	jsr mark_dirty
-	jsr gaplen
-	cmpw #0		; is gap closed?
-	bne @ins	; no, insert as usual
-
-	; check if there is room to expand the gap
-	lda poststartzp+1
-	cmp #>(BUFFER_SIZE+data)-1	; -1 to save space for a $100 byte gap
-	bcc @ok
-
-@err:	; buffer overflow, cannot insert character
-	pla				; clean stack
-	lda #ERR_BUFFER_FULL
-	rts
-
-@ok:	; gap is closed, create a new one
-	; copy data[poststart] to data[poststart + GAPSIZE]
-	ldxy cursorzp
-	stxy @src
-
-	inc poststartzp+1
-	inc end+1		; increase size by $100
-	ldxy poststartzp
-	stxy @dst
-
-	; get number of bytes to copy
-	ldxy end
-	sub16 poststartzp
-
-	lda bank
-	sta r7		; destination bank
-	jsr ram::copy
-
-@ins:	pla
-	ldy cursorzp+1
-	bmi @done	; out of range
-
-	sta24 bank, cursorzp
-
-	cmp #$0d
-	bne @insdone
-	incw line
-	lda @skip_insert_logic
-	bne :+
-	jsr on_line_inserted
-:	incw lines
-@insdone:
-	incw cursorzp
-@done:	RETURN_OK
+	jmp __src_insert
 .endproc
 
 ;*******************************************************************************
@@ -1135,19 +925,6 @@ data:
 	rts
 .endproc
 
-;*******************************************************************************
-; ATCURSOR
-; Returns the character at the cursor position.
-; OUT:
-;  - .A: the character at the current cursor position
-.export __src_atcursor
-__src_atcursor:
-.proc atcursor
-	decw cursorzp
-	lda24 bank, cursorzp
-	incw cursorzp
-	rts
-.endproc
 
 ;*******************************************************************************
 ; BEFORE_NEWL
@@ -1293,7 +1070,7 @@ __src_atcursor:
 .export __src_get
 .proc __src_get
 	ldxy #mem::linebuffer
-
+	jmp __src_get_at
 	; fall through to __src_get_at
 .endproc
 
@@ -1320,35 +1097,7 @@ __src_atcursor:
 	sta (@target),y		; init buffer
 	sec			; end of buffer
 	rts
-
-:	ldxy @target
-	stxy zp::bankaddr1
-
-	jsr __src_on_last_line	; on last line already?
-	bne :+
-	ldxy end
-	sub16 poststartzp	; bytes to copy
-	txa
-	pha
-	tay			; .Y = bytes to copy
-	dey
-	lda bank
-	jsr ram::copyline	; may copy garbage
-
-	pla			; restore end of line index
-	tay
-	lda #$00
-	sta (@target),y		; terminate line at end
-	beq @done		; branch always
-
-:	ldxy @target
-	stxy zp::bankaddr1
-	lda bank
-	jsr ram::copyline
-
-@done:	lda #$00
-	sta (@target),y
-	RETURN_OK
+:	jmp __src_copy_line
 .endproc
 
 ;*******************************************************************************
@@ -1411,7 +1160,8 @@ __src_atcursor:
 ; Marks the given buffer as "dirty" by setting its appropriate flag.
 ; IN:
 ;  - .A: the buffer ID to flag as DIRTY
-.proc mark_dirty
+.export __src_mark_dirty
+.proc __src_mark_dirty
 	lda #FLAG_DIRTY
 	ldx activesrc
 	sta flags,x

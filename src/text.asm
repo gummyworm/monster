@@ -577,7 +577,6 @@ indirect:   .byte 0
 	ldxy #@buff
 	lda @row
 
-	; fall through to __text_puts
 	jmp puts
 .endproc
 

@@ -53,6 +53,8 @@
 	lda #$20
 :	sta SCREEN_ADDR,x
 	sta SCREEN_ADDR+$100,x
+	sta SCREEN_ADDR+$200,x
+	sta SCREEN_ADDR+$300,x
 	dex
 	bne :-
 
@@ -71,6 +73,8 @@
 	lda #TEXT_COLOR
 @l0:    sta COLMEM_ADDR,y
         sta COLMEM_ADDR+$100,y
+        sta COLMEM_ADDR+$200,y
+        sta COLMEM_ADDR+$300,y
 	dey
         bne @l0
         rts
