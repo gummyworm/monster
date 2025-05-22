@@ -14,6 +14,7 @@
 __mem_spare: .res $500
 __mem_spareend = *-__mem_spare
 
+;*******************************************************************************
 .BSS
 .export __mem_ctxbuffer
 __mem_ctxbuffer = $140+40	; the buffer for the context during assembly

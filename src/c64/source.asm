@@ -1,3 +1,5 @@
+.include "ram.inc"
+.include "reu.inc"
 .include "../debug.inc"
 .include "../debuginfo.inc"
 .include "../edit.inc"
@@ -20,12 +22,15 @@ end         = zp::srcend
 ; TODO:
 BUFFER_SIZE = $0	; max size of buffer
 GAPSIZE     = $100	; size of gap in gap buffer
+PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
 
 ;*******************************************************************************
 ; DATA
 ; This buffer holds the text data.  It is a large contiguous chunk of memory
 .segment "SOURCE"
-data: .res BUFFER_SIZE
+data:       .res BUFFER_SIZE
+page:       .word 0
+pageoffset: .byte 0
 
 .CODE
 ;*******************************************************************************
@@ -45,6 +50,11 @@ data: .res BUFFER_SIZE
 	lda #>(data+GAPSIZE)
 	sta end+1
 	sta poststartzp+1
+
+	lda #$00
+	sta page
+	sta pageoffset
+	sta pageoffset+1
 	rts
 .endproc
 
@@ -74,9 +84,10 @@ data: .res BUFFER_SIZE
 	cmp #$09
 	beq :+
 	cmp #$20
-	bcc @done
+	bcs :+
 	cmp #$80
-	bcs @done	; not displayable
+	bcc :+
+	jmp @done	; not displayable
 
 :	pha
 	jsr __src_mark_dirty
@@ -96,28 +107,59 @@ data: .res BUFFER_SIZE
 
 @ok:	; gap is closed, create a new one
 	; copy data[poststart] to data[poststart + GAPSIZE]
+	lda __src_bank
+	sta reu::reuaddr
 	ldxy cursorzp
-	stxy @src
+	stxy reu::reuaddr+1
 
-	inc poststartzp+1
-	inc end+1		; increase size by $100
-	ldxy poststartzp
-	stxy @dst
+	; set the C64 address where the RAM will be intermediately
+	; stored
+	ldxy #@done		; address of the end of this procedure
+	stxy reu::c64addr
 
 	; get number of bytes to copy
 	ldxy end
 	sub16 poststartzp
+	stxy reu::txlen
 
+	; save the C64 RAM that will be clobbered by the copy
+	lda #^REU_TMP_ADDR
+	sta reu::reuaddr
+	lda #>REU_TMP_ADDR
+	sta reu::reuaddr+1
+	lda #<REU_TMP_ADDR
+	sta reu::reuaddr+2
+	jsr reu::swap
+
+	; save the C64 RAM that will be clobbered by the copy
+	; and bring in the data to move
+	jsr reu::swap
+
+	; calculate the new destination in the REU to store the data
+	inc poststartzp+1
+	inc end+1		; increase size by $100
 	lda __src_bank
-	sta r7		; destination bank
-	; TODO:
-	;jsr ram::copy
+	sta reu::reuaddr
+	ldxy poststartzp
+	stxy reu::reuaddr+1	; set REU destination
+
+	; store the copied data to its new location in the REU
+	jsr reu::store
+
+	; restore the C64 RAM that was saved to make room for the copy buff
+	lda #^REU_TMP_ADDR
+	sta reu::reuaddr
+	lda #>REU_TMP_ADDR
+	sta reu::reuaddr+1
+	lda #<REU_TMP_ADDR
+	sta reu::reuaddr+2
+	jsr reu::swap
 
 @ins:	pla
 	ldy cursorzp+1
 	bmi @done	; out of range
 
-	;sta24 bank, cursorzp
+	sta24 __src_bank, cursorzp
 
 	cmp #$0d
 	bne @insdone
@@ -175,8 +217,6 @@ data: .res BUFFER_SIZE
 	RETURN_OK
 .endproc
 
-.PUSHSEG
-.segment "BANKCODE2"
 ;******************************************************************************
 ; NEXT
 ; Moves the cursor up one character in the gap buffer
@@ -194,11 +234,8 @@ data: .res BUFFER_SIZE
 	beq @done
 
 @cont: ; move one byte from the end of the gap to the start
-	; TODO:
-	; rts
-;	ldy #$00
-;	lda (poststartzp),y
-;	sta (cursorzp),y
+	lda24 __src_bank, poststartzp
+	sta24 __src_bank, cursorzp
 
 	incw cursorzp
 	incw poststartzp
@@ -227,13 +264,9 @@ data: .res BUFFER_SIZE
 	decw cursorzp
 	decw poststartzp
 
-	; switch to the bank that contains the source buffer's data
-	; TODO
-
 	; move one byte from the start of the gap to the end
-	ldy #$00
-	lda (cursorzp),y
-	sta (poststartzp),y
+	lda24 __src_bank, cursorzp
+	sta24 __src_bank, poststartzp
 
 	cmp #$0d
 	bne :+
@@ -241,12 +274,10 @@ data: .res BUFFER_SIZE
 
 :	; get the character at the new cursor position
 	decw cursorzp
-	lda (cursorzp),y
+	lda24 __src_bank, cursorzp
 	incw cursorzp
-
 	RETURN_OK
 .endproc
-.POPSEG
 
 ;*******************************************************************************
 ; START
@@ -297,6 +328,8 @@ data: .res BUFFER_SIZE
 ;  - .A: the character at the current cursor position
 .export __src_atcursor
 .proc __src_atcursor
-	; TODO:
+	decw cursorzp
+	lda24 __src_bank, cursorzp
+	incw cursorzp
 	rts
 .endproc

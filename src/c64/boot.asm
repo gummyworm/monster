@@ -1,4 +1,5 @@
 .include "layout.inc"
+.include "reu.inc"
 .include "../asm.inc"
 .include "../config.inc"
 .include "../copybuff.inc"
@@ -74,6 +75,7 @@ start:
 	ldx #STATUS_ROW
 	jsr draw::hline
 
+	jsr reu::init
 	jsr asm::reset
 	jsr src::new
 
