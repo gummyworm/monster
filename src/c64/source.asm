@@ -124,41 +124,38 @@ pageoffset: .byte 0
 
 	; save the C64 RAM that will be clobbered by the copy
 	lda #^REU_TMP_ADDR
-	sta reu::reuaddr
+	sta reu::reuaddr+2
 	lda #>REU_TMP_ADDR
 	sta reu::reuaddr+1
 	lda #<REU_TMP_ADDR
-	sta reu::reuaddr+2
-	jsr reu::swap
-
-	; save the C64 RAM that will be clobbered by the copy
-	; and bring in the data to move
+	sta reu::reuaddr
 	jsr reu::swap
 
 	; calculate the new destination in the REU to store the data
 	inc poststartzp+1
 	inc end+1		; increase size by $100
 	lda __src_bank
-	sta reu::reuaddr
+	sta reu::reuaddr+2
 	ldxy poststartzp
-	stxy reu::reuaddr+1	; set REU destination
+	stxy reu::reuaddr	; set REU destination
 
 	; store the copied data to its new location in the REU
 	jsr reu::store
 
 	; restore the C64 RAM that was saved to make room for the copy buff
 	lda #^REU_TMP_ADDR
-	sta reu::reuaddr
+	sta reu::reuaddr+2
 	lda #>REU_TMP_ADDR
 	sta reu::reuaddr+1
 	lda #<REU_TMP_ADDR
-	sta reu::reuaddr+2
+	sta reu::reuaddr
 	jsr reu::swap
 
 @ins:	pla
 	ldy cursorzp+1
 	bmi @done	; out of range
 
+	; write the character to insert
 	sta24 __src_bank, cursorzp
 
 	cmp #$0d

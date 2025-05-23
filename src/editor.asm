@@ -4068,7 +4068,7 @@ goto_buffer:
 	lda #$00
 	jsr src::backspace
 	bcs @done
-	lda #$14	; delete from the text buffer
+	lda #$14		; delete from the text buffer
 	jsr text::putch
 	bcs @prevline
 	lda zp::cury
