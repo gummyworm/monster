@@ -2,6 +2,8 @@
 
 .include "c64.inc"
 
+.import __cur_status
+
 .CODE
 
 ;*******************************************************************************
@@ -20,5 +22,10 @@
 	lda (@dst),y
 	eor #$80		; reverse
 	sta (@dst),y
+
+	lda #1
+	eor __cur_status
+	sta __cur_status
+
 	rts
 .endproc

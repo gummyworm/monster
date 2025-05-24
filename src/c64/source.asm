@@ -94,6 +94,8 @@ PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
 
 @ok:	; gap is closed, create a new one
 	; copy data[poststart] to data[poststart + GAPSIZE]
+	; TODO:
+	jmp *
 	lda __src_bank
 	sta reu::reuaddr
 	ldxy cursorzp
@@ -198,7 +200,18 @@ PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
 	rts			; nothing to copy
 :	sty reu::txlen
 
-@load:	jmp reu::load
+@load:	jsr reu::load
+	; look for a newline and replace it with a 0 if found
+	ldy #$00
+:	lda (@target),y
+	cmp #$0d
+	beq @done
+	iny
+	cpy #LINESIZE
+	bne :-
+@done:	lda #$00
+	sta (@target),y
+	rts
 .endproc
 
 ;******************************************************************************

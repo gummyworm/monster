@@ -44,6 +44,7 @@ FINAL_BANK_SYMVIEW = $00
 	sta $df04	; LSB of REU address
 
 	ldx #$00
+	stx $df0a
 
 	; set c64 (target) address
 	lda #zp::banktmp
@@ -51,18 +52,17 @@ FINAL_BANK_SYMVIEW = $00
 	stx $df03
 
 	; set transfer size to 1 byte
-	stx $df07
-	inx
 	stx $df08
+	inx
+	stx $df07
 
 	; execute the REU command
 	lda #$91	; load 1 byte from REU -> C64
-	sta $d0f1
+	sta $df01
 
 	; read the loaded data
 	lda zp::banktmp
 .endmacro
-
 
 ;******************************************************************************
 ; STA24
@@ -72,32 +72,30 @@ FINAL_BANK_SYMVIEW = $00
 .macro sta24 bank, addr
 	sta zp::banktmp
 
-	; set REU (load) address
-	lda bank
-	sta $df06	; MSB of REU address
-	lda addr+1
-	sta $df05	; middle byte of REU address
-	lda addr
-	sta $df04	; LSB of REU address
-
 	ldx #$00
 
+	; set REU (load) address
+	lda addr
+	sta $df04	; LSB of REU address
+	lda addr+1
+	sta $df05	; middle byte of REU address
+	lda bank
+	sta $df06	; MSB of REU address
+
 	; set c64 (target) address
-	lda #r0
+	lda #zp::banktmp
 	sta $df02
 	stx $df03
 
 	; set transfer size to 1 byte
-	stx $df07
-	inx
 	stx $df08
+	inx
+	stx $df07
 
 	; execute the REU command
-	lda #$91	; load 1 byte from REU -> C64
-	sta $d0f1
-
-	; read the loaded data
-	lda zp::banktmp
+	lda #$90	; store 1 byte from C64 -> REU
+	sta $df01
+	lda zp::banktmp	; restore byte that we stored
 .endmacro
 
 ;******************************************************************************
