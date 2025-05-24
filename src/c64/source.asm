@@ -1,5 +1,6 @@
 .include "ram.inc"
 .include "reu.inc"
+.include "../config.inc"
 .include "../debug.inc"
 .include "../debuginfo.inc"
 .include "../edit.inc"
@@ -20,17 +21,9 @@ lines       = zp::srclines
 end         = zp::srcend
 
 ; TODO:
-BUFFER_SIZE = $0	; max size of buffer
+BUFFER_SIZE = $8000	; max size of buffer
 GAPSIZE     = $100	; size of gap in gap buffer
 PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
-
-;*******************************************************************************
-; DATA
-; This buffer holds the text data.  It is a large contiguous chunk of memory
-.segment "SOURCE"
-data:       .res BUFFER_SIZE
-page:       .word 0
-pageoffset: .byte 0
 
 .CODE
 ;*******************************************************************************
@@ -39,22 +32,16 @@ pageoffset: .byte 0
 ; start/end of the gap
 .export __src_init_buff
 .proc __src_init_buff
-	lda #<data
+	lda #$00
 	sta cursorzp
-	lda #>data
 	sta cursorzp+1
 
-	lda #<(data+GAPSIZE)
+	lda #<GAPSIZE
 	sta end
 	sta poststartzp
-	lda #>(data+GAPSIZE)
+	lda #>GAPSIZE
 	sta end+1
 	sta poststartzp+1
-
-	lda #$00
-	sta page
-	sta pageoffset
-	sta pageoffset+1
 	rts
 .endproc
 
@@ -97,7 +84,7 @@ pageoffset: .byte 0
 
 	; check if there is room to expand the gap
 	lda poststartzp+1
-	cmp #>(BUFFER_SIZE+data)-1	; -1 to save space for a $100 byte gap
+	cmp #>BUFFER_SIZE-1	; -1 to save space for a $100 byte gap
 	bcc @ok
 
 @err:	; buffer overflow, cannot insert character
@@ -182,36 +169,36 @@ pageoffset: .byte 0
 .export __src_copy_line
 .proc __src_copy_line
 @target=r1
-	rts
-	ldxy @target
-	stxy zp::bankaddr1
+	stxy reu::c64addr
+	stxy @target
+
+	; initialize transfer length to max line size
+	lda #LINESIZE
+	sta reu::txlen
+	lda #$00
+	sta reu::txlen+1
+
+	lda __src_bank
+	sta reu::reuaddr+2
 
 	jsr __src_on_last_line	; on last line already?
-	bne :+
+	bne @load		; if yes, skip
+
+	; on last line, there will be no newline to mark end of line,
+	; calculate exact # of bytes to copy
 	ldxy end
 	sub16 poststartzp	; bytes to copy
 	txa
-	pha
 	tay			; .Y = bytes to copy
-	dey
-	lda __src_bank
-	; TODO: copy
-
-	pla			; restore end of line index
-	tay
 	lda #$00
-	sta (@target),y		; terminate line at end
-	beq @done		; branch always
+	sta (@target),y		; terminate line
+	dey
+	cpy #$ff
+	bne :+
+	rts			; nothing to copy
+:	sty reu::txlen
 
-:	ldxy @target
-	stxy zp::bankaddr1
-	lda __src_bank
-	; TODO: copy
-	; jsr ram::copyline
-
-@done:	lda #$00
-	sta (@target),y
-	RETURN_OK
+@load:	jmp reu::load
 .endproc
 
 ;******************************************************************************
@@ -285,8 +272,7 @@ pageoffset: .byte 0
 .proc __src_start
 	ldx cursorzp
 	bne @done	; if LSB is !0, not the start
-	ldx cursorzp+1
-	cpx #>data
+	ldx cursorzp+1	; set .Z if MSB is 0
 @done:	rts
 .endproc
 

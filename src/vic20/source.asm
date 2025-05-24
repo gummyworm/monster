@@ -137,15 +137,18 @@ data: .res BUFFER_SIZE
 ; Returns the text at the current cursor position and stores it to the given
 ; target location
 ; IN:
+;  - .XY: the destination to copy to
 ;  - r1:  the destination to copy to
 ; OUT:
 ;  - (.XY): a line of text from the cursor position
 ;  - .C: set if the end of the buffer was reached as we were reading
 .export __src_copy_line
 .proc __src_copy_line
-@target=r1
-	ldxy @target
-	stxy zp::bankaddr1
+@src=zp::bankaddr0
+@target=zp::bankaddr1
+	stxy @target		; dest
+	ldxy poststartzp
+	stxy @src		; source
 
 	jsr __src_on_last_line	; on last line already?
 	bne :+
@@ -164,9 +167,7 @@ data: .res BUFFER_SIZE
 	sta (@target),y		; terminate line at end
 	beq @done		; branch always
 
-:	ldxy @target
-	stxy zp::bankaddr1
-	lda __src_bank
+:	lda __src_bank
 	jsr ram::copyline
 
 @done:	lda #$00

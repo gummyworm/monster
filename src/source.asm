@@ -1070,34 +1070,7 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 .export __src_get
 .proc __src_get
 	ldxy #mem::linebuffer
-	jmp __src_get_at
-	; fall through to __src_get_at
-.endproc
-
-;*******************************************************************************
-; GET_AT
-; Returns the text at the current cursor position and stores it to the given
-; target location
-; IN:
-;  - .XY: the target to store the contents of the source to
-; OUT:
-;  - (.XY): a line of text from the cursor position
-;  - .C: set if the end of the buffer was reached as we were reading
-.export __src_get_at
-.proc __src_get_at
-@target=r1
-	stxy @target
-	ldxy poststartzp
-	stxy zp::bankaddr0
-
-	jsr __src_end
-	bne :+
-	lda #$00
-	tay
-	sta (@target),y		; init buffer
-	sec			; end of buffer
-	rts
-:	jmp __src_copy_line
+	jmp __src_copy_line
 .endproc
 
 ;*******************************************************************************
