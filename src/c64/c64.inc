@@ -1,7 +1,7 @@
-.import __c64_rowslo
-.import __c64_rowshi
+.import __screen_rowslo
+.import __screen_rowshi
 
 .scope c64
-	rowslo = __c64_rowslo
-	rowshi = __c64_rowshi
+	rowslo = __screen_rowslo
+	rowshi = __screen_rowshi
 .endscope

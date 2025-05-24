@@ -1,4 +1,3 @@
-.include "c64.inc"
 .include "../zeropage.inc"
 
 ;*******************************************************************************
@@ -377,9 +376,10 @@
 	sta @dst
 	lda __screen_rowshi,x
 	sta @dst+1
-	ldy zp::curx
 	pla
 	jsr asc2scr
+
+	ldy zp::curx
 	sta (@dst),y
 	rts
 .endproc
@@ -406,7 +406,6 @@ __text_puts:
 	sta @dst+1
 
 	ldy #$00
-	ldx #1+((LINESIZE-1)/NUM_COLS)	; # of extra pages to render
 @l0:	lda (@src),y
 	jsr asc2scr
 	sta (@dst),y
