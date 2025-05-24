@@ -180,6 +180,8 @@ PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
 	lda #$00
 	sta reu::txlen+1
 
+	ldxy poststartzp
+	stxy reu::reuaddr
 	lda __src_bank
 	sta reu::reuaddr+2
 
@@ -192,13 +194,12 @@ PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
 	sub16 poststartzp	; bytes to copy
 	txa
 	tay			; .Y = bytes to copy
+	beq @done
 	lda #$00
 	sta (@target),y		; terminate line
 	dey
-	cpy #$ff
-	bne :+
-	rts			; nothing to copy
-:	sty reu::txlen
+	beq @ret		; nothing to copy
+	sty reu::txlen
 
 @load:	jsr reu::load
 	; look for a newline and replace it with a 0 if found
@@ -211,7 +212,7 @@ PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
 	bne :-
 @done:	lda #$00
 	sta (@target),y
-	rts
+@ret:	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -270,9 +271,7 @@ PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
 	decw line
 
 :	; get the character at the new cursor position
-	decw cursorzp
-	lda24 __src_bank, cursorzp
-	incw cursorzp
+	jsr __src_atcursor
 	RETURN_OK
 .endproc
 

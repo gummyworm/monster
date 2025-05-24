@@ -141,7 +141,6 @@ data: .res BUFFER_SIZE
 ;  - r1:  the destination to copy to
 ; OUT:
 ;  - (.XY): a line of text from the cursor position
-;  - .C: set if the end of the buffer was reached as we were reading
 .export __src_copy_line
 .proc __src_copy_line
 @src=zp::bankaddr0
