@@ -15,7 +15,7 @@
 ;*******************************************************************************
 ; CONSTANTS
 MAX_ANON      = 750	; max number of anonymous labels
-MAX_LABEL_LEN = 32	; 8 bytes for namespace + 16 for label name
+MAX_LABEL_LEN = 32	; 16 bytes for namespace + 16 for label name
 SCOPE_LEN     = 8	; max len of namespace (scope)
 MAX_LABELS    = 750
 
@@ -336,8 +336,13 @@ scope: .res 8 ; buffer containing the current scope
 
 	cmp (@search),y
 	beq @chmatch
-	bcc @notfound	; labels are alphabetical, if our label is not alphabetically greater, we're done
-	bne @next  ; if our label IS greater alphabetically, try the next label
+
+	; labels are alphabetical, if our label is not alphabetically greater,
+	; we're done
+	bcc @notfound
+
+	; if our label IS greater alphabetically, try the next label
+	bne @next
 
 @chmatch:
 	iny

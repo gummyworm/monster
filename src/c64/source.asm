@@ -198,7 +198,9 @@ PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
 	lda #$00
 	sta (@target),y		; terminate line
 	dey
+	cpy #$ff
 	beq @ret		; nothing to copy
+	iny
 	sty reu::txlen
 
 @load:	jsr reu::load

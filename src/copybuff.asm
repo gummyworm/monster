@@ -124,6 +124,7 @@ copybuff:
 .ifdef vic20
 	.res $1e00	; buffer for copy data
 .else
+	.res $100	; TODO: store in REU
 .endif
 
 .segment "COPYBUFF"

@@ -1,3 +1,5 @@
+.include "reu.inc"
+.include "../errors.inc"
 .include "../macros.inc"
 .include "../memory.inc"
 
@@ -9,7 +11,6 @@ prog00: .res $400
 .export STEP_HANDLER_ADDR
 STEP_HANDLER_ADDR:
 STEP_EXEC_BUFFER: .res 10
-
 
 .CODE
 
@@ -23,7 +24,12 @@ STEP_EXEC_BUFFER: .res 10
 ;  - .A: the byte at the physical address
 .export __vmem_load
 .proc __vmem_load
-	; TODO:
+@tmp=r0
+	stxy reu::c64addr
+	ldxy #@tmp
+	stxy reu::c64addr
+	jsr reu::load
+	lda @tmp
 	rts
 .endproc
 
@@ -38,8 +44,15 @@ STEP_EXEC_BUFFER: .res 10
 ;  - .A: the byte at the physical address
 .export __vmem_load_off
 .proc __vmem_load_off
-	; TODO:
-	rts
+@tmp=r0
+	sta @tmp
+	txa
+	clc
+	adc @tmp
+	tax
+	bcc :+
+	iny
+:	jmp __vmem_load
 .endproc
 
 ;*******************************************************************************
@@ -51,7 +64,13 @@ STEP_EXEC_BUFFER: .res 10
 ;  - .A:  the byte to store
 .export __vmem_store
 .proc __vmem_store
-	; TODO:
+@tmp=r0
+	sta @tmp
+	stxy reu::reuaddr
+	ldxy #@tmp
+	stxy reu::c64addr
+	jsr reu::store
+	lda @tmp
 	rts
 .endproc
 
@@ -65,8 +84,15 @@ STEP_EXEC_BUFFER: .res 10
 ;  - zp::bankval: the value to store
 .export __vmem_store_off
 .proc __vmem_store_off
-	; TODO:
-	rts
+@tmp=r0
+	sta @tmp
+	txa
+	clc
+	adc @tmp
+	tax
+	bcc :+
+	iny
+:	jmp __vmem_store
 .endproc
 
 ;*******************************************************************************
@@ -79,7 +105,7 @@ STEP_EXEC_BUFFER: .res 10
 ;  - .A:  the bank number of the physical address
 .export __vmem_translate
 .proc __vmem_translate
-	; TODO:
+	lda #^REU_VMEM_ADDR
 	rts
 .endproc
 
@@ -93,6 +119,7 @@ STEP_EXEC_BUFFER: .res 10
 ;   - .C: set if the address is NOT writable
 .export __vmem_writable
 .proc __vmem_writable
-	; TODO:
-	rts
+	; all RAM is writable
+	; TODO: check the bank register?
+	RETURN_OK
 .endproc

@@ -455,6 +455,7 @@ __text_puts:
 @savex=*+1
 	ldx #$00
 @done:	rts
+
 .PUSHSEG
 .RODATA
 ;|  Code   | Conversion Offset |
