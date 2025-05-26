@@ -1,3 +1,7 @@
+.include "reu.inc"
+.include "../config.inc"
+.include "../zeropage.inc"
+
 .export __ram_get_byte
 .proc __ram_get_byte
 	; TODO:
@@ -18,9 +22,29 @@
 	; TODO:
 .endproc
 
+;*******************************************************************************
+; COPY LINE
+; Copies up to LINESIZE bytes from zp::bankaddr0 to zp::bankaddr1 stopping at
+; the first $0d or $00
+; IN:
+;  - .A:            the bank to perform the copy within
+;  - zp::bankaddr0: the source address to copy from
+;  - zp::bankaddr1: the destination address to copy to
+;  OUT:
+;   - .Y: the number of bytes copied
+;   - .A: the last byte copied
 .export	__ram_copy_line
 .proc __ram_copy_line
-	; TODO:
+	ldy #$00
+:	lda (zp::bankaddr0),y
+	sta (zp::bankaddr1),y
+	beq @done
+	cmp #$0d
+	beq @done
+	iny
+	cpy #LINESIZE
+	bcc :-
+@done:	rts
 .endproc
 
 .export	__ram_store_byte

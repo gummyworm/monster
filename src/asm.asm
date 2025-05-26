@@ -523,7 +523,7 @@ num_illegals = *-illegal_opcodes
 	lda #ASM_DIRECTIVE
 	sta resulttype
 	stxy zp::jmpvec
-	jmp zp::jmpaddr
+	jmp (zp::jmpvec)
 
 ; after directives, handle context if any. this is used for things like an
 ; active macro definition (the lines between .mac and .endmac)
