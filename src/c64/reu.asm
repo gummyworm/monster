@@ -70,13 +70,16 @@ tab_num_elements: .word 0
 
 ;*******************************************************************************
 ; COMPARE
-; Compares the data at the two provided 24-bit addresses until a difference is
-; found
+; Compares the data at reuaddr and c64addr for up to reu::txlen bytes.
+; OUT:
+;   .Z: set if there are no differences
 .export __reu_compare
 .proc __reu_compare
-	lda $d000	; read status to clear fault bit
-	lda #$93	; compare C64 <-> REU
+	lda $df00	; read status to clear fault bit
+	lda #$93|$20	; compare C64 <-> REU
 	sta $df01	; execute
+	lda $df00
+	and #$20	; check fault bit (set if differences found)
 	rts
 .endproc
 
@@ -204,7 +207,7 @@ tab_num_elements: .word 0
 
 ;*******************************************************************************
 ; TAB FIND
-; Finds the item in the table
+; Finds the given data in the table and returns its address (if found)
 ; IN:
 ;   - .XY: address of the data to match
 ;   - .A:  length of the data to match
@@ -217,56 +220,41 @@ tab_num_elements: .word 0
 @len=r2
 @tmp=r3
 @pagebuff=@end
-	stxy @str
-	sta @len
-
-	ldxy #$100
-	stxy __reu_txlen
-	ldxy #@pagebuff
 	stxy __reu_c64_addr
-	stxy __reu_c64_addr
+	sta __reu_txlen
 
-	; read one page for compare
-	jsr __reu_load
+	lda tab_addr
+	sta __reu_reu_addr
+	lda tab_addr+1
+	sta __reu_reu_addr+1
+	lda tab_addr+2
+	sta __reu_reu_addr+2
 
-	; search the page for the given table entry
-	ldy #$00
-	ldx #$00
-
-@l0:	lda (@str),y
-	cmp @pagebuff,y
-	beq @next
+@l0:	jsr __reu_compare
+	beq @found
 
 	; move to next entry in the table
-	stx @tmp
-	tya
-	sec
-	sbc @tmp
+	lda reu::reu_addr
 	clc
 	adc tab_element_size
-	tay
-	dey			; (will increment again)
-	ldx #$ff		; reset char match count
+	sta __reu_reu_addr
+	bcc @next
+	inc __reu_reu_addr+1
+	bne @next
+	inc __reu_reu_addr+2
 
-@next:	inx
-	cpx @len
-	beq @found
-	iny
+@next:	inc @cnt
+	bne :+
+	inc @cnt+1
+:	lda @cnt+1
+	cmp tab_num_elements+1
 	bne @l0
-	inc __reu_reu_addr+1	; next page
-	bne @l0			; repeat until end of 64k block
-	sec			; flag not found
-	rts
+	lda @cnt
+	cmp tab_num_elements
+	bne @l0
 
-@found:	tya
-	clc
-	adc __reu_reu_addr
-	tax
-	lda __reu_reu_addr+1
-	adc #$00
-	tay
+@found:	ldx __reu_reu_addr
+	ldy __reu_reu_addr+1
 	lda __reu_reu_addr+2
-	adc #$00
 	RETURN_OK
-@end:
 .endproc
