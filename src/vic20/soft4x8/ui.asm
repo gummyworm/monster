@@ -22,7 +22,6 @@ STATUS_COL=0		; start column for status line
 ;  - mem::statusline: contains the new status info
 .export __ui_update_statusline
 .proc __ui_update_statusline
-.ifndef LORES
 @filename=zp::text
 @tmp=zp::text
 @leftend=zp::text+2

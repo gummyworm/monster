@@ -200,6 +200,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	sta aux_mode		; initialize auxiliary views
 	sta watch::num		; clear watches
 	sta breakpoints_active
+	sta __debug_interface
 
 	; set color for the message row
 	lda #DEFAULT_RVS
