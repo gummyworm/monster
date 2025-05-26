@@ -25,6 +25,7 @@ tab_element_size: .byte 0
 tab_num_elements: .word 0
 
 .CODE
+
 ;*******************************************************************************
 ; INIT
 .export __reu_init
@@ -92,6 +93,91 @@ tab_num_elements: .word 0
 	lda #$92	; swap c64 <-> REU with immediate execution
 	sta $df01	; execute
 	rts
+.endproc
+
+;*******************************************************************************
+; MOVE
+; Moves the given addresses from one part of the REU to another
+; This routine first copies the data to the C64 and then stores
+; it back to the REU at the destination address
+; IN:
+;   - r0-r2: the address of the data to move
+;   - r3-r5: the destination address in the REU
+.export __reu_move
+.proc __reu_move
+@src=r0
+@dst=r3
+@size=r6
+	; calculate the # of bytes we're moving
+	lda @dst
+	sec
+	sbc @src
+	sta @size
+	lda @dst+1
+	sbc @src+1
+	sta @size+1
+	lda @dst+2
+	sbc @src+2
+	sta @size+2
+	bcs @move
+
+	; size = (size ^ $ffffff) + 1
+	lda @src
+	eor #$ff
+	adc #$01
+	sta @size
+	lda @src+1
+	eor #$ff
+	adc #$00
+	sta @size+1
+	lda @src+2
+	eor #$ff
+	adc #$00
+	sta @size+2
+
+@move:	lda @size+2
+	bne @err		; oversized move
+
+	lda @size
+	sta __reu_txlen
+	lda @size+1
+	sta __reu_txlen+1
+
+	; backup the C64 memory we will clobber
+	ldxy #@end
+	stxy __reu_c64_addr
+	lda #REU_TMP_ADDR
+	sta __reu_reu_addr+2
+	stxy __reu_reu_addr
+	jsr __reu_swap
+
+	; bring in the source data to relocate
+	lda @src
+	sta __reu_reu_addr
+	lda @src+1
+	sta __reu_reu_addr+1
+	lda @src+2
+	sta __reu_reu_addr+2
+	jsr __reu_load
+
+	; and store it to its relocation address
+	lda @dst
+	sta __reu_reu_addr
+	lda @dst+1
+	sta __reu_reu_addr+1
+	lda @dst+2
+	sta __reu_reu_addr+2
+	jsr __reu_store
+
+	; finally, restore the C64's memory that we used as an intermediate
+	; buffer
+	ldxy #@end
+	stxy __reu_c64_addr
+	lda #REU_TMP_ADDR
+	sta __reu_reu_addr+2
+	stxy __reu_reu_addr
+	jmp __reu_swap
+@end=*
 .endproc
 
 ;*******************************************************************************
