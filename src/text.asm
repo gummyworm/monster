@@ -766,7 +766,7 @@ __text_tabr_dist_a=*+2
 .PUSHSEG
 .RODATA
 tabs:
-.repeat TAB_WIDTH, i
+.repeat SCREEN_WIDTH/TAB_WIDTH, i
 	.byte i*TAB_WIDTH
 .endrepeat
 tabs_end=*-tabs
