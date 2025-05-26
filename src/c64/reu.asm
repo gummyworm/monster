@@ -216,12 +216,13 @@ tab_num_elements: .word 0
 ;   - .XYA: if the data was found, the address of it
 .export __reu_tabfind
 .proc __reu_tabfind
-@str=r0
-@len=r2
-@tmp=r3
-@pagebuff=@end
+@cnt=r0
 	stxy __reu_c64_addr
 	sta __reu_txlen
+
+	lda #$00
+	sta @cnt
+	sta @cnt+1
 
 	lda tab_addr
 	sta __reu_reu_addr
@@ -234,7 +235,7 @@ tab_num_elements: .word 0
 	beq @found
 
 	; move to next entry in the table
-	lda reu::reu_addr
+	lda __reu_reu_addr
 	clc
 	adc tab_element_size
 	sta __reu_reu_addr
