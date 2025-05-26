@@ -265,7 +265,7 @@ COLMEM_ADDR=$9400
 	dey
 	beq @drive
 
-	ldx #SCREEN_WIDTH
+	ldx #SCREEN_WIDTH-1
 :	lda (@filename),y
 	sta mem::statusline,x
 	dex
