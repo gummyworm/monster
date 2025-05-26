@@ -13,8 +13,11 @@
 .import __reu_tabfind
 
 ; address in the REU to save/restore C64 data to
-REU_TMP_ADDR  = $ff0000
-REU_VMEM_ADDR = $fe0000
+REU_TMP_ADDR            = $ff0000
+REU_VMEM_ADDR           = $fe0000
+REU_SYMTABLE_ADDRS_ADDR = $fd0000
+REU_SYMTABLE_NAMES_ADDR = $fc0000
+REU_SYMTABLE_ANONS_ADDR = $fb0000
 
 .scope reu
 	c64addr  = __reu_c64_addr

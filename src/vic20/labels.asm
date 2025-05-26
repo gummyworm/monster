@@ -7,15 +7,15 @@
 ; efficient retrieval by address.
 ;*******************************************************************************
 
-.include "errors.inc"
-.include "macros.inc"
-.include "ram.inc"
-.include "zeropage.inc"
+.include "../config.inc"
+.include "../errors.inc"
+.include "../ram.inc"
+.include "../macros.inc"
+.include "../zeropage.inc"
 
 ;*******************************************************************************
 ; CONSTANTS
 MAX_ANON      = 750	; max number of anonymous labels
-MAX_LABEL_LEN = 32	; 16 bytes for namespace + 16 for label name
 SCOPE_LEN     = 8	; max len of namespace (scope)
 MAX_LABELS    = 750
 
