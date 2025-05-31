@@ -873,7 +873,6 @@ anon_addrs: .res MAX_ANON*2
 .proc del
 @id=r6
 @cnt=r8
-@cnt2=ra
 @src=re
 @dst=zp::tmp10
 @name=zp::tmp12
@@ -886,12 +885,12 @@ anon_addrs: .res MAX_ANON*2
 	jsr by_id
 	stxy @dst
 
-	; get the destination (dst - 2)
-	lda @src
+	; get the source (dst + 2)
+	txa
 	clc
 	adc #$02
 	sta @src
-	lda @dst+1
+	tya
 	adc #$00
 	sta @src+1
 
@@ -900,11 +899,9 @@ anon_addrs: .res MAX_ANON*2
 	sec
 	sbc @id
 	sta @cnt
-	sta @cnt2
 	lda numlabels+1
 	sbc @id+1
 	sta @cnt+1
-	sta @cnt2+1
 
 	; move the addresses down
 :
@@ -929,43 +926,28 @@ anon_addrs: .res MAX_ANON*2
 	; get the source (destination + MAX_LABEL_LEN)
 	ldxy @id
 	jsr name_by_id
-	stxy @dst
-	lda @dst
+	stxy reu::move_dst
+	sta reu::move_dst+2
+	sta reu::move_src+2
+
+	txa
 	clc
 	adc #MAX_LABEL_LEN
-	sta @src
-	lda @dst+1
+	sta reu::move_src
+	lda reu::move_dst+1
 	adc #$00
-	sta @src+1
+	sta reu::move_src+1
+
+	; get the # of bytes to move (numlabels-id)*MAX_LABEL_LEN
+	ldxy num_labels
+	jsr name_by_id
+	sub16 reu::move_dst
+	stxy reu::move_size
+	lda #$00
+	sta reu::move_size+2
 
 	; move the names down
-@nameloop:
-	ldy #MAX_LABEL_LEN-1
-:	lda (@src),y
-	sta (@dst),y
-	dey
-	bpl :-
-
-	lda @src
-	clc
-	adc #MAX_LABEL_LEN
-	sta @src
-	bcc :+
-	inc @src+1
-:	lda @dst
-	clc
-	adc #MAX_LABEL_LEN
-	sta @dst
-	bcc @nextname
-	inc @dst+1
-	bne @nameloop
-@nextname:
-	decw @cnt2
-	ldxy @cnt2
-	cmpw #0
-	bne @nameloop
-	decw numlabels
-	ldxy @name
+	jsr reu::move
 	RETURN_OK
 .endproc
 

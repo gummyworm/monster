@@ -1017,12 +1017,12 @@ scope: .res 8 ; buffer containing the current scope
 	jsr by_id
 	stxy @dst
 
-	; get the destination (dst - 2)
-	lda @src
+	; get the source (dst + 2)
+	txa
 	clc
 	adc #$02
 	sta @src
-	lda @dst+1
+	tya
 	adc #$00
 	sta @src+1
 
