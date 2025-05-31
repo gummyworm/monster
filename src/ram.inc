@@ -22,31 +22,6 @@ RAM_INC = 1
 .import __ram_load_byte
 .import __ram_load_byte_off
 
-;******************************************************************************
-; SET SEGMENT
-; Equivalent to the `.segment` directive, but also sets a variable so that
-; other RAM macros know which bank the calling code resides in.
-; It is important NOT to use other segment-setting directives (.segment,
-; .CODE, .BSS, .DATA, or .RODATA) in order for this variable to correctly be
-; set.
-.macro SET_SEGMENT name
-	__current_bank .set bank
-.endmacro
-
-;;******************************************************************************
-;; CALL
-;; Calls the given routine.  If the routine is within the same bank as the
-;; active segment, will evaluate to a simple JSR.  If not, will execute the
-;; platform-specific code to call the routine
-;.macro CALL bank, proc
-;	.if bank = __current_bank
-;		; target procedure is in current bank
-;		jsr proc
-;	.else
-;		; target procedure is in another bank
-;	.endif
-;.endmacro
-
 .scope ram
 	call      = __ram_call
 	copy      = __ram_memcpy
