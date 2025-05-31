@@ -174,19 +174,6 @@ final_store_size=*-__ram_store_byte
 	rts
 .endproc
 
-;*******************************************************************************
-; JMP
-.export __ram_jmp
-.proc __ram_jmp
-@bank=zp::banktmp
-@a=zp::banktmp+1
-	sta @a
-	lda @bank
-	sta $9c02		; swap in the target bank
-	lda @a			; restore .A
-	jmp (zp::bankjmpvec)	; call the target routine
-.endproc
-
 .CODE
 
 ;*******************************************************************************

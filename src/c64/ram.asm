@@ -1,5 +1,6 @@
 .include "reu.inc"
 .include "../config.inc"
+.include "../macros.inc"
 .include "../zeropage.inc"
 
 .export __ram_get_byte
@@ -47,11 +48,33 @@
 @done:	rts
 .endproc
 
+;*******************************************************************************
+; STORE_BYTE
+; stores the byte given in zp::bankval to address .YX in bank .A
+; IN:
+;  - .XY:         the address to store to
+;  - .A:          the bank to store to
+;  - zp::bankval: the byte to write
+; CLOBBERS:
+;  - .A
 .export	__ram_store_byte
 .proc __ram_store_byte
-	; TODO:
+@dst=zp::banktmp
+	stxy @dst
+	ldy #$00
+	sta (@dst),y
+	ldy @dst+1
+	rts
 .endproc
 
+;*******************************************************************************
+; STORE_BYTE_REL
+; stores the byte given in zp::bankval to the address in .XA in bank .A
+; IN:
+;  - .XY:            the base address
+;  - .A:             the bank to store to
+;  - zp::bankoffset: the offset from the base address
+;  - zp::bankval:    the byte to write
 .export	__ram_bank_store_rel
 .proc __ram_bank_store_rel
 	; TODO:

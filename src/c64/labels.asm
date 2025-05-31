@@ -303,7 +303,7 @@ anon_addrs: .res MAX_ANON*2
 @name=r4
 @src=r6
 @dst=r8
-@cnt=ra
+@addr_dst=ra
 @addr=rc
 	sta allow_overwrite	; set overwrite flag (SET) or clear (ADD)
 
@@ -331,15 +331,10 @@ anon_addrs: .res MAX_ANON*2
 
 :	; label exists, overwrite its old value
 	jsr by_id 		; get the address of the label
-	lda zp::label_value
-
-	ldy #$00
-	sta (@addr),y
-
-	iny
-	lda zp::label_value+1
-	sta (@addr),y
-
+	ldxy @addr
+	stxy reu::reuaddr
+	jsr @store_value	; store the new value
+	decw numlabels		; un-increment the label count
 	RETURN_OK
 
 @insert:
@@ -359,126 +354,121 @@ anon_addrs: .res MAX_ANON*2
 :	stxy @name
 
 ;------------------
-; open a space for the new label by shifting everything left
-@shift:
-	; src = labels + (numlabels-1)*MAX_LABEL_LEN
-	lda numlabels+1
-	sta @src+1
-	lda numlabels
-
-	; * MAX_LABEL_LEN
+; open a space for the new label
+@shift: ; src = (numlabels-1)*MAX_LABEL_LEN
+	; get the source address for the move (@id*MAX_LABEL_LEN)
+	; multiply by MAX_LABEL_LEN
+	lda @id+1
+	sta reu::move_src+1
+	lda @id
 	asl			; *2
-	rol @src+1
+	rol reu::move_src+1
 	asl			; *4
-	rol @src+1
+	rol reu::move_src+1
 	asl			; *8
-	rol @src+1
+	rol reu::move_src+1
 	asl			; *16
-	rol @src+1
+	rol reu::move_src+1
 	asl			; *32
-	rol @src+1
-	adc #<labels
-	sta @src
+	rol reu::move_src+1
+	sta reu::move_src
+
+	; save this address as we will use it later when we store the label name
 	sta @dst
-	lda @src+1
-	adc #>labels
-	sta @src+1
+	lda reu::move_src+1
 	sta @dst+1
 
-	; addr = label_addresses+(numlabels-1)*2
-	lda numlabels+1
-	sta @addr+1
-	lda numlabels
-	asl
-	rol @addr+1
-	adc #<label_addresses
-	sta @addr
-	lda @addr+1
-	adc #>label_addresses
-	sta @addr+1
+	; get the destination address for the move (src + MAX_LABEL_LEN)
+	adc #MAX_LABEL_LEN
+	sta reu::move_dst
+	lda reu::move_src+1
+	adc #$00
+	sta reu::move_dst+1
 
+	; if there are no labels, don't bother shifting
 	iszero numlabels
 	bne :+
 	jmp @storelabel
 
-	; src -= MAX_LABEL_LEN
-:	lda @src
-	sec
-	sbc #MAX_LABEL_LEN
-	sta @src
-	bcs :+
-	dec @src+1
-
-:	; addr -= 2
-	decw @addr
-	decw @addr
-
-	; cnt = numlabels-id
+	; get the number of bytes to shift (numlabels-id)*MAX_LABEL_LEN
 	lda numlabels
 	sec
 	sbc @id
-	sta @cnt
+	sta reu::move_size
 	lda numlabels+1
 	sbc @id+1
-	sta @cnt+1
+	sta reu::move_size+1
+	lda reu::move_size
+	asl
+	rol reu::move_size+1
+	asl
+	rol reu::move_size+1
+	asl
+	rol reu::move_size+1
+	asl
+	rol reu::move_size+1
+	asl
+	rol reu::move_size+1
+	sta reu::move_size
 
-	iszero @cnt
-	bne @sh0
-	ldxy @dst
-	stxy @src
-	incw @addr
-	incw @addr
-	jmp @storelabel
+	; move the names up MAX_LABEL_LEN bytes
+	lda #^REU_SYMTABLE_NAMES_ADDR
+	sta reu::move_src+2
+	sta reu::move_dst+2
+	jsr reu::move
 
-@sh0:
-	; copy the label (MAX_LABEL_LEN bytes) to the SYMBOL bank
-	ldy #MAX_LABEL_LEN-1
-:	lda (@src),y
-	sta (@dst),y
-	dey
-	bpl :-
+	; move the addresses up by 2 bytes
+	; get the source address (id * 2)
+	lda @id
+	asl
+	sta reu::move_src
+	sta @addr_dst
+	lda @id+1
+	rol
+	sta reu::move_src+1
+	sta @addr_dst+1
 
-; shift the address too
-	ldy #$00
-	lda (@addr),y
-	ldy #$02
-	sta (@addr),y
-	dey
-	lda (@addr),y
-	ldy #$03
-	sta (@addr),y
+	; get the destination address (move_src + 2)
+	lda @id
+	adc #$02
+	sta reu::move_dst
+	lda reu::move_src+1
+	adc #$00
+	sta reu::move_dst+1
 
-	decw @cnt
-	iszero @cnt
-	beq @storelabel
+:	; get the number of bytes to shift (numlabels-id)*2
+	lda numlabels
+	sec
+	sbc @id
+	sta reu::move_size
+	lda numlabels+1
+	sbc @id+1
+	sta reu::move_size+1
+	asl reu::move_size
+	rol reu::move_size+1
 
-	decw @addr
-	decw @addr
-
-	ldxy @src
-	sub16 #MAX_LABEL_LEN
-	stxy @src
-	ldxy @dst
-	sub16 #MAX_LABEL_LEN
-	stxy @dst
-	beq @storelabel
-	jmp @sh0
+	; move the labels up 2 bytes
+	jsr reu::move
 
 ;------------------
 ; insert the label into the new opening
 @storelabel:
-	ldy #$00
-	; write the label
+	ldxy @dst
+	stxy reu::reuaddr
+
+	ldy #$01
+	sty reu::txlen
+	dey
+	sty reu::txlen+1
 :	lda (@name),y
 	beq @storeaddr
 	jsr iswhitespace
 	beq @storeaddr
 	cmp #':'
 	beq @storeaddr
-
 	; copy a byte to the label name
-	sta (@src),y
-
+	jsr reu::store
+	incw reu::reuaddr
 	iny
 	cpy #MAX_LABEL_LEN
 	bcc :-
@@ -486,18 +476,32 @@ anon_addrs: .res MAX_ANON*2
 @storeaddr:
 	; 0-terminate the label name and write the label value
 	lda #$00
+	jsr reu::store
 
-	sta (@src),y
+	ldxy @addr_dst
+	stxy reu::reuaddr
 
+	; addr = (numlabels-1)*2
+	lda numlabels+1
+	sta reu::reuaddr+1
+	lda numlabels
+	asl
+	rol @addr+1
+	sta reu::reuaddr
+
+@store_value:
+	; store LSB
 	lda zp::label_value
-	ldy #$00
-	sta (@addr),y
+	jsr reu::store
+
+	; store MSB
+	incw reu::reuaddr
 	lda zp::label_value+1
-	iny
-	sta (@addr),y
+	jsr reu::store
 
 	incw numlabels
 	ldxy @id
+
 	RETURN_OK
 .endproc
 
@@ -1196,7 +1200,7 @@ anon_addrs: .res MAX_ANON*2
 	rol @addr+1
 	tax
 	ldy @addr+1
-	lda #REU_SYMTABLE_NAMES_ADDR
+	lda #^REU_SYMTABLE_NAMES_ADDR
 	rts
 .endproc
 

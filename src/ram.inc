@@ -12,7 +12,6 @@ RAM_INC = 1
 .endif
 
 .import __ram_call
-.import __ram_jmp
 .import __ram_copy
 .import __ram_memcpy
 .import __ram_copy_banked
@@ -48,26 +47,11 @@ RAM_INC = 1
 ;	.endif
 ;.endmacro
 
-;;******************************************************************************
-;; JUMP
-;; Jumps to the given routine.  If the routine is within the same bank as the
-;; active segment, will evaluate to a simple JMP.  If not, will execute the
-;; platform-specific code to jump to the routine
-;.macro JUMP bank, proc
-;	.if bank = __current_bank
-;		; target procedure is in current bank
-;		jmp proc
-;	.else
-;		; target procedure is in another bank
-;	.endif
-;.endmacro
-
 .scope ram
 	call      = __ram_call
 	copy      = __ram_memcpy
 	copybanked= __ram_copy_banked
 	copyline  = __ram_copy_line
-	jump      = __ram_jmp
 	store     = __ram_store_byte
 	store_off = __ram_bank_store_rel
 	get_byte  = __ram_get_byte

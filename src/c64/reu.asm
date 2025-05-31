@@ -15,6 +15,16 @@ __reu_txlen    = $df07
 .include "../macros.inc"
 .include "../zeropage.inc"
 
+.export __reu_move_src
+.export __reu_move_dst
+.export __reu_move_size
+
+REU_TMP_ADDR            = $ff0000
+REU_VMEM_ADDR           = $fe0000
+REU_SYMTABLE_ADDRS_ADDR = $fd0000	; label addresses
+REU_SYMTABLE_NAMES_ADDR = $fc0000	; label names
+REU_SYMTABLE_ANONS_ADDR = $fb0000	; anonymous label addresses
+
 .BSS
 ;*******************************************************************************
 ; TABLE STATE
@@ -101,13 +111,17 @@ tab_num_elements: .word 0
 ; This routine first copies the data to the C64 and then stores
 ; it back to the REU at the destination address
 ; IN:
-;   - r0-r2: the address of the data to move
-;   - r3-r5: the destination address in the REU
+;   - reu::move_src: the address of the data to move
+;   - reu::move_dst: the destination address in the REU
+;   - reu::move_size: # of byte to relocate
+__reu_move_src=r0
+__reu_move_dst=r3
+__reu_move_size=r6
 .export __reu_move
 .proc __reu_move
-@src=r0
-@dst=r3
-@size=r6
+@src=__reu_move_src
+@dst=__reu_move_dst
+@size=__reu_move_size
 	; calculate the # of bytes we're moving
 	lda @dst
 	sec
@@ -136,9 +150,10 @@ tab_num_elements: .word 0
 	sta @size+2
 
 @move:	lda @size+2
-	bne @err		; oversized move
+	beq :+
+	jmp *		; oversized move
 
-	lda @size
+:	lda @size
 	sta __reu_txlen
 	lda @size+1
 	sta __reu_txlen+1
@@ -146,7 +161,7 @@ tab_num_elements: .word 0
 	; backup the C64 memory we will clobber
 	ldxy #@end
 	stxy __reu_c64_addr
-	lda #REU_TMP_ADDR
+	lda #^REU_TMP_ADDR
 	sta __reu_reu_addr+2
 	stxy __reu_reu_addr
 	jsr __reu_swap
@@ -173,7 +188,7 @@ tab_num_elements: .word 0
 	; buffer
 	ldxy #@end
 	stxy __reu_c64_addr
-	lda #REU_TMP_ADDR
+	lda #^REU_TMP_ADDR
 	sta __reu_reu_addr+2
 	stxy __reu_reu_addr
 	jmp __reu_swap
