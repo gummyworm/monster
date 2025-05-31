@@ -22,7 +22,7 @@
 	is_null_return_space_comma_closingparen_newline = __util_is_null_return_space_comma_closingparen_newline
 	isoperator            = __util_isoperator
 	isseparator           = __util_is_separator
-	is_whitespace = __util_is_whitespace
+	is_whitespace         = __util_is_whitespace
 	parse_enquoted_string = __util_parse_enquoted_string
 	parsehex	      = __util_parsehex
 	todec                 = __util_todec

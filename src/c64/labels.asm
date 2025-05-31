@@ -13,6 +13,7 @@
 .include "../ram.inc"
 .include "../macros.inc"
 .include "../string.inc"
+.include "../util.inc"
 .include "../zeropage.inc"
 
 ;*******************************************************************************
@@ -67,13 +68,13 @@ __label_id_by_addr_index = id_by_addr_index
 
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; LABELS
 ; Table of label names. Each entry corresponds to an entry in label_addresses,
 ; which contains the value (address) for the label name.
 
 .segment "LABEL_VARS"
-;******************************************************************************
+;*******************************************************************************
 ; VARS
 .export __label_num
 __label_num:
@@ -85,7 +86,7 @@ numanon: .word 0	; total number of anonymous labels
 
 scope: .res 8 ; buffer containing the current scope
 
-;******************************************************************************
+;*******************************************************************************
 ; LABEL ADDRESSES
 ; Table of addresses for each label
 ; The address of a given label id is label_addresses + (id * 2)
@@ -117,7 +118,7 @@ label_addresses_sorted_ids: .res MAX_LABELS*2
 anon_addrs: .res MAX_ANON*2
 
 .segment "LABELS"
-;******************************************************************************
+;*******************************************************************************
 ; SET SCOPE
 ; Sets the current scope to the given scope.
 ; This affects local labels, which will be namespaced by prepending the scope.
@@ -128,7 +129,7 @@ anon_addrs: .res MAX_ANON*2
 	stxy @scope
 	ldy #$00
 :	lda (@scope),y
-	jsr isseparator
+	jsr util::isseparator
 	beq @done
 	sta scope,y
 	iny
@@ -137,7 +138,7 @@ anon_addrs: .res MAX_ANON*2
 @done:  rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PREPEND SCOPE
 ; Prepends the current scope to the label in .XY and returns a buffer containing
 ; the namespaced label.
@@ -164,7 +165,7 @@ anon_addrs: .res MAX_ANON*2
 
 :	ldy #$00
 @l1:	lda (@lbl),y
-	jsr isseparator
+	jsr util::isseparator
 	beq @done
 	sta @buff,x
 	iny
@@ -177,7 +178,7 @@ anon_addrs: .res MAX_ANON*2
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; CLR
 ; Removes all labels effectively resetting the label state
 .proc clr
@@ -190,7 +191,7 @@ anon_addrs: .res MAX_ANON*2
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; FIND
 ; Looks for the ID corresponding to the given label and returns it.
 ; IN:
@@ -238,7 +239,7 @@ anon_addrs: .res MAX_ANON*2
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SET24
 ; Adds the label at the given 24 bit (banked) address to the label table.
 ; If a label already exists, its value is replaced
@@ -259,7 +260,7 @@ anon_addrs: .res MAX_ANON*2
 	; fall through to SET
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SET
 ; Set adds the label, but doesn't produce an error if the label already exists
 ; IN:
@@ -274,7 +275,7 @@ anon_addrs: .res MAX_ANON*2
 	; fallthrough to ADD
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ADD
 ; Adds a label to the internal label state.
 ; IN:
@@ -288,7 +289,7 @@ anon_addrs: .res MAX_ANON*2
 	; fallthrough to ADDLABEL
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ADDLABEL
 ; Adds a label to the internal label state.
 ; IN:
@@ -315,7 +316,7 @@ anon_addrs: .res MAX_ANON*2
 @seek:	; get the label length
 	ldy #$00
 :	lda (@name),y
-	jsr isseparator
+	jsr util::isseparator
 	beq @lenfound
 	iny
 	bne :-
@@ -462,7 +463,7 @@ anon_addrs: .res MAX_ANON*2
 	sty reu::txlen+1
 :	lda (@name),y
 	beq @storeaddr
-	jsr iswhitespace
+	jsr util::is_whitespace
 	beq @storeaddr
 	cmp #':'
 	beq @storeaddr
@@ -505,7 +506,7 @@ anon_addrs: .res MAX_ANON*2
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ADD ANON
 ; Adds an anonymous label at the given address
 ; IN:
@@ -587,7 +588,7 @@ anon_addrs: .res MAX_ANON*2
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; SEEK ANON
 ; Finds the address of the first anonymous label that has a greater address than
 ; or equal to the given address.
@@ -664,7 +665,7 @@ anon_addrs: .res MAX_ANON*2
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET FANON
 ; Returns the address of the nth forward anonymous label relative to the given
 ; address. That is the nth anonymous label whose address is greater than
@@ -738,7 +739,7 @@ anon_addrs: .res MAX_ANON*2
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET BANON
 ; Returns the address of the nth backward anonymous address relative to the
 ; given  address. That is the nth anonymous label whose address is less than
@@ -819,7 +820,7 @@ anon_addrs: .res MAX_ANON*2
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LABEL ADDRESS
 ; Returns the address of the label in (.YX)
 ; The size of the label is returned in .A (1 if zeropage, 2 if not)
@@ -864,7 +865,7 @@ anon_addrs: .res MAX_ANON*2
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; DEL
 ; Deletes the given label name.
 ; IN:
@@ -968,7 +969,7 @@ anon_addrs: .res MAX_ANON*2
 	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS LOCAL
 ; Returns with .Z set if the given label is a local label (begins with '@')
 ; IN:
@@ -989,7 +990,7 @@ anon_addrs: .res MAX_ANON*2
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; LABEL BY ID
 ; Returns the address of the label ID in .YX in .YX
 ; IN:
@@ -1016,7 +1017,7 @@ anon_addrs: .res MAX_ANON*2
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; BY ADDR
 ; Returns the label for a given address by performing a binary search on the
 ; cache of sorted label addresses
@@ -1147,7 +1148,7 @@ anon_addrs: .res MAX_ANON*2
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ID BY ADDR INDEX
 ; Returns the ID of the nth label sorted by address.
 ; IN:
@@ -1177,7 +1178,7 @@ anon_addrs: .res MAX_ANON*2
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; NAME BY ID
 ; Returns the address name of the label ID in .YX in .YX
 ; IN:
@@ -1204,7 +1205,7 @@ anon_addrs: .res MAX_ANON*2
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ISVALID
 ; checks if the label name given is a valid label name
 ; IN:
@@ -1219,7 +1220,7 @@ anon_addrs: .res MAX_ANON*2
 ; first character must be a letter or '@'
 @l0:	lda (@name),y
 	iny
-	jsr iswhitespace
+	jsr util::is_whitespace
 	beq @l0
 	cmp #'@'
 	beq @cont
@@ -1239,7 +1240,7 @@ anon_addrs: .res MAX_ANON*2
 	cpx #(MAX_LABEL_LEN/2)+1
 	bcs @toolong
 	lda (@name),y
-	jsr isseparator
+	jsr util::isseparator
 	beq @done
 	cmp #'0'
 	bcc @err
@@ -1252,7 +1253,7 @@ anon_addrs: .res MAX_ANON*2
 @done:	RETURN_OK
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET NAME
 ; Copies the name of the label ID given to the provided buffer
 ; IN:
@@ -1277,7 +1278,7 @@ anon_addrs: .res MAX_ANON*2
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET ADDR
 ; Returns the address of the given label ID.
 ; IN:
@@ -1298,81 +1299,11 @@ anon_addrs: .res MAX_ANON*2
 	rts
 .endproc
 
-;******************************************************************************
-; ISWHITESPACE
-; Checks if the given character is a whitespace character
-; IN:
-;  - .A: the character to test
-; OUT:
-;  - .Z: set if if the character in .A is whitespace
-.proc iswhitespace
-	cmp #$0d	; newline
-	beq :+
-	cmp #$09	; TAB
-	beq :+
-	cmp #' '
-:	rts
-.endproc
-
-;******************************************************************************
-; IS NULL SPACE COMMA CLOSINGPAREN
-; IN:
-;  - .A: the character to test
-; OUT:
-;  - .Z: set if the char in .A is: 0,$0d,' ', ',', or ')'
-.proc is_null_return_space_comma_closingparen_newline
-	cmp #$00
-	beq @done
-	jsr iswhitespace
-	beq @done
-	cmp #','
-	beq @done
-	cmp #')'
-@done:	rts
-.endproc
-
-;******************************************************************************
-; IS_OPERATOR
-; IN:
-;  - .A: the character to test
-; OUT:
-;  - .Z: set if the char in .A is an operator ('+', '-', etc.)
-.proc isoperator
-@xsave=zp::util+2
-	stx @xsave
-	ldx #@numops-1
-:	cmp @ops,x
-	beq @end
-	dex
-	bpl :-
-@end:	php
-	ldx @xsave
-	plp
-	rts
-@ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.'
-@numops = *-@ops
-.endproc
-
-;******************************************************************************
-; ISSEPARATOR
-; IN:
-;  - .A: the character to test
-; OUT:
-;  - .Z: set if the char in .A is any separator
-.proc isseparator
-	cmp #':'
-	beq @yes
-	jsr is_null_return_space_comma_closingparen_newline
-	bne :+
-@yes:	rts
-:	jmp isoperator
-.endproc
-
-;******************************************************************************
+;*******************************************************************************
 ; MACROS
 ; These macros are used by sort_by_addr
 
-;******************************************************************************
+;*******************************************************************************
 ; update @idi and @idj based on the values of @i and @j
 ; these pointers are offset by a fixed amount from @i and @j
 .macro setptrs
@@ -1393,7 +1324,7 @@ anon_addrs: .res MAX_ANON*2
 	sta @idj+1
 .endmacro
 
-;******************************************************************************
+;*******************************************************************************
 ; copies the unsorted addresses to the sorted addresses array and initializes
 ; the unsorted ids array
 .macro setup
@@ -1457,7 +1388,7 @@ anon_addrs: .res MAX_ANON*2
 	bne @idloop
 .endmacro
 
-;******************************************************************************
+;*******************************************************************************
 ; INDEX
 ; Updates the by-address sorting of the labels. This allows labels to be looked
 ; up by their address (see lbl::by_addr).
