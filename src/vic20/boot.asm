@@ -587,6 +587,9 @@ num_relocs=(*-relocs)/7
 
 	CALL FINAL_BANK_MONITOR, mon::init
 
+	lda #$00
+	sta $c6			; clear keyboard buffer
+
 .ifndef TEST
 	jsr run::clr	; initialize user state by init'ing BASIC
 	jsr edit::clear
