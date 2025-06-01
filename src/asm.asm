@@ -81,6 +81,8 @@
 
 .include "ram.inc"
 
+.include "c64/reu.inc"
+
 ;******************************************************************************
 MAX_IFS      = 4 ; max nesting depth for .if/.endif
 MAX_CONTEXTS = 3 ; max nesting depth for contexts (activated by .MAC, .REP, etc)
@@ -963,6 +965,7 @@ num_illegals = *-illegal_opcodes
 	cmp #$01
 	bne @validate		; if not pass 1, don't add the label
 	jsr lbl::add
+	jsr reu::dbg
 	bcc @ok
 	rts
 

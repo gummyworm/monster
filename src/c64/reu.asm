@@ -273,7 +273,7 @@ __reu_move_size=r6
 	stx __reu_reu_addr
 	stx __reu_reu_addr+1
 
-	lda #$01
+	lda #^REU_SYMTABLE_NAMES_ADDR
 	sta __reu_reu_addr+2
 
 	ldxy #$500
@@ -354,6 +354,8 @@ __reu_move_size=r6
 	lda @cnt
 	cmp tab_num_elements
 	bne @l0
+	sec			; not found
+	rts
 
 @found:	ldx __reu_reu_addr
 	ldy __reu_reu_addr+1

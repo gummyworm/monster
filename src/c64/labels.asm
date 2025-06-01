@@ -213,6 +213,7 @@ anon_addrs: .res MAX_ANON*2
 	lda __label_num+1
 	sta r0+1
 	ldx #MAX_LABEL_LEN
+	lda #^REU_SYMTABLE_NAMES_ADDR
 	jsr reu::tabsetup
 
 @seek:	ldxy @str
@@ -359,27 +360,17 @@ anon_addrs: .res MAX_ANON*2
 @shift: ; src = (numlabels-1)*MAX_LABEL_LEN
 	; get the source address for the move (@id*MAX_LABEL_LEN)
 	; multiply by MAX_LABEL_LEN
-	lda @id+1
-	sta reu::move_src+1
-	lda @id
-	asl			; *2
-	rol reu::move_src+1
-	asl			; *4
-	rol reu::move_src+1
-	asl			; *8
-	rol reu::move_src+1
-	asl			; *16
-	rol reu::move_src+1
-	asl			; *32
-	rol reu::move_src+1
-	sta reu::move_src
+	ldxy @id
+	jsr name_by_id
+	stxy reu::move_src
+	sta reu::move_src+2
 
 	; save this address as we will use it later when we store the label name
-	sta @dst
-	lda reu::move_src+1
-	sta @dst+1
+	stxy @dst
 
 	; get the destination address for the move (src + MAX_LABEL_LEN)
+	txa
+	clc
 	adc #MAX_LABEL_LEN
 	sta reu::move_dst
 	lda reu::move_src+1
@@ -388,6 +379,7 @@ anon_addrs: .res MAX_ANON*2
 
 	; if there are no labels, don't bother shifting
 	iszero numlabels
+	jmp *
 	bne :+
 	jmp @storelabel
 
@@ -487,7 +479,7 @@ anon_addrs: .res MAX_ANON*2
 	sta reu::reuaddr+1
 	lda numlabels
 	asl
-	rol @addr+1
+	rol reu::reuaddr+1
 	sta reu::reuaddr
 
 @store_value:
@@ -498,6 +490,10 @@ anon_addrs: .res MAX_ANON*2
 	; store MSB
 	incw reu::reuaddr
 	lda zp::label_value+1
+
+	ldxy @name
+	stxy reu::c64addr
+	jmp *
 	jsr reu::store
 
 	incw numlabels
@@ -939,7 +935,7 @@ anon_addrs: .res MAX_ANON*2
 	sta reu::move_src+1
 
 	; get the # of bytes to move (numlabels-id)*MAX_LABEL_LEN
-	ldxy num_labels
+	ldxy numlabels
 	jsr name_by_id
 	sub16 reu::move_dst
 	stxy reu::move_size

@@ -54,6 +54,7 @@
 .ifdef vic20
 .include "vic20/udgedit.inc"
 .endif
+.include "c64/reu.inc"
 
 ;******************************************************************************
 ; CONSTANTS
@@ -175,6 +176,7 @@ main:	jsr key::getch
 
 :	jsr __edit_handle_key
 @done:	jsr text::update
+	jsr reu::dbg
 	bne main	; branch always (continue main loop)
 .endproc
 
@@ -2841,7 +2843,7 @@ goto_buffer:
 
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
-	command_load, command_rename, command_save, command_saveall, \
+	__edit_load, command_rename, command_save, command_saveall, \
 	command_scratch, command_assemble_file, \
 	command_savebin, command_saveprg
 .linecont -
@@ -3117,13 +3119,6 @@ goto_buffer:
 	jsr irq::on
 	sec
 	rts
-.endproc
-
-;******************************************************************************
-; COMMAND_LOAD
-; Handles the load command
-.proc command_load
-	jmp __edit_load
 .endproc
 
 ;******************************************************************************
