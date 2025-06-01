@@ -1038,29 +1038,26 @@ scope: .res 8 ; buffer containing the current scope
 	sta @cnt2+1
 
 	; move the addresses down
-:
 	ldy #$00
+	ldx @cnt
+	beq @next
+@addrloop:
 	lda (@src),y
 	sta (@dst),y
-
 	incw @src
 	incw @dst
+@next:	dex
+	cpx #$ff
+	bne @addrloop
+	dec @cnt+1
+	bpl @addrloop
 
-	lda (@src),y
-	sta (@dst),y
-
-	incw @src
-	incw @dst
-
-	decw @cnt
-	ldxy @cnt
-	cmpw #0
-	bne :-
-
-	; get the source (destination + MAX_LABEL_LEN)
+	; get the destination address to shift names to
 	ldxy @id
 	jsr name_by_id
 	stxy @dst
+
+	; get the source (destination + MAX_LABEL_LEN)
 	lda @dst
 	clc
 	adc #MAX_LABEL_LEN
@@ -1090,11 +1087,13 @@ scope: .res 8 ; buffer containing the current scope
 	bcc @nextname
 	inc @dst+1
 	bne @nameloop
+
 @nextname:
 	decw @cnt2
 	ldxy @cnt2
 	cmpw #0
 	bne @nameloop
+
 	decw numlabels
 	ldxy @name
 	RETURN_OK

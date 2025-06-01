@@ -900,19 +900,15 @@ anon_addrs: .res MAX_ANON*2
 	sta @cnt+1
 
 	; move the addresses down
-:
 	ldy #$00
-	lda (@src),y
+@shiftdown:
+	ldx #2
+:	lda (@src),y
 	sta (@dst),y
-
 	incw @src
 	incw @dst
-
-	lda (@src),y
-	sta (@dst),y
-
-	incw @src
-	incw @dst
+	dex
+	bne :-
 
 	decw @cnt
 	ldxy @cnt
