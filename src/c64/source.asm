@@ -95,7 +95,6 @@ PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
 @ok:	; gap is closed, create a new one
 	; copy data[poststart] to data[poststart + GAPSIZE]
 	; TODO:
-	jmp *
 	lda __src_bank
 	sta reu::reuaddr
 	ldxy cursorzp

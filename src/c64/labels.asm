@@ -301,12 +301,14 @@ anon_addrs: .res MAX_ANON*2
 ;  - .C: set on error or clear if the label was successfully added
 .proc addlabel
 @id=r0
-@label=r2
+@len=r2
+@tmp=r2
 @name=r4
 @src=r6
 @dst=r8
 @addr_dst=ra
 @addr=rc
+@buff=$100
 	sta allow_overwrite	; set overwrite flag (SET) or clear (ADD)
 
 	stxy @name
@@ -317,12 +319,14 @@ anon_addrs: .res MAX_ANON*2
 @seek:	; get the label length
 	ldy #$00
 :	lda (@name),y
+	iny
 	jsr util::isseparator
 	beq @lenfound
-	iny
 	bne :-
 
 @lenfound:
+	sty @len
+
 	ldxy @name
 	jsr __label_find
 	bcs @insert
@@ -346,14 +350,27 @@ anon_addrs: .res MAX_ANON*2
 	; flag if label is local or not
 	ldxy @name
 	jsr is_local
-	beq @shift
+	bne @local
 
-	; if local, prepend the scope
+@nonlocal:
+	ldy #$00
+:	lda (@name),y
+	sta @buff,y
+	iny
+	cpy @len
+	bne :-
+	dey
+	lda #$00
+	sta @buff,y
+	beq @cont		; branch always
+
+@local:	; if local, prepend the scope
 	ldxy @name
 	jsr prepend_scope
-	bcc :+
+	bcc @cont
 	rts			; return err
-:	stxy @name
+@cont:	ldxy #@buff
+	stxy @name
 
 ;------------------
 ; open a space for the new label
@@ -379,7 +396,6 @@ anon_addrs: .res MAX_ANON*2
 
 	; if there are no labels, don't bother shifting
 	iszero numlabels
-	jmp *
 	bne :+
 	jmp @storelabel
 
@@ -446,33 +462,30 @@ anon_addrs: .res MAX_ANON*2
 ;------------------
 ; insert the label into the new opening
 @storelabel:
+	ldx @len
+	stx reu::txlen
+	lda #$00
+	sta reu::txlen+1
+
 	ldxy @dst
 	stxy reu::reuaddr
+	lda #^REU_SYMTABLE_NAMES_ADDR
+	sta reu::reuaddr+2
 
-	ldy #$01
-	sty reu::txlen
-	dey
-	sty reu::txlen+1
-:	lda (@name),y
-	beq @storeaddr
-	jsr util::is_whitespace
-	beq @storeaddr
-	cmp #':'
-	beq @storeaddr
-	; copy a byte to the label name
-	jsr reu::store
-	incw reu::reuaddr
-	iny
-	cpy #MAX_LABEL_LEN
-	bcc :-
+	; copy the name to the REU
+	ldxy @name
+	stxy reu::c64addr
+	;jsr reu::store
+	lda #$00
+	sta $df0a
+	lda #$90	; transfer from c64 -> REU with immediate execution
+	sta $df01	; execute
 
 @storeaddr:
 	; 0-terminate the label name and write the label value
 	lda #$00
+	sta @tmp
 	jsr reu::store
-
-	ldxy @addr_dst
-	stxy reu::reuaddr
 
 	; addr = (numlabels-1)*2
 	lda numlabels+1
@@ -483,18 +496,17 @@ anon_addrs: .res MAX_ANON*2
 	sta reu::reuaddr
 
 @store_value:
-	; store LSB
-	lda zp::label_value
-	jsr reu::store
-
-	; store MSB
-	incw reu::reuaddr
-	lda zp::label_value+1
-
-	ldxy @name
+	ldxy #zp::label_value
 	stxy reu::c64addr
-	jmp *
-	jsr reu::store
+	lda #^REU_SYMTABLE_ADDRS_ADDR
+	sta reu::reuaddr+2
+
+	; store LSB
+	lda #$02
+	sta reu::txlen
+	lda #$00
+	sta reu::txlen+2
+	jsr reu::store	; copy the label value
 
 	incw numlabels
 	ldxy @id

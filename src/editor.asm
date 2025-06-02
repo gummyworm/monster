@@ -55,6 +55,8 @@
 .include "vic20/udgedit.inc"
 .endif
 
+.include "c64/reu.inc"
+
 ;******************************************************************************
 ; CONSTANTS
 MODE_COMMAND     = 1
@@ -175,6 +177,7 @@ main:	jsr key::getch
 
 :	jsr __edit_handle_key
 @done:	jsr text::update
+	jsr reu::dbg
 	bne main	; branch always (continue main loop)
 .endproc
 

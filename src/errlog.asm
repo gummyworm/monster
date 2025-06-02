@@ -48,6 +48,7 @@ numerrs: .byte 0
 .proc __errlog_activate
 	ldxy #@menu
 	jmp gui::listmenu
+
 .PUSHSEG
 .RODATA
 @menu:

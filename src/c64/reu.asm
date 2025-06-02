@@ -15,9 +15,9 @@ __reu_txlen    = $df07
 .include "../macros.inc"
 .include "../zeropage.inc"
 
-.export __reu_move_src
-.export __reu_move_dst
-.export __reu_move_size
+.exportzp __reu_move_src
+.exportzp __reu_move_dst
+.exportzp __reu_move_size
 
 REU_TMP_ADDR            = $ff0000
 REU_VMEM_ADDR           = $fe0000
@@ -114,9 +114,9 @@ tab_num_elements: .word 0
 ;   - reu::move_src: the address of the data to move
 ;   - reu::move_dst: the destination address in the REU
 ;   - reu::move_size: # of byte to relocate
-__reu_move_src=r0
-__reu_move_dst=r3
-__reu_move_size=r6
+__reu_move_src=zp::bank
+__reu_move_dst=zp::bank+3
+__reu_move_size=zp::bank+6
 .export __reu_move
 .proc __reu_move
 @src=__reu_move_src
@@ -268,7 +268,7 @@ __reu_move_size=r6
 ; Copies the contents of REU to $0500
 .export __reu_dbg
 .proc __reu_dbg
-	ldxy #200
+	ldxy #$200
 	stxy __reu_txlen
 	stx __reu_reu_addr
 	stx __reu_reu_addr+1

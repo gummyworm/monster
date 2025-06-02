@@ -13,9 +13,9 @@
 .import __reu_tabsetup
 .import __reu_tabfind
 
-.import __reu_move_src
-.import __reu_move_dst
-.import __reu_move_size
+.importzp __reu_move_src
+.importzp __reu_move_dst
+.importzp __reu_move_size
 
 ; address in the REU to save/restore C64 data to
 REU_TMP_ADDR            = $ff0000
