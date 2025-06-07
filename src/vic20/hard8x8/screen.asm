@@ -515,28 +515,28 @@ __text_puts:
 ;*******************************************************************************
 .linecont +
 .define rows \
-	SCREEN_ADDR+$00, \
-	SCREEN_ADDR+$16, \
-	SCREEN_ADDR+$2c, \
-	SCREEN_ADDR+$42, \
-	SCREEN_ADDR+$58, \
-	SCREEN_ADDR+$6e, \
-	SCREEN_ADDR+$84, \
-	SCREEN_ADDR+$9a, \
-	SCREEN_ADDR+$b0, \
-	SCREEN_ADDR+$c6, \
-	SCREEN_ADDR+$dc, \
-	SCREEN_ADDR+$f2, \
-	SCREEN_ADDR+$108,\
-	SCREEN_ADDR+$11e,\
-	SCREEN_ADDR+$134,\
-	SCREEN_ADDR+$14a,\
-	SCREEN_ADDR+$160,\
-	SCREEN_ADDR+$176,\
-	SCREEN_ADDR+$18c,\
-	SCREEN_ADDR+$1a2,\
-	SCREEN_ADDR+$1b8,\
-	SCREEN_ADDR+$1ce,\
+	SCREEN_ADDR+$000, \
+	SCREEN_ADDR+$016, \
+	SCREEN_ADDR+$02c, \
+	SCREEN_ADDR+$042, \
+	SCREEN_ADDR+$058, \
+	SCREEN_ADDR+$06e, \
+	SCREEN_ADDR+$084, \
+	SCREEN_ADDR+$09a, \
+	SCREEN_ADDR+$0b0, \
+	SCREEN_ADDR+$0c6, \
+	SCREEN_ADDR+$0dc, \
+	SCREEN_ADDR+$0f2, \
+	SCREEN_ADDR+$108, \
+	SCREEN_ADDR+$11e, \
+	SCREEN_ADDR+$134, \
+	SCREEN_ADDR+$14a, \
+	SCREEN_ADDR+$160, \
+	SCREEN_ADDR+$176, \
+	SCREEN_ADDR+$18c, \
+	SCREEN_ADDR+$1a2, \
+	SCREEN_ADDR+$1b8, \
+	SCREEN_ADDR+$1ce, \
 	SCREEN_ADDR+$1e4
 .linecont -
 

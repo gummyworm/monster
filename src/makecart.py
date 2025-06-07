@@ -85,14 +85,14 @@ with open(infile, 'rb') as file:
 
     print(f'  app block   | $8000-${0x8000+len(buf[size:]):02x} | ${len(buf[size:]):02x} bytes')
 
-    # [ boot code |   padding  | cart header  |  padding  ]
+    # [ boot code |  padding  | cart header | padding ]
     image = (
-        buf[:size] +  # $0000-$xxxx:   main boot code
-        bytes([0]*start_padding) + # $xxxx-$6000:   padding
-        (cart) +        # $6000-$xxxx:   the cartridge header/boot code
-        bytes([0]*(0x2000-cart_header_size)) +   # $6xxx-$8000 padding
-        buf[size:] +  # $8000-~$10000 application
-        bytes([0]*end_padding)     # $xxxx-$80000: padding (rest of flash image)
+        buf[:size] +                           # $0000-$xxxx:  main boot code
+        bytes([0]*start_padding) +             # $xxxx-$6000:  padding
+        (cart) +                               # $6000-$xxxx:  cartridge header/boot code
+	bytes([0]*(0x2000-cart_header_size)) + # $6xxx-$8000:  padding
+	buf[size:] +                           # $8000-$xxxx:  application
+        bytes([0]*end_padding)                 # $xxxx-$80000: padding (rest of flash image)
     )
 
     with open(imgfile, 'wb') as prg:
