@@ -246,10 +246,14 @@ guisp:		.word guistack
 	; copy the persistent GUI state to the zeropage
 	jsr copyvars
 	bcc redraw_state
-.endproc
-exit:
-	rts				; no GUI to draw
 
+	; fall through to exit
+.endproc
+
+exit:	rts				; no GUI to draw
+
+;*******************************************************************************
+; REDRAW STATE
 ; entrypoint to draw the already copied zeropage state
 .proc redraw_state
 @row=guitmp

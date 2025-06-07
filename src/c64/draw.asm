@@ -54,6 +54,7 @@
 .export __draw_scrollcolorsd1
 .proc __draw_scrollcolorsd1
 	; TODO:
+	rts
 .endproc
 
 ;******************************************************************************

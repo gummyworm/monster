@@ -12,6 +12,7 @@
 .import __reu_txlen
 .import __reu_tabsetup
 .import __reu_tabfind
+.import __reu_zero
 
 .importzp __reu_move_src
 .importzp __reu_move_dst
@@ -23,6 +24,8 @@ REU_VMEM_ADDR           = $fe0000
 REU_SYMTABLE_ADDRS_ADDR = $fd0000	; label addresses
 REU_SYMTABLE_NAMES_ADDR = $fc0000	; label names
 REU_SYMTABLE_ANONS_ADDR = $fb0000	; anonymous label addresses
+REU_DBGINFO_PROG        = $fa0000
+REU_DBGINFO_HEADERS     = $f90000
 
 .scope reu
 	c64addr   = __reu_c64_addr
@@ -41,4 +44,64 @@ REU_SYMTABLE_ANONS_ADDR = $fb0000	; anonymous label addresses
 	move_src  = __reu_move_src
 	move_dst  = __reu_move_dst
 	move_size = __reu_move_size
+	zero      = __reu_zero
 .endscope
+
+;*******************************************************************************
+; STORE16
+; Copies the data at the given source address to the destination
+; one.
+; The most-significant byte of the REU address is given as the "bank"
+.macro COPY16 bank, dst16, src16, size16
+	.if .match( .left( 1, {bank} ), # )
+		lda #^(.right( .tcount( {bank} )-1, {bank} ))
+		sta __reu_dst+2
+	.else
+		lda bank
+		sta __reu_dst+2
+	.endif
+
+	.if .match( .left( 1, {dst24} ), # )
+		lda #<(.right( .tcount( {dst24} )-1, {dst24} ))
+		sta __reu_dst
+		lda #>(.right( .tcount( {dst24} )-1, {dst24} ))
+		sta __reu_dst+1
+	.else
+		lda dst24
+		sta __reu_dst
+		lda dst24+1
+		sta __reu_dst+1
+	.endif
+
+	.if .match( .left( 1, {src16} ), # )
+		lda #<(.right( .tcount( {src16} )-1, {src16} ))
+		sta __reu_src
+		lda #>(.right( .tcount( {src16} )-1, {src16} ))
+		sta __reu_src+1
+	.else
+		lda src16
+		sta __reu_src
+		lda src16+1
+		sta __reu_src+1
+	.endif
+
+	.if .match( .left( 1, {size16} ), # )
+		lda #<(.right( .tcount( {size16} )-1, {size16} ))
+		sta __reu_txlen
+		lda #>(.right( .tcount( {size16} )-1, {size16} ))
+		sta __reu_txlen+1
+	.else
+		lda size16
+		sta __reu_txlen
+		lda size16+1
+		sta __reu_txlen+1
+	.endif
+.endmacro
+
+;*******************************************************************************
+; COPY
+; Copies the data at the given source address to the destination one.
+.macro COPY dst24, src16, size16
+	.if .match( .left( 1, {dst24} ), # )
+		COPY16 #^(.right( .tcount( {dst24} )-1, {dst24} )), #(.right( .tcount( {dst24} )-1, {dst24} ) & $ffff), src16, size16
+.endmacro

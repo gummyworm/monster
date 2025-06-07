@@ -106,6 +106,25 @@ tab_num_elements: .word 0
 .endproc
 
 ;*******************************************************************************
+; ZERO
+; Zeroes out the number of bytes in txlen at reu::move_dst
+.export __reu_zero
+.proc __reu_zero
+	ldxy #@zero
+	stxy __reu_c64_addr
+	lda #$80
+	sta $df0a		; fix c64 address
+
+	lda #$90
+	sta $df01		; transfer c64 -> REU
+
+	lda #$00
+	sta $df0a		; unfix c64 address
+
+@zero:	.byte 0
+.endproc
+
+;*******************************************************************************
 ; MOVE
 ; Moves the given addresses from one part of the REU to another
 ; This routine first copies the data to the C64 and then stores
