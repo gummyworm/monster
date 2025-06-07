@@ -17,12 +17,15 @@ COLMEM_ADDR = $9400	; page 1
 ;COLMEM_ADDR2 = $9600	; page 2
 
 SCREEN_ADDR = $1800	; page 1
-SCREEN_ADDR2 = $1a00	; page 2
 
 ;NUM_COLS    = 22	; number of 8-pixel columns
 ;NUM_ROWS    = 23	; number of 8-pixel rows
 .define NUM_COLS 22
 .define NUM_ROWS 23
+
+; address of "virtual screen"
+VSCREEN_ADDR = $1a00
+VSCREEN_W = 40
 
 SCREEN_ROWS = 12	; number of physical rows per column
 
@@ -375,6 +378,18 @@ SCREEN_ROWS = 12	; number of physical rows per column
 @done:	rts
 .endproc
 
+;*******************************************************************************
+; SCROLLRIGHTN
+; Scrolls the screen right by the given number of characters
+; IN:
+;  - .A: the first row to scroll down
+;  - .X: the last row to scroll down
+;  - .Y: the number of characters to scroll each row right by
+.export __screen_scrollrightn
+.proc __screen_scrollrightn
+win_scroll: .byte 0	; current scroll
+.endproc
+
 ;******************************************************************************
 ; PUTCH
 ; Puts the character given at the current cursor position
@@ -540,7 +555,38 @@ __text_puts:
 	SCREEN_ADDR+$1e4
 .linecont -
 
+.linecont +
+.define vrows \
+	VSCREEN_ADDR+VSCREEN_W*0,  \
+	VSCREEN_ADDR+VSCREEN_W*1,  \
+	VSCREEN_ADDR+VSCREEN_W*2,  \
+	VSCREEN_ADDR+VSCREEN_W*3,  \
+	VSCREEN_ADDR+VSCREEN_W*4,  \
+	VSCREEN_ADDR+VSCREEN_W*5,  \
+	VSCREEN_ADDR+VSCREEN_W*6,  \
+	VSCREEN_ADDR+VSCREEN_W*7,  \
+	VSCREEN_ADDR+VSCREEN_W*8,  \
+	VSCREEN_ADDR+VSCREEN_W*9,  \
+	VSCREEN_ADDR+VSCREEN_W*10, \
+	VSCREEN_ADDR+VSCREEN_W*11, \
+	VSCREEN_ADDR+VSCREEN_W*12, \
+	VSCREEN_ADDR+VSCREEN_W*13, \
+	VSCREEN_ADDR+VSCREEN_W*14, \
+	VSCREEN_ADDR+VSCREEN_W*15, \
+	VSCREEN_ADDR+VSCREEN_W*16, \
+	VSCREEN_ADDR+VSCREEN_W*17, \
+	VSCREEN_ADDR+VSCREEN_W*18, \
+	VSCREEN_ADDR+VSCREEN_W*19, \
+	VSCREEN_ADDR+VSCREEN_W*20, \
+	VSCREEN_ADDR+VSCREEN_W*21, \
+	VSCREEN_ADDR+VSCREEN_W*22
+.linecont -
+
 .export __screen_rowslo
 .export __screen_rowshi
 __screen_rowslo: .lobytes rows
 __screen_rowshi: .hibytes rows
+
+vrowslo: .lobytes vrows
+vrowshi: .hibytes vrows
+
