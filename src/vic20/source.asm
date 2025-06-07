@@ -255,7 +255,7 @@ data: .res BUFFER_SIZE
 	stx $9c02
 	RETURN_OK
 .endproc
-.POPSEG;
+.POPSEG
 
 ;*******************************************************************************
 ; START

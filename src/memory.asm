@@ -12,7 +12,7 @@
 .export __mem_spare
 .export __mem_spareend
 __mem_spare: .res $500
-__mem_spareend = *-__mem_spare
+__mem_spareend = *
 
 ;*******************************************************************************
 .BSS
