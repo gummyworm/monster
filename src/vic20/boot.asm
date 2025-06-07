@@ -14,6 +14,7 @@
 .include "../draw.inc"
 .include "../edit.inc"
 .include "../irq.inc"
+.include "../io.inc"
 .include "../labels.inc"
 .include "../macros.inc"
 .include "../memory.inc"
@@ -589,6 +590,9 @@ num_relocs=(*-relocs)/7
 
 	lda #$00
 	sta $c6			; clear keyboard buffer
+
+	; read error channel to clear startup code (73)
+	jsr io::readerr
 
 .ifndef TEST
 	jsr run::clr	; initialize user state by init'ing BASIC

@@ -1,4 +1,4 @@
-;******************************************************************************
+;;******************************************************************************
 ; DIRECTORY.ASM
 ; This file contains the code to list the directory of a disk and provide a
 ; menu for selecting a file to load.

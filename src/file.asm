@@ -409,12 +409,11 @@ __file_load_src:
 	ldy secondaryaddr	; SA
 	jsr $ffba 		; SETLFS
 	jsr $ffc0 		; call OPEN
-	bcs @getopenerr
-	lda @file	; get file ID that we opened
-	rts		; return it
-
+	bcc @ok
 @getopenerr:
-	jmp geterr
+	jsr geterr
+@ok:	lda @file	; get file ID that we opened
+	rts		; return it
 .endproc
 
 ;*******************************************************************************
@@ -519,8 +518,11 @@ __file_load_src:
 	jsr io::readerr
 	cpx #$01
 	bcc @ret		; err < 1 -> no error
+	cpx #73			; 73 means "power up OK" -> not an error
+	bne :+
+	RETURN_OK
 
-	cpx #$3e		; err code $3e (file not found)?
+:	cpx #$3e		; err code $3e (file not found)?
 	bne :+
 	;sec
 	lda #ERR_FILE_NOT_FOUND
