@@ -860,22 +860,30 @@ main:	jsr key::getch
 	jsr key::waitch		; get another key for the command to do cmdreps times
 
 @check_cmds:
-	ldx #numcommands-1
-:	cmp commands,x
+	ldy #numcommands-1
+:	cmp commands,y
 	beq @found
-	dex
+	dey
 	bpl :-
 	rts		; no key found
 
-@found:	lda command_vecs_lo,x
+@found:	; if we're in RO mode, make sure command can be run
+	jsr is_readonly
+	bne :+
+
+	; if in RO mode, and command is an RW one, just return
+	cpy #num_rw_commands
+	bcc @done
+
+:	lda command_vecs_lo,y
 	sta zp::jmpvec
-	lda command_vecs_hi,x
+	lda command_vecs_hi,y
 	sta zp::jmpvec+1
 
 :	jsr @dorep
 	dec cmdreps
 	bne :-
-	rts
+@done:	rts
 
 ; repeat the command for the number of reps the user requested
 @dorep:
@@ -887,8 +895,6 @@ main:	jsr key::getch
 ; Enters INSERT mode
 .proc enter_insert
 @tabcnt=r2
-	jsr is_readonly
-	beq @done		; can't INSERT in r/o mode
 	lda #MODE_INSERT
 	cmp mode
 	beq @done
@@ -1068,9 +1074,6 @@ main:	jsr key::getch
 ;*******************************************************************************
 ; REPLACE_CHAR
 .proc replace_char
-	jsr is_readonly
-	beq @done
-
 	jsr key::waitch		; get the character to replace with
 	jsr key::isprinting
 	bcs @done		; do nothing if not printable
@@ -1307,11 +1310,7 @@ main:	jsr key::getch
 ; Deletes the entire contents of the line that the cursor is on and scrolls
 ; everything below it up.
 .proc delete_line
-	jsr is_readonly
-	bne :+
-	rts
-
-:	; delete the contents of the current line
+	; delete the contents of the current line
 	jsr src::lineend	; go to end of line
 	jsr buff::clear		; clear copy buffer
 @l0:	jsr src::atcursor
@@ -2083,14 +2082,11 @@ main:	jsr key::getch
 @i=r6
 @join_idx=r7
 	jsr exit_visual
-	jsr is_readonly
-	bne @cont
-@quit:	rts
+	jsr src::on_last_line
+	bne :+
+	rts			; no next line to join
 
-@cont:	jsr src::on_last_line
-	beq @quit			; no next line to join
-
-	jsr text::linelen
+:	jsr text::linelen
 	stx @i
 	stx @join_idx
 	txa
@@ -2160,11 +2156,7 @@ main:	jsr key::getch
 
 ;******************************************************************************
 .proc open_line_above
-	jsr is_readonly
-	bne :+
-@done:	rts
-
-:	jsr insert_start
+	jsr insert_start
 	jsr src::after_cursor
 	pha
 
@@ -2179,6 +2171,7 @@ main:	jsr key::getch
 	ldx autoindent
 	beq @done
 	jmp insert
+@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -2202,14 +2195,9 @@ main:	jsr key::getch
 ; based on the contents of the current line.  If it starts with a TAB, the new
 ; line will begin with a TAB.
 .proc open_line_below
-	jsr is_readonly
-	beq @done
-
 	jsr enter_insert
 	jsr end_of_line		; move to end of current line
 	jmp newl		; and insert a newline
-
-@done:	rts
 .endproc
 
 ;******************************************************************************
@@ -3348,9 +3336,6 @@ goto_buffer:
 ; INSERT
 ; Adds a character at the cursor position.
 .proc insert
-	jsr is_readonly
-	beq @done
-
 	cmp #$14		; handle DEL
 	bne :+
 	jmp ccdel
@@ -3608,8 +3593,6 @@ goto_buffer:
 ;  - .C: set if no character could be deleted.
 .proc delch
 @tmp=r0
-	jsr is_readonly
-	beq @nodel
 	jsr src::before_newl
 	beq @nodel
 	pha
@@ -5108,14 +5091,9 @@ swapwin = gui::reenter
 
 ;******************************************************************************
 commands:
-	.byte K_DIR		; - (show directory)
-	.byte K_SWAP_WINS	; C= + w (swap windows)
-	.byte $68		; h (left)
-	.byte $6c		; l (right)
-	.byte $6b		; k (up)
-	.byte $6a		; j (down)
-	.byte $65		; e (end of word)
-	.byte $62		; b (beginning of word)
+; TODO: refactor readonly commands into this table to avoid "jsr is_readonly"
+; checks
+rw_commands:
 	.byte $49		; I (insert start of line)
 	.byte $69		; i (insert)
 	.byte $72		; r (replace char)
@@ -5128,6 +5106,26 @@ commands:
 	.byte $70		; p (paste below)
 	.byte $50		; P (paste above)
 	.byte $78		; x (erase char)
+	.byte $4f		; O (Open line above cursor)
+	.byte $6f		; o (Open line below cursor)
+	.byte $4a		; J (join line)
+	.byte $3b		; ; (comment out)
+	.byte $76		; v (enter visual mode)
+	.byte $56		; V (enter visual line mode)
+	.byte $79		; y (yank)
+	.byte $73		; s (substitute char)
+	.byte $53		; S (substitute line)
+; commands below this work will work while in "readonly" mode (debugger)
+num_rw_commands=*-rw_commands
+ro_commands:
+	.byte K_DIR		; - (show directory)
+	.byte K_SWAP_WINS	; C= + w (swap windows)
+	.byte $68		; h (left)
+	.byte $6c		; l (right)
+	.byte $6b		; k (up)
+	.byte $6a		; j (down)
+	.byte $65		; e (end of word)
+	.byte $62		; b (beginning of word)
 	.byte $77		; w (word advance)
 	.byte $30		; 0 (column 0)
 	.byte $4c		; L (last line)
@@ -5138,21 +5136,11 @@ commands:
 	.byte $67		; g (goto start)
 	.byte $6e		; n (go to next search result)
 	.byte $4e		; N (go to previous search result)
-	.byte $4f		; O (Open line above cursor)
-	.byte $6f		; o (Open line below cursor)
-	.byte $4a		; J (join line)
 	.byte $24		; $ (end of line)
 	.byte $5b		; [ (previous empty line)
 	.byte $5d		; ] (next empty line)
 	.byte $0d		; RETURN (go to start of next line)
-	.byte $3b		; ; (comment out)
-	.byte $76		; v (enter visual mode)
-	.byte $56		; V (enter visual line mode)
-	.byte $79		; y (yank)
 	.byte $7a		; z (move screen prefix)
-	.byte $73		; s (substitute char)
-	.byte $53		; S (substitute line)
-
 	.byte K_FIND		; / (find)
 	.byte K_NEXT_DRIVE	; next drive
 	.byte K_PREV_DRIVE	; prev drive
@@ -5163,15 +5151,17 @@ numcommands=*-commands
 
 ; command tables for COMMAND mode key commands
 .linecont +
-.define cmd_vecs dir::view, swapwin, ccleft, ccright, ccup, ccdown, endofword, \
-	beginword, insert_start, enter_insert, replace_char, replace, \
+.define cmd_vecs \
+	insert_start, enter_insert, replace_char, replace, \
 	append_to_line, append_char, change_line, delete, delete_to_end, \
-	paste_below, paste_above, delete_char, word_advance, home, last_line, \
+	paste_below, paste_above, delete_char, \
+	open_line_above, open_line_below, join_line, comment_out, \
+	enter_visual, enter_visual_line, command_yank, sub_char, sub_line, \
+	dir::view, swapwin, ccleft, ccright, ccup, ccdown, endofword, \
+	beginword, word_advance, home, last_line, \
 	home_line, ccdel, ccright, goto_end, goto_start, find_next, find_prev, \
-	open_line_above, open_line_below, join_line, end_of_line, \
-	prev_empty_line, next_empty_line, begin_next_line, comment_out, \
-	enter_visual, enter_visual_line, command_yank, command_move_scr, \
-	sub_char, sub_line, \
+	end_of_line, prev_empty_line, next_empty_line, begin_next_line, \
+	command_move_scr, \
 	command_find, next_drive, prev_drive, get_command, monitor, next_err
 .linecont -
 command_vecs_lo: .lobytes cmd_vecs
