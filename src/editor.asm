@@ -1425,7 +1425,11 @@ main:	jsr key::getch
 	beq @vis
 
 @line:	jsr open_line_below_noindent
-	jmp paste_buff
+	jsr paste_buff
+	lda #$00
+	jsr text::index2cursor
+	stx zp::curx
+	rts
 
 @vis:	; visual, move to next character and paste there
 	jsr append_char
@@ -1566,6 +1570,7 @@ main:	jsr key::getch
 @splitindex=re
 @linelen=rf
 @posttext=$148
+@mode=zp::tmp10
 	; save the current buffer pointer
 	jsr buff::push
 
@@ -1625,6 +1630,7 @@ main:	jsr key::getch
 	tay
 	jsr buff::getline
 	bcs @done		; buffer is empty
+
 @ok:	pha			; save newline flag
 	ldxy r9
 	jsr src::insertline	; insert the first line from the paste buffer
@@ -1692,8 +1698,6 @@ main:	jsr key::getch
 	jsr src::home
 	jsr src::get
 	jsr src::popgoto
-	jmp @setcur
-
 @setcur:
 	pla				; restore index where paste ended
 	jsr text::index2cursor

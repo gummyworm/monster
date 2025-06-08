@@ -735,7 +735,7 @@ __text_tabr_dist_a=*+2
 	lda tabs,y
 	sec
 	sbc @xstart
-	rts
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -770,6 +770,7 @@ tabs:
 	.byte i*TAB_WIDTH
 .endrepeat
 tabs_end=*-tabs
+LAST_TAB_COL=TAB_WIDTH*(tabs_end-tabs)
 .POPSEG
 
 ;*******************************************************************************
