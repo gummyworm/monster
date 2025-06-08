@@ -3682,21 +3682,14 @@ goto_buffer:
 	lda #$00
 	sta @deselect		; temporarily disable deselect
 
-	jsr text::tabl_dist
-	cmp #TAB_WIDTH-1
-	bne :+
-	lda #$01
-:	sta @tabcnt
 @tabl:	jsr @curl
 	dec zp::curx
 	jsr text::char_index
 	inc zp::curx
 	cmp #$09
-	bne :+
-	dec @tabcnt
-	bne @tabl
+	beq @tabl
 
-:	pla
+	pla
 	sta @deselect		; restore deselect flag
 	ldx mode
 	cpx #MODE_INSERT
