@@ -1072,16 +1072,20 @@ main:	jsr key::getch
 	beq @done
 
 	jsr key::waitch		; get the character to replace with
+	jsr key::isprinting
+	bcs @done		; do nothing if not printable
 	pha
 	jsr src::replace
 	bcc :+
-	pla
+	pla			; clean stack
 	rts
 
 :	jsr text::char_index
 	pla
-	sta mem::linebuffer,y
+	sta mem::linebuffer,y	; replace character in linebuffer
 
+	; if a TAB / something differently sized than the char we replaced
+	; was inserted, update cursor appropriately
 	tya
 	jsr text::index2cursor
 	stx zp::curx
@@ -1426,6 +1430,10 @@ main:	jsr key::getch
 
 @line:	jsr open_line_below_noindent
 	jsr paste_buff
+
+	; paste_buff will assume cursor should be moved to the end of the line
+	; where the paste ended, but VISUAL LINE pastes leave the source cursor
+	; at the start of the line- fix the cursor to match
 	lda #$00
 	jsr text::index2cursor
 	stx zp::curx
@@ -3693,7 +3701,10 @@ goto_buffer:
 	sta @deselect		; temporarily disable deselect
 
 	jsr text::tabl_dist
-	sta @tabcnt
+	cmp #TAB_WIDTH-1
+	bne :+
+	lda #$01
+:	sta @tabcnt
 @tabl:	jsr @curl
 	dec zp::curx
 	jsr text::char_index
@@ -3711,6 +3722,7 @@ goto_buffer:
 	; if in REPLACE, move left of the TAB character
 	jsr text::char_index
 	cmp #$09		; are we still on a TAB char?
+	bne :+
 	jsr @curl		; move off it if so
 :	RETURN_OK
 

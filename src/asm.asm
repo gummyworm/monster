@@ -468,13 +468,13 @@ num_illegals = *-illegal_opcodes
 ; check if we're in an .IF (FALSE) and if we are, return
 @checkifs:
 	lda ifstacksp
-	beq @chk_comment	; no active .IF
+	beq @assemble	; no active .IF
 	ldx #$00
 :	inx
 	lda ifstack,x
 	beq @if_false
 	cpx ifstacksp
-	beq @chk_comment
+	beq @assemble
 	bne :-
 
 @if_false:
@@ -492,16 +492,7 @@ num_illegals = *-illegal_opcodes
 	clc
 :	rts
 
-; check if the line is a full line comment
-@chk_comment:
-	lda (zp::line),y
-	cmp #';'
-	bne @assemble
-	; rest of the line is a comment, we're done
-	lda #ASM_COMMENT
-	sta resulttype
-	RETURN_OK
-
+;---------------------------------------
 ; assembly entrypoint for successive single-line assembly
 ; if a label is found, for example, we will reenter here after adding the label
 ; to assemble any opcode, directive, etc. that may still be in the line
@@ -509,8 +500,19 @@ num_illegals = *-illegal_opcodes
 	ldy #$00
 	lda (zp::line),y
 	beq @noasm
-
 	jsr line::process_ws
+
+; check if the line is a full line comment
+@chk_comment:
+	lda (zp::line),y
+	cmp #';'
+	bne @directive
+	; rest of the line is a comment, we're done
+	lda #ASM_COMMENT
+	sta resulttype
+	RETURN_OK
+
+
 
 ; 1. check if the line contains a directive
 @directive:
