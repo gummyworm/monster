@@ -2761,9 +2761,8 @@ goto_buffer:
 	jsr dbgi::getfileid	; get the ID from the existing name
 @new:	ldxy @file		; restore new file name
 	jsr dbgi::setfile	; replace existing name for this ID
-
 	ldxy @file		; restore new file name
-	jsr src::name		; rename to the "source" name to string in .XY
+	jmp src::name		; rename to the "source" name to string in .XY
 .endproc
 
 ;*******************************************************************************
