@@ -2759,11 +2759,11 @@ goto_buffer:
 @rename:
 	; ID exists for the current buffer, rename it
 	jsr dbgi::getfileid	; get the ID from the existing name
-	ldxy @file		; restore new file name
+@new:	ldxy @file		; restore new file name
 	jsr dbgi::setfile	; replace existing name for this ID
 
-@new:	ldxy @file		; restore new file name
-	jmp src::name		; rename to the "source" name to string in .XY
+	ldxy @file		; restore new file name
+	jsr src::name		; rename to the "source" name to string in .XY
 .endproc
 
 ;*******************************************************************************
@@ -5091,8 +5091,6 @@ swapwin = gui::reenter
 
 ;******************************************************************************
 commands:
-; TODO: refactor readonly commands into this table to avoid "jsr is_readonly"
-; checks
 rw_commands:
 	.byte $49		; I (insert start of line)
 	.byte $69		; i (insert)

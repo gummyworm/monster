@@ -1542,7 +1542,7 @@ num_commands=*-commands
 
 .linecont +
 .define command_vectors quit, edit_source, step, __debug_step_over, \
-	run::go, jump, __debug_step_out, __debug_trace, edit_source, \
+	__debug_go, jump, __debug_step_out, __debug_trace, edit_source, \
 	edit_mem, edit_breakpoints, __debug_edit_watches, \
 	__debug_swap_user_mem, reset_stopwatch, edit_state, \
 	goto_pc, activate_monitor
