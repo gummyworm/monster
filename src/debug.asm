@@ -315,9 +315,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	sta sim::via2+$e
 
 	; save the registers pushed by the KERNAL interrupt handler ($FF72)
-	lda #$7f
-	sta $911e	; disable all NMI's
-	sta $911d
 
 	; TODO: save VIA timers?
 	;lda $9114
@@ -347,13 +344,36 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 	pla
 	sta sim::reg_p
-	and #$10	; mask BRK flag
+	and #$10		; mask BRK flag
 	sta __debug_is_brk
 
 	pla
 	sta sim::pc
 	pla
 	sta sim::pc+1
+
+	; check if an interrupt occurred inside the interrupt handler
+	; if it did, just RTI
+	cmp #$80
+	bcs :+
+	cmp #$7f
+	bcc :+
+	tax
+	lda sim::reg_p
+	pha
+	lda sim::pc
+	pha
+	txa
+	pha
+	ldx sim::reg_x
+	ldy sim::reg_y
+	lda sim::reg_a
+	rti
+
+:	lda #$7f
+	sta $911e	; disable all NMI's
+	sta $911d
+
 	tsx
 	stx sim::reg_sp
 

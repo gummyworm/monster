@@ -282,7 +282,6 @@ go_pre_run:
 	ldx sim::reg_x
 	ldy sim::reg_y
 
-	cli
 	jmp TRAMPOLINE
 
 ;******************************************************************************
@@ -391,6 +390,28 @@ go_pre_run:
 	sta sim::pc
 	pla
 	sta sim::pc+1
+
+;	; check if an interrupt occurred inside the interrupt handler
+;	; if it did, just RTI
+;	cmp #$80
+;	bcs :+
+;	cmp #$7f
+;	bcc :+
+;	tax
+;	lda sim::reg_p
+;	pha
+;	lda sim::pc
+;	pha
+;	txa
+;	pha
+;	ldx sim::reg_x
+;	ldy sim::reg_y
+;	lda sim::reg_a
+;	rti
+;:	lda #$7f
+;	sta $911e	; disable all NMI's
+;	sta $911d
+
 	tsx
 	stx sim::reg_sp
 

@@ -868,8 +868,8 @@ main:	jsr key::getch
 	rts		; no key found
 
 @found:	; if we're in RO mode, make sure command can be run
-	jsr is_readonly
-	bne :+
+	lda readonly
+	beq :+		; not in RO mode -> continue to run command
 
 	; if in RO mode, and command is an RW one, just return
 	cpy #num_rw_commands
