@@ -206,9 +206,7 @@ rowcnt: .byte 0
 	sty $9129
 	cli
 
-@cont:	; inc $900f
-	; dec $900f
-	lda #$00
+@cont:	lda #$00
 	sta rowcnt
 
 	; save $f5-$f6

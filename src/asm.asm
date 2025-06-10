@@ -54,8 +54,9 @@
 ;*******************************************************************************
 
 .include "asmflags.inc"
-.include "ctx.inc"
 .include "codes.inc"
+.include "config.inc"
+.include "ctx.inc"
 .include "debug.inc"
 .include "debuginfo.inc"
 .include "errors.inc"
@@ -448,6 +449,7 @@ num_illegals = *-illegal_opcodes
 	jsr str::toupper
 
 	ldy #$00
+	sty mem::asmbuffer+LINESIZE
 	lda (zp::line),y
 	beq @noasm		; empty line, early out
 @setbrk:

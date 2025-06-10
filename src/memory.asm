@@ -12,7 +12,7 @@
 .export __mem_spare
 .export __mem_spareend
 __mem_spare: .res $500
-__mem_spareend = *
+__mem_spareend:
 
 ;*******************************************************************************
 .BSS
@@ -61,4 +61,4 @@ __linebuffer2:
 
 .export __mem_asmbuffer
 __mem_asmbuffer:
-	.res LINESIZE
+	.res LINESIZE+1
