@@ -936,6 +936,7 @@ get_filename = get_filename_addr
 ;   - .XY: the 0-terminated file to set as the current file
 ; OUT:
 ;   - .A: the ID of the file that was activated
+;   - .C: set on error
 .proc set_file
 	jsr get_fileid	; get the file ID (if the file is already stored)
 	bcc :+		; if an ID was found, no need to copy filename

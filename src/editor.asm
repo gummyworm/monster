@@ -390,7 +390,15 @@ main:	jsr key::getch
 	ldxy #strings::assembling
 	jsr print_info
 
-	jsr irq::off
+	lda zp::gendebuginfo
+	beq :+
+
+	jsr __edit_current_file
+	bcc :+
+	lda #ERR_UNNAMED_BUFFER
+	jmp report_typein_error
+
+:	jsr irq::off
 
 	jsr cancel		; close errlog (if open)
 	jsr dbgi::init
@@ -434,9 +442,12 @@ main:	jsr key::getch
 ; program binary and the full debug info (if enabled)
 @pass2: ; set the initial file for debugging
 	ldxy #$01
-	stxy dbgi::srcline
 	stxy asm::linenum
 
+	; set debug file id if debug info generation is enabled
+	lda zp::gendebuginfo
+	beq @cont
+	stxy dbgi::srcline
 	; get active filename (r0 = name)
 	jsr src::current_filename
 	bcc :+
@@ -444,7 +455,7 @@ main:	jsr key::getch
 	jmp @done		; can't get buffer name is fatal, go to end
 :	jsr dbgi::setfile
 
-	inc zp::pass		; pass 2
+@cont:	inc zp::pass		; pass 2
 	jsr src::rewind
 	lda #$02
 	jsr asm::startpass
@@ -592,11 +603,8 @@ main:	jsr key::getch
 :	lda #$01
 	sta zp::gendebuginfo	; enable debug info
 	jsr command_asm
-	bcs @done		; error
-
-@ok:	dec zp::gendebuginfo	; turn off debug-info
-	clc			; ok
-@done:	rts
+	dec zp::gendebuginfo	; turn off debug-info
+	rts
 .endproc
 
 ;*******************************************************************************
