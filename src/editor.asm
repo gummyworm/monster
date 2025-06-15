@@ -1133,8 +1133,7 @@ main:	jsr key::getch
 	beq @done
 	jsr src::before_newl
 	beq @done
-	jsr src::next
-	jsr cur::right
+	jmp ccright
 @done:	rts
 .endproc
 
@@ -2226,8 +2225,7 @@ main:	jsr key::getch
 	bpl @l0
 
 @normal:
-	clc		; not a universal key code; return to be handled
-	rts
+	RETURN_OK	; not a universal key code; return to be handled
 
 @special:
 	; TODO: what is corrupting this (on rare occasion)?
@@ -2316,9 +2314,7 @@ main:	jsr key::getch
 .proc exit_visual
 	lda mode
 	cmp #MODE_VISUAL
-	beq :+
-	cmp #MODE_VISUAL_LINE
-	beq :+
+	bcs :+			; anything below MODE_VISUAL is not visual mode
 	rts
 
 :	lda #MODE_COMMAND
@@ -2968,7 +2964,7 @@ goto_buffer:
 
 	ldxy @file
 	jsr str::len		; get the length of the file to save
-	bne @havename		; >0: filename was given
+	bne @rename		; >0: filename was given
 
 	; get active filename (r0 = name)
 	jsr src::current_filename
@@ -2979,7 +2975,7 @@ goto_buffer:
 	jmp report_typein_error
 
 :	stxy @file
-@havename:
+@rename:
 	jsr irq::off
 	lda overwrite
 	beq @open		; if overwrite flag isn't set, continue
@@ -2990,6 +2986,8 @@ goto_buffer:
 
 	; open the file, write the source to it, and close the file
 @open:	ldxy @file
+	jsr command_rename	; first, rename the buffer to our filename
+	ldxy @file
 	jsr file::open_w	; open file for writing
 	bcs @err
 	sta @file
@@ -4093,8 +4091,7 @@ goto_buffer:
 	dec @cnt
 	bmi @scrollup
 @endofline:
-	jsr cur::right
-	jsr src::right
+	jsr ccright
 	dec @cnt
 	bpl @endofline
 @scrollup:
