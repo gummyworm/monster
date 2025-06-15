@@ -4278,29 +4278,28 @@ goto_buffer:
 ; FIND NEXT
 ; Navigates to the next match for the last FIND command
 .proc find_next
-	ldx #<mem::findbuff
-	ldy #>mem::findbuff
-	bne __edit_find		; branch always
+	lda #$01	; flag search FORWRAD
+
+	skw
+
+	; fall through to FIND LAST SEARCH (skip find_prev)
 .endproc
 
 ;*******************************************************************************
 ; FIND PREV
 ; Navigates to the previous match for the last FIND command
 .proc find_prev
-	ldxy #mem::findbuff
+	lda #$00	; flag search BACKWARD
 
-	; fall through to __edit_find_prev
+	; fall through to FIND LAST SEARCH
 .endproc
 
 ;******************************************************************************
-; FIND_PREV
-; Searches for the text given in .YX and moves the cursor to it if it's
-; found.  Unlike "FIND", the search is performed backwards
-; IN:
-;  - .YX: the text to find (0-terminated)
-.proc __edit_find_prev
-	lda #$00	; flag search BACKWARD
-	skw		; skip the lda #(FORWARD flag)
+; FIND LAST SEARCH
+; Searches for the next/previous occurrence of the string in mem::findbuff
+.proc find_last_search
+	ldxy #mem::findbuff
+	skw
 
 	; fall through to FIND
 .endproc
