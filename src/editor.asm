@@ -73,7 +73,7 @@ VISUAL_LINE = 2
 ; ZEROPAGE
 height = zp::editor+1	; height of the text-editor (shrinks when displaying
 			; error, showing debugger, etc.
-mode   = zp::editor_mode	; editor mode (COMMAND, INSERT)
+mode = zp::editor_mode	; editor mode (COMMAND, INSERT)
 
 .export __edit_height
 __edit_height = height
@@ -290,11 +290,11 @@ main:	jsr key::getch
 
 :	jsr src::anydirty
 	beq :+			; if no dirty buffers, continue
-	;jsr prompt_saveall	; ask user if they want to save buffers
-	;jsr prompt_assemble	; prompt to re-assemble
+	jsr prompt_saveall	; ask user if they want to save buffers
+	jsr prompt_assemble	; prompt to re-assemble
+	bcs @ret		; if reassembly failed, exit
 
 :	jsr enter_command
-
 	inc debugging
 	jsr reset_size
 	inc readonly	; enable read-only mode
@@ -302,9 +302,9 @@ main:	jsr key::getch
 	lda #DEBUG_MESSAGE_LINE
 	sta status_row
 
-	jsr home_line	; avoid problems with cursor-y being below new height
-	ldxy @addr
+	;jsr home_line	; avoid problems with cursor-y being below new height
 
+	ldxy @addr
 	jmp dbg::start	; start debugging at address in .XY
 .endproc
 
@@ -501,7 +501,8 @@ main:	jsr key::getch
 
 @err:	lda height
 	jsr errlog::activate
-	jmp enter_command
+	sec			; assembly failed
+	rts
 
 @printresult:
 	; get the size of the assembled program and print it
@@ -564,12 +565,10 @@ main:	jsr key::getch
 	ldxy #strings::saveall
 	lda #STATUS_ROW
 	jsr text::print
-
-@getch:	jsr key::getch
+@getch:	jsr key::waitch
 	cmp #$79		; 'y'?
-	bne :+
-	jmp command_saveall	; save all dirty buffers
-:	cmp #$6e		; 'n'?
+	beq command_saveall	; save all dirty buffers
+	cmp #$6e		; 'n'?
 	bne @getch
 @done:	RETURN_OK
 .endproc
@@ -586,12 +585,13 @@ main:	jsr key::getch
 	lda #STATUS_ROW
 	jsr text::print
 
-@getch:	jsr key::getch
+@getch:	jsr key::waitch
 	cmp #$79		; 'y'?
 	beq :+			; reassemble (in command_asmdbg)
 	cmp #$6e		; 'n'?
 	bne @getch
-@done:	RETURN_OK
+	clc
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -766,6 +766,9 @@ main:	jsr key::getch
 ; GO BASIC
 ; Installs an NMI to return to the editor and (re)enters BASIC.
 .proc go_basic
+	; set interface to GUI so that NMI (RESTORE) returns to editor
+	lda #$00
+	sta dbg::interface
 	jmp run::go_basic
 .endproc
 
@@ -4532,6 +4535,7 @@ goto_buffer:
 	dec @cnt
 	bne :-
 
+:				; from next_err
 @done:	rts
 .endproc
 
@@ -4540,9 +4544,8 @@ goto_buffer:
 ; Navigates the cursor to the next error from the error log
 .proc next_err
 	jsr errlog::next
-	beq @done
+	beq :-			; -> RTS
 	jmp gotoline
-@done:	rts
 .endproc
 
 ;******************************************************************************

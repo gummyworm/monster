@@ -1185,7 +1185,6 @@ __debug_remove_breakpoint:
 @next:	dex
 	bne @l0
 	dec __debug_numbreakpoints
-
 @done:	clc
 :	rts
 .endproc
@@ -1447,9 +1446,17 @@ __debug_remove_breakpoint:
 	bne @showline		; if so, show it
 
 @showaddr:
-	; we couldn't find the line #; display the address of the BRK
-	ldxy #$100
-	stxy r0
+	; push the address we will disassemble into
+	lda #$01
+	sta r0+1
+	pha
+
+	lda #$00
+	sta r0
+	pha
+
+	; we couldn't find the line #; display 6ke address of the BRK
+
 	ldxy sim::pc
 	jsr asm::disassemble
 	bcc :+
@@ -1464,13 +1471,7 @@ __debug_remove_breakpoint:
 	lda #$00
 	sta $102
 
-:	; push the disassembled instruction strings's address
-	lda #>$100
-	pha
-	lda #<$100
-	pha
-
-	lda sim::pc
+:	lda sim::pc
 	pha
 	lda sim::pc+1
 	pha
@@ -1494,7 +1495,7 @@ __debug_remove_breakpoint:
 	ldxy #strings::debug_brk_line
 @print:	lda #DEBUG_MESSAGE_LINE
 	jsr text::print		; break in line <line #>
-	rts
+:	rts
 .endproc
 
 ;*******************************************************************************
@@ -1503,12 +1504,11 @@ __debug_remove_breakpoint:
 ; on which is enabled
 .proc show_aux
 	lda aux_mode
-	beq @none		; no aux mode
+	beq :-			; no aux mode -> RTS
 	cmp #AUX_MEM
 	bne @gui
 @mem:	jmp view::mem		; refresh the memory viewer
 @gui:	jmp gui::refresh	; refresh the active GUI
-@none:	rts
 .endproc
 
 ;*******************************************************************************
