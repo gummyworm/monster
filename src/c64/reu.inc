@@ -50,42 +50,42 @@ REU_DBGINFO_HEADERS     = $f90000
 ;*******************************************************************************
 ; STORE16
 ; Copies the data at the given source address to the destination
-; one.
+; one in the REU.
 ; The most-significant byte of the REU address is given as the "bank"
-.macro COPY16 bank, dst16, src16, size16
+.macro STORE16 bank, dst16, src16, size16
 	.if .match( .left( 1, {bank} ), # )
 		lda #^(.right( .tcount( {bank} )-1, {bank} ))
-		sta __reu_dst+2
+		sta __reu_reu_addr+2
 	.else
 		lda bank
-		sta __reu_dst+2
+		sta __reu_reu_addr+2
 	.endif
 
-	.if .match( .left( 1, {dst24} ), # )
+	.if .match( .left( 1, {dst16} ), # )
 		lda #<(.right( .tcount( {dst24} )-1, {dst24} ))
-		sta __reu_dst
+		sta __reu_reu_addr
 		lda #>(.right( .tcount( {dst24} )-1, {dst24} ))
-		sta __reu_dst+1
+		sta __reu_reu_addr+1
 	.else
 		lda dst24
-		sta __reu_dst
+		sta __reu_reu_addr
 		lda dst24+1
-		sta __reu_dst+1
+		sta __reu_reu_addr+1
 	.endif
 
 	.if .match( .left( 1, {src16} ), # )
 		lda #<(.right( .tcount( {src16} )-1, {src16} ))
-		sta __reu_src
+		sta __reu_c64_addr
 		lda #>(.right( .tcount( {src16} )-1, {src16} ))
-		sta __reu_src+1
+		sta __reu_c64_addr+1
 	.else
 		lda src16
-		sta __reu_src
+		sta __reu_c64_addr
 		lda src16+1
-		sta __reu_src+1
+		sta __reu_c64_addr+1
 	.endif
 
-	.if .match( .left( 1, {size16} ), # )
+	.if .match( .left( 1, {txlen} ), # )
 		lda #<(.right( .tcount( {size16} )-1, {size16} ))
 		sta __reu_txlen
 		lda #>(.right( .tcount( {size16} )-1, {size16} ))
@@ -99,9 +99,73 @@ REU_DBGINFO_HEADERS     = $f90000
 .endmacro
 
 ;*******************************************************************************
-; COPY
+; STORE
 ; Copies the data at the given source address to the destination one.
-.macro COPY dst24, src16, size16
+.macro STORE dst24, src16, size16
 	.if .match( .left( 1, {dst24} ), # )
 		COPY16 #^(.right( .tcount( {dst24} )-1, {dst24} )), #(.right( .tcount( {dst24} )-1, {dst24} ) & $ffff), src16, size16
+	.else
+		COPY16 ^dst24, dst24 & $ffff, src16, size16
+	.endif
+.endmacro
+
+;*******************************************************************************
+; LOAD16
+; Copies the data from the source REU address to the C64 destination one
+; The most-significant byte of the REU address is given as the "bank"
+.macro LOAD16 bank, dst16, src16, size16
+	.if .match( .left( 1, {bank} ), # )
+		lda #^(.right( .tcount( {bank} )-1, {bank} ))
+		sta __reu_reu_addr+2
+	.else
+		lda bank
+		sta __reu_reu_addr+2
+	.endif
+
+	.if .match( .left( 1, {dst16} ), # )
+		lda #<(.right( .tcount( {dst16} )-1, {dst16} ))
+		sta __reu_c64_addr
+		lda #>(.right( .tcount( {dst16} )-1, {dst16} ))
+		sta __reu_c64_addr+1
+	.else
+		lda dst16
+		sta __reu_c64_addr
+		lda dst16+1
+		sta __reu_c64_addr+1
+	.endif
+
+	.if .match( .left( 1, {src16} ), # )
+		lda #<(.right( .tcount( {src16} )-1, {src16} ))
+		sta __reu_reu_addr
+		lda #>(.right( .tcount( {src16} )-1, {src16} ))
+		sta __reu_reu_addr+1
+	.else
+		lda src16
+		sta __reu_reu_addr
+		lda src16+1
+		sta __reu_reu_addr+1
+	.endif
+
+	.if .match( .left( 1, {txlen} ), # )
+		lda #<(.right( .tcount( {size16} )-1, {size16} ))
+		sta __reu_txlen
+		lda #>(.right( .tcount( {size16} )-1, {size16} ))
+		sta __reu_txlen+1
+	.else
+		lda size16
+		sta __reu_txlen
+		lda size16+1
+		sta __reu_txlen+1
+	.endif
+.endmacro
+
+;*******************************************************************************
+; LOAD
+; Loads size16 bytes from the REU to the C64
+.macro LOAD dst24, src16, size16
+	.if .match( .left( 1, {dst24} ), # )
+		COPY16 #^(.right( .tcount( {dst24} )-1, {dst24} )), #(.right( .tcount( {dst24} )-1, {dst24} ) & $ffff), src16, size16
+	.else
+		COPY16 ^dst24, dst24 & $ffff, src16, size16
+	.endif
 .endmacro

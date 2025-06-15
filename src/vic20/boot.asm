@@ -593,6 +593,7 @@ num_relocs=(*-relocs)/7
 
 	; read error channel to clear startup code (73)
 	jsr io::readerr
+	jsr dbgi::initonce
 
 .ifndef TEST
 	jsr run::clr	; initialize user state by init'ing BASIC

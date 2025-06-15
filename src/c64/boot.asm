@@ -89,4 +89,6 @@ start:
 
 	jsr mon::init
 	jsr run::clr
+
+	jsr dbgi::initonce
 	jmp edit::init

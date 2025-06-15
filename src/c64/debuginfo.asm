@@ -745,7 +745,7 @@ blockaddresseshi: .res MAX_FILES
 @l0:	lda @cnt
 	jsr get_filename_addr	; get the filename to compare
 	stxy @other
-	jsr str::compare	; @filename == @other?
+	jsr strcompare		; @filename == @other?
 	bne @next		; if not, try the next filename
 
 @found: ldxy @filename	; restore .XY
@@ -853,17 +853,17 @@ get_filename = get_filename_addr
 	jsr get_filename_addr	; get the destination address for ID
 	stxy @dst
 	ldxy @filename		; restore filename
-	CALL FINAL_BANK_MAIN, str::len
+	jsr str::len
 
 	; bytes to copy = strlen(@filename)+1
-	tax
-	inx
-	ldy #$00
-	lda #FINAL_BANK_DEBUG		; dest bank
-	sta r7
-	lda #FINAL_BANK_MAIN		; source bank
-	CALL FINAL_BANK_MAIN, ram::copybanked
-	lda filenames
+	tay
+	lda #$00
+	iny
+	skw			; write terminating 0
+:	lda (@filename),y
+	sta (@dst),y
+	dey
+	bpl :-
 
 	lda numfiles	; get ID of new file
 	inc numfiles
@@ -943,13 +943,9 @@ get_filename = get_filename_addr
 	jsr header_addr
 	stxy block
 
-; copy the header state for the block:
+; copy the header state for the block into blockstate
 ; start addr, stop addr, base line, # lines, file id, program addr
-	ldy #(BLOCK_START_ADDR+SIZEOF_BLOCK_HEADER) - 1
-@copy:	lda (block),y
-	sta blockstate,y
-	dey
-	bpl @copy
+	LOAD16 ^REU_DBGINFO_PROG, blockstate, block, #(BLOCK_START_ADDR+SIZEOF_BLOCK_HEADER) - 1
 
 	; initialize line/address values to the base for the block
 	lda blockstart
@@ -991,8 +987,12 @@ get_filename = get_filename_addr
 ;  - addr: set to the line that's mapped to line
 ;  - .C:   set if there are no lines left in the active block (block)
 .proc advance
+@instruction=r9
+	; read one instruction from the line program (3 bytes)
+	LOAD16 #^REU_DBGINFO_PROG, #@instruction, line, #3
+
 	ldy #$00
-	lda (line),y
+	lda @instruction,y
 	beq @extended_i	; if opcode is 0, this is an extended instruction
 
 @basic_i:
@@ -1018,8 +1018,8 @@ get_filename = get_filename_addr
 	bcs @ok		; branch always
 
 @extended_i:
-	incw line	; move line program PC to byte 2 of opcode
-	lda (line),y	; get byte 2 of opcode
+	incw line		; move line program PC to byte 2 of opcode
+	lda @instruction,y	; get byte 2 of opcode
 	beq @end	; if byte 2 is 0, we're at the end of the program
 
 	incw line	; move to operand
@@ -1027,10 +1027,10 @@ get_filename = get_filename_addr
 	cmp #OP_SET_ADDR
 	bne :+
 @setaddr:
-	lda (line),y
+	lda @instruction,y
 	sta addr
 	incw line
-	lda (line),y
+	lda @instruction,y
 	sta addr+1
 	jmp @ok
 
@@ -1039,11 +1039,11 @@ get_filename = get_filename_addr
 @adv_line:
 	lda srcline		; current line
 	clc
-	adc (line),y		; + LSB of amount to advance
+	adc @instruction,y	; + LSB of amount to advance
 	sta srcline
 	incw line
 	lda srcline+1		; current line (MSB)
-	adc (line),y		; + MSB of amount to advance
+	adc @instruction,y	; + MSB of amount to advance
 	sta srcline+1
 	jmp @ok
 
@@ -1052,25 +1052,49 @@ get_filename = get_filename_addr
 @adv_addr:
 	lda addr
 	clc
-	adc (line),y
+	adc @instruction,y
 	sta addr
 	incw line
 	lda addr+1
-	adc (line),y
+	adc @instruction,y
 	sta addr+1
 	jmp @ok
 
 :	cmp #OP_SET_PC
 	bne @end	; invalid opcode
 @set_pc:
-	lda (line),y
+	lda @instruction,y
 	sta addr
 	incw line
-	lda (line),y
+	lda @instruction,y
 	sta addr+1
 @ok:	incw line
 	RETURN_OK
 
 @end:	sec		; flag end of porgram
 	rts
+.endproc
+
+;*******************************************************************************
+; COMPARE
+; Compares the strings in (str0) to the buffer @ $120
+; IN:
+;  zp::str0: one of the strings to compare
+;  $120:     the string to compare to
+; OUT:
+;  .Z: set if the strings are equal
+.proc strcompare
+@cnt=zp::bankval
+@buff=$120
+	ldy #$00
+@l0:	lda (zp::str0),y
+	cmp @buff,y		; compare it with the string in this bank
+	bne @done		; not equal
+
+@next:	cmp #$00		; are we at the terminating 0?
+	beq @done		; if so, return
+	iny			; next char
+	bne @l0
+	lda #$ff		; not equal
+@done:	rts
 .endproc

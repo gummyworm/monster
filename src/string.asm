@@ -82,9 +82,7 @@ SLASH = SPECIAL_CHARS_START+2
 	bne @ret		; not equal
 	iny
 	bpl @l0
-	rts
-
-@match:	lda #$00
+@match:
 @ret:	rts
 .endproc
 

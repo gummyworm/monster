@@ -969,7 +969,6 @@ get_filename = get_filename_addr
 	sta r7
 	lda #FINAL_BANK_MAIN		; source bank
 	CALL FINAL_BANK_MAIN, ram::copybanked
-	lda filenames
 
 	lda numfiles	; get ID of new file
 	inc numfiles
