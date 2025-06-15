@@ -6,7 +6,6 @@
 .import __watches_mark
 .import __watches_num
 .import __watches_remove
-.import __watches_tostring
 .import __watches_watch_flags
 
 .scope watch
@@ -18,5 +17,4 @@
 	mark     = __watches_mark
 	num	 = __watches_num
 	remove   = __watches_remove
-	tostring = __watches_tostring
 .endscope

@@ -980,7 +980,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; memory location that is being watched
 .proc watch_triggered
 	; display the watch that was triggered
-	jsr watch::tostring
+	jsr ui::render_watch
 
 	; fall through to print_msg
 .endproc

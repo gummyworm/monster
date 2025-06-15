@@ -25,6 +25,7 @@
 .include "source.inc"
 .include "strings.inc"
 .include "text.inc"
+.include "ui.inc"
 .include "util.inc"
 .include "view.inc"
 .include "vmem.inc"
@@ -83,11 +84,11 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 .PUSHSEG
 .RODATA
 @menu:
-.byte HEIGHT				; max height
-.word @getkey				; key handler
-.word __watches_tostring		; get line handler
-.word __watches_num			; # of breakpoints pointer
-.word strings::watches_title		; title
+.byte HEIGHT			; max height
+.word @getkey			; key handler
+.word ui::render_watch		; get line handler
+.word __watches_num		; # of breakpoints pointer
+.word strings::watches_title	; title
 .POPSEG
 
 ;--------------------------------------
@@ -351,102 +352,6 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 
 	lda __watches_watch_flags,x
 	ldx __watches_num
-	rts
-.endproc
-
-;*******************************************************************************
-; TOSTRING
-; Returns the rendered string for the given watch.
-; This is displayed in both the TUI and GUI watch viewer
-; IN:
-;  - .A: the watch to get the string for
-; OUT:
-;  - .XY: the rendered string for that watch
-.export __watches_tostring
-.proc __watches_tostring
-@id=r2		; id of the watch to get
-@range=r3	; if !0, start != stop (watch is a range)
-@start=r4	; start address
-@stop=r6	; stop address (same as start if NOT range)
-@val=r8		; value of watch (if NOT range)
-@prev=r9	; previous value of watch (if NOT range)
-	sta @id
-	jsr __watches_getdata
-	tax			; save flags
-	lda #$00
-	sta @range
-
-	lda @start
-	cmp @stop
-	beq :+
-	inc @range		; flag that start != stop
-
-:	lda @start+1
-	cmp @stop+1
-	beq :+
-	inc @range		; flag that start != stop
-
-:	; print the watch info
-	lda @range		; is it a range of addresses?
-	beq @valline		; not a range, continue
-
-; if the stat address != stop address, print start and stop
-@rangeline:
-	; push the stop address
-	lda @stop
-	pha
-	lda @stop+1
-	pha
-
-	; push the start address
-	lda @start
-	pha
-	lda @start+1
-	pha
-
-	; push SPACE if not dirty or '!' if dirty
-	ldy #' '
-	txa				; get flags
-	and #WATCH_DIRTY		; dirty?
-	beq :+				; if NOT dirty, don't push previous value
-	ldy #'!'			; dirty
-:	tya
-	pha
-
-	; if start addr != stop addr, print the address range
-	ldx #<strings::watches_range_line
-	ldy #>strings::watches_range_line
-	bne @getdatadone
-
-; if the start address == stop address, just print the one address and its val
-@valline:
-	; push current value of the watch
-	lda @val
-	pha
-
-	txa				; get flags
-
-	; is this watch dirty?
-	ldxy #strings::watches_line	; default to "clean" string
-	and #WATCH_DIRTY		; dirty?
-	beq :+				; if NOT dirty, don't push previous value
-
-	; dirty, push previous value
-	lda @prev
-	pha				; push previous value if dirty
-	ldxy #strings::watches_changed_line
-
-:	; push the address
-	lda @start
-	pha
-	lda @start+1
-	pha
-
-@getdatadone:
-	; push the ID of the watch
-	lda @id
-	pha
-	jsr text::render
 	rts
 .endproc
 

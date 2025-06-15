@@ -190,7 +190,7 @@ CMD_BUFF = $101
 	bcc @loop
 @done:	RETURN_OK
 
-@print:	CALL FINAL_BANK_MAIN, watch::tostring
+@print:	CALL FINAL_BANK_MAIN, ui::render_watch
 	jmp mon::puts
 .endproc
 
@@ -237,7 +237,7 @@ CMD_BUFF = $101
 	bcc @loop
 @done:	RETURN_OK
 
-@print:	CALL FINAL_BANK_MAIN, brkpt::tostring
+@print:	CALL FINAL_BANK_MAIN, ui::render_breakpoint
 	jmp mon::puts
 .endproc
 

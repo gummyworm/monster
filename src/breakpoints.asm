@@ -22,6 +22,7 @@
 .include "settings.inc"
 .include "strings.inc"
 .include "text.inc"
+.include "ui.inc"
 .include "zeropage.inc"
 
 ;*******************************************************************************
@@ -46,7 +47,7 @@ BREAKPOINT_ENABLED = 1
 @menu:
 .byte HEIGHT				; max height
 .word @getkey				; key handler
-.word __brkpt_tostring			; get line handler
+.word ui::render_breakpoint		; get line handler
 .word dbg::numbreakpoints		; # of breakpoints pointer
 .word strings::breakpoints_title	; title
 .POPSEG
@@ -133,101 +134,6 @@ BREAKPOINT_ENABLED = 1
 @notfound:
 	sec		; not found
 @done:	rts
-.endproc
-
-;*******************************************************************************
-; TOSTRING
-; Returns the rendered string for the given breakpoint.
-; This is displayed in both the TUI and GUI breakpoint viewer
-; IN:
-;  - .A: the breakpoint to get the string for
-; OUT:
-;  - .XY: the rendered string for that watch
-;  - .C:  set if there is no breakpoint for the given ID
-.export __brkpt_tostring
-.proc __brkpt_tostring
-@offset=zp::tmp14
-@format_str=zp::tmp15
-@namebuff=mem::spare+40
-	sta @offset
-	tax
-
-	cpx dbg::numbreakpoints
-	bcs @datadone
-
-	; push the address of the breakpoint
-	ldy dbg::breakpointshi,x
-	lda dbg::breakpointslo,x
-	pha
-	tax
-	tya
-	pha
-
-	; get/push the symbol name for this address (if there is one)
-	jsr lbl::by_addr
-	bcc @getname
-@noname:
-	lda #>strings::question_marks
-	pha
-	lda #<strings::question_marks
-	pha
-	jmp @lineno
-
-@getname:
-	lda #>@namebuff
-	pha
-	sta r0+1
-	lda #<@namebuff
-	pha
-	sta r0
-	jsr lbl::getname
-
-@lineno:
-	ldx @offset
-	; check if there is a file ID for this breakpoint
-	lda dbg::breakpoint_fileids,x
-	cmp #$ff
-	bne :+
-
-	ldxy #strings::breakpoints_line_noname
-	stxy @format_str
-	jmp @print
-
-:	; get the line number and file name
-	lda dbg::breakpoint_lineslo,x
-	pha
-	lda dbg::breakpoint_lineshi,x
-	pha
-
-	lda dbg::breakpoint_fileids,x
-	jsr dbgi::get_filename
-	tya
-	pha
-	txa
-	pha
-
-	ldxy #strings::breakpoints_line
-	stxy @format_str
-
-@print:
-	; display a symbol if the breakpoint is active
-	ldx @offset
-	ldy #BREAKPOINT_OFF_CHAR
-	lda dbg::breakpoint_flags,x
-	beq :+
-	dey				; ldy #BREAKPOINT_CHAR
-:	sty strings::breakpoints_line
-
-	; push the breakpoint ID
-	lda @offset
-	pha
-
-	; print the breakpoint info
-	ldxy @format_str
-	jsr text::render
-
-@datadone:
-	rts
 .endproc
 
 ;*******************************************************************************
