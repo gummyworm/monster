@@ -91,4 +91,8 @@ start:
 	jsr run::clr
 
 	jsr dbgi::initonce
+
+	lda #$4c
+	sta zp::jmpaddr
+
 	jmp edit::init
