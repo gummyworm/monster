@@ -26,6 +26,7 @@ REU_SYMTABLE_NAMES_ADDR = $fc0000	; label names
 REU_SYMTABLE_ANONS_ADDR = $fb0000	; anonymous label addresses
 REU_DBGINFO_PROG        = $fa0000
 REU_DBGINFO_HEADERS     = $f90000
+REU_COPYBUFF_ADDR       = $f80000
 
 .scope reu
 	c64addr   = __reu_c64_addr
@@ -62,14 +63,14 @@ REU_DBGINFO_HEADERS     = $f90000
 	.endif
 
 	.if .match( .left( 1, {dst16} ), # )
-		lda #<(.right( .tcount( {dst24} )-1, {dst24} ))
+		lda #<(.right( .tcount( {dst16} )-1, {dst16} ))
 		sta __reu_reu_addr
-		lda #>(.right( .tcount( {dst24} )-1, {dst24} ))
+		lda #>(.right( .tcount( {dst16} )-1, {dst16} ))
 		sta __reu_reu_addr+1
 	.else
-		lda dst24
+		lda dst16
 		sta __reu_reu_addr
-		lda dst24+1
+		lda dst16+1
 		sta __reu_reu_addr+1
 	.endif
 
