@@ -229,9 +229,9 @@ __reu_move_size=zp::bank+6
 ;  - .XY: the address of the string (if found)
 .export __reu_find
 .proc __reu_find
-@str=r0
-@len=r2
-@tmp=r3
+@str=zp::bankoffset
+@len=zp::bankoffset+2
+@tmp=zp::bankoffset+3
 @pagebuff=@end
 	stxy @str
 	sta @len
@@ -319,7 +319,7 @@ __reu_move_size=zp::bank+6
 
 	lda r0
 	sta tab_num_elements
-	lda r1
+	lda r0+1
 	sta tab_num_elements+1
 
 	rts
@@ -336,11 +336,21 @@ __reu_move_size=zp::bank+6
 ;   - .XYA: if the data was found, the address of it
 .export __reu_tabfind
 .proc __reu_tabfind
-@cnt=r0
-	stxy __reu_c64_addr
+@cnt=zp::banktmp
 	sta __reu_txlen
 
+	; make sure there are elements in our table, return if not
+	lda tab_num_elements
+	bne :+
+	lda tab_num_elements+1
+	bne :+
+	sec
+	rts
+
+:	stxy __reu_c64_addr
+
 	lda #$00
+	sta __reu_txlen+1
 	sta @cnt
 	sta @cnt+1
 

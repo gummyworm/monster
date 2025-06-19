@@ -514,8 +514,6 @@ num_illegals = *-illegal_opcodes
 	sta resulttype
 	RETURN_OK
 
-
-
 ; 1. check if the line contains a directive
 @directive:
 	jsr is_directive

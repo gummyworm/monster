@@ -12,6 +12,7 @@
 .include "../errors.inc"
 .include "../ram.inc"
 .include "../macros.inc"
+.include "../memory.inc"
 .include "../string.inc"
 .include "../util.inc"
 .include "../zeropage.inc"
@@ -202,24 +203,30 @@ anon_addrs: .res MAX_ANON*2
 ;  - .XY: the id of the label or the id where the label WOULD be if not found
 .export __label_find
 .proc __label_find
-@str=r0
+@str=zp::tmp10
+@len=zp::tmp12
 @id=r0
+	jsr copy_to_temp_buff
 	stxy @str
-	jsr str::len
-	pha
+	sta @len
 
-	lda __label_num
+	lda numlabels
 	sta r0
-	lda __label_num+1
+	lda numlabels+1
 	sta r0+1
 	ldx #MAX_LABEL_LEN
 	lda #^REU_SYMTABLE_NAMES_ADDR
 	jsr reu::tabsetup
 
 @seek:	ldxy @str
-	pla
+	lda @len
 	jsr reu::tabfind
-	bcs @done		; not found
+	bcc @found
+
+	; TODO: need to find the ID that the label should live at
+	ldxy #$0000
+	lda #ERR_LABEL_UNDEFINED
+	rts
 
 @found:	; divide matched address by 32 to get its ID
 	sty @id+1
@@ -475,7 +482,7 @@ anon_addrs: .res MAX_ANON*2
 	; copy the name to the REU
 	ldxy @name
 	stxy reu::c64addr
-	;jsr reu::store
+	jsr reu::store
 	lda #$00
 	sta $df0a
 	lda #$90	; transfer from c64 -> REU with immediate execution
@@ -1584,4 +1591,35 @@ anon_addrs: .res MAX_ANON*2
 	sta @lb
 	jmp @qsok
 @qs_l7: rts
+.endproc
+
+;*******************************************************************************
+; COPY TO TEMP BUFF
+; Returns the address of a 0-terminated buffer containing the given label
+; IN:
+;   - .XY: address of the label name
+; OUT:
+;   - .XY: the address of the scratch buffer the label was copied to
+;   - .Y:  the length of the buffer
+.proc copy_to_temp_buff
+@label=r0
+@buff=r2
+	stxy @label
+	ldy #$00
+	ldxy #@buff
+	stxy @buff
+
+:	iny
+	lda (@label),y
+	sta (@buff),y
+	jsr util::is_whitespace
+	beq @done
+	jsr util::isseparator
+	bne :-
+
+@done:	lda #$00
+	sta (@label),y
+	tya
+	ldxy #@buff
+	rts
 .endproc
