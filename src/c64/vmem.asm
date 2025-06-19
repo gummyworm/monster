@@ -12,6 +12,11 @@ prog00: .res $400
 STEP_HANDLER_ADDR:
 STEP_EXEC_BUFFER: .res 10
 
+.BSS
+
+;*******************************************************************************
+savexy: .word 0
+
 .CODE
 
 ;*******************************************************************************
@@ -24,12 +29,15 @@ STEP_EXEC_BUFFER: .res 10
 ;  - .A: the byte at the physical address
 .export __vmem_load
 .proc __vmem_load
-@tmp=r0
-	stxy reu::c64addr
+@tmp=zp::banktmp
+	stxy reu::reuaddr
+	ldx #^REU_VMEM_ADDR
+	stx reu::reuaddr+2
 	ldxy #@tmp
 	stxy reu::c64addr
 	jsr reu::load
 	lda @tmp
+	ldxy reu::reuaddr
 	rts
 .endproc
 
@@ -44,7 +52,8 @@ STEP_EXEC_BUFFER: .res 10
 ;  - .A: the byte at the physical address
 .export __vmem_load_off
 .proc __vmem_load_off
-@tmp=r0
+@tmp=zp::banktmp
+	stxy savexy
 	sta @tmp
 	txa
 	clc
@@ -52,7 +61,9 @@ STEP_EXEC_BUFFER: .res 10
 	tax
 	bcc :+
 	iny
-:	jmp __vmem_load
+:	jsr __vmem_load
+	ldxy savexy
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -64,13 +75,16 @@ STEP_EXEC_BUFFER: .res 10
 ;  - .A:  the byte to store
 .export __vmem_store
 .proc __vmem_store
-@tmp=r0
+@tmp=zp::banktmp
 	sta @tmp
 	stxy reu::reuaddr
+	ldx #^REU_VMEM_ADDR
+	stx reu::reuaddr+2
 	ldxy #@tmp
 	stxy reu::c64addr
 	jsr reu::store
 	lda @tmp
+	ldxy reu::reuaddr
 	rts
 .endproc
 
@@ -84,7 +98,8 @@ STEP_EXEC_BUFFER: .res 10
 ;  - zp::bankval: the value to store
 .export __vmem_store_off
 .proc __vmem_store_off
-@tmp=r0
+@tmp=zp::banktmp
+	stxy savexy
 	sta @tmp
 	txa
 	clc
@@ -92,7 +107,9 @@ STEP_EXEC_BUFFER: .res 10
 	tax
 	bcc :+
 	iny
-:	jmp __vmem_store
+:	jsr __vmem_store
+	ldxy savexy
+	rts
 .endproc
 
 ;*******************************************************************************

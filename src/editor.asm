@@ -393,6 +393,7 @@ main:	jsr key::getch
 	lda zp::gendebuginfo
 	beq :+
 
+	; ensure that the buffer we are assembling has a name
 	jsr __edit_current_file
 	bcc :+
 	lda #ERR_UNNAMED_BUFFER

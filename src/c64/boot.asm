@@ -95,4 +95,9 @@ start:
 	lda #$4c
 	sta zp::jmpaddr
 
+	; disable BASIC
+	lda $01
+	and #$fe
+	sta $01
+
 	jmp edit::init
