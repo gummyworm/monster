@@ -96,7 +96,7 @@ PAGESIZE    = $100	; size of data "page" (amount stored in c64 RAM)
 	; copy data[poststart] to data[poststart + GAPSIZE]
 	; TODO:
 	lda __src_bank
-	sta reu::reuaddr
+	sta reu::reuaddr+2
 	ldxy cursorzp
 	stxy reu::reuaddr+1
 

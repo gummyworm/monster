@@ -46,7 +46,7 @@ FINAL_BANK_SYMVIEW = $00
 	ldx #$00
 	stx $df0a
 
-	; set c64 (target) address
+	; set c64 (target) address (load into banktmp)
 	lda #zp::banktmp
 	sta $df02
 	stx $df03

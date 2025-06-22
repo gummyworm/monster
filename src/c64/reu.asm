@@ -287,6 +287,8 @@ __reu_move_size=zp::bank+6
 	stx __reu_reu_addr
 	stx __reu_reu_addr+1
 
+.import __src_bank
+	lda __src_bank
 	lda #^REU_SYMTABLE_NAMES_ADDR
 	sta __reu_reu_addr+2
 
@@ -359,17 +361,17 @@ __reu_move_size=zp::bank+6
 @l0:	jsr __reu_compare
 	beq @found
 
-	; move to next entry in the table
+@next:	; move to next entry in the table
 	lda __reu_reu_addr
 	clc
 	adc tab_element_size
 	sta __reu_reu_addr
-	bcc @next
+	bcc :+
 	inc __reu_reu_addr+1
-	bne @next
+	bne :+
 	inc __reu_reu_addr+2
 
-@next:	inc @cnt
+:	inc @cnt
 	bne :+
 	inc @cnt+1
 :	lda @cnt+1
@@ -430,6 +432,8 @@ __reu_move_size=zp::bank+6
 	sta __reu_reu_addr+2
 
 @l0:	; load the data to compare
+	ldxy #@buff
+	stxy __reu_c64_addr
 	jsr __reu_load
 
 	; compare the data we're searching for with the loaded table data
@@ -449,16 +453,9 @@ __reu_move_size=zp::bank+6
 	beq @found
 
 @next:	; move to next entry in the table
-	lda __reu_reu_addr
-	clc
-	adc tab_element_size
-	sta __reu_reu_addr
-	bcc :+
-	inc __reu_reu_addr+1
-	bne :+
-	inc __reu_reu_addr+2
-
-:	inc @cnt
+	lda tab_element_size
+	sta __reu_txlen
+	inc @cnt
 	bne :+
 	inc @cnt+1
 :	lda @cnt+1

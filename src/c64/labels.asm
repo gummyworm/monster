@@ -346,6 +346,7 @@ anon_addrs: .res MAX_ANON*2
 	jsr prepend_scope
 	bcc @cont
 	rts			; return err
+
 @cont:	ldxy #@buff
 	stxy @name
 
@@ -375,9 +376,12 @@ anon_addrs: .res MAX_ANON*2
 	sta reu::move_dst+1
 
 	; if there are no labels, don't bother shifting
+	ldxy @id
+	cmpw numlabels
+	beq :+
 	iszero numlabels
-	bne :+
-	jmp @storelabel
+	bne :++
+:	jmp @storelabel
 
 :	; get the number of bytes to shift (numlabels-id)*MAX_LABEL_LEN
 	lda numlabels
@@ -422,7 +426,7 @@ anon_addrs: .res MAX_ANON*2
 	adc #$00
 	sta reu::move_dst+1
 
-:	; get the number of bytes to shift (numlabels-id)*2
+	; get the number of bytes to shift (numlabels-id)*2
 	lda numlabels
 	sec
 	sbc @id
