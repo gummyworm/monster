@@ -13,6 +13,7 @@ __reu_txlen    = $df07
 
 .include "../errors.inc"
 .include "../macros.inc"
+.include "../memory.inc"
 .include "../zeropage.inc"
 
 .exportzp __reu_move_src
@@ -141,33 +142,6 @@ __reu_move_size=zp::bank+6
 @src=__reu_move_src
 @dst=__reu_move_dst
 @size=__reu_move_size
-	; calculate the # of bytes we're moving
-	lda @dst
-	sec
-	sbc @src
-	sta @size
-	lda @dst+1
-	sbc @src+1
-	sta @size+1
-	lda @dst+2
-	sbc @src+2
-	sta @size+2
-	bcs @move
-
-	; size = (size ^ $ffffff) + 1
-	lda @src
-	eor #$ff
-	adc #$01
-	sta @size
-	lda @src+1
-	eor #$ff
-	adc #$00
-	sta @size+1
-	lda @src+2
-	eor #$ff
-	adc #$00
-	sta @size+2
-
 @move:	lda @size+2
 	beq :+
 	jmp *		; oversized move
@@ -180,10 +154,18 @@ __reu_move_size=zp::bank+6
 	; backup the C64 memory we will clobber
 	ldxy #@end
 	stxy __reu_c64_addr
+	stxy __reu_reu_addr
 	lda #^REU_TMP_ADDR
 	sta __reu_reu_addr+2
-	stxy __reu_reu_addr
 	jsr __reu_swap
+
+	lda @size
+	sta __reu_txlen
+	lda @size+1
+	sta __reu_txlen+1
+	ldxy #@end
+	stxy __reu_c64_addr
+	stxy __reu_reu_addr
 
 	; bring in the source data to relocate
 	lda @src
@@ -194,6 +176,13 @@ __reu_move_size=zp::bank+6
 	sta __reu_reu_addr+2
 	jsr __reu_load
 
+	lda @size
+	sta __reu_txlen
+	lda @size+1
+	sta __reu_txlen+1
+	ldxy #@end
+	stxy __reu_c64_addr
+
 	; and store it to its relocation address
 	lda @dst
 	sta __reu_reu_addr
@@ -203,13 +192,19 @@ __reu_move_size=zp::bank+6
 	sta __reu_reu_addr+2
 	jsr __reu_store
 
+	lda @size
+	sta __reu_txlen
+	lda @size+1
+	sta __reu_txlen+1
+
+
 	; finally, restore the C64's memory that we used as an intermediate
 	; buffer
 	ldxy #@end
 	stxy __reu_c64_addr
+	stxy __reu_reu_addr
 	lda #^REU_TMP_ADDR
 	sta __reu_reu_addr+2
-	stxy __reu_reu_addr
 	jmp __reu_swap
 @end=*
 .endproc
@@ -389,5 +384,95 @@ __reu_move_size=zp::bank+6
 @found:	ldx __reu_reu_addr
 	ldy __reu_reu_addr+1
 	lda __reu_reu_addr+2
+	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; TAB FIND SORTED
+; Finds the given data in the table assuming the table is sorted
+; IN:
+;   - .XY: the data to find
+;   - .A:  the length of the input data
+; OUT:
+;   - .XY: the index of the matched data (or where it would be if it existed)
+;   - .C:  set if the input was not found in the table
+.export __reu_tabfind_sorted
+.proc __reu_tabfind_sorted
+@cnt=zp::banktmp
+@src=zp::banktmp+2
+@len=zp::banktmp+4
+@buff=mem::spare
+	sta @len
+
+	lda tab_element_size
+	sta __reu_txlen
+
+	lda #$00
+	sta __reu_txlen+1
+	sta @cnt
+	sta @cnt+1
+
+	; make sure there are elements in our table, return if not
+	lda tab_num_elements
+	bne :+
+	lda tab_num_elements+1
+	beq @notfound
+
+:	stxy @src
+	ldxy #@buff
+	stxy __reu_c64_addr
+
+	lda tab_addr
+	sta __reu_reu_addr
+	lda tab_addr+1
+	sta __reu_reu_addr+1
+	lda tab_addr+2
+	sta __reu_reu_addr+2
+
+@l0:	; load the data to compare
+	jsr __reu_load
+
+	; compare the data we're searching for with the loaded table data
+	ldy #$00
+:	lda (@src),y
+	cmp @buff,y
+	bcc @notfound
+	bne @next
+	iny
+	cpy @len
+	bcc :-
+
+	; make sure the table element is the same size (if not max size)
+	cpy tab_element_size
+	bcs @found		; max size, don't require null
+	lda @buff,y
+	beq @found
+
+@next:	; move to next entry in the table
+	lda __reu_reu_addr
+	clc
+	adc tab_element_size
+	sta __reu_reu_addr
+	bcc :+
+	inc __reu_reu_addr+1
+	bne :+
+	inc __reu_reu_addr+2
+
+:	inc @cnt
+	bne :+
+	inc @cnt+1
+:	lda @cnt+1
+	cmp tab_num_elements+1
+	bne @l0
+	lda @cnt
+	cmp tab_num_elements
+	bne @l0
+
+@notfound:
+	ldxy @cnt
+	sec			; not found
+	rts
+
+@found:	ldxy @cnt
 	RETURN_OK
 .endproc

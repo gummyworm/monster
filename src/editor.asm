@@ -1,10 +1,10 @@
-;******************************************************************************
+;*******************************************************************************
 ; EDITOR.ASM
 ; This file contains the code for the editor, which, in normal operation, is
 ; the main loop of this program.  From the editor, the user can assemble code,
 ; debug it, load/save files, view symbols, etc.
 ; Most of the README is dedicated to the instructions on operating the editor.
-;******************************************************************************
+;*******************************************************************************
 
 .include "asm.inc"
 .include "beep.inc"
@@ -50,6 +50,8 @@
 .include "view.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
+
+.include "c64/reu.inc"
 
 .ifdef vic20
 .include "vic20/udgedit.inc"
@@ -175,6 +177,7 @@ main:	jsr key::getch
 
 :	jsr __edit_handle_key
 @done:	jsr text::update
+	jsr reu::dbg
 	bne main	; branch always (continue main loop)
 .endproc
 

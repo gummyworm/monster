@@ -12,6 +12,7 @@
 .import __reu_txlen
 .import __reu_tabsetup
 .import __reu_tabfind
+.import __reu_tabfind_sorted
 .import __reu_zero
 
 .importzp __reu_move_src
@@ -29,23 +30,24 @@ REU_DBGINFO_HEADERS     = $f90000
 REU_COPYBUFF_ADDR       = $f80000
 
 .scope reu
-	c64addr   = __reu_c64_addr
-	compare   = __reu_compare
-	dbg       = __reu_dbg
-	find      = __reu_find
-	load      = __reu_load
-	init      = __reu_init
-	move      = __reu_move
-	reuaddr   = __reu_reu_addr
-	store     = __reu_store
-	swap      = __reu_swap
-	tabsetup  = __reu_tabsetup
-	tabfind   = __reu_tabfind
-	txlen     = __reu_txlen
-	move_src  = __reu_move_src
-	move_dst  = __reu_move_dst
-	move_size = __reu_move_size
-	zero      = __reu_zero
+	c64addr        = __reu_c64_addr
+	compare        = __reu_compare
+	dbg            = __reu_dbg
+	find           = __reu_find
+	load           = __reu_load
+	init           = __reu_init
+	move           = __reu_move
+	reuaddr        = __reu_reu_addr
+	store          = __reu_store
+	swap           = __reu_swap
+	tabsetup       = __reu_tabsetup
+	tabfind        = __reu_tabfind
+	tabfind_sorted = __reu_tabfind_sorted
+	txlen          = __reu_txlen
+	move_src       = __reu_move_src
+	move_dst       = __reu_move_dst
+	move_size      = __reu_move_size
+	zero           = __reu_zero
 .endscope
 
 ;*******************************************************************************

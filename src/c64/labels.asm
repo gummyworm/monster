@@ -23,6 +23,9 @@ MAX_ANON      = 750	; max number of anonymous labels
 SCOPE_LEN     = 8	; max len of namespace (scope)
 MAX_LABELS    = 750
 
+.export label_addresses
+label_addresses = $0000
+
 ;*******************************************************************************
 ; ZEROPAGE
 allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
@@ -107,9 +110,6 @@ scope: .res 8 ; buffer containing the current scope
 ;    |    $1000      |    3      |
 ;    |    $1003      |    1      |
 ;    |    $1009      |    2      |
-.export label_addresses
-label_addresses: .res MAX_LABELS*2
-
 .export label_addresses_sorted
 label_addresses_sorted:     .res MAX_LABELS*2
 label_addresses_sorted_ids: .res MAX_LABELS*2
@@ -220,30 +220,9 @@ anon_addrs: .res MAX_ANON*2
 
 @seek:	ldxy @str
 	lda @len
-	jsr reu::tabfind
-	bcc @found
-
-	; TODO: need to find the ID that the label should live at
-	ldxy #$0000
+	jsr reu::tabfind_sorted
+	bcc @done
 	lda #ERR_LABEL_UNDEFINED
-	rts
-
-@found:	; divide matched address by 32 to get its ID
-	sty @id+1
-	txa
-	lsr @id+1
-	ror
-	lsr @id+1
-	ror
-	lsr @id+1
-	ror
-	lsr @id+1
-	ror
-	lsr @id+1
-	ror
-	tax
-	ldy @id+1
-	clc		; label found
 @done:	rts
 .endproc
 
@@ -308,33 +287,25 @@ anon_addrs: .res MAX_ANON*2
 ;  - .C: set on error or clear if the label was successfully added
 .proc addlabel
 @id=r0
-@len=r2
 @tmp=r2
 @name=r4
 @src=r6
 @dst=r8
 @addr_dst=ra
 @addr=rc
+@len=re
 @buff=$100
 	sta allow_overwrite	; set overwrite flag (SET) or clear (ADD)
 
+	jsr copy_to_temp_buff
 	stxy @name
+	sta @len
+
 	jsr is_valid
-	bcc @seek
+	bcc :+
 	rts			; return err
 
-@seek:	; get the label length
-	ldy #$00
-:	lda (@name),y
-	iny
-	jsr util::isseparator
-	beq @lenfound
-	bne :-
-
-@lenfound:
-	sty @len
-
-	ldxy @name
+:	ldxy @name
 	jsr __label_find
 	bcs @insert
 
@@ -366,7 +337,6 @@ anon_addrs: .res MAX_ANON*2
 	iny
 	cpy @len
 	bne :-
-	dey
 	lda #$00
 	sta @buff,y
 	beq @cont		; branch always
@@ -388,6 +358,9 @@ anon_addrs: .res MAX_ANON*2
 	jsr name_by_id
 	stxy reu::move_src
 	sta reu::move_src+2
+	sta reu::move_dst+2
+	lda #$00
+	sta reu::move_size+2
 
 	; save this address as we will use it later when we store the label name
 	stxy @dst
@@ -406,7 +379,7 @@ anon_addrs: .res MAX_ANON*2
 	bne :+
 	jmp @storelabel
 
-	; get the number of bytes to shift (numlabels-id)*MAX_LABEL_LEN
+:	; get the number of bytes to shift (numlabels-id)*MAX_LABEL_LEN
 	lda numlabels
 	sec
 	sbc @id
@@ -423,14 +396,11 @@ anon_addrs: .res MAX_ANON*2
 	rol reu::move_size+1
 	asl
 	rol reu::move_size+1
-	asl
+	asl				; *32
 	rol reu::move_size+1
 	sta reu::move_size
 
 	; move the names up MAX_LABEL_LEN bytes
-	lda #^REU_SYMTABLE_NAMES_ADDR
-	sta reu::move_src+2
-	sta reu::move_dst+2
 	jsr reu::move
 
 	; move the addresses up by 2 bytes
@@ -463,6 +433,10 @@ anon_addrs: .res MAX_ANON*2
 	asl reu::move_size
 	rol reu::move_size+1
 
+	lda #^REU_SYMTABLE_ADDRS_ADDR
+	sta reu::move_src+2
+	sta reu::move_dst+2
+
 	; move the labels up 2 bytes
 	jsr reu::move
 
@@ -470,7 +444,10 @@ anon_addrs: .res MAX_ANON*2
 ; insert the label into the new opening
 @storelabel:
 	ldx @len
-	stx reu::txlen
+	cpx #MAX_LABEL_LEN
+	beq :+
+	inx			; include the terminating 0
+:	stx reu::txlen
 	lda #$00
 	sta reu::txlen+1
 
@@ -483,36 +460,22 @@ anon_addrs: .res MAX_ANON*2
 	ldxy @name
 	stxy reu::c64addr
 	jsr reu::store
-	lda #$00
-	sta $df0a
-	lda #$90	; transfer from c64 -> REU with immediate execution
-	sta $df01	; execute
-
-@storeaddr:
-	; 0-terminate the label name and write the label value
-	lda #$00
-	sta @tmp
-	jsr reu::store
-
-	; addr = (numlabels-1)*2
-	lda numlabels+1
-	sta reu::reuaddr+1
-	lda numlabels
-	asl
-	rol reu::reuaddr+1
-	sta reu::reuaddr
 
 @store_value:
+	lda @id
+	asl
+	sta reu::reuaddr
+	lda @id+1
+	rol
+	sta reu::reuaddr+1
 	ldxy #zp::label_value
 	stxy reu::c64addr
 	lda #^REU_SYMTABLE_ADDRS_ADDR
 	sta reu::reuaddr+2
-
-	; store LSB
 	lda #$02
 	sta reu::txlen
 	lda #$00
-	sta reu::txlen+2
+	sta reu::txlen+1
 	jsr reu::store	; copy the label value
 
 	incw numlabels
@@ -853,30 +816,7 @@ anon_addrs: .res MAX_ANON*2
 	lda #ERR_LABEL_UNDEFINED
 	rts
 
-:	txa
-	asl
-	sta @table
-	tya
-	rol
-	sta @table+1
-	lda @table
-	adc #<label_addresses
-	sta @table
-	lda @table+1
-	adc #>label_addresses
-	sta @table+1
-
-	ldy #$00
-	lda (@table),y
-	tax
-	iny
-	lda (@table),y
-	tay
-
-	bne :+		; get the size of the label's address in .A
-	lda #$01
-	skw
-:	lda #$02
+:	jsr getaddr
 	RETURN_OK
 .endproc
 
@@ -995,17 +935,9 @@ anon_addrs: .res MAX_ANON*2
 @addr=rc
 	txa
 	asl
-	sta @addr
+	tax
 	tya
 	rol
-	sta @addr+1
-	lda @addr
-	adc #<label_addresses
-	sta @addr
-	tax
-	lda @addr+1
-	adc #>label_addresses
-	sta @addr+1
 	tay
 	rts
 .endproc
@@ -1040,13 +972,14 @@ anon_addrs: .res MAX_ANON*2
 
 	; @lb = label_addresses_sorted
 	; @ub = label_addresses_sorted + (numlabels*2)
-	lda #<label_addresses_sorted
+	lda #$00
 	sta @lb
+	sta @lb+1
+
 	adc @ub
 	sta @ub
 	sta @top
-	lda #>label_addresses_sorted
-	sta @lb+1
+
 	adc @ub+1
 	sta @ub+1
 	sta @top+1
@@ -1280,15 +1213,20 @@ anon_addrs: .res MAX_ANON*2
 ;  - .XY: the address of the label
 .proc getaddr
 @src=zp::labels
+@val=r0
 	jsr by_id
-	stxy @src
+	stxy reu::reuaddr
+	lda #^REU_SYMTABLE_ADDRS_ADDR
+	sta reu::reuaddr+2
 
-	ldy #$00
-	lda (@src),y
-	tax
-	iny
-	lda (@src),y
-	tay
+	ldxy #r0
+	stxy reu::c64addr
+
+	ldxy #2
+	stxy reu::txlen
+
+	jsr reu::load
+	ldxy @val
 	rts
 .endproc
 
@@ -1331,7 +1269,7 @@ anon_addrs: .res MAX_ANON*2
 	lda numlabels+1
 	sta @cnt+1
 
-	ldxy #label_addresses
+	ldxy #$0000
 	stxy @src
 	ldxy #label_addresses_sorted
 	stxy @dst
@@ -1404,7 +1342,6 @@ anon_addrs: .res MAX_ANON*2
 	rts			; nothing to index
 
 @setup:	setup
-
 	; @num = 2*(numlabels-1)
 	lda numlabels
 	sec
@@ -1603,22 +1540,21 @@ anon_addrs: .res MAX_ANON*2
 ;   - .Y:  the length of the buffer
 .proc copy_to_temp_buff
 @label=r0
-@buff=r2
+@buff=$140
 	stxy @label
-	ldy #$00
-	ldxy #@buff
-	stxy @buff
 
-:	iny
-	lda (@label),y
-	sta (@buff),y
+	ldy #$00
+:	lda (@label),y
+	sta @buff,y
+	iny
 	jsr util::is_whitespace
 	beq @done
 	jsr util::isseparator
 	bne :-
 
 @done:	lda #$00
-	sta (@label),y
+	dey
+	sta @buff,y
 	tya
 	ldxy #@buff
 	rts
