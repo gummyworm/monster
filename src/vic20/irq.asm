@@ -238,8 +238,17 @@ rowcnt: .byte 0
 .endproc
 
 ;*******************************************************************************
+; BRK HANDLER
+.proc brk_handler
+	inc $900f
+	jmp *-3
+.endproc
+
+;*******************************************************************************
 ; ROW HANDLER
 ; Handles the sub-interrupt responsible for drawing breakpoints
+; For correct timing, the branches in this routine should not cross a page
+.export row_handler
 .proc row_handler
 	cld
 	sec
@@ -286,9 +295,3 @@ rowcnt: .byte 0
 	rts
 .endproc
 
-;*******************************************************************************
-; BRK HANDLER
-.proc brk_handler
-	inc $900f
-	jmp *-3
-.endproc

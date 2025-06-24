@@ -51,8 +51,6 @@
 .include "vmem.inc"
 .include "zeropage.inc"
 
-.include "c64/reu.inc"
-
 .ifdef vic20
 .include "vic20/udgedit.inc"
 .endif
@@ -177,7 +175,6 @@ main:	jsr key::getch
 
 :	jsr __edit_handle_key
 @done:	jsr text::update
-	jsr reu::dbg
 	bne main	; branch always (continue main loop)
 .endproc
 

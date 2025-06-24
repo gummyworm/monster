@@ -157,9 +157,8 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 	sta $9c02
 .endmacro
 
-.segment "SETUP"
-
 .ifndef CART	; DISK
+.segment "SETUP"
 ;*******************************************************************************
 ; BASIC header: SYS 4621
 .word @head
@@ -579,9 +578,6 @@ num_relocs=(*-relocs)/7
 	jsr asm::reset
 	jsr src::new
 
-	; initialize screen
-	jsr scr::init
-
 	jsr dbgi::initonce
 	jsr asm::reset
 	jsr buff::clear		; clear copy buffer
@@ -595,8 +591,12 @@ num_relocs=(*-relocs)/7
 	jsr io::readerr
 	jsr dbgi::initonce
 
-.ifndef TEST
 	jsr run::clr	; initialize user state by init'ing BASIC
+
+	; initialize screen
+	jsr scr::init
+
+.ifndef TEST
 	jsr edit::clear
 	jmp edit::init
 .else
