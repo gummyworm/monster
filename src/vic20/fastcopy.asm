@@ -18,6 +18,20 @@ JMP_RETURN_ADDR = RETURN_ADDR-5
 .export dbg9400
 
 ;******************************************************************************
+.enum proc_ids
+SAVE_DEBUG_STATE = 0
+SAVE_PROG_STATE
+RESTORE_PROG_STATE
+RESTORE_PROG_VISUAL
+RESTORE_DEBUG_STATE
+.endenum
+
+.linecont +
+.define copytab save_debug_state, save_prog_state, restore_prog_state, \
+	restore_prog_visual, restore_debug_state
+.linecont -
+
+;******************************************************************************
 .BSS
 ; $00-$200 is stored in the main BSS segment for faster access by the simulator
 prog00:	.res $400	; $00-$0400
@@ -42,6 +56,10 @@ prog9400: .res $f0	; $9400-$94f0
 dbg1000: .res $1000	; $1000-$2000
 dbg9000: .res $10	; $9000-$9010
 dbg9400: .res $f0	; $9400-$94f0
+
+.RODATA
+copytablo: .lobytes copytab
+copytabhi: .hibytes copytab
 
 .CODE
 
@@ -171,7 +189,8 @@ dbg9400: .res $f0	; $9400-$94f0
 ; Saves the state of the debugger's zeropage
 .export __fastcopy_save_debug_state
 .proc __fastcopy_save_debug_state
-	JUMP FINAL_BANK_FASTCOPY, save_debug_state
+	ldx #proc_ids::SAVE_DEBUG_STATE
+	skw
 .endproc
 
 ;******************************************************************************
@@ -179,7 +198,8 @@ dbg9400: .res $f0	; $9400-$94f0
 ; Saves memory clobbered by the debugger (screen, VIC registers and color)
 .export __fastcopy_save_prog_state
 .proc __fastcopy_save_prog_state
-	JUMP FINAL_BANK_FASTCOPY, save_prog_state
+	ldx #proc_ids::SAVE_PROG_STATE
+	skw
 .endproc
 
 ;******************************************************************************
@@ -187,7 +207,8 @@ dbg9400: .res $f0	; $9400-$94f0
 ; Restores the saved program state
 .export __fastcopy_restore_prog_state
 .proc __fastcopy_restore_prog_state
-	JUMP FINAL_BANK_FASTCOPY, restore_prog_state
+	ldx #proc_ids::RESTORE_PROG_STATE
+	skw
 .endproc
 
 ;******************************************************************************
@@ -196,7 +217,8 @@ dbg9400: .res $f0	; $9400-$94f0
 ; the VIC registers at $9000-$9010)
 .export __fastcopy_restore_prog_visual
 .proc __fastcopy_restore_prog_visual
-	JUMP FINAL_BANK_FASTCOPY, restore_prog_visual
+	ldx #proc_ids::RESTORE_PROG_VISUAL
+	skw
 .endproc
 
 ;******************************************************************************
@@ -204,8 +226,16 @@ dbg9400: .res $f0	; $9400-$94f0
 ; Restores the saved debugger state
 .export __fastcopy_restore_debug_state
 .proc __fastcopy_restore_debug_state
-	JUMP FINAL_BANK_FASTCOPY, restore_debug_state
+	ldx #proc_ids::RESTORE_DEBUG_STATE
 .endproc
+
+	lda copytablo,x
+	sta zp::bankjmpvec
+	lda copytabhi,x
+	sta zp::bankjmpvec+1
+	lda #FINAL_BANK_FASTCOPY
+	sta zp::banktmp
+	jmp __ram_call
 
 .SEGMENT "FASTCOPY"
 
@@ -358,18 +388,8 @@ dbg9400: .res $f0	; $9400-$94f0
 ; Saves memory clobbered by the debugger (screen, VIC registers and color)
 .export save_prog_state
 .proc save_prog_state
-@vicsave=prog9000
 @internalmem=prog1000
 @colorsave=prog9400
-	ldx #$10
-@savevic:
-	lda $9000-1,x
-	sta @vicsave-1,x
-	lda $9120-1,x
-	sta prog9110+$10-1,x
-	dex
-	bne @savevic
-
 ; save $1000-$2000
 @savescreen:
 	lda #$10
@@ -396,5 +416,23 @@ dbg9400: .res $f0	; $9400-$94f0
 	sta @colorsave-1,x
 	dex
 	bne @savecolor
+
+	; fall through to save_vic_state
+.endproc
+
+;******************************************************************************
+; SAVE VIC STATE
+; Saves the VIC
+.proc save_vic_state
+@vicsave=prog9000
+	ldx #$10
+@savevic:
+	lda $9000-1,x
+	sta @vicsave-1,x
+	lda $9120-1,x
+	sta prog9110+$10-1,x
+	dex
+	bne @savevic
 	rts
 .endproc
+
