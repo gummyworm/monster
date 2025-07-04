@@ -435,4 +435,3 @@ copytabhi: .hibytes copytab
 	bne @savevic
 	rts
 .endproc
-

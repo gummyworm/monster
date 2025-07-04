@@ -250,15 +250,25 @@ START:
 .endif	; CART
 
 ;*******************************************************************************
+; BOOT IRQ
+.export boot_irq
+.proc boot_irq
+	dec $9001
+@smc=*+1
+	lda #$00
+	eor #$01
+	sta @smc
+	beq :+
+	dec $9001
+:	jmp $eabf
+.endproc
+
+;*******************************************************************************
 ; LOWINIT
 ; Code that is sensitive to initialization order
 ; This code loads the app and sets up various banked code.
 ; Once the initialization in complete, jumps to enter to begin the app
 .proc lowinit
-	sei
-	jsr update_load_progress
-	jsr update_load_progress
-
 	lda #CUR_BLINK_SPEED
 	sta zp::curtmr
 
@@ -280,7 +290,6 @@ START:
 	inc r0+1	; next page
 	cpx #$30
 	bne :+
-	jsr update_load_progress
 	ldy #$00
 :	dex
 	bne @l0
@@ -330,7 +339,10 @@ START:
 	ldy #$30
 .endif
 	stx $9000		; horizontal centering
-	sty $9001		; vertical centering
+
+	; start with the logo offscreen (at the bottom)
+	lda #$85
+	sta $9001
 
 	; draw the boot screen
 	ldx #18*7
@@ -350,8 +362,6 @@ START:
 ; START
 ; Entrypoint to program
 .proc start
-	sei
-
 	drawlogo
 
 	; enable all memory
@@ -361,9 +371,9 @@ START:
 	; restore default KERNAL vectors
 	jsr $fd52
 
-	; install dummmy IRQ
-	ldxy #$eb15
+	ldxy #boot_irq
 	stxy $0314
+	cli
 
 ;--------------------------------------
 ; zero the BSS segment
@@ -398,7 +408,6 @@ START:
 ; relocate segments that need to be moved
 @cnt=r7
 @relocs=r8
-	sei
 	lda #num_relocs
 	sta @cnt
 	ldxy #relocs
@@ -440,7 +449,6 @@ START:
 	inc @relocs+1
 :	dec @cnt
 	bne @reloc
-	jsr update_load_progress
 
 	; perform the machine-specific initialization
 	jsr vic20::init
@@ -469,19 +477,6 @@ START:
 ;*******************************************************************************
 bootlogo:
 	.include "bootlogo.dat"
-
-;*******************************************************************************
-; UPDATE LOAD PROGRESS
-; Updates the loading progress "bar"
-.proc update_load_progress
-BAR_ADDRESS=$1000+(18*6)+7
-	lda #'.'|$80
-	ldy @index
-	sta BAR_ADDRESS,y
-	inc @index
-	rts
-@index: .byte 0
-.endproc
 
 ;*******************************************************************************
 ; RELOCS
@@ -556,19 +551,10 @@ num_relocs=(*-relocs)/7
 ; address space ($1000-$2000) as a bitmap
 .export enter
 .proc enter
-        jsr irq::on
-	sei
-
 	lda #$00
 	sta zp::banksp
 	lda #$4c
 	sta zp::bankjmpaddr	; write the JMP instruction
-
-	lda #<start
-	sta $0316		; BRK
-	lda #>start
-	sta $0317		; BRK
-	cli
 
 	; initialize the status row reverse
 	lda #DEFAULT_RVS
@@ -593,11 +579,11 @@ num_relocs=(*-relocs)/7
 
 	jsr run::clr	; initialize user state by init'ing BASIC
 
+.ifndef TEST
 	; initialize screen
 	jsr scr::init
-
-.ifndef TEST
 	jsr edit::clear
+        jsr irq::on
 	jmp edit::init
 .else
 	.import testsuite
