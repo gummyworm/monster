@@ -10,7 +10,7 @@ A header, a symbol map, and finally the object code: a list of instructions that
 what to emit to the binary output file.
 
 ### LINK FILE FORMAT
-The link file is responsible for the mapping of _segments_ to _sections_.
+The link file is responsible for producing the desired layout for the binary program.
 Segment usage is defined in the object files and is always relative.  The section
 definition is absolute and tells the linker where to place the segments.
 
@@ -56,95 +56,147 @@ Note that any nonzero value for these flags will enable them while the zero valu
 | FILL |  if '1' fills unused memory in the section with 0's
 
 
+----
+
+## OBJECT FILE FORMAT
+Below is a description of the object file's components.  These are listed in the order they appear in the object file.  These are described in further depth in the rest of this document.
+
+| field          | description
+|----------------|-----------------------------------------------
+| OBJ HEADER     | basic info (# of sections, # of symbols)
+| SECTION HEADER | info about sections (name and size)
+| SYMBOLS        | the symbol table
+| SECTIONS       | .CODE, .REL, and .DEBUGINFO, tables (for each SECTION)
+
+
 ### HEADER
-The first block, the header, gives basic details about the object file.  This tells the linker how
-many segments are used and which symbols are imported (_available_ in other object files) or exported (_used_ in other object files).
+At thet beginning of the object file is the _header_, which gives basic details about the object file.  The header
+simply tells us how many sections are used in the object file and how many symbols are defined.
+This makes it easy to determine how much space to allocate at link time.
 
 | size |  description
 |------|---------------------------------------------------------
-|   1  | number of segments used
+|   1  | number of sections used
 |   2  | number of symbols in object file
 
-The next parts of the header can be broken into logical blocks.  These are stored in the following order:
 
-|  FIELD         | DESCRIPTION                   |
-|----------------|-------------------------------|
-| SEGMENTS       | segments used in the file     |
-| SYMBOLS        | symbols required to link      |
+#### SECTION HEADER
+After the header is the SECTION header. This describes the section usage for the object file.  It details which sections
+are used (by name) and how many bytes each section contains within the object file.
+Whenever a new SEGMENT is defined in the assembly code, a new SECTION is created with a unique ID.
 
-Further details on each of these is described in the sections below.
+Here is a simple example of the internal sections created for a program that activates the CODE segment, then the DATA one,
+followed by the CODE segment again.  Note that each .CODE directive creates a new section referencing the same SEGMENT
+```
+.CODE   ;SEGMENT("CODE", 1)
+asl
+.DATA   ;SEGMENT("DATA", 3)
+jmp $f00d
+.CODE   ;SEGMENT("DATA", 2)
+lda #$00
+```
 
-#### SEGMENTS
-After the object header, the SEGMENTS block describes the segment usage for the object file.  It details which segments
-are used (by name) and how many bytes each segment contains within the object file.
+Each section has its own block of object code, relocation table, and debug information table.  The offset of the section name is also the ID (index) for these tables.
+The SECTION. The linker will concatenate all the SECTIONs that reference the same SEGMENT when the program is linked
 
-The offset of the segment name is also the ID used in the object code.  For example, the
-link directive "set segment 0" will switch the active segment to the first one defined (index 0) in
-the object file being assembled
 
 | size |  description
 |------|---------------------------------------------------------
-|  16  | segment 0 name
-|  16  | segment 1 name...
-|   2  | segment 0 usage (in bytes)
-|   2  | segment 1 usage (in bytes)
+|  16  | SEGMENT name (where to write SECTION to)
+|   2  | size in bytes
+
 
 #### SYMBOLS
-The next block in the object file, after segments, is the _symbols_.
-This table contains all labels that are imported and exported from the object file.
+Next is the _symbol_ table. This table contains all labels that are used in the object file.
+Symbols that are marked as "GLOBAL" must be resolved at link time.
 
-All imports must have a coresponding export of the same name in another
-object file at link-time in order to produce the ouput binary.
+The symbol table begins with a metadata table followed by the symbols themselves.
 
-| size   | description
-|--------|---------------------------------------
-|  1-32  | symbol 0 name
-|   1    | symbol 0 type (IMPORT, RELATIVEEXPORT, RELATIVE IMPORT)
-|   1    | symbol 0 segment ID (index in SEGMENTS block)
-|   2    | symbol 0 offset from segment within this object file
-|  1-32  | symbol 1 name
-|   1    | symbol 1 type (IMPORT, RELATIVEEXPORT, RELATIVE IMPORT)
-|   1    | symbol 1 segment ID (index in SEGMENTS block)
-|   2    | symbol 1 offset from segment within this object file
+| size   | field   | description
+|--------|---------|------------------------------
+|   1    | type    | (binding information: GLOBAL, LOCAL, ABSOLUTE)
+|   1    | section | ID (index in SECTIONS block)
+|   2    | address | (absolute or offset from section within its object file)
+
+
+"type" is set to GLOBAL if an "IMPORT" was found for the symbol in pass 1 of the assembly, LOCAL if it was
+defined in pass 1, and ABSOLUTE if a `.eq` directive was found for it in pass 1.
+
+"section ID" is set to the ID of the SECTION that corresponds to the latest `.SEG` directive
+
+And "address" contains the offset from that section (or the value if "type" is `ABSOLUTE`)
+
+### CODE SECTION
+Following the symbol table is the object code. Object code is a primitive instruction set that the linker uses to generate the final binary program.
+This section contains "records".  See below for more information on these.
+A new _section_ is created any time a .SEGMENT directive is encountered (even if the segment alaready exists).
+
+### RELOCATION TABLE DEFINITION
+For each _section_, the linker uses an RLE list of offsets that must be adjusted by the current relocation adjustment.
+The address at the relocation address is added to the relocation adjustment to get the final address
+A 0 indicates the end of this table.
+
+### OTHER SECTIONS
+In addition to the required sections, some additional information can be stored in the object files
+
+#### `DEBUG INFO`
+This stores the program to evaluate line numbers and addresses within the object file as well as references to which source files were used to create the object file.  This information allows the linker to produce a single mega debug file (or .D file) that contains all the information for the linked program, which allows for source level debugging.
+
+---
+
+### RECORDS
+The process of producing an object file is similar to assembling the file.
+The `.SEGMENT` directive is allowed. This directive will close the current _SECTION_ in the object file and create a new
+one. It will also create a new debug-information section (as the `.ORG` directive does) if debug information is enabled.
+
+Object files also emit "records" instead of the actual program binary. Below are the types of records.
+See the tables below for the format of each.
+- BYTES: tells the linker to write literal bytes to the resulting binary
+- EXPR: tells the linker how to resolve a given symbol to produce an instruction that references one
+- FILL: tells the linker to fill n bytes with a given pattern
+
+#### BYTES record format
+
+| field    |  size  | description                                                                         |
+|----------|--------|-------------------------------------------------------------------------------------|
+|  descr   |   1    | BYTES record identifier                                                             |
+|  length  |   1    | the number of bytes to write out                                                    |
+|  bytes   | length | the literal bytes to write out at link time                                         |
+
+#### EXPR record format
+
+| field    | size | description                                                                         |
+|----------|------|-------------------------------------------------------------------------------------|
+|  descr   |  1   | EXPR record identifier                                                              |
+|  opcode  |  1   | the opcode of the instruction - e.g. $AD                                            |
+|  symbol  |  2   | the symbol target for the instruction                                               |
+|  addend  |  2   | the offset from the symbol of the target                                            |
+|  info    |  1   | MSB contains post processing info ('<' or '>) and LSB contains operand size (0-2)   |
+
+#### FILL record format
+
+| field    |  size  | description                                                                         |
+|----------|--------|-------------------------------------------------------------------------------------|
+|  descr   |   1    | FILL record identifier                                                              |
+|  length  |   2    | the number of bytes to write out                                                    |
+|  patlen  |   1    | the length of the pattern to repeat                                                 |
+|  pattern | patlen | the pattern of bytes to fill the record's length with                               |
+
+---
 
 ### LINK PROCESS OVERVIEW
-#### To link multiple object files the linker follows the following procedure, starting with
-the linker configuration file.
-
+#### To link multiple object files the linker follows the following procedure:
 * Parse link file
-  * get section addresses (where to assemble the object code)
-
-#### Then, to build the global link context, the linker opens all the object files, one-by-one, and builds the global context.
-
-* Read all object file's headers
-* Calculate segment start addresses in each object file and total segment sizes
-  * sum segment usage in each object file to get total size of each segment
-  * in order defined by link file, set segment start addresses to SECTION start + size of all
-     preceding segments
+ * get section addresses (where to assemble the object code)
+* Read SEGMENT header
+  * for each section used in object file: calculate start addresses per object file and total section sizes
+  * in order defined by link file, set section start addresses to SECTION start + size of all preceding sections
 * Build global symbol table from symbol tables in each object file
-   * each IMPORT symbol that was found should contain a corresponding EXPORT
-
-#### Finally, for each object file, the linker uses the global link context to link it to the output file via the following steps.
-
-* Map IMPORTs/EXPORTs (generate global SYMBOL map)
-  * read names of all symbols in object header and map them to their EXPORT's address
-* Map SEGMENTs (generate SEGMENT map)
-  * read names of all segments in object header and map them to their current address
-* Assemble object code (see object code definition in this doc below)
+   * if a new symbol is encountered, add it to global symbol table
+   * if a an existing symbol is encountered, update its status: unresolved, resolved, conflicting (two defintions)
+* Assemble object code
+   * walk object code and assemble (write BYTES records or resolve EXPR records using symbol table and write them out)
+* Peroform relocatation
+   * for each section, walk respective relocation table, adding relocation address to the offset at each address to relocate
 * Validate
   * make sure sections don't overlap
-
-### OBJECT CODE DEFINITION
-Object code is a primitive instruction set that the linker uses to generate
-the final binary program.  The below table describes the opcodes and operands that make up
-this instruction set.
-
-|  Instruction   |Opcode| Operands (size)             | Description
-|----------------|------|-----------------------------|------------------------------------------------------------------------------------------------------|
-| Set Segment    |  1   | name (16)                   | Sets the current segment to the operand.                                                             |
-| Emit Byte      |  2   |                             | Outputs one byte, which immediately follows this instruction opcode                                  |
-| Emit Bytes     |  3   | num (1)                     | Outputs the given number of bytes (up to 255) The byte sequence immediately follows this instruction |
-| Relative Byte  |  4   | symbol id (2), addend (2)   | Outputs a byte that's value is the given symbol plus the given addend                                |
-| Relative Word  |  5   | symbol id (2), addend (2)   | Outputs a _word_that's value is the given symbol plus the given addend                               |
-| Relative ZP Op |  6   | symbol id (2), addend (2)   | Outputs an _instruction_, one absolute byte and one _byte_, whose value is the given symbol + addend |
-| Relative Abs Op|  7   | symbol id (2), addend (2)   | Outputs an _instruction_, one absolute byte and one _word_, whose value is the given symbol + addend |

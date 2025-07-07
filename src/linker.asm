@@ -101,12 +101,12 @@ symbol_names:
 ; It defines the type of symbol in the object file.
 ;  - ABS RELATIVE: an exported symbol with an relative (from SEGMENT) value
 ;    e.g. ```
-;         .export LABEL`
+;         .export LABEL
 ;         LABEL:
 ;         ````
 ;  - ABS EXPORT: an exported symbol with an absolute value
 ;    e.g. ```
-;         .export LABEL`
+;         .export LABEL
 ;         LABEL=$100
 ;         ````
 ;  - IMPORT: a symbol that is used in the object file but defined in another
@@ -353,65 +353,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @done:	rts
 .endproc
 
-;*******************************************************************************
-; LINK OBJ
-; Writes the current object file to the given filename.
-; This is called after the first pass of the assembler to write all the exports,
-; imports, and other header data to the object file.
-; The assembler will then output the object code in pass 2.
-; IN:
-;   - .XY: the output filename
-; OUT:
-;   - .C: set on error
-.export __link_obj
-.proc __link_obj
-@src=r0
-@cnt=r2
-	; open the output file for writing
-	CALL FINAL_BANK_MAIN, file::open_w
-	bcc @write_header
-	rts			; failed to open file
-
-@write_header:
-	; write the SEGMENT block (segments used in the file)
-	lda numsegments
-	sta @cnt
-
-	ldxy #@segment_names
-	stxy @src
-@segment_names:
-	ldy #$00
-:	lda (@src),y
-	jsr $ffd2
-	iny
-	cpy #MAX_SEGMENT_NAME_LEN
-	bcc :-
-	lda @src
-	clc
-	adc #MAX_SEGMENT_NAME_LEN
-	sta @src
-	bcc :+
-	inc @src+1
-:	dec @cnt
-	bne @segment_names
-
-	; write the number of bytes used in each segment
-	ldy #$00
-@segment_sizes:
-	lda segments_sizelo,y
-	jsr $ffd2
-	lda segments_sizehi,y
-	jsr $ffd2
-	iny
-	cpy numsegments
-	bcc @segment_sizes
-
-	; write the SYMBOL TABLE
-	jsr write_symtab
-
-	; the OBJECT block (object code) will be written by the assembler
-	RETURN_OK
-.endproc
 
 ;*******************************************************************************
 ; LINK DEBUG
@@ -1367,75 +1308,6 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	RETURN_OK
 .endproc
 
-;*******************************************************************************
-; EMITB
-; Outputs an instruction to write a direct value to the open object file
-; IN:
-;  - .A: the byte to write
-; OUT:
-;  - .C: set on error
-.export __link_emitb
-.proc __link_emitb
-	pha
-	lda #I_EMIT_BYTE
-	jsr $ffd2
-	pla
-	jmp $ffd2	; CHROUT
-.endproc
-
-;******************************************************************************
-; WRITE SYMTAB
-; Writes all symbols to the symbol table, thus generating the symbol table for
-; the object file
-.export write_symtab
-.proc write_symtab
-@cnt=r0
-@name=r2
-	ldxy #symbol_names
-	stxy @name
-	ldx #$00
-
-@l0:	ldy #$00
-
-	; write the symbol name to the object file
-@l1:	lda (@name),y
-	beq :+
-	jsr $ffd2
-	iny
-	cpy #MAX_SYMBOL_NAME_LEN
-	bcc @l1
-
-:	; write the symbol type identifier
-	lda symbol_info,x
-	jsr $ffd2
-
-	; if the symbol is an IMPORT, we're done with this one
-	cmp #SYM_IMPORT_BYTE
-	beq @next
-	cmp #SYM_IMPORT_WORD
-	beq @next
-
-	; if symbol is an EXPORT, write the SEGMENT ID and SEGMENT OFFSET
-	lda symbol_segment_ids,x
-	jsr $ffd2
-	lda symbol_offsetslo,x
-	jsr $ffd2
-	lda symbol_offsetshi,x
-	jsr $ffd2
-
-@next:	lda @name
-	clc
-	adc #MAX_SYMBOL_NAME_LEN
-	sta @name
-	bcc :+
-	inc @name+1
-
-:	inx
-	cpx numsymbols
-	bne @l0
-
-	RETURN_OK
-.endproc
 
 ;*******************************************************************************
 ; READ KEY
@@ -1622,7 +1494,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 :	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS NULL SPACE COMMA CLOSINGPAREN
 ; IN:
 ;  - .A: the character to test
@@ -1639,7 +1511,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; IS OPERATOR
 ; IN:
 ;  - .A: the character to test
@@ -1661,7 +1533,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 @numops = *-@ops
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ISSEPARATOR
 ; IN:
 ;  - .A: the character to test

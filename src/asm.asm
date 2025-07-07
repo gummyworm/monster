@@ -130,15 +130,15 @@ __asm_linenum: .word 0
 ;segment_type: .byte 0
 
 ;*******************************************************************************
+; ASM MODE
 ; object assembly flag
-; if !0:
+; if !0 (object mode):
 ;   tokenize will assemble the given line as object code to the current
 ;   input file (file::open + CHKIN)
-; if 0:
+; if 0 (direct mode):
 ;   lines will be assembled directly to memory at the address in
 ;   zp::asmresult
-; TODO: use
-to_object: .byte 0
+asm_mode: .byte 0
 
 ;*******************************************************************************
 ; ASMBUFFER
@@ -240,8 +240,6 @@ num_opcode_singles=*-opcode_singles
 
 ;*******************************************************************************
 ; DIRECTIVES
-.export __asm_org_string
-
 DIRECTIVE_ELSE = 9
 DIRECTIVE_ENDIF = 10
 directives:
@@ -249,7 +247,6 @@ directives:
 .byte "eq",0
 .byte "dw",0
 .byte "inc",0
-__asm_org_string:
 .byte "org",0
 .byte "rorg",0
 .byte "rep",0
@@ -263,13 +260,15 @@ __asm_org_string:
 .byte "incbin",0
 .byte "import",0
 .byte "export",0
+.byte "seg",0
 directives_len=*-directives
 
 ;*******************************************************************************
 .linecont +
 .define directive_vectors definebyte, defineconst, defineword, includefile, \
 defineorg, define_psuedo_org, repeat, macro, do_if, do_else, do_endif, \
-do_ifdef, create_macro, handle_repeat, incbinfile, import, export
+do_ifdef, create_macro, handle_repeat, incbinfile, import, export, \
+directive_segment
 .linecont -
 
 directive_vectorslo: .lobytes directive_vectors
@@ -549,13 +548,7 @@ num_illegals = *-illegal_opcodes
 	sta resulttype
 	stx opcode	; save the opcode
 
-	lda to_object
-	beq :+			; not linking -> write straight to memory
-	jsr link::emitb		; write the opcode as immediate data
-	bcs @ret0
-	jmp @getopws
-
-:	txa
+	txa
 	ldy #$00
 	jsr writeb	; store the opcode
 	bcs @ret0	; return err
@@ -1619,6 +1612,15 @@ num_illegals = *-illegal_opcodes
 	; if producing an object file, add to its EXPORTs
 	;ldxy zp::line
 	;jmp link::add_export
+.endproc
+
+;*******************************************************************************
+; DIRECTIVE SEG
+; Handles the `.SEG` directive
+; This directive is only valid when assembling to object. It creates a new
+; SECTION in the object file, closing the current one (if one exists)
+.proc directive_segment
+	; TODO
 .endproc
 
 ;*******************************************************************************

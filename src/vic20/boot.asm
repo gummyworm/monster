@@ -72,6 +72,10 @@
 .import __LINKER_RUN__
 .import __LINKER_SIZE__
 
+.import __OBJCODE_LOAD__
+.import __OBJCODE_RUN__
+.import __OBJCODE_SIZE__
+
 .import __LABELS_LOAD__
 .import __LABELS_RUN__
 .import __LABELS_SIZE__
@@ -515,6 +519,10 @@ relocs:
 .byte FINAL_BANK_VSCREEN
 
 ; LINKER
+.word __LINKER_LOAD__, __LINKER_RUN__, __LINKER_SIZE__
+.byte FINAL_BANK_LINKER
+
+; OBJCODE
 .word __LINKER_LOAD__, __LINKER_RUN__, __LINKER_SIZE__
 .byte FINAL_BANK_LINKER
 
