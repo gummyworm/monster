@@ -105,7 +105,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 	     __FASTTEXT_SIZE__+__MACROCODE_SIZE__+__VSCREEN_SIZE__+ \
 	     __IRQ_SIZE__+__LINKER_SIZE__+__LABELS_SIZE__+__UDGEDIT_SIZE__+ \
 	     __CONSOLE_SIZE__+__COPYBUFF_SIZE__+__RODATA_SIZE__+ \
-	     __DEBUGINFO_CODE_SIZE__+__FASTCOPY_SIZE__
+	     __DEBUGINFO_CODE_SIZE__+__FASTCOPY_SIZE__+__OBJCODE_SIZE__
 .linecont -
 
 ;*******************************************************************************
@@ -523,7 +523,7 @@ relocs:
 .byte FINAL_BANK_LINKER
 
 ; OBJCODE
-.word __LINKER_LOAD__, __LINKER_RUN__, __LINKER_SIZE__
+.word __OBJCODE_LOAD__, __OBJCODE_RUN__, __OBJCODE_SIZE__
 .byte FINAL_BANK_LINKER
 
 ; LABELS

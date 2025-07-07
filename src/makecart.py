@@ -17,7 +17,7 @@ infile = sys.argv[2]
 imgfile = sys.argv[3]
 
 # segments to crunch in the bootloader
-bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE", "SETUP", "FASTTEXT", "MACROCODE", "VSCREEN", "IRQ", "DATA", "LABELS", "UDGEDIT", "CONSOLE", "COPYBUFF", "OBJCODE", "RODATA", "FASTCOPY"]
+bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE", "SETUP", "FASTTEXT", "MACROCODE", "VSCREEN", "IRQ", "DATA", "LABELS", "UDGEDIT", "CONSOLE", "COPYBUFF", "OBJCODE", "LINKER", "RODATA", "FASTCOPY"]
 
 cartsegmentnames = ["CART"]
 
@@ -90,8 +90,8 @@ with open(infile, 'rb') as file:
         buf[:size] +                           # $0000-$xxxx:  main boot code
         bytes([0]*start_padding) +             # $xxxx-$6000:  padding
         (cart) +                               # $6000-$xxxx:  cartridge header/boot code
-	bytes([0]*(0x2000-cart_header_size)) + # $6xxx-$8000:  padding
-	buf[size:] +                           # $8000-$xxxx:  application
+        bytes([0]*(0x2000-cart_header_size)) + # $6xxx-$8000:  padding
+        buf[size:] +                           # $8000-$xxxx:  application
         bytes([0]*end_padding)                 # $xxxx-$80000: padding (rest of flash image)
     )
 
