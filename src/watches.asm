@@ -89,7 +89,6 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 .word ui::render_watch		; get line handler
 .word __watches_num		; # of breakpoints pointer
 .word strings::watches_title	; title
-.POPSEG
 
 ;--------------------------------------
 @getkey:
@@ -122,6 +121,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 
 @done:	RETURN_OK
 .endproc
+.POPSEG
 
 ;*******************************************************************************
 ; IN RANGE
