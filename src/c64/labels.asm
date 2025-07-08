@@ -1205,6 +1205,9 @@ anon_addrs: .res MAX_ANON*2
 	cpy #MAX_LABEL_LEN
 	bcc @l0
 
+	lda #$00
+	sta (@dst),y
+
 @done:	rts
 .endproc
 

@@ -585,7 +585,7 @@ num_relocs=(*-relocs)/7
 	jsr io::readerr
 	jsr dbgi::initonce
 
-	jsr run::clr	; initialize user state by init'ing BASIC
+	jsr run::clr		; initialize user state by init'ing BASIC
 
 .ifndef TEST
 	; initialize screen

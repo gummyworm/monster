@@ -66,11 +66,11 @@ ERR_BUFFER_NAME_EXISTS = 42
 ERR_BUFFER_FULL = 43
 ERR_BUFFER_MUST_BE_NAMED = 44
 
-
 ;******************************************************************************
 ; linker errors
-ERR_SECTION_TOO_SMALL = 45
-ERR_NO_SECTIONS = 46
+ERR_TOO_MANY_GLOBAL_REFS = 45
+ERR_SECTION_TOO_SMALL = 46
+ERR_NO_SECTIONS = 47
 
 .import __err_get
 

@@ -4,6 +4,7 @@
 ; things, to resolve operand values during assembly
 ;******************************************************************************
 
+.include "asm.inc"
 .include "errors.inc"
 .include "labels.inc"
 .include "line.inc"
@@ -18,7 +19,31 @@ MAX_OPERATORS = $10
 MAX_OPERANDS  = MAX_OPERATORS/2
 
 .BSS
+;******************************************************************************
+; END ON WHITESPACE
+; If !0, expr::eval will terminate parsing when whitespace is encountered.
+; If 0, whitespace is ignored
 end_on_whitespace: .byte 0
+
+;******************************************************************************
+; ID of the EXTERNAL symbol referenced in expression (if any)
+; This is used to provide the symbol reference for expressions in object code
+; Such expressions must be simplified to this external symbol + an offset
+.export __expr_global_id
+__expr_global_id: .word 0
+
+.export __expr_numglobals
+__expr_numglobals: .byte 0		; error if > 1
+
+;******************************************************************************
+; REQUIRES RELOC
+; Set if the expression contains 1 or more labels.
+; In the context of assembly, this tells the assembler that it must produce a
+; relocation for this expression
+; NOTE: if expr::requires_reloc is !0 but numglobals is also 0, this means we
+; need to relocate relative to the section at link-time (not relative to label)
+.export __expr_requires_reloc
+__expr_requires_reloc: .byte 0
 
 .CODE
 
@@ -58,6 +83,8 @@ end_on_whitespace: .byte 0
 	lda #$00
 	sta @num_operators
 	sta @num_operands
+	sta __expr_requires_reloc
+	sta __expr_numglobals
 	tay
 
 	; by default flag that operator might be unary
@@ -413,7 +440,7 @@ end_on_whitespace: .byte 0
 	cmp #$02
 	bcs @done		; not verifying, return with error
 
-	; default to the hint value/size
+@dummy:	; default to the hint value/size
 	lda #$ff
 	ldxy zp::virtualpc	; TODO: assume smallest possible value
 
@@ -422,7 +449,23 @@ end_on_whitespace: .byte 0
 	tya	; save MSB
 	pha
 
-	; move the line pointer to the separator
+	; labels are involved, relocation is required
+	lda asm::mode
+	beq :+
+
+	inc __expr_requires_reloc
+
+	; check if label used is "global"
+;	jsr lbl::isglobal
+;	bne :+
+
+@global:
+	; the label is "global", flag that a symbol is required
+	inc __expr_numglobals
+	jsr lbl::by_addr
+	stxy __expr_global_id	; set the ID for the global referenced
+
+:	; move the line pointer to the separator
 	ldy #$00
 @l0:	lda (zp::line),y
 	jsr util::isseparator
@@ -492,7 +535,6 @@ end_on_whitespace: .byte 0
 @done:	RETURN_OK
 @err:	sec
 	rts
-
 .endproc
 
 ;******************************************************************************

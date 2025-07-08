@@ -112,12 +112,11 @@ Symbols that are marked as "GLOBAL" must be resolved at link time.
 
 The symbol table begins with a metadata table followed by the symbols themselves.
 
-| size   | field   | description
-|--------|---------|------------------------------
-|   1    | type    | (binding information: GLOBAL, LOCAL, ABSOLUTE)
-|   1    | section | ID (index in SECTIONS block)
-|   2    | address | (absolute or offset from section within its object file)
-
+| size | field   | description
+|------|---------|--------------------------------------------------------------
+|   1  | type    | (binding information: GLOBAL, LOCAL, ABSOLUTE)
+|   1  | section | ID (index in SECTIONS block)
+|   2  | address | (absolute or offset from section within its object file)
 
 "type" is set to GLOBAL if an "IMPORT" was found for the symbol in pass 1 of the assembly, LOCAL if it was
 defined in pass 1, and ABSOLUTE if a `.eq` directive was found for it in pass 1.
@@ -126,61 +125,51 @@ defined in pass 1, and ABSOLUTE if a `.eq` directive was found for it in pass 1.
 
 And "address" contains the offset from that section (or the value if "type" is `ABSOLUTE`)
 
-### CODE SECTION
-Following the symbol table is the object code. Object code is a primitive instruction set that the linker uses to generate the final binary program.
-This section contains "records".  See below for more information on these.
+### SECTIONS
+Following the symbol table is a list of one or more SECTIONs (the number is defined in the .O file header).
+These contain the object code, the relocation table, and the debug information needed to produce the linked
+debug or program file.
+
+SECTIONs begin with their own header, which defines the size and position of these various tables.
+
+| field           | size | description
+|-----------------|------|-------------------------------------------------------
+|  code size      |  2   | size of the object-code binary table for the section
+|  abs reloc size |  2   | size of the absolute relocation table
+|  zp reloc size  |  2   | size of the zeropage relocation table
+|  sym reloc size |  2   | size of the symbol relocation table
+
+
 A new _section_ is created any time a .SEGMENT directive is encountered (even if the segment alaready exists).
 
-### RELOCATION TABLE DEFINITION
-For each _section_, the linker uses an RLE list of offsets that must be adjusted by the current relocation adjustment.
-The address at the relocation address is added to the relocation adjustment to get the final address
-A 0 indicates the end of this table.
+### RELOCATION TABLES
+For each _section_, the linker contains a table of _relocation info_.
+This table is made up of a number of entries with the following format:
 
-### OTHER SECTIONS
-In addition to the required sections, some additional information can be stored in the object files
+| field          | size | description
+|----------------|------|-------------------------------------------------------------------------------------
+| info           |  1   | bitfield of information about the relocation entry
+| offset         |  2   | offset from section to relocate
+| symbol         |  2   | if using symbol - the symbol ID to relocate relative to
 
-#### `DEBUG INFO`
-This stores the program to evaluate line numbers and addresses within the object file as well as references to which source files were used to create the object file.  This information allows the linker to produce a single mega debug file (or .D file) that contains all the information for the linked program, which allows for source level debugging.
+`info` is a bitfield with the following values:
 
----
+| field      | bit(s) | description
+|------------|--------|---------------------------------------------------------------------
+| size       |   0    | size of target value to modify 0=1 byte, 1=2 bytes
+| mode       |  1-2   | what to relocate relative to: 0=symbol-relative, 1=PC-relative
+| postproc   |  3-4   | 0=no post processing, 1=LSB, 2=MSB
+| operation  |  5-7   | the operation to use to apply the operand (0 = add, 1 = subtract)
 
-### RECORDS
-The process of producing an object file is similar to assembling the file.
-The `.SEGMENT` directive is allowed. This directive will close the current _SECTION_ in the object file and create a new
-one. It will also create a new debug-information section (as the `.ORG` directive does) if debug information is enabled.
+To apply the relocation table to a section, we walk the table, go to the address of that section's
+base + the offset for each table entry, and finally add the value stored at that address in the object
+code to the symbol, if we're doing a symbol based relocation, or the resolved address at the position
+of the value to relocate.
 
-Object files also emit "records" instead of the actual program binary. Below are the types of records.
-See the tables below for the format of each.
-- BYTES: tells the linker to write literal bytes to the resulting binary
-- EXPR: tells the linker how to resolve a given symbol to produce an instruction that references one
-- FILL: tells the linker to fill n bytes with a given pattern
+### `DEBUG INFO`
+This table stores the program to evaluate line numbers and addresses within the object file as well as references to which source files were used to create the object file.  This information allows the linker to produce a single mega debug file (or .D file) that contains all the information for the linked program, which allows for source level debugging.
 
-#### BYTES record format
-
-| field    |  size  | description                                                                         |
-|----------|--------|-------------------------------------------------------------------------------------|
-|  descr   |   1    | BYTES record identifier                                                             |
-|  length  |   1    | the number of bytes to write out                                                    |
-|  bytes   | length | the literal bytes to write out at link time                                         |
-
-#### EXPR record format
-
-| field    | size | description                                                                         |
-|----------|------|-------------------------------------------------------------------------------------|
-|  descr   |  1   | EXPR record identifier                                                              |
-|  opcode  |  1   | the opcode of the instruction - e.g. $AD                                            |
-|  symbol  |  2   | the symbol target for the instruction                                               |
-|  addend  |  2   | the offset from the symbol of the target                                            |
-|  info    |  1   | MSB contains post processing info ('<' or '>) and LSB contains operand size (0-2)   |
-
-#### FILL record format
-
-| field    |  size  | description                                                                         |
-|----------|--------|-------------------------------------------------------------------------------------|
-|  descr   |   1    | FILL record identifier                                                              |
-|  length  |   2    | the number of bytes to write out                                                    |
-|  patlen  |   1    | the length of the pattern to repeat                                                 |
-|  pattern | patlen | the pattern of bytes to fill the record's length with                               |
+The format for debug information is described in further detail in debug-info.md.
 
 ---
 
@@ -194,9 +183,7 @@ See the tables below for the format of each.
 * Build global symbol table from symbol tables in each object file
    * if a new symbol is encountered, add it to global symbol table
    * if a an existing symbol is encountered, update its status: unresolved, resolved, conflicting (two defintions)
-* Assemble object code
-   * walk object code and assemble (write BYTES records or resolve EXPR records using symbol table and write them out)
 * Peroform relocatation
-   * for each section, walk respective relocation table, adding relocation address to the offset at each address to relocate
+   * for each section, walk relocation tables and apply the relocation
 * Validate
   * make sure sections don't overlap

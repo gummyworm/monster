@@ -14,6 +14,7 @@
 .import __label_get_addr
 .import __label_index
 .import __label_is_local
+.import __label_is_global
 .import __label_isvalid
 .import __label_address
 .import __label_num
@@ -40,6 +41,7 @@
 	getaddr       = __label_get_addr
 	index         = __label_index
 	islocal       = __label_is_local
+	isglobal      = __label_is_global
 	isvalid       = __label_isvalid
 	name_by_id    = __label_name_by_id
 	num           = __label_num

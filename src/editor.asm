@@ -146,6 +146,7 @@ autoindent: .byte 0		; auto-indent enable flag (0=don't auto-indent)
 
 	; move cursor to first character on line
 	lda #$00
+	sta asm::mode
 	sta zp::cury
 	jsr text::index2cursor
 	stx zp::curx

@@ -182,6 +182,11 @@ err_buffer_name_exists:
 err_buffer_full:
 	.byte $15,$46,$31,$52,$d9,$95,$63,$0
 
+err_too_many_global_refs:
+; "expr has >1 global ref"
+.byte $2e,$10,$96,$c3,$b,$9b,$40,$56,$2e,$cf,$73,$19,$dc,$5b,$3b,$f,$10,$4c,$dc,$85,$30,$0
+
+
 ;******************************************************************************
 .linecont +
 .define errors \
@@ -229,7 +234,8 @@ err_buffer_full:
 	err_invalid_command, \
 	err_copy_too_big, \
 	err_buffer_name_exists, \
-	err_buffer_full
+	err_buffer_full, \
+	err_too_many_global_refs
 .linecont -
 errorslo: .lobytes errors
 errorshi: .hibytes errors

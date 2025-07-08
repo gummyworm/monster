@@ -432,7 +432,8 @@ scope: .res 8 ; buffer containing the current scope
 ;  - zp::label_value: the value to assign to the given label name
 ;  - allow_overwrite: if !0, will not error if label already exists
 ; OUT:
-;  - .C: set on error or clear if the label was successfully added
+;  - .XY: the ID of the label added
+;  - .C:  set on error or clear if the label was successfully added
 .proc addlabel
 @id=r0
 @label=r2
@@ -1393,6 +1394,7 @@ scope: .res 8 ; buffer containing the current scope
 ;  - r0:  the address to copy to
 ; OUT:
 ;  - (r0): the label name
+;  - .Y:   the length of the copied label
 .proc get_name
 @dst=r0
 @src=zp::labels
@@ -1406,6 +1408,9 @@ scope: .res 8 ; buffer containing the current scope
 	iny
 	cpy #MAX_LABEL_LEN
 	bcc @l0
+
+	lda #$00
+	sta (@dst),y
 
 @done:	rts
 .endproc

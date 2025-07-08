@@ -1,5 +1,6 @@
 .import __asm_disassemble
 .import __asm_include
+.import __asm_mode
 .import __asm_origin
 .import __asm_pcset
 .import __asm_reset
@@ -17,6 +18,7 @@
 	disassemble    = __asm_disassemble
 	include        = __asm_include
 	linenum        = __asm_linenum
+	mode           = __asm_mode
 	origin         = __asm_origin
 	pcset          = __asm_pcset
 	reset          = __asm_reset

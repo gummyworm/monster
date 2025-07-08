@@ -71,6 +71,7 @@
 .include "macros.inc"
 .include "math.inc"
 .include "memory.inc"
+.include "object.inc"
 .include "string.inc"
 .include "text.inc"
 .include "source.inc"
@@ -87,14 +88,17 @@ MAX_IFS      = 4 ; max nesting depth for .if/.endif
 MAX_CONTEXTS = 3 ; max nesting depth for contexts (activated by .MAC, .REP, etc)
 
 ;*******************************************************************************
+; ASM INFORMATION
+; These zeropage locations are filled with information after each call to
+; asm::tokenize
 indirect   = zp::asmtmp   ; 1=indirect, 0=absolute
 indexed    = zp::asmtmp+1 ; 1=x-indexed, 2=y-indexed, 0=not indexed
 immediate  = zp::asmtmp+2 ; 1=immediate, 0=not immediate
 operandsz  = zp::asmtmp+3 ; size of the operand (in bytes) $ff indicates 1 or 2 byttes
 cc         = zp::asmtmp+4
-resulttype = zp::asmtmp+5
-opcode     = zp::asmtmp+6
-operand    = zp::asmtmp+7
+resulttype = zp::asmtmp+5 ; how to format line (ASM_COMMENT, ASM_OPCODE, etc.)
+opcode     = zp::asmtmp+6 ; opcode (if there was one)
+operand    = zp::asmtmp+7 ; operand (if there was one)
 
 SEG_CODE = 1	; flag for CODE segment
 SEG_BSS  = 2	; flag for BSS segment (all data must be 0, PC not updated)
@@ -138,7 +142,8 @@ __asm_linenum: .word 0
 ; if 0 (direct mode):
 ;   lines will be assembled directly to memory at the address in
 ;   zp::asmresult
-asm_mode: .byte 0
+.export __asm_mode
+__asm_mode: .byte 0
 
 ;*******************************************************************************
 ; ASMBUFFER
@@ -268,7 +273,7 @@ directives_len=*-directives
 .define directive_vectors definebyte, defineconst, defineword, includefile, \
 defineorg, define_psuedo_org, repeat, macro, do_if, do_else, do_endif, \
 do_ifdef, create_macro, handle_repeat, incbinfile, import, export, \
-directive_segment
+directive_seg
 .linecont -
 
 directive_vectorslo: .lobytes directive_vectors
@@ -822,12 +827,12 @@ num_illegals = *-illegal_opcodes
 	adc #$00
 	sta @tmp+1
 
-	lda operand	; LSB of operand
+	lda operand		; LSB of operand
 	sec
 	sbc @tmp
 	sta operand		; overwrite operand with new relative address
 	tax
-	lda operand+1	; MSB of operand
+	lda operand+1		; MSB of operand
 	sbc @tmp+1		; MSB - >PC
 	beq @store_offset	; $00xx might be in range
 	cmp #$ff		; $ffxx might be in range
@@ -867,6 +872,7 @@ num_illegals = *-illegal_opcodes
 	lda operand
 	jsr writeb	; write the LSB
 	bcs @opdone	; if error, return
+	jsr write_reloc	; write relocation info (if assembling to OBJ)
 
 ;------------------
 ; store debug info if enabled
@@ -932,7 +938,7 @@ num_illegals = *-illegal_opcodes
 .endproc
 
 ;*******************************************************************************
-; DO_LABEL
+; DO LABEL
 ; State machine component
 ; Extracts the label from the line
 ; On pass 1, adds the label to the symbol table
@@ -968,11 +974,14 @@ num_illegals = *-illegal_opcodes
 	jsr lbl::getaddr
 	bcs @ret
 	cmpw zp::label_value
-	beq @ok
+	beq @addinfo
 	lda #ERR_LABEL_NOT_KNOWN_PASS1
 	sec
 	rts
 
+@addinfo:
+	; on pass 2 add info about the symbol (if assembling to object code)
+	jsr obj::add_symbol_info
 @ok:	ldxy zp::line
 @done:	clc
 @ret:	rts
@@ -1490,7 +1499,7 @@ num_illegals = *-illegal_opcodes
 @ok:	; store the extracted value
 	ldy #$00
 	txa
-	jsr writeb
+	jsr writeb_with_reloc
 	bcs @ret
 	jsr incpc
 	jmp @commaorws
@@ -1544,7 +1553,7 @@ num_illegals = *-illegal_opcodes
 	; store the extracted value
 	tya
 	ldy #$01
-	jsr writeb
+	jsr writeb_with_reloc	; this byte is relocatable
 	bcs @ret		; return error
 	txa
 	dey
@@ -1619,8 +1628,21 @@ num_illegals = *-illegal_opcodes
 ; Handles the `.SEG` directive
 ; This directive is only valid when assembling to object. It creates a new
 ; SECTION in the object file, closing the current one (if one exists)
-.proc directive_segment
-	; TODO
+.proc directive_seg
+	; set the PC to 0 so that labels have the value of their offset
+	; from the beginning of their section
+	ldx #$00
+	stx zp::virtualpc
+	stx zp::virtualpc+1
+	stx zp::asmresult
+	stx zp::asmresult+1
+
+	inx
+	stx pcset	; linker will take care of setting PC
+
+	; TODO:
+
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -2781,12 +2803,48 @@ __asm_include:
 	jsr vmem::writable
 	bcc :+
 	lda #ERR_PC_TARGET_UNWRITABLE
+	;sec
 	rts			; address is not writable
 
 :	jsr vmem::store_off
-	ldx @savex
+@done:	ldx @savex
 	ldy @savey
-@ok:	RETURN_OK
+@ok:	clc
+:	rts			; <- write_reloc
+.endproc
+
+;*******************************************************************************
+; WRITE RELOC
+; If assembling to object code, writes the relocation information
+; IN:
+;   - .A:                       size of the value to relocate (1 or 2)
+;   - expr::require_relocation: !0 if we should use symbol as base address
+;   - expr::global_sym:         the symbol ID to relocate relative to
+;   - expr::num_globals:        !0 if symbol should be used as relocation base
+.proc write_reloc
+	ldx zp::pass
+	cpx #$01
+	beq :-				; -> rts (no relocation on pass 1)
+	ldx __asm_mode
+	beq :-				; -> rts (no relocation in DIRECT mode)
+	ldx expr::requires_reloc
+	beq :-				; -> rts (expression fully resolved)
+
+	; writing to OBJ- add  new relocation entry to the relocation table
+	; if a global was referenced (expr::global_sym) this will produce
+	; relocation relative to the referenced symbol
+	; if not, it will just mark the address for relocation and the PC
+	; at link time will be added to it
+	jmp obj::addreloc
+.endproc
+
+;*******************************************************************************
+; WRITE BYTE WITH RELOC
+; Writes the given byte out with relocation information
+.proc writeb_with_reloc
+	jsr writeb
+	bcs :-			; -> rts
+	jmp write_reloc
 .endproc
 
 ;*******************************************************************************
