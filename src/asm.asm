@@ -2809,8 +2809,9 @@ __asm_include:
 :	jsr vmem::store_off
 @done:	ldx @savex
 	ldy @savey
+:				; <- write_reloc
 @ok:	clc
-:	rts			; <- write_reloc
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -2822,11 +2823,11 @@ __asm_include:
 ;   - expr::global_sym:         the symbol ID to relocate relative to
 ;   - expr::num_globals:        !0 if symbol should be used as relocation base
 .proc write_reloc
+	ldx __asm_mode
+	beq :-				; -> rts (no relocation in DIRECT mode)
 	ldx zp::pass
 	cpx #$01
 	beq :-				; -> rts (no relocation on pass 1)
-	ldx __asm_mode
-	beq :-				; -> rts (no relocation in DIRECT mode)
 	ldx expr::requires_reloc
 	beq :-				; -> rts (expression fully resolved)
 
