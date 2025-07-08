@@ -93,7 +93,7 @@ __file_save_address_end = rd
 .export __file_load_bin
 .proc __file_load_bin
 	ldx #$00
-	sta isvirtual
+	stx isvirtual
 	inx
 	stx isbin
 	bne load
@@ -332,7 +332,7 @@ __file_load_src:
 	sta r0+1
 	jsr str::cat	; filename + ",p,w"
 	lda #$03	; SA
-	jmp __file_open
+	bne __file_open
 .PUSHSEG
 .RODATA
 @p_w:	.byte ",p,w",0
@@ -350,7 +350,9 @@ __file_load_src:
 .export __file_open_r
 .proc __file_open_r
 	lda #$03	; SA
-	bne __file_open
+	skw
+
+	; fall through to __file_open
 .endproc
 
 ;*******************************************************************************
@@ -359,7 +361,8 @@ __file_load_src:
 .export __file_open_r_prg
 .proc __file_open_r_prg
 	lda #$00
-	; fall through
+
+	; fall through to __file_open
 .endproc
 
 ;*******************************************************************************

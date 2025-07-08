@@ -12,6 +12,8 @@
 ; INC
 ; Increments the line pointer, which points to the current character being read
 ; during assembly or other parsing (e.g. expression evaluation)
+; OUT:
+;   - .Z: effectively always clear (unless line wrapped to 0)
 .export __line_inc
 .proc __line_inc
 	incw zp::line

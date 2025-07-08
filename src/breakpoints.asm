@@ -50,7 +50,6 @@ BREAKPOINT_ENABLED = 1
 .word ui::render_breakpoint		; get line handler
 .word dbg::numbreakpoints		; # of breakpoints pointer
 .word strings::breakpoints_title	; title
-.POPSEG
 
 ;--------------------------------------
 @getkey:
@@ -69,6 +68,7 @@ BREAKPOINT_ENABLED = 1
 	jsr dbg::removebreakpoint
 @done:	RETURN_OK
 .endproc
+.POPSEG
 
 ;*******************************************************************************
 ; TOGGLE_BREAKPOINT

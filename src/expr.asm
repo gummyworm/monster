@@ -32,16 +32,22 @@ end_on_whitespace: .byte 0
 .export __expr_global_id
 __expr_global_id: .word 0
 
-.export __expr_numglobals
-__expr_numglobals: .byte 0		; error if > 1
+;******************************************************************************
+; OPERATOR for the EXTERNAL symbol referenced in expression (if any)
+.export __expr_global_op
+__expr_global_op: .word 0
+
+.export __expr_contains_global
+__expr_contains_global: .byte 0		; if !0, expression references global
 
 ;******************************************************************************
 ; REQUIRES RELOC
 ; Set if the expression contains 1 or more labels.
 ; In the context of assembly, this tells the assembler that it must produce a
 ; relocation for this expression
-; NOTE: if expr::requires_reloc is !0 but numglobals is also 0, this means we
-; need to relocate relative to the section at link-time (not relative to label)
+; NOTE: if expr::requires_reloc is !0 but contains_global is also 0, this means
+; we need to relocate relative to the section at link-time (not relative to
+; label)
 .export __expr_requires_reloc
 __expr_requires_reloc: .byte 0
 
@@ -62,6 +68,11 @@ __expr_requires_reloc: .byte 0
 ;******************************************************************************
 ; EVAL
 ; Resolves the contents of the given zp::line and returns its evaluated value
+; If evaluating an expression that contains an external (imported) symbol,
+; that symbol must be the first in the expression and its operation must be
+; immediately after that
+; e.g. `GLOBAL + (rest of expr)`
+;
 ; IN:
 ;  - zp::line: pointer to the expression to evaluate
 ; OUT:
@@ -80,22 +91,43 @@ __expr_requires_reloc: .byte 0
 @operators=$128+1
 @operands=@operators+MAX_OPERATORS
 @priorities=@operands+(MAX_OPERANDS*2)
-	lda #$00
-	sta @num_operators
-	sta @num_operands
-	sta __expr_requires_reloc
-	sta __expr_numglobals
-	tay
-
-	; by default flag that operator might be unary
-	lda #$01
-	sta @may_be_unary
+	ldy #$00
+	sty @num_operators
+	sty @num_operands
+	sty __expr_requires_reloc
+	sty __expr_contains_global
 
 	lda (zp::line),y
-	bne @l0
+	bne :+
 	sec
 	rts			; no expression
 
+:	; by default flag that operator might be unary
+	iny
+	sty @may_be_unary
+
+@chkglobal:
+	; if there is an external symbol in the expression it MUST be the
+	; first (leftmost) label in the expression
+	lda asm::mode
+	beq @l0
+	jsr get_label
+	bcc @l0			; not a label (or not a valid one) -> continue
+	inc __expr_requires_reloc
+	jsr lbl::isglobal
+	bne @l0			; not global -> continue
+
+	ldxy r2
+	stxy __expr_global_id	; set the ID for the global referenced
+	inc __expr_contains_global
+
+	jsr util::isoperator	; is there an operator too?
+	bne @l0
+	sta __expr_global_op	; store the operator
+	jsr line::incptr	; move past the operator
+
+;---------------------------------------
+; main expression processing loop
 @l0:	ldy #$00
 	lda (zp::line),y
 	jsr util::is_whitespace	; eat whitespace
@@ -136,13 +168,13 @@ __expr_requires_reloc: .byte 0
 	jsr @popop	; pop the parentheses
 
 	jsr line::incptr
-	jmp @l0		; and we're done evaluating this () block
+	bne @l0		; branch always - done evaluating this () block
 
 :	jsr @eval	; evaluate the top 2 operands
 	jmp @paren_eval
 
 @checkop:
-	ldy #$00
+	;ldy #$00
 	lda (zp::line),y
 	cmp #'*'		; '*' can be a value or operator
 	bne :+
@@ -153,10 +185,12 @@ __expr_requires_reloc: .byte 0
 	bne @getoperand
 	pha			; save the operator
 	jsr @priority		; get the priority of this operator
+
 @process_ops:
 	ldx @num_operators	; any operators to the left?
 	beq @process_ops_done
 	dex
+
 	; if the operator to the left has >= priority, process it
 	cmp @priorities,x
 	beq :+
@@ -171,7 +205,7 @@ __expr_requires_reloc: .byte 0
 	jsr @pushop
 	jsr line::incptr
 	inc @may_be_unary
-	jmp @l0
+	bne @l0			; branch always
 
 @getoperand:
 	jsr isval
@@ -226,8 +260,7 @@ __expr_requires_reloc: .byte 0
 	dec @num_operands
 	dec @num_operands
 	ldx @num_operands
-	lda @operands+1,x
-	tay
+	ldy @operands+1,x
 	lda @operands,x
 	tax
 	rts
@@ -422,9 +455,10 @@ __expr_requires_reloc: .byte 0
 ; IN:
 ;  - .XY: pointer to the label to get the address of
 ; OUT:
-;  - .C is set if no label is found
-;  - .A: the size of the label's address
+;  - .C   is set if no label is found
+;  - .A:  the size of the label's address
 ;  - .XY: the value of the label
+;  - r2:  the ID of the label (if any)
 .proc get_label
 	jsr lbl::isvalid 	; if verifying, let this pass if label is valid
 	bcs @done
@@ -450,22 +484,9 @@ __expr_requires_reloc: .byte 0
 	pha
 
 	; labels are involved, relocation is required
-	lda asm::mode
-	beq :+
-
 	inc __expr_requires_reloc
 
-	; check if label used is "global"
-;	jsr lbl::isglobal
-;	bne :+
-
-@global:
-	; the label is "global", flag that a symbol is required
-	inc __expr_numglobals
-	jsr lbl::by_addr
-	stxy __expr_global_id	; set the ID for the global referenced
-
-:	; move the line pointer to the separator
+	; move the line pointer to the separator
 	ldy #$00
 @l0:	lda (zp::line),y
 	jsr util::isseparator

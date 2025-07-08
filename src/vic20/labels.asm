@@ -961,16 +961,19 @@ scope: .res 8 ; buffer containing the current scope
 ;  - .XY: the address of the label name to get the address of
 ; OUT:
 ;  - .XY: the address of the label
-;  - .C: is set if no label was found, clear if it was
-;  - .A: the size of the label
+;  - .C:  is set if no label was found, clear if it was
+;  - .A:  the size of the label
+;  - r2:  the ID of the label
 .proc address
 @table=r0
+@id=r2
 	jsr find	; get the id in YX
 	bcc :+
 	lda #ERR_LABEL_UNDEFINED
 	rts
 
-:	txa
+:	stxy @id
+	txa
 	asl
 	sta @table
 	tya

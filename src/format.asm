@@ -49,7 +49,6 @@
 ; OPCODE
 ; Formats linebuffer as an opcode.
 .proc opcode
-@cnt=r8
 	; indent the linebuffer and source
 	lda #$09
 	jmp src::insert
