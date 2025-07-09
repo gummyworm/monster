@@ -59,6 +59,7 @@ BREAKPOINT_ENABLED = 1
 	txa
 	jsr toggle_breakpoint
 	RETURN_OK
+
 @chkdel:
 	cmp #K_DEL		; DEL
 	bne @done

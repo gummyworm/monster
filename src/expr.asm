@@ -30,15 +30,18 @@ end_on_whitespace: .byte 0
 ; This is used to provide the symbol reference for expressions in object code
 ; Such expressions must be simplified to this external symbol + an offset
 .export __expr_global_id
-__expr_global_id: .word 0
+__expr_global_id = zp::expr+7
 
 ;******************************************************************************
 ; OPERATOR for the EXTERNAL symbol referenced in expression (if any)
 .export __expr_global_op
-__expr_global_op: .word 0
+__expr_global_op = zp::expr+9
 
 .export __expr_contains_global
-__expr_contains_global: .byte 0		; if !0, expression references global
+__expr_contains_global = zp::expr+10	; if !0, expression references global
+
+.export __expr_global_postproc
+__expr_global_postproc = zp::expr+11	; 0=none, 1=LSB, 2=MSB
 
 ;******************************************************************************
 ; REQUIRES RELOC
@@ -69,9 +72,13 @@ __expr_requires_reloc: .byte 0
 ; EVAL
 ; Resolves the contents of the given zp::line and returns its evaluated value
 ; If evaluating an expression that contains an external (imported) symbol,
-; that symbol must be the first in the expression and its operation must be
+; there is some slightly stricter syntax required.
+; That symbol must be the first in the expression and its operation must be
 ; immediately after that
 ; e.g. `GLOBAL + (rest of expr)`
+; If post-processing is to be used, it must be the FIRST character of the
+; expression. Do not use parentheses.
+; e.g. `<GLOBAL+3`
 ;
 ; IN:
 ;  - zp::line: pointer to the expression to evaluate
@@ -111,7 +118,23 @@ __expr_requires_reloc: .byte 0
 	; first (leftmost) label in the expression
 	lda asm::mode
 	beq @l0
-	jsr get_label
+
+	; check first char for post-processing info (LSB or MSB)
+	ldy #$00
+	lda (zp::line),y
+	ldx #$00
+	cmp #'<'
+	bne :+
+	inx
+:	cmp #'>'
+	bne :+
+	inx
+:	stx __expr_global_postproc
+	txa			; set .Z flag if no post-processing found
+	beq :+
+	jsr line::incptr	; if post-processing was found consume it
+
+:	jsr get_label
 	bcc @l0			; not a label (or not a valid one) -> continue
 	inc __expr_requires_reloc
 	jsr lbl::isglobal
@@ -571,7 +594,7 @@ __expr_requires_reloc: .byte 0
 ;  -.C: set on error and clear if a value was extracted.
 .export __expr_getval
 .proc __expr_getval
-@val=zp::expr+6
+@val=zp::expr
 	ldy #$00
 	sty @val
 	sty @val+1

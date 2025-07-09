@@ -134,11 +134,9 @@ SECTIONs begin with their own header, which defines the size and position of the
 
 | field           | size | description
 |-----------------|------|-------------------------------------------------------
+|  name           |  8   | name of the SEGMENT for this section
 |  code size      |  2   | size of the object-code binary table for the section
-|  abs reloc size |  2   | size of the absolute relocation table
-|  zp reloc size  |  2   | size of the zeropage relocation table
-|  sym reloc size |  2   | size of the symbol relocation table
-
+|  reloc size     |  2   | size of the relocation table for the section
 
 A new _section_ is created any time a .SEGMENT directive is encountered (even if the segment alaready exists).
 

@@ -13,6 +13,7 @@
 .import __util_isoperator
 .import __util_is_separator
 .import __util_is_alphanum
+.import __util_parse_enquoted_line
 .import __util_parse_enquoted_string
 
 .scope util
@@ -23,6 +24,7 @@
 	isoperator            = __util_isoperator
 	isseparator           = __util_is_separator
 	is_whitespace         = __util_is_whitespace
+	parse_enquoted_line   = __util_parse_enquoted_line
 	parse_enquoted_string = __util_parse_enquoted_string
 	parsehex	      = __util_parsehex
 	todec                 = __util_todec

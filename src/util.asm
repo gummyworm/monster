@@ -503,7 +503,25 @@ result=mem::spare
 .endproc
 
 ;*******************************************************************************
-; PARSE_ENQUOTED_STRING
+; PARSE ENQUOTED LINE
+; Calls util::parse_enquoted_string with zp::line and stores the result
+; in $100
+; IN:
+;   - zp::line: the string to parse
+; OUT:
+;   - $100: the parsed string
+;   - .C:   set if the given string was not valid
+.export __util_parse_enquoted_line
+.proc __util_parse_enquoted_line
+	ldxy #$100
+	stxy r0
+
+	ldxy zp::line
+	; fall through to __util_parse_enquoted_string
+.endproc
+
+;*******************************************************************************
+; PARSE ENQUOTED STRING
 ; Parses an enquoted text string in returns the text that is within the quotes
 ; at the given destination address
 ; returns the length in .A ($ff if no string was found)

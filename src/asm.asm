@@ -1629,6 +1629,7 @@ num_illegals = *-illegal_opcodes
 ; This directive is only valid when assembling to object. It creates a new
 ; SECTION in the object file, closing the current one (if one exists)
 .proc directive_seg
+@name=$100
 	; set the PC to 0 so that labels have the value of their offset
 	; from the beginning of their section
 	ldx #$00
@@ -1640,9 +1641,13 @@ num_illegals = *-illegal_opcodes
 	inx
 	stx pcset	; linker will take care of setting PC
 
-	; TODO:
+	; get the name of the segment
+	jsr util::parse_enquoted_line
+	bcc @add
+	rts		; error
 
-	rts
+@add:	; create a new SECTION for the parsed SEGMENT name
+	jmp obj::add_section
 .endproc
 
 ;*******************************************************************************
@@ -1657,12 +1662,7 @@ num_illegals = *-illegal_opcodes
 	lda #ASM_DIRECTIVE
 	RETURN_OK		; don't include a file when verifying
 
-@cont:	lda #<@filename
-	sta r0
-	lda #>@filename
-	sta r0+1
-	ldxy zp::line
-	jsr util::parse_enquoted_string
+@cont:	jsr util::parse_enquoted_line
 	bcs @ret
 
 	ldxy #@filename
@@ -1709,12 +1709,7 @@ num_illegals = *-illegal_opcodes
 ;  Stores the corresponding lines for addresses of assembled code
 .proc includefile
 @filename=$100
-	lda #<@filename
-	sta r0
-	lda #>@filename
-	sta r0+1
-	ldxy zp::line
-	jsr util::parse_enquoted_string
+	jsr util::parse_enquoted_line
 	bcc :+
 	rts			; failed to parse filename
 :	ldxy #@filename
@@ -2831,7 +2826,7 @@ __asm_include:
 	ldx expr::requires_reloc
 	beq :-				; -> rts (expression fully resolved)
 
-	; writing to OBJ- add  new relocation entry to the relocation table
+	; add  new relocation entry to the relocation table
 	; if a global was referenced (expr::global_sym) this will produce
 	; relocation relative to the referenced symbol
 	; if not, it will just mark the address for relocation and the PC

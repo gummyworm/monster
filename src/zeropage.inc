@@ -68,13 +68,13 @@ bankoffset = $a6	; offset for relative reads/writes
 bankaddr0  = $a7
 bankaddr1  = $a9
 
-; * $ac-$b4 is reserved for miscellaneous isolated routines *
+; * $ab-$b6 is reserved for miscellaneous isolated routines *
 ; These routines should not call any of the other routines that share these
 ; zeropage allocations
 ;  - text
 ;  - expressions
-text = $ac
-expr = $ac
+text = $ab
+expr = $ab
 
 ; * $b7-$c0 reserved for file stuff *
 ;namelen = $b7	; filename length (SETLFS)
