@@ -107,6 +107,20 @@ __obj_add_reloc:
 .segment "OBJCODE"
 
 ;*******************************************************************************
+; INIT
+; Clears the object state in preparation for a new object file to be assembled
+.export __obj_init
+.proc __obj_init
+	lda #$00
+	sta numsections
+	sta numsymbols
+	sta numsymbols+1
+	ldxy #reloc_tables
+	stxy reloctop
+	rts
+.endproc
+
+;*******************************************************************************
 ; GLOBAL
 ; Adds/updates a symbol in the symbol table for the object file being generated
 ; and marks it as GLOBAL.
@@ -127,35 +141,49 @@ __obj_add_reloc:
 ; building the object file. The actual address of the code within the section
 ; will be determined by the linker when the program is linked.
 ; IN:
-;   - .XY:  the physical address to begin the section at
-;   - $100: the name of the SEGMENT for the SECTION
+;   - zp::asmresult:  the physical address to begin the section at
+;   - $100:           the name of the SEGMENT for the SECTION
 .export __obj_add_section
 .proc __obj_add_section
 @name=$100
 @namedst=r0
-	txa
-	ldx numsections
-	sta sections_startlo,x
-
 	; set start address and size
 	; start[numsections] = .XY
 	; if numsections > 0:
 	;   size = (start[numsections-1] - start[numsections])
-	cpx #$00
-	beq :+
+	ldx numsections
+	beq @sizedone
+
+	; set the size for the previous section
+	lda zp::asmresult
 	sec
 	sbc sections_startlo-1,x
 	sta sections_sizelo-1,x
+	lda zp::asmresult+1
+	sbc sections_starthi-1,x
+	sta sections_sizehi-1,x
 
-:	tya
-	sta sections_starthi,x
+	; set the size for the previous section's relocation table
+	lda reloctop
+	sec
+	sbc sections_relocstartlo-1,x
+	sta sections_relocsizelo-1,x
+	lda reloctop+1
+	sbc sections_relocstarthi-1,x
+	sta sections_relocsizehi-1,x
 
-	sbc sections_startlo-1,x
-	cpx #$00
-	beq :+
-	sta sections_sizelo-1,x
+@sizedone:
+	lda zp::asmresult
+	sta sections_startlo,x	; set obj section start LSB
+	lda zp::asmresult+1
+	sta sections_starthi,x	; set obj section start MSB
 
-:	; copy the SEGMENT name
+	lda reloctop
+	sta sections_relocstartlo,x	; set reloc start LSB
+	lda reloctop+1
+	sta sections_relocstarthi,x	; set reloc start MSB
+
+	; copy the SEGMENT name
 	lda numsections
 	asl
 	asl
@@ -168,15 +196,18 @@ __obj_add_reloc:
 
 	ldy #$00
 @l0:	lda @name,y
-@l1:	sta (@namedst),y
+	sta (@namedst),y
 	beq :+
 	iny
 	cpy #MAX_SEGMENT_NAME_LEN
-	bne @l0
+	bcc @l0
+
 :	; pad remainder of buffer with 0's
+	lda #$00
+@l1:	sta (@namedst),y
 	iny
 	cpy #MAX_SEGMENT_NAME_LEN
-	bne @l0
+	bcc @l1
 
 @done:	inc numsections
 	rts

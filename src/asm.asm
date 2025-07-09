@@ -1614,6 +1614,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 
 	lda #$02
 	jsr addpc
+
 @commaorws:
 	ldy #$00
 	lda (zp::line),y
