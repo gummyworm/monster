@@ -10,6 +10,7 @@
 .include "labels.inc"
 .include "macros.inc"
 .include "ram.inc"
+.include "vmem.inc"
 .include "zeropage.inc"
 
 .export __obj_opcode  = r0
@@ -43,13 +44,8 @@ SYM_ABS_EXPORT_BYTE = 5
 SYM_ABS_EXPORT_WORD = 6
 
 ;*******************************************************************************
-; ZEROPAGE VARIABLES
-top    = r0	; TODO: pointer to end of object code for current section
-symobl = r0	; TODO: pointer to current symbol table end
-reloctop: .word 0	; pointer to top of relocation table being built
-
-;*******************************************************************************
 .segment "OBJBSS"
+reloctop: .word 0	; pointer to top of relocation table being built
 
 ;*******************************************************************************
 ; SECTIONS
@@ -65,9 +61,8 @@ sections_relocstarthi: .res MAX_SECTIONS
 sections_relocsizelo:  .res MAX_SECTIONS
 sections_relocsizehi:  .res MAX_SECTIONS
 
-numsections:   .byte 0	; total number of sections in obj file being written
-
-numsymbols: .word 0
+numsections: .byte 0	; total number of sections in obj file being written
+numsymbols:  .word 0	; total number of symbols in obj file being written
 
 ;*******************************************************************************
 ; SYMBOL INFO
@@ -260,15 +255,6 @@ __obj_add_reloc:
 	bcc :+
 	inc reloctop+1
 :	rts
-
-;******************************************************************************
-; REQUIRES RELOC
-; Set if the expression contains 1 or more labels.
-; In the context of assembly, this tells the assembler that it must produce a
-; relocation for this expression
-.export quiroc
-quiroc: .byte 0
-	rts
 .endproc
 
 ;******************************************************************************
@@ -456,6 +442,71 @@ quiroc: .byte 0
 .endproc
 
 ;*******************************************************************************
+; DUMP SECTIONS
+; Dumps the sections for the object file in construction.
+.proc dump_sections
+@sec=r0
+@sz=r2
+@cnt=r4
+	lda #$00
+	sta @cnt
+
+@l0:	; get address and size of the section to dump
+	ldx @cnt
+	lda sections_startlo,x
+	sta @sec
+	lda sections_starthi,x
+	sta @sec+1
+	lda sections_sizelo,x
+	sta @sz
+	lda sections_sizehi,x
+	sta @sz+1
+
+@objloop:
+	; dump the object code for the section
+	ldxy @sec
+	CALL FINAL_BANK_MAIN, vmem::load	; load a byte of object code
+	jsr $ffd2
+	incw @sec
+
+	lda @sz
+	beq :+
+	dec @sz+1
+	bmi @reloc
+:	dec @sz
+	jmp @objloop
+
+@reloc:	; then dump the relocation table
+	lda sections_relocstartlo,x
+	sta @sec
+	lda sections_relocstarthi,x
+	sta @sec+1
+	lda sections_relocsizelo,x
+	sta @sz
+	lda sections_relocsizehi,x
+	sta @sz+1
+	ldy #$00
+@relocloop:
+	lda (@sec),y
+	jsr $ffd2
+	incw @sec
+	lda @sz
+	beq :+
+	dec @sz+1
+	bmi @dbgi
+:	dec @sz
+	jmp @relocloop
+
+@dbgi:	; and finally, dump the debug info for the table
+	; TODO:
+
+@next:	inc @cnt
+	lda @cnt
+	cmp numsections
+	bne @l0
+.endproc
+
+;*******************************************************************************
 ; DUMP
 ; Writes the complete object file to the given filename using the state built
 ; from the most recent successful assembly.
@@ -486,7 +537,7 @@ quiroc: .byte 0
 	jsr dump_symbols
 
 	; write each SECTION that was built
-	; TODO:
+	jsr dump_sections
 
 	clc			; ok
 @done:	rts
