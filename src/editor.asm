@@ -35,6 +35,7 @@
 .include "macros.inc"
 .include "memory.inc"
 .include "monitor.inc"
+.include "object.inc"
 .include "ram.inc"
 .include "runtime.inc"
 .include "screen.inc"
@@ -381,6 +382,26 @@ main:	jsr key::getch
 
 	; display the success/failure
 
+@done:	jmp irq::on
+.endproc
+
+;******************************************************************************
+; COMMAND ASM TO OBJ
+; Assembles the entire source of the active source buffer to an object file
+; of the given name
+.proc command_asm_obj
+@fileid=zp::editortmp
+	jsr irq::off
+	jsr file::open_w			; open the output filename
+	bcs @done
+	sta @fileid
+
+	ldxy #strings::dumping
+	jsr print_info
+
+	CALL FINAL_BANK_LINKER, obj::dump
+	lda @fileid
+	jsr file::close
 @done:	jmp irq::on
 .endproc
 
@@ -2845,13 +2866,14 @@ goto_buffer:
 	.byte $61	; a - assemble file
 	.byte $42	; B - create .BIN
 	.byte $50	; P - create .PRG
+	.byte $70	; p - create .OBJ file
 @num_ex_commands=*-@ex_commands
 
 .linecont +
 .define ex_command_vecs command_go, command_debug, \
 	__edit_load, command_rename, command_save, command_saveall, \
 	command_scratch, command_assemble_file, \
-	command_savebin, command_saveprg
+	command_savebin, command_saveprg, command_asm_obj
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs

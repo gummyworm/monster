@@ -76,6 +76,9 @@ __str_watches_title: .byte ESCAPE_SPACING,16, "watches",0
 .export __str_dir
 __str_dir: .byte "$",0
 
+.export __str_dumping
+__str_dumping: .byte "dumping...",0
+
 .export __str_memory
 __str_memory: .byte "memory",0
 

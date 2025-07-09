@@ -99,7 +99,6 @@ lda #$00
 Each section has its own block of object code, relocation table, and debug information table.  The offset of the section name is also the ID (index) for these tables.
 The SECTION. The linker will concatenate all the SECTIONs that reference the same SEGMENT when the program is linked
 
-
 | size |  description
 |------|---------------------------------------------------------
 |  16  | SEGMENT name (where to write SECTION to)

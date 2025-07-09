@@ -441,6 +441,24 @@ result=mem::spare
 .endproc
 
 ;*******************************************************************************
+; IS_SEPARATOR
+; Checks if the given byte represents a "separator". A separator is any of:
+;  0, $0d, ' ', ',', ')', or any operator character
+; IN:
+;   - .A: the byte to check
+; OUT:
+;   - .Z: set if the given byte represents a "separator"
+.export __util_is_separator
+.proc __util_is_separator
+	cmp #':'
+	beq @yes
+	jsr __util_is_null_return_space_comma_closingparen_newline
+	bne :+
+@yes:	rts
+:	; fall through to __util_is_operator
+.endproc
+
+;*******************************************************************************
 ; IS_OPERATOR
 ; IN:
 ;  - .A: the character to test
@@ -459,26 +477,11 @@ result=mem::spare
 	ldx @xsave
 	plp
 	rts
+.PUSHSEG
+.RODATA
 @ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.', '<', '>'
 @numops = *-@ops
-.endproc
-
-;*******************************************************************************
-; IS_SEPARATOR
-; Checks if the given byte represents a "separator". A separator is any of:
-;  0, $0d, ' ', ',', ')', or any operator character
-; IN:
-;   - .A: the byte to check
-; OUT:
-;   - .Z: set if the given byte represents a "separator"
-.export __util_is_separator
-.proc __util_is_separator
-	cmp #':'
-	beq @yes
-	jsr __util_is_null_return_space_comma_closingparen_newline
-	bne :+
-@yes:	rts
-:	jmp __util_isoperator
+.POPSEG
 .endproc
 
 ;*******************************************************************************

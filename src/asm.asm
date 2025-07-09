@@ -428,6 +428,60 @@ num_illegals = *-illegal_opcodes
 .endproc
 
 ;*******************************************************************************
+; TOKENIZE_PASS
+; Based on the current pass (zp::pass), calls the appropriate routine to
+; handle assembly for that pass
+; IN:
+;  - .XY: the string to tokenize
+.export __asm_tokenize_pass
+.proc __asm_tokenize_pass
+	pha
+	lda zp::pass
+	cmp #$02
+	pla
+	bcc __asm_tokenize_pass1
+
+	; fall through
+.endproc
+
+;*******************************************************************************
+; TOKENIZE_PASS2
+; Calls tokenize and generated debug info (if enabled)
+; IN:
+;  - .A:  the bank that the line to assemble resides in
+;  - .XY: the line to assemble
+;  - .C:  set if an error occurred
+.export __asm_tokenize_pass2
+.proc __asm_tokenize_pass2
+	jsr __asm_tokenize
+	bcs @done	; return err
+
+	; store debug info (if enabled)
+	ldx zp::gendebuginfo
+	beq @retok
+	cmp #ASM_ORG
+	bne @ok
+
+@org:	; if we assembled a .ORG in pass 2, create a new block at the new address
+	ldxy zp::virtualpc	; address of new block
+	jmp dbgi::newblock	; create a block
+	bcs @done
+@retok:	lda #$00
+@ok:	clc
+@done:	rts
+.endproc
+
+;*******************************************************************************
+; TOKENIZE_PASS1
+; Calls tokenize on the given line
+; IN:
+;  - .A:  the bank that the line to assemble resides in
+;  - .XY: the line to assemble
+;  - .C:  set if an error occurred
+.export __asm_tokenize_pass1
+__asm_tokenize_pass1 = __asm_tokenize
+
+;*******************************************************************************
 ; TOKENIZE
 ; Assembles the string at (YX) into an instruction in (asm::result)
 ; if (YX) contains an instruction.  Any labels or comments encountered are
@@ -860,19 +914,20 @@ num_illegals = *-illegal_opcodes
 @store_value:
 	lda operandsz
 	beq @dbg		; if no operand, continue
+	ldy #$01		; offset to operand
 	cmp #$01
-	beq @store_lsb		; if 1 byte operand, skip writing MSB
-@store_msb:
-	ldy #$02
+	beq @store_byte
+
+@store_word:
 	lda operand+1
-	jsr writeb	; write the MSB (or garbage)
+	ldx operand
+	jsr writew_with_reloc
 	bcs @opdone	; if unsucessful, return err
-@store_lsb:
-	ldy #$01
+
+@store_byte:
 	lda operand
-	jsr writeb	; write the LSB
-	bcs @opdone	; if error, return
-	jsr write_reloc	; write relocation info (if assembling to OBJ)
+	jsr writeb_with_reloc	; write the LSB
+	bcs @opdone		; if error, return
 
 ;------------------
 ; store debug info if enabled
@@ -921,6 +976,8 @@ num_illegals = *-illegal_opcodes
 	beq @err
 	dex
 	bpl :-
+
+; if instruction is not illegal (invalid), write out its opcode
 	jsr writeb
 	bcc @noerr
 	rts		; return err
@@ -1496,6 +1553,7 @@ num_illegals = *-illegal_opcodes
 	cmp #$01
 	beq @ok
 	RETURN_ERR ERR_OVERSIZED_OPERAND
+
 @ok:	; store the extracted value
 	ldy #$00
 	txa
@@ -1550,15 +1608,9 @@ num_illegals = *-illegal_opcodes
 	ldxy zp::line
 	jsr expr::eval
 	bcs @err
+
 	; store the extracted value
-	tya
-	ldy #$01
-	jsr writeb_with_reloc	; this byte is relocatable
-	bcs @ret		; return error
-	txa
-	dey
-	jsr writeb
-	bcs @ret		; return error
+	jsr writew_with_reloc
 
 	lda #$02
 	jsr addpc
@@ -2593,62 +2645,6 @@ __asm_include:
 .endproc
 
 ;*******************************************************************************
-; TOKENIZE_PASS
-; Based on the current pass (zp::pass), calls the appropriate routine to
-; handle assembly for that pass
-; IN:
-;  - .XY: the string to tokenize
-.export __asm_tokenize_pass
-.proc __asm_tokenize_pass
-	pha
-	lda zp::pass
-	cmp #$02
-	pla
-	bcs __asm_tokenize_pass2
-
-; fall through
-.endproc
-
-;*******************************************************************************
-; TOKENIZE_PASS1
-; Calls tokenize on the given line
-; IN:
-;  - .A:  the bank that the line to assemble resides in
-;  - .XY: the line to assemble
-;  - .C:  set if an error occurred
-.export __asm_tokenize_pass1
-.proc __asm_tokenize_pass1
-	jmp __asm_tokenize	; assemble the line
-.endproc
-
-;*******************************************************************************
-; TOKENIZE_PASS2
-; Calls tokenize and generated debug info (if enabled)
-; IN:
-;  - .A:  the bank that the line to assemble resides in
-;  - .XY: the line to assemble
-;  - .C:  set if an error occurred
-.export __asm_tokenize_pass2
-.proc __asm_tokenize_pass2
-	jsr __asm_tokenize
-	bcs @done	; return err
-
-	; store debug info (if enabled)
-	ldx zp::gendebuginfo
-	beq @retok
-	cmp #ASM_ORG
-	bne @ok
-
-@org:	; if we assembled a .ORG in pass 2, create a new block at the new address
-	ldxy zp::virtualpc	; address of new block
-	jmp dbgi::newblock	; create a block
-	bcs @done
-@retok:	lda #$00
-@ok:	clc
-@done:	rts
-.endproc
-
-;*******************************************************************************
 ; ISLINETERMINATOR
 ; IN:
 ;  .A: the character to check
@@ -2815,8 +2811,10 @@ __asm_include:
 ; IN:
 ;   - .A:                       size of the value to relocate (1 or 2)
 ;   - expr::require_relocation: !0 if we should use symbol as base address
-;   - expr::global_sym:         the symbol ID to relocate relative to
-;   - expr::num_globals:        !0 if symbol should be used as relocation base
+;   - expr::contains_global:    !0 if symbol should be used as relocation base
+;   - expr::global_id:          symbol ID to relocate relative to (if relevant)
+;   - expr::global_op:          operation to apply the relocation with
+;   - expr::global_postproc:    postprocessing to apply to global (if relevant)
 .proc write_reloc
 	ldx __asm_mode
 	beq :-				; -> rts (no relocation in DIRECT mode)
@@ -2835,11 +2833,36 @@ __asm_include:
 .endproc
 
 ;*******************************************************************************
-; WRITE BYTE WITH RELOC
+; WRITEB WITH RELOC
 ; Writes the given byte out with relocation information
+; IN:
+;   - .A: the byte to write
+;   - .Y: the offset from asmresult to write to
 .proc writeb_with_reloc
 	jsr writeb
 	bcs :-			; -> rts
+	lda #$01		; 1 byte
+	jmp write_reloc
+.endproc
+
+;*******************************************************************************
+; WRITEW WITH RELOC
+; Writes the given word out with relocation information
+; IN:
+;   - .XY: the word to write
+;   - .Y: the offset from asmresult to write to
+.proc writew_with_reloc
+	pha
+	txa
+	jsr writeb		; write LSB
+	pla
+	bcs :-			; -> rts
+
+	iny
+	jsr writeb		; write MSB
+	bcs :-			; -> rts
+	lda #$02		; 2 bytes
+	dey			; restore .Y
 	jmp write_reloc
 .endproc
 

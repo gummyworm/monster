@@ -186,11 +186,11 @@ __obj_add_reloc:
 ; ADD RELOC
 ; Adds a new relocation entry to the current object file in construction
 ; IN:
-;   - .X:                    the relocation size in bytes (1 or 2)
-;   - zp::asmresult:         the offset to apply the relocation at
+;   - .X:                    relocation size in bytes (1 or 2)
+;   - zp::asmresult:         offset to apply the relocation at
 ;   - expr::contains_global: !0 if symbol should be used as relocation base
-;   - expr::global_id:       the symbol ID to relocate relative to (if relevant)
-;   - expr::global_op:       the operation to apply the relocation with
+;   - expr::global_id:       symbol ID to relocate relative to (if relevant)
+;   - expr::global_op:       operation to apply the relocation with
 ;   - expr::global_postproc: postprocessing to apply to global (if relevant)
 .proc add_reloc
 @sz=r0
@@ -510,8 +510,8 @@ __obj_add_reloc:
 ; DUMP
 ; Writes the complete object file to the given filename using the state built
 ; from the most recent successful assembly.
-; IN:
-;   - .XY: the output filename
+; The file to dump to should be open and set as the output file before calling
+; this procedure.
 ; OUT:
 ;   - .C: set on error
 .export __obj_dump

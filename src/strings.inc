@@ -10,6 +10,7 @@
 .import __str_buffers
 .import __str_deleting
 .import __str_dir
+.import __str_dumping
 .import __str_edit_file_delete_failed
 .import __str_edit_file_load_failed
 .import __str_edit_file_save_failed
@@ -58,6 +59,7 @@
 	debug_stop_debugging    = __str_debug_stop_debugging
 	deleting                = __str_deleting
 	dir                     = __str_dir
+	dumping                 = __str_dumping
 	edit_file_load_failed   = __str_edit_file_load_failed
 	edit_file_delete_failed = __str_edit_file_delete_failed
 	edit_file_save_failed   = __str_edit_file_save_failed
