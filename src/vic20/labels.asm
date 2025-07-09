@@ -110,7 +110,6 @@ ID_BY_ADDR_INDEX
 procs_lo: .lobytes procs
 procs_hi: .hibytes procs
 
-.CODE
 __label_clr: LBLJUMP proc_ids::CLR
 __label_add: LBLJUMP proc_ids::ADD
 __label_find: LBLJUMP proc_ids::FIND

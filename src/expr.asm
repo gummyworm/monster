@@ -18,13 +18,6 @@
 MAX_OPERATORS = $10
 MAX_OPERANDS  = MAX_OPERATORS/2
 
-.BSS
-;******************************************************************************
-; END ON WHITESPACE
-; If !0, expr::eval will terminate parsing when whitespace is encountered.
-; If 0, whitespace is ignored
-end_on_whitespace: .byte 0
-
 ;******************************************************************************
 ; ID of the EXTERNAL symbol referenced in expression (if any)
 ; This is used to provide the symbol reference for expressions in object code
@@ -42,6 +35,14 @@ __expr_contains_global = zp::expr+10	; if !0, expression references global
 
 .export __expr_global_postproc
 __expr_global_postproc = zp::expr+11	; 0=none, 1=LSB, 2=MSB
+
+.BSS
+
+;******************************************************************************
+; END ON WHITESPACE
+; If !0, expr::eval will terminate parsing when whitespace is encountered.
+; If 0, whitespace is ignored
+end_on_whitespace: .byte 0
 
 ;******************************************************************************
 ; REQUIRES RELOC

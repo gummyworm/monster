@@ -149,7 +149,7 @@ debuginfo:
 	__debuginfo_get_fileid    = get_fileid
 .else
 .PUSHSEG
-.CODE
+.RODATA
 
 __debug_addr2line:        BANKJUMP dbgi_proc_ids::ADDR2LINE
 __debug_line2addr:        BANKJUMP dbgi_proc_ids::LINE2ADDR

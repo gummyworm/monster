@@ -1549,7 +1549,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	jsr line::process_ws
 	ldxy zp::line
 	jsr expr::eval
-	bcs @text
+	bcs @text				; invalid expr- try text
 	cmp #$01
 	beq @ok
 	RETURN_ERR ERR_OVERSIZED_OPERAND
@@ -2577,7 +2577,9 @@ __asm_include:
 	RETURN_ERR ERR_STACK_OVERFLOW
 
 :	; evaluate the condition for the .IF
+	; TODO: make sure expression resolvable (e.g. no globals)?
 	jsr expr::eval
+	bcs @done
 	txa
 	bne @true
 	tya
@@ -2591,7 +2593,8 @@ __asm_include:
 	ldx ifstacksp
 	sta ifstack,x
 	lda #ASM_DIRECTIVE
-	RETURN_OK
+	clc			; ok
+@done:	rts
 .endproc
 
 ;*******************************************************************************
