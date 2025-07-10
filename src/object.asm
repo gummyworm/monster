@@ -55,6 +55,7 @@ sections_starthi:  .res MAX_SECTIONS
 sections_sizelo:   .res MAX_SECTIONS
 sections_sizehi:   .res MAX_SECTIONS
 sections_segments: .res MAX_SEGMENT_NAME_LEN*MAX_SECTIONS ; name of target SEG
+sections_info:     .res MAX_SECTIONS
 
 sections_relocstartlo: .res MAX_SECTIONS
 sections_relocstarthi: .res MAX_SECTIONS
@@ -141,8 +142,11 @@ __obj_add_reloc:
 ; building the object file. The actual address of the code within the section
 ; will be determined by the linker when the program is linked.
 ; IN:
+;   - .A:             size/addressing mode (0=ZP, 1=ABS)
 ;   - zp::asmresult:  the physical address to begin the section at
 ;   - $100:           the name of the SEGMENT for the SECTION
+; OUT:
+;   - .C: set if the section could not be added
 .export __obj_add_section
 .proc __obj_add_section
 @name=$100
@@ -153,6 +157,12 @@ __obj_add_reloc:
 	;   size = (start[numsections-1] - start[numsections])
 	ldx numsections
 	beq @sizedone
+	cpx #MAX_SECTIONS
+	bne :+
+	;sec
+	rts
+
+:	pha				; save the size
 
 	; set the size for the previous section
 	lda zp::asmresult
@@ -171,8 +181,11 @@ __obj_add_reloc:
 	lda reloctop+1
 	sbc sections_relocstarthi-1,x
 	sta sections_relocsizehi-1,x
+	pla
 
 @sizedone:
+	sta sections_info,x
+
 	lda zp::asmresult
 	sta sections_startlo,x	; set obj section start LSB
 	lda zp::asmresult+1
@@ -210,7 +223,7 @@ __obj_add_reloc:
 	bcc @l1
 
 @done:	inc numsections
-	rts
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -295,7 +308,8 @@ __obj_add_reloc:
 ; IN:
 ;   - .XY: the ID of the symbol to get info for
 ; OUT:
-;   - .X: info
+;   - .A: the size of the symbol (in bytes)
+;   - .X: raw info byte for the symbol
 ;   - .Y: section ID of the label
 .export __obj_get_symbol_info
 .proc __obj_get_symbol_info
@@ -314,11 +328,15 @@ __obj_add_reloc:
 	inc @symtab+1
 
 :	ldy #$00
-	lda (@symtab),y
-	txa
+	lda (@symtab),y		; get the binding info
+	tax
 	iny
-	lda (@symtab),y
+	lda (@symtab),y		; get the section
 	tay
+
+	lda sections_info,y	; read the mode for the symbol's section
+	clc
+	adc #$01		; get # of bytes from address mode
 	rts
 .endproc
 
@@ -326,8 +344,8 @@ __obj_add_reloc:
 ; ADD SYMBOL INFO
 ; Adds symbol info to the symbol table for the current object file
 ; IN:
-;    - .X:              the section ID
-;    - .Y:              the type of symbol (GLOBAL, LOCAL)
+;    - .X: the section ID
+;    - .Y: the type of symbol (GLOBAL, LOCAL)
 .proc add_symbol_info
 @cnt=r0
 @info=r2
@@ -549,10 +567,7 @@ __obj_add_reloc:
 .proc __obj_dump
 @src=r0
 @cnt=r2
-	; open the output file for writing
-	CALL FINAL_BANK_MAIN, file::open_w
-	bcs @done				; failed to open file
-
+	jmp *
 	; write the main OBJ header
 	lda numsections			; # of sections
 	jsr $ffd2

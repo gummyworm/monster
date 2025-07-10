@@ -391,8 +391,21 @@ main:	jsr key::getch
 ; of the given name
 .proc command_asm_obj
 @fileid=zp::editortmp
+	; save the filename
+	stx @filename0
+	sty @filename1
+
+	; assemble the file to object
+	lda #$01
+	sta asm::mode			; assemble to object
+	jsr command_asmdbg
 	jsr irq::off
-	jsr file::open_w			; open the output filename
+
+@filename0=*+1
+	ldx #$00
+@filename1=*+1
+	ldy #$00
+	jsr file::open_w		; open the output filename
 	bcs @done
 	sta @fileid
 
@@ -2866,7 +2879,7 @@ goto_buffer:
 	.byte $61	; a - assemble file
 	.byte $42	; B - create .BIN
 	.byte $50	; P - create .PRG
-	.byte $70	; p - create .OBJ file
+	.byte $6f	; o - create .OBJ file
 @num_ex_commands=*-@ex_commands
 
 .linecont +

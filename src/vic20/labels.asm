@@ -15,7 +15,7 @@
 
 ;*******************************************************************************
 ; CONSTANTS
-MAX_ANON      = 750	; max number of anonymous labels
+MAX_ANON      = 700	; max number of anonymous labels
 SCOPE_LEN     = 8	; max len of namespace (scope)
 MAX_LABELS    = 750
 
@@ -205,6 +205,7 @@ label_addresses: .res MAX_LABELS*2
 .export label_addresses_sorted
 label_addresses_sorted:     .res MAX_LABELS*2
 label_addresses_sorted_ids: .res MAX_LABELS*2
+label_modes: .res MAX_LABELS / 8	; modes (0=absolute, 1=zeropage)
 
 ; address table for each anonymous label
 .export anon_addrs
@@ -441,12 +442,13 @@ scope: .res 8 ; buffer containing the current scope
 @dst=r8
 @cnt=ra
 @addr=rc
+@mode=r8
+@tmp=r9
 	sta allow_overwrite	; set overwrite flag (SET) or clear (ADD)
 
 	stxy @name
 	jsr is_valid
-	bcc @seek
-	rts			; return err
+	bcs @ret		; return err
 
 @seek:	; get the label length
 	ldy #$00
@@ -476,7 +478,8 @@ scope: .res 8 ; buffer containing the current scope
 	lda zp::label_value+1
 	sta (@addr),y
 
-	RETURN_OK
+	clc		; ok
+@ret:	rts
 
 @insert:
 	; @id is the index where the new label will live
@@ -490,9 +493,8 @@ scope: .res 8 ; buffer containing the current scope
 	; if local, prepend the scope
 	ldxy @name
 	jsr prepend_scope
-	bcc :+
-	rts			; return err
-:	stxy @name
+	bcs @ret		; return err
+	stxy @name
 
 ;------------------
 ; open a space for the new label by shifting everything left
@@ -546,10 +548,14 @@ scope: .res 8 ; buffer containing the current scope
 	dec @src+1
 
 :	; addr -= 2
-	decw @addr
-	decw @addr
+	lda @addr
+	sec
+	sbc #$02
+	sta @addr
+	bcs :+
+	dec @addr+1
 
-	; cnt = numlabels-id
+:	; cnt = numlabels-id
 	lda numlabels
 	sec
 	sbc @id
@@ -562,12 +568,15 @@ scope: .res 8 ; buffer containing the current scope
 	bne @sh0
 	ldxy @dst
 	stxy @src
-	incw @addr
-	incw @addr
-	jmp @storelabel
+	lda @addr
+	clc
+	adc #$02
+	sta @addr
+	bcc :+
+	inc @addr+1
+:	jmp @storelabel
 
-@sh0:
-	; copy the label (MAX_LABEL_LEN bytes) to the SYMBOL bank
+@sh0:	; copy the label (MAX_LABEL_LEN bytes) to the SYMBOL bank
 	ldy #MAX_LABEL_LEN-1
 :	lda (@src),y
 	sta (@dst),y
@@ -588,17 +597,62 @@ scope: .res 8 ; buffer containing the current scope
 	iszero @cnt
 	beq @storelabel
 
-	decw @addr
-	decw @addr
+	lda @addr
+	sec
+	sbc #$02
+	sta @addr
+	bcs :+
+	dec @addr+1
 
-	ldxy @src
+:	ldxy @src
 	sub16 #MAX_LABEL_LEN
 	stxy @src
 	ldxy @dst
 	sub16 #MAX_LABEL_LEN
 	stxy @dst
-	beq @storelabel
-	jmp @sh0
+	bne @sh0		; branch always
+
+@shift_modes:
+	; (id / 8) is the byte containing the mode we inserted
+	lda @id
+	sta @mode
+	lda @id+1
+	lsr
+	ror @mode
+	lsr
+	ror @mode
+	lsr
+	ror @mode
+	sta @mode+1
+
+	; mode should now be 1 byte max (assuming < 256*8 labels)
+	lda @id
+	and #$07
+	clc
+	beq :+
+
+	; if id%8 > 0 need to shift the bits right of id % 8 for 1st byte
+	; get mask of pixels to shift
+	; $82f8 %01111111
+	; $82f9 %00111111
+	; $82fa %00011111
+	; $82fb %00001111
+	; ....
+	ldx @mode
+	lda $82f8,x
+	and label_modes,x
+	lsr
+	sta @tmp
+	lda label_modes,x
+	and $8749,x
+	ora @tmp
+	sta label_modes,x
+
+:	; now shift the rest of the mode bytes right
+:	inx
+	ror label_modes,x
+	cpx #(MAX_LABELS/8)
+	bne :-
 
 ;------------------
 ; insert the label into the new opening
@@ -622,15 +676,14 @@ scope: .res 8 ; buffer containing the current scope
 @storeaddr:
 	; 0-terminate the label name and write the label value
 	lda #$00
-
 	sta (@src),y
 
+	tay			; .Y=0
 	lda zp::label_value
-	ldy #$00
-	sta (@addr),y
+	sta (@addr),y		; store LSB of value
 	lda zp::label_value+1
 	iny
-	sta (@addr),y
+	sta (@addr),y		; store MSB of value
 
 	incw numlabels
 	ldxy @id
@@ -775,7 +828,7 @@ scope: .res 8 ; buffer containing the current scope
 	cmp numanon
 	bne @l0		; loop til we've checked all anonymous labels
 
-	; none found, fall through to get last address
+	; none found, get last address and return
 	jsr @found
 	sec		; given address is > all in table
 	rts
@@ -792,7 +845,7 @@ scope: .res 8 ; buffer containing the current scope
 	adc #>anon_addrs
 	sta @seek+1
 	tay
-	clc
+	;clc
 	rts
 .endproc
 
@@ -819,10 +872,12 @@ scope: .res 8 ; buffer containing the current scope
 	ldxy #anon_addrs
 	stxy @seek
 
-	ldxy numanon
-	cmpw #0
+	ldx numanon
+	ldy numanon+1
+	bne :+
+	txa
 	beq @err		; no anonymous labels defined
-	stxy @cnt
+:	stxy @cnt
 
 @l0:	ldy #$01		; MSB
 	lda @addr+1
@@ -841,10 +896,14 @@ scope: .res 8 ; buffer containing the current scope
 	cmp (@seek),y		; check if our address is less than the seek one
 	bcc @f			; if our address is less, this is a fwd anon
 
-@next:	incw @seek
-	incw @seek
+@next:	lda @seek
+	clc
+	adc #$02
+	sta @seek
+	bcc :+
+	inc @seek+1
 
-	; loop until we run out of anonymous labels to search
+:	; loop until we run out of anonymous labels to search
 	lda @cnt
 	bne :+
 	dec @cnt+1
@@ -855,18 +914,13 @@ scope: .res 8 ; buffer containing the current scope
 
 @err:	RETURN_ERR ERR_LABEL_UNDEFINED
 
-@found:	ldy #$01
-	lda (@seek),y		; get the MSB of our anonymous label
-	pha
-	dey
-	lda (@seek),y		; get the LSB
+@found:	ldy #$00
+	lda (@seek),y		; get LSB of anonymous label address
 	tax
-	pla
+	iny
+	lda (@seek),y		; get the MSB of our anonymous label
 	tay
-	bne :+
-	lda #$01		; if MSB is 0, size is 1
-	skw
-:	lda #$02		; if MSB !0, size is 2
+	lda #$02		; always use 2 bytes for anon address size
 	RETURN_OK
 .endproc
 
@@ -939,15 +993,12 @@ scope: .res 8 ; buffer containing the current scope
 @err:	RETURN_ERR ERR_LABEL_UNDEFINED
 
 @found:	ldy #$00
-	lda (@seek),y		; get the MSB of our anonymous label
+	lda (@seek),y		; get LSB of anonymous label address
 	tax
 	iny
-	lda (@seek),y		; get the LSB
+	lda (@seek),y		; get the MSB of our anonymous label
 	tay
-	bne :+
-	lda #$01		; if MSB is 0, size is 1
-	skw
-:	lda #$02		; if MSB !0, size is 2
+	lda #$02		; always use 2 bytes for anon address size
 	RETURN_OK
 .endproc
 
@@ -1384,7 +1435,9 @@ scope: .res 8 ; buffer containing the current scope
 	bcc @l1
 @err:	RETURN_ERR ERR_ILLEGAL_LABEL
 @toolong:
-	RETURN_ERR ERR_LABEL_TOO_LONG
+	lda #ERR_LABEL_TOO_LONG
+	;sec
+	rts
 @done:	RETURN_OK
 .endproc
 
@@ -1472,6 +1525,21 @@ scope: .res 8 ; buffer containing the current scope
 .endproc
 
 ;******************************************************************************
+; ISSEPARATOR
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is any separator
+.proc isseparator
+	cmp #':'
+	beq @yes
+	jsr is_null_return_space_comma_closingparen_newline
+	bne :+
+@yes:	rts
+:	; fall through to isoperator
+.endproc
+
+;******************************************************************************
 ; IS_OPERATOR
 ; IN:
 ;  - .A: the character to test
@@ -1493,20 +1561,6 @@ scope: .res 8 ; buffer containing the current scope
 @numops = *-@ops
 .endproc
 
-;******************************************************************************
-; ISSEPARATOR
-; IN:
-;  - .A: the character to test
-; OUT:
-;  - .Z: set if the char in .A is any separator
-.proc isseparator
-	cmp #':'
-	beq @yes
-	jsr is_null_return_space_comma_closingparen_newline
-	bne :+
-@yes:	rts
-:	jmp isoperator
-.endproc
 
 ;******************************************************************************
 ; MACROS
@@ -1525,7 +1579,7 @@ scope: .res 8 ; buffer containing the current scope
 	sta @idi+1
 
 	lda @j
-	clc
+	;clc
 	adc #<(label_addresses_sorted_ids-label_addresses_sorted)
 	sta @idj
 	lda @j+1

@@ -611,16 +611,14 @@ __expr_requires_reloc: .byte 0
 	iny
 	lda (zp::line),y
 	jsr util::isseparator
-	beq :+
-	jmp @err
+	bne @err
 
-:	jsr line::incptr
+	jsr line::incptr
 	ldx zp::virtualpc
 	ldy zp::virtualpc+1
-	beq :+
+
+	; always use absolute (2-byte) addressing for '*'
 	lda #$02
-	skw
-:	lda #$01
 	RETURN_OK
 
 ;------------------

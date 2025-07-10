@@ -134,8 +134,14 @@ SECTIONs begin with their own header, which defines the size and position of the
 | field           | size | description
 |-----------------|------|-------------------------------------------------------
 |  name           |  8   | name of the SEGMENT for this section
+|  info           |  1   | info byte: zeropage/absolute etc.
 |  code size      |  2   | size of the object-code binary table for the section
 |  reloc size     |  2   | size of the relocation table for the section
+
+The info bitfield for the section is in the following format
+| field           | bit(s) | description
+|-----------------|------|-------------------------------------------------------
+|  size           |  0   | 0=zeropage, 1=absolute
 
 A new _section_ is created any time a .SEGMENT directive is encountered (even if the segment alaready exists).
 

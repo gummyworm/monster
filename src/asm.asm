@@ -266,6 +266,7 @@ directives:
 .byte "import",0
 .byte "export",0
 .byte "seg",0
+.byte "segzp",0
 directives_len=*-directives
 
 ;*******************************************************************************
@@ -273,7 +274,7 @@ directives_len=*-directives
 .define directive_vectors definebyte, defineconst, defineword, includefile, \
 defineorg, define_psuedo_org, repeat, macro, do_if, do_else, do_endif, \
 do_ifdef, create_macro, handle_repeat, incbinfile, import, export, \
-directive_seg
+directive_seg, directive_segzp
 .linecont -
 
 directive_vectorslo: .lobytes directive_vectors
@@ -1677,12 +1678,34 @@ __asm_tokenize_pass1 = __asm_tokenize
 .endproc
 
 ;*******************************************************************************
+; DIRECTIVE SEG ZP
+; Handles the `.SEGZP` directive
+; This directive is only valid when assembling to object. It creates a new
+; SECTION in the object file, closing the current one (if one exists)
+; The section created must be placed into the zeropage by the linker
+.proc directive_segzp
+	lda #$00		; zeropage addressing
+	skw
+
+	; fall through to directive_seg
+.endproc
+
+;*******************************************************************************
 ; DIRECTIVE SEG
 ; Handles the `.SEG` directive
 ; This directive is only valid when assembling to object. It creates a new
 ; SECTION in the object file, closing the current one (if one exists)
 .proc directive_seg
 @name=$100
+	lda #$01	; absolute addressing
+	sta @mode
+
+	; get the name of the segment
+	jsr util::parse_enquoted_line
+	bcc @add
+	rts		; error
+
+@add:
 	; set the PC to 0 so that labels have the value of their offset
 	; from the beginning of their section
 	ldx #$00
@@ -1694,13 +1717,10 @@ __asm_tokenize_pass1 = __asm_tokenize
 	inx
 	stx pcset	; linker will take care of setting PC
 
-	; get the name of the segment
-	jsr util::parse_enquoted_line
-	bcc @add
-	rts		; error
-
-@add:	; create a new SECTION for the parsed SEGMENT name
-	jmp obj::add_section
+	; create a new SECTION for the parsed SEGMENT name
+@mode=*+1
+	lda #$00
+	JUMP FINAL_BANK_LINKER, obj::add_section
 .endproc
 
 ;*******************************************************************************
