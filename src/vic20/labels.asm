@@ -164,6 +164,7 @@ labels:
 .endif
 
 .segment "SHAREBSS"
+
 ;******************************************************************************
 .export __label_num
 __label_num:
@@ -430,6 +431,7 @@ scope: .res 8 ; buffer containing the current scope
 ; IN:
 ;  - .XY:             the name of the label to add
 ;  - zp::label_value: the value to assign to the given label name
+;  - zp::label_mode:  the "mode" of the label to add (0=ZP, 1=ABS)
 ;  - allow_overwrite: if !0, will not error if label already exists
 ; OUT:
 ;  - .XY: the ID of the label added
@@ -485,13 +487,12 @@ scope: .res 8 ; buffer containing the current scope
 	; @id is the index where the new label will live
 	stxy @id
 
-	; flag if label is local or not
+	; check if label is local or not
 	ldxy @name
 	jsr is_local
 	beq @shift
 
 	; if local, prepend the scope
-	ldxy @name
 	jsr prepend_scope
 	bcs @ret		; return err
 	stxy @name
@@ -499,29 +500,11 @@ scope: .res 8 ; buffer containing the current scope
 ;------------------
 ; open a space for the new label by shifting everything left
 @shift:
-	; src = labels + (numlabels-1)*MAX_LABEL_LEN
-	lda numlabels+1
-	sta @src+1
-	lda numlabels
-
-	; * MAX_LABEL_LEN
-	asl			; *2
-	rol @src+1
-	asl			; *4
-	rol @src+1
-	asl			; *8
-	rol @src+1
-	asl			; *16
-	rol @src+1
-	asl			; *32
-	rol @src+1
-	adc #<labels
-	sta @src
-	sta @dst
-	lda @src+1
-	adc #>labels
-	sta @src+1
-	sta @dst+1
+	; get address where last label WILL go (numlabels * MAX_LABEL_LEN)
+	ldxy numlabels
+	jsr name_by_id
+	stxy @src
+	stxy @dst
 
 	; addr = label_addresses+(numlabels-1)*2
 	lda numlabels+1
@@ -539,8 +522,8 @@ scope: .res 8 ; buffer containing the current scope
 	bne :+
 	jmp @storelabel
 
-	; src -= MAX_LABEL_LEN
-:	lda @src
+:	; src -= MAX_LABEL_LEN
+	lda @src
 	sec
 	sbc #MAX_LABEL_LEN
 	sta @src
@@ -563,9 +546,10 @@ scope: .res 8 ; buffer containing the current scope
 	lda numlabels+1
 	sbc @id+1
 	sta @cnt+1
+	ora @cnt
+	bne @sh0	; if (numlabels-id) > 0, skip ahead to shift
 
-	iszero @cnt
-	bne @sh0
+	; (numlabels-id) == 0, no shift needed
 	ldxy @dst
 	stxy @src
 	lda @addr
@@ -597,6 +581,7 @@ scope: .res 8 ; buffer containing the current scope
 	iszero @cnt
 	beq @storelabel
 
+	; @addr -= 2
 	lda @addr
 	sec
 	sbc #$02
@@ -604,54 +589,74 @@ scope: .res 8 ; buffer containing the current scope
 	bcs :+
 	dec @addr+1
 
-:	ldxy @src
-	sub16 #MAX_LABEL_LEN
-	stxy @src
-	ldxy @dst
-	sub16 #MAX_LABEL_LEN
-	stxy @dst
+:	; @src-= MAX_LABEL_LEN
+	lda @src
+	sec
+	sbc #MAX_LABEL_LEN
+	sta @src
+	bcs :+
+	dec @src+1
+
+:	; @dst -= MAX_LABEL_LEN
+	lda @dst
+	sec
+	sbc #MAX_LABEL_LEN
+	sta @dst
+	bcs @sh0
+	dec @dst+1
 	bne @sh0		; branch always
 
-@shift_modes:
+@insert_mode:
 	; (id / 8) is the byte containing the mode we inserted
 	lda @id
-	sta @mode
-	lda @id+1
-	lsr
-	ror @mode
-	lsr
-	ror @mode
-	lsr
-	ror @mode
-	sta @mode+1
+	ldx @id+1
+	jsr div8
+	tax	; mode should now be 1 byte max (assuming < 256*8 labels)
 
-	; mode should now be 1 byte max (assuming < 256*8 labels)
 	lda @id
 	and #$07
-	clc
-	beq :+
+	tay
 
-	; if id%8 > 0 need to shift the bits right of id % 8 for 1st byte
-	; get mask of pixels to shift
-	; $82f8 %01111111
-	; $82f9 %00111111
-	; $82fa %00011111
-	; $82fb %00001111
-	; ....
-	ldx @mode
-	lda $82f8,x
-	and label_modes,x
-	lsr
-	sta @tmp
+	; get mask of bits to shift
+	; $82f8 %11111111
+	; $82f9 %01111111
+	; $82fa %00111111
+	; $82fb %00011111
+	; ...
 	lda label_modes,x
-	and $8749,x
-	ora @tmp
-	sta label_modes,x
+	pha
+	and $82f8,y		; mask bits we need to shift
+	lsr			; shift the bits we need to shift
+	sta @tmp		; and save as temp result
+
+	; get the mask of bits to leave alone
+	; $86f8 %00000000
+	; $82f9 %10000000
+	; $82fa %11000000
+	; $82fb %11100000
+	; ...
+	pla
+	and $86f8,y		; mask bits that were not shifted
+	ora @tmp		; OR with bits we shifted
+
+	ldx zp::label_mode	; get mode of label to add
+	beq :+			; zeropage - leave bit as 0
+
+	; $8268 %10000000
+	; $8269 %01000000
+	; $826a %00100000
+	; $826b %00010000
+	; ...
+	ora $8268,y		; set ABS bit for this label
+
+:	sta label_modes,x	; save result
+	jsr numlabels_div8	; get stopping point (numlabels / 8)
+	sta @tmp
 
 :	; now shift the rest of the mode bytes right
-:	inx
+	inx
 	ror label_modes,x
-	cpx #(MAX_LABELS/8)
+	cpx @tmp
 	bne :-
 
 ;------------------
@@ -661,9 +666,7 @@ scope: .res 8 ; buffer containing the current scope
 	; write the label
 :	lda (@name),y
 	beq @storeaddr
-	jsr iswhitespace
-	beq @storeaddr
-	cmp #':'
+	jsr is_definition_separator
 	beq @storeaddr
 
 	; copy a byte to the label name
@@ -698,11 +701,9 @@ scope: .res 8 ; buffer containing the current scope
 ; OUT:
 ;  - .C: set if there are too many anonymous labels to add another
 .proc add_anon
-@src=r0
 @dst=r2
-@loc=r4
-@end=r6
-@addr=r8
+@addr=r6
+@src=r8
 	stxy @addr
 	lda numanon+1
 	cmp #>MAX_ANON
@@ -711,62 +712,62 @@ scope: .res 8 ; buffer containing the current scope
 	cmp #<MAX_ANON
 	bcc :+
 	lda #ERR_TOO_MANY_LABELS
-	rts			; return with error (.C) set
+	;sec
+	rts			; return err
 
 :	lda #$00
-	sta @end+1
+	sta @src+1
 
 	lda numanon
-	asl
-	rol @end+1
+	asl			 ; *2
+	rol @src+1
 	adc #<anon_addrs
-	sta @end
+	sta @src
 	lda #>anon_addrs
-	adc @end+1
-	sta @end+1
+	adc @src+1
+	sta @src+1
 
 	jsr seek_anon
-	stxy @loc
 	stxy @dst
-	cmpw @end
+	cmpw @src
 	beq @finish		; skip shift if this is the highest address
 
-	; dst = src + 2
-	lda @dst
+	; shift all the existing labels
+@shift:	; src[i+2] = src[i]
+	; src[i+3] = src[i+1]
+	ldy #$00
+	lda (@src),y	; LSB
+	ldy #$02	; move up 2 bytes
+	sta (@src),y
+	dey
+	lda (@src),y	; MSB
+	ldy #$03	; move up 2 bytes
+	sta (@src),y
+
+	; src -= 2
+	lda @src
 	sec
 	sbc #$02
 	sta @src
-	lda @dst+1
+	lda @src+1
 	sbc #$00
 	sta @src+1
 
-	; shift all the existing labels
-@shift:	ldy #$00
-	lda (@src),y
-	sta (@dst),y
-	iny
-	lda (@src),y
-	sta (@dst),y
-
+	; check if src == dst
+	cmp @dst+1
+	bne @shift
 	lda @src
-	ldy @src+1
-	tax
-	clc
-	adc #2
-	sta @src
-	bcc :+
-	inc @src+1
-:	cmpw @end	; have we shifted everything yet?
-	bne @shift	; loop til we have
+	cmp @dst
+	bne @shift	; loop til we have shifted all labels
 
 @finish:
 	; insert the address of the anonymous label we're adding
 	lda @addr
 	ldy #$00
-	sta (@loc),y
+	sta (@src),y
 	lda @addr+1
 	iny
-	sta (@loc),y
+	sta (@src),y
 
 	incw numanon
 	RETURN_OK
@@ -796,18 +797,15 @@ scope: .res 8 ; buffer containing the current scope
 	ldxy #anon_addrs
 
 	lda numanon+1
-	bne :+
-	lda numanon
-	bne :+
-	; if no anonymous labels defined, return the base address
-	rts
+	ora numanon
+	beq @ret	; no anonymous labels defined -> return the base address
 
-:	stxy @seek
+	stxy @seek
 	lda #$00
 	sta @cnt
 	sta @cnt+1
 
-	ldy #$00
+	tay		; .Y = 0
 @l0:	lda (@seek),y	; get LSB
 	tax		; .X = LSB
 	incw @seek
@@ -846,7 +844,7 @@ scope: .res 8 ; buffer containing the current scope
 	sta @seek+1
 	tay
 	;clc
-	rts
+@ret:	rts
 .endproc
 
 ;******************************************************************************
@@ -887,7 +885,7 @@ scope: .res 8 ; buffer containing the current scope
 
 	; MSB is >= base and LSB is >= base address
 @f:	dec @fcnt		; is this the nth label yet?
-	beq @found		; if our count is 0, yes, end
+	beq get_anon_retval	; if our count is 0, yes, end
 	bne @next		; if count is not 0, continue
 
 @chklsb:
@@ -913,15 +911,6 @@ scope: .res 8 ; buffer containing the current scope
 	jmp @l0
 
 @err:	RETURN_ERR ERR_LABEL_UNDEFINED
-
-@found:	ldy #$00
-	lda (@seek),y		; get LSB of anonymous label address
-	tax
-	iny
-	lda (@seek),y		; get the MSB of our anonymous label
-	tay
-	lda #$02		; always use 2 bytes for anon address size
-	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -944,11 +933,12 @@ scope: .res 8 ; buffer containing the current scope
 
 	; get address to start looking backwards from
 	jsr seek_anon
-	bcc :+
+	bcc :+			; if found, skip ahead
 
 	; if we ended after the end of the anonymous label list, move
 	; to a valid location in it (to the last item)
 	txa
+	;sec
 	sbc #$02
 	tax
 	tya
@@ -956,8 +946,7 @@ scope: .res 8 ; buffer containing the current scope
 	tay
 
 :	stxy @seek
-	ldxy numanon
-	cmpw #0
+	iszero numanon
 	beq @err		; no anonymous labels defined
 
 @l0:	ldy #$01		; MSB
@@ -968,7 +957,7 @@ scope: .res 8 ; buffer containing the current scope
 
 	; MSB is >= base and LSB is >= base address
 @b:	dec @bcnt		; is this the nth label yet?
-	beq @found		; if our count is 0, yes, end
+	beq get_anon_retval	; if our count is 0, yes, end
 	bne @next		; if count is not 0, continue
 
 @chklsb:
@@ -991,8 +980,19 @@ scope: .res 8 ; buffer containing the current scope
 	bne @l0
 
 @err:	RETURN_ERR ERR_LABEL_UNDEFINED
+.endproc
 
-@found:	ldy #$00
+;******************************************************************************
+; GET ANON RETVAL
+; Space saving helper to get the return address from r6
+; IN:
+;   - r6: address of value to return
+; OUT:
+;  - .XY: the nth anonymous label whose address is < than the given address
+;  - .C:  clear to indicate success
+.proc get_anon_retval
+@seek=r6
+	ldy #$00
 	lda (@seek),y		; get LSB of anonymous label address
 	tax
 	iny
@@ -1017,9 +1017,11 @@ scope: .res 8 ; buffer containing the current scope
 .proc address
 @table=r0
 @id=r2
+@addr=r2
 	jsr find	; get the id in YX
 	bcc :+
 	lda #ERR_LABEL_UNDEFINED
+	;sec
 	rts
 
 :	stxy @id
@@ -1038,15 +1040,26 @@ scope: .res 8 ; buffer containing the current scope
 
 	ldy #$00
 	lda (@table),y
-	tax
+	sta @addr
 	iny
 	lda (@table),y
-	tay
+	sta @addr+1
 
-	bne :+		; get the size of the label's address in .A
-	lda #$01
+	; get the size of the label from its address mode
+	lda @id
+	ldx @id+1
+	jsr div8
+	tax			; .X = byte offset
+	lda @id
+	and #$07
+	tay			; .Y = bit offset
+	lda $8268,y		; \
+	and label_modes,x
+	beq :+
+	lda #$02		; ABS (2 bytes)
 	skw
-:	lda #$02
+:	lda #$01		; ZP (1 byte)
+	ldxy @addr
 	RETURN_OK
 .endproc
 
@@ -1062,6 +1075,10 @@ scope: .res 8 ; buffer containing the current scope
 @src=re
 @dst=zp::tmp10
 @name=zp::tmp12
+@tmp=r8
+@tmp2=r9
+@mode=ra
+@stop=rb
 	stxy @name
 	jsr find
 	bcc @del
@@ -1071,16 +1088,7 @@ scope: .res 8 ; buffer containing the current scope
 	jsr by_id
 	stxy @dst
 
-	; get the source (dst + 2)
-	txa
-	clc
-	adc #$02
-	sta @src
-	tya
-	adc #$00
-	sta @src+1
-
-	; get the number of addresses to shift
+	; get the number of addresses/names to shift (numlabels - id)
 	lda numlabels
 	sec
 	sbc @id
@@ -1092,21 +1100,33 @@ scope: .res 8 ; buffer containing the current scope
 	sta @cnt2+1
 
 	; move the addresses down
-	ldy #$00
 	ldx @cnt
 	beq @next
 @addrloop:
-	lda (@src),y
+	; dst[i] = dst[i+2]
+	ldy #$02
+	lda (@dst),y
+	ldy #$00
 	sta (@dst),y
-	incw @src
-	incw @dst
+	ldy #$03
+	lda (@dst),y
+	ldy #$01
+	sta (@dst),y
+
+	lda @dst
+	clc
+	adc #$02
+	sta @dst
+	bcc @next
+	inc @dst+1
+
 @next:	dex
 	cpx #$ff
 	bne @addrloop
 	dec @cnt+1
 	bpl @addrloop
 
-	; get the destination address to shift names to
+@names: ; get the destination address to shift names to
 	ldxy @id
 	jsr name_by_id
 	stxy @dst
@@ -1121,6 +1141,7 @@ scope: .res 8 ; buffer containing the current scope
 	sta @src+1
 
 	; move the names down
+	ldx @cnt2
 @nameloop:
 	ldy #MAX_LABEL_LEN-1
 :	lda (@src),y
@@ -1140,15 +1161,61 @@ scope: .res 8 ; buffer containing the current scope
 	sta @dst
 	bcc @nextname
 	inc @dst+1
-	bne @nameloop
-
 @nextname:
-	decw @cnt2
-	ldxy @cnt2
-	cmpw #0
+	dex
+	cpx #$ff
 	bne @nameloop
+	dec @cnt2+1
+	bpl @nameloop
 
-	decw numlabels
+@delete_mode:
+	; (id / 8) is the byte containing the mode to delete
+	lda @id
+	ldx @id+1
+	jsr div8
+	sta @stop
+
+	; shift the the mode bytes right of the last byte
+	jsr numlabels_div8	; get starting point (numlabels / 8)
+	tax
+:	rol label_modes,x
+	rol @tmp2		; save .C for later
+	dex
+	cpx @stop
+	bne :-
+
+	lda @id
+	and #$07
+	tay			; .Y = bit (from left to right) to erase
+
+	; $86f8 %00000000
+	; $82f9 %10000000
+	; $82fa %11000000
+	; $82fb %11100000
+	; ...
+	lda label_modes,x
+	pha
+	and $86f8,y		; mask bits to leave alone
+	sta @tmp		; save as temp result
+
+	; get mask of bits to shift
+	; $82f8 %11111111
+	; $82f9 %01111111
+	; $82fa %00111111
+	; $82fb %00011111
+	; $82fc %00001111
+	; $82fd %00000011
+	; $82fe %00000001
+	; $82ff %00000001
+	; $8300 %00000000
+	pla
+	and $82f8+1,y		; mask bits we need to shift
+	lsr @tmp2		; restore .C
+	rol			; shift (destroy the bit to delete)
+	ora @tmp		; OR unshifted bits
+	sta label_modes,x	; save result
+
+@done:	decw numlabels
 	ldxy @name
 	RETURN_OK
 .endproc
@@ -1162,12 +1229,12 @@ scope: .res 8 ; buffer containing the current scope
 ;  - .A: nonzero if the label is local
 ;  - .Z: clear if label is local, set if not
 .proc is_local
-@l=zp::labels
 	stxy @l
-	ldy #$00
-	lda (@l),y
+@l=*+1
+	lda $f00d
 	cmp #'@'
 	bne :+
+	; .A will be nonzero
 	lda #$01	; flag that label IS local
 	rts
 :	lda #$00	; flag that label is NOT local
@@ -1260,7 +1327,7 @@ scope: .res 8 ; buffer containing the current scope
 	adc @lb+1
 	sta @m+1
 	lda @addr+1	; load target value MSB
-	ldy #1		; load index to MSB
+	ldy #$01	; load index to MSB
 	cmp (@m),Y	; compare MSB
 	beq @chklsb
 	bcc @modhigh	; A[mid] > value
@@ -1271,7 +1338,7 @@ scope: .res 8 ; buffer containing the current scope
 	adc #2-1	; carry always set
 	sta @lb
 	lda @m+1
-	adc #0
+	adc #$00
 	sta @lb+1
 	jmp @loop
 
@@ -1288,7 +1355,7 @@ scope: .res 8 ; buffer containing the current scope
 	sbc #2-1	; carry always clear
 	sta @ub
 	lda @m+1
-	sbc #0
+	sbc #$00
 	sta @ub+1
 	jmp @loop
 
@@ -1329,6 +1396,44 @@ scope: .res 8 ; buffer containing the current scope
 	jsr @ok
 
 :	sec
+	rts
+.endproc
+
+;******************************************************************************
+; NUMLABELS DIV8
+; Returns the number of labels divided by 8 (assumes result is 8 bit)
+; OUT:
+;   - .A: the number of labels / 8
+.proc numlabels_div8
+@tmp=r0
+	lda numlabels+1
+	sta @tmp
+	lda numlabels
+	lsr @tmp	; /2
+	ror
+	lsr @tmp	; /4
+	ror
+	lsr @tmp	; /8
+	ror
+	rts
+.endproc
+
+;******************************************************************************
+; DIV8
+; Returns the given number divided by 8. Assumes an 8 bit quotient
+; IN:
+;   - .AX: the number to divide by 8
+; OUT:
+;   - .A: the result
+.proc div8
+@tmp=r0
+	stx @tmp
+	lsr @tmp	; /2
+	ror
+	lsr @tmp	; /4
+	ror
+	lsr @tmp	; /8
+	ror
 	rts
 .endproc
 
@@ -1492,6 +1597,18 @@ scope: .res 8 ; buffer containing the current scope
 .endproc
 
 ;******************************************************************************
+; IS DEFINITION SEPARATOR
+; IN:
+;  - .A: character to test
+; OUT:
+;  - .Z: set if the char is whitespace or a ':'
+.proc is_definition_separator
+	cmp #':'
+	beq :+		; -> rts
+	; fall through to iswhitespace
+.endproc
+
+;******************************************************************************
 ; ISWHITESPACE
 ; Checks if the given character is a whitespace character
 ; IN:
@@ -1508,35 +1625,23 @@ scope: .res 8 ; buffer containing the current scope
 .endproc
 
 ;******************************************************************************
-; IS NULL SPACE COMMA CLOSINGPAREN
-; IN:
-;  - .A: the character to test
-; OUT:
-;  - .Z: set if the char in .A is: 0,$0d,' ', ',', or ')'
-.proc is_null_return_space_comma_closingparen_newline
-	cmp #$00
-	beq @done
-	jsr iswhitespace
-	beq @done
-	cmp #','
-	beq @done
-	cmp #')'
-@done:	rts
-.endproc
-
-;******************************************************************************
 ; ISSEPARATOR
 ; IN:
 ;  - .A: the character to test
 ; OUT:
 ;  - .Z: set if the char in .A is any separator
 .proc isseparator
+	cmp #$00
+	beq :-			; -> rts
+	jsr iswhitespace
+	beq :-			; -> rts
+	cmp #','
+	beq :-			; -> rts
+	cmp #')'
+	beq :-			; -> rts
 	cmp #':'
-	beq @yes
-	jsr is_null_return_space_comma_closingparen_newline
-	bne :+
-@yes:	rts
-:	; fall through to isoperator
+	beq :-			; -> rts
+	; fall through to isoperator
 .endproc
 
 ;******************************************************************************
@@ -1560,7 +1665,6 @@ scope: .res 8 ; buffer containing the current scope
 @ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.'
 @numops = *-@ops
 .endproc
-
 
 ;******************************************************************************
 ; MACROS

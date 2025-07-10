@@ -40,7 +40,8 @@ line         = $4d	; ptr to text being processed
 gendebuginfo = $4f 	; flag to generate debug info
 
 label_value = $50	; label function arguments
-labels      = $52	; label temp usage
+label_mode  = $52	; label "mode" - zp (0) or abs (1)
+labels      = $53	; label temp usage
 
 ctx    = $60		; context util usage during assembly
 macros = $7f		; macro related things during assembly
