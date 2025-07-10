@@ -133,6 +133,14 @@ __asm_linenum: .word 0
 ; the type of the segment being stored e.g. SEG_BSS or SEG_CODE
 ;segment_type: .byte 0
 
+
+;*******************************************************************************
+; SEGMODE
+; When assembling to object code (asm::mode != 0)
+; this contains the size of labels defined in that segment
+; 0=ZP, 1=ABS (anything but ZP)
+__asm_segmode: .byte 0
+
 ;*******************************************************************************
 ; ASM MODE
 ; object assembly flag
@@ -1021,7 +1029,8 @@ __asm_tokenize_pass1 = __asm_tokenize
 	ldxy zp::line
 	cmp #$01
 	bne @validate		; if not pass 1, don't add the label
-	jsr lbl::add
+	lda #$ff		; infer address mode
+	jsr add_label
 	bcc @ok
 	rts
 
@@ -1444,9 +1453,10 @@ __asm_tokenize_pass1 = __asm_tokenize
 	sta zp::label_value+1
 	ldxy zp::ctx+repctx::params
 
-	ora zp::label_value		; set .Z if label_value is 0
+	ora zp::label_value	; set .Z if label_value is 0
 	bne @set
-	jsr lbl::add			; first iteration- add instead of set
+	lda #$01		; define label as 16 bit
+	jsr add_label		; first iteration- add instead of set
 	jmp :+
 @set:	jsr lbl::set
 :	bcs @err
@@ -1697,16 +1707,15 @@ __asm_tokenize_pass1 = __asm_tokenize
 ; SECTION in the object file, closing the current one (if one exists)
 .proc directive_seg
 @name=$100
-	lda #$01	; absolute addressing
-	sta @mode
+	lda #$01		; absolute addressing
+	sta __asm_segmode
 
 	; get the name of the segment
 	jsr util::parse_enquoted_line
 	bcc @add
 	rts		; error
 
-@add:
-	; set the PC to 0 so that labels have the value of their offset
+@add:	; set the PC to 0 so that labels have the value of their offset
 	; from the beginning of their section
 	ldx #$00
 	stx zp::virtualpc
@@ -1718,8 +1727,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	stx pcset	; linker will take care of setting PC
 
 	; create a new SECTION for the parsed SEGMENT name
-@mode=*+1
-	lda #$00
+	lda __asm_segmode
 	JUMP FINAL_BANK_LINKER, obj::add_section
 .endproc
 
@@ -2010,7 +2018,8 @@ __asm_include:
 	tay
 	pla
 	tax
-	jmp lbl::add
+	lda #$01		; for CONST always use ABS mode
+	jmp add_label
 .endproc
 
 ;*******************************************************************************
@@ -2743,6 +2752,37 @@ __asm_include:
 :	inc contextstacksp
 	sta contextstack,x
 	rts
+.endproc
+
+;*******************************************************************************
+; ADD LABEL
+; Adds a label with the given mode
+; IN:
+;   - .A:  the address mode for the label (0=ZP, 1=ABS), $ff=infer
+;   - .XY: address of the label to add
+; OUT:
+;   - .C: set on error
+.proc add_label
+	cmp #$ff
+	bne @add	; if size is not inferred, just add the label
+
+	; infer the size
+	; if assembling to object, use the current SEG's size
+	; if assembling directly, use the current PC as a hint
+	lda __asm_mode
+	beq @direct
+
+@obj:	; object, use segment for hint
+	lda __asm_segmode
+	bpl @add
+
+@direct:
+	lda zp::virtualpc+1
+	beq @add
+	lda #$01		; ABS
+
+@add:	sta zp::label_mode
+	jmp lbl::add
 .endproc
 
 ;*******************************************************************************

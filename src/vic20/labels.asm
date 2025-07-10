@@ -166,6 +166,7 @@ labels:
 .segment "SHAREBSS"
 
 ;******************************************************************************
+labelvars:
 .export __label_num
 __label_num:
 numlabels: .word 0   	; total number of labels
@@ -173,6 +174,7 @@ numlabels: .word 0   	; total number of labels
 .export __label_numanon
 __label_numanon:
 numanon: .word 0	; total number of anonymous labels
+labelvars_size=*-labelvars
 
 .segment "LABEL_BSS"
 
@@ -206,6 +208,7 @@ label_addresses: .res MAX_LABELS*2
 .export label_addresses_sorted
 label_addresses_sorted:     .res MAX_LABELS*2
 label_addresses_sorted_ids: .res MAX_LABELS*2
+.export label_modes
 label_modes: .res MAX_LABELS / 8	; modes (0=absolute, 1=zeropage)
 
 ; address table for each anonymous label
@@ -283,11 +286,11 @@ scope: .res 8 ; buffer containing the current scope
 ; Removes all labels effectively resetting the label state
 .proc clr
 	lda #$00
+	ldx #labelvars_size-1
+:	sta labelvars-1,x
+	dex
+	bne :-
 	sta scope
-	sta numlabels
-	sta numlabels+1
-	sta numanon
-	sta numanon+1
 	rts
 .endproc
 
@@ -503,8 +506,10 @@ scope: .res 8 ; buffer containing the current scope
 	; get address where last label WILL go (numlabels * MAX_LABEL_LEN)
 	ldxy numlabels
 	jsr name_by_id
-	stxy @src
-	stxy @dst
+	stx @src
+	sta @src+1
+	stx @dst
+	sta @dst+1
 
 	; addr = label_addresses+(numlabels-1)*2
 	lda numlabels+1
@@ -520,7 +525,7 @@ scope: .res 8 ; buffer containing the current scope
 
 	iszero numlabels
 	bne :+
-	jmp @storelabel
+	jmp @insert_mode
 
 :	; src -= MAX_LABEL_LEN
 	lda @src
@@ -558,7 +563,7 @@ scope: .res 8 ; buffer containing the current scope
 	sta @addr
 	bcc :+
 	inc @addr+1
-:	jmp @storelabel
+:	jmp @insert_mode
 
 @sh0:	; copy the label (MAX_LABEL_LEN bytes) to the SYMBOL bank
 	ldy #MAX_LABEL_LEN-1
@@ -579,7 +584,7 @@ scope: .res 8 ; buffer containing the current scope
 
 	decw @cnt
 	iszero @cnt
-	beq @storelabel
+	beq @insert_mode
 
 	; @addr -= 2
 	lda @addr
@@ -610,11 +615,10 @@ scope: .res 8 ; buffer containing the current scope
 	; (id / 8) is the byte containing the mode we inserted
 	lda @id
 	ldx @id+1
-	jsr div8
-	tax	; mode should now be 1 byte max (assuming < 256*8 labels)
+	jsr div8	; .X=mode byte (assuming < 256*8 labels)
 
 	lda @id
-	and #$07
+	and #$07	; get bit (from left) to insert
 	tay
 
 	; get mask of bits to shift
@@ -635,12 +639,13 @@ scope: .res 8 ; buffer containing the current scope
 	; $82fa %11000000
 	; $82fb %11100000
 	; ...
+	lda zp::label_mode
+	lsr			; set .C if mode is ABS
 	pla
 	and $86f8,y		; mask bits that were not shifted
 	ora @tmp		; OR with bits we shifted
 
-	ldx zp::label_mode	; get mode of label to add
-	beq :+			; zeropage - leave bit as 0
+	bcc :+			; zeropage - leave bit as 0
 
 	; $8268 %10000000
 	; $8269 %01000000
@@ -652,6 +657,8 @@ scope: .res 8 ; buffer containing the current scope
 :	sta label_modes,x	; save result
 	jsr numlabels_div8	; get stopping point (numlabels / 8)
 	sta @tmp
+	cpx @tmp
+	beq @storelabel
 
 :	; now shift the rest of the mode bytes right
 	inx
@@ -968,7 +975,7 @@ scope: .res 8 ; buffer containing the current scope
 
 @next:	lda @seek
 	sec
-	sbc #2
+	sbc #$02
 	sta @seek
 	tax
 	bcs :+
@@ -1012,7 +1019,7 @@ scope: .res 8 ; buffer containing the current scope
 ; OUT:
 ;  - .XY: the address of the label
 ;  - .C:  is set if no label was found, clear if it was
-;  - .A:  the size of the label
+;  - .A:  the size (address mode) of the label
 ;  - r2:  the ID of the label
 .proc address
 @table=r0
@@ -1048,8 +1055,7 @@ scope: .res 8 ; buffer containing the current scope
 	; get the size of the label from its address mode
 	lda @id
 	ldx @id+1
-	jsr div8
-	tax			; .X = byte offset
+	jsr div8		; .X = byte offset
 	lda @id
 	and #$07
 	tay			; .Y = bit offset
@@ -1129,7 +1135,8 @@ scope: .res 8 ; buffer containing the current scope
 @names: ; get the destination address to shift names to
 	ldxy @id
 	jsr name_by_id
-	stxy @dst
+	stx @dst
+	sta @dst+1
 
 	; get the source (destination + MAX_LABEL_LEN)
 	lda @dst
@@ -1234,7 +1241,6 @@ scope: .res 8 ; buffer containing the current scope
 	lda $f00d
 	cmp #'@'
 	bne :+
-	; .A will be nonzero
 	lda #$01	; flag that label IS local
 	rts
 :	lda #$00	; flag that label is NOT local
@@ -1425,6 +1431,7 @@ scope: .res 8 ; buffer containing the current scope
 ;   - .AX: the number to divide by 8
 ; OUT:
 ;   - .A: the result
+;   - .X: the result
 .proc div8
 @tmp=r0
 	stx @tmp
@@ -1434,6 +1441,7 @@ scope: .res 8 ; buffer containing the current scope
 	ror
 	lsr @tmp	; /8
 	ror
+	tax
 	rts
 .endproc
 
@@ -1473,26 +1481,26 @@ scope: .res 8 ; buffer containing the current scope
 ; IN:
 ;  - .XY: the id of the label to get the address of
 ; OUT:
-;  - .XY: the address of the name for the given label id
+;  - .XA: the address of the name for the given label id
 .proc name_by_id
 @addr=zp::labels
-	sty @addr+1
+	sty @addr
 	txa
 	asl		; *2
-	rol @addr+1
+	rol @addr
 	asl		; *4
-	rol @addr+1
+	rol @addr
 	asl		; *8
-	rol @addr+1
+	rol @addr
 	asl		; *16
-	rol @addr+1
+	rol @addr
 	asl		; *32
-	rol @addr+1
+	rol @addr
 	adc #<labels
 	tax
-	lda @addr+1
+	lda @addr
+	;clc
 	adc #>labels
-	tay
 	rts
 .endproc
 
@@ -1513,6 +1521,8 @@ scope: .res 8 ; buffer containing the current scope
 	iny
 	jsr iswhitespace
 	beq @l0
+
+	; check first non whitespace char
 	cmp #'@'
 	beq @cont
 	cmp #'a'
@@ -1559,7 +1569,8 @@ scope: .res 8 ; buffer containing the current scope
 @dst=r0
 @src=zp::labels
 	jsr name_by_id
-	stxy @src
+	stx @src
+	sta @src+1
 
 	ldy #$00
 @l0:	lda (@src),y
