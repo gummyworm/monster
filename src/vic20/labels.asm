@@ -43,6 +43,7 @@ allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
 .export __label_get_banon
 .export __label_index
 .export __label_id_by_addr_index
+.export __label_addrmode
 
 .if FINAL_BANK_SYMBOLS=FINAL_BANK_MAIN
 
@@ -68,6 +69,7 @@ __label_get_fanon        = get_fanon
 __label_get_banon        = get_banon
 __label_index            = index
 __label_id_by_addr_index = id_by_addr_index
+__label_addrmode         = addrmode
 
 .else
 ;******************************************************************************
@@ -99,12 +101,15 @@ GET_FANON
 GET_BANON
 INDEX
 ID_BY_ADDR_INDEX
+ADDRMODE
 .endenum
 
 .RODATA
 
 .linecont +
-.define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, getaddr, is_local, set, set24, del, address, set_scope, add_anon, get_fanon, get_banon, index, id_by_addr_index
+.define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
+getaddr, is_local, set, set24, del, address, set_scope, add_anon, get_fanon, \
+get_banon, index, id_by_addr_index, addrmode
 .linecont -
 
 procs_lo: .lobytes procs
@@ -130,6 +135,7 @@ __label_get_fanon: LBLJUMP proc_ids::GET_FANON
 __label_get_banon: LBLJUMP proc_ids::GET_BANON
 __label_index: LBLJUMP proc_ids::INDEX
 __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
+__label_addrmode: LBLJUMP proc_ids::ADDRMODE
 
 ;******************************************************************************
 ; Entrypoint for label routines
@@ -376,6 +382,33 @@ scope: .res 8 ; buffer containing the current scope
 @found:	tya
 	ldxy @cnt
 	RETURN_OK
+.endproc
+
+;******************************************************************************
+; ADDRMODE
+; Returns the "address mode" for the label of the given ID
+; IN:
+;   - .XY: the ID of the label to get the address mode for
+; OUT:
+;   - .A: the address mode (0=ZP, 1=ABS)
+.proc addrmode
+@tmp=r0
+	sty @tmp
+	txa			; .A=LSB
+	pha
+	ldx @tmp		; .X=MSB
+
+	jsr div8		; .X = byte offset
+	pla
+	and #$07
+	tay			; .Y = bit offset
+	lda $8268,y		; \
+	ldy #$00
+	and label_modes,x
+	beq :+
+	iny
+:	tya
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1032,18 +1065,8 @@ scope: .res 8 ; buffer containing the current scope
 	rts
 
 :	stxy @id
-	txa
-	asl
-	sta @table
-	tya
-	rol
-	sta @table+1
-	lda @table
-	adc #<label_addresses
-	sta @table
-	lda @table+1
-	adc #>label_addresses
-	sta @table+1
+	jsr by_id	; get address of label
+	stxy @table
 
 	ldy #$00
 	lda (@table),y
@@ -1053,18 +1076,8 @@ scope: .res 8 ; buffer containing the current scope
 	sta @addr+1
 
 	; get the size of the label from its address mode
-	lda @id
-	ldx @id+1
-	jsr div8		; .X = byte offset
-	lda @id
-	and #$07
-	tay			; .Y = bit offset
-	lda $8268,y		; \
-	and label_modes,x
-	beq :+
-	lda #$02		; ABS (2 bytes)
-	skw
-:	lda #$01		; ZP (1 byte)
+	ldxy @id
+	jsr addrmode
 	ldxy @addr
 	RETURN_OK
 .endproc
@@ -1590,7 +1603,7 @@ scope: .res 8 ; buffer containing the current scope
 ; GET ADDR
 ; Returns the address of the given label ID.
 ; IN:
-;  - .XY: the ID of the label to get the name of
+;  - .XY: the ID of the label to get the address of
 ; OUT:
 ;  - .XY: the address of the label
 .proc getaddr

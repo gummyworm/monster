@@ -741,7 +741,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	lda immediate
 	beq @cont
 	lda #$01
-	sta operandsz
+	sta operandsz	; force zeropage addressing for IMMEDIATE operation
 
 ; we've evaluated the expression, now look for a right parentheses,
 ; ',X' or ',Y' to conclude if this is indirect or indexed addressing
@@ -1910,6 +1910,8 @@ __asm_include:
 	ldxy zp::line
 	jsr expr::eval
 	bcs @ret		; error
+
+	; TODO: require expression to be resolvable in pass 1
 	stxy zp::asmresult
 	stxy zp::virtualpc
 	lda pcset
@@ -1965,6 +1967,8 @@ __asm_include:
 	ldxy zp::line
 	jsr expr::eval
 	bcs @ret		; error
+
+	; TODO: require expression to resolve in pass 1
 	stxy zp::virtualpc
 	clc			; ok
 @ret:	rts
@@ -2603,7 +2607,7 @@ __asm_include:
 	RETURN_ERR ERR_STACK_OVERFLOW
 
 :	; evaluate the condition for the .IF
-	; TODO: make sure expression resolvable (e.g. no globals)?
+	; TODO: make sure expression resolvable in pass 1
 	jsr expr::eval
 	bcs @done
 	txa

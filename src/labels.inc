@@ -2,6 +2,7 @@
 
 .import __label_add
 .import __label_addanon
+.import __label_addrmode
 .import __label_id_by_addr_index
 .import __label_by_id
 .import __label_by_addr
@@ -27,6 +28,7 @@
 	add           = __label_add
 	addanon       = __label_addanon
 	addresses     = label_addresses
+	addrmode      = __label_addrmode
 	idbyaddrindex = __label_id_by_addr_index
 	set24         = __label_set24
 	addr          = __label_address

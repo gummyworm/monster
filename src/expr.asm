@@ -1,4 +1,4 @@
-;******************************************************************************
+;*******************************************************************************
 ; EXPR.ASM
 ; This file contains code to evaluate expressions. This is used, among other
 ; things, to resolve operand values during assembly
@@ -9,7 +9,7 @@
 ;     - NOTE: reducable labels are differences of 2 in same section: e.g. (a-b)
 ;   - if not resolvable, which symobl is used as base?
 ;   - does any post-processing need to be done by linker?
-;******************************************************************************
+;*******************************************************************************
 
 .include "asm.inc"
 .include "errors.inc"
@@ -20,25 +20,26 @@
 .include "state.inc"
 .include "util.inc"
 
-;******************************************************************************
+;*******************************************************************************
 ; CONSTANTS
 MAX_OPERATORS = $10
 MAX_OPERANDS  = MAX_OPERATORS/2
 
 TOK_SYMBOL    = 1	; symbol e.g. "label"
-TOK_VALUE     = 2	; constant value e.g. 123
-TOK_BINARY_OP = 3	; binary operator e.g. '+' or '-'
-TOK_UNARY_OP  = 4	; unary operator e.g. '<'
+TOK_SYMBOL_ZP = 2	; zeropage symbol e.g. "tmp"
+TOK_VALUE     = 3	; constant value e.g. 123
+TOK_BINARY_OP = 4	; binary operator e.g. '+' or '-'
+TOK_UNARY_OP  = 5	; unary operator e.g. '<'
 TOK_END       = $ff	; end of expression marker
 
-;******************************************************************************
+;*******************************************************************************
 ; ID of the EXTERNAL symbol referenced in expression (if any)
 ; This is used to provide the symbol reference for expressions in object code
 ; Such expressions must be simplified to this external symbol + an offset
 .export __expr_global_id
 __expr_global_id = zp::expr+7
 
-;******************************************************************************
+;*******************************************************************************
 ; OPERATOR for the EXTERNAL symbol referenced in expression (if any)
 .export __expr_global_op
 __expr_global_op = zp::expr+9
@@ -51,13 +52,13 @@ __expr_global_postproc = zp::expr+11	; 0=none, 1=LSB, 2=MSB
 
 .BSS
 
-;******************************************************************************
+;*******************************************************************************
 ; END ON WHITESPACE
 ; If !0, expr::eval will terminate parsing when whitespace is encountered.
 ; If 0, whitespace is ignored
 end_on_whitespace: .byte 0
 
-;******************************************************************************
+;*******************************************************************************
 ; REQUIRES RELOC
 ; Set if the expression contains 1 or more labels.
 ; In the context of assembly, this tells the assembler that it must produce a
@@ -68,11 +69,12 @@ end_on_whitespace: .byte 0
 .export __expr_requires_reloc
 __expr_requires_reloc: .byte 0
 
+.export __expr_rpnlist
 __expr_rpnlist: .res $20
 
 .CODE
 
-;******************************************************************************
+;*******************************************************************************
 ; END_ON_SPACE
 ; Configures the evaluation behavior when whitespace is encountered.
 ; IN:
@@ -84,7 +86,7 @@ __expr_rpnlist: .res $20
 :	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; EVAL
 ; Resolves the contents of the given zp::line and returns its evaluated value
 ; If evaluating an expression that contains an external (imported) symbol,
@@ -100,6 +102,7 @@ __expr_rpnlist: .res $20
 ;  - zp::line: pointer to the expression to evaluate
 ; OUT:
 ;  - .A:       the size of the returned value in bytes or the error code
+;              $ff means "unknown"
 ;  - .XY:      the result of the evaluated expression
 ;  - .C:       clear on success or set on failure
 ;  - zp::line: updated to point beyond the parsed expression
@@ -107,10 +110,11 @@ __expr_rpnlist: .res $20
 .proc __expr_eval
 	jsr __expr_parse	; parse the RPN list
 	bcs :-			; -> rts
-	jmp __expr_eval_list
+
+	; fall through to __expr_eval_list
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; EVAL LIST
 ; Evaluates the provided RPN list of tokens and returns the result
 ; IN:
@@ -121,11 +125,11 @@ __expr_rpnlist: .res $20
 ;  - .C:       clear on success or set on failure
 .export __expr_eval_list
 .proc __expr_eval_list
-@i=r0
-@sp=r1
-@val1=r2
-@val2=r4
-@operands=r5		; operand stack (grows up from here)
+@i=zp::expr
+@sp=zp::expr+1
+@val1=zp::expr+2
+@val2=zp::expr+4
+@operands=$128+1	; operand stack (grows up from here)
 @eval:	ldx #$00
 	stx @i
 	stx @sp
@@ -134,30 +138,52 @@ __expr_rpnlist: .res $20
 	ldx @i
 	lda __expr_rpnlist,x
 	bpl @cont
-@done:	ldxy @operands		; read result (should be only value on stack)
+@done:	jsr @popval		; read result (should be only value on stack)
+	tya
+	beq :+
+	lda #$02		; result size is 2 bytes
+	skw
+:	lda #$01
 	clc			; ok
 @ret:	rts
 
 @cont:	inx			; move past token index
 	cmp #TOK_UNARY_OP
-	beq @eval_unary
-	cmp #TOK_BINARY_OP
-	beq @eval_binary
+	bne :+
+	jsr @eval_unary
+	jmp @evalloop
 
-	; not operator, get the operand
+:	cmp #TOK_BINARY_OP
+	bne :+
+	jsr @eval_binary
+	jmp @evalloop
+
+:	; not operator, get the operand
 	pha			; save TOKEN type
-	lda __expr_rpnlist,x
+	lda __expr_rpnlist,x	; get LSB
 	inx
-	ldy __expr_rpnlist,x
+	ldy __expr_rpnlist,x	; and MSB
 	inx
 	stx @i
 	tax
 	pla			; restore TOKEN type
+
+	cmp #TOK_SYMBOL_ZP
+	beq @sym
 	cmp #TOK_SYMBOL
 	bne @const
+
 @sym:	; resolve symobl and push its value
-	jsr lbl::addr
-	bcs @ret		; unresolvable
+	jsr lbl::getaddr
+	bcc @const
+	ldx state::verify
+	beq @ret		; if not verifying, return err
+
+	; return an inferred value
+	ldxy #$00		; and return dummy value
+	lda #$ff		; if verifying, assume absolute addressing
+	RETURN_OK
+
 @const:	jsr @pushval
 	jmp @evalloop		; continue processing
 
@@ -165,26 +191,39 @@ __expr_rpnlist: .res $20
 ; handle unary operator
 @eval_unary:
 	lda __expr_rpnlist,x	; get the operator
-	pha		; and save it
-	inx		; move index past the operator
-	stx @i		; update list index
+	pha			; and save it
+	inx			; move index past the operator
+	stx @i			; update list index
 
 	; get the operand for the unary operation
 	jsr @popval
-	stxy @val1
 
+	pla		; restore operator
 @lsb:	cmp #'<'
 	bne @msb
 	ldy #$00
-	ldx @val1
-	jmp @pushval
+	beq @pushval	; branch always
 
 @msb:	cmp #'>'
 	bne :+
+	tya
+	tax
 	ldy #$00
-	ldx @val1+1
-	jmp @pushval
+	beq @pushval	; branch always
 :	jmp *		; TODO: should be impossible
+
+;--------------------------------------
+@pushval:
+	txa
+	ldx @sp
+	sta @operands,x		; store LSB
+	tya
+	sta @operands+1,x	; store MSB
+
+	; update stack pointer
+	inc @sp
+	inc @sp
+	rts
 
 ;--------------------------------------
 ; handle binary operator
@@ -277,32 +316,16 @@ __expr_rpnlist: .res $20
 
 ;--------------------------------------
 @popval:
-	lda @sp
-	sec
-	sbc #$02
-	sta @sp
+	dec @sp
+	dec @sp
+	ldx @sp
 	ldy @operands+1,x	; get MSB
 	lda @operands,x		; and LSB
 	tax
 	rts
-
-;--------------------------------------
-@pushval:
-	txa
-	ldx @sp
-	sta @operands,x		; store LSB
-	tya
-	sta @operands+1,x	; store MSB
-
-	; update stack pointer
-	lda @sp
-	clc
-	adc #$02
-	sta @sp
-	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; PARSE
 ; Parses the expression into a RPN list of tokens evaluatable by
 ; expr::eval_token_list
@@ -312,18 +335,14 @@ __expr_rpnlist: .res $20
 ;   - $150: a list of tokens for evaluation (in RPN format)
 .export __expr_parse
 .proc __expr_parse
-@i=zp::expr
-@num_operators=zp::expr+1
-@num_operands=zp::expr+2	; num operands * 2
-@may_be_unary=zp::expr+3
-@operators=$128+1
-@operands=@operators+MAX_OPERATORS
-@priorities=@operands+(MAX_OPERANDS*3)	; 2 bytes for val + 1 byte for type
+@i=zp::expr+2
+@num_operators=zp::expr+3
+@may_be_unary=zp::expr+4
+@operators=128+1
+@priorities=@operators+(MAX_OPERATORS*2)
 	ldy #$00
 	sty @num_operators
-	sty @num_operands
-	sty __expr_requires_reloc
-	sty __expr_contains_global
+	sty @i
 
 	lda (zp::line),y
 	bne :+
@@ -347,7 +366,7 @@ __expr_rpnlist: .res $20
 
 :	lda (zp::line),y
 	jsr @isterminator
-	bne @rparen
+	beq @done
 
 @rparen:
 	cmp #'('
@@ -375,11 +394,11 @@ __expr_rpnlist: .res $20
 	jsr line::incptr
 	bne @l0		; branch always - done evaluating this () block
 
-:	jsr @eval	; evaluate the top 2 operands
+:	jsr @eval	; append the top operation/operand(s)
 	jmp @paren_eval
 
 @checkop:
-	ldy #$00
+	;ldy #$00
 	lda (zp::line),y
 	cmp #'*'		; '*' can be a value or operator
 	bne :+
@@ -416,8 +435,8 @@ __expr_rpnlist: .res $20
 	jsr get_operand		; have we found a valid operand?
 	bcs @err		; no
 
-@pushoperand:
-	jsr @pushval
+@operand:
+	jsr @appendval
 	lda #$00
 	sta @may_be_unary
 	jmp @l0
@@ -427,9 +446,11 @@ __expr_rpnlist: .res $20
 	jsr @eval		; evaluate each remaining operator
 	jmp @done
 
-@end:	lda #TOK_END
+@end:	; TODO: validate
+@terminate:
+	lda #TOK_END
 	ldx @i
-	sta __expr_rpnlist,x
+	sta __expr_rpnlist,x	; terminate RPN list
 	RETURN_OK
 
 @err:	; check if this is parentheses (could be indirect addressing)
@@ -438,6 +459,11 @@ __expr_rpnlist: .res $20
 	cmp #')'
 	beq @done
 	RETURN_ERR ERR_LABEL_UNDEFINED
+
+@unexpected_value:
+	lda #ERR_UNEXPECTED_CHAR	; unexpected operands still on stack
+	;sec
+	rts
 
 ;------------------
 ; isterminator returns .Z set if the character in .A is
@@ -448,40 +474,6 @@ __expr_rpnlist: .res $20
 	cmp #';'
 	beq :+
 	cmp #','
-:	rts
-
-;------------------
-@popval:
-	lda @num_operands
-	sec
-	sbc #$03
-	tax
-	stx @num_operands
-	ldy @operands+2,x	; MSB
-	lda @operands,x		; TOKEN type
-	pha
-	lda @operands+1,x	; LSB
-	tax
-	pla
-	rts
-
-;------------------
-; .A=token type .XY=token operand
-@pushval:
-	pha			; save TOKEN type
-	txa
-	ldx @num_operands
-	cpx #MAX_OPERANDS
-	bcs :+
-	sta @operands+1,x	; store LSB
-	tya
-	sta @operands+2,x	; store MSB
-	pla			; restore TOKEN type
-	sta @operands,x		; store TOKEN type
-	lda @num_operands
-	;clc
-	adc #$03
-	sta @num_operands
 :	rts
 
 ;------------------
@@ -509,7 +501,7 @@ __expr_rpnlist: .res $20
 	ldy #@num_prios
 :	cmp @priochars-1,y
 	beq @prio_found
-	dex
+	dey
 	bne :-
 	tya			; .A=0
 	rts			; not found
@@ -528,30 +520,24 @@ __expr_rpnlist: .res $20
 ; appends the operands involved in the evaluation followed by the operation
 ; to the RPN result
 ; returns the evaluation of the operator in .A on the operands @val1 and @val2
-@eval:	jsr @popval
-	jsr @appendval
-
-	jsr @popop
+@eval:	jsr @popop
 
 	; check if operator is unary
+	pha			; save operator
 	cmp #'<'
 	beq @unary
 	cmp #'>'
 	beq @unary
 @binary:
 	; not unary, append a second argument
-	pha
-	jsr @popval
-	jsr @appendval		; append the 2nd arg
-	pla
 	lda #TOK_BINARY_OP
 	skw			; skip next instruction
-@unary: lda #TOK_UNARY_OP
-
-	; append the operator
+@unary: ; append the operator token
+	lda #TOK_UNARY_OP
 	ldx @i
+	sta __expr_rpnlist,x	; write TOKEN type
+	pla			; get operator
 	sta __expr_rpnlist+1,x	; write operator
-	sta __expr_rpnlist,x		; write TOKEN type
 	inx
 	inx
 	stx @i
@@ -567,7 +553,7 @@ __expr_rpnlist: .res $20
 	tya
 	sta __expr_rpnlist+2,x	; MSB
 	pla
-	sta __expr_rpnlist,x		; TOKEN type
+	sta __expr_rpnlist,x	; TOKEN type
 	inx
 	inx
 	inx
@@ -575,44 +561,44 @@ __expr_rpnlist: .res $20
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETLABEL
 ; Reads the given label and returns the address of it if there
 ; is one
 ; IN:
 ;  - .XY: pointer to the label to get the address of
 ; OUT:
-;  - .C   is set if no label is found
-;  - .A:  the size of the label's address
-;  - .XY: the value of the label
-;  - r2:  the ID of the label (if any)
+;  - zp::line: updated to point past the label parsed
+;  - .C        is set if no label is found
+;  - .A:       the size of the label's address
+;  - .XY:      the ID for the label
 .proc get_label
+@id=zp::expr
 	jsr lbl::isvalid 	; if verifying, let this pass if label is valid
 	bcs @done
 
-	; try to get the label address
+	; if we are only verifying (e.g. in pass 1 of assembly), label
+	; ID is not final, proceed with dummy value
+	ldx #$00
+	stx @id
+	stx @id+1
+	inx
+	stx @mode		; default addressing (absolute
+
+	lda state::verify
+	beq @updateline
+
+@get_id:
+	; if not verifying (e.g. in pass 2), label ID is final; try to get it
 	ldxy zp::line
-	jsr lbl::addr
-	bcc @updateline
+	jsr lbl::find
+	bcs @done		; failed to lookup symbol ID
+	stxy @id
 
-	; if we failed to get the address, but we're on pass 1 / verifying
-	; proceed with a dummy value
-	lda zp::pass
-	cmp #$02
-	bcs @done		; not verifying, return with error
-
-@dummy:	; default to the hint value/size
-	lda #$ff
-	ldxy zp::virtualpc	; TODO: assume smallest possible value
+	jsr lbl::addrmode
+	sta @mode
 
 @updateline:
-	pha	; save size
-	tya	; save MSB
-	pha
-
-	; labels are involved, relocation is required
-	inc __expr_requires_reloc
-
 	; move the line pointer to the separator
 	ldy #$00
 @l0:	lda (zp::line),y
@@ -620,15 +606,15 @@ __expr_rpnlist: .res $20
 	beq :+
 	jsr line::incptr
 	bne @l0
-
-:	pla
-	tay
-	pla
-	clc
+:
+@mode=*+1
+	lda #$00	; restore mode
+	ldxy @id	; get label
+	clc		; ok
 @done:	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; ISVAL
 ; Checks if the word in zp::line is a value or not
 ; OUT:
@@ -685,7 +671,7 @@ __expr_rpnlist: .res $20
 	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GET OPERAND
 ; Attempts to get an operand from an expression (constant value or label)
 ; and returns the token for it if one was found
@@ -697,21 +683,27 @@ __expr_rpnlist: .res $20
 ;   - .C:  set if no operand was able to be parsed
 .proc get_operand
 	jsr isval
-	bcs @label		; not a val, try label
+	bcs @label		; not a literal value, try label
 	jsr get_val		; is this a value?
 	bcs @label		; if not, try label
 	lda #TOK_VALUE
+	;clc
 	rts
 
 @label: ldxy zp::line
 	jsr get_label		; is it a label?
-	bcs @done		; no
-	lda #TOK_SYMBOL
-	;clc
-@done:	rts
+	php
+	cmp #$00		; zeropage?
+	bne :+
+	lda #TOK_SYMBOL_ZP
+	rts
+:	lda #TOK_SYMBOL
+	; .C = success
+	plp
+	rts
 .endproc
 
-;******************************************************************************
+;*******************************************************************************
 ; GETVAL
 ; Parses zp::line for a decimal or hexadecimal value up to 16 bits in size.
 ; It may also parse a character in the format 'x'.  This must be a 1 byte
@@ -720,6 +712,7 @@ __expr_rpnlist: .res $20
 ; IN:
 ;  - zp::line: the text to parse a value from
 ; OUT:
+;  - zp::line: updated to point past the value that was parsed
 ;  -.XY: the value of the string in zp::line
 ;  -.C: set on error and clear if a value was extracted.
 .proc get_val
