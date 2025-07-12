@@ -147,22 +147,24 @@ A new _section_ is created any time a .SEGMENT directive is encountered (even if
 
 ### RELOCATION TABLES
 For each _section_, the linker contains a table of _relocation info_.
-This table is made up of a number of entries with the following format:
+This table is made up of a number of entries, each describes how to relocate a byte or word
+in the section.  Relocations can either be _section-relative_ or _expressions_.
 
-| field          | size | description
-|----------------|------|-------------------------------------------------------------------------------------
-| info           |  1   | bitfield of information about the relocation entry
-| offset         |  2   | offset from section to relocate
-| symbol         |  2   | if using symbol - the symbol ID to relocate relative to
+
+The following table describes the relocation format in detail.
+
+| field                      | size | description
+|----------------------------|------|-------------------------------------------------------------------------------------
+| info                       |  1   | bitfield of information about the relocation entry
+| offset                     |  2   | offset from section to relocate
+| expression (if info & $02) |  n   | $ff terminated RPN relocation expression
 
 `info` is a bitfield with the following values:
 
 | field      | bit(s) | description
 |------------|--------|---------------------------------------------------------------------
 | size       |   0    | size of target value to modify 0=1 byte, 1=2 bytes
-| mode       |  1-2   | what to relocate relative to: 0=symbol-relative, 1=PC-relative
-| postproc   |  3-4   | 0=no post processing, 1=LSB, 2=MSB
-| operation  |  5-7   | the operation to use to apply the operand (0 = add, 1 = subtract)
+| mode       |   1    | what to relocate relative to: 0=expression, 1=PC-relative
 
 To apply the relocation table to a section, we walk the table, go to the address of that section's
 base + the offset for each table entry, and finally add the value stored at that address in the object

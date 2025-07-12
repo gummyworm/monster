@@ -129,22 +129,29 @@ __expr_rpnlist: .res $20
 @sp=zp::expr+1
 @val1=zp::expr+2
 @val2=zp::expr+4
+@result_size=zp::expr+6
 @operands=$128+1	; operand stack (grows up from here)
 @eval:	ldx #$00
 	stx @i
 	stx @sp
+	stx @result_size
 
 @evalloop:
 	ldx @i
 	lda __expr_rpnlist,x
 	bpl @cont
+
 @done:	jsr @popval		; read result (should be only value on stack)
+	lda @result_size
+	bne @ok			; if result size explicitly set, we're done
+
+	; calculate result size
 	tya
 	beq :+
 	lda #$02		; result size is 2 bytes
 	skw
 :	lda #$01
-	clc			; ok
+@ok:	clc			; ok
 @ret:	rts
 
 @cont:	inx			; move past token index
@@ -173,16 +180,22 @@ __expr_rpnlist: .res $20
 	cmp #TOK_SYMBOL
 	bne @const
 
-@sym:	; resolve symobl and push its value
+@sym:	; resolve symbol and push its value
+	cmpw #$ffff		; check magic "unresolved" value
+	beq @unresolved
 	jsr lbl::getaddr
-	bcc @const
-	ldx state::verify
-	beq @ret		; if not verifying, return err
+	jmp @const
 
-	; return an inferred value
-	ldxy #$00		; and return dummy value
-	lda #$ff		; if verifying, assume absolute addressing
-	RETURN_OK
+@unresolved:
+	; resolution is required in pass 2
+	ldx zp::pass
+	cpx #$02
+	beq @ret
+
+	; flag that result size is unknown
+	ldxy #$44		; and return dummy value
+	lda #$02		; assume 2 byte result
+	sta @result_size
 
 @const:	jsr @pushval
 	jmp @evalloop		; continue processing
@@ -569,9 +582,9 @@ __expr_rpnlist: .res $20
 ;  - .XY: pointer to the label to get the address of
 ; OUT:
 ;  - zp::line: updated to point past the label parsed
-;  - .C        is set if no label is found
-;  - .A:       the size of the label's address
-;  - .XY:      the ID for the label
+;  - .C   is set if no label is found
+;  - .A:  the size of the label's address
+;  - .XY: the ID for the label
 .proc get_label
 @id=zp::expr
 	jsr lbl::isvalid 	; if verifying, let this pass if label is valid
@@ -579,22 +592,25 @@ __expr_rpnlist: .res $20
 
 	; if we are only verifying (e.g. in pass 1 of assembly), label
 	; ID is not final, proceed with dummy value
-	ldx #$00
+	ldx #$ff
 	stx @id
 	stx @id+1
-	inx
-	stx @mode		; default addressing (absolute
-
-	lda state::verify
-	beq @updateline
 
 @get_id:
 	; if not verifying (e.g. in pass 2), label ID is final; try to get it
 	ldxy zp::line
 	jsr lbl::find
-	bcs @done		; failed to lookup symbol ID
-	stxy @id
+	bcc :+
 
+	; failed to lookup symbol ID, check if pass 1
+	ldx zp::pass
+	cpx #$02
+	bcs @done
+	ldx #$01
+	stx @mode	; default to ABS mode
+	bcc @updateline	; proceed with dummy ID
+
+:	stxy @id
 	jsr lbl::addrmode
 	sta @mode
 
@@ -685,9 +701,7 @@ __expr_rpnlist: .res $20
 	jsr isval
 	bcs @label		; not a literal value, try label
 	jsr get_val		; is this a value?
-	bcs @label		; if not, try label
 	lda #TOK_VALUE
-	;clc
 	rts
 
 @label: ldxy zp::line
@@ -696,7 +710,7 @@ __expr_rpnlist: .res $20
 	cmp #$00		; zeropage?
 	bne :+
 	lda #TOK_SYMBOL_ZP
-	rts
+	skw
 :	lda #TOK_SYMBOL
 	; .C = success
 	plp

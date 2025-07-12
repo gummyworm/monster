@@ -930,8 +930,10 @@ __asm_tokenize_pass1 = __asm_tokenize
 @store_word:
 	lda operand+1
 	ldx operand
+	ldy #$01		; offset to operand
 	jsr writew_with_reloc
-	bcs @opdone		; if unsucessful, return err
+	bcs @opdone		; if unsuccessful, return err
+	bcc @dbg
 
 @store_byte:
 	lda operand
@@ -1170,9 +1172,9 @@ __asm_tokenize_pass1 = __asm_tokenize
 	cmp #$ff
 	bne @sizedone
 	; if we don't know the size yet, check both zp and abs
-	jsr @zp
+	jsr @abs		; first check ABSOLUTE
 	bcc @ok
-	jmp @abs
+	bcs @zp
 
 ; we have the size, now dispatch as appropriate to zp, impl, or abs
 @sizedone:
@@ -1618,6 +1620,8 @@ __asm_tokenize_pass1 = __asm_tokenize
 	bcs @err
 
 	; store the extracted value
+	tya				; .A=MSB
+	ldy #$00
 	jsr writew_with_reloc
 
 	lda #$02
@@ -2914,18 +2918,22 @@ __asm_include:
 ; WRITEW WITH RELOC
 ; Writes the given word out with relocation information
 ; IN:
-;   - .XY: the word to write
+;   - .XA: the word to write
 ;   - .Y: the offset from asmresult to write to
 .proc writew_with_reloc
 	pha
 	txa
 	jsr writeb		; write LSB
-	pla
+	pla			; restore MSB
 	bcs :-			; -> rts
 
-	iny
+	iny			; next byte
 	jsr writeb		; write MSB
 	bcs :-			; -> rts
+	;clc
+	rts
+
+	; TODO: write relocation info
 	lda #$02		; 2 bytes
 	dey			; restore .Y
 	jmp write_reloc
