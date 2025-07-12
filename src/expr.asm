@@ -2,6 +2,13 @@
 ; EXPR.ASM
 ; This file contains code to evaluate expressions. This is used, among other
 ; things, to resolve operand values during assembly
+; For the sake of generating the RELOCATION TABLE for an object file, we
+; gather info to answer the following questions:
+;   - is the expression resolvable? (any labels in another SECTION)
+;   - does the expression require relocation? (any unreduced labels)
+;     - NOTE: reducable labels are differences of 2 in same section: e.g. (a-b)
+;   - if not resolvable, which symobl is used as base?
+;   - does any post-processing need to be done by linker?
 ;******************************************************************************
 
 .include "asm.inc"
@@ -17,6 +24,12 @@
 ; CONSTANTS
 MAX_OPERATORS = $10
 MAX_OPERANDS  = MAX_OPERATORS/2
+
+TOK_SYMBOL    = 1	; symbol e.g. "label"
+TOK_VALUE     = 2	; constant value e.g. 123
+TOK_BINARY_OP = 3	; binary operator e.g. '+' or '-'
+TOK_UNARY_OP  = 4	; unary operator e.g. '<'
+TOK_END       = $ff	; end of expression marker
 
 ;******************************************************************************
 ; ID of the EXTERNAL symbol referenced in expression (if any)
@@ -55,6 +68,8 @@ end_on_whitespace: .byte 0
 .export __expr_requires_reloc
 __expr_requires_reloc: .byte 0
 
+__expr_rpnlist: .res $20
+
 .CODE
 
 ;******************************************************************************
@@ -66,7 +81,7 @@ __expr_requires_reloc: .byte 0
 .export __expr_end_on_whitespace
 .proc __expr_end_on_whitespace
 	sta end_on_whitespace
-	rts
+:	rts
 .endproc
 
 ;******************************************************************************
@@ -90,296 +105,104 @@ __expr_requires_reloc: .byte 0
 ;  - zp::line: updated to point beyond the parsed expression
 .export __expr_eval
 .proc __expr_eval
-@val1=zp::expr
-@val2=zp::expr+2
-@num_operators=zp::expr+4
-@num_operands=zp::expr+5	; num operands * 2
-@may_be_unary=zp::expr+6
+	jsr __expr_parse	; parse the RPN list
+	bcs :-			; -> rts
+	jmp __expr_eval_list
+.endproc
 
-@operators=$128+1
-@operands=@operators+MAX_OPERATORS
-@priorities=@operands+(MAX_OPERANDS*2)
-	ldy #$00
-	sty @num_operators
-	sty @num_operands
-	sty __expr_requires_reloc
-	sty __expr_contains_global
+;******************************************************************************
+; EVAL LIST
+; Evaluates the provided RPN list of tokens and returns the result
+; IN:
+;  - $150: the list of tokens to evaluate (as produced by expr::parse)
+; OUT:
+;  - .A:       the size of the returned value in bytes or the error code
+;  - .XY:      the result of the evaluated expression
+;  - .C:       clear on success or set on failure
+.export __expr_eval_list
+.proc __expr_eval_list
+@i=r0
+@sp=r1
+@val1=r2
+@val2=r4
+@operands=r5		; operand stack (grows up from here)
+@eval:	ldx #$00
+	stx @i
+	stx @sp
 
-	lda (zp::line),y
-	bne :+
-	sec
-	rts			; no expression
+@evalloop:
+	ldx @i
+	lda __expr_rpnlist,x
+	bpl @cont
+@done:	ldxy @operands		; read result (should be only value on stack)
+	clc			; ok
+@ret:	rts
 
-:	; by default flag that operator might be unary
-	iny
-	sty @may_be_unary
+@cont:	inx			; move past token index
+	cmp #TOK_UNARY_OP
+	beq @eval_unary
+	cmp #TOK_BINARY_OP
+	beq @eval_binary
 
-@chkglobal:
-	; if there is an external symbol in the expression it MUST be the
-	; first (leftmost) label in the expression
-	lda asm::mode
-	beq @l0
-
-	; check first char for post-processing info (LSB or MSB)
-	ldy #$00
-	lda (zp::line),y
-	ldx #$00
-	cmp #'<'
-	bne :+
+	; not operator, get the operand
+	pha			; save TOKEN type
+	lda __expr_rpnlist,x
 	inx
-:	cmp #'>'
-	bne :+
+	ldy __expr_rpnlist,x
 	inx
-:	stx __expr_global_postproc
-	txa			; set .Z flag if no post-processing found
-	beq :+
-	jsr line::incptr	; if post-processing was found consume it
-
-:	jsr get_label
-	bcc @l0			; not a label (or not a valid one) -> continue
-	inc __expr_requires_reloc
-	jsr lbl::isglobal
-	bne @l0			; not global -> continue
-
-	ldxy r2
-	stxy __expr_global_id	; set the ID for the global referenced
-	inc __expr_contains_global
-
-	jsr util::isoperator	; is there an operator too?
-	bne @l0
-	sta __expr_global_op	; store the operator
-	jsr line::incptr	; move past the operator
-
-;---------------------------------------
-; main expression processing loop
-@l0:	ldy #$00
-	lda (zp::line),y
-	jsr util::is_whitespace	; eat whitespace
-	bne :+
-
-	; check whitespace behavior, finish if configured as terminator
-	lda end_on_whitespace
-	bne @end
-	jsr line::incptr
-	bne @l0		; branch always
-
-:	lda (zp::line),y
-	jsr @isterminator
-	bne @rparen
-@end:	jmp @done
-
-@rparen:
-	cmp #'('
-	bne @lparen
-	inc @may_be_unary
-	jsr @pushop
-	jsr line::incptr
-	bne @l0		; branch always
-
-@lparen:
-	cmp #')'
-	bne @checkop
-	ldx #$00
-	stx @may_be_unary
-
-@paren_eval:
-	ldx @num_operators
-	dex
-	bmi @err	; no parentheses found
-	lda @operators,x
-	cmp #'('
-	bne :+
-	jsr @popop	; pop the parentheses
-
-	jsr line::incptr
-	bne @l0		; branch always - done evaluating this () block
-
-:	jsr @eval	; evaluate the top 2 operands
-	jmp @paren_eval
-
-@checkop:
-	;ldy #$00
-	lda (zp::line),y
-	cmp #'*'		; '*' can be a value or operator
-	bne :+
-	ldx @may_be_unary	; if unary logic applies, treat as value (PC)
-	bne @getoperand
-
-:	jsr util::isoperator
-	bne @getoperand
-	pha			; save the operator
-	jsr @priority		; get the priority of this operator
-
-@process_ops:
-	ldx @num_operators	; any operators to the left?
-	beq @process_ops_done
-	dex
-
-	; if the operator to the left has >= priority, process it
-	cmp @priorities,x
-	beq :+
-	bcs @process_ops_done
-:	pha			; save priority
-	jsr @eval		; evaluate top 2 elements of the operand stack
-	pla			; get priority
-	jmp @process_ops	; continue til op on left has lower priority
-
-@process_ops_done:
-	pla
-	jsr @pushop
-	jsr line::incptr
-	inc @may_be_unary
-	bne @l0			; branch always
-
-@getoperand:
-	jsr isval
-	bcs @label		; not a val, try label
-	jsr __expr_getval	; is this a value?
-	bcc @pushoperand
-	rts			; return err
-
-@label: ldxy zp::line
-	jsr get_label		; is it a label?
-	bcs @err		; no
-
-@pushoperand:
-	jsr @pushval
-	lda #$00
-	sta @may_be_unary
-	jmp @l0
-
-@err:	; check if this is parentheses (could be indirect addressing)
-	ldy #$00
-	lda (zp::line),y
-	cmp #')'
-	beq @done
-	RETURN_ERR ERR_LABEL_UNDEFINED
-
-@done:	ldx @num_operators	; if there are still ops on stack
-	beq @getresult		; no operators: just get the result
-	jsr @eval		; evaluate each remaining operator
-	jmp @done
-
-@getresult:
-	ldx @operands
-	lda #$01
-	ldy @operands+1
-	beq :+
-	lda #$02
-:	RETURN_OK
-
-;------------------
-; isterminator returns .Z set if the character in .A is
-; one that should end the evaluation of the expression
-@isterminator:
-	cmp #$00
-	beq :+
-	cmp #';'
-	beq :+
-	cmp #','
-:	rts
-
-;------------------
-@popval:
-	dec @num_operands
-	dec @num_operands
-	ldx @num_operands
-	ldy @operands+1,x
-	lda @operands,x
+	stx @i
 	tax
-	rts
+	pla			; restore TOKEN type
+	cmp #TOK_SYMBOL
+	bne @const
+@sym:	; resolve symobl and push its value
+	jsr lbl::addr
+	bcs @ret		; unresolvable
+@const:	jsr @pushval
+	jmp @evalloop		; continue processing
 
-;------------------
-@pushval:
-	txa
-	ldx @num_operands
-	cpx #MAX_OPERANDS
-	bcc :+
-:	sta @operands,x
-	tya
-	sta @operands+1,x
-	inc @num_operands
-	inc @num_operands
-	rts
+;--------------------------------------
+; handle unary operator
+@eval_unary:
+	lda __expr_rpnlist,x	; get the operator
+	pha		; and save it
+	inx		; move index past the operator
+	stx @i		; update list index
 
-;------------------
-@popop:
-	dec @num_operators
-	ldx @num_operators
-	lda @operators,x
-	rts
-
-;------------------
-@pushop:
-	ldx @num_operators
-	cpx #MAX_OPERATORS
-	bcc :+
-:	sta @operators,x
-	pha
-	jsr @priority
-	sta @priorities,x
-	pla
-	inc @num_operators
-	rts
-
-;------------------
-@priority:
-	cmp #'+'
-	beq @prio1
-	cmp #'-'
-	beq @prio1
-	cmp #'*'
-	beq @prio2
-	cmp #'/'
-	beq @prio2
-	cmp #'&'
-	beq @prio3
-	cmp #'^'
-	beq @prio4
-	cmp #'.'
-	beq @prio5
-	cmp #'<'
-	beq @prio3
-	cmp #'>'
-	beq @prio3
-
-	lda #$00	; unknown
-	rts
-
-@prio1:	lda #$01
-	rts
-@prio2: lda #$02
-	rts
-@prio3: lda #$03
-	rts
-@prio4:	lda #$04
-	rts
-@prio5:	lda #$05
-	rts
-
-;------------------
-; returns the evaluation of the operator in .A on the operands @val1 and @val2
-@eval:	jsr @popval
+	; get the operand for the unary operation
+	jsr @popval
 	stxy @val1
 
-	jsr @popop
-	; check if operator is unary
-	cmp #'<'
-	beq @unary
-	cmp #'>'
-	bne @binary
-@unary: jmp @check_unary
+@lsb:	cmp #'<'
+	bne @msb
+	ldy #$00
+	ldx @val1
+	jmp @pushval
 
-@binary:
-	; not unary, get a second argument
-	pha
+@msb:	cmp #'>'
+	bne :+
+	ldy #$00
+	ldx @val1+1
+	jmp @pushval
+:	jmp *		; TODO: should be impossible
+
+;--------------------------------------
+; handle binary operator
+@eval_binary:
+	lda __expr_rpnlist,x	; get the operator
+	pha		; and save it
+	inx		; move index past the operator
+	stx @i		; update list index
+
+	; get the operands for the binary operation
+	jsr @popval
+	stxy @val1
 	jsr @popval
 	stxy @val2
 
-	pla
+	pla		; restore operator
 	cmp #'+'
 	bne :+
-
 @add:   lda @val1
 	clc
 	adc @val2
@@ -442,7 +265,7 @@ __expr_requires_reloc: .byte 0
 	jmp @pushval
 
 :	cmp #'^'	; EOR
-	bne @unknown_op
+	bne :+
 	lda @val1
 	eor @val2
 	tax
@@ -450,25 +273,305 @@ __expr_requires_reloc: .byte 0
 	eor @val2+1
 	tay
 	jmp @pushval
+:	jmp *		; TODO: should be impossible
 
-@check_unary:
+;--------------------------------------
+@popval:
+	lda @sp
+	sec
+	sbc #$02
+	sta @sp
+	ldy @operands+1,x	; get MSB
+	lda @operands,x		; and LSB
+	tax
+	rts
+
+;--------------------------------------
+@pushval:
+	txa
+	ldx @sp
+	sta @operands,x		; store LSB
+	tya
+	sta @operands+1,x	; store MSB
+
+	; update stack pointer
+	lda @sp
+	clc
+	adc #$02
+	sta @sp
+	rts
+.endproc
+
+;******************************************************************************
+; PARSE
+; Parses the expression into a RPN list of tokens evaluatable by
+; expr::eval_token_list
+; IN:
+;   - zp::line: pointer to the expression to parse
+; OUT:
+;   - $150: a list of tokens for evaluation (in RPN format)
+.export __expr_parse
+.proc __expr_parse
+@i=zp::expr
+@num_operators=zp::expr+1
+@num_operands=zp::expr+2	; num operands * 2
+@may_be_unary=zp::expr+3
+@operators=$128+1
+@operands=@operators+MAX_OPERATORS
+@priorities=@operands+(MAX_OPERANDS*3)	; 2 bytes for val + 1 byte for type
+	ldy #$00
+	sty @num_operators
+	sty @num_operands
+	sty __expr_requires_reloc
+	sty __expr_contains_global
+
+	lda (zp::line),y
+	bne :+
+	sec
+	rts			; no expression
+
+:	; by default flag that operator might be unary
+	iny
+	sty @may_be_unary
+
+@l0:	ldy #$00
+	lda (zp::line),y
+	jsr util::is_whitespace	; eat whitespace
+	bne :+
+
+	; check whitespace behavior, finish if configured as terminator
+	lda end_on_whitespace
+	bne @done
+	jsr line::incptr
+	bne @l0		; branch always
+
+:	lda (zp::line),y
+	jsr @isterminator
+	bne @rparen
+
+@rparen:
+	cmp #'('
+	bne @lparen
+	inc @may_be_unary
+	jsr @pushop
+	jsr line::incptr
+	bne @l0		; branch always
+
+@lparen:
+	cmp #')'
+	bne @checkop
 	ldx #$00
-	stx @val2
-	stx @val2+1
+	stx @may_be_unary
 
-@lsb:	cmp #'<'
-	bne @msb
+@paren_eval:
+	ldx @num_operators
+	dex
+	bmi @err	; no parentheses found
+	lda @operators,x
+	cmp #'('
+	bne :+
+	jsr @popop	; pop the parentheses
+
+	jsr line::incptr
+	bne @l0		; branch always - done evaluating this () block
+
+:	jsr @eval	; evaluate the top 2 operands
+	jmp @paren_eval
+
+@checkop:
 	ldy #$00
-	ldx @val1
-	jmp @pushval
+	lda (zp::line),y
+	cmp #'*'		; '*' can be a value or operator
+	bne :+
+	ldx @may_be_unary	; if unary logic applies, treat as value (PC)
+	bne @getoperand
 
-@msb:	cmp #'>'
-	bne @unknown_op
+:	jsr util::isoperator
+	bne @getoperand
+	pha			; save the operator
+	jsr @priority		; get the priority of this operator
+
+@process_ops:
+	ldx @num_operators	; any operators to the left?
+	beq @process_ops_done
+	dex
+
+	; if the operator to the left has >= priority, append it to result
+	cmp @priorities,x
+	beq :+
+	bcs @process_ops_done
+:	pha			; save priority
+	jsr @eval		; append operation to the stack
+	pla			; get priority
+	jmp @process_ops	; continue til op on left has lower priority
+
+@process_ops_done:
+	pla
+	jsr @pushop
+	jsr line::incptr
+	inc @may_be_unary
+	bne @l0			; branch always
+
+@getoperand:
+	jsr get_operand		; have we found a valid operand?
+	bcs @err		; no
+
+@pushoperand:
+	jsr @pushval
+	lda #$00
+	sta @may_be_unary
+	jmp @l0
+
+@done:	ldx @num_operators	; if there are still ops on stack
+	beq @end		; no operators: terminate the RPN list
+	jsr @eval		; evaluate each remaining operator
+	jmp @done
+
+@end:	lda #TOK_END
+	ldx @i
+	sta __expr_rpnlist,x
+	RETURN_OK
+
+@err:	; check if this is parentheses (could be indirect addressing)
 	ldy #$00
-	ldx @val1+1
-	jmp @pushval
+	lda (zp::line),y
+	cmp #')'
+	beq @done
+	RETURN_ERR ERR_LABEL_UNDEFINED
 
-@unknown_op:
+;------------------
+; isterminator returns .Z set if the character in .A is
+; one that should end the evaluation of the expression
+@isterminator:
+	cmp #$00
+	beq :+
+	cmp #';'
+	beq :+
+	cmp #','
+:	rts
+
+;------------------
+@popval:
+	lda @num_operands
+	sec
+	sbc #$03
+	tax
+	stx @num_operands
+	ldy @operands+2,x	; MSB
+	lda @operands,x		; TOKEN type
+	pha
+	lda @operands+1,x	; LSB
+	tax
+	pla
+	rts
+
+;------------------
+; .A=token type .XY=token operand
+@pushval:
+	pha			; save TOKEN type
+	txa
+	ldx @num_operands
+	cpx #MAX_OPERANDS
+	bcs :+
+	sta @operands+1,x	; store LSB
+	tya
+	sta @operands+2,x	; store MSB
+	pla			; restore TOKEN type
+	sta @operands,x		; store TOKEN type
+	lda @num_operands
+	;clc
+	adc #$03
+	sta @num_operands
+:	rts
+
+;------------------
+@popop:
+	dec @num_operators
+	ldx @num_operators
+	lda @operators,x
+	rts
+
+;------------------
+@pushop:
+	ldx @num_operators
+	cpx #MAX_OPERATORS
+	bcc :+
+:	sta @operators,x
+	pha
+	jsr @priority
+	sta @priorities,x
+	pla
+	inc @num_operators
+	rts
+
+;------------------
+@priority:
+	ldy #@num_prios
+:	cmp @priochars-1,y
+	beq @prio_found
+	dex
+	bne :-
+	tya			; .A=0
+	rts			; not found
+@prio_found:
+	lda @prios-1,y
+	rts
+
+.PUSHSEG
+.RODATA
+@priochars: .byte '+', '-', '*', '/', '&', '^', '.', '<', '>'
+@prios:	    .byte  1,   1,   2,   2,   3,   4,   5,   3,   3
+@num_prios=*-@prios
+.POPSEG
+
+;------------------
+; appends the operands involved in the evaluation followed by the operation
+; to the RPN result
+; returns the evaluation of the operator in .A on the operands @val1 and @val2
+@eval:	jsr @popval
+	jsr @appendval
+
+	jsr @popop
+
+	; check if operator is unary
+	cmp #'<'
+	beq @unary
+	cmp #'>'
+	beq @unary
+@binary:
+	; not unary, append a second argument
+	pha
+	jsr @popval
+	jsr @appendval		; append the 2nd arg
+	pla
+	lda #TOK_BINARY_OP
+	skw			; skip next instruction
+@unary: lda #TOK_UNARY_OP
+
+	; append the operator
+	ldx @i
+	sta __expr_rpnlist+1,x	; write operator
+	sta __expr_rpnlist,x		; write TOKEN type
+	inx
+	inx
+	stx @i
+	rts
+
+;--------------------------------------
+; append .XY (token type in .A) to the RPN list result
+@appendval:
+	pha
+	txa
+	ldx @i
+	sta __expr_rpnlist+1,x	; LSB
+	tya
+	sta __expr_rpnlist+2,x	; MSB
+	pla
+	sta __expr_rpnlist,x		; TOKEN type
+	inx
+	inx
+	inx
+	stx @i
 	rts
 .endproc
 
@@ -583,6 +686,32 @@ __expr_requires_reloc: .byte 0
 .endproc
 
 ;******************************************************************************
+; GET OPERAND
+; Attempts to get an operand from an expression (constant value or label)
+; and returns the token for it if one was found
+; IN:
+;   - zp::line: the text to parse
+; OUT:
+;   - .A:  the token type
+;   - .XY: the rest of the operand
+;   - .C:  set if no operand was able to be parsed
+.proc get_operand
+	jsr isval
+	bcs @label		; not a val, try label
+	jsr get_val		; is this a value?
+	bcs @label		; if not, try label
+	lda #TOK_VALUE
+	rts
+
+@label: ldxy zp::line
+	jsr get_label		; is it a label?
+	bcs @done		; no
+	lda #TOK_SYMBOL
+	;clc
+@done:	rts
+.endproc
+
+;******************************************************************************
 ; GETVAL
 ; Parses zp::line for a decimal or hexadecimal value up to 16 bits in size.
 ; It may also parse a character in the format 'x'.  This must be a 1 byte
@@ -593,8 +722,7 @@ __expr_requires_reloc: .byte 0
 ; OUT:
 ;  -.XY: the value of the string in zp::line
 ;  -.C: set on error and clear if a value was extracted.
-.export __expr_getval
-.proc __expr_getval
+.proc get_val
 @val=zp::expr
 	ldy #$00
 	sty @val

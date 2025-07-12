@@ -931,7 +931,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	lda operand+1
 	ldx operand
 	jsr writew_with_reloc
-	bcs @opdone	; if unsucessful, return err
+	bcs @opdone		; if unsucessful, return err
 
 @store_byte:
 	lda operand
@@ -1041,14 +1041,11 @@ __asm_tokenize_pass1 = __asm_tokenize
 	jsr lbl::getaddr
 	bcs @ret
 	cmpw zp::label_value
-	beq @addinfo
+	beq @ok
 	lda #ERR_LABEL_NOT_KNOWN_PASS1
 	sec
 	rts
 
-@addinfo:
-	; on pass 2 add info about the symbol (if assembling to object code)
-	jsr obj::add_symbol_info
 @ok:	ldxy zp::line
 @done:	clc
 @ret:	rts
