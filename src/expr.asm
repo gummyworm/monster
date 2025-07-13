@@ -193,7 +193,7 @@ __expr_rpnlist: .res $20
 	beq @ret
 
 	; flag that result size is unknown
-	ldxy #$44		; and return dummy value
+	ldxy #$00		; and return dummy value
 	lda #$02		; assume 2 byte result
 	sta @result_size
 
@@ -351,7 +351,7 @@ __expr_rpnlist: .res $20
 @i=zp::expr+2
 @num_operators=zp::expr+3
 @may_be_unary=zp::expr+4
-@operators=128+1
+@operators=$128+1
 @priorities=@operators+(MAX_OPERATORS*2)
 	ldy #$00
 	sty @num_operators
@@ -397,13 +397,11 @@ __expr_rpnlist: .res $20
 
 @paren_eval:
 	ldx @num_operators
-	dex
-	bmi @err	; no parentheses found
-	lda @operators,x
+	beq @err	; no parentheses found
+	lda @operators-1,x
 	cmp #'('
 	bne :+
 	jsr @popop	; pop the parentheses
-
 	jsr line::incptr
 	bne @l0		; branch always - done evaluating this () block
 
@@ -534,6 +532,8 @@ __expr_rpnlist: .res $20
 ; to the RPN result
 ; returns the evaluation of the operator in .A on the operands @val1 and @val2
 @eval:	jsr @popop
+	cmp #'('		; ignore opening paren sentinel
+	beq @evaldone
 
 	; check if operator is unary
 	pha			; save operator
@@ -554,6 +554,7 @@ __expr_rpnlist: .res $20
 	inx
 	inx
 	stx @i
+@evaldone:
 	rts
 
 ;--------------------------------------

@@ -726,7 +726,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	jsr is_anonref
 	bne @eval		; not anon ref -> continue
 	jsr anonref
-	lda #$02
+	lda #$02		; force word operand (relative addr is computed)
 	bcc @eval_done
 @evalfailed:
 	rts			; return error
@@ -833,7 +833,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	; JMP (xxxx) has a different opcode than JMP
 	lda opcode
 	cmp #$40
-	bne @getbbb	; if not, not a JMP
+	bne @getbbb	; if not $40, not a JMP
 	lda cc		; if cc is not 00,
 	bne @getbbb	; not a JMP
 	lda indirect	; get indirect flag
@@ -848,7 +848,11 @@ __asm_tokenize_pass1 = __asm_tokenize
 	rts		; return err
 
 @jmpabs:
-	cpx #ABS
+	cpx #ZEROPAGE
+	bne :+
+	ldx #ABS	; force ABS for JMP
+	inc operandsz
+:	cpx #ABS
 	bne @err 	; only ABS supported for JMP XXXX
 	lda #$4c
 	jsr writeb
@@ -1167,22 +1171,12 @@ __asm_tokenize_pass1 = __asm_tokenize
 ;  - .C: clear on success, set on error
 .export getaddrmode
 .proc getaddrmode
-	; get addressing mode index for bbb tables
 	lda operandsz
-	cmp #$ff
-	bne @sizedone
-	; if we don't know the size yet, check both zp and abs
-	jsr @abs		; first check ABSOLUTE
-	bcc @ok
-	bcs @zp
-
-; we have the size, now dispatch as appropriate to zp, impl, or abs
-@sizedone:
 	cmp #$00
 	beq @impl
-	cmp #2
+	cmp #$02
 	beq @abs
-	cmp #1
+	cmp #$01
 	beq @zp
 @err:   RETURN_ERR ERR_OVERSIZED_OPERAND
 

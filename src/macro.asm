@@ -333,6 +333,8 @@ macros:          .res $1400
 	beq :+		; end of the string we're trying to find
 	cmp #' '
 	beq :+
+	cmp #$09
+	beq :+
 	cmp (@name),y
 	bne @next
 	iny
