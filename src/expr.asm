@@ -17,7 +17,7 @@
 .include "line.inc"
 .include "macros.inc"
 .include "math.inc"
-.include "state.inc"
+.include "object.inc"
 .include "util.inc"
 
 ;*******************************************************************************
@@ -73,6 +73,51 @@ __expr_requires_reloc: .byte 0
 __expr_rpnlist: .res $20
 
 .CODE
+
+;*******************************************************************************
+; CROSSES SECTION
+; Checks if the most recently parsed expression (expr::parse) contains
+; symbols from outside the given SECTION
+; NOTE: sections are only relevant in pass 2 of assembly to object code
+; IN:
+;   - .A: the section to check
+; OUT:
+;   - .C: set if there are symbols from another section in the expression
+.export __expr_crosses_section
+.proc __expr_crosses_section
+@section=zp::expr
+@i=zp::expr+1
+	sta @section
+
+	ldx #$00
+	stx @i
+@l0:	ldx @i
+	lda __expr_rpnlist,x
+	bmi @done
+	cmp #TOK_UNARY_OP
+	bcs @op			; >= TOK_UNARY_OP is an operation
+	cmp #TOK_VALUE
+	beq @valdone		; const value -> go to next token
+@sym:	ldy __expr_rpnlist+2,x
+	lda __expr_rpnlist+1,x
+	tax
+	jsr obj::get_symbol_info
+	ldx @i
+	cpy @section
+	beq @valdone
+
+	; symbol is not in the same section
+	sec
+	rts
+@valdone:
+	inx
+@op:	inx
+	inx
+	stx @i
+	bne @l0
+
+@done:	RETURN_OK	; no cross-section symbols
+.endproc
 
 ;*******************************************************************************
 ; END_ON_SPACE
@@ -187,7 +232,8 @@ __expr_rpnlist: .res $20
 	jmp @const
 
 @unresolved:
-	; resolution is required in pass 2
+	; resolution is required in pass 2 for DIRECT mode
+	; if assembling to OBJECT,
 	ldx zp::pass
 	cpx #$02
 	beq @ret

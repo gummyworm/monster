@@ -133,13 +133,18 @@ __asm_linenum: .word 0
 ; the type of the segment being stored e.g. SEG_BSS or SEG_CODE
 ;segment_type: .byte 0
 
-
 ;*******************************************************************************
 ; SEGMODE
 ; When assembling to object code (asm::mode != 0)
 ; this contains the size of labels defined in that segment
 ; 0=ZP, 1=ABS (anything but ZP)
 __asm_segmode: .byte 0
+
+;*******************************************************************************
+; SECTION
+; The current SECTION. A new SECTION is created anytime a .SEGMENT
+; directive is encountered
+__asm_section: .byte 0
 
 ;*******************************************************************************
 ; ASM MODE
@@ -1013,7 +1018,8 @@ __asm_tokenize_pass1 = __asm_tokenize
 ; DO LABEL
 ; State machine component
 ; Extracts the label from the line
-; On pass 1, adds the label to the symbol table
+; pass 1: adds the label to the symbol table
+; pass 2 (if assembling to object): maps symbol to its section
 .proc do_label
 	lda #ASM_LABEL
 	sta resulttype
@@ -1031,6 +1037,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 
 :	lda state::verify
 	bne @ok			; if verifying, don't add/check label
+
 	lda zp::pass
 	ldxy zp::line
 	cmp #$01
@@ -1047,10 +1054,17 @@ __asm_tokenize_pass1 = __asm_tokenize
 	jsr lbl::getaddr
 	bcs @ret
 	cmpw zp::label_value
-	beq @ok
+	beq @map_symbol
 	lda #ERR_LABEL_NOT_KNOWN_PASS1
 	sec
 	rts
+
+@map_symbol:
+	lda __asm_mode
+	beq @ok				; not assembling to OBJECT -> skip
+	ldx __asm_section
+	ldy __asm_segmode
+	jsr obj::add_symbol_info
 
 @ok:	ldxy zp::line
 @done:	clc
@@ -2887,11 +2901,10 @@ __asm_include:
 	ldx expr::requires_reloc
 	beq :-				; -> rts (expression fully resolved)
 
-	; add  new relocation entry to the relocation table
-	; if a global was referenced (expr::global_sym) this will produce
-	; relocation relative to the referenced symbol
-	; if not, it will just mark the address for relocation and the PC
-	; at link time will be added to it
+	; add new relocation entry to the relocation table
+	; this will either be relative to the PC during linkage
+	; or an expression if symbols outside the current section are
+	; referenced
 	jmp obj::addreloc
 .endproc
 

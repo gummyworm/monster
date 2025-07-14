@@ -479,7 +479,6 @@ main:	jsr key::getch
 @pass2: ; set the initial file for debugging
 	ldxy #$01
 	stxy asm::linenum
-	jmp *
 
 	; set debug file id if debug info generation is enabled
 	lda zp::gendebuginfo

@@ -13,6 +13,7 @@
 .include "macros.inc"
 .include "screen.inc"
 .include "settings.inc"
+.include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"
 
@@ -114,7 +115,7 @@ guisp:		.word guistack
 	bcc :+
 	inc guisp+1
 
-:	; copy the GUI data to the GUI stack
+:	; copy existing the GUI data to the GUI stack
 	ldy #guidata_size-1
 	pla
 	sta (@stack),y	; base row
@@ -176,7 +177,7 @@ guisp:		.word guistack
 	bne @chkup
 
 @quit:	; TODO: copy current state back to (guisp)
-	rts
+	jmp __gui_deactivate
 
 @chkup:	jsr key::isup
 	bne @chkdown
@@ -379,7 +380,7 @@ exit:	rts				; no GUI to draw
 	lda (numptr),y
 	sta num
 
-	cmpw height
+	cmp height
 	bcs @done	; if # of items is > max height, use full height
 	sta height	; else, only resize to the size needed to fit all items
 	clc		; ok

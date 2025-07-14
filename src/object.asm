@@ -345,7 +345,7 @@ __obj_add_reloc:
 ; Adds symbol info to the symbol table for the current object file
 ; IN:
 ;    - .X: the section ID
-;    - .Y: the type of symbol (GLOBAL, LOCAL)
+;    - .Y: mode of the label
 .proc add_symbol_info
 @cnt=r0
 @info=r2
