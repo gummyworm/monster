@@ -187,3 +187,55 @@ maxy: .byte 0
 :	inc zp::curx
 @done:	rts
 .endproc
+
+;*******************************************************************************
+; PUSH
+; Pushes the cursor onto the stack. This call will leave 2 new elements on
+; the stack, which cur::pop will restore
+; cursor
+.export __cur_push
+.proc __cur_push
+@ret=zp::util
+	; save return address
+	pla
+	sta @ret
+	pla
+	sta @ret+1
+
+	lda zp::curx
+	pha
+	lda zp::cury
+	pha
+
+	; push return address again
+	lda @ret+1
+	pha
+	lda @ret
+	pha
+	rts
+.endproc
+
+;*******************************************************************************
+; POP
+; Pops the cursor values from the stack (pushed with cur::push)
+.export __cur_pop
+.proc __cur_pop
+@ret=zp::util
+	; save return address
+	pla
+	sta @ret
+	pla
+	sta @ret+1
+
+	pla
+	sta zp::cury
+	pla
+	sta zp::curx
+
+	; push return address again
+	lda @ret+1
+	pha
+	lda @ret
+	pha
+	rts
+.endproc

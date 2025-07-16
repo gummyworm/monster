@@ -15,6 +15,7 @@
 .include "expr.inc"
 .include "flags.inc"
 .include "gui.inc"
+.include "guis.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "labels.inc"
@@ -84,6 +85,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 .PUSHSEG
 .RODATA
 @menu:
+.byte GUI_WATCHES		; id for watches editor
 .byte HEIGHT			; max height
 .word @getkey			; key handler
 .word ui::render_watch		; get line handler

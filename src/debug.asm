@@ -555,7 +555,8 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	jsr edit::gotoline
 	ldxy @line
 	clc			; ok
-@done:	rts
+@done:
+:	rts			; <- __debug_go
 .endproc
 
 ;******************************************************************************
@@ -565,10 +566,9 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 .proc __debug_go
 	; run one step to get over breakpoint (if we're on one)
 	jsr step
-	bcc :+
-	rts			; failed to execute next instruction
+	bcs :-		; failed to execute next instruction -> rts
 
-:	inc breakpoints_active
+	inc breakpoints_active
 	jsr install_breakpoints
 
 	lda #$00
@@ -1515,12 +1515,12 @@ __debug_remove_breakpoint:
 ; RESET STOPWATCH
 ; Resets the stopwatch
 .proc reset_stopwatch
-	lda #$01
-	sta __debug_sw_valid
+	ldx #$03		; 3 bytes (24-bit stopwatch)
+	stx __debug_sw_valid	; stopwatch is valid
 	lda #$00
-	sta sim::stopwatch
-	sta sim::stopwatch+1
-	sta sim::stopwatch+2
+:	sta sim::stopwatch-1,x
+	dex
+	bne :-
 	rts
 .endproc
 

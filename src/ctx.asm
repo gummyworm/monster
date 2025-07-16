@@ -263,7 +263,8 @@ numparams = zp::ctx+10	; the number of parameters for the context
 ; ADDPARAM
 ; Adds the given parameter to the active context
 ; IN:
-;  - .XY: the 0, ' ', or ',' terminated parameter to add to the active context
+;  - .XY: the 0, whitepace, or ',' terminated parameter to add to the active
+;  context
 ; OUT:
 ;  - .XY: the rest of the string after the parameter that was extracted
 .export __ctx_addparam
@@ -286,7 +287,7 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	beq @done
 	cmp #','
 	beq @done
-	cmp #' '
+	jsr util::is_whitespace
 	beq @done
 	iny
 	cpy #PARAM_LENGTH

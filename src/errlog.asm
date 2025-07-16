@@ -12,6 +12,7 @@
 .include "edit.inc"
 .include "errors.inc"
 .include "gui.inc"
+.include "guis.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "macros.inc"
@@ -52,6 +53,7 @@ numerrs: .byte 0
 .PUSHSEG
 .RODATA
 @menu:
+.byte GUI_ERRLOG	; id for errlog
 .byte MAX_HEIGHT	; max height
 .word @keyhandler	; key handler
 .word @getline		; get line handler

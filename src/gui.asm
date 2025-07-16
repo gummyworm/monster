@@ -24,7 +24,7 @@ MAX_WINDOWS = 3
 .BSS
 
 guidata = zp::gui
-guidata_size=$c
+guidata_size=$d
 ; the following is the sequence stored
 height	= zp::gui	; height of the GUI window
 getkey	= zp::gui+1	; pointer to get key handler function
@@ -49,11 +49,15 @@ guitmp = zp::gui+$d
 ; The guistack holds the gui data for each active window.
 ; Activating a new window will push the current window (if any), and
 ; deactivating the window will pop it back into the active gui data memory.
+.export guistack
 guistack:	.res MAX_WINDOWS*guidata_size
 
 ;*******************************************************************************
 .DATA
-guisp:		.word guistack
+guisp:		.word guistack	; pointer to end of all GUIs
+usersp:		.word guistack	; pointer to GUI that is active
+.export stackdepth
+stackdepth:	.byte 0
 
 ;*******************************************************************************
 .CODE
@@ -101,16 +105,54 @@ guisp:		.word guistack
 .proc __gui_listmenu
 @src=r0
 @stack=r2
+@type=r4
 	pha
 	stxy @src
 
-	ldxy guisp
-	stxy @stack
+	; search the GUI stack to see if this editor is open already
+	ldy #$00
+	lda (@src),y
+	sta @type
+	ldx stackdepth
+	beq @cont
+
+:	lda @type
+	cmp guistack,y
+	beq @already_active
+	tya
+	clc
+	adc #guidata_size
+	tay
+	dex
+	bne :-
+	beq @cont		; not found
+
+@already_active:
+	; activate the existing GUI
+	lda usersp
+	ldy usersp+1
+	bne @copyvars		; branch always
+
+@cont:	lda guisp
+	ldy guisp+1
+	ldx stackdepth
+	cpx #MAX_WINDOWS
+	bcc :+
+
+	; too many windows open
+	; TODO: close the oldest
+	pla			; clean stack
+	rts			; and return
+
+:	inc stackdepth
+
+@copyvars:
+	sta @stack
+	sty @stack+1
 
 	; update GUI stack pointer
-	lda #guidata_size
 	clc
-	adc @stack
+	adc #guidata_size
 	sta guisp
 	bcc :+
 	inc guisp+1
@@ -119,6 +161,7 @@ guisp:		.word guistack
 	ldy #guidata_size-1
 	pla
 	sta (@stack),y	; base row
+
 	; initialize scroll and selection offset to 0
 	dey
 	lda #$00
@@ -126,6 +169,8 @@ guisp:		.word guistack
 	dey
 	sta (@stack),y	; scroll
 	dey
+
+	; copy the rest of the config for this GUI from the definition
 @l0:	lda (@src),y
 	sta (@stack),y
 	dey
@@ -177,7 +222,7 @@ guisp:		.word guistack
 	bne @chkup
 
 @quit:	; TODO: copy current state back to (guisp)
-	jmp __gui_deactivate
+	rts
 
 @chkup:	jsr key::isup
 	bne @chkdown
@@ -331,8 +376,7 @@ exit:	rts				; no GUI to draw
 ; Exits the GUI that is at the top of the GUI stack
 .export __gui_deactivate
 .proc __gui_deactivate
-	ldxy guisp
-	cmpw #guistack
+	lda stackdepth
 	beq @done		; do nothing if stack is empty
 	lda guisp
 	sec
@@ -340,6 +384,7 @@ exit:	rts				; no GUI to draw
 	sta guisp
 	bcs @done
 	dec guisp+1
+	dec stackdepth
 @done:	rts
 .endproc
 
@@ -360,23 +405,26 @@ exit:	rts				; no GUI to draw
 ;  - .C: set if there is no GUI active
 .proc copyvars
 @stack=r0
-	; peek the address of the top element and set @stack to it
-	ldxy guisp
-	cmpw #guistack
+	lda stackdepth
 	beq @done
 
-	sub16 #guidata_size
-	stxy @stack
+	; peek the address of the top element and set @stack to it
+	lda guisp
+	sec
+	sbc #guidata_size
+	sta @stack
+	lda guisp+1
+	sbc #$00
+	sta @stack+1
 
 	; copy the data from the GUI stack to the zeropage area
 	ldy #guidata_size-1
 @l0:	lda (@stack),y
-	sta guidata,y
+	sta guidata-1,y
 	dey
-	bpl @l0
+	bne @l0
 
 	; get the number of items in the GUI (may change between activations)
-	iny
 	lda (numptr),y
 	sta num
 
@@ -384,5 +432,6 @@ exit:	rts				; no GUI to draw
 	bcs @done	; if # of items is > max height, use full height
 	sta height	; else, only resize to the size needed to fit all items
 	clc		; ok
-@done:	rts
+@done:
+rts
 .endproc

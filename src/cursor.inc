@@ -6,6 +6,8 @@
 .import __cur_maxy
 .import __cur_minx
 .import __cur_miny
+.import __cur_pop
+.import __cur_push
 .import __cur_right
 .import __cur_set
 .import __cur_setmin
@@ -30,6 +32,8 @@ CUR_ON  = 1
 	mode    = __cur_mode
 	move    = __cur_move
 	set     = __cur_set
+	pop     = __cur_pop
+	push    = __cur_push
 	right   = __cur_right
 	toggle  = __cur_toggle
 	setmin  = __cur_setmin
@@ -39,15 +43,9 @@ CUR_ON  = 1
 .endscope
 
 .macro pushcur
-	lda zp::curx
-	pha
-	lda zp::cury
-	pha
+	jsr __cur_push
 .endmacro
 
 .macro popcur
-	pla
-	sta zp::cury
-	pla
-	sta zp::curx
+	jsr __cur_pop
 .endmacro

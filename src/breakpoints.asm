@@ -12,6 +12,7 @@
 .include "edit.inc"
 .include "errors.inc"
 .include "gui.inc"
+.include "guis.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "labels.inc"
@@ -45,6 +46,7 @@ BREAKPOINT_ENABLED = 1
 .PUSHSEG
 .RODATA
 @menu:
+.byte GUI_BREAKPOINTS			; id for breakpoint editor
 .byte HEIGHT				; max height
 .word @getkey				; key handler
 .word ui::render_breakpoint		; get line handler
