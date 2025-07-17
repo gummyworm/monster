@@ -49,14 +49,12 @@ guitmp = zp::gui+$d
 ; The guistack holds the gui data for each active window.
 ; Activating a new window will push the current window (if any), and
 ; deactivating the window will pop it back into the active gui data memory.
-.export guistack
 guistack:	.res MAX_WINDOWS*guidata_size
 
 ;*******************************************************************************
 .DATA
 guisp:		.word guistack	; pointer to end of all GUIs
 usersp:		.word guistack	; pointer to GUI that is active
-.export stackdepth
 stackdepth:	.byte 0
 
 ;*******************************************************************************
@@ -67,10 +65,10 @@ stackdepth:	.byte 0
 ; Activates the most recently created GUI without reinitializing it.
 .export __gui_reenter
 .proc __gui_reenter
-	lda baserow
-	ldx height
-	ldy num
-	jmp __gui_activate
+	lda baserow		; get current baserow
+	ldx height		; and height
+	ldy num			; and # of elements
+	jmp __gui_activate	; and activate GUI
 .endproc
 
 ;*******************************************************************************
@@ -106,6 +104,8 @@ stackdepth:	.byte 0
 @src=r0
 @stack=r2
 @type=r4
+@tmp=r4
+@tmp2=r5
 	pha
 	stxy @src
 
@@ -118,20 +118,51 @@ stackdepth:	.byte 0
 
 :	lda @type
 	cmp guistack,y
-	beq @already_active
+	php
 	tya
 	clc
 	adc #guidata_size
 	tay
+	plp
+	beq @already_active
 	dex
 	bne :-
 	beq @cont		; not found
 
 @already_active:
-	; activate the existing GUI
-	lda usersp
-	ldy usersp+1
-	bne @copyvars		; branch always
+	stx @tmp
+
+	; copy the item to activate to guidata in the zeropage
+	; set guisp to point to element above our chosen one
+	pha			; save offset to top of element to move
+	ldx #guidata_size
+:	dey
+	lda guistack,y
+	sta guidata,y
+	dex
+	bne :-
+
+	; now move everything that was above the item down
+	pla			; restore offset to end of moved element
+	tay
+
+	; sizeof(guidata)*(# of elements to move)
+	lda @tmp		; restore # of elements to move
+	asl			; *2
+	asl			; *4
+	sta @tmp2
+	asl			; *8
+	adc @tmp2		; *12
+	adc @tmp		; *13
+	tax
+
+	; shift all elements above the one we moved down to take its place
+:	lda guistack,y
+	sta guistack-guidata,y	; move down
+	iny
+	dex
+	bne :-
+	beq draw_gui
 
 @cont:	lda guisp
 	ldy guisp+1
@@ -184,10 +215,18 @@ stackdepth:	.byte 0
 ; Activates the most recently created (top of the GUI stack) GUI window.
 .export __gui_activate
 .proc __gui_activate
-@stack=r0
 	; copy the persistent GUI state to the zeropage
 	jsr copyvars
 
+	; fall through to draw_gui
+.endproc
+
+;*******************************************************************************
+; DRAW GUI
+; Entrypoint for drawing GUI once guidata has been set to the contents of the
+; GUI to draw
+.proc draw_gui
+@stack=r0
 	; draw GUI before entering the main GUI loop
 	dec height
 @loop:	inc height
@@ -382,9 +421,9 @@ exit:	rts				; no GUI to draw
 	sec
 	sbc #guidata_size
 	sta guisp
-	bcs @done
+	bcs :+
 	dec guisp+1
-	dec stackdepth
+:	dec stackdepth
 @done:	rts
 .endproc
 
@@ -394,7 +433,9 @@ exit:	rts				; no GUI to draw
 .export __gui_closeall
 .proc __gui_closeall
 	ldxy #guistack
-	stxy guisp
+	stxy guisp		; reset stack
+	lda #$00
+	sta stackdepth
 	rts
 .endproc
 
@@ -432,6 +473,5 @@ exit:	rts				; no GUI to draw
 	bcs @done	; if # of items is > max height, use full height
 	sta height	; else, only resize to the size needed to fit all items
 	clc		; ok
-@done:
-rts
+@done:	rts
 .endproc

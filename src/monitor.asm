@@ -411,7 +411,6 @@ screen: .res 40*24
 	bcc @ok			; if it succeeded, continue
 
 @err:	CALL FINAL_BANK_MAIN, err::get
-	CALL FINAL_BANK_MAIN, str::uncompress
 	jsr __monitor_puts
 
 @ok:	lda __monitor_quit	; was QUIT signal sent?

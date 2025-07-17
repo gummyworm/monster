@@ -73,7 +73,6 @@ numerrs: .byte 0
 	rts
 :	lda errcodes,x
 	jsr err::get
-	jsr str::uncompress
 
 	; push error string
 	tya

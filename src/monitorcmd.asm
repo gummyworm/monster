@@ -837,7 +837,6 @@ CMD_BUFF = $101
 	bcc @nexti
 
 @err:	CALL FINAL_BANK_MAIN, err::get
-	CALL FINAL_BANK_MAIN, str::uncompress
 	jsr mon::puts				; print the error
 	clc
 @ret:	rts

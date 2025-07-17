@@ -70,15 +70,14 @@
 	ldxy #@dirbuff+5
 	stxy @line
 
-	lda #$00
-	sta @scroll
-	sta @cnt
-	sta @row
-	lda #$01
-	sta @select
+	ldx #$01
+	stx @select
+	dex			; .X=0
+	stx @scroll
+	stx @cnt
+	stx @row
 
 	; highlight disk name row
-	ldx #$00
 	lda #DEFAULT_RVS
 	jsr draw::hline
 
@@ -93,6 +92,7 @@
 	sta @namebuff-1,x
 	dex
 	bne :-
+
 	; parse the name of the file
 	lda #>(@namebuff+@dirmsglen-1)
 	sta r0+1
@@ -160,28 +160,24 @@
 :	stx @scrollmax
 
 	; highlight the first item
-	ldx @select
-	lda #DEFAULT_RVS
-	jsr draw::hline
+	jsr highlight_selection
 
 ; at the end of the screen, get user input for page up/down
 @key:	jsr key::waitch
 	cmp #K_QUIT
 	bne @checkdown
-	jmp @exit
+@exit:  jmp scr::restore
 
 ; check the arrow keys (used to select a file)
 @checkdown:
 	jsr key::isdown
 	bne @checkup
 @rowdown:
-	ldx @select
-	lda #DEFAULT_900F
-	jsr draw::hline		; deselect the current selection
+	jsr unhighlight_selection
 	inc @select
 	lda @select
 	cmp @row
-	bcc @hiline
+	bcc @hiselection
 	dec @select
 
 @scrolldown:
@@ -192,7 +188,7 @@
 	inc @scroll
 
 	; scroll up and redraw the bottom line
-	ldx #1
+	ldx #$01
 	lda #SCREEN_HEIGHT-1-1
 	jsr text::scrollup
 
@@ -217,9 +213,7 @@
 	bne @checkret
 
 @rowup:
-	ldx @select
-	lda #DEFAULT_900F
-	jsr draw::hline		; deselect the current selection
+	jsr unhighlight_selection
 	dec @select
 	bne @hiselection
 	inc @select		; lowest selectable row is 1
@@ -248,11 +242,7 @@
 	jsr text::print
 
 @hiselection:
-	lda @select
-@hiline:
-	tax
-	lda #DEFAULT_RVS
-	jsr draw::hline
+	jsr highlight_selection
 @nextkey:
 	jmp @key
 
@@ -260,10 +250,6 @@
 @checkret:
 	cmp #$0d		; select file and load
 	beq @loadselection
-
-@checkexit:
-	cmp #$5f		; <-
-	beq @exit
 
 ; if 'G', go to bottom of directory list
 @checkgototop:
@@ -273,24 +259,20 @@
 	cmp #$67		; gg?
 	bne @nextkey
 
-	ldx @select
-	lda #DEFAULT_900F
-	jsr draw::hline		; deselect the current selection
+	jsr unhighlight_selection
 
-	lda #$01
-	sta @select
-	lda #$00
-	sta @scroll
-	beq @redraw
+	ldx #$01
+	stx @select
+	dex			; .X=0
+	stx @scroll
+	beq @redraw		; branch always
 
 ; if 'G', go to bottom of directory list
 @checkbottom:
 	cmp #$47		; 'G'
 	bne @nextkey
 
-	ldx @select
-	lda #DEFAULT_900F
-	jsr draw::hline		; deselect the current selection
+	jsr unhighlight_selection
 
 	; set scroll to scrollmax
 	lda @scrollmax
@@ -326,8 +308,6 @@
 	jsr scr::restore
 	ldxy #@namebuff
 	jmp edit::load		; load the file
-
-@exit:  jmp scr::restore
 
 ;--------------------------------------
 ; refresh (redraw) all visible rows
@@ -369,4 +349,28 @@
 @dirmsg: .byte "disk:",0
 @dirmsglen=*-@dirmsg
 .POPSEG
+.endproc
+
+;*******************************************************************************
+; UNHIGHLIGHT SELECTION
+; Unhighlights the selection (in rb)
+; IN:
+;   - rb: the row to highlight
+.proc unhighlight_selection
+@select=rb
+	ldx @select
+	lda #DEFAULT_900F
+	jmp draw::hline		; deselect the current selection
+.endproc
+
+;*******************************************************************************
+; HIGHLIGHT SELECTION
+; Highlights the selection (in rb)
+; IN:
+;   - rb: the row to highlight
+.proc highlight_selection
+@select=rb
+	ldx @select
+	lda #DEFAULT_RVS
+	jmp draw::hline		; deselect the current selection
 .endproc

@@ -7,6 +7,7 @@
 ;******************************************************************************
 
 .include "layout.inc"
+.include "string.inc"
 .include "text.inc"
 
 NUM_ERRORS = 42
@@ -262,5 +263,5 @@ err_unknown_err: .byte $aa,$ce,$7d,$ce,$d9,$52,$93,$d2,$0
 :	ldy errorshi,x
 	lda errorslo,x
 	tax
-	rts
+	jmp str::uncompress
 .endproc

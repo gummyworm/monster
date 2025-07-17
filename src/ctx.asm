@@ -75,9 +75,13 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	lda activectx
 	beq @push
 	cmp #MAX_CONTEXTS+1
-	bcs @err
+	bcc :+
 
-	; save the active context's state
+@err:	;sec
+	lda #ERR_STACK_OVERFLOW
+	rts
+
+:	; save the active context's state
 	ldy #CTX_LINES_START-CTX_ITER_START
 :	lda ctx+CTX_ITER_START,y
 	sta (ctx),y
@@ -87,10 +91,21 @@ numparams = zp::ctx+10	; the number of parameters for the context
 @push:  inc activectx
 @ok:	jsr getctx
 	jsr reset
-	jmp __ctx_rewind
 
-@err:	;sec
-	lda #ERR_STACK_OVERFLOW
+	; fall through to __ctx_rewind
+.endproc
+
+;*******************************************************************************
+; REWIND
+; Rewinds the context so that the cursor points to the beginning of its lines
+.export  __ctx_rewind
+.proc __ctx_rewind
+	lda ctx
+	adc #CTX_LINES_START
+	sta cur
+	lda ctx+1
+	adc #$00
+	sta cur+1
 	rts
 .endproc
 
@@ -310,20 +325,6 @@ numparams = zp::ctx+10	; the number of parameters for the context
 .endproc
 
 ;*******************************************************************************
-; REWIND
-; Rewinds the context so that the cursor points to the beginning of its lines
-.export  __ctx_rewind
-.proc __ctx_rewind
-	lda ctx
-	adc #CTX_LINES_START
-	sta cur
-	lda ctx+1
-	adc #$00
-	sta cur+1
-	rts
-.endproc
-
-;*******************************************************************************
 ; NUMLINES
 ; Returns the length (in lines) of the context
 .export __ctx_numlines
@@ -342,13 +343,15 @@ numparams = zp::ctx+10	; the number of parameters for the context
 	beq @next
 
 	; count the number of terminating 0's in the context
-@l0:	ldy #$00
-	lda (@base),y
+@l0:	lda (@base),y
 	bne :+
 	inc @len
 :	incw @base
-@next:	ldxy @base
-	cmpw cur
+@next:	lda @base
+	cmp cur
+	bne @l0
+	lda @base+1
+	cmp cur+1
 	bne @l0
 
 	lda @len

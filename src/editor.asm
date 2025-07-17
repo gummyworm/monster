@@ -994,6 +994,7 @@ main:	jsr key::getch
 ; RESET SIZE
 ; Resets the display to the largest size
 .proc reset_size
+	jsr gui::closeall		; close any open windows
 	lda debugging
 	beq :+
 	lda #DEBUG_MESSAGE_LINE-1
@@ -4901,7 +4902,6 @@ __edit_gotoline:
 ;  - .A: the error code
 .proc report_typein_error
 	jsr err::get
-	jsr str::uncompress
 	jsr text::info
 	jmp beep::short
 .endproc
