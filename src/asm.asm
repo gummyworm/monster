@@ -1565,7 +1565,6 @@ __asm_tokenize_pass1 = __asm_tokenize
 ;  - .A: the number of bytes written
 .proc definebyte
 	jsr line::process_ws
-	ldxy zp::line
 	jsr expr::eval
 	bcs @text				; invalid expr- try text
 	cmp #$01
@@ -1623,7 +1622,6 @@ __asm_tokenize_pass1 = __asm_tokenize
 ;  - .C: set if a word could not be parsed
 .proc defineword
 	jsr line::process_ws
-	ldxy zp::line
 	jsr expr::eval
 	bcs @err
 
@@ -1919,7 +1917,6 @@ __asm_include:
 ; e.g.: `.ORG $1000` or `ORG $1000+LABEL`
 .proc defineorg
 	jsr line::process_ws
-	ldxy zp::line
 	jsr expr::eval
 	bcs @ret		; error
 
@@ -1976,7 +1973,6 @@ __asm_include:
 ; e.g.: `.RORG $1000` or `RORG $1000+LABEL`
 .proc define_psuedo_org
 	jsr line::process_ws
-	ldxy zp::line
 	jsr expr::eval
 	bcs @ret		; error
 
@@ -1984,55 +1980,6 @@ __asm_include:
 	stxy zp::virtualpc
 	clc			; ok
 @ret:	rts
-.endproc
-
-;*******************************************************************************
-; DEFINECONST
-; Hanldes the .EQ directive
-; Effective on 1st pass only
-.proc defineconst
-	lda zp::pass
-	cmp #$01
-	beq :+
-	RETURN_OK
-
-:	ldxy zp::line
-	jsr lbl::isvalid
-	bcs @err
-
-	lda zp::line		; save label name's address
-	pha
-	lda zp::line+1
-	pha
-
-	; read all characters in zp::line until the next whitespace
-	ldy #$00
-	lda (zp::line),y
-	jsr util::is_whitespace
-	beq @cont
-
-@l0:	jsr line::incptr
-	lda (zp::line),y
-	jsr util::is_whitespace
-	bne @l0
-
-@cont:	jsr line::process_ws	; eat whitespace
-	jsr expr::eval		; get constant value
-	bcc @ok
-
-	; clean the stack and return error
-	plp
-	plp
-	sec
-@err:	rts
-
-@ok:	stxy zp::label_value
-	pla
-	tay
-	pla
-	tax
-	lda #$01		; for CONST always use ABS mode
-	jmp add_label
 .endproc
 
 ;*******************************************************************************
@@ -2070,6 +2017,7 @@ __asm_include:
 	lda #$00
 	sta zp::ctx+repctx::iter	; initialize iterator
 	sta zp::ctx+repctx::iter+1
+
 @done:	lda #CTX_REPEAT
 	jsr set_ctx_type	; store REPEAT as current context type
 	clc		; ok
@@ -2768,6 +2716,56 @@ __asm_include:
 .endproc
 
 ;*******************************************************************************
+; DEFINECONST
+; Hanldes the .EQ directive
+; Effective on 1st pass only
+.proc defineconst
+	lda zp::pass
+	cmp #$01
+	beq :+
+	RETURN_OK
+
+:	ldxy zp::line
+	jsr lbl::isvalid
+	bcs @err
+
+	lda zp::line		; save label name's address
+	pha
+	lda zp::line+1
+	pha
+
+	; read all characters in zp::line until the next whitespace
+	ldy #$00
+	lda (zp::line),y
+	jsr util::is_whitespace
+	beq @cont
+
+@l0:	jsr line::incptr
+	lda (zp::line),y
+	jsr util::is_whitespace
+	bne @l0
+
+@cont:	jsr line::process_ws	; eat whitespace
+	jsr expr::eval		; get constant value
+	bcc @ok
+
+	; clean the stack and return error
+	plp
+	plp
+	sec
+@err:	rts
+
+@ok:	stxy zp::label_value
+	pla
+	tay
+	pla
+	tax
+	lda #$01		; for CONST always use ABS mode
+
+	; fall through to add_label
+.endproc
+
+;*******************************************************************************
 ; ADD LABEL
 ; Adds a label with the given mode
 ; IN:
@@ -2818,15 +2816,9 @@ __asm_include:
 	clc
 	adc zp::virtualpc
 	sta zp::virtualpc
-	bcc :+
+	bcc update_top
 	inc zp::virtualpc+1
-
-:	; update the top pointer if we are at the top of the program
-	cmpw top
-	bcc :+
-	stxy top
-
-:	rts
+	bcs update_top		; branch always
 .endproc
 
 ;*******************************************************************************
@@ -2836,6 +2828,14 @@ __asm_include:
 	incw zp::asmresult
 	incw zp::virtualpc
 
+	; fall through to update_top
+.endproc
+
+;*******************************************************************************
+; UPDATE TOP
+; Sets the top of the program to the given PC if it is higher than the current
+; TOP
+.proc update_top
 	; update the top pointer if we are at the top of the program
 	ldxy zp::asmresult
 	cmpw top
