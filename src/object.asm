@@ -90,6 +90,11 @@ reloc_tables:
 .RODATA
 
 ;*******************************************************************************
+.export __obj_init
+__obj_init:
+	JUMP FINAL_BANK_LINKER, init
+
+;*******************************************************************************
 .export __obj_add_symbol_info
 __obj_add_symbol_info:
 	lda asm::mode
@@ -110,8 +115,7 @@ __obj_add_reloc:
 ;*******************************************************************************
 ; INIT
 ; Clears the object state in preparation for a new object file to be assembled
-.export __obj_init
-.proc __obj_init
+.proc init
 	lda #$00
 	sta numsections
 	sta numsymbols
@@ -138,7 +142,7 @@ __obj_add_reloc:
 ;*******************************************************************************
 ; ADD SECTION
 ; Adds a new section to the current object file in construction at the given
-; address. This address is the address where the section is stored while
+; address. This address is the where the section is stored while
 ; building the object file. The actual address of the code within the section
 ; will be determined by the linker when the program is linked.
 ; IN:
@@ -160,6 +164,7 @@ __obj_add_reloc:
 	cpx #MAX_SECTIONS
 	bne :+
 	;sec
+	lda #ERR_TOO_MANY_SEGMENTS
 	rts
 
 :	pha				; save the size
@@ -230,38 +235,39 @@ __obj_add_reloc:
 ; ADD RELOC
 ; Adds a new relocation entry to the current object file in construction
 ; IN:
-;   - .X:                    relocation size in bytes (1 or 2)
-;   - zp::asmresult:         offset to apply the relocation at
-;   - expr::contains_global: !0 if symbol should be used as relocation base
-;   - expr::global_id:       symbol ID to relocate relative to (if relevant)
-;   - expr::global_op:       operation to apply the relocation with
-;   - expr::global_postproc: postprocessing to apply to global (if relevant)
+;   - .A:                   the section to relocate within
+;   - .X:                   relocation size in bytes (1 or 2)
+;   - zp::asmresult:        offset to apply the relocation at
+;   - expr::rpnlist:        the tokenized relocation expression
+;   - expr::rpnlistlen:     length of the tokenized expression
+;   - expr::requires_reloc: !0 if the expression needs a relocation entry
 .proc add_reloc
 @sz=r0
 @info=r0
 @rel=r1
+@sec=r3
+	sta @sec
 	dex			; get in rage [0, 1]
 	stx @sz
 
-	lda #$00
-	ldx expr::contains_global
-	beq @encode_size
-;
+	lda expr::requires_reloc
+	beq @done		; if no relocation needed -> done
+
+	; check if we need symbol based relocation (expression crosses
+	; section) or just PC-relative
+	lda @sec
+	CALL FINAL_BANK_MAIN, expr::crosses_section
+	php
+
 ; encode the "info" byte for the relocation based on the result of the
 ; expression evaluation and the size of the relocation
 ;  field    bit(s)   description
 ; size        0    size of target value to modify 0=1 byte, 1=2 bytes
-; mode       1-2   type of relocation: 0=symbol-relative, 1=PC-relative
-; postproc   3-4   0=no post processing, 1=LSB, 2=MSB
-; operation  5-7   the operation to use to apply the operand (0=add, 1=subtract)
-	lda expr::global_postproc
-	asl
-	asl
-	asl
-	asl
-	; TODO: handle expr::global_op
-
+; mode       1-2   type of relocation: 1=symbol-relative, 0=PC-relative
 @encode_size:
+	lda #$00
+	rol			; .C set if symbol-relative
+	asl
 	ora @sz
 	sta @info
 
@@ -274,31 +280,50 @@ __obj_add_reloc:
 	; write info byte
 	lda @info
 	sta (@rel),y
-	iny
+	iny			; .Y=1
 
-	; write offset (current "assembly" address)
+	; write offset in obj file (current "assembly" address)
 	lda zp::asmresult
 	sta (@rel),y
-	iny
+	iny			; .Y=2
 	lda zp::asmresult+1
 	sta (@rel),y
-	iny
 
-	; write global ID (whether it's relevant or not)
-	lda expr::global_id
+	plp			; restore .C
+	bcs @expr		; append expresion if symbol-relative
+
+@pcrel:	; pc-relative: just write the value of the expression
+	CALL FINAL_BANK_MAIN, expr::eval_list
+	bcs @done
+
+	tya
+	ldy #$04
+	sta (@rel),y		; write MBS
+	txa
+	dey			; .Y=3
+	sta (@rel),y		; write LSB
+	bne @update		; branch always
+
+@expr:  ; write the tokenized RPN expression
+	ldx #$00
+	ldy #$03
+:	lda expr::rpnlist,x
 	sta (@rel),y
 	iny
-	lda expr::global_id+1
-	sta (@rel),y
+	inx
+	cpx expr::rpnlistlen
+	bne :-
 
+@update:
 	; update reloctop
-	lda reloctop
+	tya
 	clc
-	adc #$05
+	adc reloctop
 	sta reloctop
 	bcc :+
 	inc reloctop+1
-:	rts
+	clc
+@done:	rts
 .endproc
 
 ;******************************************************************************

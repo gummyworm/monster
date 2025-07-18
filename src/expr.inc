@@ -1,18 +1,17 @@
+.import __expr_crosses_section
 .import __expr_end_on_whitespace
 .import __expr_eval
+.import __expr_eval_list
 .import __expr_requires_reloc
-
-.importzp __expr_global_id
-.importzp __expr_global_op
-.importzp __expr_global_postproc
-.importzp __expr_contains_global
+.import __expr_rpnlist
+.import __expr_rpnlistlen
 
 .scope expr
-	contains_global = __expr_contains_global
+	crosses_section = __expr_crosses_section
 	end_on_ws       = __expr_end_on_whitespace
 	eval            = __expr_eval
-	global_id       = __expr_global_id
-	global_op       = __expr_global_op
-	global_postproc = __expr_global_postproc
+	eval_list       = __expr_eval_list
 	requires_reloc  = __expr_requires_reloc
+	rpnlist         = __expr_rpnlist
+	rpnlistlen      = __expr_rpnlistlen
 .endscope

@@ -1048,6 +1048,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	rts
 
 @validate:
+	; pass 2: validation and symbol mapping (OBJ)
 	; make sure the label's address hasn't moved since pass 1
 	jsr lbl::find
 	bcs @ret
@@ -1057,7 +1058,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	beq @map_symbol
 	lda #ERR_LABEL_NOT_KNOWN_PASS1
 	sec
-	rts
+@ret:	rts
 
 @map_symbol:
 	lda __asm_mode
@@ -1066,9 +1067,8 @@ __asm_tokenize_pass1 = __asm_tokenize
 	ldy __asm_segmode
 	jsr obj::add_symbol_info
 
-@ok:	ldxy zp::line
-@done:	clc
-@ret:	rts
+@ok:	clc
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -1727,8 +1727,6 @@ __asm_tokenize_pass1 = __asm_tokenize
 	ldx #$00
 	stx zp::virtualpc
 	stx zp::virtualpc+1
-	stx zp::asmresult
-	stx zp::asmresult+1
 
 	inx
 	stx pcset	; linker will take care of setting PC
@@ -2779,13 +2777,13 @@ __asm_include:
 
 	; infer the size
 	; if assembling to object, use the current SEG's size
-	; if assembling directly, use the current PC as a hint
+	; if assembling directly, use the current virtual PC as a hint
 	lda __asm_mode
 	beq @direct
 
 @obj:	; object, use segment for hint
-	lda __asm_segmode
-	bpl @add
+	lda __asm_segmode	; 0=ZP, 1=ABS
+	bpl @add		; branch always
 
 @direct:
 	lda zp::virtualpc+1
@@ -2905,6 +2903,7 @@ __asm_include:
 	; this will either be relative to the PC during linkage
 	; or an expression if symbols outside the current section are
 	; referenced
+	lda __asm_section
 	jmp obj::addreloc
 .endproc
 

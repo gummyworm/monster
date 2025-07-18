@@ -392,20 +392,35 @@ main:	jsr key::getch
 .proc command_asm_obj
 @fileid=zp::editortmp
 	; save the filename
-	stx @filename0
-	sty @filename1
+	txa
+	pha
+	tya
+	pha
 
 	; assemble the file to object
-	lda #$01
-	sta asm::mode			; assemble to object
-	jsr command_asmdbg
-	jsr irq::off
+	jsr obj::init
 
-@filename0=*+1
+	; assemble obj file to the vmem address $0000
 	ldx #$00
-@filename1=*+1
-	ldy #$00
-	jsr file::open_w		; open the output filename
+	stx zp::asmresult
+	stx zp::asmresult+1
+
+	inx			; .X=1
+	stx asm::mode		; assemble to object
+	jsr command_asmdbg
+
+	; restore filename
+	pla
+	tay
+	pla
+	tax
+
+	php			; save error (.C)
+	jsr irq::off
+	plp			; restore error (.C)
+	bcs @done		; don't write result if assembly failed
+
+	jsr file::open_w	; open the output filename
 	bcs @done
 	sta @fileid
 
@@ -415,12 +430,16 @@ main:	jsr key::getch
 	CALL FINAL_BANK_LINKER, obj::dump
 	lda @fileid
 	jsr file::close
-@done:	jmp irq::on
+
+@done:	dec asm::mode		; switch back to DIRECT assembly mode
+	jmp irq::on
 .endproc
 
 ;******************************************************************************
 ; COMMAND_ASM
 ; Assembles the entire source of the active source buffer
+; OUT:
+;   - .C: set if assembly failed
 .proc command_asm
 	ldxy #strings::assembling
 	jsr print_info
@@ -524,7 +543,9 @@ main:	jsr key::getch
 ; Displays the result of the assembly. Prints an error if one occurred or
 ; the size of the assembled program if not.
 ; IN:
-;  - zp::asmresult: pointer to the end of the program
+;   - zp::asmresult: pointer to the end of the program
+; OUT:
+;   - .C: set on error
 .proc display_result
 	jsr irq::on
 

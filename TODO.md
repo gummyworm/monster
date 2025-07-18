@@ -1,6 +1,5 @@
 ### TODO V2
 - [ ] Update debug info while editing
-- [ ] Implement linker (WIP on linkage branch)
 - [ ] Goto Definition for local labels
   - [ ] Track current scope in editor
   - [ ] Show current scope in status bar (why not)
@@ -10,6 +9,7 @@
 - [ ] Support illegal opcodes
 
 ### TODO V1.1
+- [ ] Increase copy buffer size to max size of source buffer
 - [ ] Save/restore VIA timers while debugging
 - [ ] Save/restore raster position while debugging
 

@@ -62,15 +62,16 @@ ERR_INVALID_COMMAND = 40
 
 ERR_COPY_TOO_BIG = 41
 
-ERR_BUFFER_NAME_EXISTS = 42
-ERR_BUFFER_FULL = 43
+ERR_BUFFER_NAME_EXISTS   = 42
+ERR_BUFFER_FULL          = 43
 ERR_BUFFER_MUST_BE_NAMED = 44
 
 ;******************************************************************************
 ; linker errors
 ERR_TOO_MANY_GLOBAL_REFS = 45
-ERR_SECTION_TOO_SMALL = 46
-ERR_NO_SECTIONS = 47
+ERR_TOO_MANY_SEGMENTS    = 46
+ERR_SECTION_TOO_SMALL    = 47
+ERR_NO_SECTIONS          = 48
 
 .import __err_get
 

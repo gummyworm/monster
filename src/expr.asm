@@ -32,24 +32,6 @@ TOK_BINARY_OP = 4	; binary operator e.g. '+' or '-'
 TOK_UNARY_OP  = 5	; unary operator e.g. '<'
 TOK_END       = $ff	; end of expression marker
 
-;*******************************************************************************
-; ID of the EXTERNAL symbol referenced in expression (if any)
-; This is used to provide the symbol reference for expressions in object code
-; Such expressions must be simplified to this external symbol + an offset
-.export __expr_global_id
-__expr_global_id = zp::expr+7
-
-;*******************************************************************************
-; OPERATOR for the EXTERNAL symbol referenced in expression (if any)
-.export __expr_global_op
-__expr_global_op = zp::expr+9
-
-.export __expr_contains_global
-__expr_contains_global = zp::expr+10	; if !0, expression references global
-
-.export __expr_global_postproc
-__expr_global_postproc = zp::expr+11	; 0=none, 1=LSB, 2=MSB
-
 .BSS
 
 ;*******************************************************************************
@@ -58,19 +40,25 @@ __expr_global_postproc = zp::expr+11	; 0=none, 1=LSB, 2=MSB
 ; If 0, whitespace is ignored
 end_on_whitespace: .byte 0
 
+.segment "SHAREBSS"
+
 ;*******************************************************************************
 ; REQUIRES RELOC
 ; Set if the expression contains 1 or more labels.
 ; In the context of assembly, this tells the assembler that it must produce a
-; relocation for this expression
-; NOTE: if expr::requires_reloc is !0 but contains_global is also 0, this means
-; we need to relocate relative to the section at link-time (not relative to
-; label)
+; relocation for this expression.
+; We can determine the type of relocation needed by calling
+; expr::crosses_section
+; If there are symbols outside the given section, we know that a symbol based
+; relocation is necessary
 .export __expr_requires_reloc
 __expr_requires_reloc: .byte 0
 
 .export __expr_rpnlist
 __expr_rpnlist: .res $20
+
+.export __expr_rpnlistlen
+__expr_rpnlistlen: .byte 0
 
 .CODE
 
@@ -402,6 +390,7 @@ __expr_rpnlist: .res $20
 	ldy #$00
 	sty @num_operators
 	sty @i
+	sty __expr_requires_reloc
 
 	lda (zp::line),y
 	bne :+
@@ -507,6 +496,7 @@ __expr_rpnlist: .res $20
 @terminate:
 	lda #TOK_END
 	ldx @i
+	stx __expr_rpnlistlen	; store the length
 	sta __expr_rpnlist,x	; terminate RPN list
 	RETURN_OK
 
@@ -751,7 +741,9 @@ __expr_rpnlist: .res $20
 	lda #TOK_VALUE
 	rts
 
-@label: ldxy zp::line
+@label: inc __expr_requires_reloc
+
+	ldxy zp::line
 	jsr get_label		; is it a label?
 	php
 	cmp #$00		; zeropage?
