@@ -6,6 +6,7 @@
 ; Handlers should stay away from the gui zeropage area (see zeropage.inc)
 ;*******************************************************************************
 
+.include "beep.inc"
 .include "draw.inc"
 .include "edit.inc"
 .include "key.inc"
@@ -215,7 +216,13 @@ stackdepth:	.byte 0
 ; Activates the most recently created (top of the GUI stack) GUI window.
 .export __gui_activate
 .proc __gui_activate
-	; copy the persistent GUI state to the zeropage
+	lda stackdepth
+	bne :+
+
+	; no windows active
+	jmp beep::short
+
+:	; copy the persistent GUI state to the zeropage
 	jsr copyvars
 
 	; fall through to draw_gui

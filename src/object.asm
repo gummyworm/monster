@@ -100,12 +100,12 @@ __obj_add_symbol_info:
 	lda asm::mode
 	bne :+
 	rts
-	JUMP FINAL_BANK_LINKER, add_symbol_info
+:	JUMP FINAL_BANK_LINKER, add_symbol_info
 
 ;*******************************************************************************
 .export __obj_add_reloc
 __obj_add_reloc:
-	lda asm::mode
+	ldy asm::mode
 	bne :+
 	rts
 :	JUMP FINAL_BANK_LINKER, add_reloc
@@ -236,7 +236,7 @@ __obj_add_reloc:
 ; Adds a new relocation entry to the current object file in construction
 ; IN:
 ;   - .A:                   the section to relocate within
-;   - .X:                   relocation size in bytes (1 or 2)
+;   - .X:                   relocation mode (ZP=0, ABS=1)
 ;   - zp::asmresult:        offset to apply the relocation at
 ;   - expr::rpnlist:        the tokenized relocation expression
 ;   - expr::rpnlistlen:     length of the tokenized expression
@@ -247,7 +247,6 @@ __obj_add_reloc:
 @rel=r1
 @sec=r3
 	sta @sec
-	dex			; get in rage [0, 1]
 	stx @sz
 
 	lda expr::requires_reloc
@@ -257,7 +256,8 @@ __obj_add_reloc:
 	; section) or just PC-relative
 	lda @sec
 	CALL FINAL_BANK_MAIN, expr::crosses_section
-	php
+
+	php			; save crosses section flag
 
 ; encode the "info" byte for the relocation based on the result of the
 ; expression evaluation and the size of the relocation
@@ -289,7 +289,7 @@ __obj_add_reloc:
 	lda zp::asmresult+1
 	sta (@rel),y
 
-	plp			; restore .C
+	plp			; restore .C - set if expression crosses section
 	bcs @expr		; append expresion if symbol-relative
 
 @pcrel:	; pc-relative: just write the value of the expression
@@ -322,7 +322,7 @@ __obj_add_reloc:
 	sta reloctop
 	bcc :+
 	inc reloctop+1
-	clc
+	clc			; ok
 @done:	rts
 .endproc
 

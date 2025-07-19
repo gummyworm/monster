@@ -2881,6 +2881,20 @@ __asm_include:
 .endproc
 
 ;*******************************************************************************
+; WRITEB WITH RELOC
+; Writes the given byte out with relocation information
+; IN:
+;   - .A: the byte to write
+;   - .Y: the offset from asmresult to write to
+.proc writeb_with_reloc
+	jsr writeb
+	bcs :-			; -> rts
+	lda #$00		; 0=zeropage
+
+	; fall through to write_reloc
+.endproc
+
+;*******************************************************************************
 ; WRITE RELOC
 ; If assembling to object code, writes the relocation information
 ; IN:
@@ -2903,21 +2917,9 @@ __asm_include:
 	; this will either be relative to the PC during linkage
 	; or an expression if symbols outside the current section are
 	; referenced
+	tax			; .X=mode
 	lda __asm_section
 	jmp obj::addreloc
-.endproc
-
-;*******************************************************************************
-; WRITEB WITH RELOC
-; Writes the given byte out with relocation information
-; IN:
-;   - .A: the byte to write
-;   - .Y: the offset from asmresult to write to
-.proc writeb_with_reloc
-	jsr writeb
-	bcs :-			; -> rts
-	lda #$01		; 1 byte
-	jmp write_reloc
 .endproc
 
 ;*******************************************************************************
@@ -2939,8 +2941,7 @@ __asm_include:
 	;clc
 	rts
 
-	; TODO: write relocation info
-	lda #$02		; 2 bytes
+	lda #$01		; 1=ABS
 	dey			; restore .Y
 	jmp write_reloc
 .endproc
