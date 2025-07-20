@@ -232,8 +232,8 @@ __obj_add_reloc:
 ; ADD RELOC
 ; Adds a new relocation entry to the current object file in construction
 ; IN:
-;   - .A:                   the section to relocate within
-;   - .X:                   relocation mode (ZP=0, ABS=1)
+;   - .A:                   size of value to relocate (0=ZP, 1=ABS)
+;   - asm::section:         the section to relocate within
 ;   - zp::asmresult:        offset to apply the relocation at
 ;   - expr::rpnlist:        the tokenized relocation expression
 ;   - expr::rpnlistlen:     length of the tokenized expression
@@ -250,7 +250,7 @@ __obj_add_reloc:
 	beq @done		; if no relocation needed -> done
 
 	; check if we need symbol based relocation (expression crosses
-	; section) or just PC-relative
+	; section) or just PC-relative (doesn't cross section)
 	lda @sec
 	CALL FINAL_BANK_MAIN, expr::crosses_section
 

@@ -435,6 +435,8 @@ num_illegals = *-illegal_opcodes
 	lda #$00
 	sta top			; set top of program to 0
 	sta top+1
+	sta zp::asmresult	; also set default physical address to 0
+	sta zp::asmresult+1
 	jmp __asm_reset		; reset assembly state
 
 @pass2: jsr __asm_resetpc	; reset PC
@@ -2919,7 +2921,6 @@ __asm_include:
 	; or an expression if symbols outside the current section are
 	; referenced
 	tax			; .X=mode
-	lda __asm_section
 	jmp obj::addreloc
 .endproc
 

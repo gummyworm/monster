@@ -171,7 +171,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 .byte $9e
 .asciiz "4621"
 @next: .word 0
-	lda #$19
+	lda #$22|$08
 	sta $900f		; white/white
 	lda #$c0
 	sta $9005		; screen @ $1000
@@ -196,7 +196,7 @@ START:
 	jsr $fdf9	; init I/O
 	jsr $e518	; init I/O 2
 
-	lda #$19
+	lda #$22|$08
 	sta $900f		; white/white
 	lda #$c0
 	sta $9005		; screen @ $1000
@@ -329,7 +329,7 @@ START:
 ; drawlogo
 .macro drawlogo
 	; set all color to blue
-	lda #$06
+	lda #$04
 	ldx #$00
 :	sta $9400,x
 	dex
@@ -565,9 +565,8 @@ num_relocs=(*-relocs)/7
 	sta zp::bankjmpaddr	; write the JMP instruction
 
 	; initialize the status row reverse
-	lda #DEFAULT_RVS
 	ldx #23
-	jsr draw::hline
+	jsr draw::hiline
 
 	jsr asm::reset
 	jsr src::new

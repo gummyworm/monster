@@ -24,6 +24,7 @@
 .include "file.inc"
 .include "format.inc"
 .include "gui.inc"
+.include "guis.inc"
 .include "irq.inc"
 .include "key.inc"
 .include "keycodes.inc"
@@ -2740,6 +2741,7 @@ goto_buffer:
 .PUSHSEG
 .RODATA
 @menu:
+.byte GUI_BUFFERS	; id for this GUI
 .byte 8			; max height
 .word @getkey		; key handler
 .word @getdata		; get line handler
@@ -3160,7 +3162,7 @@ goto_buffer:
 	plp
 	bcs @err
 	ldxy @file
-	jsr src::name
+	jsr src::name		; name the buffer
 
 	; give the filename a debuginfo ID
 	jsr src::current_filename

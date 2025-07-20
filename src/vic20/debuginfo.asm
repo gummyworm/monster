@@ -912,7 +912,7 @@ blockaddresseshi: .res MAX_FILES
 get_filename = get_filename_addr
 .else
 .proc get_filename
-@buff=$120
+@buff=$140
 	cmp numfiles		; set .C if file ID is >= numfiles
 	bcs @done
 	jsr get_filename_addr

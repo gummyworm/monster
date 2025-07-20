@@ -49,7 +49,7 @@
 	jsr file::open_r_prg
 	sta @file
 	bcc :+
-@err:	jmp irq::on		; error
+@err:	rts
 
 	; load the directory into dirbuff
 :	ldxy #@dirbuff-2
@@ -58,13 +58,12 @@
 	stxy file::load_address_end
 	jsr file::loadbin
 
-	php
+	php			; save error bit (.C)
 	lda @file
 	jsr file::close		; close the directory file
-	plp
-	bcs @err
-
 	jsr irq::on
+	plp			; restore error bit (.C)
+	bcs @err
 
 	; reset the screen so that we can print the file names normally
 	jsr scr::save

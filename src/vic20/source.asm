@@ -287,6 +287,7 @@ data: .res BUFFER_SIZE
 ; Callback to handle a line insertion. Various state needs to be shifted when
 ; this occurs (breakpoints, etc.)
 .proc on_line_inserted
+	; TODO:
 	; update debug info: find all line programs in the current file with
 	; start lines greater than the current line and increment those
 	jsr __src_get_filename

@@ -116,7 +116,7 @@ __expr_rpnlistlen: .byte 0
 .export __expr_end_on_whitespace
 .proc __expr_end_on_whitespace
 	sta end_on_whitespace
-:	rts
+:	rts			; return point for following proc's
 .endproc
 
 ;*******************************************************************************
@@ -151,7 +151,7 @@ __expr_rpnlistlen: .byte 0
 ; EVAL LIST
 ; Evaluates the provided RPN list of tokens and returns the result
 ; IN:
-;  - $150: the list of tokens to evaluate (as produced by expr::parse)
+;  - expr::rpnlist: list of tokens to evaluate (as produced by expr::parse)
 ; OUT:
 ;  - .A:       the size of the returned value in bytes or the error code
 ;  - .XY:      the result of the evaluated expression
@@ -806,15 +806,15 @@ __expr_rpnlistlen: .byte 0
 	bne @badchar
 	jsr line::incptr
 	lda #$01		; result is 1 byte in size
-	RETURN_OK
+	clc			; ok
+@ret:	rts
 
 ;------------------
 @decimal:
 	ldxy zp::line
 	jsr atoi	; convert to binary
-	bcc :+
-	rts		; return err
-:	adc zp::line
+	bcs @ret	; return err
+	adc zp::line
 	sta zp::line
 	bcc :+
 	inc zp::line+1
