@@ -2911,7 +2911,7 @@ __asm_include:
 	cpx #$01
 	beq :-				; -> rts (no relocation on pass 1)
 	ldx expr::requires_reloc
-	beq :-				; -> rts (expression fully resolved)
+	beq :-				; -> rts (absolute expression)
 
 	; add new relocation entry to the relocation table
 	; this will either be relative to the PC during linkage

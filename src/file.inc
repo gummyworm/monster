@@ -1,6 +1,7 @@
 .importzp __file_load_address
 .importzp __file_save_address
 .importzp __file_save_address_end
+.importzp __file_load_address_end
 
 .import __file_close
 .import __file_eof
@@ -28,6 +29,7 @@
 	loadbin          = __file_load_bin
 	loadbinv         = __file_load_binv
 	loadaddr         = __file_load_address
+	load_address_end = __file_load_address_end
 	loadsrc          = __file_load_src
 	open_r           = __file_open_r
 	open_r_prg       = __file_open_r_prg

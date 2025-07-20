@@ -54,6 +54,8 @@
 	; load the directory into dirbuff
 :	ldxy #@dirbuff-2
 	stxy file::loadaddr
+	ldxy #@namebuff
+	stxy file::load_address_end
 	jsr file::loadbin
 
 	php
@@ -78,13 +80,11 @@
 	stx @row
 
 	; highlight disk name row
-	lda #DEFAULT_RVS
-	jsr draw::hline
+	jsr draw::hiline
 
 	; and the bottom (status) row
 	ldx #SCREEN_HEIGHT-1
-	lda #DEFAULT_RVS
-	jsr draw::hline
+	jsr draw::hiline
 
 @getdiskname:
 	ldx #@dirmsglen
@@ -102,10 +102,15 @@
 	jsr util::parse_enquoted_string
 	jmp @l2
 
-@l0:    incw @line	; skip line #
-	incw @line
+@l0:    ; skip line # (@line += 2)
+	lda @line
+	clc
+	adc #$02
+	sta @line
+	bcc :+
+	inc @line+1
 
-	lda @cnt
+:	lda @cnt
 	asl
 	tax
 	lda @line+1
@@ -135,10 +140,16 @@
 	iny
 	lda (@line),y
 	beq @cont
-:	incw @line
-	incw @line
 
-	; print the line
+:	; @line += 2
+	lda @line
+	clc
+	adc #$02
+	sta @line
+	bcc :+
+	inc @line+1
+
+:	; print the line
 	ldxy #@namebuff
 	lda @row
 	cmp #SCREEN_HEIGHT-1
@@ -148,7 +159,7 @@
 
 :	; next line
 	inc @cnt
-	jmp @l0
+	bne @l0			; branch always
 
 @cont:	; max a user can scroll is (# of files - SCREEN_HEIGHT-1)
 	ldx #$00
@@ -359,8 +370,7 @@
 .proc unhighlight_selection
 @select=rb
 	ldx @select
-	lda #DEFAULT_900F
-	jmp draw::hline		; deselect the current selection
+	jmp draw::resetline	; deselect the current selection
 .endproc
 
 ;*******************************************************************************
@@ -371,6 +381,5 @@
 .proc highlight_selection
 @select=rb
 	ldx @select
-	lda #DEFAULT_RVS
-	jmp draw::hline		; deselect the current selection
+	jmp draw::hiline	; select the current selection
 .endproc

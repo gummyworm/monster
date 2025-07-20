@@ -199,16 +199,14 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 ; the screen has been drawn, enter the main user loop
 @done:  ; @scroll is now set to the index of the item at the bottom
 @menu:	ldx @selection
-	lda #DEFAULT_RVS
-	jsr draw::hline		; unhighlight the current selection
+	jsr draw::hiline	; unhighlight the current selection
 
 @menuloop:
 	jsr key::waitch		; wait for a key
 
 	pha
 	ldx @selection
-	lda #DEFAULT_900F
-	jsr draw::hline
+	jsr draw::resetline
 	pla
 
 	jsr key::isdown

@@ -6,6 +6,34 @@
 .CODE
 
 ;******************************************************************************
+; HILINE
+; Highlights the given line by setting it to the reverse of the
+; default color (DEFAULT_RVS)
+; IN:
+;  - .X: the row to highlight
+.export __draw_hiline
+.proc __draw_hiline
+	lda #DEFAULT_RVS
+
+	; fall through to __draw_hline
+	skw
+.endproc
+
+
+;******************************************************************************
+; RESETLINE
+; Resets the given line by setting its color to the default one
+; (DEFAULT_900F)
+; IN:
+;  - .X: the row to highlight
+.export __draw_resetline
+.proc __draw_resetline
+	lda #DEFAULT_900F
+
+	; fall through to __draw_hline
+.endproc
+
+;******************************************************************************
 ; HLINE
 ; Sets the color for the row given in .A
 ; IN:

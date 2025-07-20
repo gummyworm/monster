@@ -50,7 +50,7 @@ files        = $259	; KERNAL open file table
 file_devices = $261	; KERNAL device ID table
 kernal_sas   = $26d	; KERNAL secondary address table
 
-isvirtual = zp::tmp16 	; flag for binary load to VIRTUAL memory
+isvirtual = zp::tmp16	; flag for binary load to VIRTUAL memory
 isbin     = zp::tmp17	; flag for binary save/load to memory
 
 ;*******************************************************************************
@@ -65,6 +65,9 @@ __file_load_address = rb
 __file_save_address     = rb
 .export __file_save_address_end
 __file_save_address_end = rd
+
+.export __file_load_address_end
+__file_load_address_end = rd
 
 ;*******************************************************************************
 ; LOADBINV
@@ -525,12 +528,12 @@ __file_load_src:
 	bne :+
 	RETURN_OK
 
-:	cpx #$3e		; err code $3e (file not found)?
-	bne :+
+:	lda #ERR_IO_ERROR	; default (unknown) file error
+	cpx #$3e		; err code $3e (file not found)?
+	bne @ret
 	;sec
 	lda #ERR_FILE_NOT_FOUND
 @ret:	rts
-:	RETURN_ERR ERR_IO_ERROR		; unknown error
 .endproc
 
 ;*******************************************************************************
@@ -547,14 +550,27 @@ __file_load_src:
 	ldx isbin
 	beq @src
 
-	; if not loading to SOURCE, write to memory
-	ldy #$00
-	ldx isvirtual
-	beq :+
-	ldxy __file_load_address
+@mem:	ldxy __file_load_address
+	cmpw __file_load_address_end
+	bcc :+
+
+	; load address has reached designated stop address
+	lda #ERR_FILE_TOO_BIG
+	rts
+
+:	; check if we should write to physical or virtual memory
+	pha			; save byte to write
+	lda isvirtual
+	beq @phys
+
+@virt:	; write to virtual memory
+	pla
 	jsr vmem::store
-	skw
-:	sta (__file_load_address),y
+	jmp @done
+
+@phys:	ldy #$00
+	pla
+	sta (__file_load_address),y
 @done:	incw __file_load_address
 	RETURN_OK
 

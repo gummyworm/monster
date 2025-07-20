@@ -202,10 +202,9 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	sta breakpoints_active
 	sta __debug_interface
 
-	; set color for the message row
-	lda #DEFAULT_RVS
+	; highlight message row
 	ldx #DEBUG_MESSAGE_LINE
-	jsr draw::hline
+	jsr draw::hiline
 
 	jsr reset_stopwatch
 
@@ -440,9 +439,8 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 @showbrk:
 	; set color for the message row
-	lda #DEFAULT_RVS
 	ldx #DEBUG_MESSAGE_LINE
-	jsr draw::hline
+	jsr draw::hiline
 
 	; get the address before the BRK and go to it
 	jsr cur::off

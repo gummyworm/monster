@@ -260,8 +260,7 @@ stackdepth:	.byte 0
 	sec
 	sbc select
 	tax
-	lda #DEFAULT_900F
-	jsr draw::hline
+	jsr draw::resetline
 
 :	pla		; get the key
 	cmp #K_QUIT
@@ -373,6 +372,7 @@ exit:	rts				; no GUI to draw
 	ldxy title
 	jsr text::print
 	ldx @rowstop
+
 	lda #DEFAULT_900F^$08
 	jsr draw::hline
 
@@ -397,9 +397,8 @@ exit:	rts				; no GUI to draw
 	lda @row
 	jsr text::print
 
-	lda #DEFAULT_900F	; unhighlight
 	ldx @row
-	jsr draw::hline
+	jsr draw::resetline
 
 	dec @row
 	inc @i

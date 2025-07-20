@@ -150,6 +150,10 @@ err_drive_did_not_respond:
 	;.byte "no drive response",0
 	.byte $73,$db,$24,$89,$b1,$5b,$91,$53,$83,$ce,$99,$40
 
+err_file_too_big:
+	; .byte "file too big",0
+	.byte $32,$4c,$2e,$d4,$7b,$db,$12,$47,$0
+
 err_unnamed_buffer:
 	;.byte "unnamed buffer",0
 	.byte $ab,$8e,$b,$45,$26,$c2,$a9,$86,$2c,$80
@@ -229,6 +233,7 @@ err_too_many_segments:
 	err_too_many_open_files, \
 	err_logical_file_in_use, \
 	err_drive_did_not_respond, \
+	err_file_too_big, \
 	err_unnamed_buffer, \
 	err_no_filename, \
 	err_no_open_scope, \

@@ -595,9 +595,8 @@ main:	jsr key::getch
 	lda #ASM_SUCCESS_COLOR
 	jsr draw::hline
 	jsr key::waitch		; wait for key
-	lda #DEFAULT_RVS
 	ldx #STATUS_ROW
-	jsr draw::hline
+	jsr draw::hiline
 	jsr lbl::index		; index labels for debugging, etc.
 	RETURN_OK
 
@@ -2412,8 +2411,7 @@ __edit_refresh:
 	jsr src::prev	; print_line expects source and zp::cury to be synced
 
 :	ldx zp::cury
-	lda #DEFAULT_900F
-	jsr draw::hline		; reset color for the row
+	jsr draw::resetline	; reset color for the row
 
 	lda zp::cury
 	jsr print_line		; draw the line of text

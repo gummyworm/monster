@@ -355,9 +355,8 @@ memaddr: .word 0
 .proc getset_addr
 	pushcur
 
-	lda #DEFAULT_RVS
 	ldx #MEMVIEW_START
-	jsr draw::hline
+	jsr draw::hiline
 
 	; copy title to linebuffer
 	ldx #17
@@ -419,9 +418,8 @@ memaddr: .word 0
 	ldxy #strings::memview_title
 	lda #MEMVIEW_START
 	jsr text::print
-	lda #DEFAULT_RVS
 	ldx #MEMVIEW_START
-	jsr draw::hline
+	jsr draw::hiline
 
 	lda #MEMVIEW_START+1
 	sta @row
@@ -430,9 +428,8 @@ memaddr: .word 0
 	jsr __view_mem_line
 	lda @row
 	jsr text::print	; draw the row of rendered bytes
-	lda #DEFAULT_900F
 	ldx @row
-	jsr draw::hline
+	jsr draw::resetline
 	inc @row
 	lda @row
 	cmp #MEMVIEW_STOP	; have we drawn all rows?

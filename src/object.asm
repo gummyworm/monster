@@ -105,10 +105,7 @@ __obj_add_symbol_info:
 ;*******************************************************************************
 .export __obj_add_reloc
 __obj_add_reloc:
-	ldy asm::mode
-	bne :+
-	rts
-:	JUMP FINAL_BANK_LINKER, add_reloc
+	JUMP FINAL_BANK_LINKER, add_reloc
 
 .segment "OBJCODE"
 
