@@ -2889,6 +2889,7 @@ __asm_include:
 .proc writeb_with_reloc
 	jsr writeb
 	bcs :-			; -> rts
+	rts
 	lda #$00		; 0=zeropage
 
 	; fall through to write_reloc
