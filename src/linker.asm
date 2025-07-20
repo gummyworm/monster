@@ -405,6 +405,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .export __link_parse
 .proc __link_parse
 @filebuff=mem::spare
+@filebuff_end=mem::spareend
 @line=mem::linebuffer
 @segments_declared=r8
 @sections_declared=r9
@@ -414,6 +415,10 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	sta file::loadaddr
 	lda #>@filebuff
 	sta file::loadaddr+1
+	lda #<@filebuff_end
+	sta file::load_address_end
+	lda #>@filebuff_end
+	sta file::load_address_end+1
 	pla
 
 	; load link file into filebuff
