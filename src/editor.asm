@@ -2140,7 +2140,7 @@ main:	jsr key::getch
 	ldxy @addr
 	jsr dbg::gotoaddr	; goto it
 	bcs @err
-	rts			; return ok
+:	rts			; return ok
 .endproc
 
 ;*******************************************************************************
@@ -2151,10 +2151,9 @@ main:	jsr key::getch
 @join_idx=r7
 	jsr exit_visual
 	jsr src::on_last_line
-	bne :+
-	rts			; no next line to join
+	beq :-			; -> rts
 
-:	jsr text::linelen
+	jsr text::linelen
 	stx @i
 	stx @join_idx
 	txa

@@ -37,6 +37,8 @@ addr     = r9		; the address corresponding to the current line's label
 filename = zp::tmp10	; the filename for the current line
 line     = zp::tmp12	; the line number for the current line
 sortby   = zp::tmp14	; the sort order (ALPHA, ADDR)
+mode     = zp::tmp15	; mode (0=ZP, 1=ABS)
+tmp      = zp::tmp16
 name     = $100
 
 ;*******************************************************************************
@@ -83,6 +85,11 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	ldxy lbl
 	jsr lbl::getaddr	; get the symbol address
 	stxy addr
+;	TODO: use address mode once it works
+;	ldxy lbl
+;	jsr lbl::addrmode
+	lda #$01
+	sta mode
 
 	; default filename to nothing
 	lda #$00
@@ -132,10 +139,19 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	lda #<name
 	pha
 
+	; check the mode
 	lda addr
 	pha
-	lda addr+1
+	lda mode
+	bne @abs
+@zp:	lda #ESCAPE_BYTE
+	bne :+			; branch always
+
+@abs:	lda addr+1
 	pha
+	lda #ESCAPE_VALUE
+:	sta sym_line+1
+	sta sym_line_no_file+1
 
 @print:
 @row=*+1
@@ -152,14 +168,18 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 @tmp=r5
 @scroll=r7
 @row=rb
-@selection=zp::tmp15
+@selection=tmp
 	jsr scr::save
 	lda #$00
 	sta sortby
 	sta @selection
 
-@start: ldxy #$00
-	stxy @scroll
+	ldx #HEIGHT
+	jsr draw::hiline	; highlight the current selection
+
+@start: lda #$00
+	sta @scroll
+	sta @scroll+1
 
 @l0:	jsr edit::clear
 
@@ -173,9 +193,9 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 :	lda #23
 	jsr text::print
 
-	ldxy lbl::num
-	cmpw #0
-	beq @done
+	lda lbl::num
+	ora lbl::num+1
+	beq @done		; no labels
 
 	lda #$00
 	sta @row
@@ -199,7 +219,7 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 ; the screen has been drawn, enter the main user loop
 @done:  ; @scroll is now set to the index of the item at the bottom
 @menu:	ldx @selection
-	jsr draw::hiline	; unhighlight the current selection
+	jsr draw::hiline	; highlight the current selection
 
 @menuloop:
 	jsr key::waitch		; wait for a key
@@ -268,7 +288,8 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	bcs :+
 	dec @scroll+1
 
-:	lda #HEIGHT-1
+:	; set selected row to last row on screen
+	lda #HEIGHT-1
 	sta @selection
 	jmp @l0
 

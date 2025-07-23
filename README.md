@@ -20,15 +20,16 @@ Virtually any feature that I deem valuable in an assembly IDE is included.
 Some of its features are:
  - 40 column bitmap-based editor
  - vi-like keybindings
- - interactive visual debugger
+ - interactive source-level debugger
  - breakpoint editor
  - memory viewer/editor
- - file I/O (save/load)
+ - robust label support (including anonymous and local)
+ - save/load files and export to .PRG
  - directory viewer
  - symbol viewer
  - auto-formatter and realtime syntax checking
- - macro support
- - user program/source/editor isolation
+ - powerful macro support
+ - virtual memory for user program isolation
  - many more...
 
 For more information about the major components of Monster, refer to the documents
