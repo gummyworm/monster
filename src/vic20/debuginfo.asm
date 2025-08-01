@@ -7,6 +7,7 @@
 ;*******************************************************************************
 .include "../errors.inc"
 .include "../macros.inc"
+.include "../memory.inc"
 .include "../string.inc"
 .include "../ram.inc"
 .include "../zeropage.inc"
@@ -30,7 +31,7 @@ DATA_ADDR = 3	; offset of line address in debug info
 ; Opcodes for extended instructions
 OP_SET_ADDR     = $01
 ; FREE          = $02
-OP_SET_LINE     = $03
+; FREE
 OP_ADVANCE_LINE = $04
 OP_ADVANCE_ADDR = $05
 OP_SET_PC       = $06
@@ -54,7 +55,6 @@ GET_FILENAME
 NEW_BLOCK
 SET_FILE
 SET_NAME
-SET_ADDR
 STORE_LINE
 PUSH_BLOCK
 POP_BLOCK
@@ -65,7 +65,7 @@ INCREMENT_AT
 .RODATA
 .linecont +
 .define dbgi_procs addr2line, line2addr, end_block, init, initonce, get_filename, new_block, \
-	set_file, set_name, set_addr, store_line, push_block, pop_block, get_fileid
+	set_file, set_name, store_line, push_block, pop_block, get_fileid
 .linecont -
 dbgi_procs_lo: .lobytes dbgi_procs
 dbgi_procs_hi: .hibytes dbgi_procs
@@ -125,7 +125,6 @@ debuginfo:
 .export __debug_set_file
 .export __debug_set_name
 .export __debug_store_line
-.export __debug_set_addr
 .export __debug_push_block
 .export __debug_pop_block
 
@@ -142,7 +141,6 @@ debuginfo:
 	__debug_new_block         = new_block
 	__debug_set_file          = set_file
 	__debug_set_name          = set_name
-	__debug_set_addr          = set_addr
 	__debug_store_line        = store_line
 	__debug_push_block        = push_block
 	__debug_pop_block         = pop_block
@@ -160,7 +158,6 @@ __debug_get_filename:     BANKJUMP dbgi_proc_ids::GET_FILENAME
 __debug_new_block:        BANKJUMP dbgi_proc_ids::NEW_BLOCK
 __debug_set_file:         BANKJUMP dbgi_proc_ids::SET_FILE
 __debug_set_name:         BANKJUMP dbgi_proc_ids::SET_NAME
-__debug_set_addr:         BANKJUMP dbgi_proc_ids::SET_ADDR
 __debug_store_line:       BANKJUMP dbgi_proc_ids::STORE_LINE
 __debug_push_block:       BANKJUMP dbgi_proc_ids::PUSH_BLOCK
 __debug_pop_block:        BANKJUMP dbgi_proc_ids::POP_BLOCK
@@ -487,41 +484,6 @@ blockaddresseshi: .res MAX_FILES
 .endproc
 
 ;*******************************************************************************
-; SET ADDR
-; Writes an instruction to set the address to the given value
-; This is for use with the .ORG directive
-; IN:
-;  - .XY: address to force PC to
-; OUT:
-;  - line: the address to store subsequent line program data to
-;  - .C:   set on error
-.proc set_addr
-@addr=r0
-	sty @addr
-	lda #$00
-	sta (line),y
-
-	lda #OP_SET_ADDR
-	iny
-	sta (line),y
-
-	iny
-	txa
-	sta (line),y
-
-	lda @addr
-	sta (line),y
-
-	lda line
-	clc
-	adc #$04
-	sta line
-	bcc :+
-	inc line+1
-:	RETURN_OK
-.endproc
-
-;*******************************************************************************
 ; STORE LINE
 ; Write an instruction to the active line program to map the given line to the
 ; given address within the active block.
@@ -674,6 +636,90 @@ blockaddresseshi: .res MAX_FILES
 	adc @daddr+1
 	sta addr+1
 	rts
+.endproc
+
+;*******************************************************************************
+; INSERT LINE
+; Insers a line at the given line in the given file, shifting all lines below
+; it down
+; IN:
+;   - .A:  the file ID to shift
+;   - .XY: the line to shift everything below
+.proc insert_line
+	; find all blocks that need to be updated
+	jsr blocks_below_line
+
+	; update each block that needs to be updated
+
+	; if the block STARTS after the line we're seeking, just increment its
+	; base
+
+	; if not, run the line program until we find a value >=
+	; the line-to-insert below
+	; then increment the instruction that advanced to or past that line
+	; if the instruction cannot be incremented,
+	ldxy zp::line
+	jsr addr2line
+
+	; delete it
+.endproc
+
+;*******************************************************************************
+; DELETE LINE
+; Deletes the debug info associated with the given line and shifts all lines
+; below it up.
+; If there is no information at the given line, just shifts without deleting
+; IN:
+;   - .A:  the file ID to shift
+;   - .XY: the line to shift everything below
+.proc delete_line
+@blocks=mem::spare
+@num=debugtmp
+@line=debugtmp+1
+	stxy @line
+
+	; find all blocks that need to be updated
+	jsr blocks_below_line
+	sta @num
+
+	; update each block that needs to be updated
+@l0:	ldx @num
+	beq @done		; no blocks
+	dex
+	lda @blocks,x
+	pha
+
+	jsr get_block_by_id	; load the block
+	ldxy blocklinebase	; get its start line
+	cmpw @line		; compare
+	bcs @incbase
+
+@find:	; find where the block crosses our sought line
+	; jsr find_closest
+
+	; modify the instruction to increment 1 less line
+
+@incbase:
+	; base is >= line to delete, just decrement the base
+	decw blocklinebase
+
+@save:	pla
+	jsr save_block
+	dec @num
+	bne @l0
+
+	; if the block STARTS after the line we're seeking, just decrement its
+	; base
+
+	; if not, run the line program until we find a value >=
+	; the line-to-delete
+	; then decrement the instruction that advanced to or past that line
+	ldxy zp::line
+	jsr addr2line
+
+	; delete it
+
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -976,6 +1022,90 @@ get_filename = get_filename_addr
 .endproc
 
 ;*******************************************************************************
+; BLOCKS BELOW LINE
+; Returns a list of all the blocks that CONTAIN lines at or below the the given
+; line in the given file
+; This is useful for, e.g. shifting all lines below a given line up or down
+; IN:
+;   - .A: the file id of blocks to match
+;   - .XY: the line to search for
+; OUT:
+;   - mem::spare: the list of block IDs that match
+;   - .A:         the # of matches
+.proc blocks_below_line
+@vars=zp::tmp10
+@file=@vars
+@line=@vars+1
+@block=@vars+3
+@numfound=@vars+5
+@tmp=@vars+7
+@result=mem::spare
+	sta @file
+	stxy @line
+
+	ldxy #blockheaders
+	stxy @block
+
+	ldx #$00
+	cpx numblocks
+	beq @done		; if no blocks- we're done
+	stx @numfound
+
+	; check each block for a file match
+@l0:	ldy #BLOCK_FILE_ID
+	lda (@block),y
+	cmp @file
+	bne @next
+
+	; check if the line is >= the one we're seeking
+	; (line < (header[BLOCK_LINE_BASE]+header[BLOCK_LINE_COUNT])
+	ldy #BLOCK_LINE_BASE
+	lda (@block),y
+	sta @tmp
+	iny
+	lda (@block),y
+	sta @tmp+1
+
+	ldy #BLOCK_LINE_COUNT
+	lda (@block),y
+	clc
+	adc @tmp
+	sta @tmp
+	iny
+	lda (@block),y
+	adc @tmp+1
+	sta @tmp+1
+
+	cmp @line+1		; is MSB >= line we're seeking's?
+	beq :+			; == -> check LSB
+	bcc @next		; <  -> definitely not a match
+	bcs @found		; >  -> definitely a match
+:	lda @tmp
+	cmp @line		; is LSB >= line we're seeking's?
+	bcc @next		; if not, not a match
+
+@found:	; this block contains a line >= the one we're seeking, append it
+	; to our result
+	ldy @numfound
+	txa
+	sta @result,y
+	inc @numfound
+
+@next:	lda @block
+	clc
+	adc #SIZEOF_BLOCK_HEADER
+	sta @block
+	bcc :+
+	inc @block+1
+:	inx
+	cpx numblocks
+	bne @l0
+
+@done:	lda @numfound
+	rts
+.endproc
+
+;*******************************************************************************
 ; HEADER ADDR
 ; Returns the address of the block header for the given ID
 ; IN:
@@ -1177,6 +1307,83 @@ get_filename = get_filename_addr
 	RETURN_OK
 
 @end:	sec		; flag end of porgram
+	rts
+.endproc
+
+;*******************************************************************************
+; INC LINEOP
+; Increments the operation at the cursor to point to the line after the one
+; it is currently on.
+; IN:
+;   - line: points to the instruction in the line program to update
+; OUT:
+;   - .C: set if the operation could not be updated (or is not a line opcode)
+.proc inc_lineop
+	ldy #$00
+	lda (line),y	; get the opcode
+	beq @extended	; if 0, handle extended opcode
+
+@basic: and #$0f	; mask the line offset
+	cmp #$0f	; do we need to insert another operation?
+	bcs @expand
+
+@noexpand:
+	; just increment the operation and return
+	; clc
+	adc #$01
+	sta (line),y
+	;clc
+	rts
+
+@expand:
+	; shift the whole program up
+	; shift (freeptr-(line+1)) bytes up from line+1 to line+2
+	ldxy line
+	inx
+	bne :+
+	iny
+:	stxy r2		; src = line+1
+	inx
+	stx r4		; dst = line+2
+	bne :+
+	iny
+:	sty r4+1
+
+	lda freeptr	; size = freeptr-(line+1)
+	;sec
+	sbc r2		; r2=line+1
+	tax
+	lda freeptr+1
+	sbc line+1
+	tay
+	jsr ram::copy	; move the memory
+
+	; now that we have opened a gap,
+	; insert a new basic instruction to increment line
+	lda #$01
+	tay
+	sta (line),y	; line++
+	RETURN_OK
+
+@extended:
+	ldy #$01
+	lda (line),y
+	cmp #OP_ADVANCE_LINE
+	bne @err		; not a valid instruction
+
+	; increment the operand
+	iny
+	lda (line),y
+	;sec
+	adc #$00
+	sta (line),y
+	iny
+	lda (line),y
+	adc #$00
+	sta (line),y
+	rts
+
+@err:	sec
 	rts
 .endproc
 

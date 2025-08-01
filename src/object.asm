@@ -589,7 +589,6 @@ __obj_add_reloc:
 .proc __obj_dump
 @src=r0
 @cnt=r2
-	jmp *
 	; write the main OBJ header
 	lda numsections			; # of sections
 	jsr $ffd2

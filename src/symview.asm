@@ -83,12 +83,8 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	stxy lbl		; store the ID for the label
 	jsr lbl::getname	; read the symbolname into buffer ($100)
 	ldxy lbl
-	jsr lbl::getaddr	; get the symbol address
+	jsr lbl::addr_and_mode	; get the symbol address
 	stxy addr
-;	TODO: use address mode once it works
-;	ldxy lbl
-;	jsr lbl::addrmode
-	lda #$01
 	sta mode
 
 	; default filename to nothing
@@ -144,12 +140,12 @@ sort_by_addr_msg: .byte "f1 sort by addr",0
 	pha
 	lda mode
 	bne @abs
-@zp:	lda #ESCAPE_BYTE
+@zp:	lda #ESCAPE_BYTE	; 1 byte (zeropage)
 	bne :+			; branch always
 
 @abs:	lda addr+1
 	pha
-	lda #ESCAPE_VALUE
+	lda #ESCAPE_VALUE	; 2 bytes (absolute)
 :	sta sym_line+1
 	sta sym_line_no_file+1
 

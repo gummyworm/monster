@@ -3,6 +3,7 @@
 .import __label_add
 .import __label_addanon
 .import __label_addrmode
+.import __label_address_by_id
 .import __label_id_by_addr_index
 .import __label_by_id
 .import __label_by_addr
@@ -31,6 +32,7 @@
 	idbyaddrindex = __label_id_by_addr_index
 	set24         = __label_set24
 	addr          = __label_address
+	addr_and_mode = __label_address_by_id
 	by_id         = __label_by_id
 	by_addr       = __label_by_addr
 	clr           = __label_clr

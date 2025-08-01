@@ -694,6 +694,7 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 	; update debug info: find all line programs in the current file with
 	; start lines greater than the current line and decrement them
 	; TODO:
+	;jsr dbgi::delete_line
 
 	; shift breakpoints
 	jsr edit::currentfile

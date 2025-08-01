@@ -37,6 +37,7 @@ allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
 .export __label_set24
 .export __label_del
 .export __label_address
+.export __label_address_by_id
 .export __label_setscope
 .export __label_addanon
 .export __label_get_fanon
@@ -63,6 +64,7 @@ __label_set              = set
 __label_set24            = set24
 __label_del              = del
 __label_address          = address
+__label_address_by_id    = address_by_id
 __label_setscope         = set_scope
 __label_addanon          = add_anon
 __label_get_fanon        = get_fanon
@@ -95,6 +97,7 @@ SET
 SET24
 DEL
 ADDRESS
+ADDRESS_BY_ID
 SET_SCOPE
 ADD_ANON
 GET_FANON
@@ -108,8 +111,8 @@ ADDRMODE
 
 .linecont +
 .define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
-getaddr, is_local, set, set24, del, address, set_scope, add_anon, get_fanon, \
-get_banon, index, id_by_addr_index, addrmode
+getaddr, is_local, set, set24, del, address, address_by_id, set_scope, \
+add_anon, get_fanon, get_banon, index, id_by_addr_index, addrmode
 .linecont -
 
 procs_lo: .lobytes procs
@@ -129,6 +132,7 @@ __label_set: LBLJUMP proc_ids::SET
 __label_set24: LBLJUMP proc_ids::SET24
 __label_del: LBLJUMP proc_ids::DEL
 __label_address: LBLJUMP proc_ids::ADDRESS
+__label_address_by_id: LBLJUMP proc_ids::ADDRESS_BY_ID
 __label_setscope: LBLJUMP proc_ids::SET_SCOPE
 __label_addanon: LBLJUMP proc_ids::ADD_ANON
 __label_get_fanon: LBLJUMP proc_ids::GET_FANON
@@ -307,7 +311,7 @@ scope: .res 8 ; buffer containing the current scope
 ;  - .XY: the name of the label to look for
 ; out:
 ;  - .C: set if label is not found
-;  - .A: contains the length of the label because why not
+;  - .A: contains the length of the label (why not) or error code
 ;  - .XY: the id of the label or the id where the label WOULD be if not found
 .proc find
 @cnt=r6
@@ -393,13 +397,13 @@ scope: .res 8 ; buffer containing the current scope
 ;   - .A: the address mode (0=ZP, 1=ABS)
 .proc addrmode
 @tmp=r0
-	sty @tmp
+	sty @tmp		; save MSB
 	txa			; .A=LSB
 	pha
 	ldx @tmp		; .X=MSB
 
 	jsr div8		; .X = byte offset
-	pla
+	pla			; restore LSB
 	and #$07
 	tay			; .Y = bit offset
 	lda $8268,y		; \
@@ -481,7 +485,7 @@ scope: .res 8 ; buffer containing the current scope
 @cnt=ra
 @addr=rc
 @mode=r8
-@tmp=r9
+@tmp=ra
 	sta allow_overwrite	; set overwrite flag (SET) or clear (ADD)
 
 	stxy @name
@@ -661,7 +665,7 @@ scope: .res 8 ; buffer containing the current scope
 	; $82fb %00011111
 	; ...
 	lda label_modes,x
-	pha
+	pha			; save current modes for the byte
 	and $82f8,y		; mask bits we need to shift
 	lsr			; shift the bits we need to shift
 	sta @tmp		; and save as temp result
@@ -674,7 +678,8 @@ scope: .res 8 ; buffer containing the current scope
 	; ...
 	lda zp::label_mode
 	lsr			; set .C if mode is ABS
-	pla
+	pla			; restore mode byte to modify
+	pha			; save again
 	and $86f8,y		; mask bits that were not shifted
 	ora @tmp		; OR with bits we shifted
 
@@ -690,12 +695,15 @@ scope: .res 8 ; buffer containing the current scope
 :	sta label_modes,x	; save result
 	jsr numlabels_div8	; get stopping point (numlabels / 8)
 	sta @tmp
-	cpx @tmp
-	beq @storelabel
+	pla			; restore original byte
+	cpx @tmp		; if index is at last byte
+	beq @storelabel		; no need to shift
 
 :	; now shift the rest of the mode bytes right
+	lsr			; set .C from .A
 	inx
 	ror label_modes,x
+	rol			; bring .C into .A
 	cpx @tmp
 	bne :-
 
@@ -1043,10 +1051,9 @@ scope: .res 8 ; buffer containing the current scope
 .endproc
 
 ;******************************************************************************
-; LABEL ADDRESS
+; ADDRESS
 ; Returns the address of the label in (.YX)
-; The size of the label is returned in .A (1 if zeropage, 2 if not)
-; line is updated to the character after the label.
+; The address mode of the label is returned as well.
 ; IN:
 ;  - .XY: the address of the label name to get the address of
 ; OUT:
@@ -1055,16 +1062,29 @@ scope: .res 8 ; buffer containing the current scope
 ;  - .A:  the size (address mode) of the label
 ;  - r2:  the ID of the label
 .proc address
-@table=r0
-@id=r2
-@addr=r2
-	jsr find	; get the id in YX
-	bcc :+
+	jsr find		; get the id in YX
+	bcc address_by_id
 	lda #ERR_LABEL_UNDEFINED
 	;sec
 	rts
+.endproc
 
-:	stxy @id
+;******************************************************************************
+; ADDRESS BY ID
+; Returns the address of the label of the given ID
+; Also returns the address mode.
+; IN:
+;  - .XY: the ID of the label to find the address/mode of
+; OUT:
+;  - .XY: the address of the label
+;  - .A:  the size (address mode) of the label (0=ZP, 1=ABS)
+;  - r2:  the ID of the label
+;  - .C:  always clear
+.proc address_by_id
+@table=r0
+@id=r2
+@addr=r4
+	stxy @id
 	jsr by_id	; get address of label
 	stxy @table
 
@@ -1424,7 +1444,7 @@ scope: .res 8 ; buffer containing the current scope
 ; OUT:
 ;   - .A: the number of labels / 8
 .proc numlabels_div8
-@tmp=r0
+@tmp=r9
 	lda numlabels+1
 	sta @tmp
 	lda numlabels
@@ -1446,7 +1466,7 @@ scope: .res 8 ; buffer containing the current scope
 ;   - .A: the result
 ;   - .X: the result
 .proc div8
-@tmp=r0
+@tmp=r9
 	stx @tmp
 	lsr @tmp	; /2
 	ror

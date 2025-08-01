@@ -414,6 +414,31 @@ num_illegals = *-illegal_opcodes
 .CODE
 
 ;*******************************************************************************
+; RESET
+; Resets the internal assembly context (labels and pointer to target)
+.export __asm_reset
+.proc __asm_reset
+	lda #$00
+	sta ifstacksp
+	sta contextstacksp
+	jsr ctx::init
+	CALL FINAL_BANK_MACROS, mac::init
+	jsr lbl::clr
+
+	; fall through to RESETPC
+.endproc
+
+;*******************************************************************************
+; RESETPC
+; Resets the PC for, for example, beginning a new pass on the assembler
+.export __asm_resetpc
+.proc __asm_resetpc
+	lda #$00
+	sta pcset
+	rts
+.endproc
+
+;*******************************************************************************
 ; START PASS
 ; Resets assembly context in preparation for the given pass
 ; IN:
@@ -425,20 +450,16 @@ num_illegals = *-illegal_opcodes
 	; disable VERIFY (assemble)
 	lda #$00
 	sta state::verify
+	sta top			; set top of program to 0
+	sta top+1
+	sta zp::asmresult	; also set default physical address to 0
+	sta zp::asmresult+1
 
 	jsr ctx::init		; init the context
 	pla
 	sta zp::pass		; set pass #
 	cmp #$01
-	bne @pass2
-
-	lda #$00
-	sta top			; set top of program to 0
-	sta top+1
-	sta zp::asmresult	; also set default physical address to 0
-	sta zp::asmresult+1
-	jmp __asm_reset		; reset assembly state
-
+	beq __asm_reset
 @pass2: jsr __asm_resetpc	; reset PC
 	jmp ctx::init		; re-init the context
 .endproc
@@ -1055,7 +1076,6 @@ __asm_tokenize_pass1 = __asm_tokenize
 	jsr lbl::find
 	bcs @ret
 	jsr lbl::getaddr
-	bcs @ret
 	cmpw zp::label_value
 	beq @map_symbol
 	lda #ERR_LABEL_NOT_KNOWN_PASS1
@@ -1920,28 +1940,25 @@ __asm_include:
 	jsr expr::eval
 	bcs @ret		; error
 
-	; TODO: require expression to be resolvable in pass 1
 	stxy zp::asmresult
 	stxy zp::virtualpc
 	lda pcset
 	bne @chkorg
-	lda pcset
-	bne :+
 
-	; if PC isn't set yet, set TOP to the new PC
+	; PC isn't set yet, set TOP to the new PC
 	inc pcset
 	stxy top
-
-:	stxy origin
+	stxy origin
 	bne @done		; branch always
 
-	; check if this is lower than current base origin
 @chkorg:
+	; check if new PC is lower than current base origin
 	cpy origin+1
+	beq :+			; check LSB
 	bcs @done
 	bcc @set
-	cpx origin
-	bcc @done
+:	cpx origin
+	bcs @done
 @set:	stxy origin
 
 @done:	lda #ASM_ORG
@@ -2110,30 +2127,6 @@ __asm_include:
 	lda #$00
 	jsr set_ctx_type
 	jmp ctx::pop	; cleanup; pop the context
-.endproc
-
-;*******************************************************************************
-; RESET
-; Resets the internal assembly context (labels and pointer to target)
-.export __asm_reset
-.proc __asm_reset
-	lda #$00
-	sta ifstacksp
-	sta contextstacksp
-	jsr ctx::init
-	CALL FINAL_BANK_MACROS, mac::init
-	jsr lbl::clr
-	; fall through to RESETPC
-.endproc
-
-;*******************************************************************************
-; RESETPC
-; Resets the PC for, for example, beginning a new pass on the assembler
-.export __asm_resetpc
-.proc __asm_resetpc
-	lda #$00
-	sta pcset
-	rts
 .endproc
 
 ;*******************************************************************************
@@ -2760,6 +2753,8 @@ __asm_include:
 	tay
 	pla
 	tax
+	lda zp::label_value+1
+	beq add_label		; if MSB is 0, use ZP mode
 	lda #$01		; for CONST always use ABS mode
 
 	; fall through to add_label
@@ -2891,6 +2886,8 @@ __asm_include:
 .proc writeb_with_reloc
 	jsr writeb
 	bcs :-			; -> rts
+
+	; TODO
 	rts
 	lda #$00		; 0=zeropage
 
@@ -2943,6 +2940,7 @@ __asm_include:
 	;clc
 	rts
 
+	; TODO:
 	lda #$01		; 1=ABS
 	dey			; restore .Y
 	jmp write_reloc

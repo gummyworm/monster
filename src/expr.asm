@@ -216,18 +216,31 @@ __expr_rpnlistlen: .byte 0
 @sym:	; resolve symbol and push its value
 	cmpw #$ffff		; check magic "unresolved" value
 	beq @unresolved
-	jsr lbl::getaddr
-	jmp @const
+
+	jsr lbl::addr_and_mode
+	;clc
+	adc #$01
+	sta @result_size
+	bne @const		; branch always
 
 @unresolved:
-	; resolution is required in pass 2 for DIRECT mode
-	; if assembling to OBJECT,
+	; if we're here, the expression is unresolved
+	; - in pass 1, that's fine -> return and assume we will figure it out
+	; - if assembling to object -> also fine, emit the RPN list for expr
+	; - if neither -> error
 	ldx zp::pass
 	cpx #$02
-	beq @ret
+	bne @dummy		; pass 1 -> proceed with dummy
 
-	; flag that result size is unknown
-	ldxy #$00		; and return dummy value
+	lda asm::mode
+	beq @ret		; direct mode, error
+
+	; obj mode -> return an error
+	; the assembler may handle this by writing the RPN list
+	RETURN_ERR ERR_UNRESOLVABLE_LABEL
+
+@dummy:	; return dummy
+	ldxy #$00		; dummy value
 	lda #$02		; assume 2 byte result
 	sta @result_size
 
@@ -257,7 +270,7 @@ __expr_rpnlistlen: .byte 0
 	tax
 	ldy #$00
 	beq @pushval	; branch always
-:	jmp *		; TODO: should be impossible
+:	brk		; TODO: should be impossible
 
 ;--------------------------------------
 @pushval:
@@ -359,7 +372,7 @@ __expr_rpnlistlen: .byte 0
 	eor @val2+1
 	tay
 	jmp @pushval
-:	jmp *		; TODO: should be impossible
+:	brk		; TODO: should be impossible
 
 ;--------------------------------------
 @popval:

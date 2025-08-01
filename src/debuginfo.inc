@@ -10,7 +10,6 @@
 .import __debug_new_block
 .import __debug_set_file
 .import __debug_store_line
-.import __debug_set_addr
 .import __debug_push_block
 .import __debug_pop_block
 
@@ -28,7 +27,6 @@
 	newblock     = __debug_new_block
 	setfile      = __debug_set_file
 	srcline      = __debug_src_line
-	setaddr      = __debug_set_addr
 	storeline    = __debug_store_line
 	pop_block    = __debug_pop_block
 	push_block   = __debug_push_block
