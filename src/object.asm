@@ -399,10 +399,10 @@ __obj_add_reloc:
 ; DUMP SYMBOLS
 ; Writes the symbol table to file
 .proc dump_symbols
-@cnt=r0
-@cnt2=r2
-@symtab=r4
-@id=r6
+@cnt=r2
+@cnt2=r4
+@symtab=r6
+@id=r8
 @buff=$100
 	lda numsymbols
 	asl
@@ -440,7 +440,7 @@ __obj_add_reloc:
 	ldxy #@buff
 	stxy r0
 	ldxy @id
-	jsr lbl::getname
+	CALL FINAL_BANK_MAIN, lbl::getname
 
 	; write out the name
 	ldy #$00

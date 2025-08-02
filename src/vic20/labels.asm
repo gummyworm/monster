@@ -17,7 +17,9 @@
 ; CONSTANTS
 MAX_ANON      = 700	; max number of anonymous labels
 SCOPE_LEN     = 8	; max len of namespace (scope)
-MAX_LABELS    = 750
+MAX_LABELS    = 736
+
+MAX_LABEL_NAME_LEN = 32
 
 ;*******************************************************************************
 ; ZEROPAGE
@@ -168,10 +170,26 @@ __label_addrmode: LBLJUMP proc_ids::ADDRMODE
 .export labels
 
 .ifdef vic20
-labels: .res $6000
+labels: .res MAX_LABELS*MAX_LABEL_NAME_LEN
 .else
 labels:
 .endif
+
+;******************************************************************************
+; LABEL MODES
+; This bit array contains the size of each label
+; Bit 7 of the first byte corresponds to label ID 0, bit 6 to the label ID 1,
+; and so on
+.export label_modes
+label_modes: .res MAX_LABELS / 8	; modes (0=absolute, 1=zeropage)
+
+;******************************************************************************
+; SECTION IDS
+; These bytes correspond to each label and tell us which section it is defined
+; within
+; $ff means that the label is absolute (not relative to any section)
+.export section_ids
+section_ids: .res MAX_LABELS
 
 .segment "SHAREBSS"
 
@@ -218,8 +236,6 @@ label_addresses: .res MAX_LABELS*2
 .export label_addresses_sorted
 label_addresses_sorted:     .res MAX_LABELS*2
 label_addresses_sorted_ids: .res MAX_LABELS*2
-.export label_modes
-label_modes: .res MAX_LABELS / 8	; modes (0=absolute, 1=zeropage)
 
 ; address table for each anonymous label
 .export anon_addrs
@@ -486,6 +502,7 @@ scope: .res 8 ; buffer containing the current scope
 @addr=rc
 @mode=r8
 @tmp=ra
+@secid=re
 	sta allow_overwrite	; set overwrite flag (SET) or clear (ADD)
 
 	stxy @name
@@ -540,6 +557,16 @@ scope: .res 8 ; buffer containing the current scope
 ;------------------
 ; open a space for the new label by shifting everything left
 @shift:
+	; get top of section ids (section_ids+numlabels-1)
+	lda #<section_ids
+	clc
+	adc numlabels
+	sta @secid
+	lda #>section_ids
+	adc numlabels+1
+	sta @secid
+	decw @secid		; -1
+
 	; get address where last label WILL go (numlabels * MAX_LABEL_LEN)
 	ldxy numlabels
 	jsr name_by_id
@@ -609,8 +636,14 @@ scope: .res 8 ; buffer containing the current scope
 	dey
 	bpl :-
 
-; shift the address too
-	ldy #$00
+; shift section id
+	iny			; .Y=0
+	lda (@secid),y
+	iny
+	sta (@secid),y
+	dey			; .Y=0
+
+; shift address
 	lda (@addr),y
 	ldy #$02
 	sta (@addr),y
@@ -622,6 +655,10 @@ scope: .res 8 ; buffer containing the current scope
 	decw @cnt
 	iszero @cnt
 	beq @insert_mode
+
+; update all pointers
+	; secid--
+	decw @secid
 
 	; @addr -= 2
 	lda @addr
@@ -733,8 +770,14 @@ scope: .res 8 ; buffer containing the current scope
 	lda zp::label_value
 	sta (@addr),y		; store LSB of value
 	lda zp::label_value+1
-	iny
+	iny			; .Y=1
 	sta (@addr),y		; store MSB of value
+
+; store the section ID for the label ($ff if absolute)
+@store_secid:
+	dey			; .Y=0
+	lda zp::label_sectionid
+	sta (@secid),y
 
 	incw numlabels
 	ldxy @id
@@ -1111,6 +1154,7 @@ scope: .res 8 ; buffer containing the current scope
 @id=r6
 @cnt=r8
 @cnt2=ra
+@cnt3=rc
 @src=re
 @dst=zp::tmp10
 @name=zp::tmp12
@@ -1133,14 +1177,18 @@ scope: .res 8 ; buffer containing the current scope
 	sbc @id
 	sta @cnt
 	sta @cnt2
+	sta @cnt3
 	lda numlabels+1
 	sbc @id+1
 	sta @cnt+1
 	sta @cnt2+1
+	sta @cnt3+1
+	ora @cnt		; does anything need to be shifted?
+	bne :+
+	jmp @done		; if @cnt is 0, no -> done
 
-	; move the addresses down
+:	; move the addresses down
 	ldx @cnt
-	beq @next
 @addrloop:
 	; dst[i] = dst[i+2]
 	ldy #$02
@@ -1207,6 +1255,37 @@ scope: .res 8 ; buffer containing the current scope
 	bne @nameloop
 	dec @cnt2+1
 	bpl @nameloop
+
+	; move the section id's down
+@delete_secid:
+	lda @id
+	clc
+	adc #<section_ids
+	sta @dst
+	sta @src
+	lda @id+1
+	adc #>section_ids+1
+	sta @dst+1
+	lda @dst
+	;clc
+	adc #$01
+	sta @src
+	lda @dst+1
+	adc #$00
+	sta @src+1
+
+	ldx @cnt3
+@secidloop:
+	lda (@src),y
+	sta (@dst),y
+@next_secid:
+	incw @src
+	incw @dst
+	dex
+	cpx #$ff
+	bne @secidloop
+	dec @cnt3+1
+	bpl @secidloop
 
 @delete_mode:
 	; (id / 8) is the byte containing the mode to delete

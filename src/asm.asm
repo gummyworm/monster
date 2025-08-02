@@ -137,7 +137,7 @@ __asm_linenum: .word 0
 ; SEGMODE
 ; When assembling to object code (asm::mode != 0)
 ; this contains the size of labels defined in that segment
-; 0=ZP, 1=ABS (anything but ZP)
+; 0=ZP, 1=ABS (anything but ZP), $FF means no segment is defined
 __asm_segmode: .byte 0
 
 ;*******************************************************************************
@@ -418,6 +418,8 @@ num_illegals = *-illegal_opcodes
 ; Resets the internal assembly context (labels and pointer to target)
 .export __asm_reset
 .proc __asm_reset
+	lda #$ff
+	sta __asm_segmode		; no .SEG set
 	lda #$00
 	sta ifstacksp
 	sta contextstacksp
@@ -2772,17 +2774,12 @@ __asm_include:
 	cmp #$ff
 	bne @add	; if size is not inferred, just add the label
 
-	; infer the size
-	; if assembling to object, use the current SEG's size
-	; if assembling directly, use the current virtual PC as a hint
-	lda __asm_mode
-	beq @direct
-
-@obj:	; object, use segment for hint
+@seg:	; if .SEG is defined, use its mode
 	lda __asm_segmode	; 0=ZP, 1=ABS
 	bpl @add		; branch always
 
 @direct:
+	; .ORG
 	lda zp::virtualpc+1
 	beq @add
 	lda #$01		; ABS
@@ -2907,9 +2904,11 @@ __asm_include:
 .proc write_reloc
 	ldx __asm_mode
 	beq :-				; -> rts (no relocation in DIRECT mode)
+
 	ldx zp::pass
 	cpx #$01
 	beq :-				; -> rts (no relocation on pass 1)
+
 	ldx expr::requires_reloc
 	beq :-				; -> rts (absolute expression)
 

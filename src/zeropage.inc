@@ -39,9 +39,10 @@ pass         = $4c	; the pass of assembly being done (1 or 2)
 line         = $4d	; ptr to text being processed
 gendebuginfo = $4f 	; flag to generate debug info
 
-label_value = $50	; label function arguments
-label_mode  = $52	; label "mode" - zp (0) or abs (1)
-labels      = $53	; label temp usage
+label_value     = $50	; label function arguments
+label_mode      = $52	; label "mode" - zp (0) or abs (1)
+label_sectionid = $53	; section ID (or $ff for absolute) when adding label
+labels          = $54	; label temp usage
 
 ctx    = $60		; context util usage during assembly
 macros = $7f		; macro related things during assembly
