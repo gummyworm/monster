@@ -564,7 +564,7 @@ scope: .res 8 ; buffer containing the current scope
 	sta @secid
 	lda #>section_ids
 	adc numlabels+1
-	sta @secid
+	sta @secid+1
 	decw @secid		; -1
 
 	; get address where last label WILL go (numlabels * MAX_LABEL_LEN)
@@ -639,7 +639,7 @@ scope: .res 8 ; buffer containing the current scope
 ; shift section id
 	iny			; .Y=0
 	lda (@secid),y
-	iny
+	iny			; .Y=1
 	sta (@secid),y
 	dey			; .Y=0
 
@@ -1275,6 +1275,7 @@ scope: .res 8 ; buffer containing the current scope
 	sta @src+1
 
 	ldx @cnt3
+	ldy #$00
 @secidloop:
 	lda (@src),y
 	sta (@dst),y
