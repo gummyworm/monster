@@ -69,7 +69,6 @@
 .include "linker.inc"
 .include "macro.inc"
 .include "macros.inc"
-.include "math.inc"
 .include "memory.inc"
 .include "object.inc"
 .include "string.inc"
@@ -2909,8 +2908,8 @@ __asm_include:
 	cpx #$01
 	beq :-				; -> rts (no relocation on pass 1)
 
-	ldx expr::requires_reloc
-	beq :-				; -> rts (absolute expression)
+	;ldx expr::requires_reloc
+	;beq :-				; -> rts (absolute expression)
 
 	; add new relocation entry to the relocation table
 	; this will either be relative to the PC during linkage

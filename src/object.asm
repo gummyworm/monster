@@ -246,16 +246,6 @@ __obj_add_reloc:
 	sta @sec
 	stx @sz
 
-	lda expr::requires_reloc
-	beq @done		; if no relocation needed -> done
-
-	; check if we need symbol based relocation (expression crosses
-	; section) or just PC-relative (doesn't cross section)
-	lda @sec
-	CALL FINAL_BANK_MAIN, expr::crosses_section
-
-	php			; save crosses section flag
-
 ; encode the "info" byte for the relocation based on the result of the
 ; expression evaluation and the size of the relocation
 ;  field    bit(s)   description
@@ -285,9 +275,6 @@ __obj_add_reloc:
 	iny			; .Y=2
 	lda zp::asmresult+1
 	sta (@rel),y
-
-	plp			; restore .C - set if expression crosses section
-	bcs @expr		; append expresion if symbol-relative
 
 @pcrel:	; pc-relative: just write the value of the expression
 	CALL FINAL_BANK_MAIN, expr::eval_list

@@ -47,6 +47,7 @@ allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
 .export __label_index
 .export __label_id_by_addr_index
 .export __label_addrmode
+.export __label_get_section
 
 .if FINAL_BANK_SYMBOLS=FINAL_BANK_MAIN
 
@@ -61,6 +62,7 @@ __label_name_by_id       = name_by_id
 __label_isvalid          = is_valid
 __label_get_name         = get_name
 __label_get_addr         = getaddr
+__label_get_section      = get_section
 __label_is_local         = is_local
 __label_set              = set
 __label_set24            = set24
@@ -74,6 +76,7 @@ __label_get_banon        = get_banon
 __label_index            = index
 __label_id_by_addr_index = id_by_addr_index
 __label_addrmode         = addrmode
+__label_get_section      = get_section
 
 .else
 ;******************************************************************************
@@ -107,6 +110,7 @@ GET_BANON
 INDEX
 ID_BY_ADDR_INDEX
 ADDRMODE
+GET_SECTION
 .endenum
 
 .RODATA
@@ -114,7 +118,7 @@ ADDRMODE
 .linecont +
 .define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
 getaddr, is_local, set, set24, del, address, address_by_id, set_scope, \
-add_anon, get_fanon, get_banon, index, id_by_addr_index, addrmode
+add_anon, get_fanon, get_banon, index, id_by_addr_index, addrmode, get_section
 .linecont -
 
 procs_lo: .lobytes procs
@@ -142,6 +146,7 @@ __label_get_banon: LBLJUMP proc_ids::GET_BANON
 __label_index: LBLJUMP proc_ids::INDEX
 __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 __label_addrmode: LBLJUMP proc_ids::ADDRMODE
+__label_get_section: LBLJUMP proc_ids::GET_SECTION
 
 ;******************************************************************************
 ; Entrypoint for label routines
@@ -254,7 +259,7 @@ scope: .res 8 ; buffer containing the current scope
 ; IN:
 ;  - .XY: the address of the scope string to set as the current scope
 .proc set_scope
-@scope=r0
+@scope=zp::labels
 	stxy @scope
 	ldy #$00
 :	lda (@scope),y
@@ -330,9 +335,9 @@ scope: .res 8 ; buffer containing the current scope
 ;  - .A: contains the length of the label (why not) or error code
 ;  - .XY: the id of the label or the id where the label WOULD be if not found
 .proc find
-@cnt=r6
-@search=r8
-@label=ra
+@cnt=zp::labels+1
+@search=zp::labels+3
+@label=zp::labels+5
 	stxy @label
 
 	; check (and flag) if the label is local. if it is, we will start
@@ -412,7 +417,7 @@ scope: .res 8 ; buffer containing the current scope
 ; OUT:
 ;   - .A: the address mode (0=ZP, 1=ABS)
 .proc addrmode
-@tmp=r0
+@tmp=zp::labels
 	sty @tmp		; save MSB
 	txa			; .A=LSB
 	pha
@@ -1094,6 +1099,27 @@ scope: .res 8 ; buffer containing the current scope
 .endproc
 
 ;******************************************************************************
+; GET SECTION
+; Returns the section ID for the given label ID
+; IN:
+;  - .XY: the label ID to get the section for
+; OUT:
+;  - .A: the section ID for the label
+.proc get_section
+@sec=zp::labels
+	txa
+	clc
+	adc #<section_ids
+	sta @sec
+	tya
+	adc #>section_ids
+	sta @sec+1
+	ldy #$00
+	lda (@sec),y
+	rts
+.endproc
+
+;******************************************************************************
 ; ADDRESS
 ; Returns the address of the label in (.YX)
 ; The address mode of the label is returned as well.
@@ -1124,24 +1150,32 @@ scope: .res 8 ; buffer containing the current scope
 ;  - r2:  the ID of the label
 ;  - .C:  always clear
 .proc address_by_id
-@table=r0
-@id=r2
-@addr=r4
+@table=zp::labels+2
+@id=zp::labels+4
+@addr=zp::labels+6
+@mode=zp::labels+8
 	stxy @id
 	jsr by_id	; get address of label
 	stxy @table
 
 	ldy #$00
 	lda (@table),y
-	sta @addr
+	pha		; save address LSB
 	iny
 	lda (@table),y
-	sta @addr+1
+	pha		; save address MSB
 
 	; get the size of the label from its address mode
 	ldxy @id
 	jsr addrmode
-	ldxy @addr
+	sta @mode
+
+	; restore address
+	pla
+	tay
+	pla
+	tax
+	lda @mode
 	RETURN_OK
 .endproc
 
@@ -1369,7 +1403,7 @@ scope: .res 8 ; buffer containing the current scope
 ;  - .XY: the address of the given label id
 ;  - rc:  the address of the label (same as .XY)
 .proc by_id
-@addr=rc
+@addr=zp::labels
 	txa
 	asl
 	sta @addr

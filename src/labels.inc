@@ -10,10 +10,11 @@
 .import __label_clr
 .import __label_del
 .import __label_find
+.import __label_get_addr
 .import __label_get_banon
 .import __label_get_fanon
 .import __label_get_name
-.import __label_get_addr
+.import __label_get_section
 .import __label_index
 .import __label_is_local
 .import __label_isvalid
@@ -41,6 +42,7 @@
 	get_banon     = __label_get_banon
 	get_fanon     = __label_get_fanon
 	getname       = __label_get_name
+	getsection    = __label_get_section
 	getaddr       = __label_get_addr
 	index         = __label_index
 	islocal       = __label_is_local

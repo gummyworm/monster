@@ -6,7 +6,8 @@
 
 .include "zeropage.inc"
 
-.CODE
+; must be in same segment as expr.asm
+.segment "UDGEDIT"
 
 ;*******************************************************************************
 ; MUL16
