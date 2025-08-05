@@ -1,14 +1,14 @@
 ;*******************************************************************************
 ; EXPR.ASM
 ; This file contains code to evaluate expressions. This is used, among other
-; things, to resolve operand values during assembly
-; For the sake of generating the RELOCATION TABLE for an object file, we
-; gather info to answer the following questions:
-;   - is the expression resolvable? (any labels in another SECTION)
-;   - does the expression require relocation? (any unreduced labels)
-;     - NOTE: reducable labels are differences of 2 in same section: e.g. (a-b)
-;   - if not resolvable, which symobl is used as base?
-;   - does any post-processing need to be done by linker?
+; things, to resolve operand values during assembly.
+; Expression parsing involves the creation of an "RPN list", an array that
+; represents the expression as a tokenized list of operations and operands
+; in RPN format.
+; Expression evaluation involves walking this list and producing a result
+; that is either a) an absolute value or b) a relocation entry.
+; For the sake of evaluation outside the context of assembly, the caller should
+; error out if the result is the latter (it must be an absolute value only)
 ;*******************************************************************************
 
 .include "asm.inc"
@@ -17,7 +17,7 @@
 .include "line.inc"
 .include "macros.inc"
 .include "math.inc"
-.include "object.inc"
+.include "ram.inc"
 .include "util.inc"
 
 ;*******************************************************************************
@@ -32,6 +32,20 @@ TOK_BINARY_OP = 4	; binary operator e.g. '+' or '-'
 TOK_UNARY_OP  = 5	; unary operator e.g. '<'
 TOK_END       = $ff	; end of expression marker
 
+; These flags tell the expression evaluator what "kind" an operand
+; is: REL means relocatable (symbol-based) and ABS means absolute (fixed value)
+VAL_ABS = 0
+VAL_REL = 1
+
+; These flags are for "post-processing", which may be applied to a VAL_REL
+; (relocatable) expression. In these cases, it must be applied as the final
+; step in the evaluation to be legal
+;  lda <label + 3	; ok - result is LSB of (label+3) at link time
+;  lda 1 + >label	; not ok - post-processing can only be applied at end
+POSTPROC_NONE = 0
+POSTPROC_LSB  = 1
+POSTPROC_MSB  = 2
+
 .BSS
 
 ;*******************************************************************************
@@ -42,70 +56,36 @@ end_on_whitespace: .byte 0
 
 .segment "SHAREBSS"
 
-;*******************************************************************************
-; REQUIRES RELOC
-; Set if the expression contains 1 or more labels.
-; In the context of assembly, this tells the assembler that it must produce a
-; relocation for this expression.
-; We can determine the type of relocation needed by calling
-; expr::crosses_section
-; If there are symbols outside the given section, we know that a symbol based
-; relocation is necessary
-.export __expr_requires_reloc
-__expr_requires_reloc: .byte 0
-
 .export __expr_rpnlist
 __expr_rpnlist: .res $20
 
 .export __expr_rpnlistlen
 __expr_rpnlistlen: .byte 0
 
+.export __expr_kind
+__expr_kind: .byte 0
+
+.export __expr_section
+__expr_section: .byte 0
+
+.export __expr_symbol
+__expr_symbol: .word 0
+
+.export __expr_postproc
+__expr_postproc: .byte 0
+
 .CODE
 
 ;*******************************************************************************
-; CROSSES SECTION
-; Checks if the most recently parsed expression (expr::parse) contains
-; symbols from outside the given SECTION
-; NOTE: sections are only relevant in pass 2 of assembly to object code
-; IN:
-;   - .A: the section to check
-; OUT:
-;   - .C: set if there are symbols from another section in the expression
-.export __expr_crosses_section
-.proc __expr_crosses_section
-@section=zp::expr
-@i=zp::expr+1
-	sta @section
-
-	ldx #$00
-	stx @i
-@l0:	ldx @i
-	lda __expr_rpnlist,x
-	bmi @done
-	cmp #TOK_UNARY_OP
-	bcs @op			; >= TOK_UNARY_OP is an operation
-	cmp #TOK_VALUE
-	beq @valdone		; const value -> go to next token
-@sym:	ldy __expr_rpnlist+2,x
-	lda __expr_rpnlist+1,x
-	tax
-	jsr obj::get_symbol_info
-	ldx @i
-	cpy @section
-	beq @valdone
-
-	; symbol is not in the same section
-	sec
-	rts
-@valdone:
-	inx
-@op:	inx
-	inx
-	stx @i
-	bne @l0
-
-@done:	RETURN_OK	; no cross-section symbols
+; EVAL
+; Calls the evaluation procedure
+.export __expr_eval
+.proc __expr_eval
+	CALL FINAL_BANK_UDGEDIT, eval
 .endproc
+
+; expression code stored in UDG bank
+.segment "UDGEDIT"
 
 ;*******************************************************************************
 ; END_ON_SPACE
@@ -139,8 +119,7 @@ __expr_rpnlistlen: .byte 0
 ;  - .XY:      the result of the evaluated expression
 ;  - .C:       clear on success or set on failure
 ;  - zp::line: updated to point beyond the parsed expression
-.export __expr_eval
-.proc __expr_eval
+.proc eval
 	jsr __expr_parse	; parse the RPN list
 	bcs :-			; -> rts
 
@@ -150,6 +129,13 @@ __expr_rpnlistlen: .byte 0
 ;*******************************************************************************
 ; EVAL LIST
 ; Evaluates the provided RPN list of tokens and returns the result
+;
+; stack operands use the following structure to help determine the
+; relocatability of the expression:
+;     addend:     if ABS, constant value if RELOCATE, offset
+;     kind:       0=ABS, 1=RELOCATE
+;     symbol_id:  symbol id (RELCOATE only)
+;     section_id: section ID of symbol (RELOCATE only)
 ; IN:
 ;  - expr::rpnlist: list of tokens to evaluate (as produced by expr::parse)
 ; OUT:
@@ -158,13 +144,26 @@ __expr_rpnlistlen: .byte 0
 ;  - .C:       clear on success or set on failure
 .export __expr_eval_list
 .proc __expr_eval_list
-@i=zp::expr
-@sp=zp::expr+1
-@val1=zp::expr+2
-@val2=zp::expr+4
-@result_size=zp::expr+6
-@operands=$128+1	; operand stack (grows up from here)
-@eval:	ldx #$00
+@i           = zp::expr
+@sp          = zp::expr+1
+@val1        = zp::expr+2
+@val2        = zp::expr+4
+@result_size = zp::expr+6
+@operator    = zp::expr+7
+@kind1       = r4
+@section1    = r5
+@symbol1     = r6		; 2 bytes
+@postproc1   = r8
+@kind2       = r9
+@section2    = ra
+@symbol2     = rb		; 2 bytes
+@postproc2   = rd
+@kind        = zp::tmp10
+@section     = zp::tmp11
+@symbol      = zp::tmp12	; 2 bytes
+@postproc    = zp::tmp14
+@operands    = $128+1	    ; operand stack (grows up from here)
+	ldx #$00
 	stx @i
 	stx @sp
 	stx @result_size
@@ -175,6 +174,18 @@ __expr_rpnlistlen: .byte 0
 	bpl @cont
 
 @done:	jsr @popval		; read result (should be only value on stack)
+
+	; set tthe kind of result, symbol, section, and post-processing
+	; for the result
+	lda @kind
+	sta __expr_kind
+	lda @section
+	sta __expr_section
+	lda @symbol
+	sta __expr_symbol
+	lda @postproc
+	sta __expr_postproc
+
 	lda @result_size
 	bne @ok			; if result size explicitly set, we're done
 
@@ -213,30 +224,36 @@ __expr_rpnlistlen: .byte 0
 	cmp #TOK_SYMBOL
 	bne @const
 
-@sym:	; resolve symbol and push its value
+@sym:	; resolve symbol and push its value/metadata
 	cmpw #$ffff		; check magic "unresolved" value
 	beq @unresolved
 
-	jsr lbl::addr_and_mode
+	stxy @symbol
+	CALL FINAL_BANK_MAIN, lbl::addr_and_mode
 	;clc
-	adc #$01
+	adc #$01		; +1 to convert "mode" to size
 	sta @result_size
-	bne @const		; branch always
+
+	; get the section ID (if label represents constant will be $ff)
+	ldxy @symbol
+	CALL FINAL_BANK_MAIN, lbl::getsection
+
+	cmp #$ff		; is section "ABSOLUTE"?
+	beq @const		; if so, treat as constant value
+
+	sta @section		; store section ID
+	lda #VAL_REL
+	sta @kind		; set "kind" to RELOCATE
+	bne @valdone		; branch always - continue to store
 
 @unresolved:
-	; if we're here, the expression is unresolved
-	; - in pass 1, that's fine -> return and assume we will figure it out
-	; - if assembling to object -> also fine, emit the RPN list for expr
-	; - if neither -> error
+	; if we're here, the expression is unresolved (so far)
+	; in pass 1, that's fine - return and assume we will figure it out
 	ldx zp::pass
 	cpx #$02
 	bne @dummy		; pass 1 -> proceed with dummy
 
-	lda asm::mode
-	beq @ret		; direct mode, error
-
-	; obj mode -> return an error
-	; the assembler may handle this by writing the RPN list
+	; if in pass 2 and haven't seen the label, return error
 	RETURN_ERR ERR_UNRESOLVABLE_LABEL
 
 @dummy:	; return dummy
@@ -244,7 +261,13 @@ __expr_rpnlistlen: .byte 0
 	lda #$02		; assume 2 byte result
 	sta @result_size
 
-@const:	jsr @pushval
+@const: lda #VAL_ABS
+	sta @kind		; set "kind" to constant
+
+@valdone:
+	lda #POSTPROC_NONE
+	sta @postproc
+	jsr @pushval		; store value and metadata
 	jmp @evalloop		; continue processing
 
 ;--------------------------------------
@@ -258,51 +281,112 @@ __expr_rpnlistlen: .byte 0
 	; get the operand for the unary operation
 	jsr @popval
 
+	; if symbol (kind == VAL_REL), this must be the last operator
+
 	pla		; restore operator
 @lsb:	cmp #'<'
 	bne @msb
-	ldy #$00
+	lda @kind
+	cmp #VAL_ABS
+	bne :+			; if ABS, no need for post-processing
+	lda #POSTPROC_LSB
+	sta @postproc
+:	ldy #$00
 	beq @pushval	; branch always
 
 @msb:	cmp #'>'
-	bne :+
-	tya
+	bne @invalid_unary
+	lda @kind
+	cmp #VAL_ABS
+	bne :+			; if ABS, no need for post-processing
+	lda #POSTPROC_MSB
+	sta @postproc
+:	tya
 	tax
 	ldy #$00
 	beq @pushval	; branch always
-:	brk		; TODO: should be impossible
+
+@invalid_unary:
+	brk		; TODO: should be impossible
 
 ;--------------------------------------
 @pushval:
 	txa
 	ldx @sp
-	sta @operands,x		; store LSB
+	sta @operands,x		; store LSB of addend
 	tya
-	sta @operands+1,x	; store MSB
+	sta @operands+1,x	; store MSB of addend
+	lda @kind
+	sta @operands+2,x	; store kind (RELOCATE or ABSOLUTE)
+	lda @section
+	sta @operands+3,x	; store section ID
+	lda @symbol
+	sta @operands+4,x	; store symbol ID LSB
+	lda @symbol+1
+	sta @operands+5,x	; store symbol ID MSB
+	lda @postproc
+	sta @operands+6,x	; initialize post-proc to NONE
 
-	; update stack pointer
-	inc @sp
-	inc @sp
+	; update stack pointer (sp += 7)
+	lda @sp
+	clc
+	adc #$07
+	sta @sp
 	rts
 
 ;--------------------------------------
 ; handle binary operator
 @eval_binary:
 	lda __expr_rpnlist,x	; get the operator
-	pha		; and save it
-	inx		; move index past the operator
-	stx @i		; update list index
+	sta @operator		; and save it
+	inx			; move index past the operator
+	stx @i			; update list index
 
 	; get the operands for the binary operation
 	jsr @popval
 	stxy @val1
+	lda @kind
+	sta @kind1
+	lda @section
+	sta @section1
+	lda @symbol
+	sta @symbol1
+	lda @symbol+1
+	sta @symbol1+1
+	lda @postproc
+	sta @postproc1
+	cmp #POSTPROC_NONE
+	bne @eval_err		; can't do mid-expression post-proc
+
 	jsr @popval
 	stxy @val2
+	lda @kind
+	sta @kind2
+	lda @section
+	sta @section2
+	lda @symbol
+	sta @symbol2
+	lda @symbol+1
+	sta @symbol2+1
+	lda @postproc
+	sta @postproc2
+	cmp #POSTPROC_NONE
+	beq :+
 
-	pla		; restore operator
+@eval_err:
+	; can't do mid-expression post-proc
+	sec
+	rts
+
+:	lda @operator		; restore operator
 	cmp #'+'
 	bne :+
-@add:   lda @val1
+
+@add:	jsr @reduce_operation_addition
+	bcc *+3
+	rts			; return err
+
+	lda @val1
 	clc
 	adc @val2
 	tax
@@ -313,7 +397,12 @@ __expr_rpnlistlen: .byte 0
 
 :	cmp #'-'
 	bne :+
-@sub:	lda @val2
+
+@sub:	jsr @reduce_operation_subtraction
+	bcc *+3
+	rts
+
+	lda @val2
 	sec
 	sbc @val1
 	tax
@@ -324,6 +413,10 @@ __expr_rpnlistlen: .byte 0
 
 :	cmp #'*'	; MULTIPLY
 	bne :+
+	jsr @reduce_operation_other
+	bcc *+3
+	rts			; return err
+
 	; get the product TODO: 32-bit precision expressions?
 	ldxy @val1
 	stxy r0
@@ -335,6 +428,10 @@ __expr_rpnlistlen: .byte 0
 
 :	cmp #'/'	; DIVIDE
 	bne :+
+	jsr @reduce_operation_other
+	bcc *+3
+	rts			; return err
+
 	ldxy @val1
 	stxy r2
 	ldxy @val2
@@ -345,6 +442,10 @@ __expr_rpnlistlen: .byte 0
 
 :	cmp #'&'	; AND
 	bne :+
+	jsr @reduce_operation_other
+	bcc *+3
+	rts			; return err
+
 	lda @val1
 	and @val2
 	tax
@@ -355,6 +456,10 @@ __expr_rpnlistlen: .byte 0
 
 :	cmp #'.'	; OR
 	bne :+
+	jsr @reduce_operation_other
+	bcc *+3
+	rts			; return err
+
 	lda @val1
 	ora @val2
 	tax
@@ -365,6 +470,10 @@ __expr_rpnlistlen: .byte 0
 
 :	cmp #'^'	; EOR
 	bne :+
+	jsr @reduce_operation_other
+	bcc *+3
+	rts			; return err
+
 	lda @val1
 	eor @val2
 	tax
@@ -376,13 +485,133 @@ __expr_rpnlistlen: .byte 0
 
 ;--------------------------------------
 @popval:
-	dec @sp
-	dec @sp
+	; sp -= 7
+	lda @sp
+	sec
+	sbc #$07
+	sta @sp
+
 	ldx @sp
+	lda @operands+2,x	; get "kind"
+	sta @kind
+	lda @operands+3,x	; get section ID (for kind==RELOCATE)
+	sta @section
+	lda @operands+4,x	; get symbol ID (for kind==RELOCATE)
+	sta @symbol
+	lda @operands+5,x	; get symbol ID (for kind==RELOCATE)
+	sta @symbol+1
+	lda @operands+6,x	; get post processing
+	sta @postproc
 	ldy @operands+1,x	; get MSB
 	lda @operands,x		; and LSB
 	tax
 	rts
+
+;--------------------------------------
+; REDUCE OPERATION ADDITION
+; Determines the @section and @symbol for the two active operands
+; Also validates that the combination of ABS/REL modes is valid
+@reduce_operation_addition:
+	lda @kind1
+	cmp #VAL_ABS
+	bne @add_a_rel
+
+@add_a_abs:
+	lda @kind2
+	cmp #VAL_ABS
+	bne @add_a_abs_b_rel
+
+	; A=ABS, B=ABS, no need to worry about section/symbol
+	sta @kind	; set @kind to ABS
+	RETURN_OK
+
+@add_a_abs_b_rel:
+	; A=ABS, B=REL, use b's symbol and section
+	lda @section2
+	sta @section
+	lda @symbol2
+	sta @symbol
+	RETURN_OK
+
+@add_a_rel:
+	lda @kind2
+	cmp #VAL_ABS
+	beq :+		; -> ok
+	sec
+	rts
+
+@add_a_rel_b_abs:
+	; A=REL, B=ABS, use a's symbol and section
+	lda @section1
+	sta @section
+	lda @symbol1
+	sta @symbol
+:	RETURN_OK
+
+;--------------------------------------
+; REDUCE OPERATION SUBTRACTION
+; Validates/reduces the section/symbol/and kind for a subtraction operation
+; Also validates that the combination of ABS/REL modes is valid
+@reduce_operation_subtraction:
+	lda @kind1
+	cmp #VAL_ABS
+	bne @sub_a_rel
+
+@sub_a_abs:
+	lda @kind2
+	cmp #VAL_REL
+	bne :+
+	; if val1 is ABS, val2 must be too
+	sec
+	rts			; return err
+
+:	lda #VAL_ABS
+	sta @kind
+	RETURN_OK
+
+@sub_a_rel:
+	lda @kind2
+	cmp #VAL_REL
+	beq @sub_a_rel_b_rel
+
+	; A=REL, B=ABS, result is REL with A's symbol/section
+	sta @kind		; kind = REL
+	lda @section1
+	sta @section
+	lda @symbol1
+	sta @symbol
+	RETURN_OK
+
+@sub_a_rel_b_rel:
+	; this case can be reduced to an ABS entry if val1 and val2 share
+	; a section
+	lda @section1
+	cmp @section2
+	bne :+
+	sec
+	rts		; different sections -> err
+
+:	lda #VAL_ABS
+	sta @kind	; set kind to absolute
+	RETURN_OK	; and we're done
+
+;--------------------------------------
+; REDUCE OPERATION OTHER
+; For operators that need to resolve to constant (pretty much anything but
+; addition and subtraction)
+@reduce_operation_other:
+	; validate that both values are ABSolute
+	lda @kind1
+	cmp @kind2
+	beq :+
+@reduce_err:
+	sec
+	rts		; invalid
+
+:	cmp #VAL_ABS
+	bne @reduce_err
+	sta @kind
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -403,7 +632,6 @@ __expr_rpnlistlen: .byte 0
 	ldy #$00
 	sty @num_operators
 	sty @i
-	sty __expr_requires_reloc
 
 	lda (zp::line),y
 	bne :+
@@ -637,7 +865,7 @@ __expr_rpnlistlen: .byte 0
 ;  - .XY: the ID for the label
 .proc get_label
 @id=zp::expr
-	jsr lbl::isvalid 	; if verifying, let this pass if label is valid
+	CALL FINAL_BANK_MAIN, lbl::isvalid 	; if verifying, let this pass if label is valid
 	bcs @done
 
 	; if we are only verifying (e.g. in pass 1 of assembly), label
@@ -649,7 +877,7 @@ __expr_rpnlistlen: .byte 0
 @get_id:
 	; if not verifying (e.g. in pass 2), label ID is final; try to get it
 	ldxy zp::line
-	jsr lbl::find
+	CALL FINAL_BANK_MAIN, lbl::find
 	bcc :+
 
 	; failed to lookup symbol ID, check if pass 1
@@ -661,7 +889,7 @@ __expr_rpnlistlen: .byte 0
 	bcc @updateline	; proceed with dummy ID
 
 :	stxy @id
-	jsr lbl::addrmode
+	CALL FINAL_BANK_MAIN, lbl::addrmode
 	sta @mode
 
 @updateline:
@@ -754,9 +982,7 @@ __expr_rpnlistlen: .byte 0
 	lda #TOK_VALUE
 	rts
 
-@label: inc __expr_requires_reloc
-
-	ldxy zp::line
+@label: ldxy zp::line
 	jsr get_label		; is it a label?
 	php
 	cmp #$00		; zeropage?
