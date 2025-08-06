@@ -456,6 +456,9 @@ num_illegals = *-illegal_opcodes
 	sta zp::asmresult	; also set default physical address to 0
 	sta zp::asmresult+1
 
+	; ignore whitespace in expressions
+	CALL FINAL_BANK_UDGEDIT, expr::end_on_ws
+
 	jsr ctx::init		; init the context
 	pla
 	sta zp::pass		; set pass #
@@ -908,6 +911,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	cmp #$10
 	bne @verifyimm
 
+@rel_branch:
 	cpx #ZEROPAGE
 	beq :+
 	cpx #ABS	; only ABS/ZP supported for branches

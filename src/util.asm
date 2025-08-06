@@ -404,7 +404,7 @@ result=mem::spare
 .endproc
 
 ;*******************************************************************************
-; IS_WHITESPACE
+; IS WHITESPACE
 ; Checks if the given character is a whitespace character
 ; IN:
 ;  - .A: the character to test
@@ -441,7 +441,7 @@ result=mem::spare
 .endproc
 
 ;*******************************************************************************
-; IS_SEPARATOR
+; IS SEPARATOR
 ; Checks if the given byte represents a "separator". A separator is any of:
 ;  0, $0d, ' ', ',', ')', or any operator character
 ; IN:
@@ -459,7 +459,7 @@ result=mem::spare
 .endproc
 
 ;*******************************************************************************
-; IS_OPERATOR
+; IS OPERATOR
 ; IN:
 ;  - .A: the character to test
 ; OUT:

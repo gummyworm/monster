@@ -11,10 +11,8 @@
 ; error out if the result is the latter (it must be an absolute value only)
 ;*******************************************************************************
 
-.include "asm.inc"
 .include "errors.inc"
 .include "labels.inc"
-.include "line.inc"
 .include "macros.inc"
 .include "math.inc"
 .include "ram.inc"
@@ -74,6 +72,9 @@ __expr_symbol: .word 0
 .export __expr_postproc
 __expr_postproc: .byte 0
 
+.segment "UDGEDIT_BSS"
+operands: .res $100
+
 .CODE
 
 ;*******************************************************************************
@@ -81,7 +82,7 @@ __expr_postproc: .byte 0
 ; Calls the evaluation procedure
 .export __expr_eval
 .proc __expr_eval
-	CALL FINAL_BANK_UDGEDIT, eval
+	JUMP FINAL_BANK_UDGEDIT, eval
 .endproc
 
 ; expression code stored in UDG bank
@@ -129,13 +130,13 @@ __expr_postproc: .byte 0
 ;*******************************************************************************
 ; EVAL LIST
 ; Evaluates the provided RPN list of tokens and returns the result
-;
-; stack operands use the following structure to help determine the
+; Stack operands use the following structure to help determine the
 ; relocatability of the expression:
-;     addend:     if ABS, constant value if RELOCATE, offset
-;     kind:       0=ABS, 1=RELOCATE
-;     symbol_id:  symbol id (RELCOATE only)
-;     section_id: section ID of symbol (RELOCATE only)
+;    kind:       0=ABS, 1=RELOCATE
+;    symbol_id:  symbol id (RELCOATE only)
+;    section_id: section ID of symbol (RELOCATE only)
+; The addend to a relocatable result (if any) will be the final value of the
+; expression.
 ; IN:
 ;  - expr::rpnlist: list of tokens to evaluate (as produced by expr::parse)
 ; OUT:
@@ -149,7 +150,6 @@ __expr_postproc: .byte 0
 @val1        = zp::expr+2
 @val2        = zp::expr+4
 @result_size = zp::expr+6
-@operator    = zp::expr+7
 @kind1       = r4
 @section1    = r5
 @symbol1     = r6		; 2 bytes
@@ -158,11 +158,12 @@ __expr_postproc: .byte 0
 @section2    = ra
 @symbol2     = rb		; 2 bytes
 @postproc2   = rd
+@operator    = re
 @kind        = zp::tmp10
 @section     = zp::tmp11
 @symbol      = zp::tmp12	; 2 bytes
 @postproc    = zp::tmp14
-@operands    = $128+1	    ; operand stack (grows up from here)
+@operands    = operands	    ; operand stack (grows up from here)
 	ldx #$00
 	stx @i
 	stx @sp
@@ -230,6 +231,7 @@ __expr_postproc: .byte 0
 
 	stxy @symbol
 	CALL FINAL_BANK_MAIN, lbl::addr_and_mode
+	stxy @val1
 	;clc
 	adc #$01		; +1 to convert "mode" to size
 	sta @result_size
@@ -238,10 +240,11 @@ __expr_postproc: .byte 0
 	ldxy @symbol
 	CALL FINAL_BANK_MAIN, lbl::getsection
 
+	ldxy @val1		; restore label address/addend
+	sta @section		; store section ID
 	cmp #$ff		; is section "ABSOLUTE"?
 	beq @const		; if so, treat as constant value
 
-	sta @section		; store section ID
 	lda #VAL_REL
 	sta @kind		; set "kind" to RELOCATE
 	bne @valdone		; branch always - continue to store
@@ -282,7 +285,6 @@ __expr_postproc: .byte 0
 	jsr @popval
 
 	; if symbol (kind == VAL_REL), this must be the last operator
-
 	pla		; restore operator
 @lsb:	cmp #'<'
 	bne @msb
@@ -292,7 +294,7 @@ __expr_postproc: .byte 0
 	lda #POSTPROC_LSB
 	sta @postproc
 :	ldy #$00
-	beq @pushval	; branch always
+	beq @pushval		; branch always
 
 @msb:	cmp #'>'
 	bne @invalid_unary
@@ -382,7 +384,8 @@ __expr_postproc: .byte 0
 	cmp #'+'
 	bne :+
 
-@add:	jsr @reduce_operation_addition
+@add:
+	jsr @reduce_operation_addition
 	bcc *+3
 	rts			; return err
 
@@ -398,7 +401,8 @@ __expr_postproc: .byte 0
 :	cmp #'-'
 	bne :+
 
-@sub:	jsr @reduce_operation_subtraction
+@sub:
+	jsr @reduce_operation_subtraction
 	bcc *+3
 	rts
 
@@ -644,13 +648,13 @@ __expr_postproc: .byte 0
 
 @l0:	ldy #$00
 	lda (zp::line),y
-	jsr util::is_whitespace	; eat whitespace
+	jsr is_whitespace	; eat whitespace
 	bne :+
 
 	; check whitespace behavior, finish if configured as terminator
 	lda end_on_whitespace
 	bne @done
-	jsr line::incptr
+	jsr inc_line
 	bne @l0		; branch always
 
 :	lda (zp::line),y
@@ -662,7 +666,7 @@ __expr_postproc: .byte 0
 	bne @lparen
 	inc @may_be_unary
 	jsr @pushop
-	jsr line::incptr
+	jsr inc_line
 	bne @l0		; branch always
 
 @lparen:
@@ -678,7 +682,7 @@ __expr_postproc: .byte 0
 	cmp #'('
 	bne :+
 	jsr @popop	; pop the parentheses
-	jsr line::incptr
+	jsr inc_line
 	bne @l0		; branch always - done evaluating this () block
 
 :	jsr @eval	; append the top operation/operand(s)
@@ -692,7 +696,7 @@ __expr_postproc: .byte 0
 	ldx @may_be_unary	; if unary logic applies, treat as value (PC)
 	bne @getoperand
 
-:	jsr util::isoperator
+:	jsr isoperator
 	bne @getoperand
 	pha			; save the operator
 	jsr @priority		; get the priority of this operator
@@ -714,7 +718,7 @@ __expr_postproc: .byte 0
 @process_ops_done:
 	pla
 	jsr @pushop
-	jsr line::incptr
+	jsr inc_line
 	inc @may_be_unary
 	bne @l0			; branch always
 
@@ -797,12 +801,9 @@ __expr_postproc: .byte 0
 	lda @prios-1,y
 	rts
 
-.PUSHSEG
-.RODATA
 @priochars: .byte '+', '-', '*', '/', '&', '^', '.', '<', '>'
 @prios:	    .byte  1,   1,   2,   2,   3,   4,   5,   3,   3
 @num_prios=*-@prios
-.POPSEG
 
 ;------------------
 ; appends the operands involved in the evaluation followed by the operation
@@ -896,9 +897,9 @@ __expr_postproc: .byte 0
 	; move the line pointer to the separator
 	ldy #$00
 @l0:	lda (zp::line),y
-	jsr util::isseparator
+	jsr isseparator
 	beq :+
-	jsr line::incptr
+	jsr inc_line
 	bne @l0
 :
 @mode=*+1
@@ -923,7 +924,7 @@ __expr_postproc: .byte 0
 	bne :+
 	ldy #$01
 	lda (zp::line),y
-	jsr util::isseparator
+	jsr isseparator
 	beq @done
 	bne @err
 :	cmp #$27	; single quote
@@ -936,7 +937,7 @@ __expr_postproc: .byte 0
 	iny
 @cont:
 	lda (zp::line),y
-	jsr util::isseparator
+	jsr isseparator
 	beq @done
 
 	cpx #$00
@@ -1023,10 +1024,11 @@ __expr_postproc: .byte 0
 	bne @decimal
 	iny
 	lda (zp::line),y
-	jsr util::isseparator
-	bne @err
+	jsr isseparator
+	beq :+
+	RETURN_ERR ERR_UNEXPECTED_CHAR
 
-	jsr line::incptr
+:	jsr inc_line
 	ldx zp::virtualpc
 	ldy zp::virtualpc+1
 
@@ -1036,14 +1038,14 @@ __expr_postproc: .byte 0
 
 ;------------------
 @char:
-	jsr line::incptr
+	jsr inc_line
 	lda (zp::line),y	; read the character value
 	tax			; put it into .X
-	jsr line::incptr
+	jsr inc_line
 	lda (zp::line),y	; make sure there is a terminating quote
 	cmp #$27		; single quote
 	bne @badchar
-	jsr line::incptr
+	jsr inc_line
 	lda #$01		; result is 1 byte in size
 	clc			; ok
 @ret:	rts
@@ -1051,8 +1053,8 @@ __expr_postproc: .byte 0
 ;------------------
 @decimal:
 	ldxy zp::line
-	jsr atoi	; convert to binary
-	bcs @ret	; return err
+	CALL FINAL_BANK_MAIN, atoi	; convert to binary
+	bcs @ret			; return err
 	adc zp::line
 	sta zp::line
 	bcc :+
@@ -1065,10 +1067,10 @@ __expr_postproc: .byte 0
 @hex:
 	iny
 @l0:	lda (zp::line),y
-	jsr util::isseparator
+	jsr isseparator
 	beq @done
 
-	jsr util::chtohex
+	jsr chtohex
 	bcc @next
 
 @badchar:
@@ -1110,4 +1112,94 @@ __expr_postproc: .byte 0
 	RETURN_OK
 
 @err:	RETURN_ERR ERR_OVERSIZED_OPERAND
+.endproc
+
+;*******************************************************************************
+; IS WHITESPACE
+; Checks if the given character is a whitespace character
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if if the character in .A is whitespace
+.proc is_whitespace
+	cmp #$0d	; newline
+	beq :+
+	cmp #$09	; TAB
+	beq :+
+	cmp #$0a	; POSIX newline
+	beq :+
+	cmp #' '
+:	rts
+.endproc
+
+;*******************************************************************************
+; is_null_space_comma_closingparen
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is: 0,$0d,' ', ',', or ')'
+.proc is_null_return_space_comma_closingparen_newline
+	cmp #$00
+	beq @done
+	jsr is_whitespace
+	beq @done
+	cmp #','
+	beq @done
+	cmp #')'
+@done:	rts
+.endproc
+
+;*******************************************************************************
+; IS SEPARATOR
+; Checks if the given byte represents a "separator". A separator is any of:
+;  0, $0d, ' ', ',', ')', or any operator character
+; IN:
+;   - .A: the byte to check
+; OUT:
+;   - .Z: set if the given byte represents a "separator"
+.proc isseparator
+	cmp #':'
+	beq @yes
+	jsr is_null_return_space_comma_closingparen_newline
+	bne isoperator
+@yes:	rts
+.endproc
+
+;*******************************************************************************
+; IS OPERATOR
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if the char in .A is an operator ('+', '-', etc.)
+.proc isoperator
+@xsave=zp::util+2
+	stx @xsave
+	ldx #@numops-1
+:	cmp @ops,x
+	beq @end
+	dex
+	bpl :-
+@end:	php
+	ldx @xsave
+	plp
+	rts
+@ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.', '<', '>'
+@numops = *-@ops
+.endproc
+
+;*******************************************************************************
+; CHTOHEX
+.proc chtohex
+	JUMP FINAL_BANK_MAIN, util::chtohex
+.endproc
+
+;*******************************************************************************
+; INC LINE
+; Increments the line pointer, which points to the current character being read
+; during assembly or other parsing (e.g. expression evaluation)
+; OUT:
+;   - .Z: effectively always clear (unless line wrapped to 0)
+.proc inc_line
+	incw zp::line
+	rts
 .endproc

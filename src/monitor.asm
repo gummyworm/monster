@@ -342,7 +342,7 @@ screen: .res 40*24
 
 	; treat whitespace as separator for expressions in the monitor
 	lda #$01
-	CALL FINAL_BANK_MAIN, expr::end_on_ws
+	CALL FINAL_BANK_UDGEDIT, expr::end_on_ws
 
 @prompt:
 	ldxy #mem::linebuffer

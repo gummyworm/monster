@@ -498,13 +498,13 @@ scope: .res 8 ; buffer containing the current scope
 ;  - .XY: the ID of the label added
 ;  - .C:  set on error or clear if the label was successfully added
 .proc addlabel
+@addr=zp::labels
 @id=r0
 @label=r2
 @name=r4
 @src=r6
 @dst=r8
 @cnt=ra
-@addr=rc
 @mode=r8
 @tmp=ra
 @secid=re
@@ -1400,8 +1400,8 @@ scope: .res 8 ; buffer containing the current scope
 ; IN:
 ;  - .XY: the id of the label to get the address of
 ; OUT:
-;  - .XY: the address of the given label id
-;  - rc:  the address of the label (same as .XY)
+;  - .XY:        the address of the given label id
+;  - zp::labels: the address of the label (same as .XY)
 .proc by_id
 @addr=zp::labels
 	txa
