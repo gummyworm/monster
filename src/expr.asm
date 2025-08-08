@@ -11,6 +11,7 @@
 ; error out if the result is the latter (it must be an absolute value only)
 ;*******************************************************************************
 
+.include "asm.inc"
 .include "errors.inc"
 .include "labels.inc"
 .include "macros.inc"
@@ -163,11 +164,11 @@ operands: .res $100
 @section     = zp::tmp11
 @symbol      = zp::tmp12	; 2 bytes
 @postproc    = zp::tmp14
+@tmp         = zp::tmp15
 @operands    = operands	    ; operand stack (grows up from here)
 	ldx #$00
 	stx @i
 	stx @sp
-	stx @result_size
 
 @evalloop:
 	ldx @i
@@ -175,29 +176,50 @@ operands: .res $100
 	bpl @cont
 
 @done:	jsr @popval		; read result (should be only value on stack)
+	stxy @val1
 
-	; set tthe kind of result, symbol, section, and post-processing
+	; set the kind of result, symbol, section, and post-processing
 	; for the result
-	lda @kind
-	sta __expr_kind
 	lda @section
 	sta __expr_section
-	lda @symbol
-	sta __expr_symbol
-	lda @postproc
-	sta __expr_postproc
-
-	lda @result_size
-	bne @ok			; if result size explicitly set, we're done
-
-	; calculate result size
-	tya
-	beq :+
-	lda #$02		; result size is 2 bytes
+	lda @kind
+	sta __expr_kind
+	cmp #VAL_ABS
+	bne @rel_result
+@abs_result:
+	lda @val1+1		; is MSB of result 0?
+	bne :+
+	lda #$01
 	skw
-:	lda #$01
-@ok:	clc			; ok
-@ret:	rts
+:	lda #$02
+	jmp @ok			; -> done
+
+@rel_result:
+	ldx @symbol
+	stx __expr_symbol
+	ldy @symbol
+	sty __expr_symbol+1
+	cmpw #$ffff		; unresolved?
+	beq :+			; if so, assume 2 bytes
+
+	; get the address mode of the symbol
+	CALL FINAL_BANK_MAIN, lbl::addrmode
+	cmp #$00		; zeropage?
+	bne :+			; if not zeropage, need 2 bytes for sure
+	lda @val1
+	ora @val1+1		; is there an addend?
+	bne :+			; if so, we need 2 bytes to be safe
+	lda #$01		; ZP label with no addend -> 1 byte result
+	skw
+:	lda #$02
+
+	ldx @postproc
+	stx __expr_postproc
+	beq @ok			; no postproc -> continue with current size
+	lda #$01		; force 1 byte size if we are taking '>' or '<'
+@ok:	ldxy @val1
+	clc			; ok
+	rts
 
 @cont:	inx			; move past token index
 	cmp #TOK_UNARY_OP
@@ -208,7 +230,8 @@ operands: .res $100
 :	cmp #TOK_BINARY_OP
 	bne :+
 	jsr @eval_binary
-	jmp @evalloop
+	bcc @evalloop
+	rts			; return err
 
 :	; not operator, get the operand
 	pha			; save TOKEN type
@@ -231,17 +254,15 @@ operands: .res $100
 
 	stxy @symbol
 	CALL FINAL_BANK_MAIN, lbl::addr_and_mode
-	stxy @val1
-	;clc
-	adc #$01		; +1 to convert "mode" to size
-	sta @result_size
+
+	stxy @val1		; addend
 
 	; get the section ID (if label represents constant will be $ff)
 	ldxy @symbol
 	CALL FINAL_BANK_MAIN, lbl::getsection
 
-	ldxy @val1		; restore label address/addend
 	sta @section		; store section ID
+	ldxy @val1		; restore label address/addend
 	cmp #$ff		; is section "ABSOLUTE"?
 	beq @const		; if so, treat as constant value
 
@@ -261,15 +282,13 @@ operands: .res $100
 
 @dummy:	; return dummy
 	ldxy #$00		; dummy value
-	lda #$02		; assume 2 byte result
-	sta @result_size
+	lda #VAL_REL
+	skw
 
 @const: lda #VAL_ABS
 	sta @kind		; set "kind" to constant
 
 @valdone:
-	lda #POSTPROC_NONE
-	sta @postproc
 	jsr @pushval		; store value and metadata
 	jmp @evalloop		; continue processing
 
@@ -285,34 +304,38 @@ operands: .res $100
 	jsr @popval
 
 	; if symbol (kind == VAL_REL), this must be the last operator
-	pla		; restore operator
+	pla				; restore operator
 @lsb:	cmp #'<'
 	bne @msb
 	lda @kind
 	cmp #VAL_ABS
-	bne :+			; if ABS, no need for post-processing
+	beq :+				; if ABS, no need for post-processing
 	lda #POSTPROC_LSB
 	sta @postproc
 :	ldy #$00
-	beq @pushval		; branch always
+	beq @pushval_with_postproc	; branch always
 
 @msb:	cmp #'>'
 	bne @invalid_unary
 	lda @kind
 	cmp #VAL_ABS
-	bne :+			; if ABS, no need for post-processing
+	beq :+			; if ABS, no need for post-processing
 	lda #POSTPROC_MSB
 	sta @postproc
 :	tya
 	tax
 	ldy #$00
-	beq @pushval	; branch always
+	beq @pushval+4	; branch always
 
 @invalid_unary:
 	brk		; TODO: should be impossible
 
 ;--------------------------------------
 @pushval:
+	lda #POSTPROC_NONE
+	sta @postproc
+
+@pushval_with_postproc:
 	txa
 	ldx @sp
 	sta @operands,x		; store LSB of addend
@@ -327,13 +350,14 @@ operands: .res $100
 	lda @symbol+1
 	sta @operands+5,x	; store symbol ID MSB
 	lda @postproc
-	sta @operands+6,x	; initialize post-proc to NONE
+	sta @operands+6,x	; store postproc
 
 	; update stack pointer (sp += 7)
 	lda @sp
 	clc
 	adc #$07
 	sta @sp
+	;clc
 	rts
 
 ;--------------------------------------
@@ -358,8 +382,12 @@ operands: .res $100
 	lda @postproc
 	sta @postproc1
 	cmp #POSTPROC_NONE
-	bne @eval_err		; can't do mid-expression post-proc
+	beq @getval2
+	jsr @handle_postproc
+	bcs @err
+	stxy @val1
 
+@getval2:
 	jsr @popval
 	stxy @val2
 	lda @kind
@@ -373,21 +401,20 @@ operands: .res $100
 	lda @postproc
 	sta @postproc2
 	cmp #POSTPROC_NONE
-	beq :+
+	beq @cont_eval
+	jsr @handle_postproc
+	bcs @err
+	stxy @val2
 
-@eval_err:
-	; can't do mid-expression post-proc
-	sec
-	rts
-
-:	lda @operator		; restore operator
+@cont_eval:
+	lda @operator		; restore operator
 	cmp #'+'
 	bne :+
 
 @add:
 	jsr @reduce_operation_addition
 	bcc *+3
-	rts			; return err
+@err:	rts			; return err
 
 	lda @val1
 	clc
@@ -403,8 +430,7 @@ operands: .res $100
 
 @sub:
 	jsr @reduce_operation_subtraction
-	bcc *+3
-	rts
+	bcs @err
 
 	lda @val2
 	sec
@@ -418,8 +444,7 @@ operands: .res $100
 :	cmp #'*'	; MULTIPLY
 	bne :+
 	jsr @reduce_operation_other
-	bcc *+3
-	rts			; return err
+	bcs @err
 
 	; get the product TODO: 32-bit precision expressions?
 	ldxy @val1
@@ -447,8 +472,7 @@ operands: .res $100
 :	cmp #'&'	; AND
 	bne :+
 	jsr @reduce_operation_other
-	bcc *+3
-	rts			; return err
+	bcs @err
 
 	lda @val1
 	and @val2
@@ -462,7 +486,7 @@ operands: .res $100
 	bne :+
 	jsr @reduce_operation_other
 	bcc *+3
-	rts			; return err
+@err2:	rts			; return err
 
 	lda @val1
 	ora @val2
@@ -475,8 +499,7 @@ operands: .res $100
 :	cmp #'^'	; EOR
 	bne :+
 	jsr @reduce_operation_other
-	bcc *+3
-	rts			; return err
+	bcs @err2
 
 	lda @val1
 	eor @val2
@@ -616,6 +639,38 @@ operands: .res $100
 	bne @reduce_err
 	sta @kind
 	RETURN_OK
+
+;--------------------------------------
+; HANDLE POSTPROC
+; Validates a binary operand's post-processing
+; Post-processing is allowed if symbol is in the same section as the
+; expression (asm::section)
+@handle_postproc:
+	lda @postproc
+	beq :+++	; -> ok
+
+	; check if symbol is in same section
+	; (can't do postproc on inter-section symbol)
+	CALL FINAL_BANK_MAIN, lbl::getsection
+	cmp asm::section
+	beq :+
+	sec
+	rts
+:	ldxy @symbol		; restore symbol ID
+
+	; get the address (addend) of the label within the section
+	CALL FINAL_BANK_MAIN, lbl::by_id
+
+	lda @postproc
+	cmp #POSTPROC_MSB
+	beq :+
+	; set value to just the LSB of label address
+	ldy #$00		; clear MSB
+	rts
+:	; set value to MSB (move MSB to LSB)
+	tya
+	tax
+:	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -977,23 +1032,37 @@ operands: .res $100
 ;   - .XY: the rest of the operand
 ;   - .C:  set if no operand was able to be parsed
 .proc get_operand
+@lbl=zp::expr
 	jsr isval
 	bcs @label		; not a literal value, try label
 	jsr get_val		; is this a value?
 	lda #TOK_VALUE
-	rts
+@ret:	rts
 
 @label: ldxy zp::line
 	jsr get_label		; is it a label?
-	php
+	bcs @ret
+
+	pha
+	stxy @lbl
+	CALL FINAL_BANK_MAIN, lbl::getsection
+	ldxy @lbl
+	cmp #$ff
+	bne :+
+
+	; if $ff, label is constant, return its value
+	pla			; cleanup
+	CALL FINAL_BANK_MAIN, lbl::getaddr
+	lda #TOK_VALUE
+	RETURN_OK
+
+:	pla			; restore mode
 	cmp #$00		; zeropage?
 	bne :+
 	lda #TOK_SYMBOL_ZP
 	skw
 :	lda #TOK_SYMBOL
-	; .C = success
-	plp
-	rts
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************

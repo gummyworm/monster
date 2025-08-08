@@ -143,6 +143,7 @@ __asm_segmode: .byte 0
 ; SECTION
 ; The current SECTION. A new SECTION is created anytime a .SEGMENT
 ; directive is encountered
+.export __asm_section
 __asm_section: .byte 0
 
 ;*******************************************************************************
@@ -901,12 +902,17 @@ __asm_tokenize_pass1 = __asm_tokenize
 :	; check if opcode was a JSR
 	lda opcode
 	cmp #$20
+	bne @chkbra
+	cpx #ZEROPAGE
 	bne :+
-	cpx #ABS
+	ldx #ABS	; force ABS for JMP
+	inc operandsz
+:	cpx #ABS
 	bne @err	; only ABS supported for JSR
 	beq @noerr
 
-:	; check if opcode was a branch
+@chkbra:
+	; check if opcode was a branch
 	and #$1f
 	cmp #$10
 	bne @verifyimm
@@ -1594,7 +1600,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	jsr line::process_ws
 	jsr expr::eval
 	bcs @text				; invalid expr- try text
-	cmp #$01
+	cpy #$00
 	beq @ok
 	RETURN_ERR ERR_OVERSIZED_OPERAND
 
@@ -1966,7 +1972,9 @@ __asm_include:
 	bcs @done
 @set:	stxy origin
 
-@done:	lda #ASM_ORG
+@done:	lda #$fe
+	sta zp::label_sectionid
+	lda #ASM_ORG
 	clc			; ok
 @ret:	rts
 .endproc
@@ -2754,13 +2762,19 @@ __asm_include:
 @err:	rts
 
 @ok:	stxy zp::label_value
+
+	lda #$ff
+	sta zp::label_sectionid
+
+	; restore label address
 	pla
 	tay
 	pla
 	tax
+
 	lda zp::label_value+1
 	beq add_label		; if MSB is 0, use ZP mode
-	lda #$01		; for CONST always use ABS mode
+	lda #$01
 
 	; fall through to add_label
 .endproc

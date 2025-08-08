@@ -14,6 +14,7 @@
 - [ ] Save/restore raster position while debugging
 
 ### TODO V1
+- [x] Rework expression parsing to support relocation emission
 - [x] Startup animation
 - [x] Symbolic disassembly
 - [x] Multicolor support for UDG editor
