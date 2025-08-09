@@ -86,6 +86,7 @@ reloc_tables:
 	.res $3000
 .else
 .endif
+reloc_tables_end=*
 
 .RODATA
 
@@ -231,83 +232,91 @@ __obj_add_reloc:
 ;*******************************************************************************
 ; ADD RELOC
 ; Adds a new relocation entry to the current object file in construction
+; NOTE: the addend is written by the assembler
 ; IN:
-;   - .A:                   size of value to relocate (0=ZP, 1=ABS)
-;   - asm::section:         the section to relocate within
-;   - zp::asmresult:        offset to apply the relocation at
-;   - expr::rpnlist:        the tokenized relocation expression
-;   - expr::rpnlistlen:     length of the tokenized expression
-;   - expr::requires_reloc: !0 if the expression needs a relocation entry
+;   - .A:            size of value to relocate (0=ZP, 1=ABS)
+;   - zp::asmresult: offset to apply the relocation at
+;   - expr::*:       various values containing result of expression eval
+; OUT:
+;   - .C: set on error
 .proc add_reloc
 @sz=r0
-@info=r0
 @rel=r1
-@sec=r3
-	sta @sec
-	stx @sz
+@addend=r3
+	sta @sz
+	stxy @addend
+
+	lda expr::kind
+	cmp #VAL_REL
+	bne @ok		; expression doesn't require relocation
+
+	ldxy reloctop
+	cmpw #(reloc_tables_end-4)
+	bcc :+
+	RETURN_ERR ERR_OOM
+
+:	stxy @rel
 
 ; encode the "info" byte for the relocation based on the result of the
 ; expression evaluation and the size of the relocation
-;  field    bit(s)   description
-; size        0    size of target value to modify 0=1 byte, 1=2 bytes
-; mode       1-2   type of relocation: 1=symbol-relative, 0=PC-relative
+;  field   bit(s)   description
+; size       0   size of target value to modify 0=1 byte, 1=2 bytes
+; mode       1   type of relocation: 1=section-relative, 0=symbol-relative
+; postproc  2-3  post-processing (0=NONE, 1=LSB, 2=MSB)
 @encode_size:
-	lda #$00
-	rol			; .C set if symbol-relative
+	lda expr::postproc
+	asl
 	asl
 	ora @sz
-	sta @info
 
-	ldxy reloctop
-	stxy @rel
-
-	; store relocation record
-	ldy #$00
-
-	; write info byte
-	lda @info
-	sta (@rel),y
+	; is symbol in the expression is unresolved (section_id == SEC_UNDEF)?
+	; yes -> use symbol-based relocation
+	; no  -> use section-based relocation
+	ldx expr::section
+	cpx #SEC_UNDEF
+	bne :+
+	ora #1<<1		; flag symbol based relocation
+:	ldy #$00
+	sta (@rel),y		; write info byte
 	iny			; .Y=1
 
+	pha			; save info byte
+
 	; write offset in obj file (current "assembly" address)
-	lda zp::asmresult
+	lda zp::asmresult	; write offset LSB
 	sta (@rel),y
 	iny			; .Y=2
 	lda zp::asmresult+1
-	sta (@rel),y
+	sta (@rel),y		; write offset MSB
+	iny			; .Y=3
 
-@pcrel:	; pc-relative: just write the value of the expression
-	CALL FINAL_BANK_MAIN, expr::eval_list
-	bcs @done
+	pla			; restore info byte
+	and #$02		; mask info byte
+	bne @sym_based		; if !0, write symbol index
 
-	tya
-	ldy #$04
-	sta (@rel),y		; write MBS
-	txa
-	dey			; .Y=3
-	sta (@rel),y		; write LSB
-	bne @update		; branch always
+@sec_based:
+	lda expr::section
+	sta (@rel),y		; write symbol-id LSB
+	lda #$00		; MSB of section is always 0
+	iny			; .Y=4
+	sta (@rel),y		; write symbol-id MSB
+	bne @done		; branch always
 
-@expr:  ; write the tokenized RPN expression
-	ldx #$00
-	ldy #$03
-:	lda expr::rpnlist,x
-	sta (@rel),y
-	iny
-	inx
-	cpx expr::rpnlistlen
-	bne :-
+@sym_based:
+	lda expr::symbol
+	sta (@rel),y		; write symbol-id LSB
+	lda expr::symbol+1
+	iny			; .Y=4
+	sta (@rel),y		; write symbol-id MSB
 
-@update:
-	; update reloctop
-	tya
+@done:  ; update reloctop
+	lda #$04
 	clc
 	adc reloctop
 	sta reloctop
 	bcc :+
 	inc reloctop+1
-	clc			; ok
-@done:	rts
+@ok:	RETURN_OK
 .endproc
 
 ;******************************************************************************

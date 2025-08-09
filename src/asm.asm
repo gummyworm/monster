@@ -1972,8 +1972,11 @@ __asm_include:
 	bcs @done
 @set:	stxy origin
 
-@done:	lda #$fe
+@done:	; set section to ABSOLUTE (we know the exact address of all labels
+	; declared within a .ORG "section")
+	lda #SEC_ABS
 	sta zp::label_sectionid
+
 	lda #ASM_ORG
 	clc			; ok
 @ret:	rts
@@ -2926,14 +2929,10 @@ __asm_include:
 	cpx #$01
 	beq :-				; -> rts (no relocation on pass 1)
 
-	;ldx expr::requires_reloc
-	;beq :-				; -> rts (absolute expression)
-
 	; add new relocation entry to the relocation table
 	; this will either be relative to the PC during linkage
 	; or an expression if symbols outside the current section are
 	; referenced
-	tax			; .X=mode
 	jmp obj::addreloc
 .endproc
 

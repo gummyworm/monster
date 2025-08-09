@@ -186,6 +186,7 @@ operands: .res $100
 	sta __expr_kind
 	cmp #VAL_ABS
 	bne @rel_result
+
 @abs_result:
 	lda @val1+1		; is MSB of result 0?
 	bne :+
@@ -458,8 +459,7 @@ operands: .res $100
 :	cmp #'/'	; DIVIDE
 	bne :+
 	jsr @reduce_operation_other
-	bcc *+3
-	rts			; return err
+	bcs @err
 
 	ldxy @val1
 	stxy r2

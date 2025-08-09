@@ -10,8 +10,6 @@
 .include "string.inc"
 .include "text.inc"
 
-NUM_ERRORS = 42
-
 .DATA
 ;******************************************************************************
 err_no_err:
@@ -194,6 +192,10 @@ err_too_many_segments:
 ; "too many segments"
 .byte $a3,$cf,$db,$41,$76,$5b,$99,$47,$69,$4e,$a4,$c0
 
+err_oom:
+; "out of memory"
+.byte $7d,$54,$db,$c6,$db,$45,$6b,$d2,$c8,$0
+
 
 ;******************************************************************************
 .linecont +
@@ -245,10 +247,12 @@ err_too_many_segments:
 	err_buffer_name_exists, \
 	err_buffer_full, \
 	err_too_many_global_refs, \
-	err_too_many_segments
+	err_too_many_segments, \
+	err_oom
 .linecont -
 errorslo: .lobytes errors
 errorshi: .hibytes errors
+NUM_ERRORS=*-errorshi
 
 err_unknown_err: .byte $aa,$ce,$7d,$ce,$d9,$52,$93,$d2,$0
 

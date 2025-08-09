@@ -148,28 +148,33 @@ A new _section_ is created any time a .SEGMENT directive is encountered (even if
 ### RELOCATION TABLES
 For each _section_, the linker contains a table of _relocation info_.
 This table is made up of a number of entries, each describes how to relocate a byte or word
-in the section.  Relocations can either be _section-relative_ or _expressions_.
-
+in the section.  Relocations can either be _section-relative_ or _symobl-relative_.
 
 The following table describes the relocation format in detail.
 
-| field                      | size | description
-|----------------------------|------|-------------------------------------------------------------------------------------
-| info                       |  1   | bitfield of information about the relocation entry
-| offset                     |  2   | offset from section to relocate
-| expression (if info & $02) |  n   | $ff terminated RPN relocation expression
+| field          | size | description
+|----------------|------|-------------------------------------------------------------------------------------
+| info           |  1   | bitfield of information about the relocation entry
+| offset         |  2   | offset from section to relocate
+| symbol id      |  2   | the symbol index in the symbol table (for symbol-relative relocation)
 
 `info` is a bitfield with the following values:
 
 | field      | bit(s) | description
 |------------|--------|---------------------------------------------------------------------
 | size       |   0    | size of target value to modify 0=1 byte, 1=2 bytes
-| mode       |   1    | what to relocate relative to: 0=expression, 1=PC-relative
+| mode       |   1    | what to relocate relative to: 0=section relative, 1=symbol relative
+| postproc   |  2-3   | post-processing to apply after adding addend (0=NONE, 1=LSB, 2=MSB)
 
 To apply the relocation table to a section, we walk the table, go to the address of that section's
-base + the offset for each table entry, and finally add the value stored at that address in the object
-code to the symbol, if we're doing a symbol based relocation, or the resolved address at the position
-of the value to relocate.
+base + the offset for each table entry, and depending on the value of "mode" in the "info" field:
+ - "section relative" (0) -look up section base address and add addend to it
+ - "symbol relative" (1) - look up the symbol address and add addend to it
+
+Finally, we apply post-processing (bits 2-3) in the info byte, if necessary.
+
+The "addend" is the value stored in the object code as the operand for the instruction we are
+relocating.
 
 ### `DEBUG INFO`
 This table stores the program to evaluate line numbers and addresses within the object file as well as references to which source files were used to create the object file.  This information allows the linker to produce a single mega debug file (or .D file) that contains all the information for the linked program, which allows for source level debugging.

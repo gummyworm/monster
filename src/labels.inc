@@ -25,6 +25,10 @@
 .import __label_setscope
 .import __label_set24
 
+; SECTION ID FLAGS
+SEC_UNDEF = $00	; section is undefined (external)
+SEC_ABS   = $ff	; symbol represents a constant (not tied to a section)
+
 .scope lbl
 	add           = __label_add
 	addanon       = __label_addanon

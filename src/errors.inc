@@ -74,6 +74,10 @@ ERR_TOO_MANY_SEGMENTS    = 47
 ERR_SECTION_TOO_SMALL    = 48
 ERR_NO_SECTIONS          = 49
 
+;******************************************************************************
+; general errors
+ERR_OOM                  = 50
+
 .import __err_get
 
 .scope err
