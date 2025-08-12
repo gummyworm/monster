@@ -29,6 +29,9 @@
 SEC_UNDEF = $00	; section is undefined (external)
 SEC_ABS   = $ff	; symbol represents a constant (not tied to a section)
 
+.define MAX_LABEL_NAME_LEN 32
+.define MAX_LABELS 736
+
 .scope lbl
 	add           = __label_add
 	addanon       = __label_addanon

@@ -25,7 +25,6 @@
 ;*******************************************************************************
 ; CONSTANTS
 HEIGHT     = 23
-MAX_LABELS = 768
 
 SORT_ALPHA = 0	; sort by label name alphabetically
 SORT_ADDR  = 1	; sort by label address

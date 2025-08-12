@@ -476,7 +476,7 @@ scope: .res 8 ; buffer containing the current scope
 ; ADD
 ; Adds a label to the internal label state.
 ; IN:
-;  - .XY: the name of the label to add
+;  - .XY:             the name of the label to add
 ;  - zp::label_value: the value to assign to the given label name
 ; OUT:
 ;  - .C: set on error or clear if the label was successfully added
@@ -780,7 +780,7 @@ scope: .res 8 ; buffer containing the current scope
 
 ; store the section ID for the label ($ff if absolute)
 @store_secid:
-	dey			; .Y=0
+	; ldy #$01
 	lda zp::label_sectionid
 	sta (@secid),y
 

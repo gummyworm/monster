@@ -186,7 +186,6 @@ operands: .res $100
 	sta __expr_kind
 	cmp #VAL_ABS
 	bne @rel_result
-
 @abs_result:
 	lda @val1+1		; is MSB of result 0?
 	bne :+
@@ -258,13 +257,13 @@ operands: .res $100
 
 	stxy @val1		; addend
 
-	; get the section ID (if label represents constant will be $ff)
+	; get the section ID
 	ldxy @symbol
 	CALL FINAL_BANK_MAIN, lbl::getsection
 
 	sta @section		; store section ID
 	ldxy @val1		; restore label address/addend
-	cmp #$ff		; is section "ABSOLUTE"?
+	cmp #SEC_ABS		; is section "ABSOLUTE"?
 	beq @const		; if so, treat as constant value
 
 	lda #VAL_REL
@@ -916,9 +915,9 @@ operands: .res $100
 ;  - .XY: pointer to the label to get the address of
 ; OUT:
 ;  - zp::line: updated to point past the label parsed
-;  - .C   is set if no label is found
-;  - .A:  the size of the label's address
-;  - .XY: the ID for the label
+;  - .C        is set if no label is found
+;  - .A:       the size of the label's address
+;  - .XY:      the ID for the label
 .proc get_label
 @id=zp::expr
 	CALL FINAL_BANK_MAIN, lbl::isvalid 	; if verifying, let this pass if label is valid
@@ -940,6 +939,7 @@ operands: .res $100
 	ldx zp::pass
 	cpx #$02
 	bcs @done
+
 	ldx #$01
 	stx @mode	; default to ABS mode
 	bcc @updateline	; proceed with dummy ID
@@ -1029,7 +1029,7 @@ operands: .res $100
 ;   - zp::line: the text to parse
 ; OUT:
 ;   - .A:  the token type
-;   - .XY: the rest of the operand
+;   - .XY: the value for the operand (symbol-id or absolute value)
 ;   - .C:  set if no operand was able to be parsed
 .proc get_operand
 @lbl=zp::expr
@@ -1043,25 +1043,29 @@ operands: .res $100
 	jsr get_label		; is it a label?
 	bcs @ret
 
+	cmpw #$ffff		; is label undefined (id == $ffff)?
+	beq @abs		; if so, just return placeholder token
+
 	pha
 	stxy @lbl
 	CALL FINAL_BANK_MAIN, lbl::getsection
 	ldxy @lbl
-	cmp #$ff
-	bne :+
+	cmp #SEC_ABS
+	bne @chkmode
 
-	; if $ff, label is constant, return its value
+@val:	; if section == SEC_ABS, label is constant, return its value
 	pla			; cleanup
 	CALL FINAL_BANK_MAIN, lbl::getaddr
 	lda #TOK_VALUE
 	RETURN_OK
 
-:	pla			; restore mode
+@chkmode:
+	pla			; restore mode
 	cmp #$00		; zeropage?
-	bne :+
+	bne @abs
 	lda #TOK_SYMBOL_ZP
 	skw
-:	lda #TOK_SYMBOL
+@abs:	lda #TOK_SYMBOL
 	RETURN_OK
 .endproc
 

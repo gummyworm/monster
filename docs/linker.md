@@ -113,7 +113,6 @@ The symbol table begins with a metadata table followed by the symbols themselves
 
 | size | field   | description
 |------|---------|--------------------------------------------------------------
-|   1  | type    | (binding information: GLOBAL, LOCAL, ABSOLUTE)
 |   1  | section | ID (index in SECTIONS block)
 |   2  | address | (absolute or offset from section within its object file)
 
@@ -156,7 +155,7 @@ The following table describes the relocation format in detail.
 |----------------|------|-------------------------------------------------------------------------------------
 | info           |  1   | bitfield of information about the relocation entry
 | offset         |  2   | offset from section to relocate
-| symbol id      |  2   | the symbol index in the symbol table (for symbol-relative relocation)
+| symbol id      |  2   | the symbol index in the symbol table (for symbol-relative relocation) or section for section-relative
 
 `info` is a bitfield with the following values:
 

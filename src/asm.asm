@@ -420,6 +420,7 @@ num_illegals = *-illegal_opcodes
 .proc __asm_reset
 	lda #$ff
 	sta __asm_segmode		; no .SEG set
+
 	lda #$00
 	sta ifstacksp
 	sta contextstacksp
@@ -1077,9 +1078,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	cmp #$01
 	bne @validate		; if not pass 1, don't add the label
 	lda #$ff		; infer address mode
-	jsr add_label
-	bcc @ok
-	rts
+	jmp add_label
 
 @validate:
 	; pass 2: validation and symbol mapping (OBJ)
@@ -1088,20 +1087,12 @@ __asm_tokenize_pass1 = __asm_tokenize
 	bcs @ret
 	jsr lbl::getaddr
 	cmpw zp::label_value
-	beq @map_symbol
-	lda #ERR_LABEL_NOT_KNOWN_PASS1
+	bne @err		; mismatch -> return err
+@ok:	RETURN_OK
+
+@err:	lda #ERR_LABEL_NOT_KNOWN_PASS1
 	sec
 @ret:	rts
-
-@map_symbol:
-	lda __asm_mode
-	beq @ok				; not assembling to OBJECT -> skip
-	ldx __asm_section
-	ldy __asm_segmode
-	jsr obj::add_symbol_info
-
-@ok:	clc
-	rts
 .endproc
 
 ;*******************************************************************************
@@ -1684,47 +1675,55 @@ __asm_tokenize_pass1 = __asm_tokenize
 .endproc
 
 ;*******************************************************************************
-; IMPORT
-; Imports the label following this directive
-; e.g. `IMPORT LABEL`
-; The label is assumed to be in the absolute ($100-$ffff) address range.
-; The actual resolution of the label will happen when the object code is linked
-.proc import
-	; TODO
-	; define a label for the import so that references to it succeed
-	;lda #$fe
-	;sta zp::label_value
-	;sta zp::label_value+1
-	;ldxy zp::line
-	;jmp lbl::add
-.endproc
-
-;*******************************************************************************
 ; IMPORTZP
 ; Imports the label following this directive as a zeropage label reference
 ; e.g. `IMPORT LABEL`
 ; The label is assumed to be in the zeropage ($00-$ff) address range.
 ; The actual resolution of the label will happen when the object code is linked
 .proc importzp
-	; TODO
+	lda #$00		; ZP
+
+	skw
+	; fall through to import
+.endproc
+
+;*******************************************************************************
+; IMPORT
+; Imports the label following this directive
+; e.g. `IMPORT LABEL`
+; The label is assumed to be in the absolute ($100-$ffff) address range.
+; The actual resolution of the label will happen when the object code is linked
+.proc import
+	lda #$01			; ABS
+	sta zp::label_mode
+
+	jsr util::parse_enquoted_line
+	bcs @err
+
 	; define a label for the import so that references to it succeed
-	;lda #$00
-	;sta zp::label_value
-	;sta zp::label_value+1
-	;ldxy zp::line
-	;jmp lbl::add
+	lda #SEC_UNDEF			; UNDEF (external)
+	sta zp::label_sectionid
+
+	lda #$00			; dummy value
+	sta zp::label_value
+	sta zp::label_value+1
+
+	ldxy #$100			; address of parsed label
+	jsr lbl::add
+
+	JUMP FINAL_BANK_LINKER, obj::add_import
+@err:	rts
 .endproc
 
 ;*******************************************************************************
 ; EXPORT
 ; Exports the label following this directive
 ; e.g. `EXPORT LABEL`
-; The label is assumed to be in the absolute ($100-$ffff) address range.
 .proc export
 	;  TODO
 	; if producing an object file, add to its EXPORTs
 	;ldxy zp::line
-	;jmp link::add_export
+	;jmp obj::add_export
 .endproc
 
 ;*******************************************************************************
@@ -1766,7 +1765,10 @@ __asm_tokenize_pass1 = __asm_tokenize
 
 	; create a new SECTION for the parsed SEGMENT name
 	lda __asm_segmode
-	JUMP FINAL_BANK_LINKER, obj::add_section
+	CALL FINAL_BANK_LINKER, obj::add_section
+	sta __asm_section
+	sta zp::label_sectionid
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -2766,20 +2768,25 @@ __asm_include:
 
 @ok:	stxy zp::label_value
 
-	lda #$ff
-	sta zp::label_sectionid
-
 	; restore label address
 	pla
 	tay
 	pla
 	tax
 
+	lda zp::label_sectionid
+	pha			; save section ID
+	lda #SEC_ABS
+	sta zp::label_sectionid	; temporarily set section to ABS
+
 	lda zp::label_value+1
-	beq add_label		; if MSB is 0, use ZP mode
+	beq :+			; if MSB is 0, use ZP mode
 	lda #$01
 
-	; fall through to add_label
+:	jsr add_label
+	pla			; restore section ID
+	sta zp::label_sectionid
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -2891,7 +2898,7 @@ __asm_include:
 	ldy @savey
 :				; <- write_reloc
 @ok:	clc
-	rts
+:	rts
 .endproc
 
 ;*******************************************************************************
@@ -2904,10 +2911,7 @@ __asm_include:
 	jsr writeb
 	bcs :-			; -> rts
 
-	; TODO
-	rts
 	lda #$00		; 0=zeropage
-
 	; fall through to write_reloc
 .endproc
 
@@ -2923,17 +2927,12 @@ __asm_include:
 ;   - expr::global_postproc:    postprocessing to apply to global (if relevant)
 .proc write_reloc
 	ldx __asm_mode
-	beq :-				; -> rts (no relocation in DIRECT mode)
+	beq :--				; DIRECT mode -> ok (no relocation)
 
 	ldx zp::pass
 	cpx #$01
-	beq :-				; -> rts (no relocation on pass 1)
-
-	; add new relocation entry to the relocation table
-	; this will either be relative to the PC during linkage
-	; or an expression if symbols outside the current section are
-	; referenced
-	jmp obj::addreloc
+	beq :--				; -> ok (no relocation on pass 1)
+	jmp obj::addreloc		; create/append relocation entry
 .endproc
 
 ;*******************************************************************************
@@ -2952,10 +2951,7 @@ __asm_include:
 	iny			; next byte
 	jsr writeb		; write MSB
 	bcs :-			; -> rts
-	;clc
-	rts
 
-	; TODO:
 	lda #$01		; 1=ABS
 	dey			; restore .Y
 	jmp write_reloc

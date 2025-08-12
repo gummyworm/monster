@@ -33,8 +33,11 @@ MAX_OBJS             = 16	; max number of object files that may be used
 MAX_SECTION_NAME_LEN = 8	; max length of a single section name
 MAX_SEGMENT_NAME_LEN = 8	; max length of a single segment name
 
+MAX_SYMBOL_INDEXES = $200	; max number of symbols that may be referenced
+
 MAX_SYMBOL_NAME_LEN = 32
-MAX_SYMBOLS         = 256	; max # of symbols per object file
+MAX_IMPORTS         = 128
+MAX_EXPORTS         = 32
 
 SYM_IMPORT_BYTE     = 1
 SYM_IMPORT_WORD     = 2
@@ -57,23 +60,53 @@ sections_sizehi:   .res MAX_SECTIONS
 sections_segments: .res MAX_SEGMENT_NAME_LEN*MAX_SECTIONS ; name of target SEG
 sections_info:     .res MAX_SECTIONS
 
+; relocation table offsets/sizes for each section
 sections_relocstartlo: .res MAX_SECTIONS
 sections_relocstarthi: .res MAX_SECTIONS
 sections_relocsizelo:  .res MAX_SECTIONS
 sections_relocsizehi:  .res MAX_SECTIONS
 
-numsections: .byte 0	; total number of sections in obj file being written
-numsymbols:  .word 0	; total number of symbols in obj file being written
+numsections: .byte 0	; number of sections in obj file being written
+
+numsymbols:  .word 0	; number of symbols in obj file being written
+
+;*******************************************************************************
+; SYMBOL INDEX MAP
+; Each entry in this array contains the index that we will map the corresponding
+; label to (see labels.asm)
+; This lets us emit a more compact list of only symbols that are used
+; If the symbol is unused, we store $ff
+symbol_index_map: .res MAX_LABELS
+
+;*******************************************************************************
+; NUM SYMBOLS MAPPED
+; The number of symbols to store to the symbol table.
+; Also the index that the next mapped symbol will be stored at
+num_symbols_mapped: .byte 0
 
 ;*******************************************************************************
 ; SYMBOL INFO
 ; This table contains the name for each symbol used in the object file
-symbol_info:
-.ifdef vic20
-	; info, section-id
-	.res MAX_SYMBOLS*(1+1)
-.else
-.endif
+; The contents of the symbol table depend on if the symbol is "local"
+; o "imported".
+; For symbols defined within the object code:
+;  section + offset within section
+; For imported symbols:
+;  name of the symbol
+; For exported symbols:
+;  name of the symbol, section-index, and offset from that section
+; This gives us enough information to lookup the addresses of global symbols
+; and also to provide that information to other assembly units.
+
+;*******************************************************************************
+; IMPORTS
+numimports:   .byte 0
+
+;*******************************************************************************
+; EXPORTS
+export_indexes_lo: .res MAX_EXPORTS	; LSB index in symbol table for exports
+export_indexes_hi: .res MAX_EXPORTS	; MSB index in symbol table for exports
+numexports:        .byte 0
 
 ;*******************************************************************************
 ; RELOC TABLES
@@ -96,14 +129,6 @@ __obj_init:
 	JUMP FINAL_BANK_LINKER, init
 
 ;*******************************************************************************
-.export __obj_add_symbol_info
-__obj_add_symbol_info:
-	lda asm::mode
-	bne :+
-	rts
-:	JUMP FINAL_BANK_LINKER, add_symbol_info
-
-;*******************************************************************************
 .export __obj_add_reloc
 __obj_add_reloc:
 	JUMP FINAL_BANK_LINKER, add_reloc
@@ -118,8 +143,13 @@ __obj_add_reloc:
 	sta numsections
 	sta numsymbols
 	sta numsymbols+1
+	sta numimports
+	sta numexports
+
+	; reset relocation tables "top" pointer
 	ldxy #reloc_tables
 	stxy reloctop
+
 	rts
 .endproc
 
@@ -148,6 +178,7 @@ __obj_add_reloc:
 ;   - zp::asmresult:  the physical address to begin the section at
 ;   - $100:           the name of the SEGMENT for the SECTION
 ; OUT:
+;   - .A: the ID of the section added
 ;   - .C: set if the section could not be added
 .export __obj_add_section
 .proc __obj_add_section
@@ -226,7 +257,22 @@ __obj_add_reloc:
 	bcc @l1
 
 @done:	inc numsections
+	lda numsections
 	RETURN_OK
+.endproc
+
+;*******************************************************************************
+.export __obj_add_import
+.proc __obj_add_import
+	; TODO
+	rts
+.endproc
+
+;*******************************************************************************
+.export __obj_add_export
+.proc __obj_add_export
+	; TODO
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -314,128 +360,174 @@ __obj_add_reloc:
 	clc
 	adc reloctop
 	sta reloctop
-	bcc :+
+	bcc @ok
 	inc reloctop+1
 @ok:	RETURN_OK
 .endproc
 
-;******************************************************************************
-; GET SYMBOL INFO
-; Gets the section ID and type for the given symbol ID.
-; The ID corresponds to the ID's returned by lbl::by_addr
-; IN:
-;   - .XY: the ID of the symbol to get info for
-; OUT:
-;   - .A: the size of the symbol (in bytes)
-;   - .X: raw info byte for the symbol
-;   - .Y: section ID of the label
-.export __obj_get_symbol_info
-.proc __obj_get_symbol_info
-@symtab=r0
-	txa
-	asl			; ID * 2
+;*******************************************************************************
+; BUILD SYMBOL INDEX MAP
+; Constructs the map of symbols to the index to store for them in the symbol
+; table.
+.proc build_symbol_index_map
+@idx=r0
+@symtab=r2
+@reltab=r2
+	; walk the relocation tables to determine which symbols are referenced
+	; in relocations.
+	; only these will be emitted.
+	ldxy reloc_tables
+	stxy @reltab
+	cmpw reloctop
+	beq @done		; no relocations
+
+	; initialize symbol index map to all $ff's (unmapped)
+	lda #$ff
+	ldy #$00
+	ldxy #symbol_index_map
+	stxy @symtab
+@init:	ldy #$00
+	sta (@symtab),y
+	incw @symtab
+	cmpw #symbol_index_map+MAX_LABELS
+	bcc @init
+
+	lda #$00
+	sta @idx
+	sta @idx+1
+
+@l0:	ldy #$00
+	lda (@reltab),y
+	and #$02		; mask mode bit
+	beq @next		; if 0-> no symbol
+	ldy #$03
+	lda (@reltab),y		; get symbol ID
+	clc
+	adc #<symbol_index_map
 	sta @symtab
-	tya
-	rol
+	iny
+	lda (@reltab),y
+	adc #>symbol_index_map
 	sta @symtab+1
 
-	lda @symtab
-	adc #<symbol_info
-	sta @symtab
-	bcc :+
-	inc @symtab+1
-
-:	ldy #$00
-	lda (@symtab),y		; get the binding info
+	; check if symbol is already mapped
+	ldy #$00
+	lda (@symtab),y
+	cmp #$ff
+	bne @next		; not $ffff (already mapped) -> continue
 	tax
 	iny
-	lda (@symtab),y		; get the section
-	tay
+	lda (@symtab),y
+	cmp #$ff
+	bne @next		; not $ffff (already mapped) -> continue
 
-	lda sections_info,y	; read the mode for the symbol's section
-	clc
-	adc #$01		; get # of bytes from address mode
-	rts
-.endproc
-
-;******************************************************************************
-; ADD SYMBOL INFO
-; Adds symbol info to the symbol table for the current object file
-; IN:
-;    - .X: the section ID
-;    - .Y: mode of the label
-.proc add_symbol_info
-@cnt=r0
-@info=r2
-@symtab=r0
-	lda #$00
-	sta @symtab+1
-	lda numsymbols
-	asl
-	rol @symtab+1
-	adc #<symbol_info
-	sta @symtab
-	lda numsymbols+1
-	adc @symtab+1
-	sta @symtab+1
-
-	tya			; get info byte
+	; not mapped, assign this symbol an index
+	lda @idx
 	ldy #$00
 	sta (@symtab),y
-
 	iny
-	txa			; get section ID
+	lda @idx+1
 	sta (@symtab),y
+	incw @idx
 
-	incw numsymbols
-	rts
+@next:	lda @reltab
+	clc
+	adc #$05
+	tax
+	sta @reltab
+	bcc :+
+	inc @reltab+1
+:	ldy @reltab+1
+	cmpw reloctop
+	bcc @l0
+@done:	rts
 .endproc
 
 ;*******************************************************************************
-; DUMP SYMBOLS
-; Writes the symbol table to file
-.proc dump_symbols
+; DUMP LOCALS
+; Dumps the referenced symbols to file.  These are all symbols used within
+; the object code's relocation tables.
+; Externals are also dumped here (if referenced), but separate procedures
+; are needed to dump names for these (see dump_exports and dump_imports)
+.proc dump_locals
+@i=r0
 @cnt=r2
 @cnt2=r4
-@symtab=r6
+@map=r6
 @id=r8
 @buff=$100
-	lda numsymbols
-	asl
-	sta @cnt
-	lda numsymbols+1
-	rol
-	sta @cnt+1
-	asl @cnt
-	rol @cnt+1
+	ldxy #num_symbols_mapped
+	stxy @cnt
 
-	lda @cnt
-	sta @cnt2
-	lda @cnt+1
-	sta @cnt2+1
+	ldxy #symbol_index_map
+	stxy @map
 
-	ldxy #symbol_info
-	stxy @symtab
+@dump_locals:
+	; check if label should be dumped (mapped index != $ffff)
+	ldy #$00
+	lda (@map),y
+	cmp #$ff
+	beq @next
+	iny
+	lda (@map),y
+	cmp #$ff
+	beq @next
 
-@dumpmeta:
-	; write the metadata table
-	lda (@symtab),y
-	jsr $ffd2
-	incw @symtab
-	dec @cnt
-	bne @dumpmeta
-	dec @cnt+1
-	bpl @dumpmeta
+	; get the symbol offset and section
+	ldxy @i
+	CALL FINAL_BANK_MAIN, lbl::getsection	; get section
+	jsr $ffd2				; write section out
+	CALL FINAL_BANK_MAIN, lbl::by_id	; get address
+	txa
+	jsr $ffd2				; write offset LSB
+	tya
+	jsr $ffd2				; write offset MSB
 
-	lda #$00
-	sta @id
-	sta @id+1
+	decw @cnt
+	iszero @cnt
+	beq @done
 
+@next:	incw @i				; next symbol
+	bne @dump_locals		; branch always
+
+@done:	rts
+.endproc
+
+;*******************************************************************************
+; DUMP IMPORTS
+; Stores the names of the imported symbols along with their mapped symbol
+; indices.
+; Imports must be declared with the .IMPORT directive to map them to the object
+; file.
+; They are indentified by a SEC_UNDEF section index in the relocation tables at
+; link time
+.proc dump_imports
+.endproc
+
+;*******************************************************************************
+; DUMP EXPORTS
+; Stores the names of the exported symbols along with their section indices
+; and section offsets.
+; Exports may or may not be referenced within the object code
+; They must be explicitly mapped to the object code by a ".EXPORT" directive
+.proc dump_exports
 @dumpnames:
-	;write the symbol names
+@i=r0
+@buff=$100
+	lda #$00
+	sta @i
+	sta @i+1
+	cmp numexports
+	beq @done			; if no exports -> done
+
+@l0:	; get the symbol name
 	ldxy #@buff
 	stxy r0
-	ldxy @id
+	ldy @i
+	lda export_indexes_lo,y
+	tax
+	lda export_indexes_hi,y
+	tay
 	CALL FINAL_BANK_MAIN, lbl::getname
 
 	; write out the name
@@ -443,17 +535,28 @@ __obj_add_reloc:
 :	lda @buff,y
 	jsr $ffd2
 	cmp #$00
-	beq @nextname
+	beq @cont
 	iny
 	bne :-
 
-@nextname:
-	dec @cnt
-	bne @dumpnames
-	dec @cnt+1
-	bpl @dumpnames
+@cont:	; get/write the section index
+	ldxy @i
+	CALL FINAL_BANK_MAIN, lbl::getsection	; write section index
+	jsr $ffd2
 
-	rts
+	; get/write the section offset
+	ldxy @i
+	CALL FINAL_BANK_MAIN, lbl::by_id
+	txa
+	jsr $ffd2				; write offset LSB
+	tya
+	jsr $ffd2				; write offset MSB
+
+	inc @i
+	cmp numexports
+	bcc @l0
+
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -586,6 +689,10 @@ __obj_add_reloc:
 @src=r0
 @cnt=r2
 	; write the main OBJ header
+	jmp *
+
+	jsr build_symbol_index_map
+
 	lda numsections			; # of sections
 	jsr $ffd2
 	lda numsymbols			; # of symbols
@@ -597,7 +704,9 @@ __obj_add_reloc:
 	jsr dump_section_headers
 
 	; write the SYMBOL TABLE
-	jsr dump_symbols
+	jsr dump_locals
+	jsr dump_imports
+	jsr dump_exports
 
 	; write each SECTION that was built
 	jsr dump_sections
