@@ -252,17 +252,25 @@ operands: .res $100
 	jmp @evalloop
 
 :	cmp #TOK_PC
-	bne :+
-	lda asm::section	; current section at assembly time
+	bne @getoperand
+	inc @i
+	lda asm::mode		; check if we are in DIRECt mode
+	bne :+			; continue to push relocation value if not
+
+	; direct mode -> just push the current PC
+	ldxy zp::virtualpc
+	jmp @const
+
+:	lda asm::section	; current section at assembly time
 	sta @section
 	ldxy #PC_SYMBOL_ID	; use the magic value for PC as the symbol ID
 	stxy @symbol
 	ldxy zp::virtualpc	; offset from SECTION base
 	stxy @val1
-	inc @i
 	bpl @pushrel		; finish by pushing this as a VAL_REL value
 
-:	; not operator, get the operand
+@getoperand:
+	; not operator, get the operand
 	pha			; save TOKEN type
 	lda __expr_rpnlist,x	; get LSB
 	inx
