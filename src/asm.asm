@@ -137,6 +137,7 @@ __asm_linenum: .word 0
 ; When assembling to object code (asm::mode != 0)
 ; this contains the size of labels defined in that segment
 ; 0=ZP, 1=ABS (anything but ZP), $FF means no segment is defined
+.export __asm_segmode
 __asm_segmode: .byte 0
 
 ;*******************************************************************************
@@ -1973,6 +1974,11 @@ __asm_include:
 :	cpx origin
 	bcs @done
 @set:	stxy origin
+
+	cpy #$00
+	beq :+
+	ldy #$01		; absolute
+:	sty __asm_segmode	; set segment mode
 
 @done:	; set section to ABSOLUTE (we know the exact address of all labels
 	; declared within a .ORG "section")

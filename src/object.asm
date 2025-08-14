@@ -184,6 +184,8 @@ __obj_add_reloc:
 .proc __obj_add_section
 @name=$100
 @namedst=r0
+	RETURN_OK
+
 	; set start address and size
 	; start[numsections] = .XY
 	; if numsections > 0:
@@ -689,8 +691,6 @@ __obj_add_reloc:
 @src=r0
 @cnt=r2
 	; write the main OBJ header
-	jmp *
-
 	jsr build_symbol_index_map
 
 	lda numsections			; # of sections
@@ -699,6 +699,8 @@ __obj_add_reloc:
 	jsr $ffd2
 	lda numsymbols+1
 	jsr $ffd2
+
+	jmp *
 
 	; write the SECTION headers
 	jsr dump_section_headers

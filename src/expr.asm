@@ -27,9 +27,13 @@ MAX_OPERANDS  = MAX_OPERATORS/2
 TOK_SYMBOL    = 1	; symbol e.g. "label"
 TOK_SYMBOL_ZP = 2	; zeropage symbol e.g. "tmp"
 TOK_VALUE     = 3	; constant value e.g. 123
-TOK_BINARY_OP = 4	; binary operator e.g. '+' or '-'
-TOK_UNARY_OP  = 5	; unary operator e.g. '<'
+TOK_PC        = 4	; current PC e.g. '*'
+TOK_BINARY_OP = 5	; binary operator e.g. '+' or '-'
+TOK_UNARY_OP  = 6	; unary operator e.g. '<'
 TOK_END       = $ff	; end of expression marker
+
+SYM_UNRESOLVED = $ffff	; magic value for unresolved symbol ID (in RPN list)
+PC_SYMBOL_ID   = $ffff	; magic value for '*' (in eval result)
 
 ; These flags tell the expression evaluator what "kind" an operand
 ; is: REL means relocatable (symbol-based) and ABS means absolute (fixed value)
@@ -195,17 +199,30 @@ operands: .res $100
 	jmp @ok			; -> done
 
 @rel_result:
+	lda asm::section
+	cmp @section		; is the result in a different section?
+	bne @sym_result		; if so, need a symbol-relative answer
+
+@sec_result:
+	; same section, no need to lookup symbol
+	lda asm::segmode	; get the size of section for result size
+	bpl @rel_done		; and continue to finish up building result
+
+@sym_result:
 	ldx @symbol
 	stx __expr_symbol
 	ldy @symbol
 	sty __expr_symbol+1
-	cmpw #$ffff		; unresolved?
+
+	lda @section
+	cmp #SEC_UNDEF		; is section undefined?
 	beq :+			; if so, assume 2 bytes
 
 	; get the address mode of the symbol
 	CALL FINAL_BANK_MAIN, lbl::addrmode
+
 	cmp #$00		; zeropage?
-	bne :+			; if not zeropage, need 2 bytes for sure
+	bne :+			; if not zeropage, need 2 bytes
 	lda @val1
 	ora @val1+1		; is there an addend?
 	bne :+			; if so, we need 2 bytes to be safe
@@ -213,13 +230,14 @@ operands: .res $100
 	skw
 :	lda #$02
 
+@rel_done:
 	ldx @postproc
 	stx __expr_postproc
 	beq @ok			; no postproc -> continue with current size
 	lda #$01		; force 1 byte size if we are taking '>' or '<'
 @ok:	ldxy @val1
 	clc			; ok
-	rts
+@ret:	rts
 
 @cont:	inx			; move past token index
 	cmp #TOK_UNARY_OP
@@ -230,8 +248,19 @@ operands: .res $100
 :	cmp #TOK_BINARY_OP
 	bne :+
 	jsr @eval_binary
-	bcc @evalloop
-	rts			; return err
+	bcs @ret
+	jmp @evalloop
+
+:	cmp #TOK_PC
+	bne :+
+	lda asm::section	; current section at assembly time
+	sta @section
+	ldxy #PC_SYMBOL_ID	; use the magic value for PC as the symbol ID
+	stxy @symbol
+	ldxy zp::virtualpc	; offset from SECTION base
+	stxy @val1
+	inc @i
+	bpl @pushrel		; finish by pushing this as a VAL_REL value
 
 :	; not operator, get the operand
 	pha			; save TOKEN type
@@ -249,7 +278,7 @@ operands: .res $100
 	bne @const
 
 @sym:	; resolve symbol and push its value/metadata
-	cmpw #$ffff		; check magic "unresolved" value
+	cmpw #SYM_UNRESOLVED	; check magic "unresolved" value
 	beq @unresolved
 
 	stxy @symbol
@@ -266,6 +295,7 @@ operands: .res $100
 	cmp #SEC_ABS		; is section "ABSOLUTE"?
 	beq @const		; if so, treat as constant value
 
+@pushrel:
 	lda #VAL_REL
 	sta @kind		; set "kind" to RELOCATE
 	bne @valdone		; branch always - continue to store
@@ -281,6 +311,8 @@ operands: .res $100
 	RETURN_ERR ERR_UNRESOLVABLE_LABEL
 
 @dummy:	; return dummy
+	lda #SEC_UNDEF
+	sta @section		; mark section as undefined
 	ldxy #$00		; dummy value
 	lda #VAL_REL
 	skw
@@ -303,7 +335,7 @@ operands: .res $100
 	; get the operand for the unary operation
 	jsr @popval
 
-	; if symbol (kind == VAL_REL), this must be the last operator
+	; if VAL_REL, this must be the last operator
 	pla				; restore operator
 @lsb:	cmp #'<'
 	bne @msb
@@ -563,6 +595,7 @@ operands: .res $100
 	lda @kind2
 	cmp #VAL_ABS
 	beq :+		; -> ok
+	; A=REL, B=REL is illegal, return err
 	sec
 	rts
 
@@ -892,7 +925,14 @@ operands: .res $100
 ;--------------------------------------
 ; append .XY (token type in .A) to the RPN list result
 @appendval:
-	pha
+	cmp #TOK_PC
+	bne :+
+	; TOK_PC only takes 1 byte
+	ldx @i
+	sta __expr_rpnlist,x
+	bpl :++			; branch always
+
+:	pha
 	txa
 	ldx @i
 	sta __expr_rpnlist+1,x	; LSB
@@ -902,7 +942,7 @@ operands: .res $100
 	sta __expr_rpnlist,x	; TOKEN type
 	inx
 	inx
-	inx
+:	inx
 	stx @i
 	rts
 .endproc
@@ -924,10 +964,9 @@ operands: .res $100
 	bcs @done
 
 	; if we are only verifying (e.g. in pass 1 of assembly), label
-	; ID is not final, proceed with dummy value
-	ldx #$ff
-	stx @id
-	stx @id+1
+	; ID is not final, proceed with dummy id
+	ldxy #SYM_UNRESOLVED
+	stxy @id
 
 @get_id:
 	; if not verifying (e.g. in pass 2), label ID is final; try to get it
@@ -1035,7 +1074,17 @@ operands: .res $100
 @lbl=zp::expr
 	jsr isval
 	bcs @label		; not a literal value, try label
-	jsr get_val		; is this a value?
+
+@star:	; check for '*'
+	ldy #$00
+	lda (zp::line),y
+	cmp #'*'
+	bne :+			; if not '*', check label
+	jsr inc_line		; move past the '*'
+	lda #TOK_PC		; if '*' just return the token for current PC
+	RETURN_OK
+
+:	jsr get_val		; is this a value?
 	lda #TOK_VALUE
 @ret:	rts
 
@@ -1043,10 +1092,10 @@ operands: .res $100
 	jsr get_label		; is it a label?
 	bcs @ret
 
-	cmpw #$ffff		; is label undefined (id == $ffff)?
+	cmpw #SYM_UNRESOLVED	; is label undefined (id == $ffff)?
 	beq @abs		; if so, just return placeholder token
 
-	pha
+	pha			; save address mode
 	stxy @lbl
 	CALL FINAL_BANK_MAIN, lbl::getsection
 	ldxy @lbl
@@ -1061,8 +1110,7 @@ operands: .res $100
 
 @chkmode:
 	pla			; restore mode
-	cmp #$00		; zeropage?
-	bne @abs
+	bne @abs		; !0 -> absolute addressing
 	lda #TOK_SYMBOL_ZP
 	skw
 @abs:	lda #TOK_SYMBOL
@@ -1074,8 +1122,6 @@ operands: .res $100
 ; Parses zp::line for a decimal or hexadecimal value up to 16 bits in size.
 ; It may also parse a character in the format 'x'.  This must be a 1 byte
 ; value.
-; The character '*' is also parsed and results in the value of zp::virtualpc
-; IN:
 ;  - zp::line: the text to parse a value from
 ; OUT:
 ;  - zp::line: updated to point past the value that was parsed
@@ -1091,23 +1137,7 @@ operands: .res $100
 	beq @hex
 
 	cmp #$27		; single quote
-	beq @char
-
-	cmp #'*'
 	bne @decimal
-	iny
-	lda (zp::line),y
-	jsr isseparator
-	beq :+
-	RETURN_ERR ERR_UNEXPECTED_CHAR
-
-:	jsr inc_line
-	ldx zp::virtualpc
-	ldy zp::virtualpc+1
-
-	; always use absolute (2-byte) addressing for '*'
-	lda #$02
-	RETURN_OK
 
 ;------------------
 @char:

@@ -1,6 +1,7 @@
 .import __asm_disassemble
 .import __asm_include
 .import __asm_mode
+.import __asm_segmode
 .import __asm_origin
 .import __asm_pcset
 .import __asm_reset
@@ -27,6 +28,7 @@
 	setpc          = __asm_set_pc
 	startpass      = __asm_startpass
 	section        = __asm_section
+	segmode        = __asm_segmode
 	tokenize       = __asm_tokenize
 	tokenize_pass  = __asm_tokenize_pass
 	tokenize_pass1 = __asm_tokenize_pass1
