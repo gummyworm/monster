@@ -199,9 +199,9 @@ operands: .res $100
 	jmp @ok			; -> done
 
 @rel_result:
-	lda asm::section
+	lda @section
 	sta __expr_section
-	cmp @section		; is the result in a different section?
+	cmp asm::section	; is the result in a different section?
 	bne @sym_result		; if so, need a symbol-relative answer
 
 @sec_result:

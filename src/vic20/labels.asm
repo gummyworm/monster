@@ -657,13 +657,14 @@ scope: .res 8 ; buffer containing the current scope
 	ldy #$03
 	sta (@addr),y
 
+	; secid--
+	decw @secid
+
 	decw @cnt
 	iszero @cnt
 	beq @insert_mode
 
 ; update all pointers
-	; secid--
-	decw @secid
 
 	; @addr -= 2
 	lda @addr
@@ -780,7 +781,7 @@ scope: .res 8 ; buffer containing the current scope
 
 ; store the section ID for the label ($ff if absolute)
 @store_secid:
-	; ldy #$01
+	; ldy #$00
 	lda zp::label_sectionid
 	sta (@secid),y
 

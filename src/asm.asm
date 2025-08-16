@@ -1708,9 +1708,6 @@ __asm_tokenize_pass1 = __asm_tokenize
 	lda #$01			; ABS
 	sta zp::label_mode
 
-	jsr util::parse_enquoted_line
-	bcs @err
-
 	; define a label for the import so that references to it succeed
 	lda #SEC_UNDEF			; UNDEF (external)
 	sta zp::label_sectionid
@@ -1719,11 +1716,8 @@ __asm_tokenize_pass1 = __asm_tokenize
 	sta zp::label_value
 	sta zp::label_value+1
 
-	ldxy #$100			; address of parsed label
-	jsr lbl::add
-
-	JUMP FINAL_BANK_LINKER, obj::add_import
-@err:	rts
+	ldxy zp::line
+	jmp lbl::add
 .endproc
 
 ;*******************************************************************************
@@ -1735,6 +1729,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	; if producing an object file, add to its EXPORTs
 	;ldxy zp::line
 	;jmp obj::add_export
+
 .endproc
 
 ;*******************************************************************************
@@ -2830,6 +2825,8 @@ __asm_include:
 	lda #$01		; ABS
 
 @add:	sta zp::label_mode
+	lda __asm_section
+	sta zp::label_sectionid
 	jmp lbl::add
 .endproc
 

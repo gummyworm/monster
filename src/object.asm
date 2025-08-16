@@ -76,6 +76,7 @@ numsymbols:  .word 0	; number of symbols in obj file being written
 ; label to (see labels.asm)
 ; This lets us emit a more compact list of only symbols that are used
 ; If the symbol is unused, we store $ff
+.export symbol_index_map
 symbol_index_map: .res MAX_LABELS
 
 ;*******************************************************************************
@@ -98,9 +99,6 @@ num_symbols_mapped: .byte 0
 ; This gives us enough information to lookup the addresses of global symbols
 ; and also to provide that information to other assembly units.
 
-;*******************************************************************************
-; IMPORTS
-numimports:   .byte 0
 
 ;*******************************************************************************
 ; EXPORTS
@@ -144,7 +142,6 @@ __obj_add_reloc:
 	sta numsections
 	sta numsymbols
 	sta numsymbols+1
-	sta numimports
 	sta numexports
 
 	; reset relocation tables "top" pointer
@@ -269,13 +266,6 @@ __obj_add_reloc:
 .endproc
 
 ;*******************************************************************************
-.export __obj_add_import
-.proc __obj_add_import
-	; TODO
-	rts
-.endproc
-
-;*******************************************************************************
 .export __obj_add_export
 .proc __obj_add_export
 	; TODO
@@ -309,6 +299,7 @@ __obj_add_reloc:
 	RETURN_ERR ERR_OOM
 
 :	stxy @rel
+	jmp *
 
 ; encode the "info" byte for the relocation based on the result of the
 ; expression evaluation and the size of the relocation
@@ -329,9 +320,9 @@ __obj_add_reloc:
 	cpx #SEC_UNDEF
 	beq :+
 	ora #1<<1		; flag section based relocation
+
 :	ldy #$00
 	sta (@rel),y		; write info byte
-
 	pha			; save info byte
 
 	; write offset in obj file (current "assembly" address)
@@ -347,7 +338,7 @@ __obj_add_reloc:
 	iny			; .Y=3
 
 	pla			; restore info byte
-	and #$02		; mask info byte
+	and #$02		; mask "type" bit
 	beq @sym_based		; if !0, write symbol index
 
 @sec_based:
@@ -425,7 +416,6 @@ __obj_add_reloc:
 	lda (@symtab),y
 	cmp #$ff
 	bne @next		; not $ffff (already mapped) -> continue
-	tax
 	iny
 	lda (@symtab),y
 	cmp #$ff
@@ -698,9 +688,8 @@ __obj_add_reloc:
 .proc __obj_dump
 @src=r0
 @cnt=r2
-	jmp *
-
 	; write the main OBJ header
+	jmp *
 	jsr build_symbol_index_map
 
 	lda numsections			; # of sections
