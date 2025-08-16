@@ -77,7 +77,7 @@ numsymbols:  .word 0	; number of symbols in obj file being written
 ; This lets us emit a more compact list of only symbols that are used
 ; If the symbol is unused, we store $ff
 .export symbol_index_map
-symbol_index_map: .res MAX_LABELS
+symbol_index_map: .res MAX_LABELS*2
 
 ;*******************************************************************************
 ; NUM SYMBOLS MAPPED
@@ -299,7 +299,6 @@ __obj_add_reloc:
 	RETURN_ERR ERR_OOM
 
 :	stxy @rel
-	jmp *
 
 ; encode the "info" byte for the relocation based on the result of the
 ; expression evaluation and the size of the relocation
@@ -373,37 +372,39 @@ __obj_add_reloc:
 .proc build_symbol_index_map
 @idx=r0
 @symtab=r2
-@reltab=r2
+@reltab=r4
 	; walk the relocation tables to determine which symbols are referenced
 	; in relocations.
 	; only these will be emitted.
-	ldxy reloc_tables
+	ldxy #reloc_tables
 	stxy @reltab
 	cmpw reloctop
 	beq @done		; no relocations
 
 	; initialize symbol index map to all $ff's (unmapped)
-	lda #$ff
-	ldy #$00
 	ldxy #symbol_index_map
 	stxy @symtab
+
+	lda #$ff
+	jmp *
 @init:	ldy #$00
+	sty @idx
+	sty @idx+1
 	sta (@symtab),y
 	incw @symtab
-	cmpw #symbol_index_map+MAX_LABELS
+	ldxy @symtab
+	cmpw #symbol_index_map+(MAX_LABELS*2)
 	bcc @init
 
-	lda #$00
-	sta @idx
-	sta @idx+1
-
 @l0:	ldy #$00
+	sty @symtab+1
 	lda (@reltab),y
 	and #$02		; mask mode bit
-	beq @next		; if 0-> no symbol
+	bne @next		; if 1-> no symbol
 	ldy #$03
 	lda (@reltab),y		; get symbol ID
-	clc
+	asl
+	rol @symtab+1
 	adc #<symbol_index_map
 	sta @symtab
 	iny
@@ -423,7 +424,7 @@ __obj_add_reloc:
 
 	; not mapped, assign this symbol an index
 	lda @idx
-	ldy #$00
+	dey			; .Y=0
 	sta (@symtab),y
 	iny
 	lda @idx+1
@@ -689,7 +690,6 @@ __obj_add_reloc:
 @src=r0
 @cnt=r2
 	; write the main OBJ header
-	jmp *
 	jsr build_symbol_index_map
 
 	lda numsections			; # of sections
@@ -698,6 +698,7 @@ __obj_add_reloc:
 	jsr $ffd2
 	lda numsymbols+1
 	jsr $ffd2
+	jmp *
 
 	; write the SECTION headers
 	jsr dump_section_headers
