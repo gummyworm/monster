@@ -29,6 +29,8 @@
 SEC_UNDEF = $00	; section is undefined (external)
 SEC_ABS   = $ff	; symbol represents a constant (not tied to a section)
 
+SYMBOL_PC = $ffff	; special ID to represent '*' (not stored as label)
+
 .define MAX_LABEL_NAME_LEN 32
 .define MAX_LABELS 736
 

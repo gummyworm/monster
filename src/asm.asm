@@ -128,6 +128,7 @@ top: .word 0	; the highest address in the program
 .export __asm_linenum
 __asm_linenum: .word 0
 
+.segment "SHAREBSS"
 ; TODO: use
 ; the type of the segment being stored e.g. SEG_BSS or SEG_CODE
 ;segment_type: .byte 0
@@ -456,8 +457,11 @@ num_illegals = *-illegal_opcodes
 	sta state::verify
 	sta top			; set top of program to 0
 	sta top+1
+	sta origin
+	sta origin+1
 	sta zp::asmresult	; also set default physical address to 0
 	sta zp::asmresult+1
+	sta __asm_section
 
 	; ignore whitespace in expressions
 	CALL FINAL_BANK_UDGEDIT, expr::end_on_ws
@@ -959,9 +963,14 @@ __asm_tokenize_pass1 = __asm_tokenize
 @err:	RETURN_ERR ERR_ILLEGAL_ADDRMODE
 
 @store_offset:
-	stx operand
+	; Relative branches must be in the same section as their target, so
+	; write the byte directly (no relocation)
 	lda #$01
 	sta operandsz	; force operand size to 1 for branches
+	txa		; .A = relative offset (operand)
+	ldy #$01	; offset to operand
+	jsr writeb	; write the offset (no relocation)
+	jmp @store_done
 
 @noerr:
 ; now store the operand byte(s)
@@ -983,6 +992,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 @store_byte:
 	lda operand
 	jsr writeb_with_reloc	; write the LSB
+@store_done:
 	bcs @opdone		; if error, return
 
 ;------------------
@@ -1767,7 +1777,9 @@ __asm_tokenize_pass1 = __asm_tokenize
 	; create a new SECTION for the parsed SEGMENT name
 	lda __asm_segmode
 	CALL FINAL_BANK_LINKER, obj::add_section
-	sta __asm_section
+
+	inc __asm_section
+	lda __asm_section
 	sta zp::label_sectionid
 	rts
 .endproc
@@ -2926,6 +2938,7 @@ __asm_include:
 ; If assembling to object code, writes the relocation information
 ; IN:
 ;   - .A:                       size of the value to relocate (1 or 2)
+;   - .Y:                       offset from zp::asmresult to apply relocation
 ;   - expr::require_relocation: !0 if we should use symbol as base address
 ;   - expr::contains_global:    !0 if symbol should be used as relocation base
 ;   - expr::global_id:          symbol ID to relocate relative to (if relevant)

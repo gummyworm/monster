@@ -156,6 +156,7 @@ The following table describes the relocation format in detail.
 | info           |  1   | bitfield of information about the relocation entry
 | offset         |  2   | offset from section to relocate
 | symbol id      |  2   | the symbol index in the symbol table (for symbol-relative relocation) or section for section-relative
+| addend         |  2   | value to add to PC during linkage at relocation address
 
 `info` is a bitfield with the following values:
 

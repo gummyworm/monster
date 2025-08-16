@@ -200,23 +200,29 @@ operands: .res $100
 
 @rel_result:
 	lda asm::section
+	sta __expr_section
 	cmp @section		; is the result in a different section?
 	bne @sym_result		; if so, need a symbol-relative answer
 
 @sec_result:
 	; same section, no need to lookup symbol
 	lda asm::segmode	; get the size of section for result size
-	bpl @rel_done		; and continue to finish up building result
+	clc
+	adc #$01		; add 1 to get # of bytes
+	bcc @rel_done		; and continue to finish up building result
 
 @sym_result:
 	ldx @symbol
 	stx __expr_symbol
-	ldy @symbol
+	ldy @symbol+1
 	sty __expr_symbol+1
 
 	lda @section
 	cmp #SEC_UNDEF		; is section undefined?
 	beq :+			; if so, assume 2 bytes
+
+	cmpw #PC_SYMBOL_ID
+	bne  :+			; if '*' assume 2 bytes
 
 	; get the address mode of the symbol
 	CALL FINAL_BANK_MAIN, lbl::addrmode
@@ -254,10 +260,10 @@ operands: .res $100
 :	cmp #TOK_PC
 	bne @getoperand
 	inc @i
-	lda asm::mode		; check if we are in DIRECt mode
+	lda asm::mode		; check if we are in DIRECT mode
 	bne :+			; continue to push relocation value if not
 
-	; direct mode -> just push the current PC
+	; direct mode -> just push the current PC as VAL_ABS
 	ldxy zp::virtualpc
 	jmp @const
 
@@ -267,7 +273,7 @@ operands: .res $100
 	stxy @symbol
 	ldxy zp::virtualpc	; offset from SECTION base
 	stxy @val1
-	bpl @pushrel		; finish by pushing this as a VAL_REL value
+	bpl @pushrel		; finish by pushing this as a VAL_REL
 
 @getoperand:
 	; not operator, get the operand

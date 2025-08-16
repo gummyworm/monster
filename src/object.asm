@@ -114,6 +114,7 @@ numexports:        .byte 0
 ; sections_relocstartlo/hi contain the start address for each SECTION's
 ; relocation table, and each table is sections_relocsizelo/hi bytes long
 ; Calling obj::addreloc appends a relocation to this table
+.export reloc_tables
 reloc_tables:
 .ifdef vic20
 	.res $3000
@@ -184,9 +185,13 @@ __obj_add_reloc:
 .proc __obj_add_section
 @name=$100
 @namedst=r0
+	ldx zp::pass
+	cpx #$01
+	beq :+
+	; sections are all defined in pass 1
 	RETURN_OK
 
-	; set start address and size
+:	; set start address and size
 	; start[numsections] = .XY
 	; if numsections > 0:
 	;   size = (start[numsections-1] - start[numsections])
@@ -282,17 +287,17 @@ __obj_add_reloc:
 ; Adds a new relocation entry to the current object file in construction
 ; NOTE: the addend is written by the assembler
 ; IN:
-;   - .A:            size of value to relocate (0=ZP, 1=ABS)
-;   - zp::asmresult: offset to apply the relocation at
-;   - expr::*:       various values containing result of expression eval
+;   - .A:      size of value to relocate (0=ZP, 1=ABS)
+;   - .Y:      offset to apply relocation at
+;   - expr::*: various values containing result of expression eval
 ; OUT:
 ;   - .C: set on error
 .proc add_reloc
 @sz=r0
 @rel=r1
-@addend=r3
+@offset=r3
 	sta @sz
-	stxy @addend
+	sty @offset
 
 	lda expr::kind
 	cmp #VAL_REL
@@ -322,25 +327,28 @@ __obj_add_reloc:
 	; no  -> use section-based relocation
 	ldx expr::section
 	cpx #SEC_UNDEF
-	bne :+
-	ora #1<<1		; flag symbol based relocation
+	beq :+
+	ora #1<<1		; flag section based relocation
 :	ldy #$00
 	sta (@rel),y		; write info byte
-	iny			; .Y=1
 
 	pha			; save info byte
 
 	; write offset in obj file (current "assembly" address)
+	iny			; .Y=1
 	lda zp::asmresult	; write offset LSB
+	clc
+	adc @offset
 	sta (@rel),y
 	iny			; .Y=2
 	lda zp::asmresult+1
+	adc #$00
 	sta (@rel),y		; write offset MSB
 	iny			; .Y=3
 
 	pla			; restore info byte
 	and #$02		; mask info byte
-	bne @sym_based		; if !0, write symbol index
+	beq @sym_based		; if !0, write symbol index
 
 @sec_based:
 	lda expr::section
@@ -358,7 +366,7 @@ __obj_add_reloc:
 	sta (@rel),y		; write symbol-id MSB
 
 @done:  ; update reloctop
-	lda #$04
+	lda #$05
 	clc
 	adc reloctop
 	sta reloctop
@@ -690,6 +698,8 @@ __obj_add_reloc:
 .proc __obj_dump
 @src=r0
 @cnt=r2
+	jmp *
+
 	; write the main OBJ header
 	jsr build_symbol_index_map
 
@@ -699,8 +709,6 @@ __obj_add_reloc:
 	jsr $ffd2
 	lda numsymbols+1
 	jsr $ffd2
-
-	jmp *
 
 	; write the SECTION headers
 	jsr dump_section_headers
