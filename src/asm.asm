@@ -1769,6 +1769,9 @@ __asm_tokenize_pass1 = __asm_tokenize
 	inx
 	stx pcset	; linker will take care of setting PC
 
+	; close the current section (if any)
+	jsr obj::close_section
+
 	; create a new SECTION for the parsed SEGMENT name
 	lda __asm_segmode
 	CALL FINAL_BANK_LINKER, obj::add_section

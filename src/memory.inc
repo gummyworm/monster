@@ -6,6 +6,7 @@
 .import __mem_findbuff
 .import __mem_spare
 .import __mem_spareend
+.import __mem_filename
 
 .import __statusinfo
 .import __statusline
@@ -23,6 +24,7 @@
 	ctxbuffer       = __mem_ctxbuffer
         spare           = __mem_spare
 	spareend	= __mem_spareend
+	filename        = __mem_filename
 	findbuff        = __mem_findbuff
 	linebuffer      = __linebuffer
 	linebuffer2     = __linebuffer2

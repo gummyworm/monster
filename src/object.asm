@@ -83,7 +83,9 @@ symbol_index_map: .res MAX_LABELS*2
 ; NUM SYMBOLS MAPPED
 ; The number of symbols to store to the symbol table.
 ; Also the index that the next mapped symbol will be stored at
-num_symbols_mapped: .byte 0
+num_symbols_mapped: .word 0
+
+num_reloctables_mapped: .byte 0
 
 ;*******************************************************************************
 ; SYMBOL INFO
@@ -132,6 +134,11 @@ __obj_init:
 __obj_add_reloc:
 	JUMP FINAL_BANK_LINKER, add_reloc
 
+;*******************************************************************************
+.export __obj_close_section
+__obj_close_section:
+	JUMP FINAL_BANK_LINKER, close_section
+
 .segment "OBJCODE"
 
 ;*******************************************************************************
@@ -143,6 +150,9 @@ __obj_add_reloc:
 	sta numsymbols
 	sta numsymbols+1
 	sta numexports
+	sta num_symbols_mapped
+	sta num_symbols_mapped+1
+	sta num_reloctables_mapped
 
 	; reset relocation tables "top" pointer
 	ldxy #reloc_tables
@@ -182,57 +192,32 @@ __obj_add_reloc:
 .proc __obj_add_section
 @name=$100
 @namedst=r0
-	ldx zp::pass
-	cpx #$01
-	beq :+
-	; sections are all defined in pass 1
+	ldy zp::pass
+	cpy #$01
+	beq @pass1
+
+	; in pass 2 we just need to store relocation table
+	; start address
+	ldx num_reloctables_mapped
+	lda reloctop
+	sta sections_relocstartlo,x	; set reloc start LSB
+	lda reloctop+1
+	sta sections_relocstarthi,x	; set reloc start MSB
+	inc num_reloctables_mapped
 	RETURN_OK
 
-:	; set start address and size
-	; start[numsections] = .XY
-	; if numsections > 0:
-	;   size = (start[numsections-1] - start[numsections])
-	ldx numsections
-	beq @sizedone
+@pass1:	ldx numsections
 	cpx #MAX_SECTIONS
 	bne :+
 	;sec
 	lda #ERR_TOO_MANY_SEGMENTS
 	rts
 
-:	pha				; save the size
-
-	; set the size for the previous section
-	lda zp::asmresult
-	sec
-	sbc sections_startlo-1,x
-	sta sections_sizelo-1,x
-	lda zp::asmresult+1
-	sbc sections_starthi-1,x
-	sta sections_sizehi-1,x
-
-	; set the size for the previous section's relocation table
-	lda reloctop
-	sec
-	sbc sections_relocstartlo-1,x
-	sta sections_relocsizelo-1,x
-	lda reloctop+1
-	sbc sections_relocstarthi-1,x
-	sta sections_relocsizehi-1,x
-	pla
-
-@sizedone:
-	sta sections_info,x
-
+:	sta sections_info,x	; store address mode
 	lda zp::asmresult
 	sta sections_startlo,x	; set obj section start LSB
 	lda zp::asmresult+1
 	sta sections_starthi,x	; set obj section start MSB
-
-	lda reloctop
-	sta sections_relocstartlo,x	; set reloc start LSB
-	lda reloctop+1
-	sta sections_relocstarthi,x	; set reloc start MSB
 
 	; copy the SEGMENT name
 	lda numsections
@@ -262,7 +247,41 @@ __obj_add_reloc:
 
 @done:	inc numsections
 	lda numsections
+@ret:	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; CLOSE SECTION
+; Closes the open section (if there is one)
+.proc close_section
+	ldx numsections
+	beq @done		; no section to close
+	ldy zp::pass
+	cpy #$01
+	beq @pass1
+
+@pass2:	; in pass 2 we just need to calculate relocation table size
+	; calculate size for the previous section's relocation table
+	lda reloctop
+	sec
+	ldx num_reloctables_mapped
+	sbc sections_relocstartlo-1,x
+	sta sections_relocsizelo-1,x
+	lda reloctop+1
+	sbc sections_relocstarthi-1,x
+	sta sections_relocsizehi-1,x
 	RETURN_OK
+
+@pass1:	; calculate/set the size for the previous section
+	lda zp::asmresult
+	sec
+	sbc sections_startlo-1,x
+	sta sections_sizelo-1,x
+	lda zp::asmresult+1
+	sbc sections_starthi-1,x
+	sta sections_sizehi-1,x
+
+@done:	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -379,14 +398,14 @@ __obj_add_reloc:
 	ldxy #reloc_tables
 	stxy @reltab
 	cmpw reloctop
-	beq @done		; no relocations
+	bne :+
+	rts		; no relocations
 
-	; initialize symbol index map to all $ff's (unmapped)
+:	; initialize symbol index map to all $ff's (unmapped)
 	ldxy #symbol_index_map
 	stxy @symtab
 
 	lda #$ff
-	jmp *
 @init:	ldy #$00
 	sty @idx
 	sty @idx+1
@@ -430,6 +449,7 @@ __obj_add_reloc:
 	lda @idx+1
 	sta (@symtab),y
 	incw @idx
+	incw num_symbols_mapped
 
 @next:	lda @reltab
 	clc
@@ -457,8 +477,10 @@ __obj_add_reloc:
 @map=r6
 @id=r8
 @buff=$100
-	ldxy #num_symbols_mapped
+	ldxy num_symbols_mapped
 	stxy @cnt
+	cmpw #0
+	beq @done
 
 	ldxy #symbol_index_map
 	stxy @map
@@ -489,6 +511,12 @@ __obj_add_reloc:
 	beq @done
 
 @next:	incw @i				; next symbol
+	lda @map
+	clc
+	adc #$02
+	sta @map
+	bcc @dump_locals
+	inc @map+1
 	bne @dump_locals		; branch always
 
 @done:	rts
@@ -503,6 +531,8 @@ __obj_add_reloc:
 ; They are indentified by a SEC_UNDEF section index in the relocation tables at
 ; link time
 .proc dump_imports
+	; TODO:
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -561,43 +591,38 @@ __obj_add_reloc:
 .endproc
 
 ;*******************************************************************************
-; DUMP SECTION
-; Dumps a single section for the object file in construction.
-; IN:
-;   - .A: the section ID to dump
-.proc dump_section
-.endproc
-
-;*******************************************************************************
 ; DUMP SECTION HEADERS
 ; Dumps the sections for the object file in construction.
 .proc dump_section_headers
 @name=r0
-@cnt=r2
-	ldxy #sections_segments
-	stxy @name
+@i=rc
+	lda numsections
+	beq @done
 
-	ldx #$00
+	lda #$00
+	sta @i
 @dump_headers:
-	; get offset to name for this section
-	txa
-	pha
+	; get offset to name for this section (*8)
+	lda @i
 	asl
 	asl
 	asl
-	tay
+	adc #<sections_segments
+	sta @name
+	lda #>sections_segments
+	adc #$00
+	sta @name+1
 
 	; write the name of the SEGMENT for the SECTION
-	ldx #$08
+	ldy #$00
 :	lda (@name),y
 	jsr $ffd2
 	iny
-	dex
+	cpy #$08
 	bne :-
 
 	; write the OBJ and RELOC sizes
-	pla
-	tax
+	ldx @i
 	lda sections_sizelo,x
 	jsr $ffd2
 	lda sections_sizehi,x
@@ -607,9 +632,10 @@ __obj_add_reloc:
 	lda sections_relocsizehi,x
 	jsr $ffd2
 	inx
+	stx @i
 	cpx numsections
 	bne @dump_headers
-	rts
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -632,6 +658,8 @@ __obj_add_reloc:
 	sta @sz
 	lda sections_sizehi,x
 	sta @sz+1
+	ora @sz
+	beq @done
 
 @objloop:
 	; dump the object code for the section
@@ -639,15 +667,12 @@ __obj_add_reloc:
 	CALL FINAL_BANK_MAIN, vmem::load	; load a byte of object code
 	jsr $ffd2
 	incw @sec
-
-	lda @sz
-	beq :+
-	dec @sz+1
-	bmi @reloc
-:	dec @sz
-	jmp @objloop
+	decw @sz
+	iszero @sz
+	bne @objloop
 
 @reloc:	; then dump the relocation table
+	ldx @cnt
 	lda sections_relocstartlo,x
 	sta @sec
 	lda sections_relocstarthi,x
@@ -656,17 +681,17 @@ __obj_add_reloc:
 	sta @sz
 	lda sections_relocsizehi,x
 	sta @sz+1
-	ldy #$00
+	ora @sz
+	beq @dbgi		; if no relocation table, skip
+
 @relocloop:
+	ldy #$00
 	lda (@sec),y
 	jsr $ffd2
 	incw @sec
-	lda @sz
-	beq :+
-	dec @sz+1
-	bmi @dbgi
-:	dec @sz
-	jmp @relocloop
+	decw @sz
+	iszero @sz
+	bne @relocloop
 
 @dbgi:	; and finally, dump the debug info for the table
 	; TODO:
@@ -674,7 +699,9 @@ __obj_add_reloc:
 @next:	inc @cnt
 	lda @cnt
 	cmp numsections
-	bne @l0
+	beq @done
+	jmp @l0
+@done:	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -698,7 +725,6 @@ __obj_add_reloc:
 	jsr $ffd2
 	lda numsymbols+1
 	jsr $ffd2
-	jmp *
 
 	; write the SECTION headers
 	jsr dump_section_headers
@@ -708,9 +734,8 @@ __obj_add_reloc:
 	jsr dump_imports
 	jsr dump_exports
 
-	; write each SECTION that was built
+	; write each SECTION (object code, relocation data, debug info)
 	jsr dump_sections
 
-	clc			; ok
-@done:	rts
+	RETURN_OK
 .endproc

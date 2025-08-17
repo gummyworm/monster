@@ -326,6 +326,7 @@ main:	jsr key::getch
 
 	jsr cancel		; close errlog (if open)
 	jsr dbgi::init
+	jsr obj::init
 	jsr errlog::clear
 	jsr asm::reset
 
@@ -340,6 +341,8 @@ main:	jsr key::getch
 	jsr asm::include	; assemble the file (pass 1)
 	bcs @done		; error, we're done
 
+	jsr obj::close_section	; close final OBJ section
+
 	; if there were any errors after pass 1, abort
 	lda errlog::numerrs
 	bne @done
@@ -352,6 +355,7 @@ main:	jsr key::getch
 
 	ldxy zp::asmresult
 	jsr dbgi::endblock	; end the final block
+	jsr obj::close_section	; close final OBJ section
 
 @done:	jmp display_result
 .endproc
@@ -391,17 +395,20 @@ main:	jsr key::getch
 ; Assembles the entire source of the active source buffer to an object file
 ; of the given name
 .proc command_asm_obj
+@filename=zp::editortmp
 @fileid=zp::editortmp
+@savename=mem::filename
 	; save the filename
-	txa
-	pha
-	tya
-	pha
+	stxy @filename
+	ldy #$00
+:	lda (@filename),y
+	sta @savename,y
+	beq :+
+	iny
+	cpy #16		; max filename len in CBM DOS
+	bne :-
 
-	; assemble the file to object
-	jsr obj::init
-
-	; assemble obj file to the vmem address $0000
+:	; assemble obj file to the vmem address $0000
 	ldx #$00
 	stx zp::asmresult
 	stx zp::asmresult+1
@@ -411,19 +418,17 @@ main:	jsr key::getch
 	jsr command_asmdbg
 
 	; restore filename
-	pla
-	tay
-	pla
-	tax
+	ldxy #@savename
 
 	php			; save error (.C)
 	jsr irq::off
 	plp			; restore error (.C)
 	bcs @done		; don't write result if assembly failed
-
 	jsr file::open_w	; open the output filename
 	bcs @done
 	sta @fileid
+	tax
+	jsr $ffc9		; CHKOUT, file in .X is output
 
 	ldxy #strings::dumping
 	jsr print_info
@@ -458,6 +463,7 @@ main:	jsr key::getch
 
 	jsr cancel		; close errlog (if open)
 	jsr dbgi::init
+	jsr obj::init
 	jsr errlog::clear
 
 	; save the current source position and rewind it for assembly
@@ -492,11 +498,15 @@ main:	jsr key::getch
 	lda errlog::numerrs
 	bne @done
 
+	jsr obj::close_section	; close final OBJ section
+
 ;--------------------------------------
 ; Pass 2
 ; now we have defined labels and enough debug info to generate both the
 ; program binary and the full debug info (if enabled)
 @pass2: ; set the initial file for debugging
+	; sections are closed by the .SEG directive
+	; need to manually close the last one
 	ldxy #$01
 	stxy asm::linenum
 
@@ -532,6 +542,7 @@ main:	jsr key::getch
 
 @done:	ldxy zp::asmresult
 	jsr dbgi::endblock	; end the final debug info block
+	jsr obj::close_section	; close final OBJ section
 
 	jsr src::popgoto
 	jsr text::restorebuff	; restore the linebuffer

@@ -39,6 +39,9 @@ __mem_rowcolors: .res 24
 .export __mem_rowcolors_save
 __mem_rowcolors_save: .res 24
 
+.export __mem_filename
+__mem_filename: .res 16	; buffer for output file
+
 .export __mem_findbuff
 __mem_findbuff: .res MAX_SEARCH_LEN+1	; +1 for terminating 0
 
