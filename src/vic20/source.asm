@@ -70,13 +70,16 @@ data: .res BUFFER_SIZE
 	incw lines
 	bne :++			; branch always
 :	cmp #$0a
-	beq :+
+	bne :+
+	lda #$0d		; convert $0a to $0d
+	bne :++			; branch always
+:	beq :+
 	cmp #$09
 	beq :+
 	cmp #$20
 	bcc @done
 	cmp #$80
-	bcs @done		; not displayable
+	bcs @done		; not displayable, don't insert
 :	sta24 __src_bank, end
 	incw end
 @done:	RETURN_OK

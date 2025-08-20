@@ -129,23 +129,12 @@ __file_load_src:
 .proc load
 	tax
 	jsr $ffc6	; CHKIN (file in .X now used as input)
-
 @l0: 	jsr $ffb7	; call READST (read status byte)
-	cmp #$00
 	bne @err_or_eof	; either EOF or read error
-	inc $900f
 	jsr $ffcf	; call CHRIN (get a byte from file)
-	dec $900f
-
-	ldy isbin	; skip conversions for binary LOAD
-	bne @put
-	cmp #$0a	; convert LF to CR
-	bne @put
-	lda #$0d
-@put:	jsr putb	; write the byte to source/memory
+	jsr putb	; write the byte to source/memory
 	bcc @l0
 	rts		; failed to write byte return err
-
 @err_or_eof:
 	eor #$40
 	beq @eof	; if EOF, return
@@ -232,7 +221,6 @@ __file_load_src:
 	lda #$00
 	sta __file_eof
 	jsr $ffb7     ; call READST (read status byte)
-	cmp #$00
 	bne @eof      ; either EOF or read error
 	jsr $ffcf     ; call CHRIN (get a byte from file)
 	RETURN_OK
@@ -548,8 +536,8 @@ __file_load_src:
 ;  - .C: set if the byte could not be written to the destination
 .proc putb
 	ldx isbin
-	beq @src
-
+	bne @mem
+@src:	jmp src::insert_on_load
 @mem:	ldxy __file_load_address
 	cmpw __file_load_address_end
 	bcc :+
@@ -573,8 +561,6 @@ __file_load_src:
 	sta (__file_load_address),y
 @done:	incw __file_load_address
 	RETURN_OK
-
-@src:	jmp src::insert_on_load
 .endproc
 
 .BSS
