@@ -50,6 +50,8 @@ SYM_ABS_EXPORT_WORD = 6
 .segment "OBJBSS"
 reloctop: .word 0	; pointer to top of relocation table being built
 
+reloc = zp::link	; when linking, pointer to current relocation
+
 ;*******************************************************************************
 ; SECTIONS
 ; These variables contain the data for the sections
@@ -66,7 +68,9 @@ sections_relocstarthi: .res MAX_SECTIONS
 sections_relocsizelo:  .res MAX_SECTIONS
 sections_relocsizehi:  .res MAX_SECTIONS
 
-numsections: .byte 0	; number of sections in obj file being written
+.export __obj_numsections
+__obj_numsections:
+numsections: .byte 0	; number of sections in obj file being written/read
 
 numsymbols:  .word 0	; number of symbols in obj file being written
 
@@ -357,7 +361,7 @@ __obj_close_section:
 
 	pla			; restore info byte
 	and #$02		; mask "type" bit
-	beq @sym_based		; if !0, write symbol index
+	beq @sym_based		; if 0, write symbol index
 
 @sec_based:
 	lda expr::section
@@ -375,9 +379,10 @@ __obj_close_section:
 	sta (@rel),y		; write symbol-id MSB
 
 @done:  ; update reloctop
+	lda expr::postproc
+	cmp #$01		; set .C if post-processing is used
 	lda #$05
-	clc
-	adc reloctop
+	adc reloctop		; +5 (no post-proc), +6 (post-proc)
 	sta reloctop
 	bcc @ok
 	inc reloctop+1
@@ -418,6 +423,8 @@ __obj_close_section:
 @l0:	ldy #$00
 	sty @symtab+1
 	lda (@reltab),y
+	pha			; save info byte
+
 	and #$02		; mask mode bit
 	bne @next		; if 1-> no symbol
 	ldy #$03
@@ -451,9 +458,11 @@ __obj_close_section:
 	incw @idx
 	incw num_symbols_mapped
 
-@next:	lda @reltab
-	clc
-	adc #$05
+@next:	pla			; restore info byte
+	and #$0c		; mask postproc bits (2, 3)
+	cmp #$01		; set .C if post-processing is used
+	lda @reltab
+	adc #$05		; +5 (no post-proc), +6 (post-proc)
 	tax
 	sta @reltab
 	bcc :+
@@ -738,4 +747,175 @@ __obj_close_section:
 	jsr dump_sections
 
 	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; APPLY RELOCATION
+; Produces the final binary for a section by applying its relocation
+; table to its base object code.
+; IN:
+;   - .A: the index of the section to apply the relocation for
+; OUT:
+;   - .C: set if there is no remaining relocation to apply for the section
+.export __obj_apply_relocation
+.proc __obj_apply_relocation
+@symbol_id=r0
+@tmp=r0
+@addrmode=r2
+@pc=r4
+	ldy #$00
+
+	; get the address mode (size of the target to update)
+	lda (reloc),y	; get the info byte
+	and #$01	; mask size bit
+	sta @addrmode	; and save address mode for later
+
+	; check if we are using a symbol or another section as the base
+	; address for the relocation
+	lda (reloc),y	; get the info byte again
+	and #$02	; mask type bit
+	bne @sec	; 1 = section, 0 = symbol
+
+@sym:	; apply a symbol based relocation
+	ldy #$03		; index to symbol ID LSB
+	lda (reloc),y		; get symbol LSB
+	sta @symbol_id
+	iny			; .Y=4
+	lda (reloc),y		; get symbol MSB
+	sta @symbol_id+1
+
+	; look up the symbol that we mapped for this index
+	lda @symbol_id
+	clc
+	adc #<symbol_index_map
+	tax
+	lda @symbol_id+1
+	adc #>symbol_index_map
+	tay
+
+	; and finally look up the value for the actual symbol
+	CALL FINAL_BANK_MAIN, lbl::by_id
+	stxy @tmp
+	jmp @add_offset		; continue to calculate target address
+
+@sec:	; apply section based relocation
+	ldy #$03		; index to section ID
+	lda (reloc),y
+	jsr get_mapped_section	; look up addr of section mapped to this ID
+
+@add_offset:
+	; add the encoded offset (bytes 1 and 2 of the record) to our base
+	; address to get the relocation target
+	lda @tmp
+	clc
+	ldy #$01
+	adc (reloc),y		; add LSB of offset
+	sta @pc
+	iny
+	lda @tmp+1
+	adc (reloc),y		; add MSB of offset
+	sta @pc+1
+
+@apply_addend:
+	stxy @tmp		; save base address to apply addend to
+
+	ldy #$00
+	lda @addrmode		; get address mode
+	beq @postproc		; if 0 -> apply zeropage relocation
+
+@abs:	lda (@pc),y		; get LSB of addend
+	clc
+	adc @tmp
+	sta (@pc),y		; store LSB of relocated operand
+
+	iny
+	lda (@pc),y
+	clc
+	adc @tmp+1
+	sta (@pc),y		; store MSB of relocated operand
+	jmp @update_reloc
+
+@zp:	lda (@pc),y
+	clc
+	adc @tmp
+	sta @tmp
+
+	lda (reloc),y
+	and #$0c		; is any postproc needed (bit 2 or 3 set)?
+	beq :+
+
+@nopostproc:
+	; no post-processing, just add 1 byte addend and we're done
+	lda @tmp
+	adc (@pc),y
+	sta (@pc),y
+
+@update_reloc:
+	; update the pointer in our relocation table
+	lda reloc
+	clc
+	adc #$05
+	sta reloc
+	bcc :+
+	inc reloc+1
+:	RETURN_OK
+
+@postproc:
+	pha
+	ldy #$05		; offset to addend MSB
+	lda (reloc),y		; get MSB of addend
+	adc @tmp+1
+	sta @tmp+1
+
+	; update relocation address by 6 (5 + 1 for MSB of addend)
+	lda reloc
+	clc
+	adc #$06
+	sta reloc
+	bcc :+
+	inc reloc+1
+
+:	pla
+	cmp #POSTPROC_LSB<<2	; are we taking LSB?
+	beq @postproc_lsb
+@postproc_msb:
+	lda @tmp+1		; get the MSB
+	sta (@pc),y		; and just store the MSB
+
+@postproc_lsb:
+	lda @tmp		; get the LSB
+	sta (@pc),y		; and store the LSB
+@done:	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; GET MAPPED SECTION
+; Returns the address for the given index in the current object file
+; e.g. for an object file with the following section table:
+;   0: "CODE"
+;   1: "DATA"
+; Returns the base address of the "CODE" section at link time.
+; NOTE: the "CODE" section's base address may differ from the base address of
+; the CODE segment as defined in the linker config file.  Only the first "CODE"
+; section will be placed at the defined start address.
+; IN:
+;   - .A: the index of the section
+; OUT:
+;   - .XY: the base address of the section
+.proc get_mapped_section
+	tax
+	ldy sections_startlo,x
+	lda sections_startlo,x
+	tax
+	rts
+.endproc
+
+;*******************************************************************************
+; LOAD
+; Loads the object state for the file with the given filename so that it may
+; be linked.
+.export __obj_load
+.proc __obj_load
+	; TODO:
+	rts
 .endproc

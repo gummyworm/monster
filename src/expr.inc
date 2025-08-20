@@ -11,6 +11,10 @@
 VAL_ABS = 0
 VAL_REL = 1
 
+POSTPROC_NONE = 0
+POSTPROC_LSB  = 1
+POSTPROC_MSB  = 2
+
 .scope expr
 	end_on_ws  = __expr_end_on_whitespace
 	eval       = __expr_eval

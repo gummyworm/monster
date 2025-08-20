@@ -151,12 +151,14 @@ in the section.  Relocations can either be _section-relative_ or _symobl-relativ
 
 The following table describes the relocation format in detail.
 
-| field          | size | description
-|----------------|------|-------------------------------------------------------------------------------------
-| info           |  1   | bitfield of information about the relocation entry
-| offset         |  2   | offset from section to relocate
-| symbol id      |  2   | the symbol index in the symbol table (for symbol-relative relocation) or section for section-relative
-| addend         |  2   | value to add to PC during linkage at relocation address
+| field             | size | description
+|-------------------|------|-------------------------------------------------------------------------------------
+| info              |  1   | bitfield of information about the relocation entry
+| offset            |  2   | offset from section to relocate
+| symbol/section id |  2   | the symbol index in the symbol table (for symbol-relative relocation) or section for section-relative
+| addend MSB*       |  1   | explicit MSB for addend (only when applying post-processing)
+
+\* see details below for when this field is included
 
 `info` is a bitfield with the following values:
 
@@ -175,6 +177,12 @@ Finally, we apply post-processing (bits 2-3) in the info byte, if necessary.
 
 The "addend" is the value stored in the object code as the operand for the instruction we are
 relocating.
+
+The exception is for relocation entries that contain post-processing.  For these,
+the intermediate value may be greater than $ff, so we need to encode a full 16-bit addend for the
+the 1 byte target.  For example: `LDA #<(LABEL + 500)` requires a 16-bit addend (500) to calculate
+the final 8-bit target.  The LSB of this addend is stored in the instruction stream, but the
+MSB is stored in an extra byte at the end of the relocation entry for that record.
 
 ### `DEBUG INFO`
 This table stores the program to evaluate line numbers and addresses within the object file as well as references to which source files were used to create the object file.  This information allows the linker to produce a single mega debug file (or .D file) that contains all the information for the linked program, which allows for source level debugging.

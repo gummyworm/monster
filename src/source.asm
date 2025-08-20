@@ -861,21 +861,6 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 .endproc
 
 ;*******************************************************************************
-; INSERT ON LOAD
-; Inserts a character into a buffer that is known to be "clean"
-; That means the user has not added breakpoints, debug-info, etc.
-; This should be used when loading a source file but not otherwise.
-; The reason this procedure must be used when inserting before the file is
-; loaded is that the association between filename and debug-info doesn't yet
-; exist, but this association is required to do the extra logic in the
-; aforementioned cases.
-.export __src_insert_on_load
-.proc __src_insert_on_load
-	ldx #$01
-	jmp __src_insert
-.endproc
-
-;*******************************************************************************
 ; INSERT_LINE
 ; Inserts the given string into the source at the current cursor position.
 ; IN:

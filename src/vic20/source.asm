@@ -51,6 +51,38 @@ data: .res BUFFER_SIZE
 .endproc
 
 ;*******************************************************************************
+; INSERT ON LOAD
+; Inserts a character into a buffer that is known to be "clean"
+; That means the user has not added breakpoints, debug-info, etc.
+; This should be used when loading a source file but not otherwise.
+; The reason this procedure must be used when inserting before the file is
+; loaded is that the association between filename and debug-info doesn't yet
+; exist, but this association is required to do the extra logic in the
+; aforementioned cases.
+; IN:
+;  - .A: the character to insert
+; OUT:
+;  - .C: set if the character could not be inserted (buffer full)
+.export __src_insert_on_load
+.proc __src_insert_on_load
+	cmp #$0d
+	bne :+
+	incw lines
+	bne :++			; branch always
+:	cmp #$0a
+	beq :+
+	cmp #$09
+	beq :+
+	cmp #$20
+	bcc @done
+	cmp #$80
+	bcs @done		; not displayable
+:	sta24 __src_bank, end
+	incw end
+@done:	RETURN_OK
+.endproc
+
+;*******************************************************************************
 ; INSERT
 ; Adds the character in .A to the buffer at the gap position (gap).
 ; If the character is not valid, it is not inserted, but the operation is

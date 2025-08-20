@@ -11,6 +11,7 @@
 .include "line.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "object.inc"
 .include "string.inc"
 .include "strings.inc"
 .include "util.inc"
@@ -945,115 +946,44 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 ;*******************************************************************************
 ; LINK OBJECT
-; Handles the main block of the object code defintion using the data extracted
-; from the OBJ headers.
+; Produces the final binary for a given object file
+; IN:
+;   - activeobj: the index of the object file to link
 .proc link_object
-	ldx activeobj
+@sec_idx=zp::tmp10
+	lda activeobj
+	jsr obj::load		; load the object file with the given index
 
-@l0:	ldy #$00
-	lda (objptr),y	; get an "instruction" from the OBJ code
-	incw objptr	; move past "opcode"
-	clc
-	beq @done	; if we read a 0, we're at the end of the "program"
+	; iterate over each section and link it: apply relocation, and produce
+	; debug info
 
-	lda @cmdslo,x
-	sta zp::jmpvec
-	lda @cmdshi,x
-	sta zp::jmpvec+1
+@reloc:	; walk the relocation table and apply all relocations
+	lda @sec_idx
+	jsr obj::apply_relocation
+	bcc @reloc
 
-	; run the "instruction"
-	jsr zp::jmpaddr
-	jmp @l0		; continue to the next instruction
-@done:	rts
+@dbgi:	; write the debug information
+	; TODO:
 
-.linecont +
-.define op_vecs set_seg, obj_bytes, obj_rel_byte, obj_rel_word, obj_rel_zp, \
-	obj_rel_abs
-.linecont -
-@cmdslo: .lobytes op_vecs
-@cmdshi: .hibytes op_vecs
+	inc @sec_idx		; next section
+	lda @sec_idx
+	cmp obj::numsections
+	bne @reloc		; repeat for all sections
+@done:	RETURN_OK
 .endproc
 
-;*******************************************************************************
-; OBJ BYTES
-; Handles the OBJ_BYTES command
-; Assembles the bytes that follow to the address of the current segment pointer,
-; which is updated upon doing so
-.proc obj_bytes
-@ptr=r0
-@cnt=r2
-	ldy #$00
-	lda (objptr),y ; read the number of bytes to output
-	sta @cnt
-
-	incw objptr
-	lda (objptr),y ; read the number of bytes to output (hi)
-	sta @cnt+1
-
-	incw objptr
-
-@l0:	lda (objptr),y	; get the byte to write to the binary
-	sta (segptr),y	; output the byte from the object file
-	incw segptr
-	incw objptr
-	decw @cnt
-	bne @l0
-
-	rts
-.endproc
-
-;*******************************************************************************
-; OBJ REL BYTE
-.proc obj_rel_byte
-.endproc
-
-;*******************************************************************************
-; OBJ REL ZP
-.proc obj_rel_zp
-.endproc
-
-;*******************************************************************************
-; OBJ REL ABS
-.proc obj_rel_abs
-.endproc
-
-;*******************************************************************************
-; OBJ REL WORD
-; Handles the OBJ_REL_WORD command
-; Inserts a WORD with the value of the symobl that follows + an offset to
-; the current address of the segment pointer
-; A textual representation of this command looks like this:
-;  `RW LABEL 12`
-; LABEL is defined in the IMPORT section for the object code, so its binary
-; representation refers to the offset in the IMPORT table
-; The binary representation of the above command looks like this:
-;  ` $02 $0030 $0c`
-.proc obj_rel_word
-@tmp=r0
-	ldy #$00
-	lda (objptr),y
-	sta @tmp
-	incw objptr
-	lda (objptr),y
-	sta @tmp+1
-	incw objptr
-
-	; add the offset
-	lda (objptr),y
-	clc
-	adc @tmp
-	sta (segptr),y
-	iny
-	lda (objptr),y
-	adc @tmp+1
-	sta (segptr),y
-
-	; update object code and segment pointers
-	incw objptr
-	incw segptr
-	incw objptr
-	incw segptr
-	rts
+;******************************************************************************
+; LOAD OBJ
+; Loads the object file with the given id.
+; IN:
+;   - .A: the ID of the object file to load
+; OUT:
+;   - .A: error code (on failure)
+;   - .C: set if the file failed to load
+.proc load_obj
+	; load the file into the object buffer
+	; TODO:
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -1312,7 +1242,6 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 @found: lda @cnt
 	RETURN_OK
 .endproc
-
 
 ;*******************************************************************************
 ; READ KEY
