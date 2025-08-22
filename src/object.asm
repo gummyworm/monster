@@ -80,6 +80,7 @@ numsymbols:  .word 0	; number of symbols in obj file being written
 ; label to (see labels.asm)
 ; This lets us emit a more compact list of only symbols that are used
 ; If the symbol is unused, we store $ff
+; The indexes in this array represent the id of the symbol at assembly time
 .export symbol_index_map
 symbol_index_map: .res MAX_LABELS*2
 
@@ -105,12 +106,27 @@ num_reloctables_mapped: .byte 0
 ; This gives us enough information to lookup the addresses of global symbols
 ; and also to provide that information to other assembly units.
 
+symbol_sections: .res MAX_IMPORTS+MAX_EXPORTS
+symbol_offsets:  .res MAX_IMPORTS+MAX_EXPORTS
 
 ;*******************************************************************************
 ; EXPORTS
-export_indexes_lo: .res MAX_EXPORTS	; LSB index in symbol table for exports
-export_indexes_hi: .res MAX_EXPORTS	; MSB index in symbol table for exports
-numexports:        .byte 0
+; We store the id's for each export defined so that we can find its name when we
+; dump the object file
+numexports: .byte 0
+export_label_idslo: .res MAX_EXPORTS	; LSB of label ID for exports
+export_label_idshi: .res MAX_EXPORTS	; MSB of label ID for exports
+
+;*******************************************************************************
+; IMPORTS
+; We store the id's for each import defined so that we can find its name when we
+; dump the object file as well as the section in the symbol_index_map so that
+; we know how to use
+numimports: .word 0
+import_label_idslo: .res MAX_EXPORTS	; LSBs of label ID for imports
+import_label_idshi: .res MAX_EXPORTS	; MSBs of label ID for imports
+import_indexeslo:   .res MAX_EXPORTS	; LSBs for index (in symbol_index_map)
+import_indexeshi:   .res MAX_EXPORTS	; MSBs for index (in symbol_index_map)
 
 ;*******************************************************************************
 ; RELOC TABLES
@@ -509,7 +525,7 @@ __obj_close_section:
 	ldxy @i
 	CALL FINAL_BANK_MAIN, lbl::getsection	; get section
 	jsr $ffd2				; write section out
-	CALL FINAL_BANK_MAIN, lbl::by_id	; get address
+	CALL FINAL_BANK_MAIN, lbl::by_id	; get address offset
 	txa
 	jsr $ffd2				; write offset LSB
 	tya
@@ -540,8 +556,47 @@ __obj_close_section:
 ; They are indentified by a SEC_UNDEF section index in the relocation tables at
 ; link time
 .proc dump_imports
-	; TODO:
-	RETURN_OK
+@i=r0
+@idx=r2
+@buff=$100
+	lda #$00
+	sta @i
+	sta @i+1
+	cmp numimports
+	beq @done			; if no imports -> done
+
+@l0:	; get the symbol name
+	ldxy #@buff
+	stxy r0
+	ldx @i
+	ldy import_indexeshi,x		; get LSB of index for symbol
+	sty @idx+1
+	lda import_indexeslo,y		; get MSB of index for symbol
+	sta @idx
+	CALL FINAL_BANK_MAIN, lbl::getname
+
+	; write out the name
+	ldy #$00
+:	lda @buff,y
+	jsr $ffd2
+	cmp #$00
+	beq @cont
+	iny
+	bne :-
+
+@cont:	; write the object-local index for the import
+	lda @idx	; restore index LSB
+	jsr $ffd2	; and write it
+	ldy @idx	; and MSB
+	jsr $ffd2
+
+	; next symbol
+	incw @i
+	ldxy @i
+	cmpw numimports
+	bne @l0
+
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -551,23 +606,20 @@ __obj_close_section:
 ; Exports may or may not be referenced within the object code
 ; They must be explicitly mapped to the object code by a ".EXPORT" directive
 .proc dump_exports
-@dumpnames:
 @i=r0
 @buff=$100
 	lda #$00
 	sta @i
-	sta @i+1
 	cmp numexports
 	beq @done			; if no exports -> done
 
-@l0:	; get the symbol name
+@l0:	; get the symbol name by looking up its label ID
 	ldxy #@buff
 	stxy r0
-	ldy @i
-	lda export_indexes_lo,y
+	ldx @i
+	ldy export_label_idshi,x	; get LSB of index for symbol
+	lda export_label_idslo,y	; get MSB of index for symbol
 	tax
-	lda export_indexes_hi,y
-	tay
 	CALL FINAL_BANK_MAIN, lbl::getname
 
 	; write out the name
@@ -730,9 +782,11 @@ __obj_close_section:
 
 	lda numsections			; # of sections
 	jsr $ffd2
-	lda numsymbols			; # of symbols
+	lda numsymbols			; # of symbols (LSB)
 	jsr $ffd2
-	lda numsymbols+1
+	lda numsymbols+1		; # of symbols (MSB)
+	jsr $ffd2
+	lda numexports			; # of EXPORTs
 	jsr $ffd2
 
 	; write the SECTION headers
@@ -913,9 +967,149 @@ __obj_close_section:
 ;*******************************************************************************
 ; LOAD
 ; Loads the object state for the file with the given filename so that it may
-; be linked.
+; be linked. A preliminary pass is assumed to have taken place (e.g. labels
+; created for any IMPORTs used in the program being linked)
 .export __obj_load
 .proc __obj_load
-	; TODO:
-	rts
+@cnt=r0
+@seccnt=r2
+@sec_idx=r4
+@sym_idx=r4
+@name=r6
+@lbl=r6
+@symcnt=r8
+@importcnt=ra
+@symoff=rc
+@symsec=re
+@namebuff=$100
+	; read number of sections
+	jsr $ffb7	; READST (read status byte)
+	beq :+
+	rts		; either EOF or error
+
+:	jsr $ffcf	; CHRIN (get a byte from file)
+	sta numsections
+	sta @seccnt
+
+	; read number of symbols
+	jsr $ffcf		; get # of symbols LSB
+	sta numsymbols
+	sta @symcnt
+	jsr $ffcf		; get # of symbols MSB
+	sta numsymbols+1
+	sta @symcnt+1
+
+	ldxy #symbol_sections
+	sta @symsec
+	ldxy #symbol_offsets
+	sta @symoff
+
+@load_symbols:
+	jsr $ffcf		; get section ID for symbol
+	ldy #$00
+	sta (@symsec),y
+
+	; get offset for the symbol
+	jsr $ffcf
+	ldy #$00
+	sta (@symoff),y		; LSB
+	jsr $ffcf
+	ldy #$00
+	sta (@symoff),y		; MSB
+
+	; next label
+	incw @symsec
+	incw @symoff
+	incw @symoff
+
+	decw @symcnt
+	iszero @symcnt
+	bne @load_symbols
+
+@load_imports:
+	; get the name of a symbol
+	ldx #$00
+:	jsr $ffcf
+	sta @namebuff,x
+	beq @mapimport
+	inx
+	bne :-
+
+@mapimport:
+	; look up the import's offset and section by name
+	; imports/exports are added as labels by the linker in its first pass
+	ldxy #@namebuff
+	CALL FINAL_BANK_MAIN, lbl::find
+	stxy @lbl
+	CALL FINAL_BANK_MAIN, lbl::addr	; get section offset
+	tya
+	ldy #$01
+	sta (@symoff),y		; store MSB of offset
+	dey
+	txa
+	sta (@symoff),y		; store LSB of offset
+	ldxy @lbl
+	CALL FINAL_BANK_MAIN, lbl::getsection
+	ldy #$00
+	sta (@symsec),y
+	incw @symoff
+	incw @symoff
+	incw @symsec
+
+	decw @importcnt
+	iszero @importcnt
+	bne @mapimport
+
+	; skip over exports (not needed when loading obj file for linking)
+
+@load_sections:
+	lda #$00
+	sta @sec_idx
+	cmp @seccnt
+	beq @done	; if no sections, we're done
+
+	lda #<sections_segments
+	sta @name
+	lda #>sections_segments
+	sta @name+1
+@load_section:
+	ldy #$00
+
+; read the name for the section
+@secname:
+	sty @cnt
+	jsr $ffcf
+	ldy @cnt
+	sta (@name),y
+	iny
+	cpy #MAX_SECTION_NAME_LEN
+	bne @secname
+
+	lda @name
+	;sec
+	adc #MAX_SECTION_NAME_LEN-1	; -1 for .C set
+	sta @name
+	bcc @secsizes
+	inc @name+1
+
+; read the size of each section
+@secsizes:
+	ldx @sec_idx
+	jsr $ffcf			; get section size LSB
+	sta sections_sizelo,x
+	jsr $ffcf			; get section size MSB
+	sta sections_sizehi,x
+	jsr $ffcf
+	sta sections_relocsizelo,x	; get relocation table size LSB
+	jsr $ffcf
+	lda sections_relocsizehi,x	; get relocation table size MSB
+
+	jsr $ffb7			; READST
+	bne @eof			; either EOF or read error
+
+	dec @seccnt			; decrement section counter
+	bne @load_section		; repeat for all sections
+
+@done:	clc
+@eof:	rts
 .endproc

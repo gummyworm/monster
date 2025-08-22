@@ -78,6 +78,8 @@ This makes it easy to determine how much space to allocate at link time.
 |------|---------------------------------------------------------
 |   1  | number of sections used
 |   2  | number of symbols in object file
+|   1  | number of exports in object file
+|   2  | number of imports in object file
 
 
 #### SECTION HEADER
@@ -105,23 +107,48 @@ The SECTION. The linker will concatenate all the SECTIONs that reference the sam
 |   2  | size in bytes
 
 
-#### SYMBOLS
+### SYMBOLS
 Next is the _symbol_ table. This table contains all labels that are used in the object file.
-Symbols that are marked as "GLOBAL" must be resolved at link time.
 
-The symbol table begins with a metadata table followed by the symbols themselves.
+The symbol table contains three parts: locals, imports, and exports.
+
+#### LOCAL SYMBOLS
+Local symbols are the ones referenced in the relocation table(s) for the object file.
+The name "local" is somewhat misleading because imported (global) symbols will reside in here as well.  These are identifiable by the "section" value: `SEC_UNDEF`.
+
+The local symbol table begins with a metadata table followed by the symbols themselves.
 
 | size | field   | description
 |------|---------|--------------------------------------------------------------
 |   1  | section | ID (index in SECTIONS block)
 |   2  | address | (absolute or offset from section within its object file)
 
-"type" is set to GLOBAL if an "IMPORT" was found for the symbol in pass 1 of the assembly, LOCAL if it was
-defined in pass 1, and ABSOLUTE if a `.eq` directive was found for it in pass 1.
+"section ID" is set to the ID of the SECTION that corresponds to the latest `.SEG` directive.
+The value $ff means `ABSOLUTE`.  Symbols with this section are constants- their address is not relative to any section.
 
-"section ID" is set to the ID of the SECTION that corresponds to the latest `.SEG` directive
+"address" contains the offset from that section (or the value if section is `ABSOLUTE`)
 
-And "address" contains the offset from that section (or the value if "type" is `ABSOLUTE`)
+#### IMPORTS
+The "IMPORTS" block of symbols contains the names of all symbols imported by the objet file and their index in the "LOCALS" table.
+
+Since these are external, we don't know what their index will be when we generate the object code.  Instead they're identified by name.
+
+Resolving these names to their section/offset occurs by reading the EXPORTS block for all object files, which is done in the linker's _first_ pass.
+The linker will then map the resolved section/address to the corresponding index for the symbol in the "LOCALS" block.  This map index is stored in this table as well.  This mapping happens in the linker's _second_ pass.
+
+| size  |  field   |  description
+|-------|----------|----------------------------------------------
+| 1-33  |  name    | the symbol name as a 0-terminated string
+|   2   |  index   | the index used for this symbol in the "locals" table
+
+#### EXPORTS
+The "EXPORTS" block defines symbols that are used (or may be used) in other object files.  They tell the linker where to define the labels that will be used during linkage.
+
+| size   | field  | description
+|--------|---------|------------------------------------------------
+|  1-33  | name    | the name of the symbol as a 0-terminated string
+|  2     | section | the index of the section in this object file the symbol is defined in
+|  2     | offset  | the offset of the symbol within the section
 
 ### SECTIONS
 Following the symbol table is a list of one or more SECTIONs (the number is defined in the .O file header).
