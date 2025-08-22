@@ -211,7 +211,7 @@ the 1 byte target.  For example: `LDA #<(LABEL + 500)` requires a 16-bit addend 
 the final 8-bit target.  The LSB of this addend is stored in the instruction stream, but the
 MSB is stored in an extra byte at the end of the relocation entry for that record.
 
-### `DEBUG INFO`
+### DEBUG INFO
 This table stores the program to evaluate line numbers and addresses within the object file as well as references to which source files were used to create the object file.  This information allows the linker to produce a single mega debug file (or .D file) that contains all the information for the linked program, which allows for source level debugging.
 
 The format for debug information is described in further detail in debug-info.md.
@@ -219,16 +219,19 @@ The format for debug information is described in further detail in debug-info.md
 ---
 
 ### LINK PROCESS OVERVIEW
-#### To link multiple object files the linker follows the following procedure:
-* Parse link file
- * get section addresses (where to assemble the object code)
-* Read SEGMENT header
-  * for each section used in object file: calculate start addresses per object file and total section sizes
-  * in order defined by link file, set section start addresses to SECTION start + size of all preceding sections
-* Build global symbol table from symbol tables in each object file
-   * if a new symbol is encountered, add it to global symbol table
-   * if a an existing symbol is encountered, update its status: unresolved, resolved, conflicting (two defintions)
-* Peroform relocatation
-   * for each section, walk relocation tables and apply the relocation
+To link multiple object files the linker follows the following procedure:
+* Parse link config file
+ * Get section addresses (where to assemble the object code)
+* Pass 1: build link context
+  * Read all SECTION headers from object files
+      * In order defined by link file, set section start addresses to SECTION start + size of all preceding sections Read SEGMENT header
+    * Build global symbol table
+       * Read EXPORT table in each object file
+       * Add name, section, and section offset for each EXPORT
+* Pass 2: link objects
+    * Build object-local context
+       * Build map of symbol index to their values using global symbol table
+    * Store object code to the current address for each section
+    * Walk relocation table, for each section, and apply the the relocations described using the global symbol table
 * Validate
   * make sure sections don't overlap

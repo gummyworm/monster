@@ -1,9 +1,11 @@
 ## EDITOR OVERVIEW
 
-The editor provideds powerful facilities for editing programs for Monster.
+The editor provideds powerful facilities for loading, saving, and modifying your source code.
 Text is displayed in a 40 column bitmap to provide a higher density interface.
 
 Navigation will be familiar to vi users.  There are also a variety of commands to handle things like assembly, disassembly, etc.
+
+As with all work you do on your Vic-20, save often.
 
 ### COMMAND SHORTCUTS
 
@@ -266,6 +268,11 @@ of text (22 rows and 40 columns).
 Because the editor is limited to 40 columns in width, the first and last lines are handled
 specially.  If the first line will not fit, the paste is aborted.  If the last line will not
 fit, it is broken into two lines.
+
+### LINE ENDINGS
+
+Files are stored with $0d line endings, but file saved with UNIX
+style line-endings ($0a), will automatically converted when the file is loaded.
 
 ### JUMP LISTS
 When the user "jumps" to a different position in the source (`gg`, `G`, `goto line`,

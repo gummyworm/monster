@@ -146,6 +146,7 @@ commands, Go will _not_ simulate anything.  Control is given entirely over
 to the user program.  This could be dangerous, but is likely necessary in many
 cases.  A nearly finished game, for example, will require the user gives over
 control to the program in order to play that game.
+That said, take caution when using this command and **expect to lose any unsaved state**
 
 #### NOTES ON MEMORY SWAPPING
 

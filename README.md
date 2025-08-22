@@ -120,7 +120,6 @@ To build the disk version, run
 To build the cart version, run
 `make cart`
 
-
 ---
 
 ### EXAMPLE PROGRAM
@@ -150,56 +149,3 @@ DISP:
 DONE:
   JMP DONE
 ```
-
----
-
-### SOURCE FILES
-
-Monster holds the active source file in memory (for editing), but assembles
-all included files directly from file.
-Files are stored with $0d line endings, but if you save your file with UNIX
-style line-endings ($0a), they will be automatically converted when the file is
-read in.
-
-As with any work done with Commodore disk I/O, it is wise to regularly back up your files
-
----
-
-### LIMITATIONS
-
-#### MEMORY USAGE
-
-The user program may use all available memory from $00 to $7fef. The $11 bytes above $7fef are reserved
-for the debugger.  If your program needs these, you can still assemble to them, but you will not be
-able to use the debugger.
-
-### BEST PRACTICES
-
-Although Monster is designed to feel modern in all ways, it is, at the end of
-the day, running on a computer from 1981.
-
-By following the following practices,
-you should have a smooth experience without running into some of the
-limitations that you may hit if you are unconcious about them.
-
-#### USE ANONYMOUS LABELS
-
-Anonymous labels take up no space for the label names, only address.  Using
-them is much more efficient than labels, and so this should be done for short
-branches that don't require much description.  Using too many labels, in the
-extreme case, can push your program over the symbol limit.
-
-#### BE CAREFUL WITH "GO"
-
-When debugging, you may be tempted to use the "GO" command to test your program.
-Be careful when doing so.
-If the CPU encounters a JAM instruction there is no way to recover.
-When stepping or tracing, the debugger will take care to ensure that no JAMs are executed.
-
-For things that cannot be traced, like cycle-based effects, you will need to
-give full control to the user program to get rid of the the overhead tracing introuduces.
-In these cases, you can press RESTORE to return to the debugger (assuming the user program
-has not overwritten the NMI vector at $0318 or disabled NMIs).
-
-In the event of a JAM or an unreoverable state (NMI disabled or vector overwritten), you
-will need to reset the machine.  Save often.

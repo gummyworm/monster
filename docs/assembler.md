@@ -395,3 +395,19 @@ There is also a 128 macro limit.
 Each macro can be at most 16 lines or 512 bytes, whichever is lower. This restriction also applies to .REP.
 
 Comments are excluded from the internal context buffer, so using them will not count toward the byte limit.
+
+### OTHER LIMITATOINS/GUIDELINES
+
+#### MEMORY USAGE
+
+The user program may use all available memory from $00 to $7fef. The $11 bytes above $7fef are reserved
+for the debugger.  If your program needs these, you can still assemble to them, but you will not be
+able to use the debugger.
+
+#### USE ANONYMOUS LABELS
+
+Anonymous labels take up no space for the label names, only address.  Using
+them is much more efficient than labels, and so this should be done for short
+branches that don't require much description.  Using too many labels, in the
+extreme case, can push your program over the symbol limit.
+
