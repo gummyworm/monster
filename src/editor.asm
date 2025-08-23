@@ -3183,8 +3183,6 @@ goto_buffer:
 	sta zp::cury		; reset cursor
 	jsr src::setflags	; clear flags on the source buffer
 
-	jsr src::rewind		; rewind the source
-
 	jsr refresh
 	jsr text::clrinfo
 	jsr cancel

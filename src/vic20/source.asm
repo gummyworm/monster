@@ -50,40 +50,6 @@ data: .res BUFFER_SIZE
 	rts
 .endproc
 
-;*******************************************************************************
-; INSERT ON LOAD
-; Inserts a character into a buffer that is known to be "clean"
-; That means the user has not added breakpoints, debug-info, etc.
-; This should be used when loading a source file but not otherwise.
-; The reason this procedure must be used when inserting before the file is
-; loaded is that the association between filename and debug-info doesn't yet
-; exist, but this association is required to do the extra logic in the
-; aforementioned cases.
-; IN:
-;  - .A: the character to insert
-; OUT:
-;  - .C: set if the character could not be inserted (buffer full)
-.export __src_insert_on_load
-.proc __src_insert_on_load
-	cmp #$0d
-	bne :+
-	incw lines
-	bne :++			; branch always
-:	cmp #$0a
-	bne :+
-	lda #$0d		; convert $0a to $0d
-	bne :++			; branch always
-:	beq :+
-	cmp #$09
-	beq :+
-	cmp #$20
-	bcc @done
-	cmp #$80
-	bcs @done		; not displayable, don't insert
-:	sta24 __src_bank, end
-	incw end
-@done:	RETURN_OK
-.endproc
 
 ;*******************************************************************************
 ; INSERT
@@ -289,6 +255,46 @@ data: .res BUFFER_SIZE
 	ldx #FINAL_BANK_MAIN
 	stx $9c02
 	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; INSERT ON LOAD
+; Inserts a character into a buffer that is known to be "clean"
+; That means the user has not added breakpoints, debug-info, etc.
+; This should be used when loading a source file but not otherwise.
+; The reason this procedure must be used when inserting before the file is
+; loaded is that the association between filename and debug-info doesn't yet
+; exist, but this association is required to do the extra logic in the
+; aforementioned cases.
+; IN:
+;  - .A: the character to insert
+; OUT:
+;  - .C: set if the character could not be inserted (buffer full)
+.export __src_insert_on_load
+.proc __src_insert_on_load
+	cmp #$0a
+	bne :+
+	lda #$0d
+:	cmp #$0d
+	bne :+
+	incw lines
+	bne @store		; branch always
+
+:	cmp #$09
+	beq @store
+	cmp #$20
+	bcc @done
+	cmp #$80
+	bcs @done		; not displayable, don't insert
+
+@store:	ldy __src_bank
+	sty $9c02
+	ldy #$00
+	sta (end),y
+	incw end
+	ldy #FINAL_BANK_MAIN
+	sty $9c02		; switch back to main bank
+@done:	RETURN_OK
 .endproc
 .POPSEG
 
