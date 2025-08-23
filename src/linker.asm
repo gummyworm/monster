@@ -918,8 +918,11 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 	; load each .O (object) file
 
-	; extract header data foreach file and update pointers to each file
+	; pass 1:
+	; Extract header data foreach file and update pointers to each file
 	; to the main block of the .O file
+	; Also define labels for the globals (IMPORT/EXPORT blocks) defined
+	; in each object file
 	jsr extract_headers
 
 	; now that we have the sizes of each SEGMENT, build the start

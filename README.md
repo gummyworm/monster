@@ -21,6 +21,7 @@ Some of its features are:
  - 40 column bitmap-based editor
  - vi-like keybindings
  - interactive source-level debugger
+ - linker
  - breakpoint editor
  - memory viewer/editor
  - robust label support (including anonymous and local)
@@ -42,6 +43,8 @@ linked below.
  **[Debugger](docs/debugger.md)**
 
  **[Monitor](docs/monitor.md)**
+
+ **[Linker](docs/linker.md)**
 
 ---
 

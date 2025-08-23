@@ -169,6 +169,8 @@ __obj_close_section:
 	sta numsections
 	sta numsymbols
 	sta numsymbols+1
+	sta numimports
+	sta numimports+1
 	sta numexports
 	sta num_symbols_mapped
 	sta num_symbols_mapped+1
@@ -562,7 +564,7 @@ __obj_close_section:
 	lda #$00
 	sta @i
 	sta @i+1
-	cmp numimports
+	iszero numimports
 	beq @done			; if no imports -> done
 
 @l0:	; get the symbol name
@@ -724,13 +726,13 @@ __obj_close_section:
 
 @objloop:
 	; dump the object code for the section
-	ldxy @sec
+	ldxy @sec				; address to load
 	CALL FINAL_BANK_MAIN, vmem::load	; load a byte of object code
-	jsr $ffd2
+	jsr $ffd2				; and dump it
 	incw @sec
 	decw @sz
 	iszero @sz
-	bne @objloop
+	bne @objloop				; repeat til done
 
 @reloc:	; then dump the relocation table
 	ldx @cnt
@@ -745,8 +747,8 @@ __obj_close_section:
 	ora @sz
 	beq @dbgi		; if no relocation table, skip
 
-@relocloop:
 	ldy #$00
+@relocloop:
 	lda (@sec),y
 	jsr $ffd2
 	incw @sec
