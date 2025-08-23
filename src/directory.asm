@@ -7,6 +7,7 @@
 .include "config.inc"
 .include "draw.inc"
 .include "edit.inc"
+.include "errors.inc"
 .include "file.inc"
 .include "irq.inc"
 .include "key.inc"
@@ -40,9 +41,8 @@
 @scrollmax=rd		; maximum amount to allow scrolling
 @scroll=re
 @dirbuff=mem::spare+42		; 0-40 will be corrupted by text routines
-				; 40-41 is load address
 @namebuff=mem::spareend-40	; buffer for the file name
-@fptrs=mem::spareend-(128*2)	; room for 128 files
+@fptrs=@namebuff-(128*2)	; room for 128 files
 	jsr irq::off
 
 	ldxy #strings::dir
@@ -54,10 +54,9 @@
 	; load the directory into dirbuff
 :	ldxy #@dirbuff-2
 	stxy file::loadaddr
-	ldxy #@namebuff
+	ldxy #@fptrs
 	stxy file::load_address_end
 	jsr file::loadbin
-
 	php			; save error bit (.C)
 	lda @file
 	jsr file::close		; close the directory file
@@ -138,7 +137,7 @@
 	bne :+
 	iny
 	lda (@line),y
-	beq @cont
+	beq @cont	; 0,0 -> we're done
 
 :	; @line += 2
 	lda @line
@@ -158,7 +157,9 @@
 
 :	; next line
 	inc @cnt
-	bne @l0			; branch always
+	bpl @l0
+	bmi @exit		; only 127 files allowed
+				; TODO: report this error better
 
 @cont:	; max a user can scroll is (# of files - SCREEN_HEIGHT-1)
 	ldx #$00
