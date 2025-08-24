@@ -367,7 +367,7 @@ main:	jsr key::getch
 .proc command_link
 @file=r8
 @linkbuffer=mem::spare
-@objlist=mem::spare
+;@objlist=mem::spare
 	CALL FINAL_BANK_LINKER, link::init
 
 	jsr irq::off
@@ -375,7 +375,6 @@ main:	jsr key::getch
 	; parse the LINK file to setup the linking context
 	ldxy #strings::link
 	CALL FINAL_BANK_LINKER, link::parse
-	jmp *
 	bcs @done				; error
 
 	; link the object files
@@ -390,6 +389,10 @@ main:	jsr key::getch
 	; display the success/failure
 
 @done:	jmp irq::on
+
+; TODO: don't hardcode
+@objlist:
+.byte "hello.o",0,0
 .endproc
 
 ;******************************************************************************

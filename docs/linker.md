@@ -1,26 +1,20 @@
-## LINKER TECHNICAL DETAILS
+## LINKER OVERVIEW
 
 The linker is responsible for taking a number of _object_ files and turning them into a
 single executable binary file.
 
-### OBJECT FORMAT
-Object files are composed of four main blocks.
-
-A header, a symbol map, and finally the object code: a list of instructions that tell the linker
-what to emit to the binary output file.
-
 ### LINK FILE FORMAT
-The link file is responsible for producing the desired layout for the binary program.
+The LINK file is responsible for producing the desired layout for the binary program.
 Segment usage is defined in the object files and is always relative.  The section
 definition is absolute and tells the linker where to place the segments.
 
-The link file contains two blocks of definitions for these two concepts.
-The `MEMORY` block defines all the _sections_.
-The `SEGMENTS` block defines how the segments defined in the object code map to the memory sections.
+The link file contains two "blocks" of definitions for these two concepts:
+  - `MEMORY` - defines the section sizes and properties
+  - `SEGMENTS` - defines how the segments defined in the object code map to the memory sections.
 
 The link file must always be named "LINK". Therefore, only 1 link file
-may exist on a given disk.  This is the file that the linker will
-look for to set up the MEMORY and SEGMENTS prior to linking the object files.
+may exist on a given disk. The linker loads this file before beginning the link process and uses it to build the layout for the
+final linked binary.
 
 #### EXAMPLE
 Below is a simple example to demonstrate the link configuration file format
@@ -55,10 +49,29 @@ Note that any nonzero value for these flags will enable them while the zero valu
 |------|--------------------------------------------------------------
 | FILL |  if '1' fills unused memory in the section with 0's
 
+---
+
+### LINK PROCESS OVERVIEW
+To link multiple object files the linker follows the following procedure:
+* Parse link config file
+ * Get section addresses (where to assemble the object code)
+* Pass 1: build link context
+  * Read all SECTION headers from object files
+      * In order defined by link file, set section start addresses to SECTION start + size of all preceding sections Read SEGMENT header
+    * Build global symbol table
+       * Read EXPORT table in each object file
+       * Add name, section, and section offset for each EXPORT
+* Pass 2: link objects
+    * Build object-local context
+       * Build map of symbol index to their values using global symbol table
+    * Store object code to the current address for each section
+    * Walk relocation table, for each section, and apply the the relocations described using the global symbol table
+* Validate
+  * make sure sections don't overlap
 
 ----
 
-## OBJECT FILE FORMAT
+### OBJECT FILE FORMAT
 Below is a description of the object file's components.  These are listed in the order they appear in the object file.  These are described in further depth in the rest of this document.
 
 | field          | description
@@ -69,7 +82,7 @@ Below is a description of the object file's components.  These are listed in the
 | SECTIONS       | .CODE, .REL, and .DEBUGINFO, tables (per SECTION)
 
 
-### HEADER
+#### HEADER
 At thet beginning of the object file is the _header_, which gives basic details about the object file.  The header simply tells us how many sections and symbols are defined in the object file.
 The linker uses the header in each object file to determine the final layout in pass 1.
 
@@ -232,23 +245,3 @@ this special case the MSB is stored in an extra byte at the end of the relocatio
 This table stores the program to evaluate line numbers and addresses within the object file as well as references to which source files were used to create the object file.  This information allows the linker to produce a single mega debug file (or .D file) that contains all the information for the linked program, which allows for source level debugging.
 
 The format for debug information is described in further detail in [debug-info.md](debug-info.md).
-
----
-
-### LINK PROCESS OVERVIEW
-To link multiple object files the linker follows the following procedure:
-* Parse link config file
- * Get section addresses (where to assemble the object code)
-* Pass 1: build link context
-  * Read all SECTION headers from object files
-      * In order defined by link file, set section start addresses to SECTION start + size of all preceding sections Read SEGMENT header
-    * Build global symbol table
-       * Read EXPORT table in each object file
-       * Add name, section, and section offset for each EXPORT
-* Pass 2: link objects
-    * Build object-local context
-       * Build map of symbol index to their values using global symbol table
-    * Store object code to the current address for each section
-    * Walk relocation table, for each section, and apply the the relocations described using the global symbol table
-* Validate
-  * make sure sections don't overlap

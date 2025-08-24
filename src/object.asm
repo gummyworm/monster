@@ -967,6 +967,41 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
+; LOAD HEADERS
+; Extracts the section usage and global symbols for the given object file.
+; This is called by the linker for each object file to build the global link
+; state.
+.export __obj_load_headers
+.proc __obj_load_headers
+@cnt=r0
+@seccnt=r2
+@sec_idx=r4
+@sym_idx=r4
+@name=r6
+@lbl=r6
+@symcnt=r8
+@importcnt=ra
+@symoff=rc
+@symsec=re
+@namebuff=$100
+	jsr $ffb7		; READST (read status byte)
+	beq :+
+	sec
+	rts			; err or EOF
+:	jsr $ffcf		; load byte
+	sta numsections
+	sta @seccnt
+
+	; read number of symbols
+	jsr $ffcf		; get # of symbols LSB
+	sta numsymbols
+	sta @symcnt
+	jsr $ffcf		; get # of symbols MSB
+	sta numsymbols+1
+	sta @symcnt+1
+.endproc
+
+;*******************************************************************************
 ; LOAD
 ; Loads the object state for the file with the given filename so that it may
 ; be linked. A preliminary pass is assumed to have taken place (e.g. labels
@@ -987,6 +1022,7 @@ __obj_close_section:
 	; read number of sections
 	jsr $ffb7	; READST (read status byte)
 	beq :+
+	sec
 	rts		; either EOF or error
 
 :	jsr $ffcf	; CHRIN (get a byte from file)

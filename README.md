@@ -126,9 +126,7 @@ To build the cart version, run
 ---
 
 ### EXAMPLE PROGRAM
-
-Here is a basic hello world program to demonstrate some of the Monster assembler's
-features:
+Here is a simple hello world program to demonstrate the basic syntax of the assembler:
 
 ```
 .ORG $1400

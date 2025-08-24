@@ -440,8 +440,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	beq @read_block
 
 	; done, make sure rest of file is whitespace
-	ldy #$00
-:	lda (zp::line),y
+:	ldy #$00
+	lda (zp::line),y
 	jsr is_ws
 	bne @unexpected_char
 	incw zp::line
@@ -582,9 +582,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @l0:	lda (zp::line),y
 	bne :+
 @err:   RETURN_ERR ERR_UNEXPECTED_CHAR	; line ended without ':'
-:	cmp #$0d
-	beq @err
-	cmp #$0a
+:	jsr is_newl
 	beq @err
 	cmp #':'
 	beq @cont			; found end of section name
@@ -743,9 +741,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @l0:	lda (zp::line),y
 	bne :+
 @err:   RETURN_ERR ERR_UNEXPECTED_CHAR	; line ended without ':'
-:	cmp #$0d
-	beq @err
-	cmp #$0a
+:	jsr is_newl
 	beq @err
 	cmp #':'
 	beq @cont			; found end of section name
@@ -896,8 +892,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;  - .C: set on error
 .export __link_link
 .proc __link_link
-@filename=zp::link
-	stxy @filename
+@outfile=zp::link
+@objfile=zp::link+2	; pointer to current object file being linked
+	stxy @outfile
 
 	; init the segment/section pointers using the current linker state
 	; (parsed from the LINK file prior to calling this procedured)
@@ -905,7 +902,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	bne @initsegments
 
 	sec		; no segments defined; return error
-	rts
+@ret:	rts
 
 @initsegments:
 	dex
@@ -917,14 +914,39 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	dex
 	bpl @l0
 
-	; load each .O (object) file
-
+	; init obj pointer to start of object list
+	ldxy #__link_objfiles
+	stxy @objfile
+@pass1:
 	; pass 1:
 	; Extract header data foreach file and update pointers to each file
 	; to the main block of the .O file
 	; Also define labels for the globals (IMPORT/EXPORT blocks) defined
 	; in each object file
-	jsr extract_headers
+
+	; load the next .O (object) file
+	ldxy @objfile
+	CALL FINAL_BANK_MAIN, file::open_r
+	tax
+	jsr $ffc9		; CHKOUT
+	jsr obj::load_headers
+	bcs @ret
+
+	; update filename pointer to next filename
+	ldy #$01
+:	lda (@objfile),y
+	beq :+
+	iny
+	bne :-
+:	tya
+	clc
+	adc @objfile
+	sta @objfile
+	bcc :+
+	inc @objfile+1
+:	ldy #$01
+	lda (@objfile),y	; are there more files? (next file is !0)
+	bne @pass1		; if so, continue
 
 	; now that we have the sizes of each SEGMENT, build the start
 	; addresses of each segment and update SECTION start pointer by the
@@ -1263,9 +1285,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 
 	ldy #$00
 @l0:	lda (zp::line),y
-	cmp #$0d
-	beq @err	; unexpected newline
-	cmp #$0a
+	jsr is_newl
 	beq @err	; unexpected newline
 	cmp #'='
 	beq @done	; found end of key definition
@@ -1306,9 +1326,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	; read the value into a temporary buffer
 @l0:	lda (zp::line),y
 	beq :+
-	cmp #$0d
-	beq :+
-	cmp #$0a
+	jsr is_newl
 	beq :+
 	cmp #';'	; SEGMENT/SECTION terminator
 	beq :+
@@ -1339,9 +1357,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	; move beyond the value string (to start of next word or ';')
 	ldy #$00
 :	lda (zp::line),y
-	cmp #$0a
-	beq @done
-	cmp #$0d
+	jsr is_newl
 	beq @done
 	cmp #';'
 	beq @done
@@ -1412,6 +1428,20 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 @skip:	incw zp::line
 	bne @l0
 @done:	rts
+.endproc
+
+;*******************************************************************************
+; IS NEWL
+; Checks if the given character is a newline ($0d or $0a)
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if if the character in .A is whitespace
+.proc is_newl
+	cmp #$0d	; newline
+	beq :+
+	cmp #$0a	; UNIX newline
+:	rts
 .endproc
 
 ;*******************************************************************************

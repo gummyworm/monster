@@ -6,6 +6,7 @@
 .import __obj_dump
 .import __obj_init
 .import __obj_load
+.import __obj_load_headers
 .import __obj_numsections
 
 .scope obj
@@ -17,5 +18,6 @@
 	dump             = __obj_dump
 	init             = __obj_init
 	load             = __obj_load
+	load_headers     = __obj_load_headers
 	numsections      = __obj_numsections
 .endscope
