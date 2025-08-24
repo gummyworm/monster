@@ -957,16 +957,33 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; TODO:
 @err:	RETURN_ERR ERR_SECTION_TOO_SMALL
 
+@start_pass2:
+	; reset obj pointer to start of object list
+	ldxy #__link_objfiles
+	stxy @objfile
+
 ; iterate over each object file and link them
 @objects:
-	lda #$00
+	ldxy @objfile
 	jsr link_object		; link the object
 	bcs @done		; if .C set, return with error
-	inc activeobj		; next object
-	lda activeobj
-	cmp numobjects
-	bne @objects
-	clc			; success
+
+	; update filename pointer to next filename
+	ldy #$01
+:	lda (@objfile),y
+	beq :+
+	iny
+	bne :-
+:	tya
+	clc
+	adc @objfile
+	sta @objfile
+	bcc :+
+	inc @objfile+1
+:	ldy #$01
+	lda (@objfile),y	; are there more files? (next file is !0)
+	bne @objects		; if so, repeat
+	clc			; all objects linked, return success
 @done:	rts
 .endproc
 
@@ -974,11 +991,14 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; LINK OBJECT
 ; Produces the final binary for a given object file
 ; IN:
-;   - activeobj: the index of the object file to link
+;   - .XY: address of the object filename to link
 .proc link_object
 @sec_idx=zp::tmp10
-	lda activeobj
+	CALL FINAL_BANK_MAIN, file::open_r
+	tax
+	jsr $ffc9		; CHKOUT
 	jsr obj::load		; load the object file with the given index
+	bcs @ret
 
 	; iterate over each section and link it: apply relocation, and produce
 	; debug info
@@ -995,7 +1015,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	lda @sec_idx
 	cmp obj::numsections
 	bne @reloc		; repeat for all sections
-@done:	RETURN_OK
+@done:	clc
+@ret:	rts
 .endproc
 
 ;******************************************************************************
