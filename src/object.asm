@@ -67,6 +67,10 @@ __obj_sections_sizehi:
 sections_sizehi:   .res MAX_SECTIONS
 __obj_sections_segments:
 sections_segments: .res MAX_SEGMENT_NAME_LEN*MAX_SECTIONS ; name of target SEG
+__obj_segments_sizelo:
+segments_sizelo: .res MAX_SECTIONS
+__obj_segments_sizehi:
+segments_sizehi: .res MAX_SECTIONS
 sections_info:     .res MAX_SECTIONS
 
 ; relocation table offsets/sizes for each section
@@ -78,6 +82,10 @@ sections_relocsizehi:  .res MAX_SECTIONS
 .export __obj_numsections
 __obj_numsections:
 numsections: .byte 0	; number of sections in obj file being written/read
+
+.export __obj_numsegments
+__obj_numsegments:
+numsegments: .byte 0	; number of SEGMENTs in obj file being written/read
 
 numsymbols:  .word 0	; number of symbols in obj file being written
 
@@ -990,22 +998,61 @@ __obj_close_section:
 @importcnt=ra
 @symoff=rc
 @symsec=re
+@i=zp::tmp10
 @namebuff=$100
 	jsr $ffb7		; READST (read status byte)
 	beq :+
 	sec
 	rts			; err or EOF
-:	jsr $ffcf		; load byte
+
+:	; read number of sections used
+	jsr $ffcf		; load byte
 	sta numsections
 	sta @seccnt
 
-	; read number of symbols
+	; read number of SEGMENTs used
+	jsr $ffcf
+	sta numsegments
+
+	; read number of symbols defined
 	jsr $ffcf		; get # of symbols LSB
 	sta numsymbols
 	sta @symcnt
 	jsr $ffcf		; get # of symbols MSB
 	sta numsymbols+1
 	sta @symcnt+1
+
+	lda #$00
+	sta @i
+	lda #<sections_segments
+	sta @name
+	lda #>sections_segments
+	sta @name+1
+
+@load_headers:
+@segname:
+	; read the SEGMENT name and number of bytes used in it
+	sty @cnt
+	jsr $ffcf
+	ldy @cnt
+	sta (@name),y
+	iny
+	cpy #MAX_SECTION_NAME_LEN
+	bne @segname
+
+@segusage:
+	; get the number of bytes used in each SEGMENT in the obj file
+	ldy @i
+	jsr $ffcf			; get LSB
+	sta __obj_segments_sizelo,y
+	jsr $ffcf			; get MSB
+	sta __obj_segments_sizehi,y
+
+	inc @i
+	lda @i
+	cmp numsegments
+	bne @load_headers
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -1026,29 +1073,14 @@ __obj_close_section:
 @symoff=rc
 @symsec=re
 @namebuff=$100
-	; read number of sections
-	jsr $ffb7	; READST (read status byte)
-	beq :+
-	sec
-	rts		; either EOF or error
-
-:	jsr $ffcf	; CHRIN (get a byte from file)
-	sta numsections
-	sta @seccnt
-
-	; read number of symbols
-	jsr $ffcf		; get # of symbols LSB
-	sta numsymbols
-	sta @symcnt
-	jsr $ffcf		; get # of symbols MSB
-	sta numsymbols+1
-	sta @symcnt+1
+	jsr __obj_load_headers
+	bcc @load_symbols
+	rts
 
 	ldxy #symbol_sections
 	sta @symsec
 	ldxy #symbol_offsets
 	sta @symoff
-
 @load_symbols:
 	jsr $ffcf		; get section ID for symbol
 	ldy #$00

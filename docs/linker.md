@@ -86,40 +86,48 @@ Below is a description of the object file's components.  These are listed in the
 At thet beginning of the object file is the _header_, which gives basic details about the object file.  The header simply tells us how many sections and symbols are defined in the object file.
 The linker uses the header in each object file to determine the final layout in pass 1.
 
-| size |  description
-|------|---------------------------------------------------------
-|   1  | number of sections used
-|   2  | number of symbols in object file
-|   1  | number of exports in object file
-|   2  | number of imports in object file
+| field        | size |  description
+|--------------|------|--------------------------------------------------
+| num sections |  1   | number of sections used
+| num segments |  1   | number of sgements used
+| num locals   |  2   | number of symbols in object file
+| num exports  |  1   | number of exports in object file
+| num imports  |  2   | number of imports in object file
 
 
-#### SECTION HEADER
-After the header is the SECTION header. This describes the section usage for the object file.  It details which SEGMENTs are used (by name) and how many bytes each section contains within the object file.
+#### SEGMENT HEADER
+After the header is the SEGMENT header, which describes the SEGMENT usage for the object file.  It details which SEGMENTs are used (by name) and how many bytes each one contains.
 
-Whenever a new SEGMENT is defined in the assembly code, a new SECTION is created with a unique ID.
-
-Here is a simple example of the internal sections created for a program that activates the CODE segment, then the DATA one,
-followed by the CODE segment again.  Note that each .CODE directive creates a new SECTION referencing the same SEGMENT.
+For example, given the following assembly code:
 ```
-.CODE   ;SEGMENT("CODE", 1)
+.seg "CODE"
 asl
-.DATA   ;SEGMENT("DATA", 3)
-jmp $f00d
-.CODE   ;SEGMENT("DATA", 2)
+.seg "DATA"
+.byte 1, 2, 3, 4, 5
+.seg "CODE"
 lda #$00
 ```
 
-Each section has its own block of object code, relocation table, and debug information table. The order `.SEG` directives appear will determine the order of the defined SECTIONs in the object code, and
-the index of each SECTION is used as the internal ID for that section within its object file.
+The SEGMENT header will be:
 
-The linker will concatenate all SECTIONs that reference the same SEGMENT when the program is linked.
+| segment name  | size
+|---------------|------------
+|     CODE      |  3
+|     DATA      |  5
 
-| size |  description
-|------|---------------------------------------------------------
-|  16  | SEGMENT name (where to write SECTION to)
-|   2  | size in bytes
 
+The format of this header in the object code is as follows:
+
+| field | size |  description
+|-------|------|--------------------------------------------------
+| name  |   8  | SEGMENT name (where to write SECTION to)
+| size  |   2  | size in bytes
+
+At link time, The linker sums the _size_ field for the SEGMENTs in each object file
+to determine the total amount of space needed for the SEGMENT in the final binary.
+
+The order of the definitions in this header also correspond to the ID's for the "SEGMENT"
+field in the _SECTION_ headers (see "SECTIONS" below for more detail on this).
 
 ### SYMBOLS
 Next is the _symbol_ table. This table contains all labels that are used in the object file.
@@ -149,20 +157,20 @@ Resolving these names to their section/offset occurs by reading the EXPORTS bloc
 
 Then the linker maps the resolved section/address to the corresponding index for the symbol in the "LOCALS" block.  This map index is stored in this table as well.  Mapping occurs in the linker's second pass.
 
-| size  |  field   |  description
-|-------|----------|----------------------------------------------
-| 1-33  |  name    | the symbol name as a 0-terminated string
-|   2   |  index   | the index used for this symbol in the "locals" table
+|  field  | size  |  description
+|---------|-------|----------------------------------------------
+|  name   | 1-33  | the symbol name as a 0-terminated string
+|  index  |   2   | the index used for this symbol in the "locals" table
 
 #### EXPORTS
 The "EXPORTS" block defines symbols that are used (or may be used) in other object files.  They tell the linker where to define labels that will be used during linkage.
 
 In the object code, their format matches the IMPORTS block.
 
-| size  | field  | description
-|-------|--------|----------------------------------------------------------------------
-|  1-33 | name   | the name of the symbol as a 0-terminated string
-|   2   | index  | the index used for this symbol in the "locals" table
+| field  | size  | description
+|--------|-------|----------------------------------------------------------------------
+| name   |  1-33 | the name of the symbol as a 0-terminated string
+| index  |   2   | the index used for this symbol in the "locals" table
 
 ### SECTIONS
 After the symbol table is a list of one or more SECTIONs (the number is defined in the .O file header).
@@ -186,7 +194,7 @@ the linker layout the program, each section in the SECTIONS block also begins wi
 
 | field           | size | description
 |-----------------|------|-------------------------------------------------------
-|  name           |  8   | name of the SEGMENT for this section
+|  segment id     |  1   | ID for the SEGMENT (defined in SECTION HEADER) this SECTION maps to
 |  info           |  1   | info byte: zeropage/absolute etc.
 |  code size      |  2   | size of the object-code binary table for the section
 |  reloc size     |  2   | size of the relocation table for the section
