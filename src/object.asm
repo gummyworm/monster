@@ -52,13 +52,20 @@ reloctop: .word 0	; pointer to top of relocation table being built
 
 reloc = zp::link	; when linking, pointer to current relocation
 
+.export __obj_sections_sizelo
+.export __obj_sections_sizehi
+.export __obj_sections_segments
+
 ;*******************************************************************************
 ; SECTIONS
 ; These variables contain the data for the sections
 sections_startlo:  .res MAX_SECTIONS
 sections_starthi:  .res MAX_SECTIONS
+__obj_sections_sizelo:
 sections_sizelo:   .res MAX_SECTIONS
+__obj_sections_sizehi:
 sections_sizehi:   .res MAX_SECTIONS
+__obj_sections_segments:
 sections_segments: .res MAX_SEGMENT_NAME_LEN*MAX_SECTIONS ; name of target SEG
 sections_info:     .res MAX_SECTIONS
 

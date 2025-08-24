@@ -8,16 +8,22 @@
 .import __obj_load
 .import __obj_load_headers
 .import __obj_numsections
+.import __obj_sections_sizelo
+.import __obj_sections_sizehi
+.import __obj_sections_segments
 
 .scope obj
-	add_export       = __obj_add_export
-	addreloc         = __obj_add_reloc
-	add_section      = __obj_add_section
-	apply_relocation = __obj_apply_relocation
-	close_section    = __obj_close_section
-	dump             = __obj_dump
-	init             = __obj_init
-	load             = __obj_load
-	load_headers     = __obj_load_headers
-	numsections      = __obj_numsections
+	add_export        = __obj_add_export
+	addreloc          = __obj_add_reloc
+	add_section       = __obj_add_section
+	apply_relocation  = __obj_apply_relocation
+	close_section     = __obj_close_section
+	dump              = __obj_dump
+	init              = __obj_init
+	load              = __obj_load
+	load_headers      = __obj_load_headers
+	numsections       = __obj_numsections
+	sections_sizelo   = __obj_sections_sizelo
+	sections_sizehi   = __obj_sections_sizehi
+	sections_segments = __obj_sections_segments
 .endscope

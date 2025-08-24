@@ -185,8 +185,8 @@ section_names:    .res MAX_SECTIONS*MAX_SECTION_NAME_LEN
 ;  .byte    LOAD SEGMENT id
 ;  .byte    RUN SEGMENT id
 ;  .byte    flags
-segments_load:   .res MAX_SEGMENTS ; id of section to load to
-segments_run:    .res MAX_SEGMENTS ; id of section to run at
+segments_load:   .res MAX_SEGMENTS	; id of section to load to
+segments_run:    .res MAX_SEGMENTS	; id of section to run at
 segments_flags:  .res MAX_SEGMENTS
 segments_sizelo: .res MAX_SEGMENTS
 segments_sizehi: .res MAX_SEGMENTS
@@ -894,6 +894,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc __link_link
 @outfile=zp::link
 @objfile=zp::link+2	; pointer to current object file being linked
+@i=zp::link+4
+@segname=zp::link+6
 	stxy @outfile
 
 	; init the segment/section pointers using the current linker state
@@ -929,8 +931,47 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	CALL FINAL_BANK_MAIN, file::open_r
 	tax
 	jsr $ffc9		; CHKOUT
-	jsr obj::load_headers
+	jsr obj::load_headers	; get section sizes and add global labels
 	bcs @ret
+
+	; get the new sizes of each SEGMENT by adding to them the SECTIONs that
+	; map to them
+	ldxy #obj::sections_segments
+	stxy @segname
+	lda #$00
+	sta @i
+
+@calc_segment_sizes:
+	ldy #$00
+	lda (@segname),y
+	tax
+	iny
+	lda (@segname),y
+	tay
+	; find ID of SEGMENT that maps to the SECTION
+	jsr get_segment_by_name
+	tax
+	ldy @i
+	; segment_size += section_size
+	lda obj::sections_sizelo,y
+	clc
+	adc segments_sizelo,x
+	sta segments_sizelo,x
+	lda obj::sections_sizehi,y
+	adc segments_sizehi,x
+	sta segments_sizehi,x
+
+	; move to next segment name
+	lda @segname
+	clc
+	adc #MAX_SEGMENT_NAME_LEN
+	sta @segname
+	bcc :+
+	inc @segname+1
+
+:	inc @i
+	cmp obj::numsections
+	bne @calc_segment_sizes
 
 	; update filename pointer to next filename
 	ldy #$01
