@@ -407,7 +407,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc __link_parse
 @filebuff=mem::spare
 @filebuff_end=mem::spareend
-@line=mem::linebuffer
 @segments_declared=r8
 @sections_declared=r9
 	; setup the load address
@@ -440,13 +439,15 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	and @segments_declared
 	beq @read_block
 
-	; done; make sure there's no garbage after last ']'
+	; done, make sure rest of file is whitespace
 	ldy #$00
 :	lda (zp::line),y
-	beq @done
 	jsr is_ws
 	bne @unexpected_char
-	beq :-
+	incw zp::line
+	ldxy zp::line
+	cmpw file::loadaddr
+	bne :-
 @done:	RETURN_OK
 
 @read_block:
@@ -1425,7 +1426,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	beq :+
 	cmp #$09	; TAB
 	beq :+
-	cmp #$0a
+	cmp #$0a	; UNIX newline
 	beq :+
 	cmp #' '
 :	rts

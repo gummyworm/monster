@@ -54,7 +54,7 @@ FINAL_BANK_SOURCE7 = $a0|$b	; source bank
 ; $a000-$c000
 FINAL_BANK_MACROS  = $a0|4	; macro code & macro data ($a000-$c000)
 FINAL_BANK_UDGEDIT = $a0|5	; UDG editor ($a000-$c000)
-FINAL_BANK_LINKER  = $a0|6	; linker ($a000-$c000)
+FINAL_BANK_LINKER  = $a0|$e	; linker ($2000-$8000)
 FINAL_BANK_MONITOR = $a0|7	; monitor ($a000-$c000)
 FINAL_BANK_BUFF    = $a0|8	; copy buffer ($a000-$c000)
 FINAL_BANK_SYMVIEW = $a0|9	; symbol viewer ($a000-$c000)
@@ -78,11 +78,10 @@ FINAL_BANK_FAST    = $a0|$0c
 FINAL_BANK_SYMBOLS = $a0|$d	; symbols bank (label names and their addresses)
 
 ;******************************************************************************
-; FASTCOPY blocks ($0E-$0F)
-; In these blocks, $2000-$8000 is used to store undrolled loops that copy data
-; to the upper RAM ($a000-$c000).  The hi RAM ($a000-$b000) stores the data
-; for the debugger (FASTCOPY2) and user program (in FASTCOPY).
-FINAL_BANK_FASTCOPY2 = $a0|$e
+; FASTCOPY ($0F)
+; This holds routines/data for saving machine state as well
+; as the virtual memory for the user program that resides within
+; shared locations (e.g. $1000-$2000)
 FINAL_BANK_FASTCOPY  = $a0|$f
 
 ; FASTTEXT lives at the top 4k ($b000-$c000) of the FASTCOPY2 bank
