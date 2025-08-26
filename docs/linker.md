@@ -214,17 +214,17 @@ The info field uses the following bitfield format:
 
 #### LOCAL SYMBOLS
 Local symbols are the ones referenced in the relocation table(s) for the object file.
-The name "local" is somewhat of a misnomer because imported (global) symbols will also reside in this table (in addition to IMPORT or GLOBALS).  In this table, these are identifiable by the "section" value: `SEC_UNDEF`.
+The name "local" is somewhat of a misnomer because imorted (global) symbols will also reside in this table.  These external symbols are identifiable by the "section" value: `SEC_UNDEF`.
 
-The local symbol table is quite compact: it contains only the object-local section ID and
-the offset of the symbol from that section.
+The local symbol table is quite compact. It contains only the object-local section ID and the offset of the symbol from that section.
 
 | size | field   | description
 |------|---------|--------------------------------------------------------------
 |   1  | section | ID (index in SECTIONS block)
 |   2  | address | absolute (if section is SEC\_ABS) or offset from section within its object file
 
-If "section" is $ff, the symbol is considered "absolute".  Symbols with this section id are constants; their address is not relative to any section.
+If "section" is $ff, the symbol is considered "absolute".  Symbols with this section id are constants; their resolved address is not relative to any section and will always be
+exactly the value defined in the "address" field.
 
 
 ### SECTIONS
