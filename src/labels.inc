@@ -22,6 +22,7 @@
 .import __label_num
 .import __label_name_by_id
 .import __label_set
+.import __label_set_addr
 .import __label_setscope
 .import __label_set24
 
@@ -59,5 +60,6 @@ SYMBOL_PC = $ffff	; special ID to represent '*' (not stored as label)
 	name_by_id    = __label_name_by_id
 	num           = __label_num
 	set           = __label_set
+	setaddr       = __label_set_addr
 	setscope      = __label_setscope
 .endscope

@@ -48,6 +48,7 @@ allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
 .export __label_id_by_addr_index
 .export __label_addrmode
 .export __label_get_section
+.export __label_set_addr
 
 .if FINAL_BANK_SYMBOLS=FINAL_BANK_MAIN
 
@@ -77,6 +78,7 @@ __label_index            = index
 __label_id_by_addr_index = id_by_addr_index
 __label_addrmode         = addrmode
 __label_get_section      = get_section
+__label_set_addr         = setaddr
 
 .else
 ;******************************************************************************
@@ -111,6 +113,7 @@ INDEX
 ID_BY_ADDR_INDEX
 ADDRMODE
 GET_SECTION
+SET_ADDR
 .endenum
 
 .RODATA
@@ -118,7 +121,8 @@ GET_SECTION
 .linecont +
 .define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
 getaddr, is_local, set, set24, del, address, address_by_id, set_scope, \
-add_anon, get_fanon, get_banon, index, id_by_addr_index, addrmode, get_section
+add_anon, get_fanon, get_banon, index, id_by_addr_index, addrmode, \
+get_section, setaddr
 .linecont -
 
 procs_lo: .lobytes procs
@@ -147,6 +151,7 @@ __label_index: LBLJUMP proc_ids::INDEX
 __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 __label_addrmode: LBLJUMP proc_ids::ADDRMODE
 __label_get_section: LBLJUMP proc_ids::GET_SECTION
+__label_set_addr: LBLJUMP proc_ids::SET_ADDR
 
 ;******************************************************************************
 ; Entrypoint for label routines
@@ -433,6 +438,26 @@ scope: .res 8 ; buffer containing the current scope
 	beq :+
 	iny
 :	tya
+	rts
+.endproc
+
+;******************************************************************************
+; SETADDR
+; Overwrites the address of the label with the given ID.
+; IN:
+;   - .XY:       the ID of the symbol to update the address of
+;   - zp::value: the value to set the symbol's address to
+.proc setaddr
+@addr=zp::labels
+	jsr by_id 		; get the address of the label
+
+	; overwrite the current value for the label with zp::value
+	ldy #$00
+	lda zp::label_value
+	sta (@addr),y
+	iny
+	lda zp::label_value+1
+	sta (@addr),y
 	rts
 .endproc
 

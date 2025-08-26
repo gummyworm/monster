@@ -204,6 +204,10 @@ segment_names: .res MAX_SEGMENT_NAME_LEN*MAX_SEGMENTS
 .export segments_sizehi
 .export segment_names
 
+; base addresses for each segment per file
+file_segments_startlo: .res MAX_OBJS*MAX_SECTIONS
+file_segments_starthi: .res MAX_OBJS*MAX_SECTIONS
+
 ;*******************************************************************************
 ; SEGMENT MAP
 ; This array maps the index of a local SEGMENT to its global SEGMENT
@@ -304,56 +308,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 	rts
 .endproc
-
-;*******************************************************************************
-; ADD EXPORT
-; Adds the given string to the symbol table for the object file currently
-; being constructed as an EXPORT
-; IN:
-;   - .XY: the name of the EXPORT to add
-; OUT:
-;   - .C: set on error (e.g. too many symbols)
-; TODO: verify SYMBOL is not already IMPORTed or otherwise conflicting
-.export __link_add_export
-.proc __link_add_export
-@export=r0
-	ldx numsymbols
-	cpx #MAX_SYMBOLS-1
-	bcs @done			; too many symbols
-
-	lda #SYM_REL_EXPORT_WORD	; TODO: handle other types
-	sta symbol_info,x
-
-	lda #$00
-	sta @export+1
-
-	txa
-	asl		; *2
-	asl		; *4
-	asl		; *8
-	asl		; *16
-	rol @export+1
-	asl		; *32
-	rol @export+1
-	adc #<symbol_names
-	sta @export
-	lda @export+1
-	adc #>symbol_names
-	sta @export+1
-
-	; copy the symbol name into its location in the symbol_names table
-	ldy #$00
-@copy:	lda (zp::line),y
-	jsr isseparator
-	beq :+
-	sta (@export),y
-	bne @copy
-
-:	inc numsymbols
-	clc		; ok
-@done:	rts
-.endproc
-
 
 ;*******************************************************************************
 ; LINK DEBUG
@@ -881,6 +835,68 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .endproc
 
 ;*******************************************************************************
+; GET OBJ ID
+; Returns the ID of for the object file from the given name
+; IN:
+;   - .XY: address of the name to find the object file ID for
+; OUT:
+;   - .A: the ID of the object file for the given name
+;   - .C: set on error
+.proc get_obj_id
+	; TODO:
+	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; RESOLVE GLOBALS
+; Calculates the addresses for each global that was extracted from the object
+; file headers in the linker's first pass
+.proc resolve_globals
+@i=zp::tmp10
+@seg_id=zp::tmp12
+@namebuff=$100
+	; iterate through all labels
+	lda #$00
+	sta @i
+	sta @i+1
+
+@l0:	ldxy @i
+	CALL FINAL_BANK_MAIN, lbl::by_id	; get the ID of a symbol
+	ldxy @i
+	CALL FINAL_BANK_MAIN, lbl::getsection	; get section ID
+	sta @seg_id				; save section ID
+	lda #<@namebuff
+	sta r0
+	lda #>@namebuff
+	sta r0+1
+	CALL FINAL_BANK_MAIN, lbl::getname	; get the name of the label
+	ldxy r0
+	jsr get_obj_id				; look up OBJ id by namespace
+
+	; add the base address for object/section to its stored offset
+	ldxy @i
+	CALL FINAL_BANK_MAIN, lbl::getaddr	; get symbol offset
+	txa
+	ldx @seg_id				; restore section ID
+	clc
+	adc file_segments_startlo,x
+	sta zp::label_value
+	tya
+	adc file_segments_startlo,x
+	sta zp::label_value+1
+	CALL FINAL_BANK_MAIN, lbl::setaddr	; write final resolved address
+
+	; next
+	incw @i
+	ldxy @i
+	cmpw lbl::num			; are we done?
+	beq @done
+	jmp @l0				; repeat til all symbols resolved
+
+@done:	RETURN_OK
+.endproc
+
+;*******************************************************************************
 ; LINK
 ; Links all files that were added to the linker (link::addfile) and produces
 ; the linked executable as a file with the given name.
@@ -895,7 +911,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @outfile=zp::link
 @objfile=zp::link+2	; pointer to current object file being linked
 @i=zp::link+4
-@segname=zp::link+6
+@segname=zp::line+6
 	stxy @outfile
 
 	; init the segment/section pointers using the current linker state
@@ -919,8 +935,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; init obj pointer to start of object list
 	ldxy #__link_objfiles
 	stxy @objfile
-@pass1:
-	; pass 1:
+@pass1: ; pass 1:
 	; Extract header data foreach file and update pointers to each file
 	; to the main block of the .O file
 	; Also define labels for the globals (IMPORT/EXPORT blocks) defined
@@ -934,25 +949,39 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	jsr obj::load_headers	; get section sizes and add global labels
 	bcs @ret
 
-	; get the new sizes of each SEGMENT by adding to them the SECTIONs that
-	; map to them
+	; store the current base addresses for each SEGMENT for the object file
+	ldx numsegments
+:	lda segments_addrlo-1,x
+	adc segments_sizelo-1,x
+	sta file_segments_startlo-1,x
+	lda segments_addrhi-1,x
+	adc segments_sizehi-1,x
+	sta file_segments_starthi-1,x
+	dex
+	bpl :-
+
+	; get the new sizes of each SEGMENT by adding the number of bytes
+	; used in the object file to them
 	ldxy #obj::sections_segments
 	stxy @segname
 	lda #$00
 	sta @i
 
 @calc_segment_sizes:
+	; get the segment name
 	ldy #$00
 	lda (@segname),y
 	tax
 	iny
 	lda (@segname),y
 	tay
-	; find ID of SEGMENT that maps to the SECTION
+
+	; get the id of the segment by its name
 	jsr get_segment_by_name
 	tax
 	ldy @i
-	; segment_size += section_size
+
+	; update the size of the segment: segment_size += section_size
 	lda obj::sections_sizelo,y
 	clc
 	adc segments_sizelo,x
@@ -968,17 +997,18 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	sta @segname
 	bcc :+
 	inc @segname+1
+:	inc @i				; next SEGMENT
+	cmp obj::numsections		; are we done?
+	bne @calc_segment_sizes		; repeat for all SEGMENTS in file
 
-:	inc @i
-	cmp obj::numsections
-	bne @calc_segment_sizes
+@nextfile:
+	; next file; update filename pointer to next filename
+	ldy #$01		; start search at 2nd character of filename
+:	lda (@objfile),y	; get a char
+	beq :+			; if 0, we've found terminator -> continue
+	iny			; next char
+	bne :-			; repeat til we've found 0
 
-	; update filename pointer to next filename
-	ldy #$01
-:	lda (@objfile),y
-	beq :+
-	iny
-	bne :-
 :	tya
 	clc
 	adc @objfile
@@ -986,17 +1016,20 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	bcc :+
 	inc @objfile+1
 :	ldy #$01
-	lda (@objfile),y	; are there more files? (next file is !0)
-	bne @pass1		; if so, continue
+	lda (@objfile),y	; get char after the terminating 0
+	beq @pass1done		; if it's another 0, we're at end of obj list
+	jmp @l0			; if not, repeat for next obj file
 
-	; now that we have the sizes of each SEGMENT, build the start
-	; addresses of each segment and update SECTION start pointer by the
-	; SIZE of the SEGMENT we've assigned to that SECTION.
-	; TODO:
+@pass1done:
+	; resolve symbols now that we know the base address of each SEGMENT
+	; in each object file
+	jsr resolve_globals
 
-	; make sure START is still less than STOP for the SECTION
+@validate:
+	; make sure SEGMENT base+size is less than the top of the SEGMENT
 	; TODO:
 @err:	RETURN_ERR ERR_SECTION_TOO_SMALL
+
 
 @start_pass2:
 	; reset obj pointer to start of object list
@@ -1302,6 +1335,8 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 ; OUT:
 ;  - .A: the ID of the segment
 ;  - .C: set if no segment exists by the given name
+.export __link_get_segment_by_name
+__link_get_segment_by_name:
 .proc get_segment_by_name
 @name=zp::str0
 @other=zp::str2

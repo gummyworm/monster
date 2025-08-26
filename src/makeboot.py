@@ -19,7 +19,7 @@ import sys
 
 # segments to store in the bootloader (everything else will be written to
 # the app file)
-bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE" "SETUP", "FASTTEXT", "MACROCODE", "VSCREEN", "IRQ", "DATA", "LABELS", "FASTCOPY", "UDGEDIT", "CONSOLE", "OBJCODE", "COPYBUFF", "RODATA"]
+bootsegments = ["BANKCODE", "BANKCODE2", "DEBUGINFO_CODE" "SETUP", "FASTTEXT", "MACROCODE", "VSCREEN", "IRQ", "DATA", "LABELS", "FASTCOPY", "UDGEDIT", "CONSOLE", "OBJCODE", "LINKER", "COPYBUFF", "RODATA"]
 
 if len(sys.argv) != 5:
     print('extracts the boot segments and writes them to a bootloader .PRG file')

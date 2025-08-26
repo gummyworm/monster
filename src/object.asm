@@ -73,6 +73,9 @@ __obj_segments_sizehi:
 segments_sizehi: .res MAX_SECTIONS
 sections_info:     .res MAX_SECTIONS
 
+; SEGMENT id for each SECTION
+segment_ids: .res MAX_SECTIONS
+
 ; relocation table offsets/sizes for each section
 sections_relocstartlo: .res MAX_SECTIONS
 sections_relocstarthi: .res MAX_SECTIONS
@@ -810,9 +813,9 @@ __obj_close_section:
 	jsr dump_section_headers
 
 	; write the SYMBOL TABLE
-	jsr dump_locals
 	jsr dump_imports
 	jsr dump_exports
+	jsr dump_locals
 
 	; write each SECTION (object code, relocation data, debug info)
 	jsr dump_sections
@@ -1029,7 +1032,7 @@ __obj_close_section:
 	lda #>sections_segments
 	sta @name+1
 
-@load_headers:
+@load_segments:
 @segname:
 	; read the SEGMENT name and number of bytes used in it
 	sty @cnt
@@ -1051,7 +1054,27 @@ __obj_close_section:
 	inc @i
 	lda @i
 	cmp numsegments
-	bne @load_headers
+	bne @load_segments
+
+@symbols:
+	; now read the imports/exports and add them to the symbol table
+	lda #$00
+	sta @i
+@imports:
+	; get the name of a symbol
+	ldx #$00
+:	jsr $ffcf
+	sta @namebuff,x
+	beq @addimport
+	inx
+	bne :-
+
+@addimport:
+	ldxy #@namebuff
+	CALL FINAL_BANK_MAIN, lbl::add
+
+	jsr $ffcf
+
 	RETURN_OK
 .endproc
 
@@ -1145,32 +1168,14 @@ __obj_close_section:
 	cmp @seccnt
 	beq @done	; if no sections, we're done
 
-	lda #<sections_segments
-	sta @name
-	lda #>sections_segments
-	sta @name+1
 @load_section:
-	ldy #$00
-
-; read the name for the section
-@secname:
-	sty @cnt
+	; read the SEGMENT id for this section
 	jsr $ffcf
-	ldy @cnt
-	sta (@name),y
-	iny
-	cpy #MAX_SECTION_NAME_LEN
-	bne @secname
+	ldx @sec_idx
+	sta segment_ids,x
 
-	lda @name
-	;sec
-	adc #MAX_SECTION_NAME_LEN-1	; -1 for .C set
-	sta @name
-	bcc @secsizes
-	inc @name+1
-
-; read the size of each section
 @secsizes:
+	; read the size the tables in this section
 	ldx @sec_idx
 	jsr $ffcf			; get section size LSB
 	sta sections_sizelo,x
@@ -1189,4 +1194,29 @@ __obj_close_section:
 
 @done:	clc
 @eof:	rts
+.endproc
+
+;******************************************************************************
+; GET SEGMENT NAME BY ID
+; Returns the (object-local) name of the segment from its id
+; IN:
+;  - .A: the id of the SEGMENT to get the name of
+; OUT:
+;  - .A: the name of the SEGMENT (object-local)
+.proc get_segment_name_by_id
+@seg=r0
+	ldx #$00
+	stx @seg+1
+	asl
+	rol @seg+1
+	asl
+	rol @seg+1
+	asl			; *8 (MAX_SEGMENT_NAME_LEN)
+	rol @seg+1
+	adc #<sections_segments
+	tax
+	lda @seg+1
+	adc #>sections_segments
+	tay
+	RETURN_OK
 .endproc
