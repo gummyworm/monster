@@ -151,14 +151,13 @@ the linker from the filename.
 The following sections provide a more detailed overview on each block, IMPORTS, EXPORTS, and LOCALS, in the symbol table.
 
 #### IMPORTS
-The "IMPORTS" block of symbols contains the names of all symbols imported by the object file, the SEGMENT index and their address offset.
+The IMPORTS block of symbols contains the names of all symbols imported by the object file, the SEGMENT index, and their segment-offset.
+Since IMPORTS are external, we don't know what their index will be when we generate the object code. Instead, relocation entries reference their index
+in this table, which is used to look up their resolved value by name.
 
-Since these are external, we don't know what their index will be when we generate the object code.  Instead they're identified by name.
+Resolving names to their SEGMENT and offset occurs by reading the EXPORTS block for all object files and applying link-time adjustments, which is done after the linker's first pass (see the EXPORTS section below for more information on this process).
 
-Resolving names to their SEGMENT and offset occurs by reading the EXPORTS block for all object files and applying link-time adjustments, which is done in the linker's first pass (see the EXPORTS section below for more information on this process).
-
-If an EXPORT is defined before its corresponding IMPORT (or vise-versa) validation is performed
-to ensure the two symbols don't conflict (e.g. they have the same size).
+Validation is performed on each global (EXPORT or IMPORT) to ensure that the same symbol doesn't have conflicting definitions (e.g. two differing sizes).
 
 
 |  field  | size  |  description
@@ -175,20 +174,25 @@ The info field uses the following bitfield format:
 
 
 #### EXPORTS
-The "EXPORTS" block defines symbols that are used (or may be used) in other object files.  They tell the linker where to define labels that will be used during linkage.
-
-The address is stored in the object code so that the linker can resolve the symbol without having to load the LOCALS table.
+The EXPORTS block defines symbols that are used, or may be used, in other object files.  They tell the linker where to define labels that will be used during linkage.
 
 Before reading the object code, the linker resolves the EXPORTS to their final addresses.
 To accomplish this, the linker needs the base address for the symbol's SEGMENT. Because many object files
 may reference the same SEGMENT, the linker must compute the base address of the SEGMENT for each file that
 references it.  This also happens in pass 1.
 
-For example, in file `foo` the segment `.CODE` may begin at address $1000, and in file `bar` `.CODE` may begin at $1020.
+Suppose we have the following files where the `.CODE` segment begins at the address listed:
 
-Given a symbol `bar:LABEL`, the linker adds the `address` field of the EXPORT record to the base value for the SEGMENT in the object file to get the final resolved address.
+| filename | .CODE base
+|----------|--------------------------------
+|  foo     |  $1000
+|  bar     |  $1020
 
-Note that the address field in the EXPORTS table is the same as its value in the LOCALS group.
+
+Given a symbol `bar:LABEL`, the linker adds the link-time base address for `bar`, $1020, to the offset for `LABEL` in the EXPORT record to get the final resolved address.
+Let's say `LABEL` has an offset of $20.  The resolved address is `$1020+$20 = $1040`.
+
+Note that the address field stored in the EXPORTS table is the same as the address field in the LOCALS group (and both will always have the same value).
 This duplication allows the linker to read the EXPORTS block in pass 1 and fully resolve the labels
 without having to load the entire LOCALS table for each object file.
 
