@@ -68,8 +68,11 @@ segptr=zp::link+2
 ; Represented as a 0-terminated list of 0-terminated filename
 ; e.g.
 ;   "FILE1.O",0,"FILE2.O",0,0
+.export __link_outfile
+__link_outfile=mem::spare
+
 .export __link_objfiles
-__link_objfiles=mem::spare
+__link_objfiles=mem::spare+16
 
 ;*******************************************************************************
 .segment "LINKER_BSS"
@@ -953,6 +956,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	CALL FINAL_BANK_MAIN, file::open_r
 	tax
 	jsr $ffc9		; CHKOUT
+	jmp *
 	jsr obj::load_headers	; get section sizes and add global labels
 	bcs @ret
 
