@@ -580,8 +580,10 @@ num_relocs=(*-relocs)/7
 	lda #$00
 	sta $c6			; clear keyboard buffer
 
+.ifdef CART
 	; read error channel to clear startup code (73)
 	jsr io::readerr
+.endif
 	jsr dbgi::initonce
 
 	jsr run::clr		; initialize user state by init'ing BASIC
