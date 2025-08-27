@@ -1777,8 +1777,6 @@ __asm_tokenize_pass1 = __asm_tokenize
 	CALL FINAL_BANK_LINKER, obj::add_section
 
 	inc __asm_section
-	lda __asm_section
-	sta zp::label_sectionid
 	rts
 .endproc
 
@@ -1993,7 +1991,7 @@ __asm_include:
 @done:	; set section to ABSOLUTE (we know the exact address of all labels
 	; declared within a .ORG "section")
 	lda #SEC_ABS
-	sta zp::label_sectionid
+	sta __asm_section
 
 	lda #ASM_ORG
 	clc			; ok
@@ -2790,10 +2788,10 @@ __asm_include:
 	pla
 	tax
 
-	lda zp::label_sectionid
+	lda __asm_section
 	pha			; save section ID
 	lda #SEC_ABS
-	sta zp::label_sectionid	; temporarily set section to ABS
+	sta __asm_section	; temporarily set section to ABS
 
 	lda zp::label_value+1
 	beq :+			; if MSB is 0, use ZP mode
@@ -2801,7 +2799,7 @@ __asm_include:
 
 :	jsr add_label
 	pla			; restore section ID
-	sta zp::label_sectionid
+	sta __asm_section
 	rts
 .endproc
 
