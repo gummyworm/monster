@@ -11,6 +11,9 @@
 .import __obj_sections_sizelo
 .import __obj_sections_sizehi
 .import __obj_sections_segments
+.import __obj_numsegments
+.import __obj_segments_sizelo
+.import __obj_segments_sizehi
 
 .scope obj
 	add_export        = __obj_add_export
@@ -22,8 +25,11 @@
 	init              = __obj_init
 	load              = __obj_load
 	load_headers      = __obj_load_headers
+	numsegments       = __obj_numsegments
 	numsections       = __obj_numsections
 	sections_sizelo   = __obj_sections_sizelo
 	sections_sizehi   = __obj_sections_sizehi
 	sections_segments = __obj_sections_segments
+	segments_sizelo   = __obj_segments_sizelo
+	segments_sizehi   = __obj_segments_sizehi
 .endscope

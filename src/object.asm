@@ -55,6 +55,8 @@ reloc = zp::link	; when linking, pointer to current relocation
 .export __obj_sections_sizelo
 .export __obj_sections_sizehi
 .export __obj_sections_segments
+.export __obj_segments_sizelo
+.export __obj_segments_sizehi
 
 ;*******************************************************************************
 ; SECTIONS

@@ -384,7 +384,7 @@ main:	jsr key::getch
 	; lda numobjs
 	; ldxy outfile
 	jmp *
-	jsr link::link
+	CALL FINAL_BANK_LINKER, link::link
 
 	; display the success/failure
 
