@@ -855,7 +855,11 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @i=zp::tmp10
 @seg_id=zp::tmp12
 @namebuff=$100
-	; iterate through all labels
+	iszero lbl::num
+	bne :+
+	RETURN_OK				; no globals
+
+:	; iterate through all labels
 	lda #$00
 	sta @i
 	sta @i+1
@@ -923,6 +927,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @ret:	rts
 
 @initsegments:
+	; set the start address for each SECTION to the SEGMENT
+	; load address parsed from the LINK file
 	dex
 @l0:	ldy segments_load,x
 	lda sections_startlo,y
@@ -935,13 +941,14 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; init obj pointer to start of object list
 	ldxy #__link_objfiles
 	stxy @objfile
+
 @pass1: ; pass 1:
 	; Extract header data foreach file and update pointers to each file
 	; to the main block of the .O file
 	; Also define labels for the globals (IMPORT/EXPORT blocks) defined
 	; in each object file
 
-	; load the next .O (object) file
+	; load the next .O (object) file in the object list
 	ldxy @objfile
 	CALL FINAL_BANK_MAIN, file::open_r
 	tax
@@ -960,33 +967,28 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	dex
 	bpl :-
 
-	; get the new sizes of each SEGMENT by adding the number of bytes
-	; used in the object file to them
+	; get the new size of each SEGMENT by adding the number of bytes
+	; used in the object file for that SEGMENT
 	ldxy #obj::sections_segments
 	stxy @segname
 	lda #$00
 	sta @i
+	cmp obj::numsegments
+	beq @nextfile			; if no sections used, continue
 
 @calc_segment_sizes:
-	; get the segment name
-	ldy #$00
-	lda (@segname),y
-	tax
-	iny
-	lda (@segname),y
-	tay
-
 	; get the id of the segment by its name
-	jsr get_segment_by_name
-	tax
-	ldy @i
+	ldxy @segname			; address of segment name
+	jsr get_segment_by_name		; get its ID
+	tax				; .X=segment index (global context)
+	ldy @i				; .Y=segment index (object file)
 
 	; update the size of the segment: segment_size += section_size
-	lda obj::sections_sizelo,y
+	lda obj::segments_sizelo,y
 	clc
 	adc segments_sizelo,x
 	sta segments_sizelo,x
-	lda obj::sections_sizehi,y
+	lda obj::segments_sizehi,y
 	adc segments_sizehi,x
 	sta segments_sizehi,x
 
@@ -1028,18 +1030,17 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @validate:
 	; make sure SEGMENT base+size is less than the top of the SEGMENT
 	; TODO:
-@err:	RETURN_ERR ERR_SECTION_TOO_SMALL
-
+	; RETURN_ERR ERR_SECTION_TOO_SMALL
 
 @start_pass2:
 	; reset obj pointer to start of object list
 	ldxy #__link_objfiles
 	stxy @objfile
 
-; iterate over each object file and link them
 @objects:
+	; iterate over each object file and link them
 	ldxy @objfile
-	jsr link_object		; link the object
+	jsr link_object		; link the object file
 	bcs @done		; if .C set, return with error
 
 	; update filename pointer to next filename
@@ -1048,6 +1049,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	beq :+
 	iny
 	bne :-
+
 :	tya
 	clc
 	adc @objfile
@@ -1089,6 +1091,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	lda @sec_idx
 	cmp obj::numsections
 	bne @reloc		; repeat for all sections
+
 @done:	clc
 @ret:	rts
 .endproc
