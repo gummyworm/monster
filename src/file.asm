@@ -138,7 +138,7 @@ __file_load_src:
 @err_or_eof:
 	eor #$40
 	beq @eof	; if EOF, return
-@error:	jmp geterr
+@error:	jmp __file_geterr
 @eof:	RETURN_OK
 .endproc
 
@@ -206,7 +206,7 @@ __file_load_src:
 @done:	lda #$00	; no error
 	RETURN_OK	; done
 
-@error:	jmp geterr
+@error:	jmp __file_geterr
 .endproc
 
 ;*******************************************************************************
@@ -231,7 +231,7 @@ __file_load_src:
 	inc __file_eof
 	RETURN_OK
 
-@err:	jmp geterr
+@err:	jmp __file_geterr
 .endproc
 
 ;*******************************************************************************
@@ -334,7 +334,7 @@ __file_load_src:
 ; OPEN_R
 ; Opens a file for reading
 ; IN:
-;  - .XY: the 0-terminated filename to open for writing
+;  - .XY: the 0-terminated filename to open for reading
 ; OUT:
 ;  - .A: the file handle
 ;  - .C: set on error
@@ -375,6 +375,7 @@ __file_load_src:
 	cmp #MAX_OPEN_FILES
 	bcc :+
 	lda #ERR_MAX_FILES_EXCEEDED
+	;sec
 	rts
 
 :	stxy @filename
@@ -405,7 +406,7 @@ __file_load_src:
 	jsr $ffc0 		; call OPEN
 	bcc @ok
 @getopenerr:
-	jsr geterr
+	jsr __file_geterr
 @ok:	lda @file	; get file ID that we opened
 	rts		; return it
 .endproc
@@ -508,7 +509,8 @@ __file_load_src:
 ; OUT:
 ;  - .A: the internal error code e.g. ERR_FILE_NOT_FOUND
 ;  - .C: set if the drive returns an error
-.proc geterr
+.export __file_geterr
+.proc __file_geterr
 	jsr io::readerr
 	cpx #$01
 	bcc @ret		; err < 1 -> no error

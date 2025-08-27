@@ -954,9 +954,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; load the next .O (object) file in the object list
 	ldxy @objfile
 	CALL FINAL_BANK_MAIN, file::open_r
+	bcs @ret
 	tax
-	jsr $ffc9		; CHKOUT
-	jmp *
+	jsr $ffc6		; CHKIN
 	jsr obj::load_headers	; get section sizes and add global labels
 	bcs @ret
 
@@ -1076,7 +1076,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @sec_idx=zp::tmp10
 	CALL FINAL_BANK_MAIN, file::open_r
 	tax
-	jsr $ffc9		; CHKOUT
+	jsr $ffc6		; CHKIN
 	jsr obj::load		; load the object file with the given index
 	bcs @ret
 

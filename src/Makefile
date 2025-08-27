@@ -68,7 +68,7 @@ TESTS=$(wildcard tests/*.s)
 #TESTS=$(wildcard tests/wg/*.s)
 #TEST_INCS=$(wildcard tests/wg/*.inc)
 
-TEST_FILES=$(TESTS) $(TEST_INCS) $(TEST_TXTS) tests/link
+TEST_FILES=$(TESTS) $(TEST_INCS) $(TEST_TXTS) tests/link tests/hello.o
 
 all: test.d81
 

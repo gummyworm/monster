@@ -7,6 +7,7 @@
 .import __file_eof
 .import __file_exists
 .import __file_getline
+.import __file_geterr
 .import __file_load_bin
 .import __file_load_binv
 .import __file_load_src
@@ -25,6 +26,7 @@
 	close            = __file_close
 	eof              = __file_eof
 	exists           = __file_exists
+	geterr           = __file_geterr
 	getline          = __file_getline
 	loadbin          = __file_load_bin
 	loadbinv         = __file_load_binv

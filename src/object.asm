@@ -1005,40 +1005,42 @@ __obj_close_section:
 @symsec=re
 @i=zp::tmp10
 @namebuff=$100
-	jsr $ffb7		; READST (read status byte)
-	beq :+
-	sec
-	rts			; err or EOF
-
-:	; read number of sections used
-	jsr $ffcf		; load byte
-	sta numsections
+	; read number of sections used
+	jsr readb
+	bcc :+
+	rts
+:	sta numsections
 	sta @seccnt
 
 	; read number of SEGMENTs used
-	jsr $ffcf
+	jsr readb
+	bcs @ret
 	sta numsegments
 
 	; read number of symbols defined
-	jsr $ffcf		; get # of symbols LSB
+	jsr readb		; get # of symbols LSB
+	bcs @ret
 	sta numsymbols
 	sta @symcnt
-	jsr $ffcf		; get # of symbols MSB
+	jsr readb		; get # of symbols MSB
+	bcs @ret
+
 	sta numsymbols+1
 	sta @symcnt+1
 
-	lda #$00
-	sta @i
 	lda #<sections_segments
 	sta @name
 	lda #>sections_segments
 	sta @name+1
+	ldy #$00
+	sty @i
 
 @load_segments:
 @segname:
 	; read the SEGMENT name and number of bytes used in it
 	sty @cnt
-	jsr $ffcf
+	jsr readb
+	bcs @ret
 	ldy @cnt
 	sta (@name),y
 	iny
@@ -1048,9 +1050,11 @@ __obj_close_section:
 @segusage:
 	; get the number of bytes used in each SEGMENT in the obj file
 	ldy @i
-	jsr $ffcf			; get LSB
+	jsr readb			; get LSB
+	bcs @ret
 	sta __obj_segments_sizelo,y
-	jsr $ffcf			; get MSB
+	jsr readb			; get MSB
+	bcs @ret
 	sta __obj_segments_sizehi,y
 
 	inc @i
@@ -1065,7 +1069,8 @@ __obj_close_section:
 @imports:
 	; get the name of a symbol
 	ldx #$00
-:	jsr $ffcf
+:	jsr readb
+	bcs @ret
 	sta @namebuff,x
 	beq @addimport
 	inx
@@ -1077,7 +1082,8 @@ __obj_close_section:
 
 	jsr $ffcf
 
-	RETURN_OK
+	clc
+@ret:	rts
 .endproc
 
 ;*******************************************************************************
@@ -1116,12 +1122,11 @@ __obj_close_section:
 	ldy #$00
 	sta (@symoff),y		; LSB
 	jsr $ffcf
-	ldy #$00
+	incw @symoff
 	sta (@symoff),y		; MSB
 
 	; next label
 	incw @symsec
-	incw @symoff
 	incw @symoff
 
 	decw @symcnt
@@ -1196,6 +1201,27 @@ __obj_close_section:
 
 @done:	clc
 @eof:	rts
+.endproc
+
+;******************************************************************************
+; READB
+; Reads a byte and checks for error (READST)
+; OUT:
+;   - .A: the byte read or error code (0=eof)
+;   - .C: set on error/eof
+.proc readb
+	jsr $ffb7     ; call READST (read status byte)
+	bne @eof      ; either EOF or read error
+	jsr $ffcf     ; call CHRIN (get a byte from file)
+	RETURN_OK
+
+; read drive err chan and translate CBM DOS error code to ours if possible
+@eof:  	and #$40
+	beq @err
+	lda #$00	; EOF
+	RETURN_OK
+
+@err:	JUMP FINAL_BANK_MAIN, file::geterr
 .endproc
 
 ;******************************************************************************
