@@ -7,17 +7,16 @@
 <img width="718" alt="Screenshot 2024-09-17 at 7 52 42 PM" src="https://github.com/user-attachments/assets/c8d3dae7-52f2-420b-95de-56edf8c89d2e">
 
 
-Monster is an all-in-one editor/assembler/debugger for the Commodore Vic-20.
-The design philosophy is uncompromising maximalism.  This is in contrast to most
-existing Vic-20 assemblers (and most native development tools on 8-bit computers),
-which are mostly designed with memory efficiency in mind.
+Monster is an all-in-one development system comprised of an editor, assembler, debugger, and linker all running natively on the Commodore Vic-20.
+The design philosophy is uncompromising maximalism without sacrificing efficiency or code density.
+This is in contrast to most existing Vic-20 assemblers (and most native development tools on 8-bit computers in general), which not only put memory efficiency first and foremost, but also
+let it guide the overall usability and design.
 
+Large RAM expansions have become ubiquitous on the Vic-20 in recent years, so the philosophy of
+this project is to provide a rich feature set for a generously expanded memory configuration.
+Virtually any feature that I deem valuable in an assembly IDE is implemented.
 
-Large RAM expansions have become ubiquitous on the platform, so the philosophy of
-this project is to choose feature richness without much concern for the cost to implement.
-Virtually any feature that I deem valuable in an assembly IDE is included.
-
-Some of its features are:
+Features include:
  - 40 column bitmap-based editor
  - vi-like keybindings
  - interactive source-level debugger
@@ -31,9 +30,10 @@ Some of its features are:
  - auto-formatter and realtime syntax checking
  - powerful macro support
  - virtual memory for user program isolation
- - many more...
+ - 8x8 custom character editor
+ - many, many more...
 
-For more information about the major components of Monster, refer to the documents
+For more information about each of the major components of Monster, refer to the documents
 linked below.
 
  **[Assembler](docs/assembler.md)**
