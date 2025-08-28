@@ -722,54 +722,6 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
-; DUMP SECTION HEADERS
-; Dumps the sections for the object file in construction.
-.proc dump_section_headers
-@name=r0
-@i=rc
-	lda numsections
-	beq @done
-
-	lda #$00
-	sta @i
-@dump_headers:
-	; get offset to name for this section (*8)
-	lda @i
-	asl
-	asl
-	asl
-	adc #<segments
-	sta @name
-	lda #>segments
-	adc #$00
-	sta @name+1
-
-	; write the name of the SEGMENT for the SECTION
-	ldy #$00
-:	lda (@name),y
-	jsr $ffd2
-	iny
-	cpy #$08
-	bne :-
-
-	; write the OBJ and RELOC sizes
-	ldx @i
-	lda sections_sizelo,x
-	jsr $ffd2
-	lda sections_sizehi,x
-	jsr $ffd2
-	lda sections_relocsizelo,x
-	jsr $ffd2
-	lda sections_relocsizehi,x
-	jsr $ffd2
-	inx
-	stx @i
-	cpx numsections
-	bne @dump_headers
-@done:	rts
-.endproc
-
-;*******************************************************************************
 ; DUMP SECTIONS
 ; Dumps the sections for the object file in construction.
 .proc dump_sections
@@ -887,13 +839,10 @@ __obj_close_section:
 	; write the SEGMENTS used (names and sizes)
 	jsr dump_segments
 
-	; write the SYMBOL TABLE
+	; write the SYMBOL TABLE (in order: IMPORTS, EXPORTS, LOCALS)
 	jsr dump_imports
 	jsr dump_exports
 	jsr dump_locals
-
-	; write the SECTION headers
-	jsr dump_section_headers
 
 	; write each SECTION (object code, relocation data, debug info)
 	jsr dump_sections
@@ -1064,7 +1013,7 @@ __obj_close_section:
 
 ;*******************************************************************************
 ; LOAD HEADERS
-; Extracts the section usage and global symbols for the given object file.
+; Extracts the SEGMENT usage info and global symbols for the given object file.
 ; This is called by the linker for each object file to build the global link
 ; state.
 .export __obj_load_headers
@@ -1078,50 +1027,57 @@ __obj_close_section:
 @symcnt=r8
 @importcnt=ra
 @symoff=rc
-@symsec=re
+@numexports=re
 @i=zp::tmp10
 @namebuff=$100
+	lda #<segments
+	sta @name
+	lda #>segments
+	sta @name+1
+
 	; read number of sections used
 	jsr readb
 	bcc :+
-	rts
+@ret0:	rts
 :	sta numsections
 	sta @seccnt
 
 	; read number of SEGMENTs used
 	jsr readb
-	bcs @ret
+	bcs @ret0
 	sta numsegments
 
 	; read number of LOCALS (not used)
 	jsr readb		; get # of symbols LSB
-	bcs @ret
+	bcs @ret0
 	jsr readb		; get # of symbols MSB
-	bcs @ret
+	bcs @ret0
 
-	; read number of EXPORTS (not used)
+	; read number of EXPORTS (1 byte)
 	jsr readb
-	bcs @ret
+	sta @numexports
+	bcs @ret0
 
-	; read number of IMPORTS
+	; read number of IMPORTS (2 bytes)
 	jsr readb
-	bcs @ret
+	bcs @ret0
 	sta @importcnt
 	sta numimports
+	jsr readb
+	bcs @ret0
+	sta @importcnt+1
+	sta numimports+1
 
-	lda #<segments
-	sta @name
-	lda #>segments
-	sta @name+1
+;--------------------------------------
+; read the SEGMENTS used in the object file (names and sizes)
 	ldy #$00
 	sty @i
-
 @load_segments:
 @segname:
 	; read the SEGMENT name
 	sty @cnt
 	jsr readb
-	bcs @ret
+	bcs @ret0
 	ldy @cnt
 	sta (@name),y
 	iny
@@ -1132,10 +1088,10 @@ __obj_close_section:
 	; get the number of bytes used in the SEGMENT
 	ldy @i
 	jsr readb			; get LSB
-	bcs @ret
+	bcs @ret0
 	sta __obj_segments_sizelo,y
 	jsr readb			; get MSB
-	bcs @ret
+	bcs @ret0
 	sta __obj_segments_sizehi,y
 
 	inc @i
@@ -1143,26 +1099,72 @@ __obj_close_section:
 	cmp numsegments
 	bne @load_segments
 
-@symbols:
-	; now read the imports/exports and add them to the symbol table
+;--------------------------------------
+; now read the IMPORTS and EXPORTS and add them to the global symbol table
+@imports:
+	lda #SEC_UNDEF
+	sta zp::label_sectionid	; imports' section is UNDEFINED
 	lda #$00
 	sta @i
-
-@imports:
+@import_loop:
 	; get the name of a symbol
 	ldx #$00
 :	jsr readb
-	bcs @ret
+	bcs @ret0
 	sta @namebuff,x
 	beq @addimport
 	inx
 	bne :-
 
 @addimport:
-	ldxy #@namebuff
-	CALL FINAL_BANK_MAIN, lbl::add
+	jsr readb				; get info (address mode)
+	bcs @ret0
+	sta zp::label_mode
 
-	jsr $ffcf
+	ldxy #@namebuff
+	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
+	bcc :+					; if so, no need to add
+	CALL FINAL_BANK_MAIN, lbl::add
+:	inc @i
+	lda @i
+	cmp numimports
+	bne @import_loop
+
+@exports:
+	lda #$00
+	sta @i
+@export_loop:
+	; get the name of a symbol
+	ldx #$00
+:	jsr readb
+	bcs @ret
+	sta @namebuff,x
+	beq @addexport
+	inx
+	bne :-
+
+@addexport:
+	jsr readb				; get info (address mode)
+	bcs @ret
+	sta zp::label_mode
+	jsr readb				; get SEGMENT id
+	bcs @ret
+	sta zp::label_sectionid
+	jsr readb				; get LSB of symbol offset
+	bcs @ret
+	sta zp::label_value
+	jsr readb				; get MSB of symbol offset
+	bcs @ret
+	sta zp::label_value+1
+
+	ldxy #@namebuff
+	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
+	bcc :+					; if so, no need to add
+	CALL FINAL_BANK_MAIN, lbl::add
+:	inc @i
+	lda @i
+	cmp numimports
+	bne @export_loop
 
 	clc
 @ret:	rts
