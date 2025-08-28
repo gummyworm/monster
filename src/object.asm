@@ -54,7 +54,7 @@ reloc = zp::link	; when linking, pointer to current relocation
 
 .export __obj_sections_sizelo
 .export __obj_sections_sizehi
-.export __obj_sections_segments
+.export __obj_segments
 .export __obj_segments_sizelo
 .export __obj_segments_sizehi
 
@@ -67,13 +67,14 @@ __obj_sections_sizelo:
 sections_sizelo:   .res MAX_SECTIONS
 __obj_sections_sizehi:
 sections_sizehi:   .res MAX_SECTIONS
-__obj_sections_segments:
-sections_segments: .res MAX_SEGMENT_NAME_LEN*MAX_SECTIONS ; name of target SEG
 __obj_segments_sizelo:
 segments_sizelo: .res MAX_SECTIONS
 __obj_segments_sizehi:
 segments_sizehi: .res MAX_SECTIONS
 sections_info:     .res MAX_SECTIONS
+
+__obj_segments:
+segments: .res MAX_SEGMENT_NAME_LEN*MAX_SECTIONS ; name of target SEG
 
 ; SEGMENT id for each SECTION
 segment_ids: .res MAX_SECTIONS
@@ -266,9 +267,9 @@ __obj_close_section:
 	asl
 	asl
 	asl				; *8
-	adc #<sections_segments
+	adc #<segments
 	sta @namedst
-	lda #>sections_segments
+	lda #>segments
 	adc #$00
 	sta @namedst+1
 
@@ -674,6 +675,53 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
+; DUMP SEGMENTS
+; Dumps the SEGMENTS used in the object file and their sizes
+.proc dump_segments
+@name=r0
+@i=rc
+	lda numsegments
+	beq @done
+
+	lda #$00
+	sta @i
+@dump_headers:
+	; get offset to name for this section (*8)
+	lda @i
+	asl
+	asl
+	asl
+	adc #<segments
+	sta @name
+	lda #>segments
+	adc #$00
+	sta @name+1
+
+	; write the name of the SEGMENT
+	ldy #$00
+:	lda (@name),y
+	jsr $ffd2
+	iny
+	cpy #$08
+	bne :-
+
+	; write the number of bytes used for this SEGMENT (2 bytes)
+	ldx @i
+	lda __obj_segments_sizelo,x
+	jsr $ffd2
+	lda __obj_segments_sizehi,x
+	jsr $ffd2
+
+	; next SEGMENT
+	inc @i
+	lda @i
+	cmp numsegments
+	bne @dump_headers
+
+@done:	RETURN_OK
+.endproc
+
+;*******************************************************************************
 ; DUMP SECTION HEADERS
 ; Dumps the sections for the object file in construction.
 .proc dump_section_headers
@@ -690,9 +738,9 @@ __obj_close_section:
 	asl
 	asl
 	asl
-	adc #<sections_segments
+	adc #<segments
 	sta @name
-	lda #>sections_segments
+	lda #>segments
 	adc #$00
 	sta @name+1
 
@@ -731,18 +779,37 @@ __obj_close_section:
 	lda #$00
 	sta @cnt
 
-@l0:	; get address and size of the section to dump
-	ldx @cnt
+@l0:	ldx @cnt
+
+	; write the SEGMENT id used for the SECTION
+	lda segment_ids,x
+	jsr $ffd2
+
+	; write the "info" byte for the SECTION
+	lda sections_info,x
+	jsr $ffd2
+
+	; get address and size of the section to dump
 	lda sections_startlo,x
 	sta @sec
 	lda sections_starthi,x
 	sta @sec+1
 	lda sections_sizelo,x
 	sta @sz
+	jsr $ffd2			; dump size of the CODE table (LSB)
 	lda sections_sizehi,x
 	sta @sz+1
+	jsr $ffd2			; dump size of CODE table (MSB)
 	ora @sz
-	beq @done
+	php				; save .Z flag
+
+	lda sections_relocsizelo,x	; dump size of RELOC table (LSB)
+	jsr $ffd2
+	lda sections_relocsizehi,x	; dump size of RELOC table (MSB)
+	jsr $ffd2
+
+	plp				; restore .Z flag (is OBJ table empty?)
+	beq @done			; if no OBJ code, we're done
 
 @objloop:
 	; dump the object code for the section
@@ -804,20 +871,29 @@ __obj_close_section:
 
 	lda numsections			; # of sections
 	jsr $ffd2
-	lda numsymbols			; # of symbols (LSB)
+	lda numsegments			; # of segments
 	jsr $ffd2
-	lda numsymbols+1		; # of symbols (MSB)
+	lda numsymbols			; # of LOCALS (LSB)
 	jsr $ffd2
-	lda numexports			; # of EXPORTs
+	lda numsymbols+1		; # of LOCALS (MSB)
+	jsr $ffd2
+	lda numexports			; # of EXPORTS
+	jsr $ffd2
+	lda numexports			; # of IMPORTS (LSB)
+	jsr $ffd2
+	lda numexports+1		; # of IMPORTS (MSB)
 	jsr $ffd2
 
-	; write the SECTION headers
-	jsr dump_section_headers
+	; write the SEGMENTS used (names and sizes)
+	jsr dump_segments
 
 	; write the SYMBOL TABLE
 	jsr dump_imports
 	jsr dump_exports
 	jsr dump_locals
+
+	; write the SECTION headers
+	jsr dump_section_headers
 
 	; write each SECTION (object code, relocation data, debug info)
 	jsr dump_sections
@@ -1017,27 +1093,32 @@ __obj_close_section:
 	bcs @ret
 	sta numsegments
 
-	; read number of symbols defined
+	; read number of LOCALS (not used)
 	jsr readb		; get # of symbols LSB
 	bcs @ret
-	sta numsymbols
-	sta @symcnt
 	jsr readb		; get # of symbols MSB
 	bcs @ret
 
-	sta numsymbols+1
-	sta @symcnt+1
+	; read number of EXPORTS (not used)
+	jsr readb
+	bcs @ret
 
-	lda #<sections_segments
+	; read number of IMPORTS
+	jsr readb
+	bcs @ret
+	sta @importcnt
+	sta numimports
+
+	lda #<segments
 	sta @name
-	lda #>sections_segments
+	lda #>segments
 	sta @name+1
 	ldy #$00
 	sty @i
 
 @load_segments:
 @segname:
-	; read the SEGMENT name and number of bytes used in it
+	; read the SEGMENT name
 	sty @cnt
 	jsr readb
 	bcs @ret
@@ -1048,7 +1129,7 @@ __obj_close_section:
 	bne @segname
 
 @segusage:
-	; get the number of bytes used in each SEGMENT in the obj file
+	; get the number of bytes used in the SEGMENT
 	ldy @i
 	jsr readb			; get LSB
 	bcs @ret
@@ -1066,6 +1147,7 @@ __obj_close_section:
 	; now read the imports/exports and add them to the symbol table
 	lda #$00
 	sta @i
+
 @imports:
 	; get the name of a symbol
 	ldx #$00
@@ -1241,10 +1323,10 @@ __obj_close_section:
 	rol @seg+1
 	asl			; *8 (MAX_SEGMENT_NAME_LEN)
 	rol @seg+1
-	adc #<sections_segments
+	adc #<segments
 	tax
 	lda @seg+1
-	adc #>sections_segments
+	adc #>segments
 	tay
 	RETURN_OK
 .endproc

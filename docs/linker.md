@@ -76,9 +76,10 @@ Below is a description of the object file's components.  These are listed in the
 
 | field          | description
 |----------------|-----------------------------------------------
-| OBJ HEADER     | basic info (# of sections, # of symbols)
-| SECTION HEADER | info about sections (name and size)
+| OBJ HEADER     | basic info (number of sections, segments, and symbols)
+| SEGMENT HEADER | names and usage of each SEGMENT
 | SYMBOLS        | the symbol table (IMPORTS, EXPORTS, and LOCALS)
+| SECTION HEADER | info about sections (name and size)
 | SECTIONS       | .CODE, .REL, and .DEBUGINFO, tables (per SECTION)
 
 
@@ -228,24 +229,10 @@ exactly the value defined in the "address" field.
 
 
 ### SECTIONS
-After the symbol table is a list of one or more SECTIONs (the number is defined in the .O file header).
-These contain the object code, the relocation table, and the debug information needed to produce the linked debug or program file.
+After the symbol table is a list of one or more SECTIONS (the exact number is defined in the OBJ HEADER).
+Each section contains a short header followed by three sub-tables: one for object code, a relocation table, and a debug information table.
 
-These appear in the same order as the section headers, which is also the same order
-they are defined.  Here is the annotated example from _SECTION HEADERS_ above to show what
-the corresponding section will be for each block.
-
-```
-.CODE   ;SEGMENT("CODE", 1)  [section 1]
-asl
-.DATA   ;SEGMENT("DATA", 3)  [section 2]
-jmp $f00d
-.CODE   ;SEGMENT("DATA", 2)  [section 3]
-lda #$00
-```
-
-Although we store a header for each section at the beginning of the object file to help
-the linker layout the program, each section in the SECTIONS block also begins with its own header, which defines the size of its various tables.
+Below is the format for the header which precedes the section's data tables
 
 | field           | size | description
 |-----------------|------|-------------------------------------------------------
@@ -261,7 +248,21 @@ The info bitfield for the section has the following format:
 |-----------------|------|-------------------------------------------------------
 |  size           |  0   | 0=zeropage, 1=absolute
 
-A new _section_ is created any time a `.SEG` directive is encountered (even if the segment already exists).
+
+Every time a `.SEG` directive is encountered, a new SECTION is created.
+Here is an annotated example program to illustrate where new sections created:
+```
+.seg "CODE"   ; [section 1]
+asl
+.seg "DATA"   ; [section 2]
+jmp $f00d
+.seg "CODE"   ; [section 3]
+lda #$00
+```
+Note that although CODE is referenced twice in different ".seg" directives, each instance causes
+a new section to be produced (both will however have the same "segment id" field value).
+
+The following sections will discuss the layout of the data tables that follow the header in each section.
 
 ### RELOCATION TABLES
 For each _section_, the linker contains a table of _relocation info_.

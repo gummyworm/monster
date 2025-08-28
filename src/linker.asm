@@ -973,7 +973,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 	; get the new size of each SEGMENT by adding the number of bytes
 	; used in the object file for that SEGMENT
-	ldxy #obj::sections_segments
+	ldxy #obj::segments
 	stxy @segname
 	lda #$00
 	sta @i
@@ -1008,7 +1008,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	bne @calc_segment_sizes		; repeat for all SEGMENTS in file
 
 @nextfile:
-	; next file; update filename pointer to next filename
+	; next ile; update filename pointer to next filename
 	ldy #$01		; start search at 2nd character of filename
 :	lda (@objfile),y	; get a char
 	beq :+			; if 0, we've found terminator -> continue
