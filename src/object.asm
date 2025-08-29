@@ -1181,9 +1181,17 @@ __obj_close_section:
 	ldxy #@namebuff
 	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
 	bcs :+					; if no -> add it
+
 	; validate: does address mode match existing symbol?
-	; TODO:
-:	CALL FINAL_BANK_MAIN, lbl::add
+	CALL FINAL_BANK_MAIN, lbl::addrmode
+	cmp zp::label_mode
+	beq @ok					; matches -> ok
+
+	; error: address mode doesn't match
+	RETURN_ERR ERR_ADDRMODE_MISMATCH	; conflicting import/exports
+
+:	JUMP FINAL_BANK_MAIN, lbl::add
+@ok:	clc
 @ret:	rts
 .endproc
 
@@ -1207,6 +1215,7 @@ __obj_close_section:
 	jsr readb				; get info (address mode)
 	bcs @ret
 	sta zp::label_mode
+
 	jsr readb				; get SEGMENT id
 	bcs @ret
 	sta zp::label_sectionid
@@ -1220,8 +1229,17 @@ __obj_close_section:
 	ldxy #@namebuff
 	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
 	bcs :+					; no -> add it
-	; TODO: validate that existing symbol doesn't conflict
-:	CALL FINAL_BANK_MAIN, lbl::add
+
+	; validate: does address mode match existing symbol?
+	CALL FINAL_BANK_MAIN, lbl::addrmode
+	cmp zp::label_mode
+	beq @ok					; matches -> ok
+
+	; error: address mode doesn't match
+	RETURN_ERR ERR_ADDRMODE_MISMATCH	; conflicting import/exports
+
+:	JUMP FINAL_BANK_MAIN, lbl::add
+@ok:	clc
 @ret:	rts
 .endproc
 

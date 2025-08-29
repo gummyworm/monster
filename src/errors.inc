@@ -73,6 +73,7 @@ ERR_TOO_MANY_GLOBAL_REFS = 46
 ERR_TOO_MANY_SEGMENTS    = 47
 ERR_SECTION_TOO_SMALL    = 48
 ERR_NO_SECTIONS          = 49
+ERR_ADDRMODE_MISMATCH    = 50
 
 ;******************************************************************************
 ; general errors
