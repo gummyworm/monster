@@ -1230,6 +1230,11 @@ __obj_close_section:
 	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
 	bcs :+					; no -> add it
 
+	; validate: is section SEC_UNDEF?
+	; if not, error (only 1 EXPORT is allowed per symbol)
+	; TODO:
+	RETURN_ERR ERR_ALREADY_EXPORTED		; multiple exports
+
 	; validate: does address mode match existing symbol?
 	CALL FINAL_BANK_MAIN, lbl::addrmode
 	cmp zp::label_mode

@@ -196,6 +196,10 @@ err_addrmode_mismatch:
 ; "conflicting address modes for symbol"
 .byte $1b,$ce,$33,$9,$1d,$9,$71,$db,$9,$4,$91,$53,$9e,$cd,$79,$5,$9e,$c6,$7c,$9b,$9e,$4d,$13,$cc,$0
 
+err_already_exported:
+; "multiple definitions for symbol"
+.byte $6d,$4c,$a2,$50,$61,$5b,$21,$46,$4b,$89,$a2,$4f,$74,$db,$33,$d2,$dc,$d9,$68,$8f,$60,$0
+
 err_oom:
 ; "out of memory"
 .byte $7d,$54,$db,$c6,$db,$45,$6b,$d2,$c8,$0
@@ -253,6 +257,7 @@ err_oom:
 	err_too_many_global_refs, \
 	err_too_many_segments, \
 	err_addrmode_mismatch, \
+	err_already_exported, \
 	err_oom
 .linecont -
 errorslo: .lobytes errors

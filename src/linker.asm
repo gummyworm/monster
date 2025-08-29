@@ -899,6 +899,10 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; look up the section ID for the symbol
 	ldxy @i
 	CALL FINAL_BANK_MAIN, lbl::getsection	; get section ID
+	cmp #SEC_ABS				; is section ABSOLUTE?
+	beq @next				; if so, already resolved
+	cmp #SEC_UNDEF				; is section UNDEFINED?
+	beq @err				; if so, error
 	sta @sec_id				; save section ID
 
 	; look up the section-offset (address) for the symbol
@@ -920,12 +924,17 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	ldxy @i					; restore symbol ID to update
 	CALL FINAL_BANK_MAIN, lbl::setaddr	; store the resolved address
 
-	incw @i
+@next:	incw @i
 	ldxy @i
 	cmpw lbl::num
-	bne @l0					; repeat for all globals
+	beq @done
+	jmp @l0					; repeat for all globals
 
 @done:	RETURN_OK
+
+@err:	;sec
+	lda #ERR_LABEL_UNDEFINED
+	rts
 .endproc
 
 ;*******************************************************************************
