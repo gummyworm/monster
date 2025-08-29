@@ -1650,7 +1650,7 @@ scope: .res 8 ; buffer containing the current scope
 
 ;******************************************************************************
 ; NAME BY ID
-; Returns the address name of the label ID in .YX in .YX
+; Returns the address name of the label ID requested
 ; IN:
 ;  - .XY: the id of the label to get the address of
 ; OUT:

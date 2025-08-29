@@ -838,16 +838,39 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .endproc
 
 ;*******************************************************************************
-; GET OBJ ID
-; Returns the ID of for the object file from the given name
+; FILE ID FROM SCOPE
+; Parses the object file ID (index in objfiles) from the given symbol's scope.
+; E.g. "FOO:LABEL" will return the index for the file "FOO"
 ; IN:
-;   - .XY: address of the name to find the object file ID for
+;   - .XA: the symbol to match
 ; OUT:
-;   - .A: the ID of the object file for the given name
-;   - .C: set on error
-.proc get_obj_id
-	; TODO:
-	RETURN_OK
+;   - .A: the file ID for the symbol (from its scope)
+.proc file_id_from_scope
+@label=r0
+	; TODO
+	lda #$00
+	rts
+.endproc
+
+;*******************************************************************************
+; GET FILE SECTION TABLE
+; Returns the section offset table for the given symbol by parsing and
+; using ts namespace
+; IN:
+;   - .XA: the symbol to return the table for
+; OUT
+;   - .XY: the table of section offsets for the given symbol's file
+.proc get_file_section_table
+	jsr file_id_from_scope
+	asl				; *16
+	asl
+	asl
+	asl
+	adc #<file_segments_startlo
+	tax
+	adc #>file_segments_startlo
+	tay
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -856,49 +879,51 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; file headers in the linker's first pass
 .proc resolve_globals
 @i=zp::tmp10
-@seg_id=zp::tmp12
+@sec_id=zp::tmp12
+@obj_sec_offsets=zp::tmp14
 @namebuff=$100
 	iszero lbl::num
 	bne :+
 	RETURN_OK				; no globals
 
 :	; iterate through all labels
-	lda #$00
-	sta @i
-	sta @i+1
+	ldxy #0
+	stx @i
+	stx @i+1
 
-@l0:	ldxy @i
-	CALL FINAL_BANK_MAIN, lbl::by_id	; get the ID of a symbol
+@l0:	; get the address of the section table for file containing the symbol
+	CALL FINAL_BANK_MAIN, lbl::name_by_id	; look up the label's name
+	jsr get_file_section_table		; get offset table for file
+	stxy @obj_sec_offsets			; save the object table pointer
+
+	; look up the section ID for the symbol
 	ldxy @i
 	CALL FINAL_BANK_MAIN, lbl::getsection	; get section ID
-	sta @seg_id				; save section ID
-	lda #<@namebuff
-	sta r0
-	lda #>@namebuff
-	sta r0+1
-	CALL FINAL_BANK_MAIN, lbl::getname	; get the name of the label
-	ldxy r0
-	jsr get_obj_id				; look up OBJ id by namespace
+	sta @sec_id				; save section ID
 
-	; add the base address for object/section to its stored offset
+	; look up the section-offset (address) for the symbol
 	ldxy @i
-	CALL FINAL_BANK_MAIN, lbl::getaddr	; get symbol offset
-	txa
-	ldx @seg_id				; restore section ID
-	clc
-	adc file_segments_startlo,x
-	sta zp::label_value
+	CALL FINAL_BANK_MAIN, lbl::by_id	; look up the symbol's offset
 	tya
-	adc file_segments_startlo,x
+	pha					; save MSB
+	clc
+	txa
+	ldy @sec_id				; restore section ID
+	adc (@obj_sec_offsets),y		; add file offset to resolve
+	sta zp::label_value
+	pla					; restore MSB
+	iny
+	adc (@obj_sec_offsets),y
 	sta zp::label_value+1
-	CALL FINAL_BANK_MAIN, lbl::setaddr	; write final resolved address
 
-	; next
+	; store the resolved address
+	ldxy @i					; restore symbol ID to update
+	CALL FINAL_BANK_MAIN, lbl::setaddr	; store the resolved address
+
 	incw @i
 	ldxy @i
-	cmpw lbl::num			; are we done?
-	beq @done
-	jmp @l0				; repeat til all symbols resolved
+	cmpw lbl::num
+	bne @l0					; repeat for all globals
 
 @done:	RETURN_OK
 .endproc
@@ -919,6 +944,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @objfile=zp::link+2	; pointer to current object file being linked
 @i=zp::link+4
 @segname=zp::line+6
+@obj_id=zp::line+8
 	stxy @outfile
 
 	; init the segment/section pointers using the current linker state
@@ -953,6 +979,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 	; load the next .O (object) file in the object list
 	ldxy @objfile
+	stxy obj::filename
 	CALL FINAL_BANK_MAIN, file::open_r
 	bcs @ret
 	tax
@@ -971,6 +998,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	dex
 	bpl :-
 
+@calc_segment_sizes:
 	; get the new size of each SEGMENT by adding the number of bytes
 	; used in the object file for that SEGMENT
 	ldxy #obj::segments
@@ -980,7 +1008,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	cmp obj::numsegments
 	beq @nextfile			; if no sections used, continue
 
-@calc_segment_sizes:
 	; get the id of the segment by its name
 	ldxy @segname			; address of segment name
 	jsr get_segment_by_name		; get its ID

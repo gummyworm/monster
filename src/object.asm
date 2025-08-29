@@ -89,6 +89,9 @@ sections_relocsizehi:  .res MAX_SECTIONS
 __obj_numsections:
 numsections: .byte 0	; number of sections in obj file being written/read
 
+.export __obj_filename
+__obj_filename: .word 0	; pointer to name of object file being loaded
+
 .export __obj_numsegments
 __obj_numsegments:
 numsegments: .byte 0	; number of SEGMENTs in obj file being written/read
@@ -1132,6 +1135,11 @@ __obj_close_section:
 	sta @i
 	cmp numexports
 	beq @ok
+
+	; prepend the filename as scope so that we know the file the symbol
+	; was defined in when we resolve it
+	ldxy __obj_filename
+	CALL FINAL_BANK_MAIN, lbl::setscope
 
 @export_loop:
 	jsr load_export

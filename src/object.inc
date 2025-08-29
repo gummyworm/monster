@@ -4,6 +4,7 @@
 .import __obj_apply_relocation
 .import __obj_close_section
 .import __obj_dump
+.import __obj_filename
 .import __obj_init
 .import __obj_load
 .import __obj_load_headers
@@ -22,6 +23,7 @@
 	apply_relocation  = __obj_apply_relocation
 	close_section     = __obj_close_section
 	dump              = __obj_dump
+	filename          = __obj_filename
 	init              = __obj_init
 	load              = __obj_load
 	load_headers      = __obj_load_headers
