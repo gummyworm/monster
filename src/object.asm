@@ -1100,10 +1100,10 @@ __obj_close_section:
 	; get the number of bytes used in the SEGMENT
 	ldy @i
 	jsr readb			; get LSB
-	bcs @ret0
+	bcs @ret
 	sta __obj_segments_sizelo,y
 	jsr readb			; get MSB
-	bcs @ret0
+	bcs @ret
 	sta __obj_segments_sizehi,y
 
 	inc @i
@@ -1118,26 +1118,11 @@ __obj_close_section:
 	sta zp::label_sectionid	; imports' section is UNDEFINED
 	lda #$00
 	sta @i
+	cmp numimports
+	beq @exports
 @import_loop:
-	; get the name of a symbol
-	ldx #$00
-:	jsr readb
-	bcs @ret0
-	sta @namebuff,x
-	beq @addimport
-	inx
-	bne :-
-
-@addimport:
-	jsr readb				; get info (address mode)
-	bcs @ret0
-	sta zp::label_mode
-
-	ldxy #@namebuff
-	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
-	bcc :+					; if so, no need to add
-	CALL FINAL_BANK_MAIN, lbl::add
-:	inc @i
+	jsr load_import
+	inc @i
 	lda @i
 	cmp numimports
 	bne @import_loop
@@ -1145,7 +1130,62 @@ __obj_close_section:
 @exports:
 	lda #$00
 	sta @i
+	cmp numexports
+	beq @ok
+
 @export_loop:
+	jsr load_export
+	bcs @ret
+	inc @i
+	lda @i
+	cmp numexports
+	bne @export_loop
+
+@ok:	clc
+@ret:	rts
+.endproc
+
+;*******************************************************************************
+; LOAD IMPORT
+; Adds the next IMPORT in the open OBJECT file to the symbol table unless
+; it is already defined.
+; Returns an error if the symbol already exists and conflicts
+; OUT:
+;   - .C: set on error
+.proc load_import
+@namebuff=$100
+	; get the name of a symbol
+	ldx #$00
+	stx zp::label_value
+	stx zp::label_value+1
+:	jsr readb
+	bcs @ret
+	sta @namebuff,x
+	beq @cont
+	inx
+	bne :-
+
+@cont:
+	jsr readb				; get info byte (address mode)
+	bcs @ret
+	sta zp::label_mode
+
+	ldxy #@namebuff
+	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
+	bcs :+					; if no -> add it
+	; validate: does address mode match existing symbol?
+	; TODO:
+:	CALL FINAL_BANK_MAIN, lbl::add
+@ret:	rts
+.endproc
+
+;*******************************************************************************
+; LOAD EXPORT
+; Adds the next EXPORT in the open OBJECT file to the global symbol table
+; OUT:
+;   - .C: set on error
+.proc load_export
+@namebuff=$100
 	; get the name of a symbol
 	ldx #$00
 :	jsr readb
@@ -1171,14 +1211,9 @@ __obj_close_section:
 
 	ldxy #@namebuff
 	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
-	bcc :+					; if so, no need to add
-	CALL FINAL_BANK_MAIN, lbl::add
-:	inc @i
-	lda @i
-	cmp numimports
-	bne @export_loop
-
-	clc
+	bcs :+					; no -> add it
+	; TODO: validate that existing symbol doesn't conflict
+:	CALL FINAL_BANK_MAIN, lbl::add
 @ret:	rts
 .endproc
 
