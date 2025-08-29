@@ -188,6 +188,7 @@ __obj_close_section:
 .proc init
 	lda #$00
 	sta numsections
+	sta numsegments
 	sta numsymbols
 	sta numsymbols+1
 	sta numimports
@@ -239,8 +240,7 @@ __obj_close_section:
 	cpy #$01
 	beq @pass1
 
-	; in pass 2 we just need to store relocation table
-	; start address
+	; in pass 2 we just need to store relocation table start address
 	ldx num_reloctables_mapped
 	lda reloctop
 	sta sections_relocstartlo,x	; set reloc start LSB
@@ -262,6 +262,11 @@ __obj_close_section:
 	lda zp::asmresult+1
 	sta sections_starthi,x	; set obj section start MSB
 
+	; check if SEGMENT already exists
+	jsr get_segment_by_name
+	bcc :+				; if SEGMENT already exists continue
+
+	; SEGMENT doesn't exist, add to SEGMENT table
 	; copy the SEGMENT name
 	lda numsections
 	asl
@@ -272,6 +277,10 @@ __obj_close_section:
 	lda #>segments
 	adc #$00
 	sta @namedst+1
+
+	lda numsegments			; get ID for this SEGMENT
+	inc numsegments			; and increment SEGMENT count
+:	sta segment_ids,x		; set SEGMENT id for this SECTION
 
 	ldy #$00
 @l0:	lda @name,y
@@ -730,6 +739,9 @@ __obj_close_section:
 @cnt=r4
 	lda #$00
 	sta @cnt
+	cmp numsections
+	bne @l0
+	RETURN_OK		; no sections
 
 @l0:	ldx @cnt
 
@@ -1331,4 +1343,82 @@ __obj_close_section:
 	adc #>segments
 	tay
 	RETURN_OK
+.endproc
+
+;******************************************************************************
+; GET SEGMENT BY NAME
+; Returns the ID of the segment from its name
+; IN:
+;  - .XY: the name of the segment
+; OUT:
+;  - .A: the ID of the segment
+;  - .C: set if no segment exists by the given name
+.proc get_segment_by_name
+@name=zp::str0
+@other=zp::str2
+@cnt=r0
+	stxy @name
+	ldxy #segments
+	stxy @other
+
+	lda #$00
+	sta @cnt
+@l0:	lda #$08
+	jsr strcmp
+	beq @found
+	lda @other
+	clc
+	adc #$08
+	sta @other
+	ldx @cnt
+	inx
+	stx @cnt
+	cpx numsegments
+	bcc @l0
+@notfound:
+	rts
+
+@found: lda @cnt
+	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; STRCMP
+; Compares the strings in (zp::str0) and (zp::str2) up to a length of .A
+; IN:
+;  zp::str0: one of the strings to compare
+;  zp::str1: the other string to compare
+; OUT:
+;  .Z: set if the strings are equal
+.proc strcmp
+	ldy #$00
+@l0:	lda (zp::str0),y
+	beq :+
+	jsr is_ws
+	beq :+
+	cmp (zp::str2),y
+	bne @ret
+	iny
+	bne @l0
+
+:	lda (zp::str2),y	; make sure strings terminate at same index
+@ret:	rts
+.endproc
+
+;*******************************************************************************
+; IS WS
+; Checks if the given character is a whitespace character
+; IN:
+;  - .A: the character to test
+; OUT:
+;  - .Z: set if if the character in .A is whitespace
+.proc is_ws
+	cmp #$0d	; newline
+	beq :+
+	cmp #$09	; TAB
+	beq :+
+	cmp #$0a	; UNIX newline
+	beq :+
+	cmp #' '
+:	rts
 .endproc
