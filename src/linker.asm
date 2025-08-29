@@ -846,9 +846,45 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; OUT:
 ;   - .A: the file ID for the symbol (from its scope)
 .proc file_id_from_scope
-@label=r0
-	; TODO
-	lda #$00
+@sym=zp::str0
+@objs=zp::str1
+@i=r0
+	stx @sym
+	sta @sym+1
+
+	ldxy #__link_objfiles
+	stxy @objs
+
+	; get the length of the namespace to search for
+	ldy #$00
+	sty @i			; init index
+
+@l0:	lda (@sym),y
+	cmp #':'		; scope separator
+	beq @find
+	iny
+	bne @l0
+
+@find:	jsr strcmp		; search
+	beq @done		; if match -> we're done
+
+	; move @obj pointer to next filename
+	ldy #$00
+@l1:	lda (@objs),y
+	beq @next
+	iny
+	bne @l1			; branch always
+
+@next:	inc @i			; increment id counter
+	tya
+	sec			; +1 (move OVER the terminator)
+	adc @objs
+	sta @objs
+	bcc @l1
+	inc @objs+1
+	bne @l1
+
+@done:	lda @i
 	rts
 .endproc
 
@@ -1078,7 +1114,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	stxy @objfile
 
 @objects:
-	; iterate over each object file and link them
+	; iterate over each object file and link it
 	ldxy @objfile
 	jsr link_object		; link the object file
 	bcs @done		; if .C set, return with error
@@ -1134,20 +1170,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 @done:	clc
 @ret:	rts
-.endproc
-
-;******************************************************************************
-; LOAD OBJ
-; Loads the object file with the given id.
-; IN:
-;   - .A: the ID of the object file to load
-; OUT:
-;   - .A: error code (on failure)
-;   - .C: set if the file failed to load
-.proc load_obj
-	; load the file into the object buffer
-	; TODO:
-	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -1532,7 +1554,7 @@ __link_get_segment_by_name:
 ; Compares the strings in (zp::str0) and (zp::str2) up to a length of .A
 ; IN:
 ;  zp::str0: one of the strings to compare
-;  zp::str1: the other string to compare
+;  zp::str2: the other string to compare
 ; OUT:
 ;  .Z: set if the strings are equal
 .proc strcmp
