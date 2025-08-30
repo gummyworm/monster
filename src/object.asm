@@ -911,7 +911,7 @@ __obj_close_section:
 	lda (reloc),y		; get symbol MSB
 	sta @symbol_id+1
 
-	; look up the symbol that we mapped for this index
+	; look up the address that we resolved for this symbol id (index)
 	lda @symbol_id
 	clc
 	adc #<symbol_addresses
@@ -1440,25 +1440,44 @@ __obj_close_section:
 	ldxy numlocals
 	stxy @symcnt
 
+	; init resolved address pointer to base of address table
+	lda #<symbol_addresses
+	sta @symaddr
+	lda #>symbol_addresses
+	sta @symaddr+1
+
 @load_local:
 	; load the LOCALS block of symbols
 	jsr readb		; get section ID for symbol
-	bcs @eof
-	pha			; save section ID
+	bcc :+
+@local_err:
+	rts
+
+:	pha			; save section ID
 
 	; get offset for the symbol
 	jsr readb		; read offset LSB
-	bcs @eof
+	bcs @local_err
 	sta @addr
 	jsr readb		; read offset MSB
-	bcs @eof
+	bcs @local_err
 	sta @addr+1
 
 	; resolve symbol by adding its offest to the base address of its section
+	; segments_start[segment_ids[sec_id]] + sections_start[sec_id]
 	pla			; restore section ID
 	cmp #SEC_UNDEF		; is section UNDEFINED?
 	beq @next_local		; if so, skip (already handled as EXPORT)
+
+	; look up base address for the section's SEGMENT (segments_start[segment_ids[sec_id]])
 	tax
+	ldy segment_ids,x		; segment_ids[sec_id]
+	lda segments_startlo,y		; segments_start[segment_ids[sec_id]] (LSB)
+	sta @addr
+	lda segments_starthi,y		; segments_start[segment_ids[sec_id]] (MSB)
+	sta @addr+1
+
+	; now add the base offest of the SECTION (sections_start[sec_id])
 	lda @addr
 	;clc
 	adc sections_startlo,x	; resolve LSB
@@ -1470,9 +1489,12 @@ __obj_close_section:
 	sta (@symaddr),y	; store resolved MSB
 
 @next_local:
+	incw @symaddr
+	incw @symaddr
 	decw @symcnt
+
 	iszero @symcnt
-	bne @load_local
+	bne @load_local		; repeat for all LOCALS
 
 ; done with symbols, now load all the SECTION information to get the sizes
 ; of each table we will need to walk

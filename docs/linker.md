@@ -54,16 +54,18 @@ Note that any nonzero value for these flags will enable them while the zero valu
 ### LINK PROCESS OVERVIEW
 To link multiple object files the linker follows the following procedure:
 * Parse link config file
- * Get section addresses (where to assemble the object code)
-* Pass 1: build link context
-  * Read all SECTION headers from object files
-      * In order defined by link file, set section start addresses to SECTION start + size of all preceding sections Read SEGMENT header
-    * Build global symbol table
-       * Read EXPORT table in each object file
-       * Add name, section, and section offset for each EXPORT
-* Pass 2: link objects
+ * Get SEGMENT base addresses (where to assemble the object code)
+* Pass 1: build link context (per object file)
+    * Gather SEGMENT usage from object header
+    * Gather global symbols
+         * Read EXPORT table in each object file
+         * Add name, section, and section offset for each EXPORT
+* Build final layout from SEGMENT usage in each object file
+* Fully resolve global symbols and build the global symbol table
+* Pass 2: link objects (per object file)
     * Build object-local context
-       * Map symbol indices to their resolved addresses using global symbol table / section base address
+         * Get base address of each SECTION from global SEGMENT base + object's SEGMENT offset
+         * Map symbol indices to their resolved addresses using global symbol table / section base address
     * Store object code to the current address for each section
     * Walk relocation table, for each section, and apply the the relocations described using the global symbol table
 * Validate
@@ -79,7 +81,6 @@ Below is a description of the object file's components.  These are listed in the
 | OBJ HEADER     | basic info (number of sections, segments, and symbols)
 | SEGMENT HEADER | names and usage of each SEGMENT
 | SYMBOLS        | the symbol table (IMPORTS, EXPORTS, and LOCALS)
-| SECTION HEADER | info about sections (name and size)
 | SECTIONS       | .CODE, .REL, and .DEBUGINFO, tables (per SECTION)
 
 
@@ -236,7 +237,7 @@ Below is the format for the header which precedes the section's data tables
 
 | field           | size | description
 |-----------------|------|---------------------------------------------------------------------
-|  segment id     |  1   | ID for the SEGMENT (defined in SECTION HEADER) this SECTION maps to
+|  segment id     |  1   | ID for the SEGMENT (defined in SEGMENT HEADER) this SECTION maps to
 |  info           |  1   | info byte: zeropage/absolute etc.
 |  code size      |  2   | size of the object-code binary table for the section
 |  reloc size     |  2   | size of the relocation table for the section
