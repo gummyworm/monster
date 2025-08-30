@@ -8,6 +8,7 @@
 .include "expr.inc"
 .include "file.inc"
 .include "labels.inc"
+.include "linker.inc"
 .include "macros.inc"
 .include "ram.inc"
 .include "vmem.inc"
@@ -75,6 +76,10 @@ sections_info:     .res MAX_SECTIONS
 
 __obj_segments:
 segments: .res MAX_SEGMENT_NAME_LEN*MAX_SECTIONS ; name of target SEG
+
+; link-time start addresses of each SEGMENT
+segments_startlo: .res MAX_SECTIONS
+segments_starthi: .res MAX_SECTIONS
 
 ; SEGMENT id for each SECTION
 segment_ids: .res MAX_SECTIONS
@@ -505,11 +510,11 @@ __obj_close_section:
 	ldy #$00
 	lda (@symtab),y
 	ldy #$03
-	sta (@rel),y
+	sta (@reltab),y
 	ldy #$01
 	lda (@symtab),y
 	ldy #$04
-	sta (@rel),y
+	sta (@reltab),y
 
 @next:	pla			; restore info byte
 	and #$0c		; mask postproc bits (2, 3)
@@ -873,18 +878,19 @@ __obj_close_section:
 ; Produces the final binary for a section by applying its relocation
 ; table to its base object code.
 ; IN:
-;   - .A: the index of the section to apply the relocation for
+;   - .A:    the index of the section to apply the relocation for
+;   - reloc: points to the start of the relocation table to apply
 ; OUT:
 ;   - .C: set if there is no remaining relocation to apply for the section
 .export __obj_apply_relocation
 .proc __obj_apply_relocation
 @symbol_id=r0
+@symbol_addr=r0
 @tmp=r0
 @addrmode=r2
 @pc=r4
-	ldy #$00
-
 	; get the address mode (size of the target to update)
+	ldy #$00
 	lda (reloc),y	; get the info byte
 	and #$01	; mask size bit
 	sta @addrmode	; and save address mode for later
@@ -896,6 +902,8 @@ __obj_close_section:
 	bne @sec	; 1 = section, 0 = symbol
 
 @sym:	; apply a symbol based relocation
+	; symbols are fully resolved by the time we apply relocation, so
+	; just look up the address in symbol_addresses
 	ldy #$03		; index to symbol ID LSB
 	lda (reloc),y		; get symbol LSB
 	sta @symbol_id
@@ -906,15 +914,17 @@ __obj_close_section:
 	; look up the symbol that we mapped for this index
 	lda @symbol_id
 	clc
-	adc #<symbol_index_map
-	tax
+	adc #<symbol_addresses
+	sta @symbol_addr
 	lda @symbol_id+1
-	adc #>symbol_index_map
+	adc #>symbol_addresses
+	sta @symbol_addr+1
+	ldy #$00
+	lda (@symbol_addr),y
+	tax
+	iny
+	lda (@symbol_addr),y
 	tay
-
-	; and finally look up the value for the actual symbol
-	CALL FINAL_BANK_MAIN, lbl::by_id
-	stxy @tmp
 	jmp @add_offset		; continue to calculate target address
 
 @sec:	; apply section based relocation
@@ -923,24 +933,20 @@ __obj_close_section:
 	jsr get_mapped_section	; look up addr of section mapped to this ID
 
 @add_offset:
-	; add the encoded offset (bytes 1 and 2 of the record) to our base
-	; address to get the relocation target
-	lda @tmp
-	clc
+	stxy @tmp		; save the base address we will apply addend to
+
+	; get the address of the byte/word to apply relocation to
 	ldy #$01
 	adc (reloc),y		; add LSB of offset
 	sta @pc
 	iny
-	lda @tmp+1
 	adc (reloc),y		; add MSB of offset
 	sta @pc+1
 
 @apply_addend:
-	stxy @tmp		; save base address to apply addend to
-
 	ldy #$00
 	lda @addrmode		; get address mode
-	beq @postproc		; if 0 -> apply zeropage relocation
+	beq @zp			; if 0 -> apply zeropage relocation
 
 @abs:	lda (@pc),y		; get LSB of addend
 	clc
@@ -961,7 +967,7 @@ __obj_close_section:
 
 	lda (reloc),y
 	and #$0c		; is any postproc needed (bit 2 or 3 set)?
-	beq :+
+	bne @postproc		; if so, continue to apply it
 
 @nopostproc:
 	; no post-processing, just add 1 byte addend and we're done
@@ -1304,6 +1310,31 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
+; GET SEGMENT BASES
+; Uses the global linker context to get the base address of each SECTION
+; that was defined when we extracted the object header data (load_info)
+.proc get_segment_bases
+@i=r4
+	lda #$00
+	sta @i
+:	cmp numsections
+	beq @done
+	jsr link::segaddr_for_file	; get base address of segment
+
+	; store the base address of the SEGMENT for its object-local index
+	txa
+	ldx @i
+	sta segments_startlo,x
+	tya
+	sta segments_starthi,x
+
+	inc @i
+	bne :-
+
+@done:	rts
+.endproc
+
+;*******************************************************************************
 ; LOAD
 ; Loads the object state for the file with the given filename so that it may
 ; be linked. A preliminary pass is assumed to have taken place.
@@ -1311,26 +1342,27 @@ __obj_close_section:
 ; IMPORTs used in the program being linked)
 .export __obj_load
 .proc __obj_load
-@cnt=r0
+@tmp=r0
 @seccnt=r2
 @sec_idx=r4
 @sym_idx=r4
 @name=r6
-@lbl=r6
+@addr=r6
 @symcnt=r8
-@importcnt=ra
-@exportcnt=ra
+@symaddr=ra
 @symoff=rc
-@symsec=re
 @namebuff=$100
 	jsr load_info
 	bcc :+
 @ret:	rts
 
-:	ldxy numimports
-	stxy @importcnt
-	iszero @importcnt		; are there any IMPORTS?
-	beq @eat_exports		; if not, skip ahead
+:	jsr get_segment_bases	; get the base addr of each SEGMENT in the file
+
+	ldxy numimports
+	stxy @symcnt
+	iszero @symcnt		; are there any IMPORTS?
+	beq @eat_exports	; if not, skip ahead
+
 @load_imports:
 	; get the name of a symbol
 	ldx #$00
@@ -1342,36 +1374,48 @@ __obj_close_section:
 	bne :-
 
 @mapimport:
-	; look up the import's offset and section by name
-	; imports/exports are added as labels by the linker in its first pass
+	; look up the import's fully resolved address by its name
 	ldxy #@namebuff
 	CALL FINAL_BANK_MAIN, lbl::find	; find label ID by name
-	stxy @lbl
-	CALL FINAL_BANK_MAIN, lbl::addr	; get section offset
-	tya
-	ldy #$01
-	sta (@symoff),y		; store MSB of offset
-	dey
-	txa
-	sta (@symoff),y		; store LSB of offset
-	ldxy @lbl
+	CALL FINAL_BANK_MAIN, lbl::addr	; get the resolved address
+	stxy @addr
 
-	lda #SEC_ABS
+	jsr readb		; eat info byte
+	bcs @ret
+
+	; get the index that the IMPORT maps to in the LOCALS table.
+	; then write the resolved address from the global symbol table to that
+	; entry in the symbol_addresses table.
+	jsr readb		; get index of symbol in LOCALS table (LSB)
+	bcs @ret
+	pha
+	jsr readb		; get index of symbol in LOCALS table (MSB)
+	bcs @ret
+	sta @tmp
+	pla			; restore LSB of index
+	asl
+	rol @tmp
+	adc #<symbol_addresses
+	sta @symaddr
+	lda @tmp
+	adc #>symbol_addresses
+	sta @symaddr+1
+
+	; store the resolved address for this symbol's index
 	ldy #$00
-	sta (@symsec),y		; mark section as ABS (fully resolved)
-	sta (@symsec),y
+	lda @addr
+	sta (@symaddr),y
+	iny
+	lda @addr
+	sta (@symaddr),y
 
-	incw @symoff
-	incw @symoff
-	incw @symsec
-
-	decw @importcnt
-	iszero @importcnt
-	bne @mapimport
+	decw @symcnt
+	iszero @symcnt
+	bne @mapimport		; repeat for all IMPORTS
 
 @eat_exports:
 	lda numexports
-	sta @exportcnt
+	sta @symcnt
 	beq @load_locals	; no EXPORTS? skip ahead
 
 	; skip over exports (not needed when loading obj file for linking)
@@ -1389,31 +1433,49 @@ __obj_close_section:
 	bcs @export_error
 	dey
 	bne :-
-	dec @exportcnt
+	dec @symcnt
 	bne @eat_export
 
 @load_locals:
+	ldxy numlocals
+	stxy @symcnt
+
+@load_local:
 	; load the LOCALS block of symbols
-	jsr $ffcf		; get section ID for symbol
-	ldy #$00
-	sta (@symsec),y
+	jsr readb		; get section ID for symbol
+	bcs @eof
+	pha			; save section ID
 
 	; get offset for the symbol
-	jsr $ffcf
+	jsr readb		; read offset LSB
+	bcs @eof
+	sta @addr
+	jsr readb		; read offset MSB
+	bcs @eof
+	sta @addr+1
+
+	; resolve symbol by adding its offest to the base address of its section
+	pla			; restore section ID
+	cmp #SEC_UNDEF		; is section UNDEFINED?
+	beq @next_local		; if so, skip (already handled as EXPORT)
+	tax
+	lda @addr
+	;clc
+	adc sections_startlo,x	; resolve LSB
 	ldy #$00
-	sta (@symoff),y		; LSB
-	jsr $ffcf
-	incw @symoff
-	sta (@symoff),y		; MSB
+	sta (@symaddr),y	; store resolved LSB
+	lda @addr+1
+	adc sections_starthi,x	; resolve MSB
+	iny
+	sta (@symaddr),y	; store resolved MSB
 
-	; next label
-	incw @symsec
-	incw @symoff
-
+@next_local:
 	decw @symcnt
 	iszero @symcnt
-	bne @load_locals
+	bne @load_local
 
+; done with symbols, now load all the SECTION information to get the sizes
+; of each table we will need to walk
 @load_sections:
 	lda #$00
 	sta @sec_idx
@@ -1422,24 +1484,26 @@ __obj_close_section:
 
 @load_section:
 	; read the SEGMENT id for this section
-	jsr $ffcf
+	jsr readb
+	bcs @eof
 	ldx @sec_idx
 	sta segment_ids,x
 
 @secsizes:
 	; read the size the tables in this section
 	ldx @sec_idx
-	jsr $ffcf			; get section size LSB
+	jsr readb			; get section size LSB
+	bcs @eof
 	sta sections_sizelo,x
-	jsr $ffcf			; get section size MSB
+	jsr readb			; get section size MSB
+	bcs @eof
 	sta sections_sizehi,x
-	jsr $ffcf
+	jsr readb
+	bcs @eof
 	sta sections_relocsizelo,x	; get relocation table size LSB
-	jsr $ffcf
+	jsr readb
+	bcs @eof
 	lda sections_relocsizehi,x	; get relocation table size MSB
-
-	jsr $ffb7			; READST
-	bne @eof			; either EOF or read error
 
 	dec @seccnt			; decrement section counter
 	bne @load_section		; repeat for all sections

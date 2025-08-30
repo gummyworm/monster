@@ -1128,6 +1128,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; reset obj pointer to start of object list
 	ldxy #__link_objfiles
 	stxy @objfile
+	lda #$00
+	sta activeobj
 
 @objects:
 	; iterate over each object file and link it
@@ -1149,7 +1151,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	sta @objfile
 	bcc :+
 	inc @objfile+1
-:	ldy #$01
+:	inc activeobj
+	ldy #$01
 	lda (@objfile),y	; are there more files? (next file is !0)
 	bne @objects		; if so, repeat
 	clc			; all objects linked, return success
@@ -1174,7 +1177,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 	; iterate over each section and link it: apply relocation, and produce
 	; debug info
-
 @reloc:	; walk the relocation table and apply all relocations
 	lda @sec_idx
 	jsr obj::apply_relocation
@@ -1415,6 +1417,27 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 
 @found: lda @cnt
 	RETURN_OK
+.endproc
+
+;******************************************************************************
+; SECTION BY NAME FOR FILE
+; Returns the base address for the given segment name within the given object
+; file. This is only valid in pass 2 after the linker has finished laying out
+; the final program.
+; IN:
+;   - .XY:     the segment name to get the base address of
+;   - objfile: the file to find the section's base address for
+; OUT:
+;   - .XY: the base address for the requested segment within objfile
+.export __link_segaddr_for_file
+.proc __link_segaddr_for_file
+@segname=r0
+@tab=r2
+	jsr get_section_by_name		; get the section ID
+	ldx activeobj			; current file being linked
+	lda file_segments_startlo,x	; get LSB of start addr
+	ldy file_segments_starthi,x	; and MSB
+	rts
 .endproc
 
 ;******************************************************************************

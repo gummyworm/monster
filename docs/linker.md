@@ -137,7 +137,7 @@ The symbol table contains three parts: IMPORTS, EXPORTS, and LOCALS, which appea
 shown in this table:
 
 | field          | description
-|----------------|-----------------------------------------------
+|----------------|--------------------------------------------------------------------------------
 | IMPORTS        | symbols that are defined in other object files but used in this one
 | EXPORTS        | symbols that are defined in this object file and (potentially) used in others
 | LOCALS         | symbols defined in this object file and also used within it
@@ -162,15 +162,16 @@ Validation is performed on each global (EXPORT or IMPORT) to ensure that the sam
 
 
 |  field  | size  |  description
-|---------|-------|----------------------------------------------
+|---------|-------|-----------------------------------------------------------------
 |  name   | 1-33  | the symbol name as a 0-terminated string
 |  info   |   1   | information about the import (size)
+|  index  |   2   | index of symbol in LOCALS that corresponds to this IMPORT symbol
 
 
 The info field uses the following bitfield format:
 
 |  field  | bit(s)|  description
-|---------|-------|----------------------------------------------
+|---------|-------|----------------------------------------------------
 |  size   |   0   | 0=zeropage import ($00-$ff), 1=absolute (>= $100)
 
 
@@ -216,18 +217,16 @@ The info field uses the following bitfield format:
 #### LOCALS
 Local symbols are the ones referenced in the relocation table(s) for the object file.
 
-The name "local" is somewhat of a misnomer because imorted (global) symbols will also reside in this table.  These external symbols are identifiable by the "section" value: `SEC_UNDEF`.
+The name "local" is somewhat of a misnomer because imorted (global) symbols will also reside in this table.  These external symbols are identifiable by the "section" value: `SEC_UNDEF` ($00).
 
 The local symbol table is quite compact. It contains only the object-local section ID and the offset of the symbol from that section.
 
 | field   | size | description
-|---------|------|--------------------------------------------------------------
+|---------|------|----------------------------------------------------------------------------------
 | section |   1  | ID (index in SECTIONS block)
 | address |   2  | absolute (if section is SEC\_ABS) or offset from section within its object file
 
-If "section" is $ff, the symbol is considered "absolute".  Symbols with this section id are constants; their resolved address is not relative to any section and will always be
-exactly the value defined in the "address" field.
-
+If "section" is $ff, the symbol is considered "absolute".  Symbols with this section id are constants; their resolved address is not relative to any section and will always be exactly the value defined in the "address" field.
 
 ### SECTIONS
 After the symbol table is a list of one or more SECTIONS (the exact number is defined in the OBJ HEADER).
@@ -236,7 +235,7 @@ Each section contains a short header followed by three sub-tables: one for objec
 Below is the format for the header which precedes the section's data tables
 
 | field           | size | description
-|-----------------|------|-------------------------------------------------------
+|-----------------|------|---------------------------------------------------------------------
 |  segment id     |  1   | ID for the SEGMENT (defined in SECTION HEADER) this SECTION maps to
 |  info           |  1   | info byte: zeropage/absolute etc.
 |  code size      |  2   | size of the object-code binary table for the section
