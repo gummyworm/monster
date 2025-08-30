@@ -8,10 +8,10 @@ B:
 ]
 
 SEGMENTS [
- S1:
+ CODE:
   LOAD=A
   RUN=A;
- S2:
+ DATA:
   LOAD=B
   RUN=B;
 ]

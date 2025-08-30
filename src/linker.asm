@@ -380,7 +380,12 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 	; load link file into filebuff
 	CALL FINAL_BANK_MAIN, file::open_r
+	pha					; save file ID
 	CALL FINAL_BANK_MAIN, file::loadbin
+	pla					; restore file ID
+	php					; save .C
+	CALL FINAL_BANK_MAIN, file::close
+	plp					; restore .C
 	bcs @err
 
 	ldxy #@filebuff
@@ -988,8 +993,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @outfile=zp::link
 @objfile=zp::link+2	; pointer to current object file being linked
 @i=zp::link+4
-@segname=zp::line+6
-@obj_id=zp::line+8
+@segname=zp::link+6
+@obj_id=zp::link+8
+@obj_file_handle=zp::link+9
 	stxy @outfile
 
 	; init the segment/section pointers using the current linker state
@@ -1026,10 +1032,18 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	ldxy @objfile
 	stxy obj::filename
 	CALL FINAL_BANK_MAIN, file::open_r
-	bcs @ret
+	pha					; save file handle
 	tax
-	jsr $ffc6		; CHKIN
+	jsr $ffc6				; CHKIN
+
 	jsr obj::load_headers	; get section sizes and add global labels
+	pla			; restore file handle
+	php			; save .C (error)
+
+	; close the object file
+	CALL FINAL_BANK_MAIN, file::close
+	jsr $ffcc				; CLRCHN
+	plp					; restore load_headers error
 	bcs @ret
 
 	; store the current base addresses for each SEGMENT for the object file
@@ -1041,7 +1055,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	adc segments_sizehi-1,x
 	sta file_segments_starthi-1,x
 	dex
-	bpl :-
+	bne :-
 
 @calc_segment_sizes:
 	; get the new size of each SEGMENT by adding the number of bytes
@@ -1056,6 +1070,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; get the id of the segment by its name
 	ldxy @segname			; address of segment name
 	jsr get_segment_by_name		; get its ID
+	bcs @done			; error
 	tax				; .X=segment index (global context)
 	ldy @i				; .Y=segment index (object file)
 
@@ -1076,11 +1091,12 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	bcc :+
 	inc @segname+1
 :	inc @i				; next SEGMENT
+	lda @i
 	cmp obj::numsections		; are we done?
 	bne @calc_segment_sizes		; repeat for all SEGMENTS in file
 
 @nextfile:
-	; next ile; update filename pointer to next filename
+	; next file; update filename pointer to next filename
 	ldy #$01		; start search at 2nd character of filename
 :	lda (@objfile),y	; get a char
 	beq :+			; if 0, we've found terminator -> continue
@@ -1116,6 +1132,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @objects:
 	; iterate over each object file and link it
 	ldxy @objfile
+	jmp *
 	jsr link_object		; link the object file
 	bcs @done		; if .C set, return with error
 
@@ -1146,7 +1163,10 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;   - .XY: address of the object filename to link
 .proc link_object
 @sec_idx=zp::tmp10
+@obj_file_handle=zp::tmp12
 	CALL FINAL_BANK_MAIN, file::open_r
+	sta @obj_file_handle
+
 	tax
 	jsr $ffc6		; CHKIN
 	jsr obj::load		; load the object file with the given index
@@ -1168,8 +1188,13 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	cmp obj::numsections
 	bne @reloc		; repeat for all sections
 
-@done:	clc
-@ret:	rts
+@done:	clc					; ok
+@ret:	php					; save error flag
+	lda @obj_file_handle
+	CALL FINAL_BANK_MAIN, file::close
+	clc
+	plp					; restore error flag
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1424,7 +1449,9 @@ __link_get_segment_by_name:
 	stx @cnt
 	cpx numsegments
 	bcc @l0
+
 @notfound:
+	;sec
 	rts
 
 @found: lda @cnt

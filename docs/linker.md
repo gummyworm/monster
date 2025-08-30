@@ -63,7 +63,7 @@ To link multiple object files the linker follows the following procedure:
        * Add name, section, and section offset for each EXPORT
 * Pass 2: link objects
     * Build object-local context
-       * Build map of symbol index to their values using global symbol table
+       * Map symbol indices to their resolved addresses using global symbol table / section base address
     * Store object code to the current address for each section
     * Walk relocation table, for each section, and apply the the relocations described using the global symbol table
 * Validate
@@ -91,7 +91,7 @@ The linker uses the header in each object file to determine the final layout in 
 |--------------|------|--------------------------------------------------
 | num sections |  1   | number of sections used
 | num segments |  1   | number of sgements used
-| num locals   |  2   | number of symbols in object file
+| num locals   |  2   | number of symbols in object file used for relocation
 | num exports  |  1   | number of exports in object file
 | num imports  |  2   | number of imports in object file
 
@@ -213,16 +213,17 @@ The info field uses the following bitfield format:
 |  size   |   0   | 0=zeropage import ($00-$ff), 1=absolute (>= $100)
 
 
-#### LOCAL SYMBOLS
+#### LOCALS
 Local symbols are the ones referenced in the relocation table(s) for the object file.
+
 The name "local" is somewhat of a misnomer because imorted (global) symbols will also reside in this table.  These external symbols are identifiable by the "section" value: `SEC_UNDEF`.
 
 The local symbol table is quite compact. It contains only the object-local section ID and the offset of the symbol from that section.
 
-| size | field   | description
-|------|---------|--------------------------------------------------------------
-|   1  | section | ID (index in SECTIONS block)
-|   2  | address | absolute (if section is SEC\_ABS) or offset from section within its object file
+| field   | size | description
+|---------|------|--------------------------------------------------------------
+| section |   1  | ID (index in SECTIONS block)
+| address |   2  | absolute (if section is SEC\_ABS) or offset from section within its object file
 
 If "section" is $ff, the symbol is considered "absolute".  Symbols with this section id are constants; their resolved address is not relative to any section and will always be
 exactly the value defined in the "address" field.

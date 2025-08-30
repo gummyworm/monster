@@ -118,20 +118,10 @@ num_reloctables_mapped: .byte 0
 
 ;*******************************************************************************
 ; SYMBOL INFO
-; This table contains the name for each symbol used in the object file
-; The contents of the symbol table depend on if the symbol is "local"
-; o "imported".
-; For symbols defined within the object code:
-;  section + offset within section
-; For imported symbols:
-;  name of the symbol
-; For exported symbols:
-;  name of the symbol, section-index, and offset from that section
-; This gives us enough information to lookup the addresses of global symbols
-; and also to provide that information to other assembly units.
-
-symbol_sections: .res MAX_IMPORTS+MAX_EXPORTS
-symbol_offsets:  .res MAX_IMPORTS+MAX_EXPORTS
+; This table contains the fully resolved addresses for each symbol index used
+; in the object file.
+numlocals:        .word 0
+symbol_addresses: .res MAX_IMPORTS+MAX_EXPORTS
 
 ;*******************************************************************************
 ; EXPORTS
@@ -443,14 +433,14 @@ __obj_close_section:
 ;*******************************************************************************
 ; BUILD SYMBOL INDEX MAP
 ; Constructs the map of symbols to the index to store for them in the symbol
-; table.
+; table.  Also replaces the ID's in the relocation table with the indices with
+; the indices in the exported LOCALS table.
 .proc build_symbol_index_map
 @idx=r0
 @symtab=r2
 @reltab=r4
 	; walk the relocation tables to determine which symbols are referenced
-	; in relocations.
-	; only these will be emitted.
+	; in relocations. only these will be emitted.
 	ldxy #reloc_tables
 	stxy @reltab
 	cmpw reloctop
@@ -477,15 +467,16 @@ __obj_close_section:
 	pha			; save info byte
 
 	and #$02		; mask mode bit
-	bne @next		; if 1-> no symbol
-	ldy #$03
-	lda (@reltab),y		; get symbol ID
+	bne @next		; if 1-> not a symbol-based relocation
+
+	; get position of symbol (symbol_index_map + id*2)
+	lda (@reltab),y		; get symbol ID (LSB)
 	asl
 	rol @symtab+1
 	adc #<symbol_index_map
 	sta @symtab
 	iny
-	lda (@reltab),y
+	lda (@reltab),y		; symbol ID (MSB)
 	adc #>symbol_index_map
 	sta @symtab+1
 
@@ -493,13 +484,13 @@ __obj_close_section:
 	ldy #$00
 	lda (@symtab),y
 	cmp #$ff
-	bne @next		; not $ffff (already mapped) -> continue
+	bne @update_rel		; not $ffff (already mapped) -> update table
 	iny
 	lda (@symtab),y
 	cmp #$ff
-	bne @next		; not $ffff (already mapped) -> continue
+	bne @update_rel		; not $ffff (already mapped) -> update table
 
-	; not mapped, assign this symbol an index
+	; not mapped, assign this symbol the next available index
 	lda @idx
 	dey			; .Y=0
 	sta (@symtab),y
@@ -508,6 +499,17 @@ __obj_close_section:
 	sta (@symtab),y
 	incw @idx
 	incw num_symbols_mapped
+
+@update_rel:
+	; rewrite the relocation table's stored index with the mapped index
+	ldy #$00
+	lda (@symtab),y
+	ldy #$03
+	sta (@rel),y
+	ldy #$01
+	lda (@symtab),y
+	ldy #$04
+	sta (@rel),y
 
 @next:	pla			; restore info byte
 	and #$0c		; mask postproc bits (2, 3)
@@ -539,24 +541,25 @@ __obj_close_section:
 @buff=$100
 	ldxy num_symbols_mapped
 	stxy @cnt
-	cmpw #0
+	iszero @cnt
 	beq @done
 
 	ldxy #symbol_index_map
 	stxy @map
 
 @dump_locals:
-	; check if label should be dumped (mapped index != $ffff)
+	; check if label should be dumped (did it appear in the relocation
+	; table).  If it was in the table, its mapped index will != $ffff
 	ldy #$00
 	lda (@map),y
 	cmp #$ff
-	beq @next
+	bne :+
 	iny
 	lda (@map),y
 	cmp #$ff
 	beq @next
 
-	; get the symbol offset and section
+:	; get the symbol offset and section
 	ldxy @i
 	CALL FINAL_BANK_MAIN, lbl::getsection	; get section
 	jsr $ffd2				; write section out
@@ -1027,22 +1030,16 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
-; LOAD HEADERS
-; Extracts the SEGMENT usage info and global symbols for the given object file.
-; This is called by the linker for each object file to build the global link
-; state.
-.export __obj_load_headers
-.proc __obj_load_headers
+; LOAD INFO
+; Loads the first part of the object file and extracts basic info from it
+; (e.g. number of symbols)
+; OUT:
+;   - .C: set on error
+.proc load_info
 @cnt=r0
 @seccnt=r2
-@sec_idx=r4
-@sym_idx=r4
-@name=r6
-@lbl=r6
-@symcnt=r8
-@importcnt=ra
-@symoff=rc
-@numexports=re
+@name=r4
+@symoff=r8
 @i=zp::tmp10
 @namebuff=$100
 	lda #<segments
@@ -1053,34 +1050,36 @@ __obj_close_section:
 	; read number of sections used
 	jsr readb
 	bcc :+
-@ret0:	rts
+@ret:	rts
+
 :	sta numsections
 	sta @seccnt
 
 	; read number of SEGMENTs used
 	jsr readb
-	bcs @ret0
+	bcs @ret
 	sta numsegments
 
-	; read number of LOCALS (not used)
+	; read number of LOCALS (2 bytes)
 	jsr readb		; get # of symbols LSB
-	bcs @ret0
+	sta numlocals
+	bcs @ret
 	jsr readb		; get # of symbols MSB
-	bcs @ret0
+	sta numlocals+1
+	bcs @ret
 
 	; read number of EXPORTS (1 byte)
 	jsr readb
-	sta @numexports
-	bcs @ret0
+	sta numexports
+	sta numexports
+	bcs @ret
 
 	; read number of IMPORTS (2 bytes)
 	jsr readb
-	bcs @ret0
-	sta @importcnt
+	bcs @ret
 	sta numimports
 	jsr readb
-	bcs @ret0
-	sta @importcnt+1
+	bcs @ret
 	sta numimports+1
 
 ;--------------------------------------
@@ -1092,7 +1091,7 @@ __obj_close_section:
 	; read the SEGMENT name
 	sty @cnt
 	jsr readb
-	bcs @ret0
+	bcs @ret
 	ldy @cnt
 	sta (@name),y
 	iny
@@ -1113,9 +1112,23 @@ __obj_close_section:
 	lda @i
 	cmp numsegments
 	bne @load_segments
+	RETURN_OK
+.endproc
 
-;--------------------------------------
-; now read the IMPORTS and EXPORTS and add them to the global symbol table
+;*******************************************************************************
+; LOAD HEADERS
+; Extracts the SEGMENT usage info and global symbols for the given object file.
+; This is called by the linker for each object file to build the global link
+; state.
+.export __obj_load_headers
+.proc __obj_load_headers
+@cnt=r0
+@seccnt=r2
+@name=r6
+@i=zp::tmp10
+@namebuff=$100
+	jsr load_info
+; read the IMPORTS and EXPORTS and add them to the global symbol table
 @imports:
 	lda #SEC_UNDEF
 	sta zp::label_sectionid	; imports' section is UNDEFINED
@@ -1249,10 +1262,53 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
+; LOAD LOCAL
+; Adds the next IMPORT in the open OBJECT file to the symbol table unless
+; it is already defined.
+; Returns an error if the symbol already exists and conflicts
+; OUT:
+;   - .C: set on error
+.proc load_local
+@namebuff=$100
+	; get the name of a symbol
+	ldx #$00
+	stx zp::label_value
+	stx zp::label_value+1
+:	jsr readb
+	bcs @ret
+	sta @namebuff,x
+	beq @cont
+	inx
+	bne :-
+
+@cont:
+	jsr readb				; get info byte (address mode)
+	bcs @ret
+	sta zp::label_mode
+
+	ldxy #@namebuff
+	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
+	bcs :+					; if no -> add it
+
+	; validate: does address mode match existing symbol?
+	CALL FINAL_BANK_MAIN, lbl::addrmode
+	cmp zp::label_mode
+	beq @ok					; matches -> ok
+
+	; error: address mode doesn't match
+	RETURN_ERR ERR_ADDRMODE_MISMATCH	; conflicting import/exports
+
+:	JUMP FINAL_BANK_MAIN, lbl::add
+@ok:	clc
+@ret:	rts
+.endproc
+
+;*******************************************************************************
 ; LOAD
 ; Loads the object state for the file with the given filename so that it may
-; be linked. A preliminary pass is assumed to have taken place (e.g. labels
-; created for any IMPORTs used in the program being linked)
+; be linked. A preliminary pass is assumed to have taken place.
+; The global symbol table is expected to be built (labels created for any
+; IMPORTs used in the program being linked)
 .export __obj_load
 .proc __obj_load
 @cnt=r0
@@ -1263,18 +1319,81 @@ __obj_close_section:
 @lbl=r6
 @symcnt=r8
 @importcnt=ra
+@exportcnt=ra
 @symoff=rc
 @symsec=re
 @namebuff=$100
-	jsr __obj_load_headers
-	bcc @load_symbols
-	rts
+	jsr load_info
+	bcc :+
+@ret:	rts
 
-	ldxy #symbol_sections
-	sta @symsec
-	ldxy #symbol_offsets
-	sta @symoff
-@load_symbols:
+:	ldxy numimports
+	stxy @importcnt
+	iszero @importcnt		; are there any IMPORTS?
+	beq @eat_exports		; if not, skip ahead
+@load_imports:
+	; get the name of a symbol
+	ldx #$00
+:	jsr readb
+	bcs @ret
+	sta @namebuff,x
+	beq @mapimport
+	inx
+	bne :-
+
+@mapimport:
+	; look up the import's offset and section by name
+	; imports/exports are added as labels by the linker in its first pass
+	ldxy #@namebuff
+	CALL FINAL_BANK_MAIN, lbl::find	; find label ID by name
+	stxy @lbl
+	CALL FINAL_BANK_MAIN, lbl::addr	; get section offset
+	tya
+	ldy #$01
+	sta (@symoff),y		; store MSB of offset
+	dey
+	txa
+	sta (@symoff),y		; store LSB of offset
+	ldxy @lbl
+
+	lda #SEC_ABS
+	ldy #$00
+	sta (@symsec),y		; mark section as ABS (fully resolved)
+	sta (@symsec),y
+
+	incw @symoff
+	incw @symoff
+	incw @symsec
+
+	decw @importcnt
+	iszero @importcnt
+	bne @mapimport
+
+@eat_exports:
+	lda numexports
+	sta @exportcnt
+	beq @load_locals	; no EXPORTS? skip ahead
+
+	; skip over exports (not needed when loading obj file for linking)
+@eat_export:
+@eat_name:
+	jsr readb
+	bcc :+
+@export_error:
+	rts			; return error
+
+:	cmp #$00		; did we read terminating 0 for filename?
+	bne @eat_name		; loop til we found it
+	ldy #4			; sizeof(info+segment_idx+address)
+:	jsr readb
+	bcs @export_error
+	dey
+	bne :-
+	dec @exportcnt
+	bne @eat_export
+
+@load_locals:
+	; load the LOCALS block of symbols
 	jsr $ffcf		; get section ID for symbol
 	ldy #$00
 	sta (@symsec),y
@@ -1293,43 +1412,7 @@ __obj_close_section:
 
 	decw @symcnt
 	iszero @symcnt
-	bne @load_symbols
-
-@load_imports:
-	; get the name of a symbol
-	ldx #$00
-:	jsr $ffcf
-	sta @namebuff,x
-	beq @mapimport
-	inx
-	bne :-
-
-@mapimport:
-	; look up the import's offset and section by name
-	; imports/exports are added as labels by the linker in its first pass
-	ldxy #@namebuff
-	CALL FINAL_BANK_MAIN, lbl::find
-	stxy @lbl
-	CALL FINAL_BANK_MAIN, lbl::addr	; get section offset
-	tya
-	ldy #$01
-	sta (@symoff),y		; store MSB of offset
-	dey
-	txa
-	sta (@symoff),y		; store LSB of offset
-	ldxy @lbl
-	CALL FINAL_BANK_MAIN, lbl::getsection
-	ldy #$00
-	sta (@symsec),y
-	incw @symoff
-	incw @symoff
-	incw @symsec
-
-	decw @importcnt
-	iszero @importcnt
-	bne @mapimport
-
-	; skip over exports (not needed when loading obj file for linking)
+	bne @load_locals
 
 @load_sections:
 	lda #$00

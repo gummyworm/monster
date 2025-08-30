@@ -3025,10 +3025,8 @@ goto_buffer:
 	ldxy asm::origin	; get the base address of the program (in vmem)
 	lda @file
 	jsr file::savebin	; write the binary to file
-	bcs @done		; error
 	lda @file
 	jsr file::close
-
 @done:	jmp irq::on
 .endproc
 
