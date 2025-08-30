@@ -125,7 +125,6 @@ num_reloctables_mapped: .byte 0
 ; SYMBOL INFO
 ; This table contains the fully resolved addresses for each symbol index used
 ; in the object file.
-numlocals:        .word 0
 symbol_addresses: .res MAX_IMPORTS+MAX_EXPORTS
 
 ;*******************************************************************************
@@ -439,7 +438,7 @@ __obj_close_section:
 ; BUILD SYMBOL INDEX MAP
 ; Constructs the map of symbols to the index to store for them in the symbol
 ; table.  Also replaces the ID's in the relocation table with the indices with
-; the indices in the exported LOCALS table.
+; the indices in the IMPORTS table.
 .proc build_symbol_index_map
 @idx=r0
 @symtab=r2
@@ -528,65 +527,6 @@ __obj_close_section:
 :	ldy @reltab+1
 	cmpw reloctop
 	bcc @l0
-@done:	rts
-.endproc
-
-;*******************************************************************************
-; DUMP LOCALS
-; Dumps the referenced symbols to file.  These are all symbols used within
-; the object code's relocation tables.
-; Externals are also dumped here (if referenced), but separate procedures
-; are needed to dump names for these (see dump_exports and dump_imports)
-.proc dump_locals
-@i=r0
-@cnt=r2
-@cnt2=r4
-@map=r6
-@id=r8
-@buff=$100
-	ldxy num_symbols_mapped
-	stxy @cnt
-	iszero @cnt
-	beq @done
-
-	ldxy #symbol_index_map
-	stxy @map
-
-@dump_locals:
-	; check if label should be dumped (did it appear in the relocation
-	; table).  If it was in the table, its mapped index will != $ffff
-	ldy #$00
-	lda (@map),y
-	cmp #$ff
-	bne :+
-	iny
-	lda (@map),y
-	cmp #$ff
-	beq @next
-
-:	; get the symbol offset and section
-	ldxy @i
-	CALL FINAL_BANK_MAIN, lbl::getsection	; get section
-	jsr $ffd2				; write section out
-	CALL FINAL_BANK_MAIN, lbl::by_id	; get address offset
-	txa
-	jsr $ffd2				; write offset LSB
-	tya
-	jsr $ffd2				; write offset MSB
-
-	decw @cnt
-	iszero @cnt
-	beq @done
-
-@next:	incw @i				; next symbol
-	lda @map
-	clc
-	adc #$02
-	sta @map
-	bcc @dump_locals
-	inc @map+1
-	bne @dump_locals		; branch always
-
 @done:	rts
 .endproc
 
@@ -848,10 +788,6 @@ __obj_close_section:
 	jsr $ffd2
 	lda numsegments			; # of segments
 	jsr $ffd2
-	lda numsymbols			; # of LOCALS (LSB)
-	jsr $ffd2
-	lda numsymbols+1		; # of LOCALS (MSB)
-	jsr $ffd2
 	lda numexports			; # of EXPORTS
 	jsr $ffd2
 	lda numexports			; # of IMPORTS (LSB)
@@ -862,10 +798,9 @@ __obj_close_section:
 	; write the SEGMENTS used (names and sizes)
 	jsr dump_segments
 
-	; write the SYMBOL TABLE (in order: IMPORTS, EXPORTS, LOCALS)
+	; write the SYMBOL TABLE (in order: IMPORTS, EXPORTS)
 	jsr dump_imports
 	jsr dump_exports
-	jsr dump_locals
 
 	; write each SECTION (object code, relocation data, debug info)
 	jsr dump_sections
@@ -901,7 +836,7 @@ __obj_close_section:
 	and #$02	; mask type bit
 	bne @sec	; 1 = section, 0 = symbol
 
-@sym:	; apply a symbol based relocation
+@sym:	; apply (global) symbol based relocation
 	; symbols are fully resolved by the time we apply relocation, so
 	; just look up the address in symbol_addresses
 	ldy #$03		; index to symbol ID LSB
@@ -927,10 +862,28 @@ __obj_close_section:
 	tay
 	jmp @add_offset		; continue to calculate target address
 
-@sec:	; apply section based relocation
+@sec:	; apply section (local symbol) based relocation
 	ldy #$03		; index to section ID
 	lda (reloc),y
-	jsr get_mapped_section	; look up addr of section mapped to this ID
+
+	; resolve symbol by adding its offest to the base address of its section
+	; segments_start[segment_ids[sec_id]] + sections_start[sec_id]
+	; look up base address for the section's SEGMENT (segments_start[segment_ids[sec_id]])
+	tax
+	ldy segment_ids,x		; segment_ids[sec_id]
+	lda segments_startlo,y		; segments_start[segment_ids[sec_id]] (LSB)
+	sta @symbol_addr
+	lda segments_starthi,y		; segments_start[segment_ids[sec_id]] (MSB)
+	sta @symbol_addr+1
+
+	; now add the base offest of the SECTION (sections_start[sec_id])
+	lda @symbol_addr
+	;clc
+	adc sections_startlo,x	; resolve LSB
+	tax
+	lda @symbol_addr+1
+	adc sections_starthi,x	; resolve MSB
+	tay
 
 @add_offset:
 	stxy @tmp		; save the base address we will apply addend to
@@ -1065,14 +1018,6 @@ __obj_close_section:
 	jsr readb
 	bcs @ret
 	sta numsegments
-
-	; read number of LOCALS (2 bytes)
-	jsr readb		; get # of symbols LSB
-	sta numlocals
-	bcs @ret
-	jsr readb		; get # of symbols MSB
-	sta numlocals+1
-	bcs @ret
 
 	; read number of EXPORTS (1 byte)
 	jsr readb
@@ -1268,48 +1213,6 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
-; LOAD LOCAL
-; Adds the next IMPORT in the open OBJECT file to the symbol table unless
-; it is already defined.
-; Returns an error if the symbol already exists and conflicts
-; OUT:
-;   - .C: set on error
-.proc load_local
-@namebuff=$100
-	; get the name of a symbol
-	ldx #$00
-	stx zp::label_value
-	stx zp::label_value+1
-:	jsr readb
-	bcs @ret
-	sta @namebuff,x
-	beq @cont
-	inx
-	bne :-
-
-@cont:
-	jsr readb				; get info byte (address mode)
-	bcs @ret
-	sta zp::label_mode
-
-	ldxy #@namebuff
-	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
-	bcs :+					; if no -> add it
-
-	; validate: does address mode match existing symbol?
-	CALL FINAL_BANK_MAIN, lbl::addrmode
-	cmp zp::label_mode
-	beq @ok					; matches -> ok
-
-	; error: address mode doesn't match
-	RETURN_ERR ERR_ADDRMODE_MISMATCH	; conflicting import/exports
-
-:	JUMP FINAL_BANK_MAIN, lbl::add
-@ok:	clc
-@ret:	rts
-.endproc
-
-;*******************************************************************************
 ; GET SEGMENT BASES
 ; Uses the global linker context to get the base address of each SECTION
 ; that was defined when we extracted the object header data (load_info)
@@ -1345,7 +1248,7 @@ __obj_close_section:
 @tmp=r0
 @seccnt=r2
 @sec_idx=r4
-@sym_idx=r4
+@i=r4
 @name=r6
 @addr=r6
 @symcnt=r8
@@ -1358,11 +1261,11 @@ __obj_close_section:
 
 :	jsr get_segment_bases	; get the base addr of each SEGMENT in the file
 
-	ldxy numimports
-	stxy @symcnt
-	iszero @symcnt		; are there any IMPORTS?
+	iszero numimports	; are there any IMPORTS?
 	beq @eat_exports	; if not, skip ahead
 
+	lda #$00
+	sta @i
 @load_imports:
 	; get the name of a symbol
 	ldx #$00
@@ -1383,21 +1286,15 @@ __obj_close_section:
 	jsr readb		; eat info byte
 	bcs @ret
 
-	; get the index that the IMPORT maps to in the LOCALS table.
-	; then write the resolved address from the global symbol table to that
-	; entry in the symbol_addresses table.
-	jsr readb		; get index of symbol in LOCALS table (LSB)
-	bcs @ret
-	pha
-	jsr readb		; get index of symbol in LOCALS table (MSB)
-	bcs @ret
-	sta @tmp
-	pla			; restore LSB of index
+	; get pointer to the resolved address for this symbol's index
+	lda #$00
+	sta @symaddr+1
+	lda @i
 	asl
-	rol @tmp
+	rol @symaddr+1
 	adc #<symbol_addresses
 	sta @symaddr
-	lda @tmp
+	lda #$00
 	adc #>symbol_addresses
 	sta @symaddr+1
 
@@ -1409,14 +1306,15 @@ __obj_close_section:
 	lda @addr
 	sta (@symaddr),y
 
-	decw @symcnt
-	iszero @symcnt
-	bne @mapimport		; repeat for all IMPORTS
+	incw @i
+	ldxy @i
+	cmp numimports
+	bne @load_imports	; repeat for all IMPORTS
 
 @eat_exports:
 	lda numexports
 	sta @symcnt
-	beq @load_locals	; no EXPORTS? skip ahead
+	beq @load_sections	; no EXPORTS? skip ahead
 
 	; skip over exports (not needed when loading obj file for linking)
 @eat_export:
@@ -1435,66 +1333,6 @@ __obj_close_section:
 	bne :-
 	dec @symcnt
 	bne @eat_export
-
-@load_locals:
-	ldxy numlocals
-	stxy @symcnt
-
-	; init resolved address pointer to base of address table
-	lda #<symbol_addresses
-	sta @symaddr
-	lda #>symbol_addresses
-	sta @symaddr+1
-
-@load_local:
-	; load the LOCALS block of symbols
-	jsr readb		; get section ID for symbol
-	bcc :+
-@local_err:
-	rts
-
-:	pha			; save section ID
-
-	; get offset for the symbol
-	jsr readb		; read offset LSB
-	bcs @local_err
-	sta @addr
-	jsr readb		; read offset MSB
-	bcs @local_err
-	sta @addr+1
-
-	; resolve symbol by adding its offest to the base address of its section
-	; segments_start[segment_ids[sec_id]] + sections_start[sec_id]
-	pla			; restore section ID
-	cmp #SEC_UNDEF		; is section UNDEFINED?
-	beq @next_local		; if so, skip (already handled as EXPORT)
-
-	; look up base address for the section's SEGMENT (segments_start[segment_ids[sec_id]])
-	tax
-	ldy segment_ids,x		; segment_ids[sec_id]
-	lda segments_startlo,y		; segments_start[segment_ids[sec_id]] (LSB)
-	sta @addr
-	lda segments_starthi,y		; segments_start[segment_ids[sec_id]] (MSB)
-	sta @addr+1
-
-	; now add the base offest of the SECTION (sections_start[sec_id])
-	lda @addr
-	;clc
-	adc sections_startlo,x	; resolve LSB
-	ldy #$00
-	sta (@symaddr),y	; store resolved LSB
-	lda @addr+1
-	adc sections_starthi,x	; resolve MSB
-	iny
-	sta (@symaddr),y	; store resolved MSB
-
-@next_local:
-	incw @symaddr
-	incw @symaddr
-	decw @symcnt
-
-	iszero @symcnt
-	bne @load_local		; repeat for all LOCALS
 
 ; done with symbols, now load all the SECTION information to get the sizes
 ; of each table we will need to walk
