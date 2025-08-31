@@ -101,8 +101,6 @@ __obj_filename: .word 0	; pointer to name of object file being loaded
 __obj_numsegments:
 numsegments: .byte 0	; number of SEGMENTs in obj file being written/read
 
-numsymbols:  .word 0	; number of symbols in obj file being written
-
 ;*******************************************************************************
 ; SYMBOL INDEX MAP
 ; Each entry in this array contains the index that we will map the corresponding
@@ -186,8 +184,6 @@ __obj_close_section:
 	lda #$00
 	sta numsections
 	sta numsegments
-	sta numsymbols
-	sta numsymbols+1
 	sta numimports
 	sta numimports+1
 	sta numexports
@@ -810,11 +806,8 @@ __obj_close_section:
 
 ;*******************************************************************************
 ; APPLY RELOCATION
-; Produces the final binary for a section by applying its relocation
-; table to its base object code.
-; IN:
-;   - .A:    the index of the section to apply the relocation for
-;   - reloc: points to the start of the relocation table to apply
+; Produces the final binary for the object table by iteratively applying each
+; section's relocation table to its base object code.
 ; OUT:
 ;   - .C: set if there is no remaining relocation to apply for the section
 .export __obj_apply_relocation
@@ -824,6 +817,17 @@ __obj_close_section:
 @tmp=r0
 @addrmode=r2
 @pc=r4
+@sec_idx=r6
+	lda #$00
+	sta @sec_idx
+
+@apply: ldx @sec_idx
+	lda sections_relocstartlo,x
+	sta reloc
+	lda sections_relocstarthi,x
+	sta reloc+1
+
+@section_loop:
 	; get the address mode (size of the target to update)
 	ldy #$00
 	lda (reloc),y	; get the info byte
@@ -866,24 +870,8 @@ __obj_close_section:
 	ldy #$03		; index to section ID
 	lda (reloc),y
 
-	; resolve symbol by adding its offest to the base address of its section
-	; segments_start[segment_ids[sec_id]] + sections_start[sec_id]
-	; look up base address for the section's SEGMENT (segments_start[segment_ids[sec_id]])
-	tax
-	ldy segment_ids,x		; segment_ids[sec_id]
-	lda segments_startlo,y		; segments_start[segment_ids[sec_id]] (LSB)
-	sta @symbol_addr
-	lda segments_starthi,y		; segments_start[segment_ids[sec_id]] (MSB)
-	sta @symbol_addr+1
-
-	; now add the base offest of the SECTION (sections_start[sec_id])
-	lda @symbol_addr
-	;clc
-	adc sections_startlo,x	; resolve LSB
-	tax
-	lda @symbol_addr+1
-	adc sections_starthi,x	; resolve MSB
-	tay
+	; get the link-time address of the section
+	jsr get_section_base
 
 @add_offset:
 	stxy @tmp		; save the base address we will apply addend to
@@ -963,6 +951,13 @@ __obj_close_section:
 @postproc_lsb:
 	lda @tmp		; get the LSB
 	sta (@pc),y		; and store the LSB
+
+	inc @sec_idx
+	lda @sec_idx
+	cmp numsections
+	beq @done
+	jmp @apply
+
 @done:	RETURN_OK
 .endproc
 
@@ -1227,14 +1222,43 @@ __obj_close_section:
 	; store the base address of the SEGMENT for its object-local index
 	txa
 	ldx @i
-	sta segments_startlo,x
+	sta segments_startlo,x		; store LSB of segment base
 	tya
-	sta segments_starthi,x
+	sta segments_starthi,x		; store MSB of segment base
 
 	inc @i
 	bne :-
 
 @done:	rts
+.endproc
+
+;*******************************************************************************
+; GET SECTION BASE
+; Returns the base address for the given section at link time
+; IN:
+;   - .A: the section ID to return the address of
+; OUT:
+;   - .XY: the base address of the section
+.proc get_section_base
+@tmp=r0
+	; segments_start[segment_ids[sec_id]] + sections_start[sec_id]
+	; look up base address for the section's SEGMENT (segments_start[segment_ids[sec_id]])
+	tax
+	ldy segment_ids,x		; segment_ids[sec_id]
+	lda segments_startlo,y		; segments_start[segment_ids[sec_id]] (LSB)
+	pha
+	lda segments_starthi,y		; segments_start[segment_ids[sec_id]] (MSB)
+	sta @tmp
+
+	; now add the base offest of the SECTION (sections_start[sec_id])
+	pla
+	;clc
+	adc sections_startlo,x	; resolve LSB
+	tax
+	lda @tmp
+	adc sections_starthi,x	; resolve MSB
+	tay
+	rts
 .endproc
 
 ;*******************************************************************************
@@ -1252,8 +1276,10 @@ __obj_close_section:
 @name=r6
 @addr=r6
 @symcnt=r8
+@sz=r8
 @symaddr=ra
 @symoff=rc
+@sec=re
 @namebuff=$100
 	jsr load_info
 	bcc :+
@@ -1283,7 +1309,7 @@ __obj_close_section:
 	CALL FINAL_BANK_MAIN, lbl::addr	; get the resolved address
 	stxy @addr
 
-	jsr readb		; eat info byte
+	jsr readb			; eat info byte
 	bcs @ret
 
 	; get pointer to the resolved address for this symbol's index
@@ -1350,23 +1376,41 @@ __obj_close_section:
 	sta segment_ids,x
 
 @secsizes:
-	; read the size the tables in this section
+	; read the section sizes from the header in this section
 	ldx @sec_idx
 	jsr readb			; get section size LSB
 	bcs @eof
 	sta sections_sizelo,x
+	sta @sz
 	jsr readb			; get section size MSB
 	bcs @eof
 	sta sections_sizehi,x
+	sta @sz+1
 	jsr readb
 	bcs @eof
 	sta sections_relocsizelo,x	; get relocation table size LSB
 	jsr readb
 	bcs @eof
-	lda sections_relocsizehi,x	; get relocation table size MSB
+	sta sections_relocsizehi,x	; get relocation table size MSB
 
-	dec @seccnt			; decrement section counter
-	bne @load_section		; repeat for all sections
+	; get the address to write the object code to
+	lda @sec_idx
+	jsr get_section_base
+	stxy @sec
+
+@objcode:
+	; finally, load the object code for the section to vmem
+	jsr readb
+	bcs @eof
+	ldxy @sec				; address to store to
+	CALL FINAL_BANK_MAIN, vmem::store	; store a byte of object code
+	incw @sec
+	decw @sz
+	iszero @sz
+	bne @objcode				; repeat til done
+	inc @sec_idx
+	dec @seccnt				; decrement section counter
+	bne @load_section			; repeat for all sections
 
 @done:	clc
 @eof:	rts
