@@ -1391,6 +1391,7 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 
 	lda #$00
 	sta @cnt
+
 @l0:	lda #$08
 	jsr strcmp
 	beq @found
@@ -1424,10 +1425,11 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 .proc __link_segaddr_for_file
 @segname=r0
 @tab=r2
-	jsr get_section_by_name		; get the section ID
+	jsr get_segment_by_name		; get the SEGMENT
 	ldx activeobj			; current file being linked
 	lda file_segments_startlo,x	; get LSB of start addr
 	ldy file_segments_starthi,x	; and MSB
+	tax
 	rts
 .endproc
 

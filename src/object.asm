@@ -241,6 +241,7 @@ __obj_close_section:
 	rts
 
 :	inc numsegments
+	lda numsegments		; get 1-based section ID
 	clc			; ok
 @done:	rts
 .endproc
@@ -724,8 +725,8 @@ __obj_close_section:
 ; The linker uses this to determine the address of each section before
 ; reading/applying the relocation tables
 .proc dump_section_meta
-	ldy #$00
-	cpy numsections
+	ldx #$00
+	cpx numsections
 	beq @done		; no sections
 
 @l0:	; write the SEGMENT id used for the SECTION
@@ -882,42 +883,46 @@ __obj_close_section:
 @pc=r4
 @sec_idx=r6
 @rec=r7
+@sz=re
 	lda #$00
 	sta @sec_idx
-
-	jmp *
 
 @apply: ldx @sec_idx
 	lda sections_relocstartlo,x
 	sta reloc
 	lda sections_relocstarthi,x
 	sta reloc+1
+	lda sections_sizelo,x
+	sta @sz
+	lda sections_sizehi,x
+	sta @sz+1
 
 	; read a record from the RELOCATION table
-	ldy #5		; sizeof(relocation_record)
+	ldy #$00
 :	jsr $ffcf
-	sta @rec-1,y
-	dey
+	sta @rec,y
+	iny
+	cpy #$05	; sizeof(relocation_record)
 	bne :-
 
 @section_loop:
 	; get the address mode (size of the target to update)
-	lda rec		; get the info byte
+	lda @rec	; get the info byte
 	and #$01	; mask size bit
 	sta @addrmode	; and save address mode for later
 
 	; check if we are using a symbol or another section as the base
 	; address for the relocation
-	lda rec		; get the info byte again
+	lda @rec	; get the info byte again
 	and #$02	; mask type bit
 	bne @sec	; 1 = section, 0 = symbol
 
 @sym:	; apply (global) symbol based relocation
 	; symbols are fully resolved by the time we apply relocation, so
 	; just look up the address in symbol_addresses
-	lda rec+3,y		; get symbol LSB
+	lda @rec+3	; get symbol LSB
 	sta @symbol_id
-	lda rec+4,y		; get symbol MSB
+	lda @rec+4	; get symbol MSB
 	sta @symbol_id+1
 
 	; look up the address that we resolved for this symbol id (index)
@@ -937,19 +942,21 @@ __obj_close_section:
 	jmp @add_offset		; continue to calculate target address
 
 @sec:	; apply section (local symbol) based relocation
-	lda rec+3,y		; 3 = index to section ID
+	lda @rec+3		; 3 = index to section ID
 
 	; get the link-time address of the section
 	jsr get_section_base
+	jmp *
 
 @add_offset:
 	stxy @tmp		; save the base address we will apply addend to
 
 	; get the address of the byte/word to apply relocation to
-	adc rec+1,y		; add LSB of offset
+	txa			; base relocation address (LSB)
+	adc @rec+1		; add LSB of offset
 	sta @pc
-	iny
-	adc rec+2,y		; add MSB of offset
+	tya			; base relocation address (MSB)
+	adc @rec+2		; add MSB of offset
 	sta @pc+1
 
 @apply_addend:
@@ -957,83 +964,70 @@ __obj_close_section:
 	lda @addrmode		; get address mode
 	beq @zp			; if 0 -> apply zeropage relocation
 
-@abs:	lda (@pc),y		; get LSB of addend
+@abs:	ldxy @pc
+	CALL FINAL_BANK_MAIN, vmem::load	; load LSB of addend
 	clc
 	adc @tmp
-	sta (@pc),y		; store LSB of relocated operand
+	ldxy @pc
+	CALL FINAL_BANK_MAIN, vmem::store	; store updated value
 
-	iny
-	lda (@pc),y
+	incw @pc
+	ldxy @pc
+	CALL FINAL_BANK_MAIN, vmem::load	; load MSB of addend
 	clc
 	adc @tmp+1
-	sta (@pc),y		; store MSB of relocated operand
+	ldxy @pc
+	CALL FINAL_BANK_MAIN, vmem::store	; store MSB of relocated operand
 	jmp @next
 
-@zp:	lda (@pc),y
+@zp:	ldxy @pc
+	CALL FINAL_BANK_MAIN, vmem::load	; load addend
 	clc
 	adc @tmp
 	sta @tmp
 
-	lda rec			; read INFO byte again
+	lda @rec		; read INFO byte again
 	and #$0c		; is any postproc needed (bit 2 or 3 set)?
 	bne @postproc		; if so, continue to apply it
 
 @nopostproc:
 	; no post-processing, just add 1 byte addend and we're done
 	lda @tmp
-	adc (@pc),y
-	sta (@pc),y
-
-@next:
-	RETURN_OK
+	CALL FINAL_BANK_MAIN, vmem::store	; store relocated value
+	jmp @next
 
 @postproc:
 	jsr $ffcf		; read another byte to get the MSB of addend
 	adc @tmp+1		; add with operand MSB
 	sta @tmp+1
 
-	lda rec			; get info again
+	lda @rec		; get info again
 	and #$0c		; mask postproc bits (2, 3)
 	cmp #POSTPROC_LSB<<2	; are we taking LSB?
 	beq @postproc_lsb
 
 @postproc_msb:
-	lda @tmp+1		; get the MSB
-	sta (@pc),y		; and just store the MSB
+	lda @tmp+1				; get the MSB (post-proc)
+	ldxy @pc
+	CALL FINAL_BANK_MAIN, vmem::store	; store relocated value
 
 @postproc_lsb:
-	lda @tmp		; get the LSB
-	sta (@pc),y		; and store the LSB
+	lda @tmp				; get the LSB ldxy @pc
+	ldxy @pc
+	CALL FINAL_BANK_MAIN, vmem::store	; and store
 
-	inc @sec_idx
+@next:	decw @sz
+	iszero @sz
+	beq :+
+	jmp @section_loop
+
+:	inc @sec_idx
 	lda @sec_idx
 	cmp numsections
 	beq @done
 	jmp @apply
 
 @done:	RETURN_OK
-.endproc
-
-;*******************************************************************************
-; GET MAPPED SECTION
-; Returns the address for the given index in the current object file
-; e.g. for an object file with the following section table:
-;   0: "CODE"
-;   1: "DATA"
-; Returns the base address of the "CODE" section at link time.
-; NOTE: the "CODE" section's base address may differ from the base address of
-; the CODE segment as defined in the linker config file.  Only the first "CODE"
-; section will be placed at the defined start address.
-; IN:
-;   - .A: the index of the section
-; OUT:
-;   - .XY: the base address of the section
-.proc get_mapped_section
-	tax
-	ldy sections_startlo,x
-	lda sections_startlo,x
-	tax
-	rts
 .endproc
 
 ;*******************************************************************************
@@ -1094,6 +1088,24 @@ __obj_close_section:
 	cpy #MAX_SECTION_NAME_LEN
 	bne @segname
 
+	; get the number of bytes used in the SEGMENT
+	ldy @i
+	jsr readb			; get LSB
+	bcs @ret
+	sta __obj_segments_sizelo,y
+	jsr readb			; get MSB
+	bcs @ret
+	sta __obj_segments_sizehi,y
+
+	; get the base address of this SEGMENT in the linker
+	ldxy @name
+	jsr link::segaddr_for_file
+	tya
+	ldy @i
+	sta segments_starthi,y		; store MSB of segment base
+	txa
+	sta segments_startlo,y		; store LSB of segment base
+
 	; move name pointer to next location
 	lda @name
 	clc
@@ -1102,14 +1114,7 @@ __obj_close_section:
 	bcc :+
 	inc @name+1
 
-:	; get the number of bytes used in the SEGMENT
-	ldy @i
-	jsr readb			; get LSB
-	bcs @ret
-	sta __obj_segments_sizelo,y
-	jsr readb			; get MSB
-	bcs @ret
-	sta __obj_segments_sizehi,y
+:	; increment counter and loop til we've done all SEGMENTS
 	iny
 	sty @i
 	cpy numsegments
@@ -1264,36 +1269,10 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
-; GET SEGMENT BASES
-; Uses the global linker context to get the base address of each SECTION
-; that was defined when we extracted the object header data (load_info)
-.proc get_segment_bases
-@i=r4
-	lda #$00
-	sta @i
-
-@l0:	cmp numsections
-	beq @done
-
-	jsr link::segaddr_for_file	; get base address of segment
-
-	; store the base address of the SEGMENT for its object-local index
-	txa
-	ldx @i
-	sta segments_startlo,x		; store LSB of segment base
-	tya
-	sta segments_starthi,x		; store MSB of segment base
-
-	inc @i
-	lda @i
-	bne @l0
-
-@done:	rts
-.endproc
-
-;*******************************************************************************
 ; GET SECTION BASE
 ; Returns the base address for the given section at link time
+; NOTE: all indexing in this procedure is relative to table-1 because section
+; id's are 1-based.
 ; IN:
 ;   - .A: the section ID to return the address of
 ; OUT:
@@ -1303,19 +1282,19 @@ __obj_close_section:
 	; segments_start[segment_ids[sec_id]] + sections_start[sec_id]
 	; look up base address for the section's SEGMENT (segments_start[segment_ids[sec_id]])
 	tax
-	ldy segment_ids,x		; segment_ids[sec_id]
-	lda segments_startlo,y		; segments_start[segment_ids[sec_id]] (LSB)
+	ldy segment_ids-1,x		; segment_ids[sec_id]
+	lda segments_startlo-1,y	; segments_start[segment_ids[sec_id]] (LSB)
 	pha
-	lda segments_starthi,y		; segments_start[segment_ids[sec_id]] (MSB)
+	lda segments_starthi-1,y	; segments_start[segment_ids[sec_id]] (MSB)
 	sta @tmp
 
 	; now add the base offest of the SECTION (sections_start[sec_id])
 	pla
-	;clc
-	adc sections_startlo,x	; resolve LSB
+	clc
+	adc sections_startlo-1,x	; resolve LSB
 	tax
 	lda @tmp
-	adc sections_starthi,x	; resolve MSB
+	adc sections_starthi-1,x	; resolve MSB
 	tay
 	rts
 .endproc
@@ -1419,7 +1398,6 @@ __obj_close_section:
 
 @load_section_meta:
 	jsr load_section_meta
-	jsr get_segment_bases	; get the base addr of each SEGMENT in the file
 
 ; done with symbols, now load all the SECTION information to get the sizes
 ; of each table we will need to walk
