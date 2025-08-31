@@ -689,6 +689,37 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
+; DUMP SECTION META
+; Writes the SEGMENT id, SEGMENT offset, and address mode for each section.
+; The linker uses this to determine the address of each section before
+; reading/applying the relocation tables
+.proc dump_section_meta
+	ldy #$00
+	cpy numsections
+	beq @done		; no sections
+
+@l0:	; write the SEGMENT id used for the SECTION
+	lda segment_ids,x
+	jsr $ffd2
+
+	; write the "info" byte for the SECTION
+	lda sections_info,x
+	jsr $ffd2
+
+	; write offset of section from SEGMENT base
+	lda sections_startlo,x
+	sta @sec
+	lda sections_starthi,x
+	sta @sec+1
+
+	inx
+	cpx numsections
+	bne @l0
+
+@done:	RETURN_OK
+.endproc
+
+;*******************************************************************************
 ; DUMP SECTIONS
 ; Dumps the sections for the object file in construction.
 .proc dump_sections
@@ -703,20 +734,7 @@ __obj_close_section:
 
 @l0:	ldx @cnt
 
-	; write the SEGMENT id used for the SECTION
-	lda segment_ids,x
-	jsr $ffd2
-
-	; write the "info" byte for the SECTION
-	lda sections_info,x
-	jsr $ffd2
-
-	; get address and size of the section to dump
-	lda sections_startlo,x
-	sta @sec
-	lda sections_starthi,x
-	sta @sec+1
-
+	; write the size of the section
 	lda sections_sizelo,x
 	sta @sz
 	jsr $ffd2			; dump size of the CODE table (LSB)
@@ -809,6 +827,9 @@ __obj_close_section:
 	; write the SYMBOL TABLE (in order: IMPORTS, EXPORTS)
 	jsr dump_imports
 	jsr dump_exports
+
+	; write SECTION metadata (segment-ids, offsets, and address modes)
+	jsr dump_section_meta
 
 	; write each SECTION (object code, relocation data, debug info)
 	jsr dump_sections
@@ -1391,8 +1412,11 @@ __obj_close_section:
 	ldx @sec_idx
 	sta segment_ids,x
 
-@secsizes:
+	; read the "info" byte for the SECTION (addressing ZP or ABS)
+	jsr readb
+	bcs @eof
 
+@secsizes:
 	; read the section sizes from the header in this section
 	ldx @sec_idx
 	jsr readb			; get section size LSB
@@ -1412,11 +1436,13 @@ __obj_close_section:
 
 	; get the address to write the object code to
 	lda @sec_idx
+	jmp *
 	jsr get_section_base
 	stxy @sec
 
 	lda numsections
 	sta @seccnt
+	jmp *
 @objcode:
 	; finally, load the object code for the section to vmem
 	jsr readb

@@ -212,18 +212,15 @@ The info field uses the following bitfield format:
 |  size   |   0   | 0=zeropage import ($00-$ff), 1=absolute (>= $100)
 
 
-### SECTIONS
-After the symbol table is a list of one or more SECTIONS (the exact number is defined in the OBJ HEADER).
-Each section contains a short header followed by three sub-tables: one for object code, a relocation table, and a debug information table.
-
-Below is the format for the header which precedes the section's data tables
+### SECTION METADATA
+After the symbol table is a list of SECTION metadata.  Each record in this table corresponds to the SECTIONS that follow it, but by placing it before the SECTIONS themselves, the linker can determine the address of each
+SECTION.  This allows the linker to apply section-relative relocation in one pass.
 
 | field           | size | description
 |-----------------|------|---------------------------------------------------------------------
 |  segment id     |  1   | ID for the SEGMENT (defined in SEGMENT HEADER) this SECTION maps to
 |  info           |  1   | info byte: zeropage/absolute etc.
-|  code size      |  2   | size of the object-code binary table for the section
-|  reloc size     |  2   | size of the relocation table for the section
+|  offset         |  2   | offset of the SECTION from the base of its SEGMENT at link time
 
 
 The info bitfield for the section has the following format:
@@ -231,6 +228,18 @@ The info bitfield for the section has the following format:
 | field           | bit(s) | description
 |-----------------|------|-------------------------------------------------------
 |  size           |  0   | 0=zeropage, 1=absolute
+
+
+### SECTIONS
+After the symbol table is a list of one or more SECTIONS (the exact number is defined in the OBJ HEADER).
+Each section contains a short header that tells us the size of the three sub-tables contained by the SECTION followed by those sub-tables themselves: object, relocation, and a debug information.
+
+Below is the format for the header which precedes the section's data tables:
+
+| field           | size | description
+|-----------------|------|---------------------------------------------------------------------
+|  code size      |  2   | size of the object-code binary table for the section
+|  reloc size     |  2   | size of the relocation table for the section
 
 
 Every time a `.SEG` directive is encountered, a new SECTION is created.
