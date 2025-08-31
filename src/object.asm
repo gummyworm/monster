@@ -29,6 +29,7 @@ RECORD_EXPR  = $03
 
 ;*******************************************************************************
 ; CONSTANTS
+MAX_SEGMENTS         = 8
 MAX_SECTIONS         = 8	; max number of memory sections per OBJ file
 MAX_OBJS             = 16	; max number of object files that may be used
 MAX_SECTION_NAME_LEN = 8	; max length of a single section name
@@ -199,17 +200,49 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
-; GLOBAL
-; Adds/updates a symbol in the symbol table for the object file being generated
-; and marks it as GLOBAL.
-; The symbol is added if it does not exist.
-; If the symbol already exists, its value is updated (RESOLVED)
-; If it does not exist, the symbol is created as UNRESOLVED
-; e.g. `.global func`
-; All globals must have corresponding symbol definitions (see __obj_add_symbol)
-; at link time
-.export __obj_global
-.proc __obj_global
+; ADD SEGMENT
+; Adds a segment with the given name or creates it if it doesn't exist
+; IN:
+;   - .XY: address of the SEGMENT name to add
+; OUT:
+;   - .A: the ID of the segment added
+;   - .C: set on error
+.proc add_segment
+@name=r0
+@dst=r2
+	stxy @name
+	jsr get_segment_by_name
+	bcc @done
+
+	; segment not found, add it
+	stxy @dst		; address to store new name to
+
+	ldy #$00
+@l0:	lda (@name),y
+	sta (@dst),y
+	beq @pad
+	iny
+	cpy #MAX_SEGMENT_NAME_LEN
+	bcc @l0
+	bcs @ok
+
+@pad:	; pad remainder of buffer with 0's
+	lda #$00
+@l1:	sta (@dst),y
+	iny
+	cpy #MAX_SEGMENT_NAME_LEN
+	bcc @l1
+
+@ok:	lda numsegments
+	cmp #MAX_SEGMENTS
+	bcc :+
+	;sec
+	lda #ERR_TOO_MANY_SEGMENTS
+	rts
+
+:	inc numsegments
+	clc			; ok
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -244,7 +277,7 @@ __obj_close_section:
 
 @pass1:	ldx numsections
 	cpx #MAX_SECTIONS
-	bne :+
+	bcc :+
 	;sec
 	lda #ERR_TOO_MANY_SEGMENTS
 	rts
@@ -255,40 +288,11 @@ __obj_close_section:
 	lda zp::asmresult+1
 	sta sections_starthi,x	; set obj section start MSB
 
-	; check if SEGMENT already exists
-	jsr get_segment_by_name
-	bcc :+				; if SEGMENT already exists continue
+	ldxy #@name
+	jsr add_segment		; add/get SEGMENT id
 
-	; SEGMENT doesn't exist, add to SEGMENT table
-	; copy the SEGMENT name
-	lda numsections
-	asl
-	asl
-	asl				; *8
-	adc #<segments
-	sta @namedst
-	lda #>segments
-	adc #$00
-	sta @namedst+1
-
-	lda numsegments			; get ID for this SEGMENT
-	inc numsegments			; and increment SEGMENT count
-:	sta segment_ids,x		; set SEGMENT id for this SECTION
-
-	ldy #$00
-@l0:	lda @name,y
-	sta (@namedst),y
-	beq :+
-	iny
-	cpy #MAX_SEGMENT_NAME_LEN
-	bcc @l0
-
-:	; pad remainder of buffer with 0's
-	lda #$00
-@l1:	sta (@namedst),y
-	iny
-	cpy #MAX_SEGMENT_NAME_LEN
-	bcc @l1
+	ldx numsections
+	sta segment_ids,x	; set SEGMENT id for this SECTION
 
 @done:	inc numsections
 	lda numsections
@@ -639,6 +643,13 @@ __obj_close_section:
 	lda numsegments
 	beq @done
 
+	; compute the size of each segment (sum of all sections that use it)
+	; TODO:
+	lda __obj_sections_sizelo
+	sta __obj_segments_sizelo
+	lda __obj_sections_sizehi
+	sta __obj_segments_sizehi
+
 	lda #$00
 	sta @i
 @dump_headers:
@@ -705,6 +716,7 @@ __obj_close_section:
 	sta @sec
 	lda sections_starthi,x
 	sta @sec+1
+
 	lda sections_sizelo,x
 	sta @sz
 	jsr $ffd2			; dump size of the CODE table (LSB)
@@ -991,10 +1003,9 @@ __obj_close_section:
 ;   - .C: set on error
 .proc load_info
 @cnt=r0
-@seccnt=r2
+@i=r2
 @name=r4
 @symoff=r8
-@i=zp::tmp10
 @namebuff=$100
 	lda #<segments
 	sta @name
@@ -1007,7 +1018,6 @@ __obj_close_section:
 @ret:	rts
 
 :	sta numsections
-	sta @seccnt
 
 	; read number of SEGMENTs used
 	jsr readb
@@ -1030,22 +1040,29 @@ __obj_close_section:
 
 ;--------------------------------------
 ; read the SEGMENTS used in the object file (names and sizes)
-	ldy #$00
-	sty @i
+	lda #$00
+	sta @i
+
 @load_segments:
+	ldy #$00
 @segname:
 	; read the SEGMENT name
-	sty @cnt
 	jsr readb
 	bcs @ret
-	ldy @cnt
 	sta (@name),y
 	iny
 	cpy #MAX_SECTION_NAME_LEN
 	bne @segname
 
-@segusage:
-	; get the number of bytes used in the SEGMENT
+	; move name pointer to next location
+	lda @name
+	clc
+	adc #MAX_SECTION_NAME_LEN
+	sta @name
+	bcc :+
+	inc @name+1
+
+:	; get the number of bytes used in the SEGMENT
 	ldy @i
 	jsr readb			; get LSB
 	bcs @ret
@@ -1053,11 +1070,11 @@ __obj_close_section:
 	jsr readb			; get MSB
 	bcs @ret
 	sta __obj_segments_sizehi,y
-
-	inc @i
-	lda @i
-	cmp numsegments
+	iny
+	sty @i
+	cpy numsegments
 	bne @load_segments
+
 	RETURN_OK
 .endproc
 
@@ -1069,7 +1086,6 @@ __obj_close_section:
 .export __obj_load_headers
 .proc __obj_load_headers
 @cnt=r0
-@seccnt=r2
 @name=r6
 @i=zp::tmp10
 @namebuff=$100
@@ -1294,12 +1310,12 @@ __obj_close_section:
 	sta @i
 @load_imports:
 	; get the name of a symbol
-	ldx #$00
+	ldy #$00
 :	jsr readb
 	bcs @ret
-	sta @namebuff,x
+	sta @namebuff,y
 	beq @mapimport
-	inx
+	iny
 	bne :-
 
 @mapimport:
@@ -1365,7 +1381,7 @@ __obj_close_section:
 @load_sections:
 	lda #$00
 	sta @sec_idx
-	cmp @seccnt
+	cmp numsections
 	beq @done	; if no sections, we're done
 
 @load_section:
@@ -1376,6 +1392,7 @@ __obj_close_section:
 	sta segment_ids,x
 
 @secsizes:
+
 	; read the section sizes from the header in this section
 	ldx @sec_idx
 	jsr readb			; get section size LSB
@@ -1398,6 +1415,8 @@ __obj_close_section:
 	jsr get_section_base
 	stxy @sec
 
+	lda numsections
+	sta @seccnt
 @objcode:
 	; finally, load the object code for the section to vmem
 	jsr readb
@@ -1468,8 +1487,9 @@ __obj_close_section:
 ; IN:
 ;  - .XY: the name of the segment
 ; OUT:
-;  - .A: the ID of the segment
-;  - .C: set if no segment exists by the given name
+;  - .A:  the ID of the segment
+;  - .XY: if not found, address of the next available SEGMENT name
+;  - .C:  set if no segment exists by the given name
 .proc get_segment_by_name
 @name=zp::str0
 @other=zp::str2
@@ -1480,12 +1500,15 @@ __obj_close_section:
 
 	lda #$00
 	sta @cnt
-@l0:	lda #$08
+	cmp numsegments
+	beq @notfound
+
+@l0:	lda #MAX_SEGMENT_NAME_LEN
 	jsr strcmp
 	beq @found
 	lda @other
 	clc
-	adc #$08
+	adc #MAX_SEGMENT_NAME_LEN
 	sta @other
 	ldx @cnt
 	inx
@@ -1493,6 +1516,7 @@ __obj_close_section:
 	cpx numsegments
 	bcc @l0
 @notfound:
+	ldxy @other
 	rts
 
 @found: lda @cnt

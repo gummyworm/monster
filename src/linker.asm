@@ -1134,7 +1134,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @objects:
 	; iterate over each object file and link it
 	ldxy @objfile
-	jmp *
 	jsr link_object		; link the object file
 	bcs @done		; if .C set, return with error
 
