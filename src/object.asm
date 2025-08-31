@@ -689,6 +689,36 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
+; LOAD SECTION META
+; Loads the SEGMENT id, SEGMENT offset, and address mode for each section.
+; The linker uses this to determine the address of each section before
+; reading/applying the relocation tables
+.proc load_section_meta
+	; read the section sizes from the header in this section
+	ldy #$00
+	cpy numsections
+	beq @done
+
+@l0:	jsr readb		; read the SEGMENT id for this section
+	bcs @ret
+	sta segment_ids,y
+	jsr readb		; read "info" (addr-mode) byte
+	bcs @ret
+	sta sections_info,y
+	jsr readb		; read LSB of section offset
+	bcs @ret
+	sta sections_startlo,y
+	jsr readb		; read MSB of section offset
+	bcs @ret
+	sta sections_starthi,y
+	iny
+	cpy numsections
+	bne @l0
+@done:	clc
+@ret:	rts
+.endproc
+
+;*******************************************************************************
 ; DUMP SECTION META
 ; Writes the SEGMENT id, SEGMENT offset, and address mode for each section.
 ; The linker uses this to determine the address of each section before
@@ -708,9 +738,9 @@ __obj_close_section:
 
 	; write offset of section from SEGMENT base
 	lda sections_startlo,x
-	sta @sec
+	jsr $ffd2			; LSB
 	lda sections_starthi,x
-	sta @sec+1
+	jsr $ffd2			; MSB
 
 	inx
 	cpx numsections
@@ -816,9 +846,9 @@ __obj_close_section:
 	jsr $ffd2
 	lda numexports			; # of EXPORTS
 	jsr $ffd2
-	lda numexports			; # of IMPORTS (LSB)
+	lda numimports			; # of IMPORTS (LSB)
 	jsr $ffd2
-	lda numexports+1		; # of IMPORTS (MSB)
+	lda numimports+1		; # of IMPORTS (MSB)
 	jsr $ffd2
 
 	; write the SEGMENTS used (names and sizes)
@@ -851,8 +881,11 @@ __obj_close_section:
 @addrmode=r2
 @pc=r4
 @sec_idx=r6
+@rec=r7
 	lda #$00
 	sta @sec_idx
+
+	jmp *
 
 @apply: ldx @sec_idx
 	lda sections_relocstartlo,x
@@ -860,27 +893,31 @@ __obj_close_section:
 	lda sections_relocstarthi,x
 	sta reloc+1
 
+	; read a record from the RELOCATION table
+	ldy #5		; sizeof(relocation_record)
+:	jsr $ffcf
+	sta @rec-1,y
+	dey
+	bne :-
+
 @section_loop:
 	; get the address mode (size of the target to update)
-	ldy #$00
-	lda (reloc),y	; get the info byte
+	lda rec		; get the info byte
 	and #$01	; mask size bit
 	sta @addrmode	; and save address mode for later
 
 	; check if we are using a symbol or another section as the base
 	; address for the relocation
-	lda (reloc),y	; get the info byte again
+	lda rec		; get the info byte again
 	and #$02	; mask type bit
 	bne @sec	; 1 = section, 0 = symbol
 
 @sym:	; apply (global) symbol based relocation
 	; symbols are fully resolved by the time we apply relocation, so
 	; just look up the address in symbol_addresses
-	ldy #$03		; index to symbol ID LSB
-	lda (reloc),y		; get symbol LSB
+	lda rec+3,y		; get symbol LSB
 	sta @symbol_id
-	iny			; .Y=4
-	lda (reloc),y		; get symbol MSB
+	lda rec+4,y		; get symbol MSB
 	sta @symbol_id+1
 
 	; look up the address that we resolved for this symbol id (index)
@@ -900,8 +937,7 @@ __obj_close_section:
 	jmp @add_offset		; continue to calculate target address
 
 @sec:	; apply section (local symbol) based relocation
-	ldy #$03		; index to section ID
-	lda (reloc),y
+	lda rec+3,y		; 3 = index to section ID
 
 	; get the link-time address of the section
 	jsr get_section_base
@@ -910,11 +946,10 @@ __obj_close_section:
 	stxy @tmp		; save the base address we will apply addend to
 
 	; get the address of the byte/word to apply relocation to
-	ldy #$01
-	adc (reloc),y		; add LSB of offset
+	adc rec+1,y		; add LSB of offset
 	sta @pc
 	iny
-	adc (reloc),y		; add MSB of offset
+	adc rec+2,y		; add MSB of offset
 	sta @pc+1
 
 @apply_addend:
@@ -932,14 +967,14 @@ __obj_close_section:
 	clc
 	adc @tmp+1
 	sta (@pc),y		; store MSB of relocated operand
-	jmp @update_reloc
+	jmp @next
 
 @zp:	lda (@pc),y
 	clc
 	adc @tmp
 	sta @tmp
 
-	lda (reloc),y
+	lda rec			; read INFO byte again
 	and #$0c		; is any postproc needed (bit 2 or 3 set)?
 	bne @postproc		; if so, continue to apply it
 
@@ -949,34 +984,19 @@ __obj_close_section:
 	adc (@pc),y
 	sta (@pc),y
 
-@update_reloc:
-	; update the pointer in our relocation table
-	lda reloc
-	clc
-	adc #$05
-	sta reloc
-	bcc :+
-	inc reloc+1
-:	RETURN_OK
+@next:
+	RETURN_OK
 
 @postproc:
-	pha
-	ldy #$05		; offset to addend MSB
-	lda (reloc),y		; get MSB of addend
-	adc @tmp+1
+	jsr $ffcf		; read another byte to get the MSB of addend
+	adc @tmp+1		; add with operand MSB
 	sta @tmp+1
 
-	; update relocation address by 6 (5 + 1 for MSB of addend)
-	lda reloc
-	clc
-	adc #$06
-	sta reloc
-	bcc :+
-	inc reloc+1
-
-:	pla
+	lda rec			; get info again
+	and #$0c		; mask postproc bits (2, 3)
 	cmp #POSTPROC_LSB<<2	; are we taking LSB?
 	beq @postproc_lsb
+
 @postproc_msb:
 	lda @tmp+1		; get the MSB
 	sta (@pc),y		; and just store the MSB
@@ -1047,9 +1067,8 @@ __obj_close_section:
 
 	; read number of EXPORTS (1 byte)
 	jsr readb
-	sta numexports
-	sta numexports
 	bcs @ret
+	sta numexports
 
 	; read number of IMPORTS (2 bytes)
 	jsr readb
@@ -1252,8 +1271,10 @@ __obj_close_section:
 @i=r4
 	lda #$00
 	sta @i
-:	cmp numsections
+
+@l0:	cmp numsections
 	beq @done
+
 	jsr link::segaddr_for_file	; get base address of segment
 
 	; store the base address of the SEGMENT for its object-local index
@@ -1264,7 +1285,8 @@ __obj_close_section:
 	sta segments_starthi,x		; store MSB of segment base
 
 	inc @i
-	bne :-
+	lda @i
+	bne @l0
 
 @done:	rts
 .endproc
@@ -1322,9 +1344,7 @@ __obj_close_section:
 	bcc :+
 @ret:	rts
 
-:	jsr get_segment_bases	; get the base addr of each SEGMENT in the file
-
-	iszero numimports	; are there any IMPORTS?
+:	iszero numimports	; are there any IMPORTS?
 	beq @eat_exports	; if not, skip ahead
 
 	lda #$00
@@ -1377,7 +1397,7 @@ __obj_close_section:
 @eat_exports:
 	lda numexports
 	sta @symcnt
-	beq @load_sections	; no EXPORTS? skip ahead
+	beq @load_section_meta	; no EXPORTS? skip ahead
 
 	; skip over exports (not needed when loading obj file for linking)
 @eat_export:
@@ -1397,6 +1417,10 @@ __obj_close_section:
 	dec @symcnt
 	bne @eat_export
 
+@load_section_meta:
+	jsr load_section_meta
+	jsr get_segment_bases	; get the base addr of each SEGMENT in the file
+
 ; done with symbols, now load all the SECTION information to get the sizes
 ; of each table we will need to walk
 @load_sections:
@@ -1406,43 +1430,40 @@ __obj_close_section:
 	beq @done	; if no sections, we're done
 
 @load_section:
-	; read the SEGMENT id for this section
-	jsr readb
-	bcs @eof
-	ldx @sec_idx
-	sta segment_ids,x
-
-	; read the "info" byte for the SECTION (addressing ZP or ABS)
-	jsr readb
-	bcs @eof
-
-@secsizes:
 	; read the section sizes from the header in this section
-	ldx @sec_idx
+	ldy @sec_idx
 	jsr readb			; get section size LSB
 	bcs @eof
-	sta sections_sizelo,x
+	sta sections_sizelo,y
 	sta @sz
 	jsr readb			; get section size MSB
 	bcs @eof
-	sta sections_sizehi,x
+	sta sections_sizehi,y
 	sta @sz+1
 	jsr readb
 	bcs @eof
-	sta sections_relocsizelo,x	; get relocation table size LSB
+	sta sections_relocsizelo,y	; get relocation table size LSB
 	jsr readb
 	bcs @eof
-	sta sections_relocsizehi,x	; get relocation table size MSB
+	sta sections_relocsizehi,y	; get relocation table size MSB
+
+	; calculate start address of relocation table (sections_start + sections_size)
+	lda sections_startlo,y
+	;clc
+	adc @sz
+	sta sections_relocstartlo,y
+	lda sections_starthi,y
+	adc @sz+1
+	sta sections_relocstarthi,y
 
 	; get the address to write the object code to
 	lda @sec_idx
-	jmp *
 	jsr get_section_base
 	stxy @sec
 
 	lda numsections
 	sta @seccnt
-	jmp *
+
 @objcode:
 	; finally, load the object code for the section to vmem
 	jsr readb
@@ -1470,7 +1491,7 @@ __obj_close_section:
 .proc readb
 	jsr $ffb7     ; call READST (read status byte)
 	bne @eof      ; either EOF or read error
-	jsr $ffcf     ; call CHRIN (get a byte from file)
+	jsr $ffa5     ; call CHRIN (get a byte from file)
 	RETURN_OK
 
 ; read drive err chan and translate CBM DOS error code to ours if possible

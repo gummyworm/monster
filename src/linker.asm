@@ -379,7 +379,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	pla
 
 	; load link file into filebuff
-	CALL FINAL_BANK_MAIN, file::open_r
+	CALL FINAL_BANK_MAIN, file::open_r_prg
 	pha					; save file ID
 	CALL FINAL_BANK_MAIN, file::loadbin
 	pla					; restore file ID
@@ -1031,7 +1031,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; load the next .O (object) file in the object list
 	ldxy @objfile
 	stxy obj::filename
-	CALL FINAL_BANK_MAIN, file::open_r
+	CALL FINAL_BANK_MAIN, file::open_r_prg
 	pha					; save file handle
 	tax
 	jsr $ffc6				; CHKIN
@@ -1166,7 +1166,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc link_object
 @sec_idx=zp::tmp10
 @obj_file_handle=zp::tmp12
-	CALL FINAL_BANK_MAIN, file::open_r
+	CALL FINAL_BANK_MAIN, file::open_r_prg
 	sta @obj_file_handle
 
 	tax
@@ -1174,26 +1174,18 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	jsr obj::load		; load the object file with the given index
 	bcs @ret
 
-	; iterate over each section and link it: apply relocation, and produce
-	; debug info
-@reloc:	; walk the relocation table and apply all relocations
-	lda @sec_idx
+@reloc:	; for each section, walk the relocation table and apply all relocations
 	jsr obj::apply_relocation
-	bcc @reloc
+	bcs @ret
 
-@dbgi:	; write the debug information
+@dbgi:	; for each section, write debug information
 	; TODO:
-
-	inc @sec_idx		; next section
-	lda @sec_idx
-	cmp obj::numsections
-	bne @reloc		; repeat for all sections
 
 @done:	clc					; ok
 @ret:	php					; save error flag
 	lda @obj_file_handle
 	CALL FINAL_BANK_MAIN, file::close
-	clc
+
 	plp					; restore error flag
 	rts
 .endproc
