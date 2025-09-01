@@ -1448,7 +1448,7 @@ CMD_BUFF = $101
 ;  - .C:       clear on success or set on failure
 ;  - zp::line: updated to point beyond the parsed expression
 .proc eval
-	JUMP FINAL_BANK_UDGEDIT, expr::eval
+	JUMP FINAL_BANK_MAIN, expr::eval
 .endproc
 
 ;*******************************************************************************
