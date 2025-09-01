@@ -884,19 +884,22 @@ __obj_close_section:
 @sec_idx=r6
 @rec=r7
 @sz=re
+@sec_base=zp::tmp10
 	lda #$00
 	sta @sec_idx
 
 @apply: ldx @sec_idx
-	lda sections_relocstartlo,x
-	sta reloc
-	lda sections_relocstarthi,x
-	sta reloc+1
-	lda sections_sizelo,x
+	lda sections_relocsizelo,x
 	sta @sz
-	lda sections_sizehi,x
+	lda sections_relocsizehi,x
 	sta @sz+1
+	inx				; get 1-based section
+	txa
+	jsr get_section_base
+	stx @sec_base
+	sty @sec_base+1
 
+@section_loop:
 	; read a record from the RELOCATION table
 	ldy #$00
 :	jsr $ffcf
@@ -905,7 +908,6 @@ __obj_close_section:
 	cpy #$05	; sizeof(relocation_record)
 	bne :-
 
-@section_loop:
 	; get the address mode (size of the target to update)
 	lda @rec	; get the info byte
 	and #$01	; mask size bit
@@ -946,16 +948,16 @@ __obj_close_section:
 
 	; get the link-time address of the section
 	jsr get_section_base
-	jmp *
 
 @add_offset:
-	stxy @tmp		; save the base address we will apply addend to
+	stxy @tmp		; save resolved symbol/section value
 
 	; get the address of the byte/word to apply relocation to
-	txa			; base relocation address (LSB)
+	lda @sec_base		; current section base address (LSB)
+	clc
 	adc @rec+1		; add LSB of offset
 	sta @pc
-	tya			; base relocation address (MSB)
+	lda @sec_base+1		; current section base address (MSB)
 	adc @rec+2		; add MSB of offset
 	sta @pc+1
 
@@ -978,7 +980,7 @@ __obj_close_section:
 	adc @tmp+1
 	ldxy @pc
 	CALL FINAL_BANK_MAIN, vmem::store	; store MSB of relocated operand
-	jmp @next
+	jmp @nopostproc_done
 
 @zp:	ldxy @pc
 	CALL FINAL_BANK_MAIN, vmem::load	; load addend
@@ -994,14 +996,24 @@ __obj_close_section:
 	; no post-processing, just add 1 byte addend and we're done
 	lda @tmp
 	CALL FINAL_BANK_MAIN, vmem::store	; store relocated value
-	jmp @next
+	jmp @nopostproc_done
 
 @postproc:
+	php			; save carry from LSB addition
 	jsr $ffcf		; read another byte to get the MSB of addend
+	plp			; restore .C
 	adc @tmp+1		; add with operand MSB
 	sta @tmp+1
 
-	lda @rec		; get info again
+	; update sz (sz -= 6)
+	lda @sz
+	sec
+	sbc #$06
+	sta @sz
+	bcs :+
+	dec @sz+1
+
+:	lda @rec		; get info again
 	and #$0c		; mask postproc bits (2, 3)
 	cmp #POSTPROC_LSB<<2	; are we taking LSB?
 	beq @postproc_lsb
@@ -1010,14 +1022,24 @@ __obj_close_section:
 	lda @tmp+1				; get the MSB (post-proc)
 	ldxy @pc
 	CALL FINAL_BANK_MAIN, vmem::store	; store relocated value
+	jmp @next
 
 @postproc_lsb:
 	lda @tmp				; get the LSB ldxy @pc
 	ldxy @pc
 	CALL FINAL_BANK_MAIN, vmem::store	; and store
+	jmp @next
 
-@next:	decw @sz
-	iszero @sz
+@nopostproc_done:
+	; update sz (sz -= 5)
+	lda @sz
+	sec
+	sbc #$05
+	sta @sz
+	bcs @next
+	dec @sz+1
+
+@next:	iszero @sz
 	beq :+
 	jmp @section_loop
 
@@ -1280,22 +1302,25 @@ __obj_close_section:
 .proc get_section_base
 @tmp=r0
 	; segments_start[segment_ids[sec_id]] + sections_start[sec_id]
-	; look up base address for the section's SEGMENT (segments_start[segment_ids[sec_id]])
+	; look up base address for the section's SEGMENT
+	; (segments_start[segment_ids[sec_id]])
 	tax
 	ldy segment_ids-1,x		; segment_ids[sec_id]
-	lda segments_startlo-1,y	; segments_start[segment_ids[sec_id]] (LSB)
+	lda segments_startlo-1,y	; <segments_start[segment_ids[sec_id]]
 	pha
-	lda segments_starthi-1,y	; segments_start[segment_ids[sec_id]] (MSB)
+	lda segments_starthi-1,y	; >segments_start[segment_ids[sec_id]]
 	sta @tmp
 
 	; now add the base offest of the SECTION (sections_start[sec_id])
 	pla
 	clc
 	adc sections_startlo-1,x	; resolve LSB
-	tax
+	pha
 	lda @tmp
 	adc sections_starthi-1,x	; resolve MSB
 	tay
+	pla
+	tax
 	rts
 .endproc
 
@@ -1435,7 +1460,9 @@ __obj_close_section:
 	sta sections_relocstarthi,y
 
 	; get the address to write the object code to
-	lda @sec_idx
+	ldx @sec_idx
+	inx			; get in base 1
+	txa
 	jsr get_section_base
 	stxy @sec
 

@@ -49,7 +49,6 @@
 	rts
 .endproc
 
-
 ;******************************************************************************
 ; HEXTOSTR
 ; Returns the string representation of the value in .A

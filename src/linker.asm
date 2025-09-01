@@ -709,7 +709,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	beq @cont			; found end of section name
 	sta (@name),y
 	iny
-	cpy #$08
+	cpy #MAX_SEGMENT_NAME_LEN
 	bcc @l0
 	RETURN_ERR ERR_LABEL_TOO_LONG	; section name > 8 chars
 
@@ -1154,6 +1154,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	ldy #$01
 	lda (@objfile),y	; are there more files? (next file is !0)
 	bne @objects		; if so, repeat
+
+	jsr generate_map	; produce the map file
+
 	clc			; all objects linked, return success
 @done:	rts
 .endproc
@@ -1719,4 +1722,231 @@ __link_get_segment_by_name:
 	bne :+
 @yes:	rts
 :	jmp isoperator
+.endproc
+
+;*******************************************************************************
+; GENERATE MAP
+; Generates a "MAP" file once linking has completed
+.proc generate_map
+@i=r0
+@tmp=r2
+@name=r4
+	ldxy #@filename
+	CALL FINAL_BANK_MAIN, file::open_w
+	bcc :+
+	rts
+
+:	pha				; save file handle
+	tax
+	jsr $ffc9			; CHKOUT
+
+	lda #$00
+	sta @i
+	cmp numsegments
+	beq @symbols
+
+@segments:
+	ldxy #@seglist_title
+	jsr puts		; write the "segments" title
+	jsr write_h_line
+	ldxy #@seglist_header
+	jsr puts		; write the "segments" header
+
+	; write the name, address, and size of each segment
+	ldxy #segment_names
+	stxy @name
+	lda #$00
+	sta @i
+
+@segloop:
+	ldy #$00
+:	lda (@name),y
+	beq :+
+	jsr $ffd2
+	iny
+	cpy #MAX_SEGMENT_NAME_LEN
+	bne :-
+
+:	; write 8-len(name)+1 spaces of padding
+	sty @tmp
+	lda #8
+	sec
+	sbc @tmp
+	tay
+	lda #' '
+:	jsr $ffd2
+	dey
+	bpl :-
+
+@segstart:
+	ldx @i
+	ldy segments_addrhi,x	; get the start address (MSB)
+	lda segments_addrlo,x	; get the start address (LSB)
+	tax
+	jsr putword
+
+	; padding between start and size
+	lda #' '
+	jsr $ffd2
+	jsr $ffd2
+
+@segsize:
+	ldx @i
+	ldy segments_sizehi,x	; get the size (MSB)
+	lda segments_sizelo,x	; get the size (LSB)
+	tax
+	jsr putword
+
+@nextseg:
+	lda #$0d
+	jsr $ffd2
+
+	lda @name
+	clc
+	adc #MAX_SEGMENT_NAME_LEN
+	sta @name
+	bcc :+
+	inc @name+1
+
+:	inc @i
+	lda @i
+	cmp numsegments
+	bne @segloop
+
+@symbols:
+	lda #$0d
+	jsr $ffd2
+
+	ldxy #@symbols_title
+	jsr puts		; write the "symbols" title
+	jsr write_h_line
+	ldxy #@symbols_header
+	jsr puts		; write the "symbols" header
+
+	; write the name, address, and address mode of each symbol
+	ldxy #$00
+	stxy @i
+	cmpw lbl::num
+	beq @done
+
+@symloop:
+	ldxy @i
+	CALL FINAL_BANK_MAIN, lbl::getname
+	ldxy r0
+	jsr puts
+
+	; write 32-len(labelname) spaces
+	sty @tmp
+	lda #32
+	sec
+	sbc @tmp
+	tay
+	lda #' '
+:	jsr $ffd2
+	dey
+	bne :-
+
+	; write the label's address
+	ldxy @i
+	CALL FINAL_BANK_MAIN, lbl::addr_and_mode
+	cmp #$00		; zeropage?
+	beq @zp
+@abs:	jsr putword
+	jmp @nextsym
+@zp:	jsr putbyte
+@nextsym:
+	lda #$0d
+	jsr $ffd2
+	incw @i
+	ldxy @i
+	cmpw lbl::num
+	bne @symloop
+
+@done:	pla					; restore file handle
+	JUMP FINAL_BANK_MAIN, file::close
+
+@seglist_title:  .byte "segments",$0d,0
+@seglist_header: .byte "name     addr   size",$0d,0
+@symbols_title:  .byte "symbols",$0d,0
+@symbols_header: .byte "name                             addr",$0d,0
+
+.PUSHSEG
+.RODATA
+@filename:       .byte "map",0
+.POPSEG
+.endproc
+
+;*******************************************************************************
+; WRITE H LINE
+; Writes a 40 column line of '-'s
+.proc write_h_line
+	lda #'-'
+	ldy #40
+:	jsr $ffd2
+	dey
+	bne :-
+	rts
+.endproc
+
+;*******************************************************************************
+; PUTBYTE
+; Outputs the given byte as a hex value
+; IN:
+;   - .X: the value to output
+.proc putbyte
+	lda #'$'
+	jsr $ffd2
+
+	txa
+	CALL FINAL_BANK_MAIN, util::hextostr
+	tya
+	jsr $ffd2
+	txa
+	jmp $ffd2
+.endproc
+
+;*******************************************************************************
+; PUTWORD
+; Outputs the given word as a hex value
+; IN:
+;   - .XY: the value to output
+.proc putword
+	lda #'$'
+	jsr $ffd2
+
+	txa
+	pha
+	tya
+	CALL FINAL_BANK_MAIN, util::hextostr
+	tya
+	jsr $ffd2
+	txa
+	jsr $ffd2
+	pla
+	CALL FINAL_BANK_MAIN, util::hextostr
+	tya
+	jsr $ffd2
+	txa
+	jmp $ffd2
+.endproc
+
+;*******************************************************************************
+; PUTS
+; Writes a 0-terminated string to the open file
+; IN:
+;   - .XY: the address of the string to output
+; OUT:
+;   - .Y: the length of the string written
+.proc puts
+@str=zp::str0
+	stxy @str
+
+	ldy #$00
+:	lda (@str),y
+	beq @done
+	jsr $ffd2
+	iny
+	bne :-
+
+@done:	rts
 .endproc
