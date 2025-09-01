@@ -1726,7 +1726,8 @@ __link_get_segment_by_name:
 
 ;*******************************************************************************
 ; GENERATE MAP
-; Generates a "MAP" file once linking has completed
+; Write a "MAP" file containing all the SEGMENTS and SYMBOLS that were
+; used in the creation of the linked program
 .proc generate_map
 @i=r0
 @tmp=r2

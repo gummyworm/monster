@@ -22,6 +22,7 @@
 .import __str_illegal_detected
 .import __str_jam_detected
 .import __str_link
+.import __str_linking
 .import __str_load
 .import __str_loading
 .import __str_noname
@@ -70,6 +71,7 @@
 	invalid_command         = __str_invalid_command
 	file_open_failed        = __str_file_open_failed
 	link                    = __str_link
+	linking                 = __str_linking
 	loading                 = __str_loading
 	memview_title           = __str_memview_title
 	nofile                  = __str_no_file

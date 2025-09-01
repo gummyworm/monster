@@ -372,6 +372,10 @@ main:	jsr key::getch
 
 	jsr irq::off
 
+	; display linking...
+	ldxy #strings::linking
+	jsr print_info
+
 	; parse the LINK file to setup the linking context
 	ldxy #strings::link
 	CALL FINAL_BANK_LINKER, link::parse

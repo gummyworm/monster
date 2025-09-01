@@ -70,6 +70,7 @@ To link multiple object files the linker follows the following procedure:
     * Walk relocation table, for each section, and apply the the relocations described using the global symbol table
 * Validate
   * make sure sections don't overlap
+* Write MAP file
 
 ----
 

@@ -67,6 +67,9 @@ __str_saving: .byte "saving...",0
 .export __str_assembling
 __str_assembling: .byte "assembling...",0
 
+.export __str_linking
+__str_linking: .byte "linking...",0
+
 .export __str_edit_file_save_failed
 __str_edit_file_save_failed: .byte "failed to save file; error ", ESCAPE_BYTE, 0
 
