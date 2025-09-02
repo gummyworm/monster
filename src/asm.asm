@@ -1726,10 +1726,14 @@ __asm_tokenize_pass1 = __asm_tokenize
 ; e.g. `EXPORT LABEL`
 .proc export
 	;  TODO
-	; if producing an object file, add to its EXPORTs
-	;ldxy zp::line
-	;jmp obj::add_export
+	lda zp::pass
+	cmp #$02
+	beq :+
+	RETURN_OK		; exports are done in pass 2
 
+:	; if producing an object file, add to its EXPORTs
+	ldxy zp::line
+	JUMP FINAL_BANK_LINKER, obj::add_export
 .endproc
 
 ;*******************************************************************************

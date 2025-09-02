@@ -62,9 +62,9 @@ io_output_dev   = $9a	; output device #
 ;io_tape_buff   = $9e	; tape pass 1 error log/character buffer
 ;io_tape_fix    = $9f	; tape pass 2 error log corrected
 
-bank      = $9d 	; bank to operate on for some ram:: routines
-banktmp   = $9e		; bank temp/arg storage for ram:: routines
-bankstack = $9e+3	; small call stack for ram::call (bank bytes only)
+bank      = $9b 	; bank to operate on for some ram:: routines
+banktmp   = bank+1	; bank temp/arg storage for ram:: routines
+bankstack = banktmp+3	; small call stack for ram::call (bank bytes only)
 
 bankoffset = $a6	; offset for relative reads/writes
 bankaddr0  = $a7

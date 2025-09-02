@@ -335,10 +335,24 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
+; ADD EXPORT
+; Defines an EXPORT for the given label name
+; IN:
+;   - .XY: address of the symbol name to define an EXPORT for
+; OUT:
+;   - .C: set on error
 .export __obj_add_export
 .proc __obj_add_export
-	; TODO
-	rts
+	CALL FINAL_BANK_MAIN, lbl::find	; look up the label by name
+	bcs @ret
+	txa
+	ldx numexports
+	sta export_label_idslo,x	; get LSB of index for symbol
+	tya
+	sta export_label_idshi,x	; get MSB of index for symbol
+	inc numexports
+	clc				; ok
+@ret:	rts
 .endproc
 
 ;*******************************************************************************
@@ -590,7 +604,8 @@ __obj_close_section:
 ; Exports may or may not be referenced within the object code
 ; They must be explicitly mapped to the object code by a ".EXPORT" directive
 .proc dump_exports
-@i=r0
+@i=zp::tmp10
+@id=zp::tmp12
 @buff=$100
 	lda #$00
 	sta @i
@@ -602,8 +617,9 @@ __obj_close_section:
 	stxy r0
 	ldx @i
 	ldy export_label_idshi,x	; get LSB of index for symbol
-	lda export_label_idslo,y	; get MSB of index for symbol
+	lda export_label_idslo,x	; get MSB of index for symbol
 	tax
+	stxy @id
 	CALL FINAL_BANK_MAIN, lbl::getname
 
 	; write out the name
@@ -615,20 +631,25 @@ __obj_close_section:
 	iny
 	bne :-
 
-@cont:	; get/write the section index
-	ldxy @i
-	CALL FINAL_BANK_MAIN, lbl::getsection	; write section index
-	jsr $ffd2
+@cont:	; write the SEGMENT id
+	ldxy @id
+	CALL FINAL_BANK_MAIN, lbl::getsection	; get section index
+	cmp #SEC_ABS				; if ABS, write ABS
+	beq :+
+	tax
+	lda segment_ids,x			; get SEGMENT for section
+:	jsr $ffd2				; dump the SEGMENT id
 
-	; get/write the section offset
-	ldxy @i
-	CALL FINAL_BANK_MAIN, lbl::by_id
+	; write the section offset
+	ldxy @id
+	CALL FINAL_BANK_MAIN, lbl::getaddr
 	txa
 	jsr $ffd2				; write offset LSB
 	tya
 	jsr $ffd2				; write offset MSB
 
 	inc @i
+	lda @i
 	cmp numexports
 	bcc @l0
 
@@ -783,6 +804,10 @@ __obj_close_section:
 	plp				; restore .Z flag (is OBJ table empty?)
 	beq @done			; if no OBJ code, we're done
 
+	lda sections_startlo,x
+	sta @sec
+	lda sections_starthi,x
+	sta @sec+1
 @objloop:
 	; dump the object code for the section
 	ldxy @sec				; address to load
@@ -1247,7 +1272,7 @@ __obj_close_section:
 	; get the name of a symbol
 	ldx #$00
 :	jsr readb
-	bcs @ret
+	bcs :+
 	sta @namebuff,x
 	beq @addexport
 	inx
@@ -1259,8 +1284,11 @@ __obj_close_section:
 	sta zp::label_mode
 
 	jsr readb				; get SEGMENT id
-	bcs @ret
-	sta zp::label_sectionid
+:	bcs @ret
+	jsr get_segment_name_by_id		; get name of SEGMENT
+	jmp *
+	jsr link::segid_by_name			; get global id of SEGMENT
+	sta zp::label_sectionid			; use SEGMENT id as section id
 	jsr readb				; get LSB of symbol offset
 	bcs @ret
 	sta zp::label_value
@@ -1270,14 +1298,16 @@ __obj_close_section:
 
 	ldxy #@namebuff
 	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
-	bcs :+					; no -> add it
+	bcs @add				; no -> add it
 
 	; validate: is section SEC_UNDEF?
 	; if not, error (only 1 EXPORT is allowed per symbol)
-	; TODO:
+	CALL FINAL_BANK_MAIN, lbl::getsection
+	cmp #SEC_UNDEF
+	beq :+
 	RETURN_ERR ERR_ALREADY_EXPORTED		; multiple exports
 
-	; validate: does address mode match existing symbol?
+:	; validate: does address mode match existing symbol?
 	CALL FINAL_BANK_MAIN, lbl::addrmode
 	cmp zp::label_mode
 	beq @ok					; matches -> ok
@@ -1285,7 +1315,7 @@ __obj_close_section:
 	; error: address mode doesn't match
 	RETURN_ERR ERR_ADDRMODE_MISMATCH	; conflicting import/exports
 
-:	JUMP FINAL_BANK_MAIN, lbl::add
+@add:	JUMP FINAL_BANK_MAIN, lbl::add
 @ok:	clc
 @ret:	rts
 .endproc
@@ -1514,7 +1544,7 @@ __obj_close_section:
 ; IN:
 ;  - .A: the id of the SEGMENT to get the name of
 ; OUT:
-;  - .A: the name of the SEGMENT (object-local)
+;  - .XY: the name of the SEGMENT (object-local)
 .proc get_segment_name_by_id
 @seg=r0
 	ldx #$00
