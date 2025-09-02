@@ -212,7 +212,7 @@ __obj_close_section:
 @dst=r2
 	stxy @name
 	jsr get_segment_by_name
-	bcc @done
+	bcc @done		; return existing SEGMENT's id
 
 	; segment not found, add it
 	stxy @dst		; address to store new name to
@@ -291,13 +291,15 @@ __obj_close_section:
 
 	ldxy #@name
 	jsr add_segment		; add/get SEGMENT id
+	bcs @ret
 
 	ldx numsections
 	sta segment_ids,x	; set SEGMENT id for this SECTION
 
 @done:	inc numsections
 	lda numsections
-@ret:	RETURN_OK
+	clc			; ok
+@ret:	rts
 .endproc
 
 ;*******************************************************************************
@@ -344,7 +346,7 @@ __obj_close_section:
 .export __obj_add_export
 .proc __obj_add_export
 	CALL FINAL_BANK_MAIN, lbl::find	; look up the label by name
-	bcs @ret
+	bcs @ret			; not found -> err
 	txa
 	ldx numexports
 	sta export_label_idslo,x	; get LSB of index for symbol
@@ -636,9 +638,10 @@ __obj_close_section:
 	CALL FINAL_BANK_MAIN, lbl::getsection	; get section index
 	cmp #SEC_ABS				; if ABS, write ABS
 	beq :+
+
 	tax
-	lda segment_ids,x			; get SEGMENT for section
-:	jsr $ffd2				; dump the SEGMENT id
+	lda segment_ids-1,x		; get SEGMENT for section
+:	jsr $ffd2			; dump the SEGMENT id
 
 	; write the section offset
 	ldxy @id
