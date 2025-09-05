@@ -47,7 +47,7 @@ allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
 .export __label_index
 .export __label_id_by_addr_index
 .export __label_addrmode
-.export __label_get_section
+.export __label_get_segment
 .export __label_set_addr
 
 .if FINAL_BANK_SYMBOLS=FINAL_BANK_MAIN
@@ -63,7 +63,7 @@ __label_name_by_id       = name_by_id
 __label_isvalid          = is_valid
 __label_get_name         = get_name
 __label_get_addr         = getaddr
-__label_get_section      = get_section
+__label_get_segment      = get_segment
 __label_is_local         = is_local
 __label_set              = set
 __label_set24            = set24
@@ -77,7 +77,7 @@ __label_get_banon        = get_banon
 __label_index            = index
 __label_id_by_addr_index = id_by_addr_index
 __label_addrmode         = addrmode
-__label_get_section      = get_section
+__label_get_segment      = get_segment
 __label_set_addr         = setaddr
 
 .else
@@ -112,7 +112,7 @@ GET_BANON
 INDEX
 ID_BY_ADDR_INDEX
 ADDRMODE
-GET_SECTION
+GET_SEGMENT
 SET_ADDR
 .endenum
 
@@ -122,7 +122,7 @@ SET_ADDR
 .define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
 getaddr, is_local, set, set24, del, address, address_by_id, set_scope, \
 add_anon, get_fanon, get_banon, index, id_by_addr_index, addrmode, \
-get_section, setaddr
+get_segment, setaddr
 .linecont -
 
 procs_lo: .lobytes procs
@@ -150,7 +150,7 @@ __label_get_banon: LBLJUMP proc_ids::GET_BANON
 __label_index: LBLJUMP proc_ids::INDEX
 __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 __label_addrmode: LBLJUMP proc_ids::ADDRMODE
-__label_get_section: LBLJUMP proc_ids::GET_SECTION
+__label_get_segment: LBLJUMP proc_ids::GET_SEGMENT
 __label_set_addr: LBLJUMP proc_ids::SET_ADDR
 
 ;******************************************************************************
@@ -194,12 +194,12 @@ labels:
 label_modes: .res MAX_LABELS / 8	; modes (0=absolute, 1=zeropage)
 
 ;******************************************************************************
-; SECTION IDS
-; These bytes correspond to each label and tell us which section it is defined
+; SEGMENT IDS
+; These bytes correspond to each label and tell us which segment it is defined
 ; within
-; $ff means that the label is absolute (not relative to any section)
-.export section_ids
-section_ids: .res MAX_LABELS
+; $ff means that the label is absolute (not relative to any segment)
+.export segment_ids
+segment_ids: .res MAX_LABELS
 
 .segment "SHAREBSS"
 
@@ -532,7 +532,7 @@ scope: .res 8 ; buffer containing the current scope
 @cnt=ra
 @mode=r8
 @tmp=ra
-@secid=re
+@segid=re
 	sta allow_overwrite	; set overwrite flag (SET) or clear (ADD)
 
 	stxy @name
@@ -587,15 +587,15 @@ scope: .res 8 ; buffer containing the current scope
 ;------------------
 ; open a space for the new label by shifting everything left
 @shift:
-	; get top of section ids (section_ids+numlabels-1)
-	lda #<section_ids
+	; get top of segment ids (segment_ids+numlabels-1)
+	lda #<segment_ids
 	clc
 	adc numlabels
-	sta @secid
-	lda #>section_ids
+	sta @segid
+	lda #>segment_ids
 	adc numlabels+1
-	sta @secid+1
-	decw @secid		; -1
+	sta @segid+1
+	decw @segid		; -1
 
 	; get address where last label WILL go (numlabels * MAX_LABEL_LEN)
 	ldxy numlabels
@@ -666,11 +666,11 @@ scope: .res 8 ; buffer containing the current scope
 	dey
 	bpl :-
 
-; shift section id
+; shift segment id
 	iny			; .Y=0
-	lda (@secid),y
+	lda (@segid),y
 	iny			; .Y=1
-	sta (@secid),y
+	sta (@segid),y
 	dey			; .Y=0
 
 ; shift address
@@ -682,8 +682,8 @@ scope: .res 8 ; buffer containing the current scope
 	ldy #$03
 	sta (@addr),y
 
-	; secid--
-	decw @secid
+	; segid--
+	decw @segid
 
 	decw @cnt
 	iszero @cnt
@@ -804,11 +804,11 @@ scope: .res 8 ; buffer containing the current scope
 	iny			; .Y=1
 	sta (@addr),y		; store MSB of value
 
-; store the section ID for the label ($ff if absolute)
-@store_secid:
+; store the segment ID for the label ($ff if absolute)
+@store_segid:
 	; ldy #$00
-	lda zp::label_sectionid
-	sta (@secid),y
+	lda zp::label_segmentid
+	sta (@segid),y
 
 	incw numlabels
 	ldxy @id
@@ -1125,20 +1125,20 @@ scope: .res 8 ; buffer containing the current scope
 .endproc
 
 ;******************************************************************************
-; GET SECTION
-; Returns the section ID for the given label ID
+; GET SEGMENT
+; Returns the segment ID for the given label ID
 ; IN:
-;  - .XY: the label ID to get the section for
+;  - .XY: the label ID to get the segment for
 ; OUT:
-;  - .A: the section ID for the label
-.proc get_section
+;  - .A: the segment ID for the label
+.proc get_segment
 @sec=zp::labels
 	txa
 	clc
-	adc #<section_ids
+	adc #<segment_ids
 	sta @sec
 	tya
-	adc #>section_ids
+	adc #>segment_ids
 	sta @sec+1
 	ldy #$00
 	lda (@sec),y
@@ -1316,15 +1316,15 @@ scope: .res 8 ; buffer containing the current scope
 	dec @cnt2+1
 	bpl @nameloop
 
-	; move the section id's down
-@delete_secid:
+	; move the segment id's down
+@delete_segid:
 	lda @id
 	clc
-	adc #<section_ids
+	adc #<segment_ids
 	sta @dst
 	sta @src
 	lda @id+1
-	adc #>section_ids+1
+	adc #>segment_ids+1
 	sta @dst+1
 	lda @dst
 	;clc
@@ -1336,17 +1336,17 @@ scope: .res 8 ; buffer containing the current scope
 
 	ldx @cnt3
 	ldy #$00
-@secidloop:
+@segidloop:
 	lda (@src),y
 	sta (@dst),y
-@next_secid:
+@next_segid:
 	incw @src
 	incw @dst
 	dex
 	cpx #$ff
-	bne @secidloop
+	bne @segidloop
 	dec @cnt3+1
-	bpl @secidloop
+	bpl @segidloop
 
 @delete_mode:
 	; (id / 8) is the byte containing the mode to delete

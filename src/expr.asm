@@ -32,7 +32,6 @@ TOK_BINARY_OP = 5	; binary operator e.g. '+' or '-'
 TOK_UNARY_OP  = 6	; unary operator e.g. '<'
 TOK_END       = $ff	; end of expression marker
 
-SYM_UNRESOLVED = $ffff	; magic value for unresolved symbol ID (in RPN list)
 PC_SYMBOL_ID   = $ffff	; magic value for '*' (in eval result)
 
 ; These flags tell the expression evaluator what "kind" an operand
@@ -68,8 +67,8 @@ __expr_rpnlistlen: .byte 0
 .export __expr_kind
 __expr_kind: .byte 0
 
-.export __expr_section
-__expr_section: .byte 0
+.export __expr_segment
+__expr_segment: .byte 0
 
 .export __expr_symbol
 __expr_symbol: .word 0
@@ -139,7 +138,7 @@ operands: .res $100
 ; relocatability of the expression:
 ;    kind:       0=ABS, 1=RELOCATE
 ;    symbol_id:  symbol id (RELCOATE only)
-;    section_id: section ID of symbol (RELOCATE only)
+;    segment_id: segment ID of symbol (RELOCATE only)
 ; The addend to a relocatable result (if any) will be the final value of the
 ; expression.
 ; IN:
@@ -156,16 +155,16 @@ operands: .res $100
 @val2        = zp::expr+4
 @result_size = zp::expr+6
 @kind1       = r4
-@section1    = r5
+@segment1    = r5
 @symbol1     = r6		; 2 bytes
 @postproc1   = r8
 @kind2       = r9
-@section2    = ra
+@segment2    = ra
 @symbol2     = rb		; 2 bytes
 @postproc2   = rd
 @operator    = re
 @kind        = zp::tmp10
-@section     = zp::tmp11
+@segment     = zp::tmp11
 @symbol      = zp::tmp12	; 2 bytes
 @postproc    = zp::tmp14
 @tmp         = zp::tmp15
@@ -182,10 +181,10 @@ operands: .res $100
 @done:	jsr @popval		; read result (should be only value on stack)
 	stxy @val1
 
-	; set the kind of result, symbol, section, and post-processing
+	; set the kind of result, symbol, segment, and post-processing
 	; for the result
-	lda @section
-	sta __expr_section
+	lda @segment
+	sta __expr_segment
 	lda @kind
 	sta __expr_kind
 	cmp #VAL_ABS
@@ -199,14 +198,14 @@ operands: .res $100
 	jmp @ok			; -> done
 
 @rel_result:
-	lda @section
-	sta __expr_section
-	cmp asm::section	; is the result in a different section?
+	lda @segment
+	sta __expr_segment
+	cmp asm::segment	; is the result in a different segment?
 	bne @sym_result		; if so, need a symbol-relative answer
 
-@sec_result:
-	; same section, no need to lookup symbol
-	lda asm::segmode	; get the size of section for result size
+@seg_result:
+	; same segment, no need to lookup symbol
+	lda asm::segmode	; get the size of segment for result size
 	clc
 	adc #$01		; add 1 to get # of bytes
 	bcc @rel_done		; and continue to finish up building result
@@ -217,8 +216,8 @@ operands: .res $100
 	ldy @symbol+1
 	sty __expr_symbol+1
 
-	lda @section
-	cmp #SEC_UNDEF		; is section undefined?
+	lda @segment
+	cmp #SEG_UNDEF		; is segment undefined?
 	beq :+			; if so, assume 2 bytes
 
 	cmpw #PC_SYMBOL_ID
@@ -267,8 +266,8 @@ operands: .res $100
 	ldxy zp::virtualpc
 	jmp @const
 
-:	lda asm::section	; current section at assembly time
-	sta @section
+:	lda asm::segment	; current segment at assembly time
+	sta @segment
 	ldxy #PC_SYMBOL_ID	; use the magic value for PC as the symbol ID
 	stxy @symbol
 	ldxy zp::virtualpc	; offset from SECTION base
@@ -300,13 +299,13 @@ operands: .res $100
 
 	stxy @val1		; addend
 
-	; get the section ID
+	; get the segment ID
 	ldxy @symbol
-	CALL FINAL_BANK_MAIN, lbl::getsection
+	CALL FINAL_BANK_MAIN, lbl::getsegment
 
-	sta @section		; store section ID
+	sta @segment		; store segment ID
 	ldxy @val1		; restore label address/addend
-	cmp #SEC_ABS		; is section "ABSOLUTE"?
+	cmp #SEG_ABS		; is segment "ABSOLUTE"?
 	beq @const		; if so, treat as constant value
 
 @pushrel:
@@ -325,8 +324,8 @@ operands: .res $100
 	RETURN_ERR ERR_UNRESOLVABLE_LABEL
 
 @dummy:	; return dummy
-	lda #SEC_UNDEF
-	sta @section		; mark section as undefined
+	lda #SEG_UNDEF
+	sta @segment		; mark segment as undefined
 	ldxy #$00		; dummy value
 	lda #VAL_REL
 	skw
@@ -389,8 +388,8 @@ operands: .res $100
 	sta @operands+1,x	; store MSB of addend
 	lda @kind
 	sta @operands+2,x	; store kind (RELOCATE or ABSOLUTE)
-	lda @section
-	sta @operands+3,x	; store section ID
+	lda @segment
+	sta @operands+3,x	; store segment ID
 	lda @symbol
 	sta @operands+4,x	; store symbol ID LSB
 	lda @symbol+1
@@ -419,8 +418,8 @@ operands: .res $100
 	stxy @val1
 	lda @kind
 	sta @kind1
-	lda @section
-	sta @section1
+	lda @segment
+	sta @segment1
 	lda @symbol
 	sta @symbol1
 	lda @symbol+1
@@ -438,8 +437,8 @@ operands: .res $100
 	stxy @val2
 	lda @kind
 	sta @kind2
-	lda @section
-	sta @section2
+	lda @segment
+	sta @segment2
 	lda @symbol
 	sta @symbol2
 	lda @symbol+1
@@ -566,8 +565,8 @@ operands: .res $100
 	ldx @sp
 	lda @operands+2,x	; get "kind"
 	sta @kind
-	lda @operands+3,x	; get section ID (for kind==RELOCATE)
-	sta @section
+	lda @operands+3,x	; get segment ID (for kind==RELOCATE)
+	sta @segment
 	lda @operands+4,x	; get symbol ID (for kind==RELOCATE)
 	sta @symbol
 	lda @operands+5,x	; get symbol ID (for kind==RELOCATE)
@@ -581,7 +580,7 @@ operands: .res $100
 
 ;--------------------------------------
 ; REDUCE OPERATION ADDITION
-; Determines the @section and @symbol for the two active operands
+; Determines the @segment and @symbol for the two active operands
 ; Also validates that the combination of ABS/REL modes is valid
 @reduce_operation_addition:
 	lda @kind1
@@ -593,14 +592,14 @@ operands: .res $100
 	cmp #VAL_ABS
 	bne @add_a_abs_b_rel
 
-	; A=ABS, B=ABS, no need to worry about section/symbol
+	; A=ABS, B=ABS, no need to worry about segment/symbol
 	sta @kind	; set @kind to ABS
 	RETURN_OK
 
 @add_a_abs_b_rel:
-	; A=ABS, B=REL, use b's symbol and section
-	lda @section2
-	sta @section
+	; A=ABS, B=REL, use b's symbol and segment
+	lda @segment2
+	sta @segment
 	lda @symbol2
 	sta @symbol
 	RETURN_OK
@@ -614,16 +613,16 @@ operands: .res $100
 	rts
 
 @add_a_rel_b_abs:
-	; A=REL, B=ABS, use a's symbol and section
-	lda @section1
-	sta @section
+	; A=REL, B=ABS, use a's symbol and segment
+	lda @segment1
+	sta @segment
 	lda @symbol1
 	sta @symbol
 :	RETURN_OK
 
 ;--------------------------------------
 ; REDUCE OPERATION SUBTRACTION
-; Validates/reduces the section/symbol/and kind for a subtraction operation
+; Validates/reduces the segment/symbol/and kind for a subtraction operation
 ; Also validates that the combination of ABS/REL modes is valid
 @reduce_operation_subtraction:
 	lda @kind1
@@ -647,22 +646,22 @@ operands: .res $100
 	cmp #VAL_REL
 	beq @sub_a_rel_b_rel
 
-	; A=REL, B=ABS, result is REL with A's symbol/section
+	; A=REL, B=ABS, result is REL with A's symbol/segment
 	sta @kind		; kind = REL
-	lda @section1
-	sta @section
+	lda @segment1
+	sta @segment
 	lda @symbol1
 	sta @symbol
 	RETURN_OK
 
 @sub_a_rel_b_rel:
 	; this case can be reduced to an ABS entry if val1 and val2 share
-	; a section
-	lda @section1
-	cmp @section2
+	; a segment
+	lda @segment1
+	cmp @segment2
 	bne :+
 	sec
-	rts		; different sections -> err
+	rts		; different segments -> err
 
 :	lda #VAL_ABS
 	sta @kind	; set kind to absolute
@@ -689,22 +688,22 @@ operands: .res $100
 ;--------------------------------------
 ; HANDLE POSTPROC
 ; Validates a binary operand's post-processing
-; Post-processing is allowed if symbol is in the same section as the
-; expression (asm::section)
+; Post-processing is allowed if symbol is in the same segment as the
+; expression (asm::segment)
 @handle_postproc:
 	lda @postproc
 	beq :+++	; -> ok
 
-	; check if symbol is in same section
-	; (can't do postproc on inter-section symbol)
-	CALL FINAL_BANK_MAIN, lbl::getsection
-	cmp asm::section
+	; check if symbol is in same segment
+	; (can't do postproc on inter-segment symbol)
+	CALL FINAL_BANK_MAIN, lbl::getsegment
+	cmp asm::segment
 	beq :+
 	sec
 	rts
 :	ldxy @symbol		; restore symbol ID
 
-	; get the address (addend) of the label within the section
+	; get the address (addend) of the label within the segment
 	CALL FINAL_BANK_MAIN, lbl::by_id
 
 	lda @postproc
@@ -1111,12 +1110,12 @@ operands: .res $100
 
 	pha			; save address mode
 	stxy @lbl
-	CALL FINAL_BANK_MAIN, lbl::getsection
+	CALL FINAL_BANK_MAIN, lbl::getsegment
 	ldxy @lbl
-	cmp #SEC_ABS
+	cmp #SEG_ABS
 	bne @chkmode
 
-@val:	; if section == SEC_ABS, label is constant, return its value
+@val:	; if segment == SEG_ABS, label is constant, return its value
 	pla			; cleanup
 	CALL FINAL_BANK_MAIN, lbl::getaddr
 	lda #TOK_VALUE

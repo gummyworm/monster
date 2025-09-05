@@ -5,7 +5,7 @@
 .import __expr_postproc
 .import __expr_rpnlist
 .import __expr_rpnlistlen
-.import __expr_section
+.import __expr_segment
 .import __expr_symbol
 
 VAL_ABS = 0
@@ -22,7 +22,7 @@ POSTPROC_MSB  = 2
 	kind       = __expr_kind
 	rpnlist    = __expr_rpnlist
 	rpnlistlen = __expr_rpnlistlen
-	section    = __expr_section
+	segment    = __expr_segment
 	symbol     = __expr_symbol
 	postproc   = __expr_postproc
 .endscope

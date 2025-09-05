@@ -70,10 +70,10 @@ sections_sizelo:   .res MAX_SECTIONS
 __obj_sections_sizehi:
 sections_sizehi:   .res MAX_SECTIONS
 __obj_segments_sizelo:
-segments_sizelo: .res MAX_SECTIONS
+segments_sizelo:   .res MAX_SECTIONS
 __obj_segments_sizehi:
-segments_sizehi: .res MAX_SECTIONS
-sections_info:     .res MAX_SECTIONS
+segments_sizehi:   .res MAX_SECTIONS
+segments_info:     .res MAX_SECTIONS
 
 __obj_segments:
 segments: .res MAX_SEGMENT_NAME_LEN*MAX_SECTIONS ; name of target SEG
@@ -90,6 +90,8 @@ sections_relocstartlo: .res MAX_SECTIONS
 sections_relocstarthi: .res MAX_SECTIONS
 sections_relocsizelo:  .res MAX_SECTIONS
 sections_relocsizehi:  .res MAX_SECTIONS
+segments_relocsizelo:  .res MAX_SEGMENTS
+segments_relocsizehi:  .res MAX_SEGMENTS
 
 .export __obj_numsections
 __obj_numsections:
@@ -192,6 +194,16 @@ __obj_close_section:
 	sta num_symbols_mapped+1
 	sta num_reloctables_mapped
 
+	; clear arrays
+	ldx #MAX_SEGMENTS
+@clrsizes:
+	sta segments_sizelo-1,x
+	sta segments_sizehi-1,x
+	sta sections_sizelo-1,x
+	sta sections_sizehi-1,x
+	dex
+	bne @clrsizes
+
 	; reset relocation tables "top" pointer
 	ldxy #reloc_tables
 	stxy reloctop
@@ -201,7 +213,7 @@ __obj_close_section:
 
 ;*******************************************************************************
 ; ADD SEGMENT
-; Adds a segment with the given name or creates it if it doesn't exist
+; Adds a new SEGMENT with the given name
 ; IN:
 ;   - .XY: address of the SEGMENT name to add
 ; OUT:
@@ -212,9 +224,8 @@ __obj_close_section:
 @dst=r2
 	stxy @name
 	jsr get_segment_by_name
-	bcc @done		; return existing SEGMENT's id
 
-	; segment not found, add it
+@add:	; segment not found, add it
 	stxy @dst		; address to store new name to
 
 	ldy #$00
@@ -243,7 +254,8 @@ __obj_close_section:
 :	inc numsegments
 	lda numsegments		; get 1-based section ID
 	clc			; ok
-@done:	rts
+
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -252,17 +264,22 @@ __obj_close_section:
 ; address. This address is the where the section is stored while
 ; building the object file. The actual address of the code within the section
 ; will be determined by the linker when the program is linked.
+; The base address of the SEGMENT is also returned, which will be 0 if this is
+; a never before seen SEGMENT or where the last section that referenced this
+; SEGMENT left off if not.
 ; IN:
 ;   - .A:             size/addressing mode (0=ZP, 1=ABS)
 ;   - zp::asmresult:  the physical address to begin the section at
 ;   - $100:           the name of the SEGMENT for the SECTION
 ; OUT:
-;   - .A: the ID of the section added
-;   - .C: set if the section could not be added
+;   - .A:  the ID of the SEGMENT the section corresponds to
+;   - .XY: the base address for the section
+;   - .C:  set if the section could not be added
 .export __obj_add_section
 .proc __obj_add_section
 @name=$100
-@namedst=r0
+@segaddr=r0
+@info=r4
 	ldy zp::pass
 	cpy #$01
 	beq @pass1
@@ -273,7 +290,17 @@ __obj_close_section:
 	sta sections_relocstartlo,x	; set reloc start LSB
 	lda reloctop+1
 	sta sections_relocstarthi,x	; set reloc start MSB
+
+	; get SEGMENT id and address for this section
+	ldx num_reloctables_mapped
+	lda segment_ids,x		; segment id
+	pha
+	ldy sections_starthi,x		; section start LSB
+	lda sections_startlo,x		; section start MSB
+	tax
+	pla
 	inc num_reloctables_mapped
+
 	RETURN_OK
 
 @pass1:	ldx numsections
@@ -283,23 +310,58 @@ __obj_close_section:
 	lda #ERR_TOO_MANY_SEGMENTS
 	rts
 
-:	sta sections_info,x	; store address mode
+:	sta @info
 	lda zp::asmresult
 	sta sections_startlo,x	; set obj section start LSB
 	lda zp::asmresult+1
 	sta sections_starthi,x	; set obj section start MSB
 
 	ldxy #@name
-	jsr add_segment		; add/get SEGMENT id
-	bcs @ret
+	jsr get_segment_by_name
+	bcs @add
+
+@get:	pha
+	ldy numsections
+	sta segment_ids,y
+
+	tax
+
+	; set the start address for this SECTION to the current size of
+	; its SEGMENT
+	lda segments_sizehi-1,x
+	sta sections_starthi,y
+	pha			; LSB of SEGMENTS current top
+	lda segments_sizelo-1,x
+	sta sections_startlo,y
+	tax
+	pla
+	tay			; MSB of SEGMENT's current top
+	pla			; restore SEGMENT id
+
+	inc numsections
+	RETURN_OK
+
+@add:	ldxy #@name
+	jsr add_segment		; add new SEGMENT
+	pha
+
+	; store INFO byte (address mode) for the SEGMENT
+	tax
+	lda @info
+	sta segments_info-1,x
+
+	; init SEGMENT size to 0
+	lda #$00
+	sta segments_sizelo-1,x
+	sta sections_sizehi-1,x
 
 	ldx numsections
-	sta segment_ids,x	; set SEGMENT id for this SECTION
+	pla			; restore SEGMENT id
+	sta segment_ids,x
+	ldxy #$0000		; return 0 for address for new segment
 
-@done:	inc numsections
-	lda numsections
-	clc			; ok
-@ret:	rts
+	inc numsections
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************
@@ -332,6 +394,16 @@ __obj_close_section:
 	lda zp::asmresult+1
 	sbc sections_starthi-1,x
 	sta sections_sizehi-1,x
+
+	; update segment size (running sum)
+	ldy segment_ids-1,x
+	lda segments_sizelo-1,y
+	clc
+	adc sections_sizelo-1,x
+	sta segments_sizelo-1,y
+	lda segments_sizehi-1,y
+	adc sections_sizehi-1,x
+	sta segments_sizehi-1,y
 
 @done:	RETURN_OK
 .endproc
@@ -397,11 +469,11 @@ __obj_close_section:
 	asl
 	ora @sz
 
-	; is symbol in the expression is unresolved (section_id == SEC_UNDEF)?
+	; is symbol in the expression is unresolved (section_id == SEG_UNDEF)?
 	; yes -> use symbol-based relocation
-	; no  -> use section-based relocation
-	ldx expr::section
-	cpx #SEC_UNDEF
+	; no  -> use segment-based relocation
+	ldx expr::segment
+	cpx #SEG_UNDEF
 	beq :+
 	ora #1<<1		; flag section based relocation
 
@@ -426,7 +498,7 @@ __obj_close_section:
 	beq @sym_based		; if 0, write symbol index
 
 @sec_based:
-	lda expr::section
+	lda expr::segment
 	sta (@rel),y		; write symbol-id LSB
 	lda #$00		; MSB of section is always 0
 	iny			; .Y=4
@@ -553,7 +625,7 @@ __obj_close_section:
 ; indices.
 ; Imports must be declared with the .IMPORT directive to map them to the object
 ; file.
-; They are indentified by a SEC_UNDEF section index in the relocation tables at
+; They are indentified by a SEG_UNDEF section index in the relocation tables at
 ; link time
 .proc dump_imports
 @i=r0
@@ -635,15 +707,16 @@ __obj_close_section:
 
 @cont:	; write the SEGMENT id
 	ldxy @id
-	CALL FINAL_BANK_MAIN, lbl::getsection	; get section index
-	cmp #SEC_ABS				; if ABS, write ABS
+	CALL FINAL_BANK_MAIN, lbl::getsegment	; get section index
+	cmp #SEG_ABS				; if ABS, write ABS
 	beq :+
-
 	tax
-	lda segment_ids-1,x		; get SEGMENT for section
-:	jsr $ffd2			; dump the SEGMENT id
+	lda segment_ids-1,x			; get SEGMENT for section
+:	jsr $ffd2				; dump the SEGMENT id
 
-	; write the section offset
+	; write the SEGMENT offset
+	; TODO: this is currently writing the SECTION offset
+	; need to look up this section's SEGMENT offset and add the two
 	ldxy @id
 	CALL FINAL_BANK_MAIN, lbl::getaddr
 	txa
@@ -664,16 +737,47 @@ __obj_close_section:
 ; Dumps the SEGMENTS used in the object file and their sizes
 .proc dump_segments
 @name=r0
+@sec_idx=r2
+@seg_idx=r4
 @i=rc
 	lda numsegments
-	beq @done
+	bne :+
+	RETURN_OK			; no SEGMENTS to dump
 
-	; compute the size of each segment (sum of all sections that use it)
-	; TODO:
-	lda __obj_sections_sizelo
-	sta __obj_segments_sizelo
-	lda __obj_sections_sizehi
-	sta __obj_segments_sizehi
+:	; init segment sizes to 0
+	ldx numsegments
+:	sta segments_relocsizelo-1,x
+	sta segments_relocsizehi-1,x
+	dex
+	bne :-
+
+; compute the size of each SEGMENT (sum of all SECTIONS that use it)
+@l0:	lda #$00
+	sta @sec_idx
+
+@l1:	lda @seg_idx			; get current SEGMENT
+	ldx @sec_idx
+	cmp segment_ids,x		; is this SECTION in this SEGMENT?
+	bne :+				; if not, continue
+
+	tay
+	lda sections_relocsizelo,x	; get size of code for section
+	clc
+	adc segments_relocsizelo,y	; add with current SEGMENT size
+	sta segments_relocsizelo,y
+	lda sections_relocsizehi,x
+	adc segments_relocsizehi,y
+	sta segments_relocsizehi,y
+
+:	inc @sec_idx
+	lda @sec_idx
+	cmp numsections
+	bne @l1
+
+	inc @seg_idx
+	lda @seg_idx
+	cmp numsegments
+	bne @l0
 
 	lda #$00
 	sta @i
@@ -714,103 +818,66 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
-; LOAD SECTION META
-; Loads the SEGMENT id, SEGMENT offset, and address mode for each section.
-; The linker uses this to determine the address of each section before
-; reading/applying the relocation tables
-.proc load_section_meta
-	; read the section sizes from the header in this section
-	ldy #$00
-	cpy numsections
-	beq @done
-
-@l0:	jsr readb		; read the SEGMENT id for this section
-	bcs @ret
-	sta segment_ids,y
-	jsr readb		; read "info" (addr-mode) byte
-	bcs @ret
-	sta sections_info,y
-	jsr readb		; read LSB of section offset
-	bcs @ret
-	sta sections_startlo,y
-	jsr readb		; read MSB of section offset
-	bcs @ret
-	sta sections_starthi,y
-	iny
-	cpy numsections
-	bne @l0
-@done:	clc
-@ret:	rts
-.endproc
-
-;*******************************************************************************
-; DUMP SECTION META
-; Writes the SEGMENT id, SEGMENT offset, and address mode for each section.
-; The linker uses this to determine the address of each section before
-; reading/applying the relocation tables
-.proc dump_section_meta
-	ldx #$00
-	cpx numsections
-	beq @done		; no sections
-
-@l0:	; write the SEGMENT id used for the SECTION
-	lda segment_ids,x
-	jsr $ffd2
-
-	; write the "info" byte for the SECTION
-	lda sections_info,x
-	jsr $ffd2
-
-	; write offset of section from SEGMENT base
-	lda sections_startlo,x
-	jsr $ffd2			; LSB
-	lda sections_starthi,x
-	jsr $ffd2			; MSB
-
-	inx
-	cpx numsections
-	bne @l0
-
-@done:	RETURN_OK
-.endproc
-
-;*******************************************************************************
-; DUMP SECTIONS
-; Dumps the sections for the object file in construction.
-.proc dump_sections
+; DUMP SEGMENT TABLES
+; Concatenates all SECTIONS that share a SEGMENT and dumps them to the object
+; file under construction.
+.proc dump_segment_tables
 @sec=r0
 @sz=r2
-@cnt=r4
+@sec_idx=r4
+@seg_idx=r6
 	lda #$00
-	sta @cnt
+	sta @seg_idx
 	cmp numsections
+
 	bne @l0
 	RETURN_OK		; no sections
 
-@l0:	ldx @cnt
+@l0:	lda #$00
+	sta @sec_idx		; reset section counter
 
-	; write the size of the section
-	lda sections_sizelo,x
+	ldx @seg_idx
+
+	; write the INFO byte
+	lda segments_info,x
+	jsr $ffd2
+
+	; write the size of the SEGMENT
+	lda __obj_segments_sizelo,x
+	jsr $ffd2
+	lda __obj_segments_sizehi,x
+	jsr $ffd2
+
+	; write the size of the relocation table
+	lda segments_relocsizelo,x
+	jsr $ffd2
+	lda segments_relocsizehi,x
+	jsr $ffd2
+
+@l1:	ldx @sec_idx
+
+	; check if this SECTION is part of the SEGMENT we're building
+	lda @seg_idx
+	clc
+	adc #$01			; +1 because id's are 1-based
+	cmp segment_ids,x		; is our SECTION part of the SEGMENT?
+	beq :+				; if so, dump it
+	jmp @nextsec			; not our SEGMENT, try next SECTION
+
+:	ldx @sec_idx
+	lda __obj_sections_sizelo,x
 	sta @sz
-	jsr $ffd2			; dump size of the CODE table (LSB)
-	lda sections_sizehi,x
+	lda __obj_sections_sizehi,x
 	sta @sz+1
-	jsr $ffd2			; dump size of CODE table (MSB)
 	ora @sz
-	php				; save .Z flag
+	beq @nextsec			; if no OBJ code, done with this SECTION
 
-	lda sections_relocsizelo,x	; dump size of RELOC table (LSB)
-	jsr $ffd2
-	lda sections_relocsizehi,x	; dump size of RELOC table (MSB)
-	jsr $ffd2
-
-	plp				; restore .Z flag (is OBJ table empty?)
-	beq @done			; if no OBJ code, we're done
-
+	; get start address of SECTION to dump
 	lda sections_startlo,x
 	sta @sec
 	lda sections_starthi,x
 	sta @sec+1
+
 @objloop:
 	; dump the object code for the section
 	ldxy @sec				; address to load
@@ -822,7 +889,7 @@ __obj_close_section:
 	bne @objloop				; repeat til done
 
 @reloc:	; then dump the relocation table
-	ldx @cnt
+	ldx @sec_idx
 	lda sections_relocstartlo,x
 	sta @sec
 	lda sections_relocstarthi,x
@@ -846,11 +913,20 @@ __obj_close_section:
 @dbgi:	; and finally, dump the debug info for the table
 	; TODO:
 
-@next:	inc @cnt
-	lda @cnt
+@nextsec:
+	inc @sec_idx
+	lda @sec_idx
 	cmp numsections
+	beq @nextseg
+	jmp @l1
+
+@nextseg:
+	inc @seg_idx
+	lda @seg_idx
+	cmp numsegments
 	beq @done
 	jmp @l0
+
 @done:	RETURN_OK
 .endproc
 
@@ -869,8 +945,6 @@ __obj_close_section:
 	; write the main OBJ header
 	jsr build_symbol_index_map
 
-	lda numsections			; # of sections
-	jsr $ffd2
 	lda numsegments			; # of segments
 	jsr $ffd2
 	lda numexports			; # of EXPORTS
@@ -887,11 +961,8 @@ __obj_close_section:
 	jsr dump_imports
 	jsr dump_exports
 
-	; write SECTION metadata (segment-ids, offsets, and address modes)
-	jsr dump_section_meta
-
-	; write each SECTION (object code, relocation data, debug info)
-	jsr dump_sections
+	; write each SEGMENT (object code, relocation data, debug info)
+	jsr dump_segment_tables
 
 	RETURN_OK
 .endproc
@@ -902,35 +973,34 @@ __obj_close_section:
 ; section's relocation table to its base object code.
 ; OUT:
 ;   - .C: set if there is no remaining relocation to apply for the section
-.export __obj_apply_relocation
-.proc __obj_apply_relocation
+.proc apply_relocation
 @symbol_id=r0
 @symbol_addr=r0
 @tmp=r0
 @addrmode=r2
 @pc=r4
-@sec_idx=r6
+@seg_idx=r6
 @rec=r7
 @sz=re
-@sec_base=zp::tmp10
+@seg_base=zp::tmp10
 	lda #$00
-	sta @sec_idx
+	sta @seg_idx
 
-@apply: ldx @sec_idx
+@apply: ldx @seg_idx
 	lda sections_relocsizelo,x
 	sta @sz
 	lda sections_relocsizehi,x
 	sta @sz+1
 	inx				; get 1-based section
 	txa
-	jsr get_section_base
-	stx @sec_base
-	sty @sec_base+1
+
+	jsr get_segment_base
+	stxy @seg_base
 
 @section_loop:
 	; read a record from the RELOCATION table
 	ldy #$00
-:	jsr $ffcf
+:	jsr $ffcf	; read a byte
 	sta @rec,y
 	iny
 	cpy #$05	; sizeof(relocation_record)
@@ -945,14 +1015,14 @@ __obj_close_section:
 	; address for the relocation
 	lda @rec	; get the info byte again
 	and #$02	; mask type bit
-	bne @sec	; 1 = section, 0 = symbol
+	bne @seg	; 1 = segment, 0 = symbol
 
 @sym:	; apply (global) symbol based relocation
 	; symbols are fully resolved by the time we apply relocation, so
 	; just look up the address in symbol_addresses
-	lda @rec+3	; get symbol LSB
+	lda @rec+3		; get symbol LSB
 	sta @symbol_id
-	lda @rec+4	; get symbol MSB
+	lda @rec+4		; get symbol MSB
 	sta @symbol_id+1
 
 	; look up the address that we resolved for this symbol id (index)
@@ -971,21 +1041,21 @@ __obj_close_section:
 	tay
 	jmp @add_offset		; continue to calculate target address
 
-@sec:	; apply section (local symbol) based relocation
-	lda @rec+3		; 3 = index to section ID
+@seg:	; apply segment (local symbol) based relocation
+	lda @rec+3		; 3 = index to SEGMENT ID
 
-	; get the link-time address of the section
-	jsr get_section_base
+	; get the current address of the SEGMENT
+	jsr get_segment_base
 
 @add_offset:
 	stxy @tmp		; save resolved symbol/section value
 
 	; get the address of the byte/word to apply relocation to
-	lda @sec_base		; current section base address (LSB)
+	lda @seg_base		; current section base address (LSB)
 	clc
 	adc @rec+1		; add LSB of offset
 	sta @pc
-	lda @sec_base+1		; current section base address (MSB)
+	lda @seg_base+1		; current section base address (MSB)
 	adc @rec+2		; add MSB of offset
 	sta @pc+1
 
@@ -1071,9 +1141,9 @@ __obj_close_section:
 	beq :+
 	jmp @section_loop
 
-:	inc @sec_idx
-	lda @sec_idx
-	cmp numsections
+:	inc @seg_idx
+	lda @seg_idx
+	cmp numsegments
 	beq @done
 	jmp @apply
 
@@ -1187,8 +1257,8 @@ __obj_close_section:
 	jsr load_info
 ; read the IMPORTS and EXPORTS and add them to the global symbol table
 @imports:
-	lda #SEC_UNDEF
-	sta zp::label_sectionid	; imports' section is UNDEFINED
+	lda #SEG_UNDEF
+	sta zp::label_segmentid	; imports' section is UNDEFINED
 	lda #$00
 	sta @i
 	cmp numimports
@@ -1289,9 +1359,8 @@ __obj_close_section:
 	jsr readb				; get SEGMENT id
 :	bcs @ret
 	jsr get_segment_name_by_id		; get name of SEGMENT
-	jmp *
 	jsr link::segid_by_name			; get global id of SEGMENT
-	sta zp::label_sectionid			; use SEGMENT id as section id
+	sta zp::label_segmentid			; and store with the symbol
 	jsr readb				; get LSB of symbol offset
 	bcs @ret
 	sta zp::label_value
@@ -1303,10 +1372,10 @@ __obj_close_section:
 	CALL FINAL_BANK_MAIN, lbl::find		; was label already added?
 	bcs @add				; no -> add it
 
-	; validate: is section SEC_UNDEF?
+	; validate: is segment SEG_UNDEF?
 	; if not, error (only 1 EXPORT is allowed per symbol)
-	CALL FINAL_BANK_MAIN, lbl::getsection
-	cmp #SEC_UNDEF
+	CALL FINAL_BANK_MAIN, lbl::getsegment
+	cmp #SEG_UNDEF
 	beq :+
 	RETURN_ERR ERR_ALREADY_EXPORTED		; multiple exports
 
@@ -1324,27 +1393,23 @@ __obj_close_section:
 .endproc
 
 ;*******************************************************************************
-; GET SECTION BASE
-; Returns the base address for the given section at link time
-; NOTE: all indexing in this procedure is relative to table-1 because section
+; GET SEGMENT BASE
+; Returns the base address for the given SEGMENT at link time
+; NOTE: all indexing in this procedure is relative to table-1 because segment
 ; id's are 1-based.
 ; IN:
-;   - .A: the section ID to return the address of
+;   - .A: the ID of the SEGMENT to get the current base address of
 ; OUT:
 ;   - .XY: the base address of the section
-.proc get_section_base
+.proc get_segment_base
 @tmp=r0
-	; segments_start[segment_ids[sec_id]] + sections_start[sec_id]
-	; look up base address for the section's SEGMENT
-	; (segments_start[segment_ids[sec_id]])
+	; segments_start[segment_id]
 	tax
-	ldy segment_ids-1,x		; segment_ids[sec_id]
-	lda segments_startlo-1,y	; <segments_start[segment_ids[sec_id]]
+	lda segments_startlo-1,y
 	pha
-	lda segments_starthi-1,y	; >segments_start[segment_ids[sec_id]]
-	sta @tmp
+	lda segments_starthi-1,y
 
-	; now add the base offest of the SECTION (sections_start[sec_id])
+	; now add the base offest of the SEGMENT (sections_start[sec_id])
 	pla
 	clc
 	adc sections_startlo-1,x	; resolve LSB
@@ -1367,7 +1432,7 @@ __obj_close_section:
 .proc __obj_load
 @tmp=r0
 @seccnt=r2
-@sec_idx=r4
+@seg_idx=r4
 @i=r4
 @name=r6
 @addr=r6
@@ -1434,7 +1499,7 @@ __obj_close_section:
 @eat_exports:
 	lda numexports
 	sta @symcnt
-	beq @load_section_meta	; no EXPORTS? skip ahead
+	beq @load_segments	; no EXPORTS? skip ahead
 
 	; skip over exports (not needed when loading obj file for linking)
 @eat_export:
@@ -1454,25 +1519,28 @@ __obj_close_section:
 	dec @symcnt
 	bne @eat_export
 
-@load_section_meta:
-	jsr load_section_meta
-
-; done with symbols, now load all the SECTION information to get the sizes
+; done with symbols, now load all the SEGMENT information to get the sizes
 ; of each table we will need to walk
-@load_sections:
+@load_segments:
 	lda #$00
-	sta @sec_idx
-	cmp numsections
-	beq @done	; if no sections, we're done
+	sta @seg_idx
+	cmp numsegments
+	bne @load_segment
+	jmp @done			; if no SEGMENTS, we're done
 
-@load_section:
+@load_segment:
+	jsr readb			; get "info" byte for section
+	bcs @export_error
+
+	; TODO: make sure SEGMENT's address mode for SEGMENT matches linker's
+
 	; read the section sizes from the header in this section
-	ldy @sec_idx
-	jsr readb			; get section size LSB
+	ldy @seg_idx
+	jsr readb			; get section's code size LSB
 	bcs @eof
 	sta sections_sizelo,y
 	sta @sz
-	jsr readb			; get section size MSB
+	jsr readb			; get section's code size MSB
 	bcs @eof
 	sta sections_sizehi,y
 	sta @sz+1
@@ -1493,17 +1561,17 @@ __obj_close_section:
 	sta sections_relocstarthi,y
 
 	; get the address to write the object code to
-	ldx @sec_idx
+	ldx @seg_idx
 	inx			; get in base 1
 	txa
-	jsr get_section_base
+	jsr get_segment_base
 	stxy @sec
 
 	lda numsections
 	sta @seccnt
 
 @objcode:
-	; finally, load the object code for the section to vmem
+	; finally, load the object code for the segment to vmem
 	jsr readb
 	bcs @eof
 	ldxy @sec				; address to store to
@@ -1511,10 +1579,17 @@ __obj_close_section:
 	incw @sec
 	decw @sz
 	iszero @sz
+
+@reltab:
+	jsr apply_relocation			; load/apply relocation table
+	;TODO: jsr load_dbgi
+
 	bne @objcode				; repeat til done
-	inc @sec_idx
-	dec @seccnt				; decrement section counter
-	bne @load_section			; repeat for all sections
+	inc @seg_idx
+	dec @seccnt				; decrement segment counter
+	beq @done
+
+	jmp @load_segment			; repeat for all segments
 
 @done:	clc
 @eof:	rts
@@ -1602,6 +1677,7 @@ __obj_close_section:
 	bcc @l0
 @notfound:
 	ldxy @other
+	;sec
 	rts
 
 @found: lda @cnt

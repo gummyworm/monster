@@ -141,12 +141,8 @@ __asm_linenum: .word 0
 .export __asm_segmode
 __asm_segmode: .byte 0
 
-;*******************************************************************************
-; SECTION
-; The current SECTION. A new SECTION is created anytime a .SEGMENT
-; directive is encountered
-.export __asm_section
-__asm_section: .byte 0
+.export __asm_segmentid
+__asm_segmentid: .byte 0	; The current SEGMENT id (set by .SEG/.SEGZP)
 
 ;*******************************************************************************
 ; ASM MODE
@@ -461,7 +457,7 @@ num_illegals = *-illegal_opcodes
 	sta origin+1
 	sta zp::asmresult	; also set default physical address to 0
 	sta zp::asmresult+1
-	sta __asm_section
+	sta __asm_segmentid
 
 	; ignore whitespace in expressions
 	CALL FINAL_BANK_UDGEDIT, expr::end_on_ws
@@ -1709,8 +1705,8 @@ __asm_tokenize_pass1 = __asm_tokenize
 	sta zp::label_mode
 
 	; define a label for the import so that references to it succeed
-	lda #SEC_UNDEF			; UNDEF (external)
-	sta zp::label_sectionid
+	lda #SEG_UNDEF			; UNDEF (external)
+	sta zp::label_segmentid
 
 	lda #$00			; dummy value
 	sta zp::label_value
@@ -1764,13 +1760,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	bcc @add
 	rts		; error
 
-@add:	; set the PC to 0 so that labels have the value of their offset
-	; from the beginning of their section
-	ldx #$00
-	stx zp::virtualpc
-	stx zp::virtualpc+1
-
-	inx
+@add:	inx
 	stx pcset	; linker will take care of setting PC
 
 	; close the current section (if any)
@@ -1780,7 +1770,12 @@ __asm_tokenize_pass1 = __asm_tokenize
 	lda __asm_segmode
 	CALL FINAL_BANK_LINKER, obj::add_section
 
-	inc __asm_section
+	; set PC to base of this SECTION (0 if new, or where we left off
+	; if not) so that labels will be relative to the SEGMENT
+	stxy zp::virtualpc
+
+	sta __asm_segmentid		; set SEGMENT id
+
 	rts
 .endproc
 
@@ -1992,10 +1987,10 @@ __asm_include:
 	ldy #$01		; absolute
 :	sty __asm_segmode	; set segment mode
 
-@done:	; set section to ABSOLUTE (we know the exact address of all labels
+@done:	; set segment to ABSOLUTE (we know the exact address of all labels
 	; declared within a .ORG "section")
-	lda #SEC_ABS
-	sta __asm_section
+	lda #SEG_ABS
+	sta __asm_segmentid
 
 	lda #ASM_ORG
 	clc			; ok
@@ -2792,10 +2787,10 @@ __asm_include:
 	pla
 	tax
 
-	lda __asm_section
+	lda __asm_segmentid
 	pha			; save section ID
-	lda #SEC_ABS
-	sta __asm_section	; temporarily set section to ABS
+	lda #SEG_ABS
+	sta __asm_segmentid	; temporarily set section to ABS
 
 	lda zp::label_value+1
 	beq :+			; if MSB is 0, use ZP mode
@@ -2803,7 +2798,7 @@ __asm_include:
 
 :	jsr add_label
 	pla			; restore section ID
-	sta __asm_section
+	sta __asm_segmentid
 	rts
 .endproc
 
@@ -2830,8 +2825,8 @@ __asm_include:
 	lda #$01		; ABS
 
 @add:	sta zp::label_mode
-	lda __asm_section
-	sta zp::label_sectionid
+	lda __asm_segmentid
+	sta zp::label_segmentid
 	jmp lbl::add
 .endproc
 

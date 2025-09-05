@@ -894,14 +894,13 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .endproc
 
 ;*******************************************************************************
-; GET FILE SECTION TABLE
-; Returns the section offset table for the given symbol by parsing and
-; using ts namespace
+; GET FILE SEGMENT TABLE
+; Returns the
 ; IN:
 ;   - .XA: the symbol to return the table for
 ; OUT
 ;   - .XY: the table of section offsets for the given symbol's file
-.proc get_file_section_table
+.proc get_file_segment_table
 	jsr file_id_from_scope
 	asl				; *16
 	asl
@@ -921,7 +920,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc resolve_globals
 @i=zp::tmp10
 @sec_id=zp::tmp12
-@obj_sec_offsets=zp::tmp14
+@obj_seg_offsets=zp::tmp14
 @namebuff=$100
 	iszero lbl::num
 	bne :+
@@ -932,33 +931,33 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	stx @i
 	stx @i+1
 
-@l0:	; get the address of the section table for file containing the symbol
+@l0:	; get the address of the segment table for file containing the symbol
 	CALL FINAL_BANK_MAIN, lbl::name_by_id	; look up the label's name
-	jsr get_file_section_table		; get offset table for file
-	stxy @obj_sec_offsets			; save the object table pointer
+	jsr get_file_segment_table		; get offset table for file
+	stxy @obj_seg_offsets			; save the SEGMENT offsets addr
 
-	; look up the section ID for the symbol
+	; look up the segment ID for the symbol
 	ldxy @i
-	CALL FINAL_BANK_MAIN, lbl::getsection	; get section ID
-	cmp #SEC_ABS				; is section ABSOLUTE?
+	CALL FINAL_BANK_MAIN, lbl::getsegment	; get segment ID
+	cmp #SEG_ABS				; is segment ABSOLUTE?
 	beq @next				; if so, already resolved
-	cmp #SEC_UNDEF				; is section UNDEFINED?
+	cmp #SEG_UNDEF				; is segment UNDEFINED?
 	beq @err				; if so, error
-	sta @sec_id				; save section ID
+	sta @sec_id				; save segment ID
 
-	; look up the section-offset (address) for the symbol
+	; look up the segment-offset (address) for the symbol
 	ldxy @i
 	CALL FINAL_BANK_MAIN, lbl::by_id	; look up the symbol's offset
 	tya
 	pha					; save MSB
 	clc
 	txa
-	ldy @sec_id				; restore section ID
-	adc (@obj_sec_offsets),y		; add file offset to resolve
+	ldy @sec_id				; restore segment ID
+	adc (@obj_seg_offsets),y		; add file offset to resolve
 	sta zp::label_value
 	pla					; restore MSB
 	iny
-	adc (@obj_sec_offsets),y
+	adc (@obj_seg_offsets),y
 	sta zp::label_value+1
 
 	; store the resolved address
@@ -1175,17 +1174,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	tax
 	jsr $ffc6		; CHKIN
 	jsr obj::load		; load the object file with the given index
-	bcs @ret
 
-@reloc:	; for each section, walk the relocation table and apply all relocations
-	jsr obj::apply_relocation
-	bcs @ret
-
-@dbgi:	; for each section, write debug information
-	; TODO:
-
-@done:	clc					; ok
-@ret:	php					; save error flag
+	php					; save error flag
 	lda @obj_file_handle
 	CALL FINAL_BANK_MAIN, file::close
 

@@ -14,7 +14,7 @@
 .import __label_get_banon
 .import __label_get_fanon
 .import __label_get_name
-.import __label_get_section
+.import __label_get_segment
 .import __label_index
 .import __label_is_local
 .import __label_isvalid
@@ -26,11 +26,11 @@
 .import __label_setscope
 .import __label_set24
 
-; SECTION ID FLAGS
-SEC_UNDEF = $00	; section is undefined (external)
-SEC_ABS   = $ff	; symbol represents a constant (not tied to a section)
+; SEGMENT ID FLAGS
+SEG_UNDEF = $00	; segment is undefined (external)
+SEG_ABS   = $ff	; symbol represents a constant (not tied to a segment)
 
-SYMBOL_PC = $ffff	; special ID to represent '*' (not stored as label)
+SYM_UNRESOLVED = $ffff	; magic value for unresolved symbol ID
 
 .define MAX_LABEL_NAME_LEN 32
 .define MAX_LABELS 736
@@ -52,7 +52,7 @@ SYMBOL_PC = $ffff	; special ID to represent '*' (not stored as label)
 	get_banon     = __label_get_banon
 	get_fanon     = __label_get_fanon
 	getname       = __label_get_name
-	getsection    = __label_get_section
+	getsegment    = __label_get_segment
 	getaddr       = __label_get_addr
 	index         = __label_index
 	islocal       = __label_is_local

@@ -5,19 +5,16 @@ single executable binary file.
 
 ### LINK FILE FORMAT
 The LINK file is responsible for producing the desired layout for the binary program.
-Segment usage is defined in the object files and is always relative.  The section
-definition is absolute and tells the linker where to place the segments.
+It contains two "blocks" of definitions for the two concepts that define how the linker performs its job of laying out
+the program.
+  - `MEMORY` - defines the SECTION sizes and properties
+  - `SEGMENTS` - defines how the SEGMENTS defined in the object code map to the memory SECTIONS.
 
-The link file contains two "blocks" of definitions for these two concepts:
-  - `MEMORY` - defines the section sizes and properties
-  - `SEGMENTS` - defines how the segments defined in the object code map to the memory sections.
-
-The link file must always be named "LINK". Therefore, only 1 link file
-may exist on a given disk. The linker loads this file before beginning the link process and uses it to build the layout for the
-final linked binary.
+The LINK file must always be named "LINK". Therefore, only 1 such file may exist on a given disk.
+The linker loads this file before beginning the link process and uses it to initialize the layout for the final linked binary as well as define the constraints for it.
 
 #### EXAMPLE
-Below is a simple example to demonstrate the link configuration file format
+Below is a simple LINK file example to demonstrate its configuration format
 
 ```
 MEMORY [
@@ -39,9 +36,9 @@ SEGMENTS [
 ```
 
 ### SECTION FLAGS
-In the above example, we declared the key "fill" with the value of "1" for SECTIONA.
-This is called a "section flag".  The _FILL_ flag tells the linker how to handle unused
-memory in a section.  The table below describes the available flags and their names.
+In the above example, we declared the key "FILL" with the value of "1" for SECTIONA.
+This is called a _section flag_.  The _FILL_ flag tells the linker how to handle unused
+memory within a SECTION.  The table below describes the available flags and their names.
 
 Note that any nonzero value for these flags will enable them while the zero value disables them.
 
@@ -59,18 +56,18 @@ To link multiple object files the linker follows the following procedure:
     * Gather SEGMENT usage from object header
     * Gather global symbols
          * Read EXPORT table in each object file
-         * Add name, section, and section offset for each EXPORT
+         * Add name, segment, and segment-offset for each EXPORT
 * Build final layout from SEGMENT usage in each object file
 * Fully resolve global symbols and build the global symbol table
 * Pass 2: link objects (per object file)
     * Build object-local context
          * Get base address of each SECTION from global SEGMENT base + object's SEGMENT offset
-         * Map symbol indices to their resolved addresses using global symbol table / section base address
-    * Store object code to the current address for each section
-    * Walk relocation table, for each section, and apply the the relocations described using the global symbol table
+         * Map symbol indices to their resolved addresses using global symbol table / segment base address
+    * Store object code to the current address for each segment
+    * Walk relocation table, for each segment, and apply the the relocations described using the global symbol table
 * Validate
-  * make sure sections don't overlap
-* Write MAP file
+  * make sure segments don't overlap
+* Write MAP file (if requested)
 
 ----
 
@@ -79,20 +76,19 @@ Below is a description of the object file's components.  These are listed in the
 
 | field          | description
 |----------------|-----------------------------------------------------------
-| OBJ HEADER     | basic info (number of sections, segments, and symbols)
+| OBJ HEADER     | basic info (number of segments, and symbols)
 | SEGMENT HEADER | names and usage of each SEGMENT
 | SYMBOLS        | the symbol table (IMPORTS and EXPORTS)
 | SECTIONS       | .CODE, .REL, and .DEBUGINFO, tables (per SECTION)
 
 
 #### HEADER
-At thet beginning of the object file is the _header_, which gives basic details about the object file.  The header simply tells us how many sections and symbols are defined in the object file.
+At thet beginning of the object file is the _header_, which gives basic details about the object file.  The header simply tells us how many segments and symbols are defined in the object file.
 The linker uses the header in each object file to determine the final layout in pass 1.
 
 | field        | size |  description
 |--------------|------|--------------------------------------------------
-| num sections |  1   | number of sections used
-| num segments |  1   | number of sgements used
+| num segments |  1   | number of SEGMENTS used
 | num exports  |  1   | number of exports in object file
 | num imports  |  2   | number of imports in object file
 
@@ -128,8 +124,8 @@ The format of this header in the object code is as follows:
 At link time, The linker sums the _size_ field for the SEGMENTs in each object file
 to determine the total amount of space needed for the SEGMENT in the final binary.
 
-The order of the definitions in this header also correspond to the ID's for the "SEGMENT"
-field in the _SECTION_ headers (see "SECTIONS" below for more detail on this).
+The order of the definitions in this header also correspond to the order of the
+SEGMENT tables written later in the object file (see "SECTIONS" below for more detail on this).
 
 ### SYMBOLS
 Next is the _symbol_ table. This table contains all labels that are used in the object file.
@@ -213,37 +209,32 @@ The info field uses the following bitfield format:
 |  size   |   0   | 0=zeropage import ($00-$ff), 1=absolute (>= $100)
 
 
-### SECTION METADATA
-After the symbol table is a list of SECTION metadata.  Each record in this table corresponds to the SECTIONS that follow it, but by placing it before the SECTIONS themselves, the linker can determine the address of each
-SECTION.  This allows the linker to apply section-relative relocation in one pass.
+### SEGMENTS
+After the symbols comes a list of one or more SEGMENT definitions (the exact number is defined in the OBJ HEADER).
+Each SEGMENT contains a short header that tells us the size of the three sub-tables that comprise the SEGMENT followed by those sub-tables themselves: object, relocation, and a debug information.
+
+Below is the format for the header which precedes the SEGMENT tables:
 
 | field           | size | description
 |-----------------|------|---------------------------------------------------------------------
-|  segment id     |  1   | ID for the SEGMENT (defined in SEGMENT HEADER) this SECTION maps to
 |  info           |  1   | info byte: zeropage/absolute etc.
-|  offset         |  2   | offset of the SECTION from the base of its SEGMENT at link time
+|  code size      |  2   | size of the object-code binary table for the SEGMENT
+|  reloc size     |  2   | size of the relocation table for the SEGMENT
 
 
-The info bitfield for the section has the following format:
+The _info_ bitfield for the SEGMENT uses the following format:
 
 | field           | bit(s) | description
 |-----------------|------|-------------------------------------------------------
 |  size           |  0   | 0=zeropage, 1=absolute
 
+The following sections will discuss the layout of the data tables that follow the header in each SEGMENT.
 
-### SECTIONS
-After the symbol table is a list of one or more SECTIONS (the exact number is defined in the OBJ HEADER).
-Each section contains a short header that tells us the size of the three sub-tables contained by the SECTION followed by those sub-tables themselves: object, relocation, and a debug information.
+#### NOTE: SECTIONS vs. SEGMENTS
+At assembly time, every time a `.SEG` directive is encountered, a new _SECTION_ is created.
+This is a concept that disappears once the object code is generated (with the exception of debug
+info, which has its own version of it).
 
-Below is the format for the header which precedes the section's data tables:
-
-| field           | size | description
-|-----------------|------|---------------------------------------------------------------------
-|  code size      |  2   | size of the object-code binary table for the section
-|  reloc size     |  2   | size of the relocation table for the section
-
-
-Every time a `.SEG` directive is encountered, a new SECTION is created.
 Here is an annotated example program to illustrate where new sections created:
 ```
 .seg "CODE"   ; [section 1]
@@ -254,22 +245,24 @@ jmp $f00d
 lda #$00
 ```
 Note that although CODE is referenced twice in different ".seg" directives, each instance causes
-a new section to be produced (both will however have the same "segment id" field value).
+a new SECTION to be produced.
 
-The following sections will discuss the layout of the data tables that follow the header in each section.
+When the object code is written, the SECTIONS are concatenated to form the SEGMENT written to
+the object file. In the above example, we would have two SEGMENTS: one for "CODE" and one for "DATA".
 
 ### RELOCATION TABLES
-For each _section_, the linker contains a table of _relocation info_.
+For each SEGMENT, the linker contains a table of _relocation info_.
+
 This table is made up of a number of records, each describing how to relocate a byte or word
-within the section.  Relocations can either be _section-relative_ (references to intra-object symbols) or _symobl-relative_ (references to external symbols).
+within the SEGMENT.  Relocations can either be _segment-relative_ (references to object-local SEGMENT base) or _symobl-relative_ (references to external symbols).
 
 The following table describes the relocation record format in detail.
 
 | field             | size | description
 |-------------------|------|-------------------------------------------------------------------------------------
 | info              |  1   | bitfield of information about the relocation entry
-| offset            |  2   | offset from section to relocate
-| symbol/section id |  2   | the symbol index in the symbol table (for symbol-relative relocation) or section for section-relative
+| offset            |  2   | offset from SEGMENT to relocate
+| symbol/segment id |  2   | the symbol index in the symbol table (for symbol-relative relocation) or segment for segment-relative
 | addend MSB*       |  1   | explicit MSB for addend (only when applying post-processing)
 
 \* see details below for when this field is included
@@ -279,13 +272,13 @@ The following table describes the relocation record format in detail.
 | field      | bit(s) | description
 |------------|--------|---------------------------------------------------------------------
 | size       |   0    | size of target value to modify 0=1 byte, 1=2 bytes
-| mode       |   1    | what to relocate relative to: 0=section relative, 1=symbol relative
+| mode       |   1    | what to relocate relative to: 0=segment relative, 1=symbol relative
 | postproc   |  2-3   | post-processing to apply after adding addend (0=NONE, 1=LSB, 2=MSB)
 
-To apply the relocation table to a section, we walk the table, go to the address of that section's
+To apply the relocation table for a SEGMENT, we walk the table, go to the address of that SEGMENT's
 base + the offset for each table entry, and depending on the value of "mode" in the "info" field:
- - "section relative" (0) -look up section base address and add addend to it
- - "symbol relative" (1) - look up the symbol address and add addend to it
+ - 0 (segment relative) -look up SEGMENT base address and add addend to it
+ - 1 (symbol relative") - look up the symbol address and add addend to it
 
 Finally, we apply post-processing (bits 2-3) in the info byte, if necessary.
 

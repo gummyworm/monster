@@ -1,7 +1,6 @@
 .import __obj_add_export
 .import __obj_add_reloc
 .import __obj_add_section
-.import __obj_apply_relocation
 .import __obj_close_section
 .import __obj_dump
 .import __obj_filename
@@ -20,7 +19,6 @@
 	add_export        = __obj_add_export
 	addreloc          = __obj_add_reloc
 	add_section       = __obj_add_section
-	apply_relocation  = __obj_apply_relocation
 	close_section     = __obj_close_section
 	dump              = __obj_dump
 	filename          = __obj_filename
