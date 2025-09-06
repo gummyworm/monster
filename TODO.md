@@ -7,13 +7,18 @@
 - [ ] Add settings / project configuration file
 - [ ] History in monitor
 - [ ] Support illegal opcodes
+- [ ] Advanced (sd2iec) file stuff (create/navigate to partitions)
 
 ### TODO V1.1
 - [ ] Increase copy buffer size to max size of source buffer
 - [ ] Save/restore VIA timers while debugging
+- [ ] Emulate VIC (see raster position and full frame of VIC state while debugging)
 - [ ] Save/restore raster position while debugging
-
 ### TODO V1
+- [x] Linker
+   - [x] parse LINK files
+   - [x] generate object code
+   - [x] link object code
 - [x] Rework expression parsing to support relocation emission
 - [x] Startup animation
 - [x] Symbolic disassembly
