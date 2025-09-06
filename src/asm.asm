@@ -1796,7 +1796,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 
 	ldxy #@filename
 	jsr file::exists
-	beq :+
+	bcc :+
 	RETURN_ERR ERR_FAILED_OPEN_INCLUDE
 
 :	ldxy #@filename
@@ -1863,7 +1863,7 @@ __asm_include:
 
 	ldxy @fname
 	jsr file::exists
-	beq :+
+	bcc :+
 	lda #ERR_FAILED_OPEN_INCLUDE
 @reterr:
 	plp		; clean stack

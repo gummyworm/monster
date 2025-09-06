@@ -292,7 +292,9 @@ __file_load_src:
 	jsr __file_open
 	bcs @err
 
-@close: lda #15		; filenumber 15 (command channel)
+@close: jsr io::readerr
+
+	lda #15		; filenumber 15 (command channel)
 	jsr $ffc3	; CLOSE 15
 	jsr $ffcc	; CLRCHN
 	lda #$00	; no error
@@ -423,20 +425,21 @@ __file_load_src:
 .proc __file_exists
 @file=r0
 	jsr __file_open_r
-	ldx #$01	; failed to open file
+	ldx #$01		; failed to open file
 	bcs @done
 	sta @file
 	tax
-	jsr $ffc6	; CHKIN (file in .X now used as input)
+	jsr $ffc6		; CHKIN (file in .X now used as input)
 	jsr __file_readb
-	jsr $ffb7	; call READST (read status byte)
+	jsr $ffb7		; call READST (read status byte)
 	pha
 	lda @file
 	jsr __file_close
-	pla		; restore READST status flag
-	beq @done
-	lda #ERR_FILE_NOT_FOUND
-@done:	rts
+	pla
+	bne @done
+	clc
+@done:	sec
+	rts
 .endproc
 
 ;*******************************************************************************

@@ -25,12 +25,12 @@
 .include "format.inc"
 .include "gui.inc"
 .include "guis.inc"
+.include "io.inc"
 .include "irq.inc"
 .include "key.inc"
 .include "keycodes.inc"
 .include "layout.inc"
 .include "labels.inc"
-.include "line.inc"
 .include "linebuffer.inc"
 .include "linker.inc"
 .include "macros.inc"
@@ -3108,21 +3108,19 @@ goto_buffer:
 .proc command_scratch
 @file=r8
 	stxy @file
+	jsr irq::off
+
+	jsr file::exists
+	jsr file::geterr
+	bcs @err		; if file doesn't exist, we're done
 
 	ldxy #strings::deleting
 	jsr print_info
 
 	ldxy @file
 	jsr file::scratch
-	bcs @err
-	jsr text::clrinfo	; clear SCRATCH message
-	RETURN_OK		; no error
-
-@err:	pha
-	ldxy #strings::edit_file_delete_failed
-	jsr text::info
-	sec
-	rts
+@err:	jsr irq::on
+	jmp report_drive_error
 .endproc
 
 ;******************************************************************************
@@ -3169,7 +3167,8 @@ goto_buffer:
 
 	ldxy @file
 	jsr file::exists
-	bne @err		; if file doesn't exist, we're done
+	jsr file::geterr
+	bcs @err		; if file doesn't exist, we're done
 
 	; display loading...
 	ldxy #strings::loading
@@ -3208,8 +3207,8 @@ goto_buffer:
 	jsr cancel
 	RETURN_OK
 
-@err:	jsr report_drive_error
-	jsr irq::on
+@err:	jsr irq::on
+	jsr report_drive_error
 	sec
 	rts
 .endproc
@@ -4939,7 +4938,8 @@ __edit_gotoline:
 ; Reports the error that was last read from the drive (iec::readerr)
 .proc report_drive_error
 	ldxy #mem::drive_err
-	jmp text::info
+	jsr print_info
+	jmp key::waitch
 .endproc
 
 ;******************************************************************************

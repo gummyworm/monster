@@ -17,29 +17,30 @@
 .proc __io_readerr
 @ch=zp::tmpf
 	lda #$00	; no filename
+	tax
+	tay
 	sta @ch
 	jsr $ffbd	; SETNAM
 
 	lda #$0f	; file number 15
-	ldx #$0a	; default to device 10
-	ldy #$0f	; secondary address 15 (error channel)
+	ldx zp::device
+	tay		; secondary address 15 (error channel)
 	jsr $ffba	; SETLFS
 	jsr $ffc0	; OPEN
-	bcs @done	; if carry set, file could not be opened
+	; TODO: why is carry set here??
 
 	ldx #$0f	; filenumber 15
 	jsr $ffc6	; CHKIN (file 15 now used as input)
 
 	; read the error message to mem::drive_err
 @loop:	jsr $ffb7	; READST (read status byte)
-	cmp #$00
 	bne @eof	; either EOF or read error
 
 	jsr $ffcf	; CHRIN (get a byte from file)
 	cmp #$0d
 	beq @eof
 	ldx @ch
-	cpx #20		; cap size of string
+	cpx #40		; cap size of string
 	bcs @done
 	sta mem::drive_err,x
 	inc @ch
