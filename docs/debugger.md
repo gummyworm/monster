@@ -255,7 +255,7 @@ was modified as ranges do not list the previous or current values for the watch.
 
 The following keys are supported within the watch viewer:
 
-| Shortcut     | Name       |  Description                                            |
+| shortcut     | name       |  description                                            |
 |--------------|------------|---------------------------------------------------------|
 | C= + w       | Add watch  | Prompt the user for expressions to watch                |
 |  RETURN      | Select/Edit| Enters the memory editor at the watch's address         |
