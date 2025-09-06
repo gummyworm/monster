@@ -6,8 +6,8 @@ Debug information is stored in a few tables as described below. At a high level,
   - LINE PROGRAMS: state machine that resolves addresses and line numbers when executed
 
 ### FILE TABLE
-The file IDs table maps filenames (implicitly) to an ID.  The ID is simply
-the index of the filename in this table.
+The FILE TABLE maps filenames to an implicit ID, which is the index of a given filename in this table.
+
 
 |  size    | description                     |
 |----------|---------------------------------|
@@ -17,13 +17,12 @@ the index of the filename in this table.
 
 
 ### BLOCKS
-To simplify the storage of lines in cases like noncontiguous addresses (although these can be handled in a single block) and
-multi-file programs, mappings are broken down into "blocks".
+To simplify the storage of chunks of noncontiguous addresses and multi-file programs, mappings are broken down into BLOCKS.
 
-Each block defines a file id (blocks will always reference one file only), and a range of lines and addresses.
-The table below describes the layout of a block
+Each BLOCK defines a file id (BLOCKS will always reference one file only), and a range of lines and addresses.
+The table below describes the layout of a BLOCK.
 
-|  Field       | Size  | Description                                     |
+|  field       | size  | description                                     |
 |--------------|-------|-------------------------------------------------|
 | base         |  2    | the address that this block begins at           |
 | top address  |  2    | the highest address represented by the block + 1|
@@ -61,7 +60,7 @@ The most basic operation, which is so common that it requires no special opcode,
 offset to the current line number AND program counter.  These are both encoded into a single
 byte according to the following layout:
 
-| name        | bits |  description
+|   field     | bits |  description
 |-------------|------|------------------------------------------------------
 | line offset | 0-3  | number of lines to advance the "line" count
 | addr offset | 4-7  | number of bytes to advance the PC or address offset
@@ -75,7 +74,7 @@ because at least one of the line or address states must be advanced for each ent
 
 Below is the list of extended commands and their effects.
 
-| Command Name  |  Operand  | Code | Operand Size| Effect                                            |
+| command Name  |  operand  | code | operand Size| effect                                            |
 |---------------|-----------|------|-------------|---------------------------------------------------|
 | `SET_ADDRESS` | address   |  $01 | 2           | Sets the address to the given absolute address    |
 | `RESERVED`    |    -      |  $02 | x           | Reserved (unused)
@@ -126,7 +125,7 @@ All that's left now is to build the line program for this block.  As mentioned, 
 handled by the base state for the state machine, which means we only need two "basic" line-program
 instrutions to resolve "sta $900f" and "jmp loop".  Here's what those look like in memory:
 
-| Value | Description                                                 |
+| value | description                                                 |
 |-------|-------------------------------------------------------------|
 | $22   | move line by 2 and address by 2 (we are now at `sta $900f`) |
 | $32   | move line by 2 and address by 3 (we are now at `jmp loop`)  |

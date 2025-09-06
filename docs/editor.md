@@ -1,7 +1,7 @@
 ## EDITOR OVERVIEW
 
-The editor provideds powerful facilities for loading, saving, and modifying your source code.
-Text is displayed in a 40 column bitmap to provide a higher density interface.
+The editor provideds powerful facilities for loading, saving, and modifying source code.
+Text is displayed in a 40 columns to provide a much higher density interface than the Vic-20's native BASIC line editor.
 
 Navigation will be familiar to vi users.  There are also a variety of commands to handle things like assembly, disassembly, etc.
 
@@ -13,7 +13,7 @@ Below are the basic commands along with their associated key combinations. These
 commands are available regardless of insertion mode (see the _Editor Modes_ section
 below for more info on modes).
 
-|  Key   | Name          |   Description                                                          |
+|  key   | name          |   description                                                          |
 |--------|---------------|------------------------------------------------------------------------|
 | C= + b | Set Breakpoint| sets a breakpoint at the current line                                  |
 | C= + c | Refresh       | refrehshes the screen by redrawing the source buffer                   |
@@ -55,7 +55,7 @@ The up/down cursor keys navigate between pages of symbols. Press RESTORE to retu
 
 #### FUNCTION (f KEY) COMMANDS
 
-|  Key   | Name             |   Description                                                         |
+|  key   | name             |   description                                                         |
 |--------|------------------|-----------------------------------------------------------------------|
 |   f1   | Assemble Project | assembles current project                                             |
 |   f2   | Assemble File    | assembles the current file to memory (must specify .org)              |
@@ -74,7 +74,7 @@ argments.  E.g. `:w hello.s` will _write_ a file named "hello.s" to disk.
 
 The table below details the available commands in _EX_ mode.
 
-| Command | Name                         |   Args                          | Description                                                                                     |
+| command | name                         |   args                          | description                                                                                     |
 |---------|------------------------------|---------------------------------|-------------------------------------------------------------------------------------------------|
 |    a    | Assemble File                | Filename                        | assembles the given filename                                                                    |
 |    B    | export Binary                | Filename                        | exports the active assembly to a binary file (no .PRG header)                                   |
@@ -88,7 +88,8 @@ The table below details the available commands in _EX_ mode.
 |    S    | Save All                     |   N/A                           | saves all modified buffers that are open currently                                              |
 |    x    | Scratch                      | Filename                        | scratches (deletes) the given filename                                                          |
 
-#### ASSEMBLE FILE :a <filename>
+
+#### ASSEMBLE FILE :a [filename]
 
 Assembles the contents of the given file. This is functionally the same as opening
 the given file and assembling it with debug information (F4).
@@ -106,6 +107,9 @@ Exports the active assembly (F3/F4) to the given file as binary.  This means
 no load address is prepended to the file.  This can be useful if you are using
 Monster to create level data or other code loaded by your main program.  It
 can also be used to export things like data tables for use with .INCBIN
+
+Example:
+`:B DATA.B`
 
 #### Start Debugger :d [symbol]
 Begins debugging at the given symbol using the active debug information.
@@ -146,6 +150,9 @@ Example:
 Exports the active assembly (F3/F4) to the given file as a .PRG file.  This means
 a load address is prepended to the file prior to export.  This produces a
 standalone executable you can use when you are done working on your program.
+
+Example:
+`:B GAME.PRG`
 
 #### RENAME :r [buffername]
 
@@ -189,7 +196,7 @@ Example:
 The editor is a _modal_ editor, that is, it behaves differently depending on which _mode_ it is
 in.  The modes are all accessed from the default mode (called _COMMAND_ mode) and each mode returns
 to _COMMAND_ mode when the `<-` key is pressed.  Below is a list of the modes along with
-the key that enters that mode, and the editor behavior while in that mode.
+details on how to enter them and how the editor behaves while in that mode.
 
 ### COMMAND MODE (<-)
 
@@ -198,7 +205,7 @@ source code and to enter other modes.
 Navigation behaves similar to `vi` and many basic `vi` commands are supported.
 The following keys are handled in COMMAND mode.
 
-|  Key       | Name       | Description                                                            |
+|  key       | name       | description                                                            |
 |------------|------------|------------------------------------------------------------------------|
 | HOME       | Home       | moves the cursor to column 0                                           |
 | C= + m     | Goto line  | prompts for a line number and moves the cursor to that line            |
@@ -237,22 +244,24 @@ The following keys are handled in COMMAND mode.
 |    [       | Prev Block | moves to the previous empty line or start of file if there isn't one   |
 |    ]       | Next Block | moves to the next empty line or end of file if there isn't one         |
 
-### INSERT MODE (i, a, etc.)
+### INSERT MODE
 Entering insert mode allows the user to enter text at the cursor location.  Keystrokes are
 interpreted as their corresponding ASCII character value in this mode, so there are no special
 commands accessed via them.
 
-### VISUAL MODE (v)
+There are various keys that enter INSERT mode from COMMAND: i, a, A, etc.
+
+### VISUAL MODE
 In _VISUAL_ mode (accessed via `v` in _COMMAND_ mode), the user can select
 a block of text which may then be deleted or copied.  Below is the table of supported commands
 while in visual mode. The `<-` key will return the user to to _COMMAND_ mode.
 
-|  Key       | Name       | Description                                                            |
+|  key       | name       | description                                                            |
 |------------|------------|------------------------------------------------------------------------|
 |    d       | delete     | deletes the selected text _and_ copies it to the copy buffer           |
 |    y       | yank       | copies the selected text (in VISUAL mode) to the copy buffer           |
 
-### VISUAL LINE MODE (V)
+### VISUAL LINE MODE
 _VISUAL LINE_, which is entered with the `SHIFT - v` key combination from _COMMAND_ mode is similar to _VISUAL_ mode,
 but selections include only entire lines.  Upon entering _VISUAL LINE_ mode, the current row is selected.
 Navigating to rows above or below will select additional lines.  The delete and yank keys behave the same as they do
@@ -306,7 +315,7 @@ This editor allows you to visually create simple graphics for your programs.  Na
 is done with the same vi-like commands used in the main editor and graphics are created using the
 following commands:
 
-| Command Name  |   Key   |  Behavior
+| command Name  |   key   |  behavior
 |---------------|---------|------------------------------------------------------------------------------------------------------|
 |  Plot Color 1 |    1    | Sets the selected position to the background color                                                   |
 |  Plot Color 2 |    2    | Sets the selected position to the character color (hires mode) or the border color (multicolor mode) |

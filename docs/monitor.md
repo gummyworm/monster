@@ -9,8 +9,8 @@ manipulate the program state.
 ### ACTIVATION
 
 The monitor is activated with the `C= + M` key combination. It can be activated from the editor both during
-and not during a debug session.
-When activated while debugging, a number of additional commands related to the state of the debugged program
+normal editing and while debugging.
+If activated while debugging, a number of additional commands related to the state of the debugged program
 become available.
 
 ### FILE REDIRECTION
@@ -29,7 +29,7 @@ Will write the contents of the registers to the file `regs.txt`
 The below table enumerates the available monitor commands and their parameters (plus optional ones).
 Most parameters may be expressions (e.g. `label+10`).
 
-| Command  |  Name                   |  Required Parameters               | Optional Parameters  |                      Description                                                                                              |
+| command  |  name                   |  required parameters               | optional parameters  |                      description                                                                                              |
 |----------|-------------------------|------------------------------------|----------------------|-------------------------------------------------------------------------------------------------------------------------------|
 |    a     | assemble                |  instruction                       |                      | assembles the given instruction at the address of the provided expression                                                     |
 |    b     | list breakpoints        |                                    |                      | lists all the breakpoints that have been added                                                                                |

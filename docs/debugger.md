@@ -63,7 +63,7 @@ vector, but the debugger will be unable to handle them consequently.
 The following commands are supported by the debugger and are accessed by their
 respective Key in the table below.
 
-|  Key         | Name            |   Description                                                                        |
+|  key         | name            |   description                                                                        |
 |--------------|-----------------|--------------------------------------------------------------------------------------|
 |  F1          | Source View     | maximizes the screen area for viewing the source code                                |
 |  F2          | Register Editor | enters the register editor                                                           |
@@ -201,7 +201,7 @@ change and overwriting it with a new hex value. The change occurs immediately.
 In addition to hexadecimal keys to edit memory values, the following commands
 are supported within the memory viewer:
 
-| Shortcut     | Name      |  Description                                            |
+| shortcut     | name      |  description                                            |
 |--------------|-----------|---------------------------------------------------------|
 | C= + w       | Add watch | Add watch to the highlighted address                    |
 |    /         | Find Value| Seeks from current memory address for given value       |
