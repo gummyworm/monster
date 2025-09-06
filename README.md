@@ -50,16 +50,14 @@ linked below.
 
 ## REQUIREMENTS
 
-Monster requires a [Final Expansion](https://github.com/edi-z/FE3) to
-function.  Much of this RAM is used to store the multiple source code buffers (up to 8),
-but it is also used to store debug info and some code.
+Monster requires a [Final Expansion 3](https://github.com/edi-z/FE3) to
+function.  The Final Expansion 3 contains 512KB of expansion memory, which is available via 16 banks.
+Much of this RAM is used to store the multiple source code buffers (up to 8), but it is also used to store code, debug-info, and other data.
 
 The banked memory allows the user program to execute in almost complete
-isolation.  This means that, although this environment consumes a vast amount of
-memory itself, everything except address $9c02 (the bank select register) and
-a couply tiny interrupt handlers is preserved when control moves between the
-editor and the user program.  Moreso even than small monitor cartridges,
-the program itself is virtually unaware of the resident tooling.
+isolation.  The user program state is entirely backed up in the FE3, which means that, although this environment consumes a vast amount of
+memory itself, everything except address $9c02 (the bank select register) and a couple tiny interrupt handlers is preserved when control moves between the
+editor and the user program.  Moreso even than small monitor cartridges, the program itself is virtually unaware of the resident tooling.
 
 ## RUNNING
 
@@ -99,7 +97,7 @@ xvic -cartfe monster.bin
 
 ### DEPENDENCIES
 
- - [cc65](https://github.com/cc65/cc65) (tested with version 2.18)
+ - [cc65](https://github.com/cc65/cc65) (tested with version 2.19)
  - make
  - python3 (any version should do)
 
@@ -130,8 +128,6 @@ Here is a simple hello world program to demonstrate the basic syntax of the asse
 
 ```
 .ORG $1400
-MSG:
-.DB "HELLO WORLD!",0
 START:
   JSR $E5B5
   LDX #$00
@@ -149,4 +145,7 @@ DISP:
   BNE DISP
 DONE:
   JMP DONE
+
+MSG:
+.DB "HELLO WORLD!",0
 ```

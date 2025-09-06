@@ -1756,6 +1756,8 @@ __link_get_segment_by_name:
 :	jsr $ffd2
 	dey
 	bne :-
+	lda #$0d
+	jsr $ffd2
 	rts
 .endproc
 
