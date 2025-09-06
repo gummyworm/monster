@@ -99,11 +99,11 @@ After the header is the SEGMENT header, which describes the SEGMENT usage for th
 For example, given the following assembly code:
 ```
 .seg "CODE"
-asl
+    asl
 .seg "DATA"
-.byte 1, 2, 3, 4, 5
+    .byte 1, 2, 3, 4, 5
 .seg "CODE"
-lda #$00
+     lda #$00
 ```
 
 The SEGMENT header will be:

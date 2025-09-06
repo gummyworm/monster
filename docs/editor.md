@@ -13,22 +13,22 @@ Below are the basic commands along with their associated key combinations. These
 commands are available regardless of insertion mode (see the _Editor Modes_ section
 below for more info on modes).
 
-|  Key   | Name          |   Description                                                         |
-|--------|---------------|-----------------------------------------------------------------------|
-| C= + b | Set Breakpoint| sets a breakpoint at the current line                                 |
-| C= + c | Refresh       | refrehshes the screen by redrawing the source buffer                  |
-|    -   | File Viewer   | list directory, shows the files on the current disk                   |
-| C= + n | New buffer    | creates a new source buffer and sets it as the active buffer          |
-| C= + q | Close buffer  | closes the current buffer and opens the next one that is open         |
-| C= + v | MemView       | enters the memory viewer/editor (press <- to exit)                    |
-| C= + y | Show Symbols  | lists the symbol table for the assembled program                      |
-| C= + e | Next Error    | if there are errors from the last assembly, navigatest to the next one|
-|   F3   | Assemble      | assembles the code in the buffer to memory                            |
-|   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info          |
-|   F5   | Show buffers  | displays a list of the currently open buffers                         |
-| C= + + | Next Drive    | Selects the next drive (limited to #15)                               |
-| C= + - | Prev Drive    | Selects the previous drive (limited to #8)                            |
-|    :   | Ex Command    | Accepts a command + argument(s) and executes the command              |
+|  Key   | Name          |   Description                                                          |
+|--------|---------------|------------------------------------------------------------------------|
+| C= + b | Set Breakpoint| sets a breakpoint at the current line                                  |
+| C= + c | Refresh       | refrehshes the screen by redrawing the source buffer                   |
+|    -   | File Viewer   | list directory, shows the files on the current disk                    |
+| C= + n | New buffer    | creates a new source buffer and sets it as the active buffer           |
+| C= + q | Close buffer  | closes the current buffer and opens the next one that is open          |
+| C= + v | MemView       | enters the memory viewer/editor (press <- to exit)                     |
+| C= + y | Show Symbols  | lists the symbol table for the assembled program                       |
+| C= + e | Next Error    | if there are errors from the last assembly, navigatest to the next one |
+|   F3   | Assemble      | assembles the code in the buffer to memory                             |
+|   F4   | Debug         | assembles the code in the buffer to memory _with_ debug info           |
+|   F5   | Show buffers  | displays a list of the currently open buffers                          |
+| C= + + | Next Drive    | Selects the next drive (limited to #15)                                |
+| C= + - | Prev Drive    | Selects the previous drive (limited to #8)                             |
+|    :   | Ex Command    | Enteres "EX" mode (see the EX COMMANDS section below for more on this) |
 
 #### DRIVE SELECTION
 
@@ -68,22 +68,25 @@ While debugging, f-keys 1-4 have different functionality, as described in the _D
 
 ### EX COMMANDS
 
-The following commands are entered at the "Ex Command" prompt (accessed with the `:` key).
-Most accept an argument (as described in each commands description below)
+The `:` key puts the editor in _EX_ mode.  In this mode, a string is accepted from the user.
+The format of this string is a _command_ (usually one or two characters) followed by zero or more
+argments.  E.g. `:w hello.s` will _write_ a file named "hello.s" to disk.
 
-|Key| Name                         |   Args                          | Description                                                                                     |
-|---|------------------------------|---------------------------------|-------------------------------------------------------------------------------------------------|
-| a | Assemble File                | Filename                        | assembles the given filename                                                                    |
-| B | export Binary                | Filename                        | exports the active assembly to a binary file (no .PRG header)                                   |
-| d | Start Debugger               | Symbol to debug at (optional)   | begins debugging at the given label                                                             |
-| db| Start Debugger (with init)   | Symbol to debug at (optional)   | begins debugging at the given label. Initializes target state with the BASIC cold start handler |
-| e | Edit                         | Filename                        | loads the buffer with the contents of the given file                                            |
-| g | Goto                         | Symbol to run at (optional)     | executes the program at the address of the given symbol                                         |
-| P | export .PRG                  | Filename                        | exports the active assembly to a .PRG file                                                      |
-| r | Rename                       | Name                            | renames the buffer to the given name                                                            |
-| s | Save                         | Filename                        | saves the buffer to the given filename                                                          |
-| S | Save All                     |   N/A                           | saves all modified buffers that are open currently                                              |
-| x | Scratch                      | Filename                        | scratches (deletes) the given filename                                                          |
+The table below details the available commands in _EX_ mode.
+
+| Command | Name                         |   Args                          | Description                                                                                     |
+|---------|------------------------------|---------------------------------|-------------------------------------------------------------------------------------------------|
+|    a    | Assemble File                | Filename                        | assembles the given filename                                                                    |
+|    B    | export Binary                | Filename                        | exports the active assembly to a binary file (no .PRG header)                                   |
+|    d    | Start Debugger               | Symbol to debug at (optional)   | begins debugging at the given label                                                             |
+|    db   | Start Debugger (with init)   | Symbol to debug at (optional)   | begins debugging at the given label. Initializes target state with the BASIC cold start handler |
+|    e    | Edit                         | Filename                        | loads the buffer with the contents of the given file                                            |
+|    g    | Goto                         | Symbol to run at (optional)     | executes the program at the address of the given symbol                                         |
+|    P    | export .PRG                  | Filename                        | exports the active assembly to a .PRG file                                                      |
+|    r    | Rename                       | Name                            | renames the buffer to the given name                                                            |
+|    s    | Save                         | Filename                        | saves the buffer to the given filename                                                          |
+|    S    | Save All                     |   N/A                           | saves all modified buffers that are open currently                                              |
+|    x    | Scratch                      | Filename                        | scratches (deletes) the given filename                                                          |
 
 #### ASSEMBLE FILE :a <filename>
 
@@ -97,7 +100,7 @@ information _not_ the active file.
 Example:
 `:a HELLO.S`
 
-#### EXPORT BINARY :B <filename>
+#### EXPORT BINARY :B [filename]
 
 Exports the active assembly (F3/F4) to the given file as binary.  This means
 no load address is prepended to the file.  This can be useful if you are using
@@ -131,26 +134,26 @@ details on debugging.
 Example:
 `:db START`
 
-#### EDIT :e <filename>
+#### EDIT :e [filename]
 
 Loads the given filename to a new buffer and activates it.
 
 Example:
 `:e HELLO.S`
 
-#### EXPORT .PRG :P <filename>
+#### EXPORT .PRG :P [filename]
 
 Exports the active assembly (F3/F4) to the given file as a .PRG file.  This means
 a load address is prepended to the file prior to export.  This produces a
 standalone executable you can use when you are done working on your program.
 
-#### RENAME :r <buffername>
+#### RENAME :r [buffername]
 
 Renames the active buffer to the given name.
 Example:
 `:r TEST2.S`
 
-#### SAVE :s <filename>
+#### SAVE :s [filename]
 
 Saves the active buffer to a file with the given name.  If no name is given,
 the active buffer's name is used.
@@ -173,7 +176,7 @@ existing files if they exist.
 Example:
 `:S@`
 
-#### SCRATCH :x <filename>
+#### SCRATCH :x [filename]
 
 Deletes the file of the given name.
 Example:
@@ -316,4 +319,3 @@ following commands:
 
 Entering the editor while on a line with an 8-byte ".db" definition (e.g. `.db $ff,$00,$ff,$00,$ff,$00,$ff,$00`) will pre-populate the
 UDG editor with the character defined by these directives.
-
