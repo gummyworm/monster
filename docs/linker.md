@@ -197,16 +197,11 @@ without having to load the entire LOCALS table for each object file.
 | field   | size  | description
 |---------|-------|----------------------------------------------------------------------
 | name    |  1-33 | the name of the symbol as a 0-terminated string
-| info    |   1   | metadata about symbol (size)
 | segment |   1   | segment the symbol resides in (index in object's SEGMENT table)
 | address |   2   | absolute or offset from the base of the SEGMENT in this object file
 
-
-The info field uses the following bitfield format:
-
-|  field  | bit(s)|  description
-|---------|-------|----------------------------------------------
-|  size   |   0   | 0=zeropage import ($00-$ff), 1=absolute (>= $100)
+The address mode for a SYMBOL is determined by its correspondign SEGMENT.
+If it SYMBOL references a zeropage SEGMENT, it will also be defined as "zeropage" (1 byte).
 
 
 ### SEGMENTS

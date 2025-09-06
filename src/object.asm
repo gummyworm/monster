@@ -993,8 +993,11 @@ __obj_close_section:
 	sta @sz
 	lda sections_relocsizehi,x
 	sta @sz+1
+	iszero @sz
+	bne :+
+	RETURN_OK
 
-	inx				; get 1-based section
+:	inx				; get 1-based section
 	txa
 	jsr get_segment_base
 	stxy @seg_base
@@ -1160,8 +1163,8 @@ __obj_close_section:
 ;   - .C: set on error
 .proc load_info
 @cnt=r0
-@i=r2
-@name=r4
+@i=r4
+@name=r6
 @symoff=r8
 @namebuff=$100
 	lda #<segments
@@ -1213,13 +1216,14 @@ __obj_close_section:
 	sta __obj_segments_sizehi,y
 
 	; get the base address of this SEGMENT in the linker
+	; NOTE: this will be garbage in pass 1
 	ldxy @name
 	jsr link::segaddr_for_file
 	tya
 	ldy @i
-	sta segments_starthi,y		; store MSB of segment base
+	sta segments_starthi,y		; store MSB of SEGMENT base
 	txa
-	sta segments_startlo,y		; store LSB of segment base
+	sta segments_startlo,y		; store LSB of SEGMENT base
 
 	; move name pointer to next location
 	lda @name
@@ -1290,7 +1294,6 @@ __obj_close_section:
 
 @export_loop:
 	jsr load_export
-	jmp *
 	bcs @ret
 	inc @i
 	lda @i
@@ -1372,8 +1375,9 @@ __obj_close_section:
 	lda #$01
 	sta zp::label_mode
 
+	ldxy @namebuff
 	jsr get_segment_name_by_id		; get name of SEGMENT
-	jsr link::segid_by_name			; get global id of SEGMENT
+	jsr link::segid_by_name
 	sta zp::label_segmentid			; and store with the symbol
 	jsr readb				; get LSB of symbol offset
 	bcs @ret
@@ -1515,7 +1519,7 @@ __obj_close_section:
 
 :	cmp #$00		; did we read terminating 0 for filename?
 	bne @eat_name		; loop til we found it
-	ldy #4			; sizeof(info+segment_idx+address)
+	ldy #3			; sizeof(info+segment_idx+address)
 :	jsr readb
 	bcs @export_error
 	dey
@@ -1556,15 +1560,6 @@ __obj_close_section:
 	bcs @eof
 	sta segments_relocsizehi,y	; get relocation table size MSB
 
-	; calculate start address of relocation table (sections_start + sections_size)
-	lda segments_startlo,y
-	;clc
-	adc @sz
-	sta segments_relocstartlo,y
-	lda segments_starthi,y
-	adc @sz+1
-	sta segments_relocstarthi,y
-
 	; get the address to write the object code to
 	ldx @seg_idx
 	inx			; get in base 1
@@ -1590,7 +1585,6 @@ __obj_close_section:
 	jsr apply_relocation			; load/apply relocation table
 	;TODO: jsr load_dbgi
 
-	bne @objcode				; repeat til done
 	inc @seg_idx
 	dec @segcnt				; decrement segment counter
 	beq @done

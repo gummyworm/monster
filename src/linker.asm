@@ -208,8 +208,7 @@ segment_names: .res MAX_SEGMENT_NAME_LEN*MAX_SEGMENTS
 .export segment_names
 
 ; base addresses for each segment per file
-file_segments_startlo: .res MAX_OBJS*MAX_SECTIONS
-file_segments_starthi: .res MAX_OBJS*MAX_SECTIONS
+file_segments_start: .res MAX_OBJS*MAX_SEGMENTS*2
 
 ;*******************************************************************************
 ; OBJECT CODE overview
@@ -837,17 +836,16 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;*******************************************************************************
 ; FILE ID FROM SCOPE
 ; Parses the object file ID (index in objfiles) from the given symbol's scope.
-; E.g. "FOO:LABEL" will return the index for the file "FOO"
+; E.g. "FOO@LABEL" will return the index for the file "FOO"
 ; IN:
-;   - .XA: the symbol to match
+;   - .XY: the symbol to match
 ; OUT:
 ;   - .A: the file ID for the symbol (from its scope)
 .proc file_id_from_scope
 @sym=zp::str0
-@objs=zp::str1
+@objs=zp::str2
 @i=r0
-	stx @sym
-	sta @sym+1
+	stxy @sym
 
 	ldxy #__link_objfiles
 	stxy @objs
@@ -857,12 +855,12 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	sty @i			; init index
 
 @l0:	lda (@sym),y
-	cmp #':'		; scope separator
+	cmp #'@'		; scope separator
 	beq @find
 	iny
 	bne @l0
 
-@find:	jsr strcmp		; search
+@find:	jsr strcmp_to_dot	; search
 	beq @done		; if match -> we're done
 
 	; move @obj pointer to next filename
@@ -887,20 +885,29 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 
 ;*******************************************************************************
 ; GET FILE SEGMENT TABLE
-; Returns the
+; Returns the segment address table for the given object file.
+; Each word in this table is the address for its corresponding SEGMENT
 ; IN:
-;   - .XA: the symbol to return the table for
+;   - .A: the object file id to get the table for
 ; OUT
 ;   - .XY: the table of section offsets for the given symbol's file
 .proc get_file_segment_table
-	jsr file_id_from_scope
+@msb=r0
+	ldx #$00
+	stx @msb
 	asl				; *16
 	asl
 	asl
+	rol @msb
 	asl
-	adc #<file_segments_startlo
+	rol @msb
+
+	; -2 so that id 1*2 points to start of our list
+	; -16 because object file ids are also 1-based
+	adc #<file_segments_start-2-(MAX_SEGMENTS*2)
 	tax
-	adc #>file_segments_startlo
+	lda @msb
+	adc #>file_segments_start-2-(MAX_SEGMENTS*2)
 	tay
 	rts
 .endproc
@@ -913,7 +920,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;   - .C: set on error
 .proc resolve_globals
 @i=zp::tmp10
-@sec_id=zp::tmp12
+@seg_id=zp::tmp12
 @obj_seg_offsets=zp::tmp14
 @namebuff=$100
 	iszero lbl::num
@@ -921,12 +928,16 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	RETURN_OK				; no globals
 
 :	; iterate through all labels
-	ldxy #0
-	stx @i
-	stx @i+1
+	ldxy #$0000
+	stxy @i
 
 @l0:	; get the address of the segment table for file containing the symbol
-	CALL FINAL_BANK_MAIN, lbl::name_by_id	; look up the label's name
+	ldxy #@namebuff
+	stxy r0
+	ldxy @i
+	CALL FINAL_BANK_MAIN, lbl::getname	; look up the label's name
+	ldxy #@namebuff
+	jsr file_id_from_scope
 	jsr get_file_segment_table		; get offset table for file
 	stxy @obj_seg_offsets			; save the SEGMENT offsets addr
 
@@ -937,16 +948,22 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	beq @next				; if so, already resolved
 	cmp #SEG_UNDEF				; is segment UNDEFINED?
 	beq @err				; if so, error
-	sta @sec_id				; save segment ID
+	sta @seg_id				; save segment ID
 
 	; look up the segment-offset (address) for the symbol
 	ldxy @i
-	CALL FINAL_BANK_MAIN, lbl::by_id	; look up the symbol's offset
+	CALL FINAL_BANK_MAIN, lbl::getaddr	; look up the symbol's offset
 	tya
 	pha					; save MSB
 	clc
 	txa
-	ldy @sec_id				; restore segment ID
+
+	ldy @seg_id				; restore segment ID
+	dey					; -1 because table is 0-based
+	tya
+	asl					; *2 (each record in table is word-sized)
+	tay
+
 	adc (@obj_seg_offsets),y		; add file offset to resolve
 	sta zp::label_value
 	pla					; restore MSB
@@ -986,8 +1003,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @objfile=zp::link+2	; pointer to current object file being linked
 @i=zp::link+4
 @segname=zp::link+6
-@obj_id=zp::link+8
-@obj_file_handle=zp::link+9
+@tab=zp::link+8
 	stxy @outfile
 
 	; init the segment/section pointers using the current linker state
@@ -1002,9 +1018,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; set the start address for each SECTION to the SEGMENT
 	; load address parsed from the LINK file
 @l0:	ldy segments_load-1,x
-	lda sections_startlo-1,y
+	lda sections_startlo,y
 	sta segments_addrlo-1,x
-	lda sections_starthi-1,y
+	lda sections_starthi,y
 	sta segments_addrhi-1,x
 	dex
 	bne @l0
@@ -1038,14 +1054,22 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	bcs @ret
 
 	; store the current base addresses for each SEGMENT for the object file
-	ldx numsegments
-:	lda segments_addrlo-1,x
-	adc segments_sizelo-1,x
-	sta file_segments_startlo-1,x
-	lda segments_addrhi-1,x
-	adc segments_sizehi-1,x
-	sta file_segments_starthi-1,x
-	dex
+	lda activeobj
+	jsr get_file_segment_table
+	stxy @tab
+
+	ldx #$00
+	ldy #$00
+:	lda segments_addrlo,x
+	adc segments_sizelo,x
+	sta (@tab),y
+	incw @tab
+	lda segments_addrhi,x
+	adc segments_sizehi,x
+	sta (@tab),y
+	incw @tab
+	inx
+	cpx numsegments
 	bne :-
 
 @calc_segment_sizes:
@@ -1122,14 +1146,13 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; reset obj pointer to start of object list
 	ldxy #__link_objfiles
 	stxy @objfile
-	lda #$00
+	lda #$01
 	sta activeobj
 
 @objects:
 	; iterate over each object file and link it
 	ldxy @objfile
 	jsr link_object		; link the object file
-	jmp *
 	bcs @done		; if .C set, return with error
 
 	; update filename pointer to next filename
@@ -1218,7 +1241,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .endproc
 
 ;******************************************************************************
-; SECTION BY NAME FOR FILE
+; SEGADDR FOR FILE
 ; Returns the base address for the given segment name within the given object
 ; file. This is only valid in pass 2 after the linker has finished laying out
 ; the final program.
@@ -1231,11 +1254,22 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .proc __link_segaddr_for_file
 @segname=r0
 @tab=r2
-	jsr get_segment_by_name		; get the SEGMENT
-	ldx activeobj			; current file being linked
-	lda file_segments_startlo-1,x	; get LSB of start addr
-	ldy file_segments_starthi-1,x	; and MSB
+	jsr get_segment_by_name		; get the id of the SEGMENT
+	pha
+
+	; get the segment-address table for the file
+	lda activeobj			; current file being linked
+	jsr get_file_segment_table	; get the table of addresses for file
+	stxy @tab
+
+	pla				; restore SEGMENT id
+	asl				; *2 (records are 1 word each)
+	tay
+	lda (@tab),y			; get LSB
 	tax
+	iny
+	lda (@tab),y			; get MSB
+	tay
 	rts
 .endproc
 
@@ -1424,6 +1458,34 @@ __link_get_segment_by_name:
 .endproc
 
 ;*******************************************************************************
+; STRCMP TO DOT
+; Compares the strings in (zp::str0) and (zp::str2) up to a length of .A
+; For str2 a '.' is considered a terminator
+; IN:
+;  zp::str0: one of the strings to compare
+;  zp::str2: the other string to compare
+; OUT:
+;  .Z: set if the strings are equal
+.proc strcmp_to_dot
+	ldy #$00
+@l0:	lda (zp::str0),y
+	beq :+
+	cmp #'@'
+	beq :+
+	jsr is_ws
+	beq :+
+	cmp (zp::str2),y
+	bne @ret
+	iny
+	bne @l0
+
+:	lda (zp::str2),y	; make sure strings terminate at same index
+	beq @ret		; terminates at 0 -> ok
+	cmp #'.'		; terminates at '.'?
+@ret:	rts
+.endproc
+
+;*******************************************************************************
 ; PROCESS WS
 ; Reads (line) and updates it to point past ' ' chars and non-printing chars
 ; out:
@@ -1534,9 +1596,10 @@ __link_get_segment_by_name:
 ; Write a "MAP" file containing all the SEGMENTS and SYMBOLS that were
 ; used in the creation of the linked program
 .proc generate_map
-@i=r0
-@tmp=r2
-@name=r4
+@i=r2
+@tmp=r4
+@name=r6
+@symbuff=$100
 	ldxy #@filename
 	CALL FINAL_BANK_MAIN, file::open_w
 	bcc :+
@@ -1636,9 +1699,11 @@ __link_get_segment_by_name:
 	beq @done
 
 @symloop:
+	ldxy #@symbuff
+	stxy r0
 	ldxy @i
 	CALL FINAL_BANK_MAIN, lbl::getname
-	ldxy r0
+	ldxy #@symbuff
 	jsr puts
 
 	; write 32-len(labelname) spaces
@@ -1655,7 +1720,7 @@ __link_get_segment_by_name:
 	; write the label's address
 	ldxy @i
 	CALL FINAL_BANK_MAIN, lbl::addr_and_mode
-	cmp #$00		; zeropage?
+	cmp #$00					; zeropage?
 	beq @zp
 @abs:	jsr putword
 	jmp @nextsym
