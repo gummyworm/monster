@@ -232,23 +232,32 @@ The following sections will discuss the layout of the data tables that follow th
 
 #### NOTE: SECTIONS vs. SEGMENTS
 At assembly time, every time a `.SEG` directive is encountered, a new _SECTION_ is created.
-This is a concept that disappears once the object code is generated (with the exception of debug
-info, which has its own version of it).
+This concept disappears once the object code is generated (with the exception of debug
+info, which has its own version of it) when these SECTIONS are collapsed into the SEGMENTS
+that they reference.
 
 Here is an annotated example program to illustrate where new sections created:
 ```
 .seg "CODE"   ; [section 1]
-asl
+foo
+    asl
 .seg "DATA"   ; [section 2]
-jmp $f00d
+bar
+    jmp $f00d
 .seg "CODE"   ; [section 3]
-lda #$00
+baz
+    lda foo
 ```
 Note that although CODE is referenced twice in different ".seg" directives, each instance causes
 a new SECTION to be produced.
 
 When the object code is written, the SECTIONS are concatenated to form the SEGMENT written to
 the object file. In the above example, we would have two SEGMENTS: one for "CODE" and one for "DATA".
+
+Symbols avoid the SECTION notion altogether to avoid having to update all symbol references in the relocation table(s).
+When a symbol is encountered its SEGMENT is looked up written with its relocation entry.
+This also avoids resorting to symbol-relative definitions for references to labels in noncontiguous SECTIONS that belong to the same SEGMENT.
+For example, referring to the case above, `lda foo` can be handled with a SEGMENT-relative relocation. SYMBOL-relative relocations are _only_ required for external symbols.
 
 ### RELOCATION TABLES
 For each SEGMENT, the linker contains a table of _relocation info_.

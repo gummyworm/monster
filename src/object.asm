@@ -1556,7 +1556,6 @@ __obj_close_section:
 	ldx @seg_idx
 	inx			; get in base 1
 	txa
-	jmp *
 	jsr get_segment_base
 	stxy @seg
 
