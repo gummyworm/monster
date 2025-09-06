@@ -212,14 +212,6 @@ file_segments_startlo: .res MAX_OBJS*MAX_SECTIONS
 file_segments_starthi: .res MAX_OBJS*MAX_SECTIONS
 
 ;*******************************************************************************
-; SEGMENT MAP
-; This array maps the index of a local SEGMENT to its global SEGMENT
-; in the above tables.
-; The indices into this array represent the id's used in the object file that
-; is currently being linked.
-segment_map: .res MAX_SEGMENTS
-
-;*******************************************************************************
 ; OBJECT CODE overview
 ; Object code is stored in a simple block format as follows
 ;  - the 1st block contains all IMPORTs required to link the file
@@ -1069,8 +1061,10 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; get the id of the segment by its name
 	ldxy @segname			; address of segment name
 	jsr get_segment_by_name		; get its ID
-	bcs @done			; error
-	tax				; .X=segment index (global context)
+	bcc :+
+	;bcs @done			; error
+	rts
+:	tax				; .X=segment index (global context)
 	ldy @i				; .Y=segment index (object file)
 
 	; update the size of the segment: segment_size += section_size
@@ -1091,7 +1085,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	inc @segname+1
 :	inc @i				; next SEGMENT
 	lda @i
-	cmp obj::numsections		; are we done?
+	cmp obj::numsegments		; are we done?
 	bne @calc_segment_sizes		; repeat for all SEGMENTS in file
 
 @nextfile:
@@ -1358,12 +1352,6 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 	incw @fptr
 	ldxy @fptr
 	rts
-.endproc
-
-;*******************************************************************************
-; GEN SEGMENT MAP
-; Read the IMPORT block from the open OBJECT file and
-.proc gen_segment_map
 .endproc
 
 ;******************************************************************************

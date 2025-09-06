@@ -81,6 +81,8 @@ segments: .res MAX_SEGMENT_NAME_LEN*MAX_SECTIONS ; name of target SEG
 ; link-time start addresses of each SEGMENT
 segments_startlo: .res MAX_SECTIONS
 segments_starthi: .res MAX_SECTIONS
+segments_relocstartlo: .res MAX_SECTIONS
+segments_relocstarthi: .res MAX_SECTIONS
 
 ; SEGMENT id for each SECTION
 segment_ids: .res MAX_SECTIONS
@@ -746,6 +748,7 @@ __obj_close_section:
 
 :	; init segment sizes to 0
 	ldx numsegments
+	lda #$00
 :	sta segments_relocsizelo-1,x
 	sta segments_relocsizehi-1,x
 	dex
@@ -754,8 +757,11 @@ __obj_close_section:
 ; compute the size of each SEGMENT (sum of all SECTIONS that use it)
 @l0:	lda #$00
 	sta @sec_idx
+	sta @seg_idx
 
-@l1:	lda @seg_idx			; get current SEGMENT
+@l1:	inc @seg_idx
+	lda @seg_idx			; get current SEGMENT
+	clc
 	ldx @sec_idx
 	cmp segment_ids,x		; is this SECTION in this SEGMENT?
 	bne :+				; if not, continue
@@ -763,19 +769,20 @@ __obj_close_section:
 	tay
 	lda sections_relocsizelo,x	; get size of code for section
 	clc
-	adc segments_relocsizelo,y	; add with current SEGMENT size
-	sta segments_relocsizelo,y
+	adc segments_relocsizelo-1,y	; add with current SEGMENT size
+	sta segments_relocsizelo-1,y
+
 	lda sections_relocsizehi,x
-	adc segments_relocsizehi,y
-	sta segments_relocsizehi,y
+	adc segments_relocsizehi-1,y
+	sta segments_relocsizehi-1,y
 
 :	inc @sec_idx
 	lda @sec_idx
 	cmp numsections
 	bne @l1
 
-	inc @seg_idx
 	lda @seg_idx
+	inc @seg_idx
 	cmp numsegments
 	bne @l0
 
@@ -991,9 +998,9 @@ __obj_close_section:
 	sta @sz
 	lda sections_relocsizehi,x
 	sta @sz+1
+
 	inx				; get 1-based section
 	txa
-
 	jsr get_segment_base
 	stxy @seg_base
 
@@ -1167,13 +1174,6 @@ __obj_close_section:
 	lda #>segments
 	sta @name+1
 
-	; read number of sections used
-	jsr readb
-	bcc :+
-@ret:	rts
-
-:	sta numsections
-
 	; read number of SEGMENTs used
 	jsr readb
 	bcs @ret
@@ -1235,12 +1235,13 @@ __obj_close_section:
 	inc @name+1
 
 :	; increment counter and loop til we've done all SEGMENTS
-	iny
-	sty @i
+	inc @i
+	ldy @i
 	cpy numsegments
 	bne @load_segments
 
-	RETURN_OK
+	clc				; ok
+@ret:	rts
 .endproc
 
 ;*******************************************************************************
@@ -1255,6 +1256,7 @@ __obj_close_section:
 @i=zp::tmp10
 @namebuff=$100
 	jsr load_info
+
 ; read the IMPORTS and EXPORTS and add them to the global symbol table
 @imports:
 	lda #SEG_UNDEF
@@ -1405,19 +1407,8 @@ __obj_close_section:
 @tmp=r0
 	; segments_start[segment_id]
 	tax
-	lda segments_startlo-1,y
-	pha
-	lda segments_starthi-1,y
-
-	; now add the base offest of the SEGMENT (sections_start[sec_id])
-	pla
-	clc
-	adc sections_startlo-1,x	; resolve LSB
-	pha
-	lda @tmp
-	adc sections_starthi-1,x	; resolve MSB
-	tay
-	pla
+	ldy segments_starthi-1,x
+	lda segments_startlo-1,x
 	tax
 	rts
 .endproc
@@ -1440,7 +1431,7 @@ __obj_close_section:
 @sz=r8
 @symaddr=ra
 @symoff=rc
-@sec=re
+@seg=re
 @namebuff=$100
 	jsr load_info
 	bcc :+
@@ -1529,43 +1520,45 @@ __obj_close_section:
 	jmp @done			; if no SEGMENTS, we're done
 
 @load_segment:
-	jsr readb			; get "info" byte for section
+	jsr readb			; get "info" byte for SEGMENT
 	bcs @export_error
 
 	; TODO: make sure SEGMENT's address mode for SEGMENT matches linker's
 
-	; read the section sizes from the header in this section
+	; read the table sizes for this SEGMENT
 	ldy @seg_idx
-	jsr readb			; get section's code size LSB
+	jsr readb			; get code size LSB
 	bcs @eof
-	sta sections_sizelo,y
+	sta segments_sizelo,y
 	sta @sz
-	jsr readb			; get section's code size MSB
+	jsr readb			; get code size MSB
 	bcs @eof
-	sta sections_sizehi,y
+	sta segments_sizehi,y
 	sta @sz+1
+
 	jsr readb
 	bcs @eof
-	sta sections_relocsizelo,y	; get relocation table size LSB
+	sta segments_relocsizelo,y	; get relocation table size LSB
 	jsr readb
 	bcs @eof
-	sta sections_relocsizehi,y	; get relocation table size MSB
+	sta segments_relocsizehi,y	; get relocation table size MSB
 
 	; calculate start address of relocation table (sections_start + sections_size)
-	lda sections_startlo,y
+	lda segments_startlo,y
 	;clc
 	adc @sz
-	sta sections_relocstartlo,y
-	lda sections_starthi,y
+	sta segments_relocstartlo,y
+	lda segments_starthi,y
 	adc @sz+1
-	sta sections_relocstarthi,y
+	sta segments_relocstarthi,y
 
 	; get the address to write the object code to
 	ldx @seg_idx
 	inx			; get in base 1
 	txa
+	jmp *
 	jsr get_segment_base
-	stxy @sec
+	stxy @seg
 
 	lda numsections
 	sta @seccnt
@@ -1574,11 +1567,12 @@ __obj_close_section:
 	; finally, load the object code for the segment to vmem
 	jsr readb
 	bcs @eof
-	ldxy @sec				; address to store to
+	ldxy @seg				; address to store to
 	CALL FINAL_BANK_MAIN, vmem::store	; store a byte of object code
-	incw @sec
+	incw @seg
 	decw @sz
 	iszero @sz
+	bne @objcode
 
 @reltab:
 	jsr apply_relocation			; load/apply relocation table

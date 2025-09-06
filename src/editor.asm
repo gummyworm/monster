@@ -403,7 +403,8 @@ main:	jsr key::getch
 
 ; TODO: don't hardcode
 @objlist:
-.byte "export.o",0,0
+;.byte "export.o",0,0
+.byte "hello.o",0,0
 @objlist_len=*-@objlist
 
 @outfile:
