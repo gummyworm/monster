@@ -254,16 +254,17 @@ a new SECTION to be produced.
 When the object code is written, the SECTIONS are concatenated to form the SEGMENT written to
 the object file. In the above example, we would have two SEGMENTS: one for "CODE" and one for "DATA".
 
-Symbols avoid the SECTION notion altogether to avoid having to update all symbol references in the relocation table(s).
-When a symbol is encountered its SEGMENT is looked up written with its relocation entry.
-This also avoids resorting to symbol-relative definitions for references to labels in noncontiguous SECTIONS that belong to the same SEGMENT.
-For example, referring to the case above, `lda foo` can be handled with a SEGMENT-relative relocation. SYMBOL-relative relocations are _only_ required for external symbols.
+Symbols avoid the SECTION notion altogether to remove the need to update all symbol references in the relocation table(s).
+When a symbol is encountered its SEGMENT is looked up and written with its relocation entry.
+This also avoids resorting to SYMBOL-relative relocation records for references to labels in noncontiguous SECTIONS that belong to the same SEGMENT.
+For example, referring to the case above, `lda foo` can be handled with a SEGMENT-relative relocation because "foo" is in the same SEGMENT as the instruction referencing it.
+SYMBOL-relative relocations are _only_ required for external symbols.
 
 ### RELOCATION TABLES
 For each SEGMENT, the linker contains a table of _relocation info_.
 
-This table is made up of a number of records, each describing how to relocate a byte or word
-within the SEGMENT.  Relocations can either be _segment-relative_ (references to object-local SEGMENT base) or _symobl-relative_ (references to external symbols).
+This table is made up of a number of records, each describing how to relocate a byte or word within the SEGMENT.
+Relocations can either be _segment-relative_ (references to object-local SEGMENT base) or _symobl-relative_ (references to external symbols).
 
 The following table describes the relocation record format in detail.
 
@@ -299,7 +300,8 @@ The one exception is relocation entries that contain post-processing.  For these
 the intermediate value may be greater than $ff, so we need to encode a full 16-bit addend for the
 the 1 byte target.  For example: `LDA #<(LABEL + 500)` requires a 16-bit addend (500) to calculate
 the final 8-bit target.  The LSB of this addend is stored in the instruction stream, but in
-this special case the MSB is stored in an extra byte at the end of the relocation entry for that record.  Because of this, records that contain post-processing are 6 bytes instead of 5.
+this special case the MSB is stored in an extra byte at the end of the relocation entry for that record.
+Because of this, records that contain post-processing are 6 bytes instead of 5.
 
 ### DEBUG INFO
 This table stores the program to evaluate line numbers and addresses within the object file as well as references to which source files were used to create the object file.  This information allows the linker to produce a single mega debug file (or .D file) that contains all the information for the linked program, which allows for source level debugging.

@@ -909,6 +909,8 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; RESOLVE GLOBALS
 ; Calculates the addresses for each global that was extracted from the object
 ; file headers in the linker's first pass
+; OUT:
+;   - .C: set on error
 .proc resolve_globals
 @i=zp::tmp10
 @sec_id=zp::tmp12
@@ -975,8 +977,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; the linked executable as a file with the given name.
 ; IN:
 ;  - .XY:            the filename to produce from the linked files
-;  - .A:             the number of input files
-;  - link::objfiles: array of the files to link
+;  - link::objfiles: array of the files to link (0-terminated)
 ; OUT:
 ;  - .C: set on error
 .export __link_link
@@ -1000,14 +1001,13 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @initsegments:
 	; set the start address for each SECTION to the SEGMENT
 	; load address parsed from the LINK file
+@l0:	ldy segments_load-1,x
+	lda sections_startlo-1,y
+	sta segments_addrlo-1,x
+	lda sections_starthi-1,y
+	sta segments_addrhi-1,x
 	dex
-@l0:	ldy segments_load,x
-	lda sections_startlo,y
-	sta segments_addrlo,x
-	lda sections_starthi,y
-	sta segments_addrhi,x
-	dex
-	bpl @l0
+	bne @l0
 
 	; init obj pointer to start of object list
 	ldxy #__link_objfiles
@@ -1070,11 +1070,11 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; update the size of the segment: segment_size += section_size
 	lda obj::segments_sizelo,y
 	clc
-	adc segments_sizelo,x
-	sta segments_sizelo,x
+	adc segments_sizelo-1,x
+	sta segments_sizelo-1,x
 	lda obj::segments_sizehi,y
-	adc segments_sizehi,x
-	sta segments_sizehi,x
+	adc segments_sizehi-1,x
+	sta segments_sizehi-1,x
 
 	; move to next segment name
 	lda @segname
@@ -1105,12 +1105,13 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 :	ldy #$01
 	lda (@objfile),y	; get char after the terminating 0
 	beq @pass1done		; if it's another 0, we're at end of obj list
-	jmp @l0			; if not, repeat for next obj file
+	jmp @pass1		; if not, repeat for next obj file
 
 @pass1done:
 	; resolve symbols now that we know the base address of each SEGMENT
 	; in each object file
 	jsr resolve_globals
+	bcs @done
 
 @validate:
 	; make sure SEGMENT base+size is less than the top of the SEGMENT
@@ -1128,6 +1129,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; iterate over each object file and link it
 	ldxy @objfile
 	jsr link_object		; link the object file
+	jmp *
 	bcs @done		; if .C set, return with error
 
 	; update filename pointer to next filename
@@ -1174,183 +1176,6 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	CALL FINAL_BANK_MAIN, file::close
 
 	plp					; restore error flag
-	rts
-.endproc
-
-;******************************************************************************
-; SET SEG
-; Sets the segment to the given segment name
-; e.g.
-;  SEG "DATA"
-; The binary representatino is similar
-;  $03 "DATA",0
-; Where $03 is the binary opcode for "SEG" and "DATA" is still the literal
-; segment data (0-terminated)
-; IN:
-;  - objptr: the current pointer in the object code
-.proc set_seg
-	; update the current end address of the active segment
-	ldx activeseg
-	lda segptr
-	sta segments_addrlo,x
-	lda segptr+1
-	sta segments_addrhi,x
-
-	; get the operand (SEGMENT id)
-	ldxy objptr
-	jsr get_segment_by_name
-	bcs @done		; return error if not found
-	sta activeseg
-	tax
-	lda segments_addrlo,x
-	sta segptr
-	lda segments_addrhi,x
-	sta segptr+1
-
-	; move past the name
-	ldy #$ff
-:	iny
-	lda (objptr),y
-	bne :-
-
-	tya
-	sec			; +1 (get past the 0)
-	adc objptr
-	bcc @done
-	inc objptr+1
-@done:	rts
-.endproc
-
-;*******************************************************************************
-; EXTRACT HEADERS
-; Extracts the header data from the .obj file and builds the absolute address
-; of any EXPORTs for the .obj file. These are added as labels (lbl::add).
-; Then updates the SEGMENT pointers by the sizes of each SEGMENT used in the
-; .obj file.
-;
-; The first block contains the names of all segments used in the object file.
-; This is a list of 0-terminated strings.
-; ---------------------------------
-; |  Property       | Size (bytes)|
-; |-----------------|-------------|
-; | Segment 0 Name  |  1-32       |
-; | Segment 1 Name  |  1-32       |
-; | end marker (0)  |  1          |
-; ---------------------------------
-;
-; The next block contains the SYMBOL table for the block
-; Exported symbols may be relative to a SEGMENT. To identify the SEGMENT
-; they contain a 1 byte ID, which refers to their index in the segment
-; table for the object file
-;
-; -----------------------------------------------
-; |  Property                     | Size (bytes)|
-; |-------------------------------|-------------|
-; | Symbol 0 Name                 |  1-32       |
-; | Symbol 0 Type                 |  1-32       |
-; | (if export: Export 0 Segment) |    1        |
-; | (if export: Export 0 Offset)  |    2        |
-; | Symbol 1 Name                 |  1-32       |
-; | Symbol 1 Type                 |  1-32       |
-; | (if export: Export 1 Segment) |    1        |
-; | (if export: Export 1 Offset)  |    2        |
-; -----------------------------------------------
-;
-; The next block of headers tells the linker the name and size of each SEGMENT
-; in the .obj file
-; --------------------------------
-; |  Property      | Size (bytes)|
-; |----------------|-------------|
-; | SEG1 name      |  16         |
-; | sizeof(SEG1)   |  2          |
-; | SEG2 name      |  16         |
-; | sizeof(SEG2)   |  2          |
-; | end marker (0) |  1          |
-; --------------------------------
-;
-; IN:
-;  - .XY: address to the contents of the .obj file
-; OUT:
-;  - .XY:             address of the remainder of the .obj file (after headers)
-;  - segments_stoplo: updated with new LSBs of end of affected segments
-;  - segments_stophi: updated with new MSBs of end of affected segments
-;  - labels:          updated with any EXPORTed symbols from .obj file
-.proc extract_headers
-EXPORT_SEG  = 8 		; offset to SEGMENT name in IMPORT header
-EXPORT_SIZE = 8+8		; offset to SIZE in IMPORT header
-EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
-@fptr=r0
-@segaddr=r2
-@buff=r4
-	stxy @fptr
-	ldx numfiles
-@getsegments:
-
-@getsymbols:
-	; get the absolute address of the segment
-	lda #EXPORT_SEG
-	clc
-	adc @buff
-	tax
-	lda @buff+1
-	adc #$00
-	tay
-	jsr get_segment_by_name
-	stxy @segaddr
-
-	; calclulate the absolute address for the EXPORT
-	ldy #EXPORT_SIZE
-	lda (@buff),y
-	clc
-	adc @segaddr
-	sta zp::label_value
-	iny
-	lda (@buff),y
-	adc @segaddr+1
-	sta zp::label_value+1
-
-	ldxy #@buff	; name of the EXPORT
-	jsr lbl::add	; add the EXPORT to the symbol table
-
-	; move fptr to next EXPORT or block
-	lda @fptr
-	clc
-	adc #EXPORT_BLOCK_ITEM_SIZE
-	sta @fptr
-	bcc :+
-	inc @fptr
-:	ldy #$00
-	lda (@fptr),y
-	bne @getsymbols ; if not end of block, continue
-	incw @fptr	; move past terminating 0
-
-; sum the SEGMENT sizes for the header with our existing sizes for those
-; segments and set the STOP addresses accordingly
-@updatesegments:
-	ldxy #@fptr		; SEGMENT name
-	jsr get_segment_by_name
-	tax
-	ldy #8			; offset to SIZE
-	lda (@fptr),y
-	clc
-	adc segments_sizelo,x
-	sta segments_sizelo,x
-	iny
-	lda (@fptr),y
-	adc segments_sizehi,x
-	sta segments_sizehi,x
-
-	lda @fptr
-	adc #10			; sizeof(NAME) + sizeof(SIZE)
-	sta @fptr
-	bcc :+
-	inc @fptr+1
-:	ldy #$00
-	lda (@fptr),y
-	bne @updatesegments	; loop if not end of SEGMENT block
-
-	incw @fptr
-	ldxy @fptr
 	rts
 .endproc
 
@@ -1408,8 +1233,8 @@ EXPORT_BLOCK_ITEM_SIZE = 8 + EXPORT_SEG + EXPORT_SIZE
 @tab=r2
 	jsr get_segment_by_name		; get the SEGMENT
 	ldx activeobj			; current file being linked
-	lda file_segments_startlo,x	; get LSB of start addr
-	ldy file_segments_starthi,x	; and MSB
+	lda file_segments_startlo-1,x	; get LSB of start addr
+	ldy file_segments_starthi-1,x	; and MSB
 	tax
 	rts
 .endproc
@@ -1452,7 +1277,9 @@ __link_get_segment_by_name:
 	rts
 
 @found: lda @cnt
-	RETURN_OK
+	clc
+	adc #$01		; get 1-based id
+	rts
 .endproc
 
 ;*******************************************************************************

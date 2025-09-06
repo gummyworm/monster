@@ -226,8 +226,6 @@ __obj_close_section:
 @dst=r2
 	stxy @name
 	jsr get_segment_by_name
-
-@add:	; segment not found, add it
 	stxy @dst		; address to store new name to
 
 	ldy #$00
@@ -696,6 +694,7 @@ __obj_close_section:
 	lda export_label_idslo,x	; get MSB of index for symbol
 	tax
 	stxy @id
+
 	CALL FINAL_BANK_MAIN, lbl::getname
 
 	; write out the name
@@ -709,12 +708,8 @@ __obj_close_section:
 
 @cont:	; write the SEGMENT id
 	ldxy @id
-	CALL FINAL_BANK_MAIN, lbl::getsegment	; get section index
-	cmp #SEG_ABS				; if ABS, write ABS
-	beq :+
-	tax
-	lda segment_ids-1,x			; get SEGMENT for section
-:	jsr $ffd2				; dump the SEGMENT id
+	CALL FINAL_BANK_MAIN, lbl::getsegment	; get SEGMENT id
+	jsr $ffd2				; dump the SEGMENT id
 
 	; write the SEGMENT offset
 	; TODO: this is currently writing the SECTION offset
@@ -1278,13 +1273,24 @@ __obj_close_section:
 	cmp numexports
 	beq @ok
 
-	; prepend the filename as scope so that we know the file the symbol
-	; was defined in when we resolve it
+	; copy name to shared RAM
 	ldxy __obj_filename
+	stxy @name
+	ldy #$00
+:	lda (@name),y
+	sta @namebuff,y
+	beq :+
+	iny
+	bne :-
+
+:	; prepend the filename as scope so that we know the file the symbol
+	; was defined in when we resolve it
+	ldxy #@namebuff
 	CALL FINAL_BANK_MAIN, lbl::setscope
 
 @export_loop:
 	jsr load_export
+	jmp *
 	bcs @ret
 	inc @i
 	lda @i
@@ -1334,7 +1340,8 @@ __obj_close_section:
 
 :	JUMP FINAL_BANK_MAIN, lbl::add
 @ok:	clc
-@ret:	rts
+@ret:
+:	rts
 .endproc
 
 ;*******************************************************************************
@@ -1343,23 +1350,28 @@ __obj_close_section:
 ; OUT:
 ;   - .C: set on error
 .proc load_export
-@namebuff=$100
+@namebuff=$120
 	; get the name of a symbol
 	ldx #$00
+	lda #'@'
+	sta @namebuff
 :	jsr readb
-	bcs :+
-	sta @namebuff,x
+	bcs :--					; -> rts
+	sta @namebuff+1,x
 	beq @addexport
 	inx
 	bne :-
 
 @addexport:
-	jsr readb				; get info (address mode)
+	jsr readb				; get SEGMENT id
 	bcs @ret
+
+	; TODO: get the address mode for the SEGMENT the symbol is in
+	;tax
+	;lda segments_info-1,x
+	lda #$01
 	sta zp::label_mode
 
-	jsr readb				; get SEGMENT id
-:	bcs @ret
 	jsr get_segment_name_by_id		; get name of SEGMENT
 	jsr link::segid_by_name			; get global id of SEGMENT
 	sta zp::label_segmentid			; and store with the symbol
@@ -1384,14 +1396,15 @@ __obj_close_section:
 :	; validate: does address mode match existing symbol?
 	CALL FINAL_BANK_MAIN, lbl::addrmode
 	cmp zp::label_mode
-	beq @ok					; matches -> ok
-
-	; error: address mode doesn't match
-	RETURN_ERR ERR_ADDRMODE_MISMATCH	; conflicting import/exports
-
-@add:	JUMP FINAL_BANK_MAIN, lbl::add
+	bne @addr_mode_mismatch
 @ok:	clc
 @ret:	rts
+
+@addr_mode_mismatch:
+	RETURN_ERR ERR_ADDRMODE_MISMATCH	; conflicting addr modes
+
+@add:	ldxy #@namebuff
+	JUMP FINAL_BANK_MAIN, lbl::add
 .endproc
 
 ;*******************************************************************************
@@ -1422,7 +1435,7 @@ __obj_close_section:
 .export __obj_load
 .proc __obj_load
 @tmp=r0
-@seccnt=r2
+@segcnt=r2
 @seg_idx=r4
 @i=r4
 @name=r6
@@ -1559,8 +1572,8 @@ __obj_close_section:
 	jsr get_segment_base
 	stxy @seg
 
-	lda numsections
-	sta @seccnt
+	lda numsegments
+	sta @segcnt
 
 @objcode:
 	; finally, load the object code for the segment to vmem
@@ -1579,7 +1592,7 @@ __obj_close_section:
 
 	bne @objcode				; repeat til done
 	inc @seg_idx
-	dec @seccnt				; decrement segment counter
+	dec @segcnt				; decrement segment counter
 	beq @done
 
 	jmp @load_segment			; repeat for all segments
@@ -1619,17 +1632,17 @@ __obj_close_section:
 .proc get_segment_name_by_id
 @seg=r0
 	ldx #$00
-	stx @seg+1
+	stx @seg
 	asl
-	rol @seg+1
+	rol @seg
 	asl
-	rol @seg+1
-	asl			; *8 (MAX_SEGMENT_NAME_LEN)
-	rol @seg+1
-	adc #<segments
+	rol @seg
+	asl					; *8 (MAX_SEGMENT_NAME_LEN)
+	rol @seg
+	adc #<(segments-(1*MAX_SEGMENT_NAME_LEN))
 	tax
-	lda @seg+1
-	adc #>segments
+	lda @seg
+	adc #>(segments-(1*MAX_SEGMENT_NAME_LEN))
 	tay
 	RETURN_OK
 .endproc
@@ -1674,6 +1687,8 @@ __obj_close_section:
 	rts
 
 @found: lda @cnt
+	clc
+	adc #$01		; get 1-based id
 	RETURN_OK
 .endproc
 
