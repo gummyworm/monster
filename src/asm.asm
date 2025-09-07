@@ -1760,8 +1760,12 @@ __asm_tokenize_pass1 = __asm_tokenize
 	bcc @add
 	rts		; error
 
-@add:	inx
-	stx pcset	; linker will take care of setting PC
+@add:	lda #$01
+	sta pcset	; mark PC set (linker will take care of setting it)
+
+	; end current BLOCK of debug info (if one is open)
+	ldxy zp::virtualpc	; current address
+	jsr dbgi::endblock	; end the current block
 
 	; close the current section (if any)
 	jsr obj::close_section
@@ -1775,7 +1779,10 @@ __asm_tokenize_pass1 = __asm_tokenize
 	stxy zp::virtualpc
 
 	sta __asm_segmentid		; set SEGMENT id
-	jmp dbgi::set_seg_id		; and set it for debug info too
+	jsr dbgi::set_seg_id		; and set it for debug info too
+
+	; create a new BLOCK of debug info at zp::virtualpc
+	jmp dbgi::newblock	; start new block for included file
 .endproc
 
 ;*******************************************************************************
@@ -1889,9 +1896,9 @@ __asm_include:
 	bne @doline		; only create new block in pass 2
 
 	; end current file's block and start a new one at the current address
-	ldxy zp::asmresult	; current address
+	ldxy zp::virtualpc	; current address
 	jsr dbgi::endblock	; end the current block
-	ldxy zp::asmresult	; current address
+	ldxy zp::virtualpc	; current address
 	jsr dbgi::newblock	; start new block for included file
 
 ; read a line from file
@@ -1937,10 +1944,10 @@ __asm_include:
 	cmp #$02
 	bne @done		; if not pass 2, don't mess with debug info
 
-	ldxy zp::asmresult
+	ldxy zp::virtualpc
 	jsr dbgi::endblock	; end the block for the included file
 	; restore the file we included from
-	ldxy zp::asmresult
+	ldxy zp::virtualpc
 	jsr dbgi::newblock	; start a new block in original file
 @done:
 @err=*+1

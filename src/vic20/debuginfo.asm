@@ -429,7 +429,6 @@ blockaddresseshi: .res MAX_FILES
 ;   - .XY: the address to end the block at
 .proc end_block
 @numlines=debugtmp
-	jmp *
 	lda numblocks
 	beq @done	; no blocks exist, nothing to "end"
 
