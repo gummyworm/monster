@@ -23,8 +23,9 @@ BLOCK_STOP_ADDR      = 2    	; offset in block header for stop address
 BLOCK_LINE_BASE      = 4	; offset in block header for base line
 BLOCK_LINE_COUNT     = 6	; offset in block header for line count
 BLOCK_FILE_ID        = 8	; offset in block header to file id
-BLOCK_LINE_PROG      = 9	; offset to address of the line program data
-BLOCK_PROG_STOP_ADDR = 11	; offset to address of end of line program
+BLOCK_SEGMENT_ID     = 9	; offset in block header for SEGMENT id
+BLOCK_LINE_PROG      = 10	; offset to address of the line program data
+BLOCK_PROG_STOP_ADDR = 12	; offset to address of end of line program
 
 DATA_FILE = 0	; offset of FILE ID in debug info
 DATA_LINE = 1	; offset of line number in debug info
@@ -38,7 +39,7 @@ OP_ADVANCE_LINE = $04
 OP_ADVANCE_ADDR = $05
 OP_SET_PC       = $06
 
-SIZEOF_BLOCK_HEADER = 13
+SIZEOF_BLOCK_HEADER = 14
 
 ;*******************************************************************************
 .macro BANKJUMP proc_id
@@ -61,13 +62,15 @@ STORE_LINE
 PUSH_BLOCK
 POP_BLOCK
 GET_FILEID
+SET_SEG_ID
 INCREMENT_AT
 .endenum
 
 .RODATA
 .linecont +
-.define dbgi_procs addr2line, line2addr, end_block, init, initonce, get_filename, new_block, \
-	set_file, set_name, store_line, push_block, pop_block, get_fileid
+.define dbgi_procs addr2line, line2addr, end_block, init, initonce, \
+	get_filename, new_block, set_file, set_name, store_line, push_block, \
+	pop_block, get_fileid, set_seg_id
 .linecont -
 dbgi_procs_lo: .lobytes dbgi_procs
 dbgi_procs_hi: .hibytes dbgi_procs
@@ -89,11 +92,12 @@ blockstop     = block+4		; top of active block's address range
 blocklinebase = block+6 	; base of active block's line range
 linestop      = block+8		; number of lines in active block
 file          = block+10 	; current file id being worked on
-progstart     = block+11	; address of start of line program for block
-progstop      = block+13	; address of end of line program
+seg_id        = block+11 	; current file id being worked on
+progstart     = block+12	; address of start of line program for block
+progstop      = block+14	; address of end of line program
 
 ; scratchpad
-debugtmp = block+15
+debugtmp = block+16
 
 .export __debug_file
 .export __debug_src_line
@@ -130,6 +134,7 @@ debuginfo:
 .export __debug_push_block
 .export __debug_pop_block
 
+.export __debuginfo_set_seg_id
 .export __debuginfo_get_fileid
 
 ;******************************************************************************
@@ -147,6 +152,7 @@ debuginfo:
 	__debug_push_block        = push_block
 	__debug_pop_block         = pop_block
 	__debuginfo_get_fileid    = get_fileid
+	__debuginfo_set_seg_id    = set_seg_id
 .else
 .PUSHSEG
 .RODATA
@@ -164,6 +170,7 @@ __debug_store_line:       BANKJUMP dbgi_proc_ids::STORE_LINE
 __debug_push_block:       BANKJUMP dbgi_proc_ids::PUSH_BLOCK
 __debug_pop_block:        BANKJUMP dbgi_proc_ids::POP_BLOCK
 __debuginfo_get_fileid:   BANKJUMP dbgi_proc_ids::GET_FILEID
+__debuginfo_set_seg_id:   BANKJUMP dbgi_proc_ids::SET_SEG_ID
 
 ;*******************************************************************************
 ; Entrypoint for routines
@@ -388,6 +395,11 @@ blockaddresseshi: .res MAX_FILES
 	; store the file ID
 	ldy #BLOCK_FILE_ID
 	lda file
+	sta (block),y
+
+	; store the SEGMENT ID
+	ldy #BLOCK_LINE_COUNT
+	lda seg_id
 	sta (block),y
 
 	; initialize the line count to 0
@@ -973,6 +985,16 @@ get_filename = get_filename_addr
 .endif
 
 ;*******************************************************************************
+; SET SEG ID
+; Sets the active segment-id to the given ID
+; IN:
+;   - .A: the SEGMENT id to set for the block
+.proc set_seg_id
+	sta seg_id
+	rts
+.endproc
+
+;*******************************************************************************
 ; SET FILE
 ; Sets the active file-id to the the ID for given filename.
 ; If no file-id exists for the provided filename, one is first created.
@@ -1416,6 +1438,7 @@ get_filename = get_filename_addr
 .export __debuginfo_dump
 .proc __debuginfo_dump
 @name=r0
+@i=r0
 @dbgi=r2
 	ldxy #filenames
 	stxy @name
@@ -1440,7 +1463,26 @@ get_filename = get_filename_addr
 :	dex
 	bne @fnames		; repeat for next filename
 
-@blocks:
+	; write the BLOCK headers
+	ldxy #blockheaders
+	stxy @dbgi
+	ldx numblocks
+@headers:
+	lda (@dbgi),y
+	jsr $ffd2
+	iny
+	cpy #SIZEOF_BLOCK_HEADER
+	bne @headers
+	lda @dbgi
+	clc
+	adc #SIZEOF_BLOCK_HEADER
+	sta @dbgi
+	bcc :+
+	inc @dbgi+1
+:	dex
+	bne @headers
+
+@progdata:
 	; write all bytes between debuginfo and freeptr
 	lda #<debuginfo
 	sta @dbgi

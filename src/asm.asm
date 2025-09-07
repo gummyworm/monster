@@ -1775,8 +1775,7 @@ __asm_tokenize_pass1 = __asm_tokenize
 	stxy zp::virtualpc
 
 	sta __asm_segmentid		; set SEGMENT id
-
-	rts
+	jmp dbgi::set_seg_id		; and set it for debug info too
 .endproc
 
 ;*******************************************************************************
