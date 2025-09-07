@@ -13,10 +13,12 @@
 .import __debug_push_block
 .import __debug_pop_block
 
+.import __debuginfo_dump
 .import __debuginfo_get_fileid
 
 .scope dbgi
 	addr2line    = __debug_addr2line
+	dump         = __debuginfo_dump
 	endblock     = __debug_end_block
 	file         = __debug_file
 	get_filename = __debug_get_filename

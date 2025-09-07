@@ -18,21 +18,31 @@ The FILE TABLE maps filenames to an implicit ID, which is the index of a given f
 
 ### BLOCKS
 To simplify the storage of chunks of noncontiguous addresses and multi-file programs, mappings are broken down into BLOCKS.
+Each BLOCK header  defines a file id (BLOCKS will always reference one file only), and a range of lines and addresses.
 
-Each BLOCK defines a file id (BLOCKS will always reference one file only), and a range of lines and addresses.
-The table below describes the layout of a BLOCK.
+The table below describes the layout of a BLOCK (header).
 
-|  field       | size  | description                                     |
-|--------------|-------|-------------------------------------------------|
-| base         |  2    | the address that this block begins at           |
-| top address  |  2    | the highest address represented by the block + 1|
-| base line    |  2    | the lowest line number represented by the block |
-| # of lines   |  2    | the highest line number represented by the block|
-| file id      |  1    | filename 0                                      |
-| program      |  2    | address of the line mapping program             |
-| program end  |  2    | address of the end of the line program          |
 
-Note that _top address_ is the last address in the block + 1.
+|  field       | size  | description
+|--------------|-------|-----------------------------------------------------------------
+| base         |  2    | the (segment relative) address that this block begins at
+| top address  |  2    | the (segment relative) top address represented by the block + 1
+| base line    |  2    | the lowest line number represented by the block
+| # of lines   |  2    | the highest line number represented by the block
+| file id      |  1    | filename 0
+| segment id   |  1    | segment id for the block (only used for linking)
+| program      |  2    | address of the line mapping program
+| program end  |  2    | address of the end of the line program
+
+
+For BLOCKS that begin with a `.SEG` directive, addresses in that BLOCK are relative to a SEGMENT.
+The SEGMENT table that the id references is described in more detail in the [linker](linker.md) document.
+
+BLOCKS that begin with a `.ORG` directive, will contain the SEC\_ABS ($ff) segment id, which
+means their addresses are absolute (not relative to any SEGMENT).  The linker will look up the link-time
+addresses for all SEGMENTS and transform the addresses in the header to absolute ones.
+
+The _top address_ for a BLOCK is the last address in the block + 1.
 In other words, the range represented starts at the base address (inclusive)
 and ends at the top address (exclusive): `[base, top)`.
 
@@ -40,13 +50,14 @@ Also note that a given BLOCK always represents a line/address range within a sin
 If the file changes during assembly, e.g. when a `.INC` directive is encountered, a new
 BLOCK is created.
 
-In the assembler, the two psuedo-ops that force the creation of a block are:
+In the assembler, the psuedo-ops that force the creation of a block are:
   - including a file (`.INC`)
   - setting the address (`.ORG`)
+  - creating/activating a SEGMENT (`.SEG`, `.SEGZP`)
 
 ### LINE PROGRAM
 The line program facilitates compact mapping of line numbers to addresses.
-It is a state machine with the following state:
+It is a state machine with the following variables:
  - line number
  - address (or program counter)
 

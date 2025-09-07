@@ -4,6 +4,7 @@
 ;*******************************************************************************
 
 .include "asm.inc"
+.include "debuginfo.inc"
 .include "errors.inc"
 .include "expr.inc"
 .include "file.inc"
@@ -901,7 +902,7 @@ __obj_close_section:
 	lda sections_relocsizehi,x
 	sta @sz+1
 	ora @sz
-	beq @dbgi		; if no relocation table, skip
+	beq @nextseg			; if no relocation table, skip
 
 	ldy #$00
 @relocloop:
@@ -911,9 +912,6 @@ __obj_close_section:
 	decw @sz
 	iszero @sz
 	bne @relocloop
-
-@dbgi:	; and finally, dump the debug info for the table
-	; TODO:
 
 @nextsec:
 	inc @sec_idx
@@ -963,8 +961,11 @@ __obj_close_section:
 	jsr dump_imports
 	jsr dump_exports
 
-	; write each SEGMENT (object code, relocation data, debug info)
+	; write each SEGMENT (object code, relocation data)
 	jsr dump_segment_tables
+
+	; lastly, write the debug info
+	CALL FINAL_BANK_DEBUG, dbgi::dump
 
 	RETURN_OK
 .endproc

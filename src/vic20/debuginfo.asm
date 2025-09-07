@@ -16,6 +16,8 @@
 MAX_FILES  = 64		; max files debug info may be generated for
 MAX_BLOCKS = 256
 
+MAX_FILENAME_LEN = 16
+
 BLOCK_START_ADDR     = 0    	; offset in block header for base address
 BLOCK_STOP_ADDR      = 2    	; offset in block header for stop address
 BLOCK_LINE_BASE      = 4	; offset in block header for base line
@@ -187,16 +189,12 @@ __debuginfo_get_fileid:   BANKJUMP dbgi_proc_ids::GET_FILEID
 
 ;*******************************************************************************
 ; number of files that we have debug info for
-numfiles: .byte 0
-
-numblocks: .byte 0	; number of blocks that we have debug info for
-
+numfiles:   .byte 0
+numblocks:  .byte 0	; number of blocks that we have debug info for
 block_open: .byte 0	; if !0, we are creating a block, when this is set
 			; creating a new block will first close the open one
-
 freeptr: .word 0	; pointer to next available address in debuginfo
-
-blocksp:    .byte 0	; stack pointer for block stack
+blocksp: .byte 0	; stack pointer for block stack
 
 ;*******************************************************************************
 ; BSS
@@ -205,7 +203,7 @@ blocksp:    .byte 0	; stack pointer for block stack
 ; file table (stored as table of 0-terminated filenames)
 .export __debug_filenames
 __debug_filenames:
-filenames: .res MAX_FILES * 16
+filenames: .res MAX_FILES * MAX_FILENAME_LEN
 
 blockstack: .res $100	; stack for line program state machine
 
@@ -419,6 +417,7 @@ blockaddresseshi: .res MAX_FILES
 ;   - .XY: the address to end the block at
 .proc end_block
 @numlines=debugtmp
+	jmp *
 	lda numblocks
 	beq @done	; no blocks exist, nothing to "end"
 
@@ -1409,4 +1408,53 @@ get_filename = get_filename_addr
 	bne @l0
 	lda #$ff		; not equal
 @done:	rts
+.endproc
+
+;*******************************************************************************
+; DUMP
+; Dumps the debug info in memory to the open file
+.export __debuginfo_dump
+.proc __debuginfo_dump
+@name=r0
+@dbgi=r2
+	ldxy #filenames
+	stxy @name
+
+	ldx numfiles
+	beq @done
+@fnames:
+	; write the filename (with terminating 0) to the object file
+	ldy #$00
+:	lda (@name),y
+	jsr $ffd2
+	iny
+	cmp #$00
+	bne :-
+
+	lda @name
+	clc
+	adc #MAX_FILENAME_LEN
+	sta @name
+	bcc :+
+	inc @name+1
+:	dex
+	bne @fnames		; repeat for next filename
+
+@blocks:
+	; write all bytes between debuginfo and freeptr
+	lda #<debuginfo
+	sta @dbgi
+	lda #>debuginfo
+	sta @dbgi+1
+	bne @chk		; check if bot == top before looping
+
+:	ldy #$00
+	lda (@dbgi),y
+	jsr $ffd2
+	incw @dbgi
+@chk:	ldxy @dbgi
+	cmpw freeptr
+	bne :-
+
+@done:	RETURN_OK
 .endproc
