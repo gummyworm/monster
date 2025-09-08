@@ -63,9 +63,12 @@ load_ptr = $c3
 @flash:	jsr FLASH_FIRMWARE
 	jsr FlashCodeEndSequ	; RESET
 
-@done:	lda #$80		; 32k RAM
+@done:	lda #<done_msg
+	ldy #>done_msg
+	jsr puts
+	lda #$00		; 32k RAM
 	sta $9c02
-	rts
+	jmp ($fffc)		; reset
 .endproc
 
 ;******************************************************************************
@@ -406,3 +409,4 @@ err_open_failed:  .byte "failed to open image file",0
 ; info messages
 msgflash_ing:  .byte "flashing ...",13,0
 msg_erasing:   .byte "erasing...",13,0
+done_msg:      .byte "done",0
