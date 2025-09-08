@@ -15,10 +15,13 @@
 - [ ] Emulate VIC (see raster position and full frame of VIC state while debugging)
 - [ ] Save/restore raster position while debugging
 ### TODO V1
+- [ ] Crash Recovery (recover user program/source buffers/etc.)
+- [ ] .D files (binaries with precompiled debug info)
 - [x] Linker
    - [x] parse LINK files
    - [x] generate object code
    - [x] link object code
+   - [ ] debug-info
 - [x] Rework expression parsing to support relocation emission
 - [x] Startup animation
 - [x] Symbolic disassembly

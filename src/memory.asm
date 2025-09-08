@@ -45,6 +45,10 @@ __mem_filename: .res 16	; buffer for output file
 .export __mem_findbuff
 __mem_findbuff: .res MAX_SEARCH_LEN+1	; +1 for terminating 0
 
+.segment "BSS_NOINIT"
+.export __mem_init_sig
+__mem_init_sig: .res 4
+
 ;*******************************************************************************
 ; LINEBUFFER
 ; The linebuffer must live in lower RAM, which is NOT switched out with the

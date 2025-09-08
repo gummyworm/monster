@@ -25,6 +25,7 @@
 .import __src_insert_on_load
 .import __src_insert
 .import __src_insertline
+.import __src_init
 .import __src_isdirty
 .import __src_left
 .import __src_line_end
@@ -86,6 +87,7 @@ GAPSIZE = 20	; size of gap in gap buffer
 	insert         = __src_insert
 	insertline     = __src_insertline
 	insert_on_load = __src_insert_on_load
+	init           = __src_init
 	isdirty        = __src_isdirty
 	left           = __src_left
 	line           = __src_line

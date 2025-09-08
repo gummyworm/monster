@@ -15,6 +15,7 @@
 .include "../edit.inc"
 .include "../irq.inc"
 .include "../io.inc"
+.include "../key.inc"
 .include "../labels.inc"
 .include "../macros.inc"
 .include "../memory.inc"
@@ -23,6 +24,7 @@
 .include "../settings.inc"
 .include "../sim6502.inc"
 .include "../source.inc"
+.include "../text.inc"
 .include "../vmem.inc"
 .include "../zeropage.inc"
 
@@ -194,7 +196,6 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 START:
 	jsr $fd52	; init vectors
 	jsr $fdf9	; init I/O
-	jsr $e518	; init I/O 2
 
 	lda #$22|$08
 	sta $900f		; white/white
@@ -381,32 +382,20 @@ START:
 
 ;--------------------------------------
 ; zero the BSS segment
-	ldxy #__BSS_LOAD__
-	stxy r0
-
+	lda #>__BSS_LOAD__
+	sta r0+1
+	ldy #<__BSS_LOAD__
 	lda #$00
-	ldy #$00
 @zerobss:
 	sta (r0),y
 	iny
-	bne @zerobss
+	bne :+
 	inc r0+1
+:	cpy #<(__BSS_LOAD__+__BSS_SIZE__-1)
+	bne @zerobss
 	ldx r0+1
 	cpx #>(__BSS_LOAD__+__BSS_SIZE__-1)
 	bne @zerobss
-
-	lda #$00
-	sta r0
-
-	ldy #<(__BSS_LOAD__+__BSS_SIZE__-1)
-	beq @zero_bss_done
-@zerobss_last_page:
-	sta (r0),y
-	dey
-	bne @zerobss_last_page
-	sta (r0),y		; last byte
-
-@zero_bss_done:
 
 ;--------------------------------------
 ; relocate segments that need to be moved
@@ -564,38 +553,83 @@ num_relocs=(*-relocs)/7
 	lda #$4c
 	sta zp::bankjmpaddr	; write the JMP instruction
 
-	; initialize the status row reverse
-	ldx #23
-	jsr draw::hiline
+	; initialize screen
+	jsr scr::init
+	sei
+	jsr edit::clear
+	lda #$00
+	sta $c6			; clear keyboard buffer
 
-	jsr asm::reset
+.ifdef CART
+@detect_reset:
+	ldx #init_sig_len-1
+:	lda init_sig,x
+	cmp mem::init_sig,x
+	bne @init		; not a match -> complete initialization
+	dex
+	bpl :-
+
+@recover:
+        jsr irq::on
+	; signature intact, ask user if they wish to recover
+	ldxy #recover_reset
+	lda #10
+	jsr text::print
+	jsr key::waitch
+	cmp #'y'
+	beq @enter
+	cmp #'n'
+	bne @recover
+.endif
+
+@init:
+.ifdef CART
+	jsr $e518		; init I/O 2
+.endif
+        jsr irq::on
+	jsr src::init
 	jsr src::new
-
 	jsr dbgi::initonce
 	jsr asm::reset
 	jsr buff::clear		; clear copy buffer
+	jsr run::clr		; init user state (run BASIC startup proc)
 
 	CALL FINAL_BANK_MONITOR, mon::init
-
-	lda #$00
-	sta $c6			; clear keyboard buffer
 
 .ifdef CART
 	; read error channel to clear startup code (73)
 	jsr io::readerr
 .endif
-	jsr dbgi::initonce
-
-	jsr run::clr		; initialize user state by init'ing BASIC
 
 .ifndef TEST
-	; initialize screen
-	jsr scr::init
-	jsr edit::clear
         jsr irq::on
+
+@enter:
+.ifdef CART
+	; write the "initialized" signature
+	ldx #init_sig_len-1
+:	lda init_sig,x
+	sta mem::init_sig,x
+	dex
+	bpl :-
+.endif
+
+	; initialize the status row reverse
+	ldx #23
+	jsr draw::hiline
+
 	jmp edit::init
 .else
 	.import testsuite
 	jmp testsuite
 .endif
 .endproc
+
+.ifdef CART
+init_sig:
+	.byte 6,5,6,0
+init_sig_len=*-init_sig
+
+recover_reset:
+	.byte " reset detected - restore state? (y/n)",0
+.endif

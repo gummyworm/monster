@@ -18,6 +18,7 @@
 .import __mem_coloron
 .import __mem_rowcolors
 .import __mem_rowcolors_save
+.import __mem_init_sig
 
 .scope mem
 	asmbuffer       = __mem_asmbuffer
@@ -29,6 +30,7 @@
 	linebuffer      = __linebuffer
 	linebuffer2     = __linebuffer2
 	linesave        = __linesave
+	init_sig        = __mem_init_sig
 	statusinfo      = __statusinfo
 	statusline	= __statusline
 	drive_err	= __mem_drive_err

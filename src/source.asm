@@ -36,14 +36,14 @@
 
 ;*******************************************************************************
 ; CONSTANTS
-MAX_SOURCES         = 8		; # of source buffers that can be loaded at once
-POS_STACK_SIZE      = 32 	; size of source position stack
+MAX_SOURCES    = 8	; # of source buffers that can be loaded at once
+POS_STACK_SIZE = 32 	; size of source position stack
 
 ;*******************************************************************************
 ; FLAGS
 FLAG_DIRTY = 1
 
-.BSS
+.segment "BSS_NOINIT"
 
 ;*******************************************************************************
 data_start:
@@ -97,6 +97,16 @@ banks:      .res MAX_SOURCES	; the corresponding bank for each buffer
 flags:	.res MAX_SOURCES	; flags for each source buffer
 
 .CODE
+;*******************************************************************************
+; INIT
+; Initializes the source state such that no buffers exist
+.export __src_init
+.proc __src_init
+	lda #$00
+	sta numsrcs
+	rts
+.endproc
+
 ;*******************************************************************************
 ; SAVE
 ; Backs up the pointers for the active source so that they may be set for
