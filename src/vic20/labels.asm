@@ -327,6 +327,10 @@ scope: .res 8 ; buffer containing the current scope
 	dex
 	bne :-
 	sta scope
+	sta numlabels
+	sta numlabels+1
+	sta numanon
+	sta numanon+1
 	rts
 .endproc
 

@@ -130,10 +130,11 @@ start-cart-jiffy: $(CART_IMAGE) $(KERNAL) test.d81
 	$(XVIC) +warp -kernal $(KERNAL) -sound -cartfe $(CART_IMAGE) -memory all $(EMU_REGION) -drive10type 1581 -10 test.d81 -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 empty.d81 -moncommands moncommands
 
 start-disk: test.d81
-	$(XVIC) -default $(EMU_REGION) -kernal kernal.901486-06.bin -memory all -cartfe $(FE3BIN) -sound +warp -drive8type 1581 -8 test.d81
+	$(XVIC) -default $(EMU_REGION) -kernal kernal.901486-06.bin -memory all -cartfe $(FE3BIN) -sound +warp -drive8type 1581 -8 test.d81 -moncommands moncommands
+
 
 start-disk-jiffy20: test.d81
-	$(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -sound -cartfe $(FE3BIN) -memory all $(EMU_REGION) -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 test.d81
+	$(XVIC) +warp -kernal JiffyDOS_VIC-20_6.01_NTSC.bin -sound -cartfe $(FE3BIN) -memory all $(EMU_REGION) -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 test.d81 -moncommands moncommands
 
 start-disk-jiffy64: test.d81
 	$(X64) +warp -kernal JiffyDOS_C64.bin -sound $(EMU_REGION) -drive8type 1581 -dos1581 JiffyDOS_1581.bin -reu -reusize 16384 monster-disk.prg

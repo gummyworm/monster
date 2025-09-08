@@ -265,7 +265,7 @@ START:
 	sta @smc
 	beq :+
 	dec $9001
-:	jmp $eabf
+:	jmp $eb15
 .endproc
 
 ;*******************************************************************************
@@ -374,7 +374,9 @@ START:
 	sta $9c02
 
 	; restore default KERNAL vectors
+	sei
 	jsr $fd52
+	ldxy #$eb15
 
 	ldxy #boot_irq
 	stxy $0314
