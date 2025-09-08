@@ -94,7 +94,7 @@ buffs_curx: .res MAX_SOURCES	; cursor X positions for each inactive buffer
 buffs_cury: .res MAX_SOURCES	; cursor Y positions for each inactive buffer
 banks:      .res MAX_SOURCES	; the corresponding bank for each buffer
 
-flags:	.res MAX_SOURCES	; flags for each source buffer
+flags: .res MAX_SOURCES		; flags for each source buffer
 
 .CODE
 ;*******************************************************************************
@@ -104,6 +104,17 @@ flags:	.res MAX_SOURCES	; flags for each source buffer
 .proc __src_init
 	lda #$00
 	sta numsrcs
+	sta sp
+	sta line
+	sta line+1
+	sta lines
+	sta lines+1
+
+	ldx #MAX_SOURCES
+:	sta bank-1,x
+	dex
+	bne :-
+
 	rts
 .endproc
 
