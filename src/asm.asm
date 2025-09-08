@@ -102,7 +102,7 @@ operand    = zp::asmtmp+7 ; operand (if there was one)
 SEG_CODE = 1	; flag for CODE segment
 SEG_BSS  = 2	; flag for BSS segment (all data must be 0, PC not updated)
 
-.BSS
+.segment "BSS_NOINIT"
 ;*******************************************************************************
 .export ifstack
 ifstack:   .res MAX_IFS	; contains TRUE/FALSE values for the active IF blocks

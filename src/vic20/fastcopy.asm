@@ -32,7 +32,7 @@ RESTORE_DEBUG_STATE
 .linecont -
 
 ;******************************************************************************
-.BSS
+.segment "BSS_NOINIT"
 ; $00-$200 is stored in the main BSS segment for faster access by the simulator
 prog00:	.res $400	; $00-$0400
 dbg00:  .res $400	; $00-$400

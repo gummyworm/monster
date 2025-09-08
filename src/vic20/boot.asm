@@ -173,7 +173,7 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 .byte $9e
 .asciiz "4621"
 @next: .word 0
-	lda #$22|$08
+	lda #$11|$08
 	sta $900f		; white/white
 	lda #$c0
 	sta $9005		; screen @ $1000
@@ -197,7 +197,7 @@ START:
 	jsr $fd52	; init vectors
 	jsr $fdf9	; init I/O
 
-	lda #$22|$08
+	lda #$11|$08
 	sta $900f		; white/white
 	lda #$c0
 	sta $9005		; screen @ $1000
@@ -330,7 +330,7 @@ START:
 ; drawlogo
 .macro drawlogo
 	; set all color to blue
-	lda #$04
+	lda #$06
 	ldx #$00
 :	sta $9400,x
 	dex
@@ -584,7 +584,17 @@ num_relocs=(*-relocs)/7
 
 @init:
 .ifdef CART
-	jsr $e518		; init I/O 2
+	;jsr $e518		; init I/O 2
+	lda	#$00
+	sta	$0291		; clear shift mode switch
+	lda	#<$ebdc		; get keyboard decode logic pointer low byte
+	sta	$028f		; set keyboard decode logic pointer low byte
+	lda	#>$ebdc		; get keyboard decode logic pointer high byte
+	sta	$0290		; set keyboard decode logic pointer high byte
+	lda	#$0a
+	sta	$0289		; set maximum size of keyboard buffer
+	sta	$028c		; set repeat delay counter
+
 .endif
         jsr irq::on
 	jsr src::init
@@ -594,6 +604,8 @@ num_relocs=(*-relocs)/7
 	jsr buff::clear		; clear copy buffer
 	jsr run::clr		; init user state (run BASIC startup proc)
 
+	lda #$00
+	sta mem::linebuffer
 	CALL FINAL_BANK_MONITOR, mon::init
 
 .ifdef CART
