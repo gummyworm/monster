@@ -7,6 +7,13 @@ Navigation will be familiar to vi users.  There are also a variety of commands t
 
 As with all work you do on your Vic-20, save often.
 
+### BUFFERS
+
+Up to 8 source buffers may be stored in memory at a time, each up to 16KB
+in size. These are accessed via a key chord comprised of `C=` and the number
+key for the corresponding buffer.  You can also navigate to the _previous_
+buffer with `C= + h` and the _next_ buffer with `C= + l`.
+
 ### COMMAND SHORTCUTS
 
 Below are the basic commands along with their associated key combinations. These

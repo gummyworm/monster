@@ -576,9 +576,9 @@ num_relocs=(*-relocs)/7
 	lda #10
 	jsr text::print
 	jsr key::waitch
-	cmp #'y'
+	cmp #$79		; Y
 	beq @enter
-	cmp #'n'
+	cmp #$6e		; N
 	bne @recover
 .endif
 
