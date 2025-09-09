@@ -66,8 +66,8 @@ load_ptr = $c3
 @done:	lda #<done_msg
 	ldy #>done_msg
 	jsr puts
-	lda #$00		; 32k RAM
-	sta $9c02
+	lda #$00
+	sta $9c02		; put FE3 in "start" mode
 	jmp ($fffc)		; reset
 .endproc
 

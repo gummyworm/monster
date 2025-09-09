@@ -507,6 +507,8 @@ num_illegals = *-illegal_opcodes
 	bne @ok
 
 @org:	; if we assembled a .ORG in pass 2, create a new block at the new address
+	ldxy __asm_linenum
+	stxy dbgi::srcline
 	ldxy zp::virtualpc	; address of new block
 	jmp dbgi::newblock	; create a block
 	bcs @done
