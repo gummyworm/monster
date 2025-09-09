@@ -585,19 +585,6 @@ num_relocs=(*-relocs)/7
 .endif
 
 @init:
-.ifdef CART
-	;jsr $e518		; init I/O 2
-	lda	#$00
-	sta	$0291		; clear shift mode switch
-	lda	#<$ebdc		; get keyboard decode logic pointer low byte
-	sta	$028f		; set keyboard decode logic pointer low byte
-	lda	#>$ebdc		; get keyboard decode logic pointer high byte
-	sta	$0290		; set keyboard decode logic pointer high byte
-	lda	#$0a
-	sta	$0289		; set maximum size of keyboard buffer
-	sta	$028c		; set repeat delay counter
-
-.endif
         jsr irq::on
 	jsr src::init
 	jsr src::new
@@ -627,6 +614,19 @@ num_relocs=(*-relocs)/7
 	dex
 	bpl :-
 .endif
+
+	; init some BASIC variables that are used (keyboard ptrs/delay)
+	lda #$00
+	sta $0291	; clear shift mode switch
+	lda #<$ebdc	; get keyboard decode logic pointer low byte
+	sta $028f	; set keyboard decode logic pointer low byte
+	lda #>$ebdc	; get keyboard decode logic pointer high byte
+	sta $0290	; set keyboard decode logic pointer high byte
+	lda #$0a
+	sta $0289	; set maximum size of keyboard buffer
+	sta $028c	; set repeat delay counter
+	lda #$04
+	sta $028b	; set repeat timer
 
 	; initialize the status row reverse
 	ldx #23
