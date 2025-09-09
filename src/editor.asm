@@ -3458,11 +3458,14 @@ goto_buffer:
 ;*******************************************************************************
 ; CCUP
 ; Handles the up cursor key
+; OUT:
+;   - .C: set if the cursor could not be moved
 .proc ccup
 @xend=r9
 @ch=ra
 	jsr on_line1
 	bne :+
+	;sec
 	rts
 
 :	jsr src::atcursor
@@ -3663,8 +3666,8 @@ goto_buffer:
 	lda @togglecur
 	beq @done
 @toggle:
-	jmp cur::toggle
-@done:	rts
+	jsr cur::toggle
+@done:	RETURN_OK
 .endproc
 
 ;******************************************************************************
