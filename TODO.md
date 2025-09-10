@@ -16,6 +16,9 @@
 - [ ] Save/restore raster position while debugging
 
 ### TODO V1
+- [ ] fix UDG editor crashes
+- [x] fix GUI reactivation/stack manipulation
+- [ ] fix oversized operand regression (lda #$ffff doesn't trigger error)
 - [x] Crash Recovery (recover user program/source buffers/etc.)
 - [ ] .D files (binaries with precompiled debug info)
 - [x] Linker

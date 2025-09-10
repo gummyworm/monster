@@ -42,43 +42,44 @@ ERR_BRANCH_OUT_OF_RANGE  = 27
 ERR_FILE_NOT_FOUND       = 28
 ERR_UNKNOWN_SEGMENT      = 29
 ERR_PC_TARGET_UNWRITABLE = 30
+ERR_CANNOT_REDUCE        = 31
 
 ;******************************************************************************
 ; file i/o errors
-ERR_TOO_MANY_OPEN_FILES   = 31
-ERR_LOGICAL_FILE_IN_USE   = 32
-ERR_DRIVE_DID_NOT_RESPOND = 33
-ERR_FILE_TOO_BIG          = 34
+ERR_TOO_MANY_OPEN_FILES   = 32
+ERR_LOGICAL_FILE_IN_USE   = 33
+ERR_DRIVE_DID_NOT_RESPOND = 34
+ERR_FILE_TOO_BIG          = 35
 
 ;******************************************************************************
-ERR_UNNAMED_BUFFER = 35
-ERR_NO_FILENAME    = 36
-ERR_NO_OPEN_SCOPE  = 37
+ERR_UNNAMED_BUFFER = 36
+ERR_NO_FILENAME    = 37
+ERR_NO_OPEN_SCOPE  = 38
 
-ERR_LABEL_ALREADY_DEFINED = 38
-ERR_TOO_MANY_LABELS       = 39
-ERR_LABEL_NOT_KNOWN_PASS1 = 40
+ERR_LABEL_ALREADY_DEFINED = 39
+ERR_TOO_MANY_LABELS       = 40
+ERR_LABEL_NOT_KNOWN_PASS1 = 41
 
-ERR_INVALID_COMMAND = 41
+ERR_INVALID_COMMAND = 42
 
-ERR_COPY_TOO_BIG = 42
+ERR_COPY_TOO_BIG = 43
 
-ERR_BUFFER_NAME_EXISTS   = 43
-ERR_BUFFER_FULL          = 44
-ERR_BUFFER_MUST_BE_NAMED = 45
+ERR_BUFFER_NAME_EXISTS   = 44
+ERR_BUFFER_FULL          = 45
+ERR_BUFFER_MUST_BE_NAMED = 46
 
 ;******************************************************************************
 ; linker errors
-ERR_TOO_MANY_GLOBAL_REFS = 46
-ERR_TOO_MANY_SEGMENTS    = 47
-ERR_SECTION_TOO_SMALL    = 48
-ERR_NO_SECTIONS          = 49
-ERR_ADDRMODE_MISMATCH    = 50
-ERR_ALREADY_EXPORTED     = 51
+ERR_TOO_MANY_GLOBAL_REFS = 47
+ERR_TOO_MANY_SEGMENTS    = 48
+ERR_SECTION_TOO_SMALL    = 49
+ERR_NO_SECTIONS          = 50
+ERR_ADDRMODE_MISMATCH    = 51
+ERR_ALREADY_EXPORTED     = 52
 
 ;******************************************************************************
 ; general errors
-ERR_OOM                  = 52
+ERR_OOM                  = 53
 
 .import __err_get
 

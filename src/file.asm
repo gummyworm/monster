@@ -437,7 +437,8 @@ __file_load_src:
 	jsr __file_close
 	pla
 	bne @done
-	clc
+	RETURN_OK
+
 @done:	sec
 	rts
 .endproc

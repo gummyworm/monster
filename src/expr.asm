@@ -291,10 +291,10 @@ operands: .res $100
 	bne @const
 
 @sym:	; resolve symbol and push its value/metadata
+	stxy @symbol
 	cmpw #SYM_UNRESOLVED	; check magic "unresolved" value
 	beq @unresolved
 
-	stxy @symbol
 	CALL FINAL_BANK_MAIN, lbl::addr_and_mode
 
 	stxy @val1		; addend
@@ -415,25 +415,6 @@ operands: .res $100
 
 	; get the operands for the binary operation
 	jsr @popval
-	stxy @val1
-	lda @kind
-	sta @kind1
-	lda @segment
-	sta @segment1
-	lda @symbol
-	sta @symbol1
-	lda @symbol+1
-	sta @symbol1+1
-	lda @postproc
-	sta @postproc1
-	cmp #POSTPROC_NONE
-	beq @getval2
-	jsr @handle_postproc
-	bcs @err
-	stxy @val1
-
-@getval2:
-	jsr @popval
 	stxy @val2
 	lda @kind
 	sta @kind2
@@ -446,22 +427,43 @@ operands: .res $100
 	lda @postproc
 	sta @postproc2
 	cmp #POSTPROC_NONE
-	beq @cont_eval
+	beq @getval1
 	jsr @handle_postproc
 	bcs @err
 	stxy @val2
 
+@getval1:
+	jsr @popval
+	stxy @val1
+	lda @kind
+	sta @kind1
+	lda @segment
+	sta @segment1
+	lda @symbol
+	sta @symbol1
+	lda @symbol+1
+	sta @symbol1+1
+	lda @postproc
+	sta @postproc1
+	cmp #POSTPROC_NONE
+	beq @cont_eval
+	jsr @handle_postproc
+	bcc :+
+	; TODO: make error code for this
+
+@err:	rts
+:	stxy @val1
+
 @cont_eval:
 	lda @operator		; restore operator
 	cmp #'+'
-	bne :+
+	bne @chksub
 
-@add:
-	jsr @reduce_operation_addition
-	bcc *+3
-@err:	rts			; return err
+@add:	jsr @reduce_operation_addition
+	bcc :+
+	RETURN_ERR ERR_CANNOT_REDUCE
 
-	lda @val1
+:	lda @val1
 	clc
 	adc @val2
 	tax
@@ -470,28 +472,31 @@ operands: .res $100
 	tay
 	jmp @pushval
 
-:	cmp #'-'
-	bne :+
+@chksub:
+	cmp #'-'
+	bne @chkmul
 
-@sub:
-	jsr @reduce_operation_subtraction
-	bcs @err
+@sub:	jsr @reduce_operation_subtraction
+	bcc :+
+	RETURN_ERR ERR_CANNOT_REDUCE
 
-	lda @val2
+:	lda @val1
 	sec
-	sbc @val1
+	sbc @val2
 	tax
-	lda @val2+1
-	sbc @val1+1
+	lda @val1+1
+	sbc @val2+1
 	tay
 	jmp @pushval
 
-:	cmp #'*'	; MULTIPLY
-	bne :+
+@chkmul:
+	cmp #'*'	; MULTIPLY
+	bne @chkdiv
 	jsr @reduce_operation_other
-	bcs @err
+	bcc :+
+	RETURN_ERR ERR_CANNOT_REDUCE
 
-	; get the product TODO: 32-bit precision expressions?
+:	; get the product TODO: 32-bit precision expressions?
 	ldxy @val1
 	stxy r0
 	ldxy @val2
@@ -500,25 +505,29 @@ operands: .res $100
 	ldxy ra	; get product
 	jmp @pushval
 
-:	cmp #'/'	; DIVIDE
-	bne :+
+@chkdiv:
+	cmp #'/'	; DIVIDE
+	bne @chkand
 	jsr @reduce_operation_other
-	bcs @err
+	bcc :+
+	RETURN_ERR ERR_CANNOT_REDUCE
 
-	ldxy @val1
+:	ldxy @val2
 	stxy r2
-	ldxy @val2
+	ldxy @val1
 	stxy r0
 	jsr m::div16
 	ldxy r0
 	jmp @pushval
 
-:	cmp #'&'	; AND
-	bne :+
+@chkand:
+	cmp #'&'	; AND
+	bne @chkor
 	jsr @reduce_operation_other
-	bcs @err
+	bcc :+
+	RETURN_ERR ERR_CANNOT_REDUCE
 
-	lda @val1
+:	lda @val1
 	and @val2
 	tax
 	lda @val1+1
@@ -526,13 +535,13 @@ operands: .res $100
 	tay
 	jmp @pushval
 
-:	cmp #'.'	; OR
-	bne :+
+@chkor: cmp #'.'	; OR
+	bne @chkeor
 	jsr @reduce_operation_other
-	bcc *+3
-@err2:	rts			; return err
+	bcc :+
+	RETURN_ERR ERR_CANNOT_REDUCE
 
-	lda @val1
+:	lda @val1
 	ora @val2
 	tax
 	lda @val1+1
@@ -540,19 +549,22 @@ operands: .res $100
 	tay
 	jmp @pushval
 
-:	cmp #'^'	; EOR
-	bne :+
+@chkeor:
+	cmp #'^'	; EOR
+	bne @unknownop
 	jsr @reduce_operation_other
-	bcs @err2
+	bcc :+
+	RETURN_ERR ERR_CANNOT_REDUCE
 
-	lda @val1
+:	lda @val1
 	eor @val2
 	tax
 	lda @val1+1
 	eor @val2+1
 	tay
 	jmp @pushval
-:	brk		; TODO: should be impossible
+@unknownop:
+	brk		; TODO: should be impossible
 
 ;--------------------------------------
 @popval:
@@ -1011,7 +1023,7 @@ operands: .res $100
 :
 @mode=*+1
 	lda #$00	; restore mode
-	ldxy @id	; get label
+@ok:	ldxy @id	; get label
 	clc		; ok
 @done:	rts
 .endproc

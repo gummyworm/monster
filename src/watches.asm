@@ -69,6 +69,7 @@ __watches_watches_stophi:    .res MAX_WATCHPOINTS ; end address of watch range
 	lda #$00
 	sta row
 	sta scroll
+	sta __watches_num
 	rts
 .endproc
 

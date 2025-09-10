@@ -13,8 +13,6 @@
 ; the created graphic
 ;*******************************************************************************
 
-.segment "UDGEDIT"
-
 .include "../../cursor.inc"
 .include "../../key.inc"
 .include "../../keycodes.inc"
@@ -471,6 +469,7 @@ linebuffer = $0400
 ; DRAW UDG
 ; Draws the UDG stored in "udg"
 ; If the multicolor flag is set, will be drawn in multicolor else hires
+.export draw_udg
 .proc draw_udg
 @row=r6
 @mask=r7
@@ -578,9 +577,16 @@ linebuffer = $0400
 	and #$fe
 	sta zp::curx
 
-@done:	pushcur
+@done:	lda zp::curx
+	pha
+	lda zp::cury
+	pha
 	jsr draw_udg	; redraw the contents of the UDG
-	popcur
+
+	pla
+	sta zp::cury
+	pla
+	sta zp::curx
 	rts
 .endproc
 

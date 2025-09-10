@@ -136,6 +136,10 @@ err_pc_target_unwritable:
 	; .byte "pc target unwritable",0
 	.byte $80,$db,$a0,$52,$39,$54,$dd,$4e,$bc,$89,$a0,$42,$61,$40
 
+err_cannot_reduce:
+	; .byte "cannot reduce expression", 0
+	.byte $18,$4e,$73,$d4,$dc,$85,$25,$43,$2e,$c5,$c4,$12,$2c,$d3,$4b,$ce,$0
+
 err_too_many_open_files:
 	;.byte "too many open files",0
 	.byte $a3,$cf,$db,$41,$76,$5b,$7c,$5,$76,$c6,$4b,$5,$98,$0
@@ -239,6 +243,7 @@ err_oom:
 	err_file_not_found, \
 	err_unknown_segment, \
 	err_pc_target_unwritable, \
+	err_cannot_reduce, \
 	err_too_many_open_files, \
 	err_logical_file_in_use, \
 	err_drive_did_not_respond, \

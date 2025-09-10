@@ -42,10 +42,12 @@ CUR_ON  = 1
 	unlimit = __cur_unlimit
 .endscope
 
+; NOTE: must be used in same bank as the cur::push routine
 .macro pushcur
 	jsr __cur_push
 .endmacro
 
+; NOTE: must be used in same bank as the cur::pop routine
 .macro popcur
 	jsr __cur_pop
 .endmacro

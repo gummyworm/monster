@@ -30,6 +30,7 @@ virtualpc = $39 	; pointer to address address code will live at during
 			; runtime (.RORG)
 verify = $3b 		; flag for verifying (vs. assembling)
 asmtmp = $3c 		; scratchpad for assembly
+guitmp = $3c
 
 disasm = $40		; base address of disassembly tmp vars
 link   = $40		; base address of linker temp storage

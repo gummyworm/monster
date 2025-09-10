@@ -620,7 +620,10 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	dec step_out_depth
 	bpl @trace		; continue trace until depth is negative
 	clc			; ok
-@done:	jmp irq::on
+@done:	php
+	jsr irq::on
+	plp
+	rts
 .endproc
 
 ;******************************************************************************
@@ -684,7 +687,10 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	beq @trace
 
 @done:  jsr uninstall_breakpoints
-@ret:	jmp irq::on
+@ret:	php
+	jsr irq::on
+	plp
+	rts
 .endproc
 
 ;******************************************************************************
@@ -834,7 +840,10 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	cmp #$20		; did we run a JSR?
 	bne @done		; if not, we're done
 	jsr __debug_step_out	; if we did enter a subroutine, STEP OUT
-@done:	jmp irq::on
+@done:	php
+	jsr irq::on
+	plp
+	rts
 .endproc
 
 ;******************************************************************************
@@ -848,7 +857,10 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	sta $911e
 
 	jsr __debug_step
-	jmp irq::on
+	php
+	jsr irq::on
+	plp
+	rts
 .endproc
 
 ;******************************************************************************

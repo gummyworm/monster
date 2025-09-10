@@ -25,7 +25,7 @@ MAX_WINDOWS = 3
 .BSS
 
 guidata = zp::gui
-guidata_size=$d
+guidata_size=$c
 ; the following is the sequence stored
 maxh    = zp::gui	; max height of the GUI window
 getkey	= zp::gui+1	; pointer to get key handler function
@@ -42,15 +42,18 @@ baserow = zp::gui+$b	; base row for active GUI (set on creation of GUI)
 
 ; the following are not stored in the stack, but just used locally within
 ; a single procedure call
-num    = zp::gui+$c	; number of items (cached read from numptr)
-height = zp::gui+$d
-guitmp = zp::gui+$e
+num    = zp::guitmp
+height = zp::guitmp+1
+guitmp = zp::guitmp+2
+
+type: .byte 0
 
 ;*******************************************************************************
 ; GUISTACK
 ; The guistack holds the gui data for each active window.
 ; Activating a new window will push the current window (if any), and
 ; deactivating the window will pop it back into the active gui data memory.
+.export guistack
 guistack:	.res MAX_WINDOWS*guidata_size
 
 ;*******************************************************************************
@@ -99,10 +102,10 @@ __gui_reenter = __gui_activate
 .proc __gui_listmenu
 @src=r0
 @stack=r2
-@type=r2
 @tmp=r4
 @tmp2=r5
 @dst=r6
+@type=r8
 	pha
 	stxy @src
 
@@ -111,16 +114,17 @@ __gui_reenter = __gui_activate
 	lda (@src),y		; get a "TYPE" byte
 	sta @type
 	ldx stackdepth
-	beq @cont		; if stack is empty, must be a new GUI
+	bne :+
+	jmp @cont		; if stack is empty, must be a new GUI
 
 :	lda @type
 	cmp guistack,y
 	php
 
-	; .Y += guidata_size (move to the next record)
+	; .Y += guidata_size+1 (move to the next record)
 	tya
 	clc
-	adc #guidata_size
+	adc #guidata_size+1
 	tay
 
 	plp
@@ -136,33 +140,31 @@ __gui_reenter = __gui_activate
 
 	; copy the item to activate to guidata in the zeropage
 	; set guisp to point to element above our chosen one
-	pha			; save offset to top of element to move
 	ldx #guidata_size
 :	dey
 	lda guistack,y
-	sta guidata-1,y		; -1 because we don't store TYPE byte
+	sta guidata-1,x		; -1 because we don't store TYPE byte
 	dex
 	bne :-
 
-	; now move everything that was above the item down
-	pla			; restore offset to end of moved element
-	tay
-
 	; tmp = .X = sizeof(guidata)*num_elements_to_move
-	lda @tmp		; restore # of elements to move
-	cmp stackdepth		; is our item already at top of the stack?
-	beq @reactivate_cont	; if so -> continue
+	lda @tmp		; restore number of elements we need to move
+	cmp #$01
+	beq @reactivate_cont	; if none -> continue
 	asl			; *2
 	asl			; *4
 	sta @tmp2
 	asl			; *8
-	adc @tmp2		; *12
-	adc @tmp		; *13
+	adc @tmp2		; *$c
+	adc @tmp		; *$d
 	sta @tmp
+
+	sec
+	sbc #guidata_size+1
 	tax
 
 	; @dst = guisp - (num_elements_to_move*sizeof(guidata))
-	adc guisp
+	lda guisp
 	sec
 	sbc @tmp
 	sta @dst
@@ -170,21 +172,33 @@ __gui_reenter = __gui_activate
 	sbc #$00
 	sta @dst+1
 
-	; @src = @dst + guidata_size
+	; @stack = @dst + guidata_size+1
 	lda @dst
 	clc
-	adc #guidata_size
+	adc #guidata_size+1
 	sta @stack
 	lda @dst+1
 	adc #$00
-	sta @stack
+	sta @stack+1
 
 	; shift all elements above the one we moved down to take its place
+	ldy #$00
 :	lda (@stack),y
 	sta (@dst),y
-	sta guistack-guidata_size,y	; move down
 	iny
 	dex
+	bne :-
+
+	; and now replace the top of the stack with our new data
+	lda @type
+	sta (@dst),y
+	iny
+
+	ldx #$00
+:	lda guidata,x
+	sta (@dst),y
+	inx
+	cpx #guidata_size
 	bne :-
 
 @reactivate_cont:
@@ -198,7 +212,10 @@ __gui_reenter = __gui_activate
 :	clc		; ok
 	sta height
 	pla		; clear stack
-	jmp draw_gui	; continue to redraw
+
+	ldxy guisp
+	stxy @stack
+	bne draw_gui	; continue to redraw
 
 ;--------------------------------------
 ; GUI isn't already in stack, load it as new
@@ -215,31 +232,34 @@ __gui_reenter = __gui_activate
 
 :	inc stackdepth
 
+;--------------------------------------
+; copy the menu definition to the GUI stack
 @copyvars:
 	sta @stack
 	sty @stack+1
 
 	; update GUI stack pointer
 	clc
-	adc #guidata_size
+	adc #guidata_size+1
 	sta guisp
 	bcc :+
 	inc guisp+1
 
-:	; copy existing the GUI data to the GUI stack
-	ldy #guidata_size-1
+:	ldy #baserow-zp::gui+1
 	pla
-	sta (@stack),y	; base row
+	sta (@stack),y		; set base row
+	sta baserow
 
 	; initialize scroll and selection offset to 0
 	dey
 	lda #$00
-	sta (@stack),y	; select
+	sta (@stack),y		; select
 	dey
-	sta (@stack),y	; scroll
+	sta (@stack),y		; scroll
 	dey
 
-	; copy the rest of the config for this GUI from the definition
+@copytostack:
+	; copy the the data for this GUI from its definition
 @l0:	lda (@src),y
 	sta (@stack),y
 	dey
@@ -464,7 +484,7 @@ exit:	rts				; no GUI to draw
 	beq @done		; do nothing if stack is empty
 	lda guisp
 	sec
-	sbc #guidata_size
+	sbc #guidata_size+1
 	sta guisp
 	bcs :+
 	dec guisp+1
@@ -492,15 +512,16 @@ exit:	rts				; no GUI to draw
 	; peek the address of the top element and set @stack to it
 	lda guisp
 	sec
-	sbc #guidata_size
+	sbc #guidata_size+1
 	sta @stack
 	lda guisp+1
 	sbc #$00
 	sta @stack+1
+	incw @stack
 
 	; copy the data from the GUI stack to the zeropage area
-	ldy #guidata_size-1
-@l0:	lda guidata-1,y		; -1 because we don't store 1st byte (TYPE)
+	ldy #guidata_size
+@l0:	lda guidata,y		; -1 because we don't store 1st byte (TYPE)
 	sta (@stack),y
 	dey
 	bne @l0
@@ -520,17 +541,16 @@ exit:	rts				; no GUI to draw
 	; peek the address of the top element and set @stack to it
 	lda guisp
 	sec
-	sbc #guidata_size
+	sbc #guidata_size+1
 	sta @stack
 	lda guisp+1
 	sbc #$00
 	sta @stack+1
 
 	; copy the data from the GUI stack to the zeropage area
-	ldy #guidata_size-1
+	ldy #guidata_size
 @l0:	lda (@stack),y
 	sta guidata-1,y	; -1 because we don't store 1st byte (TYPE)
-
 	dey
 	bne @l0
 
