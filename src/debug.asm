@@ -1313,7 +1313,7 @@ __debug_remove_breakpoint:
 	jsr cur::off
 	pla
 
-	cmp #K_LEFT
+	jsr key::isleft
 	beq @back
 	cmp #K_DEL
 	bne @ret
@@ -1336,7 +1336,7 @@ __debug_remove_breakpoint:
 	beq @updatevals
 @quit:	cmp #K_QUIT
 	beq @exit
-@right:	cmp #K_RIGHT
+@right:	jsr key::isright
 	beq @fwd
 
 @hex:	jsr key::ishex
