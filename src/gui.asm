@@ -27,7 +27,7 @@ MAX_WINDOWS = 3
 guidata = zp::gui
 guidata_size=$d
 ; the following is the sequence stored
-height	= zp::gui	; height of the GUI window
+maxh    = zp::gui	; max height of the GUI window
 getkey	= zp::gui+1	; pointer to get key handler function
 getdata = zp::gui+3	; pointer to get data handler function
 numptr  = zp::gui+5	; pointer to the number of items in the GUI
@@ -43,7 +43,8 @@ baserow = zp::gui+$b	; base row for active GUI (set on creation of GUI)
 ; the following are not stored in the stack, but just used locally within
 ; a single procedure call
 num    = zp::gui+$c	; number of items (cached read from numptr)
-guitmp = zp::gui+$d
+height = zp::gui+$d
+guitmp = zp::gui+$e
 
 ;*******************************************************************************
 ; GUISTACK
@@ -55,7 +56,6 @@ guistack:	.res MAX_WINDOWS*guidata_size
 ;*******************************************************************************
 .DATA
 guisp:		.word guistack	; pointer to end of all GUIs
-usersp:		.word guistack	; pointer to GUI that is active
 stackdepth:	.byte 0
 
 ;*******************************************************************************
@@ -65,12 +65,7 @@ stackdepth:	.byte 0
 ; REENTER
 ; Activates the most recently created GUI without reinitializing it.
 .export __gui_reenter
-.proc __gui_reenter
-	lda baserow		; get current baserow
-	ldx height		; and height
-	ldy num			; and # of elements
-	jmp __gui_activate	; and activate GUI
-.endproc
+__gui_reenter = __gui_activate
 
 ;*******************************************************************************
 ; LIST_MENU
@@ -104,32 +99,38 @@ stackdepth:	.byte 0
 .proc __gui_listmenu
 @src=r0
 @stack=r2
-@type=r4
+@type=r2
 @tmp=r4
 @tmp2=r5
+@dst=r6
 	pha
 	stxy @src
 
 	; search the GUI stack to see if this editor is open already
 	ldy #$00
-	lda (@src),y
+	lda (@src),y		; get a "TYPE" byte
 	sta @type
 	ldx stackdepth
-	beq @cont
+	beq @cont		; if stack is empty, must be a new GUI
 
 :	lda @type
 	cmp guistack,y
 	php
+
+	; .Y += guidata_size (move to the next record)
 	tya
 	clc
 	adc #guidata_size
 	tay
+
 	plp
 	beq @already_active
 	dex
 	bne :-
 	beq @cont		; not found
 
+;--------------------------------------
+; GUI is already in stack, reload it
 @already_active:
 	stx @tmp
 
@@ -139,7 +140,7 @@ stackdepth:	.byte 0
 	ldx #guidata_size
 :	dey
 	lda guistack,y
-	sta guidata,y
+	sta guidata-1,y		; -1 because we don't store TYPE byte
 	dex
 	bne :-
 
@@ -147,24 +148,60 @@ stackdepth:	.byte 0
 	pla			; restore offset to end of moved element
 	tay
 
-	; sizeof(guidata)*(# of elements to move)
+	; tmp = .X = sizeof(guidata)*num_elements_to_move
 	lda @tmp		; restore # of elements to move
+	cmp stackdepth		; is our item already at top of the stack?
+	beq @reactivate_cont	; if so -> continue
 	asl			; *2
 	asl			; *4
 	sta @tmp2
 	asl			; *8
 	adc @tmp2		; *12
 	adc @tmp		; *13
+	sta @tmp
 	tax
 
+	; @dst = guisp - (num_elements_to_move*sizeof(guidata))
+	adc guisp
+	sec
+	sbc @tmp
+	sta @dst
+	lda guisp+1
+	sbc #$00
+	sta @dst+1
+
+	; @src = @dst + guidata_size
+	lda @dst
+	clc
+	adc #guidata_size
+	sta @stack
+	lda @dst+1
+	adc #$00
+	sta @stack
+
 	; shift all elements above the one we moved down to take its place
-:	lda guistack,y
-	sta guistack-guidata,y	; move down
+:	lda (@stack),y
+	sta (@dst),y
+	sta guistack-guidata_size,y	; move down
 	iny
 	dex
 	bne :-
-	beq draw_gui
 
+@reactivate_cont:
+	ldy #$00
+	lda (numptr),y
+	sta num
+
+	cmp maxh
+	bcc :+		; if # of items is > max height, use full height
+	lda maxh	; else, only resize to the size needed to fit all items
+:	clc		; ok
+	sta height
+	pla		; clear stack
+	jmp draw_gui	; continue to redraw
+
+;--------------------------------------
+; GUI isn't already in stack, load it as new
 @cont:	lda guisp
 	ldy guisp+1
 	ldx stackdepth
@@ -242,7 +279,7 @@ stackdepth:	.byte 0
 
 	; highlight the current line
 	lda num
-	beq :+
+	beq @getkey
 	lda baserow
 	sec
 	sbc select
@@ -250,7 +287,8 @@ stackdepth:	.byte 0
 	lda #GUI_SELECT_COLOR
 	jsr draw::hline
 
-:	jsr key::waitch
+@getkey:
+	jsr key::waitch
 	pha		; save the key
 
 	; unhighlight the current line in case we move lines
@@ -267,7 +305,7 @@ stackdepth:	.byte 0
 	bne @chkup
 
 @quit:	; TODO: copy current state back to (guisp)
-	rts
+	jmp savevars
 
 @chkup:	jsr key::isup
 	bne @chkdown
@@ -310,10 +348,11 @@ stackdepth:	.byte 0
 	bpl @loop		; redraw the scrolled display
 
 ;--------------------------------------
-@getch:
-	jsr @keycallback
+@getch: jsr @keycallback
 	bcs @quit
-	bcc __gui_activate
+	jsr savevars
+	jsr __gui_refresh
+	jmp draw_gui
 
 ;--------------------------------------
 @keycallback:
@@ -446,6 +485,29 @@ exit:	rts				; no GUI to draw
 .endproc
 
 ;*******************************************************************************
+; SAVEVARS
+; Saves the state for the active GUI vars (guidata) to the top of the GUI stack
+.proc savevars
+@stack=r0
+	; peek the address of the top element and set @stack to it
+	lda guisp
+	sec
+	sbc #guidata_size
+	sta @stack
+	lda guisp+1
+	sbc #$00
+	sta @stack+1
+
+	; copy the data from the GUI stack to the zeropage area
+	ldy #guidata_size-1
+@l0:	lda guidata-1,y		; -1 because we don't store 1st byte (TYPE)
+	sta (@stack),y
+	dey
+	bne @l0
+	rts
+.endproc
+
+;*******************************************************************************
 ; COPYVARS
 ; Copies the GUI state to the zeropage
 ; OUT:
@@ -467,7 +529,8 @@ exit:	rts				; no GUI to draw
 	; copy the data from the GUI stack to the zeropage area
 	ldy #guidata_size-1
 @l0:	lda (@stack),y
-	sta guidata-1,y
+	sta guidata-1,y	; -1 because we don't store 1st byte (TYPE)
+
 	dey
 	bne @l0
 
@@ -475,9 +538,10 @@ exit:	rts				; no GUI to draw
 	lda (numptr),y
 	sta num
 
-	cmp height
-	bcs @done	; if # of items is > max height, use full height
-	sta height	; else, only resize to the size needed to fit all items
-	clc		; ok
+	cmp maxh
+	bcc :+		; if # of items is > max height, use full height
+	lda maxh	; else, only resize to the size needed to fit all items
+:	clc		; ok
+	sta height
 @done:	rts
 .endproc

@@ -115,6 +115,7 @@ highlight_status:	.byte 0		; if !0 highlight is active
 
 ; the status row is where the text status is displayed.
 ; It is also where the program accepts commands (see get_command)
+.export status_row
 status_row: .byte 0
 
 autoindent: .byte 0		; auto-indent enable flag (0=don't auto-indent)
@@ -2495,6 +2496,7 @@ __edit_refresh:
 	sta height
 	beq @done	; same size
 	bcs @bigger	; new size is bigger, redraw screen
+
 @smaller:
 @l0:	lda zp::cury
 	cmp height
@@ -3583,7 +3585,8 @@ goto_buffer:
 	jsr text::rendered_line_len
 	ldy #$00
 	lda zp::cury
-	jmp scr::rvsline_part
+	jsr scr::rvsline_part
+	RETURN_OK
 
 @movex: lda zp::curx
 	cmp @xend
@@ -4025,6 +4028,7 @@ goto_buffer:
 	cmp #MODE_VISUAL_LINE
 	bne @movex
 	jsr rvs_current_line
+	RETURN_OK
 
 @movex:	lda zp::curx
 	cmp @xend

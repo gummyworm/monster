@@ -501,7 +501,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	sta zp::jmpvec+1
 
 	jsr zp::jmpaddr		; call the command
-	jsr irq::on		; re-enable IRQ if it was disabled
 	jmp @enter_iface
 
 @loopdone:
@@ -621,7 +620,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	dec step_out_depth
 	bpl @trace		; continue trace until depth is negative
 	clc			; ok
-@done:	rts
+@done:	jmp irq::on
 .endproc
 
 ;******************************************************************************
@@ -685,7 +684,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	beq @trace
 
 @done:  jsr uninstall_breakpoints
-@ret:	rts
+@ret:	jmp irq::on
 .endproc
 
 ;******************************************************************************
@@ -757,6 +756,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 	lda #AUX_GUI
 	sta aux_mode
+
 	jsr brkpt::edit
 	popcur
 	rts
@@ -834,7 +834,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	cmp #$20		; did we run a JSR?
 	bne @done		; if not, we're done
 	jsr __debug_step_out	; if we did enter a subroutine, STEP OUT
-@done:	rts
+@done:	jmp irq::on
 .endproc
 
 ;******************************************************************************
@@ -847,7 +847,8 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	lda #$7f
 	sta $911e
 
-	; fall through to dbg::step
+	jsr __debug_step
+	jmp irq::on
 .endproc
 
 ;******************************************************************************
