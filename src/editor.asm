@@ -1757,6 +1757,7 @@ main:	jsr key::getch
 	; for full rows ($0d terminated), just get a line and draw it
 @l1:	ldxy #mem::linebuffer
 	jsr buff::getline
+	bcs @lastline
 	sty @linelen
 	php
 	pha			; save last char read
@@ -3712,7 +3713,12 @@ goto_buffer:
 .proc ccleft
 @tabcnt=r4
 @deselect=r5
-	lda mode
+	lda zp::curx
+	bne :+
+	sec
+	rts
+
+:	lda mode
 	cmp #MODE_VISUAL_LINE
 	bne @move		; do nothing on LEFT if in VISUAL_LINE mode
 @nomove:
