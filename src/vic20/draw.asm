@@ -113,27 +113,30 @@
 ;  - .A: the amount to scroll
 .export __draw_scrollcolorsd
 .proc __draw_scrollcolorsd
-@n=r0
-@last=r1
-@start=r2
+@last=r0
+@start=r1
 	stx @start
 	sty @last
-	sta @n
 
-	; get start row + scroll amount
-	tya
-	sec
-	sbc @n
-	tax
-@l0:	lda mem::rowcolors,x	; start+.X
-	sta mem::rowcolors,y	; start+.A+.X
+	clc
+	adc @last
+	tay
+
+	ldx @last
+@l0:	cpy @last		; is the target in the scroll range?
+	bcs :+			; if not, skip it
+
+	lda mem::rowcolors,x	; last_row
+	sta mem::rowcolors,y	; (last_row + amount)
+
+:	; reset the line we just scrolled
+	lda #DEFAULT_900F
+	sta mem::rowcolors,x
+
 	dey
 	dex
-	bmi :+
 	cpx @start
-	bcs @l0
-:	lda #DEFAULT_900F
-	sta mem::rowcolors	; clear top row
+	bne @l0
 	rts
 .endproc
 

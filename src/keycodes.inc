@@ -22,15 +22,16 @@ K_QUIT      = $03	; STOP
 K_DEL       = $14	; DELETE
 
 ; EDITOR KEYS
-K_DEBUG          = $85	; F1
-K_GO_BASIC	 = $89	; F2
-K_SET_BREAKPOINT = $bf	; C= + B
-K_ASM            = $86	; F3
-K_ASM_DEBUG      = $8a  ; F4 (shift + F3)
-K_ASM_FILE       = $b0	; C= + a
-K_LINK           = $88	; F7
+K_GO_BASIC       = $85	; F1
+;                = $89	; F2
+K_ASM_DEBUG      = $86	; F3
+K_ASM            = $8a  ; F4 (shift + F3)
 K_SHOW_BUFFERS   = $87	; F5
 K_SHOW_PROJECT	 = $8b	; F6
+K_LINK           = $88	; F7
+
+K_SET_BREAKPOINT = $bf	; C= + B
+K_ASM_FILE       = $b0	; C= + a
 K_MONITOR        = $a7	; C= + m
 K_REFRESH        = $bc  ; C= + c
 K_RENAME         = $b2  ; C= + r

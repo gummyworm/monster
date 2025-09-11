@@ -1,4 +1,3 @@
-.import __str_assemble_prompt
 .import __str_assembling
 .import __str_breakpoints_title
 .import __str_breakpoints_line
@@ -47,7 +46,6 @@
 .import __str_vital_addr_clobber_detected
 
 .scope strings
-	assemble_prompt         = __str_assemble_prompt
 	assembling              = __str_assembling
 	buffers                 = __str_buffers
 	breakpoints_title       = __str_breakpoints_title

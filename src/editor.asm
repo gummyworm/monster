@@ -295,8 +295,6 @@ main:	jsr key::getch
 :	jsr src::anydirty
 	beq :+			; if no dirty buffers, continue
 	jsr prompt_saveall	; ask user if they want to save buffers
-	jsr prompt_assemble	; prompt to re-assemble
-	bcs @ret		; if reassembly failed, exit
 
 :	jsr enter_command
 	inc debugging
@@ -662,27 +660,6 @@ main:	jsr key::getch
 	cmp #$6e		; 'n'?
 	bne @getch
 @done:	RETURN_OK
-.endproc
-
-;*******************************************************************************
-; PROMPT ASSEMBLE
-; Asks the user if they would like to reassemble their program and does so
-; if they confirm
-; OUT:
-;   - .C: set on error
-.proc prompt_assemble
-	; ask the user if they want to save any modified buffers
-	ldxy #strings::assemble_prompt
-	lda #STATUS_ROW
-	jsr text::print
-
-@getch:	jsr key::waitch
-	cmp #$79		; 'y'?
-	beq :+			; reassemble (in command_asmdbg)
-	cmp #$6e		; 'n'?
-	bne @getch
-	clc
-@done:	rts
 .endproc
 
 ;*******************************************************************************

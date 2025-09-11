@@ -118,9 +118,6 @@ __str_vital_addr_clobber_detected: .byte "vital address clobber detected",0
 .export __str_saveall
 __str_saveall: .byte "save all buffers? ", yes_no, 0
 
-.export __str_assemble_prompt
-__str_assemble_prompt: .byte "program out of date, reassemble? ", yes_no, 0
-
 .export __str_tracing
 __str_tracing: .byte "tracing...",0
 
