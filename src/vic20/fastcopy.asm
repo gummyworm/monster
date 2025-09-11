@@ -396,6 +396,8 @@ copytabhi: .hibytes copytab
 	sta @addr+1		; start from $1000
 	lda #>prog1000
 	sta @addr2+1
+
+	ldx #$00
 :
 @addr=*+1
 	lda $1000,x
