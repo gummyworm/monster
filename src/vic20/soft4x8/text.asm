@@ -421,7 +421,6 @@ charaddrhi: .res num_chars
 @rows=zp::text+1
 @src=zp::text+2
 @dst=zp::text+4
-@cnt=zp::text+6
 @offset=r0
 	sta @rowstart
 	sty @offset
@@ -435,11 +434,12 @@ charaddrhi: .res num_chars
 	sec
 	sbc @rowstart
 	sbc @offset
+	beq @done	; if all rows are off screen, no scroll
+	bmi @done
 	asl
 	asl
 	asl
 	sta @rows
-	beq @done	; if all rows are off screen, no scroll
 	dec @rows	; -1 because we will do the last row separately
 
 	; get pixel offset (char_offset * 8)
@@ -464,8 +464,6 @@ charaddrhi: .res num_chars
 	sta @src+1
 	sta @dst+1
 
-	lda #20
-	sta @cnt
 @l0:	ldy @rows
 @l1:	lda (@src),y
 	sta (@dst),y
