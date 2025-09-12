@@ -123,6 +123,8 @@
 	tay
 
 	ldx @last
+	cpx @start
+	beq @done		; nothing to scroll
 @l0:	cpy @last		; is the target in the scroll range?
 	beq :+
 	bcs :++			; if not, skip it
@@ -138,7 +140,7 @@
 	dex
 	cpx @start
 	bne @l0
-	rts
+@done:	rts
 .endproc
 
 ;******************************************************************************
