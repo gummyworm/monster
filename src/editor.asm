@@ -2318,7 +2318,7 @@ main:	jsr key::getch
 	.byte K_UP		; up arrow
 	.byte K_DOWN		; down
 	.byte K_HOME		; HOME
-	.byte K_ASM 		; assemble
+	;.byte K_ASM 		; assemble
 	.byte K_ASM_DEBUG	; debug
 	.byte K_SHOW_BUFFERS	; show buffers
 	.byte K_SHOW_PROJECT	; show project
@@ -2347,7 +2347,8 @@ main:	jsr key::getch
 @num_special_keys=*-@specialkeys
 .linecont +
 .define specialvecs ccleft, ccright, ccup, ccdown, \
-	home, command_asm, command_asmdbg, show_buffers, show_proj, refresh, \
+	home, \
+	command_asmdbg, show_buffers, show_proj, refresh, \
 	symview::enter, command_link, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\

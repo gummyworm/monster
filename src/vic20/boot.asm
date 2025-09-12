@@ -255,20 +255,6 @@ START:
 .endif	; CART
 
 ;*******************************************************************************
-; BOOT IRQ
-.export boot_irq
-.proc boot_irq
-	dec $9001
-@smc=*+1
-	lda #$00
-	eor #$01
-	sta @smc
-	beq :+
-	dec $9001
-:	jmp $eb15
-.endproc
-
-;*******************************************************************************
 ; LOWINIT
 ; Code that is sensitive to initialization order
 ; This code loads the app and sets up various banked code.
@@ -345,8 +331,7 @@ START:
 .endif
 	stx $9000		; horizontal centering
 
-	; start with the logo offscreen (at the bottom)
-	lda #$85
+	lda #$30
 	sta $9001
 
 	; draw the boot screen
@@ -377,10 +362,7 @@ START:
 	sei
 	jsr $fd52
 	ldxy #$eb15
-
-	ldxy #boot_irq
 	stxy $0314
-	cli
 
 ;--------------------------------------
 ; zero the BSS segment

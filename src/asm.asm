@@ -775,6 +775,10 @@ __asm_tokenize_pass1 = __asm_tokenize
 	stxy operand	; save the operand to store later
 	sta operandsz	; save size of the operand
 
+	; in pass 1, force immediate label evaluations to 1 byte
+	lda zp::pass
+	cmp #$02
+	beq @cont
 	lda immediate
 	beq @cont
 	lda #$01

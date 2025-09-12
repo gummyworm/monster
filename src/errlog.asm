@@ -114,6 +114,7 @@ numerrs: .byte 0
 
 	lda errfileids,x
 	jsr dbg::loadfile	; load the file containing the error
+	bcs :+			; if failed to load file -> continue
 
 	pla			; restore index
 	tax
@@ -125,7 +126,7 @@ numerrs: .byte 0
 	beq @ret
 	jsr edit::gotoline	; go to the line # corresponding to the error
 	sec			; flag to exit menu
-	rts
+:	rts
 .endproc
 
 ;******************************************************************************

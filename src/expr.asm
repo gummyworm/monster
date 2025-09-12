@@ -836,7 +836,7 @@ operands: .res $100
 
 @getoperand:
 	jsr get_operand		; have we found a valid operand?
-	bcs @err		; no
+	bcs @ret		; no
 
 @operand:
 	jsr @appendval
@@ -867,7 +867,7 @@ operands: .res $100
 @unexpected_value:
 	lda #ERR_UNEXPECTED_CHAR	; unexpected operands still on stack
 	;sec
-	rts
+@ret:	rts
 
 ;------------------
 ; isterminator returns .Z set if the character in .A is
@@ -1110,6 +1110,7 @@ operands: .res $100
 	RETURN_OK
 
 :	jsr get_val		; is this a value?
+	bcs @ret
 	lda #TOK_VALUE
 @ret:	rts
 
@@ -1187,8 +1188,7 @@ operands: .res $100
 	sta zp::line
 	bcc :+
 	inc zp::line+1
-:	stx @val
-	sty @val+1
+:	stxy @val
 	jmp @success
 
 ;------------------

@@ -192,14 +192,18 @@
 	lda @val+1
 	adc @tmp+1
 	sta @val+1
-	bcs @err	; oversized value
-	dey
+	bcc :+
+	lda #ERR_OVERSIZED_OPERAND
+	;sec
+	rts
+:	dey
 	bpl @l0
 
 	ldx @val
 	ldy @val+1
 	lda @offset
 	RETURN_OK
+
 @unexpectedchar:
 	lda #ERR_UNEXPECTED_CHAR
 	sec
