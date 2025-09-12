@@ -18,6 +18,7 @@ SAVESTACK_DEPTH = 4
 .export __buff_push
 .export __buff_pop
 .export __buff_len
+.export __buff_reverse
 
 ;*******************************************************************************
 ; VARS
@@ -55,11 +56,12 @@ LINES_COPIED
 PUSH
 POP
 LEN
+REVERSE
 .endenum
 
 .RODATA
-.define buff_procs putch, getch, getline, clear, lastline, lines_copied, push, \
-	pop, len
+.define buff_procs putch, getch, getline, clear, lastline, lines_copied, push,\
+	pop, len, reverse
 buff_procs_lo: .lobytes buff_procs
 buff_procs_hi: .hibytes buff_procs
 
@@ -75,6 +77,7 @@ __buff_lines_copied: COPYBUFFJUMP buff_proc_ids::LINES_COPIED
 __buff_push:         COPYBUFFJUMP buff_proc_ids::PUSH
 __buff_pop:          COPYBUFFJUMP buff_proc_ids::POP
 __buff_len:          COPYBUFFJUMP buff_proc_ids::LEN
+__buff_reverse:      COPYBUFFJUMP buff_proc_ids::REVERSE
 
 ;*******************************************************************************
 ; Entrypoint for copy buffer routines
@@ -317,4 +320,34 @@ copybuff:
 	ldxy buffptr
 	sub16 #copybuff
 	rts
+.endproc
+
+;*******************************************************************************
+; REVERSE
+; Reverses the contents of the copy buffer
+.proc reverse
+@left=r0
+@right=r2
+	ldxy buffptr
+	stxy @right
+	decw @right
+	ldxy #copybuff
+	stxy @left
+	cmpw @right
+	bcs @done
+
+@l0:	ldy #$00
+	lda (@left),y
+	tax
+	lda (@right),y
+	sta (@left),y
+	txa
+	sta (@right),y
+	incw @left
+	decw @right
+	ldxy @left
+	cmpw @right
+	bcc @l0
+
+@done:	rts
 .endproc

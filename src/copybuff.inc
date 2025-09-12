@@ -8,6 +8,7 @@
 .import __buff_getline
 .import __buff_pop
 .import __buff_push
+.import __buff_reverse
 
 .scope buff
 	clear            = __buff_clear
@@ -20,4 +21,5 @@
 	pop              = __buff_pop
 	push             = __buff_push
 	len              = __buff_len
+	reverse          = __buff_reverse
 .endscope

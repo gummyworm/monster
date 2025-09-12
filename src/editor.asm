@@ -1312,6 +1312,7 @@ main:	jsr key::getch
 	jsr is_visual
 	bne @cont
 
+;--------------------------------------
 ; VISUAL mode; delete the selection
 @delvis:
 @start=zp::editortmp+1	; set by yank
@@ -1319,10 +1320,11 @@ main:	jsr key::getch
 	jsr yank			; yank the selection
 	bcs @notfound			; quit if error occurred or no selection
 
+	jsr ccright
 	jsr buff::len
 	stxy @cnt
 @delsel:
-	jsr src::delete
+	jsr backspace
 	dec @cnt
 	lda @cnt
 	cmp #$ff
@@ -1332,7 +1334,9 @@ main:	jsr key::getch
 	bne @delsel
 	jmp refresh		; done, refresh to clear deleted text
 
-@cont:	jsr key::waitch		; get a key to decide what to delete
+;--------------------------------------
+; get a key to decide what to delete
+@cont:	jsr key::waitch
 	ldx #@numcmds-1
 :	cmp @subcmds,x
 	beq @found
@@ -1466,7 +1470,8 @@ main:	jsr key::getch
 	bcs :+			; if at end of buffer, we're done
 	cmp #$0d
 	bne @l0
-:	jmp redraw_to_end_of_line
+:	jsr buff::reverse
+	jmp redraw_to_end_of_line
 .endproc
 
 ;*******************************************************************************
@@ -1495,7 +1500,8 @@ main:	jsr key::getch
 	bcs @l0			; if alphanum, continue
 :	bcc @l0
 
-@done:  jmp redraw_to_end_of_line
+@done:  jsr buff::reverse
+	jmp redraw_to_end_of_line
 .endproc
 
 ;******************************************************************************
@@ -1792,7 +1798,10 @@ main:	jsr key::getch
 
 @done:	; restore the buffer pointer
 	jsr buff::pop
-	jmp enter_command
+	lda #MODE_COMMAND
+	sta mode
+	rts
+	;jmp enter_command
 .endproc
 
 ;******************************************************************************
@@ -1844,6 +1853,7 @@ main:	jsr key::getch
 ; YANK
 ; In SELECT mode, copies the selected text to the copy buffer. If not in SELECT
 ; mode, does nothing
+; Leaves the source cursor at the beginning of the selection
 ; OUT:
 ;  - .C:		set if selection was not able to be yanked
 ;  - zp::editortmp+1:	address of the beginning of the selection
@@ -1868,15 +1878,18 @@ main:	jsr key::getch
 	; go to the end of the line and copy everything to the start of it
 	jsr src::lineend
 
+;--------------------------------------
+; yy (yank line)
 @yankline:
 	jsr src::left
 	bcs @yydone
 	jsr buff::putch
 	bcc @yankline
 @yydone:
-	jsr src::popgoto
+	jsr src::popgoto	; restore source pos from VISUAL
 	RETURN_OK
 
+;--------------------------------------
 ; visual mode, copy the selected text
 @yank_selection:
 	; get the bounds of the text we're copying and move the source cursor
@@ -3674,9 +3687,6 @@ goto_buffer:
 @tmp=r0
 	jsr src::before_newl
 	beq @nodel
-	pha
-	jsr buff::clear		; clear the copy buffer
-	pla
 @del:	jsr buff::putch
 	jmp src::delete
 @nodel:	sec
