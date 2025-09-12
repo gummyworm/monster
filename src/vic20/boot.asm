@@ -598,8 +598,6 @@ num_relocs=(*-relocs)/7
 .endif
 
 	; init some BASIC variables that are used (keyboard ptrs/delay)
-	lda #$00
-	sta $0291	; clear shift mode switch
 	lda #<$ebdc	; get keyboard decode logic pointer low byte
 	sta $028f	; set keyboard decode logic pointer low byte
 	lda #>$ebdc	; get keyboard decode logic pointer high byte
