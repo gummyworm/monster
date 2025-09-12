@@ -124,9 +124,10 @@
 
 	ldx @last
 @l0:	cpy @last		; is the target in the scroll range?
-	bcs :+			; if not, skip it
+	beq :+
+	bcs :++			; if not, skip it
 
-	lda mem::rowcolors,x	; last_row
+:	lda mem::rowcolors,x	; last_row
 	sta mem::rowcolors,y	; (last_row + amount)
 
 :	; reset the line we just scrolled

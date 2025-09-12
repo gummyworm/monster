@@ -1256,6 +1256,7 @@ __debug_remove_breakpoint:
 	ldx __debug_numbreakpoints
 	beq @done
 	dex
+
 @l0:	lda @fileid
 	cmp __debug_breakpoint_fileids,x
 	bne @next

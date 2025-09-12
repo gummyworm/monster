@@ -3290,7 +3290,7 @@ goto_buffer:
 
 @indentdone:
 	lda zp::cury
-	jmp text::drawline
+	jmp print_line
 .endproc
 
 ;******************************************************************************
