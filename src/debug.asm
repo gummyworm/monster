@@ -88,7 +88,7 @@ DEBUG_IFACE_TEXT = 1	; text interface (returns to TUI)
 ; When using the "GO" command, you may use the entire stack
 ; TODO: calculate the maximum value for this
 .exportzp PROGRAM_STACK_START
-PROGRAM_STACK_START = $e0
+PROGRAM_STACK_START = $d8
 
 ; Stop tracing state/NMI
 ; This NMI is installed programatically and catches the RESTORE key as a
