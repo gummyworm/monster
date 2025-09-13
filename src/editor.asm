@@ -628,7 +628,7 @@ main:	jsr key::getch
 	jsr text::print
 
 	ldx #STATUS_ROW
-	lda #ASM_SUCCESS_COLOR
+	lda #COLOR_SUCCESS
 	jsr draw::hline
 	jsr key::waitch		; wait for key
 	ldx #STATUS_ROW
@@ -2490,14 +2490,14 @@ __edit_refresh:
 	cpx height
 	inx
 	bcs @done
-	lda prefs::normal_color
-	sta mem::rowcolors,x	; clear the color for this row
 	stx zp::cury
-	txa
+	lda #COLOR_NORMAL
+	jsr draw::hline
+	lda zp::cury
 	jsr scr::clrline		; clear the bitmap data for this row
 	jmp @clr
 
-@done:	lda #DEFAULT_RVS
+@done:	lda #COLOR_RVS
 	ldx #STATUS_ROW
 	jsr draw::hline		; re-init status row's color
 
@@ -2576,7 +2576,7 @@ __edit_set_breakpoint:
 
 @remove:
 	jsr dbg::removebreakpointbyid
-	lda prefs::normal_color
+	lda #COLOR_NORMAL
 	bne @done
 
 @set:	jsr __edit_current_file	; get the debug file ID and line #
@@ -2600,7 +2600,7 @@ __edit_set_breakpoint:
 	pla
 	jsr dbg::brksetaddr
 
-@on:	lda #BREAKPOINT_ON_COLOR
+@on:	lda #COLOR_BRKON
 @done:	ldx zp::cury
 	jsr draw::hline
 	jmp gui::refresh
@@ -3426,8 +3426,9 @@ goto_buffer:
 
 	; and clear the color of the newly opened line
 	ldx zp::cury
-	lda prefs::normal_color
-	sta mem::rowcolors,x
+	lda #COLOR_NORMAL
+	jmp *
+	jsr draw::hline
 
 @setcur:
 	jsr src::get
@@ -4335,11 +4336,11 @@ goto_buffer:
 
 	and #BREAKPOINT_ENABLED
 	bne :+
-	ldy #BREAKPOINT_OFF_COLOR
+	ldy #COLOR_BRKOFF
 	skw
-:	ldy #BREAKPOINT_ON_COLOR
+:	ldy #COLOR_BRKON
 	skw
-@nobrk: ldy prefs::normal_color
+@nobrk: ldy #COLOR_NORMAL
 	pla
 	pha
 	tax

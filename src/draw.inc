@@ -6,6 +6,15 @@
 .import __draw_scrollcolorsd
 .import __draw_coloroff
 .import __draw_scrollcolorsd1
+.import __draw_refresh_colors
+
+COLOR_TEXT    = 0
+COLOR_NORMAL  = 1
+COLOR_RVS     = 2
+COLOR_BRKON   = 3
+COLOR_BRKOFF  = 4
+COLOR_SUCCESS = 5
+COLOR_SELECT  = 6
 
 .scope draw
 	hline          = __draw_hline
@@ -16,4 +25,5 @@
 	scrollcolorsd  = __draw_scrollcolorsd
 	scrollcolorsd1 = __draw_scrollcolorsd1
 	coloroff       = __draw_coloroff
+	refresh_colors = __draw_refresh_colors
 .endscope

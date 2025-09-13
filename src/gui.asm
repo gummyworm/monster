@@ -17,6 +17,7 @@
 .include "strings.inc"
 .include "text.inc"
 .include "zeropage.inc"
+.include "vic20/prefs.inc"
 
 ;*******************************************************************************
 MAX_WINDOWS = 3
@@ -430,8 +431,8 @@ exit:	rts				; no GUI to draw
 	; draw the title
 	ldxy title
 	jsr text::print
-	ldx @rowstop
 
+	ldx @rowstop
 	jsr draw::hiline
 
 	inc @rowstop
@@ -470,7 +471,7 @@ exit:	rts				; no GUI to draw
 	sec
 	sbc select
 	tax
-	lda #GUI_SELECT_COLOR
+	lda prefs::select_color
 	jmp draw::hline
 .endproc
 

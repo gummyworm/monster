@@ -36,6 +36,9 @@ __mem_coloron: .byte 0
 .export __mem_rowcolors
 __mem_rowcolors: .res 24
 
+.export __mem_rowcolors_idx
+__mem_rowcolors_idx: .res 24
+
 .export __mem_rowcolors_save
 __mem_rowcolors_save: .res 24
 

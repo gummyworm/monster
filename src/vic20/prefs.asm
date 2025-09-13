@@ -1,33 +1,48 @@
+.include "../draw.inc"
 .include "settings.inc"
 .include "../screen.inc"
 .include "../irq.inc"
+.include "../macros.inc"
 .include "../memory.inc"
 
-NUM_PALETTES = 2
 SCREEN_ROWS = 24
 
 .export __prefs_reverse_color
 .export __prefs_text_color
 .export __prefs_normal_color
-
+.export __prefs_brkon_color
+.export __prefs_brkoff_color
+.export __prefs_success_color
+.export __prefs_select_col
 
 .DATA
-__prefs_reverse_color: .byte DEFAULT_RVS
+.export __prefs_palette
+
+__prefs_palette:
+palette:
 __prefs_text_color:    .byte TEXT_COLOR
 __prefs_normal_color:  .byte DEFAULT_900F
-
+__prefs_reverse_color: .byte DEFAULT_RVS
+__prefs_brkon_color:   .byte BREAKPOINT_ON_COLOR
+__prefs_brkoff_color:  .byte BREAKPOINT_OFF_COLOR
+__prefs_success_color: .byte ASM_SUCCESS_COLOR
+__prefs_select_col:    .byte GUI_SELECT_COLOR
 
 pal_num: .byte 0
-
-prev_reverse_color: .byte DEFAULT_RVS
-prev_normal_color:  .byte DEFAULT_900F
 
 .RODATA
 palettes:
 ; default, white-on-black
-text_colors:    .byte DEFAULT_RVS,  $01
-normal_colors:  .byte TEXT_COLOR,   $08
-reverse_colors: .byte DEFAULT_900F, $00
+text_colors:    .byte TEXT_COLOR,           $01, $00
+normal_colors:  .byte DEFAULT_900F,         $08, $19
+reverse_colors: .byte DEFAULT_RVS,          $00, $11
+brkon_colors:   .byte BREAKPOINT_ON_COLOR,  $98, $18
+brkoff_colors:  .byte BREAKPOINT_OFF_COLOR, $e8, $18
+success_colors: .byte ASM_SUCCESS_COLOR,    $d8, $18
+select_color:   .byte GUI_SELECT_COLOR,     $00, $11
+
+NUM_PALETTES = 3
+NUM_TABLES   = 7
 
 .CODE
 
@@ -39,9 +54,9 @@ reverse_colors: .byte DEFAULT_900F, $00
 	ldx pal_num
 	inx
 	cpx #NUM_PALETTES
-	bcc :+
+	bcc set_pal
 	ldx #$00
-:	bpl set_pal
+	beq set_pal
 .endproc
 
 ;*******************************************************************************
@@ -63,35 +78,32 @@ reverse_colors: .byte DEFAULT_900F, $00
 ; IN:
 ;   - .X: the id of the palette to switch to
 .proc set_pal
+@pal=r0
 	jsr irq::off
-	inc $900f
 	stx pal_num
 
-	lda text_colors,x
-	sta __prefs_text_color
+	ldxy #palettes
+	stxy @pal
 
-	lda normal_colors,x
-	sta __prefs_normal_color
-	sta $900f
+	ldx #$00
+@l0:	ldy pal_num
+	lda (@pal),y
+	sta palette,x
 
-	lda reverse_colors,x
-	sta __prefs_reverse_color
-
-	; set the row colors to their new proper colors
-	ldx #SCREEN_ROWS-1
-@l0:	lda mem::rowcolors,x
-	cmp prev_normal_color
-	bne :+
-	lda __prefs_normal_color
-	sta mem::rowcolors,x
-	jmp :++
-:	cmp prev_reverse_color
-	bne :+
-	lda __prefs_reverse_color
-	sta mem::rowcolors,x
-:	dex
-	bpl @l0
+	lda @pal
+	clc
+	adc #NUM_PALETTES
+	sta @pal
+	bcc :+
+	inc @pal+1
+:	inx
+	cpx #NUM_TABLES
+	bne @l0
 
 	jsr scr::clrcolor
+	lda __prefs_normal_color
+	sta $900f
+
+	jsr draw::refresh_colors
 	jmp irq::on
 .endproc

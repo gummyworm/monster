@@ -7,6 +7,7 @@
 ; This configuration is popularly known as MINIGRAFIK, created by Mike
 ;*******************************************************************************
 
+.include "../../draw.inc"
 .include "../prefs.inc"
 .include "../fastcopy.inc"
 .include "../finalex.inc"
@@ -56,6 +57,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	bpl @2
 
 	lda prefs::normal_color
+	sta $900f
 	rts
 .endproc
 
@@ -331,10 +333,15 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 
 	; save colors
 	ldx #SCREEN_ROWS*2-1
-:	lda mem::rowcolors,x
+:	lda mem::rowcolors_idx,x
 	sta mem::rowcolors_save,x
+
 	lda prefs::normal_color
 	sta mem::rowcolors,x
+
+	lda #COLOR_NORMAL
+	sta mem::rowcolors_idx,x
+
 	dex
 	bpl :-
 
@@ -354,11 +361,10 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	; restore the per-row colors
 	ldx #SCREEN_ROWS*2-1
 :	lda mem::rowcolors_save,x
-	sta mem::rowcolors,x
+	sta mem::rowcolors_idx,x
 	dex
 	bpl :-
-
-	rts
+	jmp draw::refresh_colors
 .endproc
 
 ;*******************************************************************************

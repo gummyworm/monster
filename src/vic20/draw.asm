@@ -4,6 +4,13 @@
 .include "../memory.inc"
 .include "../zeropage.inc"
 
+COLOR_NORMAL  = 1
+COLOR_RVS     = 2
+COLOR_BRKON   = 3
+COLOR_BRKOFF  = 4
+COLOR_SUCCESS = 5
+COLOR_SELECT  = 6
+
 .CODE
 
 ;******************************************************************************
@@ -14,10 +21,8 @@
 ;  - .X: the row to highlight
 .export __draw_hiline
 .proc __draw_hiline
-	lda #DEFAULT_RVS
-
-	; fall through to __draw_hline
-	skw
+	lda #COLOR_RVS
+	jmp __draw_hline
 .endproc
 
 
@@ -29,7 +34,7 @@
 ;  - .X: the row to highlight
 .export __draw_resetline
 .proc __draw_resetline
-	lda prefs::normal_color
+	lda #COLOR_NORMAL
 
 	; fall through to __draw_hline
 .endproc
@@ -42,7 +47,15 @@
 ;  - .X: the row to highlight
 .export __draw_hline
 .proc __draw_hline
-@dst=r0
+	sta mem::rowcolors_idx,x
+	tya
+	pha
+
+	; look up real color from palette
+	tay
+	lda prefs::palette,y
+
+	; look up color from palette
 	sta mem::rowcolors,x
 
 	; check if we need to color in the IRQ
@@ -53,6 +66,23 @@
 	dex
 	bne :-
 @done:	stx mem::coloron	; (en/dis)able color
+	pla
+	tay
+	rts
+.endproc
+
+;******************************************************************************
+; REFRESH COLORS
+; Reads the current values for each row from the active palette and refreshes
+; them
+.export __draw_refresh_colors
+.proc __draw_refresh_colors
+	ldx #24-1
+@l0:	ldy mem::rowcolors_idx,x
+	lda prefs::palette,y
+	sta mem::rowcolors,x
+	dex
+	bpl @l0
 	rts
 .endproc
 
@@ -82,12 +112,16 @@
 	bcs @done		; if first row + n >= last row, don't scroll
 @l0:	lda mem::rowcolors,y	; start+.X
 	sta mem::rowcolors,x	; start+.A+.X
+	lda mem::rowcolors_idx,y
+	sta mem::rowcolors_idx,x
 	inx
 	iny
 	cpx @last
 	bne @l0
 	lda prefs::normal_color
 	sta mem::rowcolors,x	; clear last row
+	lda #COLOR_NORMAL
+	sta mem::rowcolors_idx,x
 @done:	rts
 .endproc
 
@@ -132,10 +166,14 @@
 
 :	lda mem::rowcolors,x	; last_row
 	sta mem::rowcolors,y	; (last_row + amount)
+	lda mem::rowcolors_idx,x
+	sta mem::rowcolors_idx,y
 
 :	; reset the line we just scrolled
 	lda prefs::normal_color
 	sta mem::rowcolors,x
+	lda #COLOR_NORMAL
+	sta mem::rowcolors_idx,x
 
 	dey
 	dex

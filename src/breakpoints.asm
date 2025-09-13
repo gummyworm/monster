@@ -83,6 +83,7 @@ BREAKPOINT_ENABLED = 1
 	lda dbg::breakpoint_flags,x
 	eor #BREAKPOINT_ENABLED
 	sta dbg::breakpoint_flags,x
+	pha
 
 	; if the breakpoint is visible, toggle its color
 	lda dbg::breakpoint_lineslo,x
@@ -90,12 +91,14 @@ BREAKPOINT_ENABLED = 1
 	tax
 	jsr edit::src2screen
 	tax
+	pla
 	bcs :+
 
-	lda mem::rowcolors,x
-	eor #(BREAKPOINT_OFF_COLOR)^(BREAKPOINT_ON_COLOR)
-	sta mem::rowcolors,x
-
+	beq @off
+@on:	lda #COLOR_BRKON
+	skw
+@off:	lda #COLOR_BRKOFF
+	jsr draw::hline
 :	rts
 .endproc
 

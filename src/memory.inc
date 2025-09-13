@@ -17,6 +17,7 @@
 
 .import __mem_coloron
 .import __mem_rowcolors
+.import __mem_rowcolors_idx
 .import __mem_rowcolors_save
 .import __mem_init_sig
 
@@ -36,5 +37,6 @@
 	drive_err	= __mem_drive_err
 	coloron         = __mem_coloron
 	rowcolors       = __mem_rowcolors
+	rowcolors_idx   = __mem_rowcolors_idx
 	rowcolors_save  = __mem_rowcolors_save
 .endscope
