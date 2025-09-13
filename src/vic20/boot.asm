@@ -186,16 +186,20 @@ TOTAL_SIZE = __SETUP_SIZE__+__BANKCODE_SIZE__+__BANKCODE2_SIZE__+__DATA_SIZE__+\
 ; CART header and boot code
 .else ; CART
 .segment "CART"
-.word START		; Entry point for power up
+.word cart_start	; Entry point for power up
 .word edit::init	; Entry point for warm start (RESTORE)
 
 ; cartridge header
 .byte "a0",$C3,$C2,$CD	; "A0CBM"
 
 ; copy cart binary ($0000-$6000) to RAM
-START:
+cart_start:
 	jsr $fd52	; init vectors
 	jsr $fdf9	; init I/O
+
+	sei
+	lda #$7f
+	sta $911e
 
 	lda #$11|$08
 	sta $900f		; white/white
@@ -352,6 +356,10 @@ START:
 ; START
 ; Entrypoint to program
 .proc start
+	sei
+	lda #$7f
+	sta $911e
+
 	drawlogo
 
 	; enable all memory
@@ -359,7 +367,6 @@ START:
 	sta $9c02
 
 	; restore default KERNAL vectors
-	sei
 	jsr $fd52
 	ldxy #$eb15
 	stxy $0314
@@ -563,6 +570,9 @@ num_relocs=(*-relocs)/7
 	lda #10
 	jsr text::print
 	jsr key::waitch
+	pha
+        jsr irq::off
+	pla
 	cmp #$79		; Y
 	beq @enter
 	cmp #$6e		; N
@@ -570,7 +580,6 @@ num_relocs=(*-relocs)/7
 .endif
 
 @init:
-        jsr irq::on
 	jsr src::init
 	jsr src::new
 	jsr dbgi::initonce
@@ -588,8 +597,6 @@ num_relocs=(*-relocs)/7
 .endif
 
 .ifndef TEST
-        jsr irq::on
-
 @enter:
 .ifdef CART
 	; write the "initialized" signature
@@ -615,6 +622,7 @@ num_relocs=(*-relocs)/7
 	ldx #23
 	jsr draw::hiline
 
+        jsr irq::on
 	jmp edit::init
 .else
 	.import testsuite

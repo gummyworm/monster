@@ -31,14 +31,18 @@ __prefs_select_col:    .byte GUI_SELECT_COLOR
 pal_num: .byte 0
 
 .RODATA
+;*******************************************************************************
+; PALETTES
+; 0: default
+; 1: white-on-black
+; 2: black-on-white
 palettes:
-; default, white-on-black
 text_colors:    .byte TEXT_COLOR,           $01, $00
 normal_colors:  .byte DEFAULT_900F,         $08, $19
 reverse_colors: .byte DEFAULT_RVS,          $00, $11
 brkon_colors:   .byte BREAKPOINT_ON_COLOR,  $98, $99
-brkoff_colors:  .byte BREAKPOINT_OFF_COLOR, $e8, $e8
-success_colors: .byte ASM_SUCCESS_COLOR,    $d8, $d8
+brkoff_colors:  .byte BREAKPOINT_OFF_COLOR, $e8, $e9
+success_colors: .byte ASM_SUCCESS_COLOR,    $00, $11
 select_color:   .byte GUI_SELECT_COLOR,     $e8, $e9
 
 NUM_PALETTES = 3
