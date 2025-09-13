@@ -432,8 +432,7 @@ exit:	rts				; no GUI to draw
 	jsr text::print
 	ldx @rowstop
 
-	lda #DEFAULT_900F^$08
-	jsr draw::hline
+	jsr draw::hiline
 
 	inc @rowstop
 

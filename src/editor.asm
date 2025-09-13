@@ -37,6 +37,7 @@
 .include "memory.inc"
 .include "monitor.inc"
 .include "object.inc"
+.include "prefs.inc"
 .include "ram.inc"
 .include "runtime.inc"
 .include "screen.inc"
@@ -52,6 +53,8 @@
 .include "view.inc"
 .include "vmem.inc"
 .include "zeropage.inc"
+
+.include "vic20/prefs.inc"
 
 .ifdef vic20
 .include "vic20/udgedit.inc"
@@ -668,7 +671,7 @@ main:	jsr key::getch
 .proc command_asmdbg
 	jsr prompt_saveall
 
-:	lda #$01
+	lda #$01
 	sta zp::gendebuginfo	; enable debug info
 	jsr command_asm
 	dec zp::gendebuginfo	; turn off debug-info
@@ -2383,7 +2386,10 @@ main:	jsr key::getch
 	.byte K_PREV_BUFF	; C= + < previous buffer
 	.byte K_UDG_EDIT	; C= + U activate udg editor
 	.byte K_QUIT		; <- (return to COMMAND mode)
-	.byte K_GO_BASIC	; F2 (enter BASIC)
+	.byte K_GO_BASIC	; F1 (enter BASIC)
+
+	.byte K_NEXT_PAL
+	.byte K_PREV_PAL
 @num_special_keys=*-@specialkeys
 .linecont +
 .define specialvecs ccleft, ccright, ccup, ccdown, \
@@ -2392,7 +2398,8 @@ main:	jsr key::getch
 	symview::enter, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
-	next_buffer, prev_buffer, udgedit, cancel, go_basic
+	next_buffer, prev_buffer, udgedit, cancel, go_basic, \
+	gprefs::next_pal, gprefs::prev_pal
 .linecont -
 @specialvecslo: .lobytes specialvecs
 @specialvecshi: .hibytes specialvecs
@@ -2483,7 +2490,7 @@ __edit_refresh:
 	cpx height
 	inx
 	bcs @done
-	lda #DEFAULT_900F
+	lda prefs::normal_color
 	sta mem::rowcolors,x	; clear the color for this row
 	stx zp::cury
 	txa
@@ -2569,7 +2576,7 @@ __edit_set_breakpoint:
 
 @remove:
 	jsr dbg::removebreakpointbyid
-	lda #DEFAULT_900F
+	lda prefs::normal_color
 	bne @done
 
 @set:	jsr __edit_current_file	; get the debug file ID and line #
@@ -3419,7 +3426,7 @@ goto_buffer:
 
 	; and clear the color of the newly opened line
 	ldx zp::cury
-	lda #DEFAULT_900F
+	lda prefs::normal_color
 	sta mem::rowcolors,x
 
 @setcur:
@@ -4332,7 +4339,7 @@ goto_buffer:
 	skw
 :	ldy #BREAKPOINT_ON_COLOR
 	skw
-@nobrk:	ldy #DEFAULT_900F
+@nobrk: ldy prefs::normal_color
 	pla
 	pha
 	tax

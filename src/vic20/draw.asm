@@ -1,3 +1,4 @@
+.include "prefs.inc"
 .include "settings.inc"
 .include "../macros.inc"
 .include "../memory.inc"
@@ -23,12 +24,12 @@
 ;******************************************************************************
 ; RESETLINE
 ; Resets the given line by setting its color to the default one
-; (DEFAULT_900F)
+; (prefs::normal_color)
 ; IN:
 ;  - .X: the row to highlight
 .export __draw_resetline
 .proc __draw_resetline
-	lda #DEFAULT_900F
+	lda prefs::normal_color
 
 	; fall through to __draw_hline
 .endproc
@@ -46,7 +47,7 @@
 
 	; check if we need to color in the IRQ
 	ldx #24
-	lda #DEFAULT_900F
+	lda prefs::normal_color
 :	cmp mem::rowcolors-1,x
 	bne @done
 	dex
@@ -85,7 +86,7 @@
 	iny
 	cpx @last
 	bne @l0
-	lda #DEFAULT_900F
+	lda prefs::normal_color
 	sta mem::rowcolors,x	; clear last row
 @done:	rts
 .endproc
@@ -133,7 +134,7 @@
 	sta mem::rowcolors,y	; (last_row + amount)
 
 :	; reset the line we just scrolled
-	lda #DEFAULT_900F
+	lda prefs::normal_color
 	sta mem::rowcolors,x
 
 	dey
@@ -151,7 +152,7 @@
 	sei
 	lda #$00
 	sta mem::coloron
-	lda #DEFAULT_900F
+	lda prefs::normal_color
 	sta $900f
 	cli
 	rts

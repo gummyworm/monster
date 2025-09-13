@@ -7,6 +7,7 @@
 ; This configuration is popularly known as MINIGRAFIK, created by Mike
 ;*******************************************************************************
 
+.include "../prefs.inc"
 .include "../fastcopy.inc"
 .include "../finalex.inc"
 .include "../../macros.inc"
@@ -54,8 +55,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	dey
 	bpl @2
 
-	lda #(BG_COLOR<<4 | BORDER_COLOR)
-	sta $900f
+	lda prefs::normal_color
 	rts
 .endproc
 
@@ -89,7 +89,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 .export __screen_clrcolor
 .proc __screen_clrcolor
 	ldy #$00
-	lda #TEXT_COLOR
+	lda prefs::text_color
 @l0:    sta COLMEM_ADDR,y
         dey
         bne @l0
@@ -333,7 +333,7 @@ VSCREEN_WIDTH = 80	; virtual screen size (in 8-pixel characters)
 	ldx #SCREEN_ROWS*2-1
 :	lda mem::rowcolors,x
 	sta mem::rowcolors_save,x
-	lda #DEFAULT_900F
+	lda prefs::normal_color
 	sta mem::rowcolors,x
 	dex
 	bpl :-

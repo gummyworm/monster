@@ -1,9 +1,10 @@
+.include "finalex.inc"
+.include "prefs.inc"
 .include "settings.inc"
 .include "../beep.inc"
 .include "../key.inc"
 .include "../macros.inc"
 .include "../memory.inc"
-.include "finalex.inc"
 
 ;*******************************************************************************
 ; CONSTANTS
@@ -83,7 +84,7 @@ rowcnt: .byte 0
 	lda #>$eb15
 	sta $0314+1
 
-	lda #DEFAULT_900F
+	lda prefs::normal_color
 	sta $900f
 
 	; disable all interrupts

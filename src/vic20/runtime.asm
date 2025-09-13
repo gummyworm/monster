@@ -5,6 +5,7 @@
 ;*******************************************************************************
 
 .include "fastcopy.inc"
+.include "prefs.inc"
 .include "settings.inc"
 .include "../debug.inc"
 .include "../edit.inc"
@@ -239,7 +240,8 @@ TRAMPOLINE_ADDR = TRAMPOLINE+13
 	sta $0314
 	lda #>$eb15
 	sta $0314+1
-	lda #DEFAULT_900F
+
+	lda prefs::normal_color
 	sta $900f
 
 	lda #$7f
