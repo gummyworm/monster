@@ -1528,11 +1528,14 @@ main:	jsr key::getch
 :	lda #$00
 	jsr text::index2cursor
 	stx zp::curx
-	rts
+@ret:	rts
 
 @vis:	; visual, move to next character and paste there
 	jsr append_char
-	jmp paste_buff
+	jsr paste_buff
+	jsr buff::lines_copied
+	bcs @ret
+	jmp src::left
 .endproc
 
 ;******************************************************************************
@@ -1556,11 +1559,14 @@ main:	jsr key::getch
 :	lda #$00
 	jsr text::index2cursor
 	stx zp::curx
-	rts
+@ret:	rts
 
 @vis:	; visual mode, just paste
 	jsr enter_insert
-	jmp paste_buff
+	jsr paste_buff
+	jsr buff::lines_copied
+	bcs @ret
+	jmp src::left
 .endproc
 
 ;*******************************************************************************
