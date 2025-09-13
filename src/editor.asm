@@ -1126,6 +1126,8 @@ main:	jsr key::getch
 	sta mode
 
 	jsr home			; go to column 0
+	lda zp::curx
+	sta visual_start_x
 
 	lda #'l'
 	sta text::statusmode
@@ -1320,12 +1322,13 @@ main:	jsr key::getch
 	jsr yank			; yank the selection
 	bcs @notfound			; quit if error occurred or no selection
 
-	jsr append_char
-	jsr ccright
+	;jsr append_char
+	;jsr src::next
 	jsr buff::len
 	stxy @cnt
+
 @delsel:
-	jsr backspace
+	jsr src::delete
 	dec @cnt
 	lda @cnt
 	cmp #$ff
@@ -1333,7 +1336,7 @@ main:	jsr key::getch
 	dec @cnt+1
 :	ora @cnt+1		; are LSB and MSB of @cnt 0?
 	bne @delsel
-	jsr enter_command
+	;jsr enter_command
 	jmp refresh		; done, refresh to clear deleted text
 
 ;--------------------------------------
@@ -1407,8 +1410,6 @@ main:	jsr key::getch
 	jmp @l0
 
 @moveup:
-	lda #$0d
-	jsr buff::putch		; store newline in copy buffer
 	lda #$00
 	sta zp::curx
 	jsr enter_insert
@@ -1517,10 +1518,14 @@ main:	jsr key::getch
 @line:	jsr open_line_below_noindent
 	jsr paste_buff
 
+	jsr buff::lines_copied
+	bcs :+
+	jmp src::left
+
 	; paste_buff will assume cursor should be moved to the end of the line
 	; where the paste ended, but VISUAL LINE pastes leave the source cursor
 	; at the start of the line- fix the cursor to match
-	lda #$00
+:	lda #$00
 	jsr text::index2cursor
 	stx zp::curx
 	rts
@@ -1539,12 +1544,23 @@ main:	jsr key::getch
 	beq @vis
 
 @line:	jsr open_line_above_noindent
-	jmp paste_buff
+	jsr paste_buff
+
+	jsr buff::lines_copied
+	bcs :+
+	jmp src::left
+
+	; paste_buff will assume cursor should be moved to the end of the line
+	; where the paste ended, but VISUAL LINE pastes leave the source cursor
+	; at the start of the line- fix the cursor to match
+:	lda #$00
+	jsr text::index2cursor
+	stx zp::curx
+	rts
 
 @vis:	; visual mode, just paste
 	jsr enter_insert
-
-	; fall through to paste_buff
+	jmp paste_buff
 .endproc
 
 ;*******************************************************************************
@@ -1723,7 +1739,8 @@ main:	jsr key::getch
 	adc #$00
 	tay
 	jsr buff::getline
-	bcs @done		; buffer is empty
+	bcc @ok
+	jmp @done		; buffer is empty
 
 @ok:	pha			; save newline flag
 	ldxy r9
@@ -1777,7 +1794,9 @@ main:	jsr key::getch
 	lda @row
 	jsr draw_line_if_visible
 
-	jsr enter_command
+	lda selection_type
+	cmp #MODE_VISUAL_LINE
+	beq @finish_multi
 
 	jsr buff::lines_copied
 	bcs @finish_multi
@@ -1793,6 +1812,7 @@ main:	jsr key::getch
 	jsr src::home
 	jsr src::get
 	jsr src::popgoto
+
 @setcur:
 	pla				; restore index where paste ended
 	jsr text::index2cursor
@@ -1803,7 +1823,6 @@ main:	jsr key::getch
 	lda #MODE_COMMAND
 	sta mode
 	rts
-	;jmp enter_command
 .endproc
 
 ;******************************************************************************
@@ -2339,7 +2358,7 @@ main:	jsr key::getch
 	.byte K_SHOW_PROJECT	; show project
 	.byte K_REFRESH		; refresh
 	.byte K_LIST_SYMBOLS	; list symbols
-	.byte K_LINK            ; link program
+	;.byte K_LINK            ; link program
 	.byte K_CLOSE_BUFF	; close buffer
 	.byte K_NEW_BUFF	; new buffer
 	.byte K_SET_BREAKPOINT	; set breakpoint
@@ -2364,7 +2383,7 @@ main:	jsr key::getch
 .define specialvecs ccleft, ccright, ccup, ccdown, \
 	home, \
 	command_asmdbg, show_buffers, show_proj, refresh, \
-	symview::enter, command_link, \
+	symview::enter, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
 	next_buffer, prev_buffer, udgedit, cancel, go_basic
@@ -3263,6 +3282,7 @@ goto_buffer:
 	ldxy #mem::linebuffer
 	lda #FINAL_BANK_MAIN
 	jsr asm::tokenize
+	ldx #$00		; default to no indent if assembly fails
 	bcs @nextline		; failed to assemble, skip formatting
 
 ; format the line based on the line's contents (in .A from tokenize)

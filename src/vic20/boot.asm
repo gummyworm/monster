@@ -612,6 +612,7 @@ num_relocs=(*-relocs)/7
 	ldx #23
 	jsr draw::hiline
 
+	brk
 	jmp edit::init
 .else
 	.import testsuite

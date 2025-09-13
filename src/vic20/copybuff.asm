@@ -216,7 +216,6 @@ copybuff:
 ;  - r9: the address of the string that was read (same as given)
 .proc getline
 @dst=r9
-@buff=rb
 @i=r4
 	stxy @dst
 	lda #$00
@@ -239,8 +238,6 @@ copybuff:
 
 @empty: lda #$00
 @ok:	pha
-	ldxy @buff
-	stxy buffptr
 	lda #$00
 	ldy @i
 	sta (@dst),y	; terminate the line

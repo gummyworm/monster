@@ -240,8 +240,45 @@ rowcnt: .byte 0
 ;*******************************************************************************
 ; BRK HANDLER
 .proc brk_handler
-	inc $900f
-	jmp *-3
+	lda #FINAL_BANK_MAIN
+	sta $9c02
+	jmp @brk
+
+.PUSHSEG
+.RODATA
+@brk:	lda #$f0
+	sta $9005
+
+	lda #$18
+	sta $9000
+	lda #$40
+	sta $9001
+
+	lda #$2e
+	sta $9003
+
+	lda #20|$80
+	sta $9002
+
+	lda #$66|$08
+	sta $900f
+
+	ldx #$00
+:	lda #$20
+	sta $1e00,x
+	sta $1f00,x
+	lda #1
+	sta $9600,x
+	dex
+	bne :-
+
+	lda #$3a	; :
+	sta $1e00
+	lda #$28	; (
+	sta $1e01
+
+	jmp *
+.POPSEG
 .endproc
 
 ;*******************************************************************************
