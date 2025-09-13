@@ -48,8 +48,7 @@ COLOR_SELECT  = 6
 .export __draw_hline
 .proc __draw_hline
 	sta mem::rowcolors_idx,x
-	tya
-	pha
+	sty @savey
 
 	; look up real color from palette
 	tay
@@ -66,8 +65,8 @@ COLOR_SELECT  = 6
 	dex
 	bne :-
 @done:	stx mem::coloron	; (en/dis)able color
-	pla
-	tay
+@savey=*+1
+	ldy #$00
 	rts
 .endproc
 

@@ -3427,7 +3427,6 @@ goto_buffer:
 	; and clear the color of the newly opened line
 	ldx zp::cury
 	lda #COLOR_NORMAL
-	jmp *
 	jsr draw::hline
 
 @setcur:

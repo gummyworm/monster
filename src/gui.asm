@@ -305,7 +305,7 @@ __gui_reenter = __gui_activate
 	sec
 	sbc select
 	tax
-	lda #GUI_SELECT_COLOR
+	lda #COLOR_SELECT
 	jsr draw::hline
 
 @getkey:
@@ -471,7 +471,7 @@ exit:	rts				; no GUI to draw
 	sec
 	sbc select
 	tax
-	lda prefs::select_color
+	lda #COLOR_SELECT
 	jmp draw::hline
 .endproc
 
