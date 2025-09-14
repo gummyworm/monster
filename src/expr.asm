@@ -1211,12 +1211,15 @@ operands: .res $100
 	asl
 	rol @val
 	rol @val+1
+	bcs @err
 	asl
 	rol @val
 	rol @val+1
+	bcs @err
 	asl
 	rol @val
 	rol @val+1
+	bcs @err
 	asl
 	rol @val
 	rol @val+1
