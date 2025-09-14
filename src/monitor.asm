@@ -382,6 +382,10 @@ screen: .res 40*24
 	ldxy #mem::linebuffer
 	jsr __monitor_puts
 
+	; clear the input line
+	lda #HEIGHT-1
+	CALL FINAL_BANK_MAIN, scr::clrline
+
 	ldxy #mem::linebuffer
 	jsr set___monitor_outfile
 

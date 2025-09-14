@@ -36,16 +36,17 @@ pal_num: .byte 0
 ; 0: default
 ; 1: white-on-black
 ; 2: black-on-white
+; 3: yellow-on-black
 palettes:
-text_colors:    .byte TEXT_COLOR,           $01, $00
-normal_colors:  .byte DEFAULT_900F,         $08, $19
-reverse_colors: .byte DEFAULT_RVS,          $00, $11
-brkon_colors:   .byte BREAKPOINT_ON_COLOR,  $98, $99
-brkoff_colors:  .byte BREAKPOINT_OFF_COLOR, $e8, $e9
-success_colors: .byte ASM_SUCCESS_COLOR,    $00, $11
-select_color:   .byte GUI_SELECT_COLOR,     $e8, $e9
+text_colors:    .byte TEXT_COLOR,           $01, $00, $07
+normal_colors:  .byte DEFAULT_900F,         $08, $19, $08
+reverse_colors: .byte DEFAULT_RVS,          $00, $11, $00
+brkon_colors:   .byte BREAKPOINT_ON_COLOR,  $98, $99, $98
+brkoff_colors:  .byte BREAKPOINT_OFF_COLOR, $e8, $e9, $e8
+success_colors: .byte ASM_SUCCESS_COLOR,    $00, $11, $00
+select_color:   .byte GUI_SELECT_COLOR,     $e8, $e9, $e8
 
-NUM_PALETTES = 3
+NUM_PALETTES = 4
 NUM_TABLES   = 7
 
 .CODE
