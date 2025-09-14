@@ -757,15 +757,12 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; EDIT BREAKPOINTS
 ; Transfers control to the breakpoint viewer/editor until the user exits it
 .proc edit_breakpoints
-	pushcur
 	jsr showstate		; restore the state
 
 	lda #AUX_GUI
 	sta aux_mode
 
-	jsr brkpt::edit
-	popcur
-	rts
+	jmp brkpt::edit
 .endproc
 
 ;******************************************************************************
@@ -773,14 +770,11 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 ; Transfers control to the watch viewer/editor until the user exits it
 .export __debug_edit_watches
 .proc __debug_edit_watches
-	pushcur
 	jsr showstate		; restore the state
 
 	lda #AUX_GUI
 	sta aux_mode
-	jsr watch::edit
-	popcur
-	rts
+	jmp watch::edit
 .endproc
 
 ;******************************************************************************
