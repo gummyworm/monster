@@ -20,7 +20,7 @@
 
 .import return_to_debugger
 
-.importzp PROGRAM_STACK_START
+.import PROGRAM_STACK_START
 
 ;*******************************************************************************
 ; BRK/NMI HANDLER ADDRESSES
@@ -98,7 +98,7 @@ TRAMPOLINE_ADDR = TRAMPOLINE+13
 	jsr $e3a4	; init BASIC RAM locations
 	jsr $e404	; print startup message and init pointers
 
-	ldx #PROGRAM_STACK_START
+	ldx #<PROGRAM_STACK_START
 	stx sim::reg_sp
 
 	ldxy #@save_done	; need to pass return address

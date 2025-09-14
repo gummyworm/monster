@@ -87,20 +87,20 @@ DEBUG_IFACE_TEXT = 1	; text interface (returns to TUI)
 ; stepping, tracing, etc.
 ; When using the "GO" command, you may use the entire stack
 ; TODO: calculate the maximum value for this
-.exportzp PROGRAM_STACK_START
-PROGRAM_STACK_START = $d8
+.export PROGRAM_STACK_START
+PROGRAM_STACK_START = $1d8
 
 ; Stop tracing state/NMI
 ; This NMI is installed programatically and catches the RESTORE key as a
 ; signal to stop a trace
 ; These values must be between PRORGAM_STACK_START and $100
 STOP_TRACING_NMI = PROGRAM_STACK_START+1
-stop_tracing     = STOP_TRACING_NMI+5
+stop_tracing     = STOP_TRACING_NMI+4	; sizeof(inc stop_tracing)+sizeof(rti)
 
 ; Max depth the debugger may reach during handling of a step during the TRACE
 ; command. This amount will be saved/restored by the debugger before handling
 ; the debugged program's next instruction.
-TRACE_STACK_DEPTH = $100-PROGRAM_STACK_START
+TRACE_STACK_DEPTH = $200-PROGRAM_STACK_START
 
 ;*******************************************************************************
 debugtmp = zp::debuggertmp	; scratchpad
@@ -211,7 +211,7 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	jsr run::init
 
 	; initialize the user program stack
-	lda #PROGRAM_STACK_START
+	lda #<PROGRAM_STACK_START
 	sta sim::reg_sp
 
 	ldx #$ff
@@ -642,12 +642,14 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	sta $911d
 	sta $912d
 
-	lda #$e6		; INC zp
+	lda #$ee		; INC abs
 	sta STOP_TRACING_NMI
-	lda #stop_tracing
+	lda #<stop_tracing
 	sta STOP_TRACING_NMI+1
-	lda #$40
+	lda #>stop_tracing
 	sta STOP_TRACING_NMI+2
+	lda #$40		; RTI
+	sta STOP_TRACING_NMI+3
 	ldxy #STOP_TRACING_NMI
 	stxy $0318
 
