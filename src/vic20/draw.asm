@@ -176,8 +176,9 @@ COLOR_SELECT  = 6
 
 	dey
 	dex
+	bmi @done
 	cpx @start
-	bne @l0
+	bcs @l0
 @done:	rts
 .endproc
 

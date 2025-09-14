@@ -156,7 +156,7 @@ __debug_enable_expansion: .byte 0
 .export __debug_breakpoint_fileids
 
 .export __debug_numbreakpoints
-__debug_numbreakpoints:     .byte 0
+__debug_numbreakpoints: .byte 0
 
 ;******************************************************************************
 ; The following tables must be stored together and
