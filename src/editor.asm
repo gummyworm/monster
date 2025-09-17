@@ -1519,6 +1519,8 @@ main:	jsr key::getch
 ; PASTE BELOW
 ; Pastes the contents of the copy buffer to the line below the cursor
 .proc paste_below
+	jsr exit_visual
+
 	lda selection_type
 	cmp #MODE_VISUAL
 	beq @vis
@@ -1551,6 +1553,8 @@ main:	jsr key::getch
 ; PASTE ABOVE
 ; Pastes the contents of the copy buffer to the line above the cursor
 .proc paste_above
+	jsr exit_visual
+
 	lda selection_type
 	cmp #MODE_VISUAL
 	beq @vis
@@ -2007,7 +2011,7 @@ main:	jsr key::getch
 	ldxy @end
 	lda mode
 	cmp #MODE_VISUAL_LINE
-	beq :+		; if in VISUAL LINE mode, allow start == stop
+	beq :+			; if in VISUAL LINE mode, allow start == stop
 
 	cmpw @cur
 	beq @done	; nothing copied
