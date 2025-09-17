@@ -2902,10 +2902,11 @@ __asm_include:
 .proc writeb
 @savex=re
 @savey=rf
+	sta zp::bankval
+
 	lda state::verify
 	bne @ok			; if just verifying, don't write
 
-	sta zp::bankval
 	lda pcset
 	bne :+
 	RETURN_ERR ERR_NO_ORIGIN
