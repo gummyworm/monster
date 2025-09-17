@@ -3723,6 +3723,8 @@ goto_buffer:
 	jsr src::before_newl
 	beq @nodel
 @del:	jsr buff::putch
+	lda #MODE_VISUAL
+	sta selection_type
 	jmp src::delete
 @nodel:	sec
 	rts
