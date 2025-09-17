@@ -140,6 +140,7 @@ autoindent: .byte 0		; auto-indent enable flag (0=don't auto-indent)
 
 	inx			; ldx #$01
 	stx state::verify	; don't assemble code (just check syntax)
+
 	stx format		; enable formatting
 	stx autoindent		; enable auto-indent
 
