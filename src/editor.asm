@@ -1461,6 +1461,7 @@ main:	jsr key::getch
 ; DELETE CHAR
 ; Deletes the character under the cursor
 .proc delete_char
+	jsr buff::clear
 	jsr delch
 	bcc @ok
 	rts
@@ -1471,6 +1472,8 @@ main:	jsr key::getch
 ; DELETE TO END
 ; Deletes everything from the character under the cursor to the end of the line
 .proc delete_to_end
+	jsr buff::clear
+
 @l0:	jsr delch
 	jsr src::after_cursor
 	bcs :+			; if at end of buffer, we're done
@@ -1487,6 +1490,8 @@ main:	jsr key::getch
 ; character) or until the first whitespace character if we are.
 .proc delete_word
 @endonalpha=r1
+	jsr buff::clear
+
 	; if we're on an alphanum char, end on the first non-alphanum char
 	; if we're NOT on an alphanum char, end on the first alphanum char
 	jsr src::after_cursor
@@ -1536,6 +1541,7 @@ main:	jsr key::getch
 @vis:	; visual, move to next character and paste there
 	jsr append_char
 	jsr paste_buff
+	bcs @ret			; if we failed to paste, return
 	jsr buff::lines_copied
 	bcs @ret
 	jmp src::left
@@ -1684,6 +1690,8 @@ main:	jsr key::getch
 ; PASTE BUFF
 ; Inserts the contents of the buffer at the current cursor position and returns
 ; to command mode
+; OUT:
+;   - .C: set if the paste could not be completed (e.g. no room)
 .proc paste_buff
 @row=rd
 @splitindex=re
@@ -1696,7 +1704,9 @@ main:	jsr key::getch
 	jsr validate_paste
 	bcc :+
 	jsr beep::short
-	jmp enter_command
+	jsr enter_command
+	sec
+	rts
 
 ; paste between [linebuffer, char_index(curx)] with the first line from buffer
 :	lda zp::cury
@@ -1831,7 +1841,7 @@ main:	jsr key::getch
 	jsr buff::pop
 	lda #MODE_COMMAND
 	sta mode
-	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
