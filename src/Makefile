@@ -16,10 +16,12 @@ ASMFLAGS=--asm-define $(TARGET) --asm-define $(REGION) --asm-define $(SCREEN_MOD
 # set KERNAL based on configured TARGET and REGION
 ifeq ($(TARGET),vic20)
 	ifeq ($(REGION),NTSC)
-		KERNAL=JiffyDOS_VIC-20_6.01_NTSC.bin
+		KERNAL_JIFFY=JiffyDOS_VIC-20_6.01_NTSC.bin
+		KERNAL=kernal.901486-06.bin
 	endif
 	ifeq ($(REGION),PAL)
-		KERNAL=JiffyDOS_VIC-20_PAL.bin
+		KERNAL_JIFFY=JiffyDOS_VIC-20_PAL.bin
+		KERNAL=kernal.901486-07.bin
 	endif
 endif
 ifeq ($(TARGET),c64)
@@ -120,14 +122,14 @@ install.d81: installer.prg $(CART_IMAGE)
 	# create the FE3 installer image
 	$(C1541) -format install,1 d81 install.d81 -attach install.d81 -write installer.prg -write $(CART_IMAGE)
 
-start-cart: $(CART_IMAGE) $(KERNAL) test.d81
+start-cart: $(CART_IMAGE) test.d81
 	# test the cartridge binary
 	$(C1541) -format disk,1 d81 empty.d81
-	$(XVIC) +warp -sound -cartfe $(CART_IMAGE) -memory all $(EMU_REGION) -drive10type 1581 -10 test.d81 -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 empty.d81 -moncommands moncommands
+	$(XVIC) -default -kernal $(KERNAL) +warp -sound -cartfe $(CART_IMAGE) -memory all $(EMU_REGION) -drive10type 1581 -10 test.d81 -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 empty.d81 -moncommands moncommands
 
-start-cart-jiffy: $(CART_IMAGE) $(KERNAL) test.d81
+start-cart-jiffy: $(CART_IMAGE) test.d81
 	$(C1541) -format disk,1 d81 empty.d81
-	$(XVIC) +warp -kernal $(KERNAL) -sound -cartfe $(CART_IMAGE) -memory all $(EMU_REGION) -drive10type 1581 -10 test.d81 -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 empty.d81 -moncommands moncommands
+	$(XVIC) +warp -kernal $(KERNAL_JIFFY) -sound -cartfe $(CART_IMAGE) -memory all $(EMU_REGION) -drive10type 1581 -10 test.d81 -drive8type 1581 -dos1581 JiffyDOS_1581.bin -8 empty.d81 -moncommands moncommands
 
 start-disk: test.d81
 	$(XVIC) -default $(EMU_REGION) -kernal kernal.901486-06.bin -memory all -cartfe $(FE3BIN) -sound +warp -drive8type 1581 -8 test.d81 -moncommands moncommands
