@@ -63,8 +63,8 @@
 .proc __fmt_line
 @linecontent=r6
 	cmp #$00
-	beq @done		; no format
-	sta @linecontent	; save the types to format
+	beq @done
+	sta @linecontent
 
 	; remove spaces from start of line
 	jsr src::up

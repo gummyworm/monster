@@ -765,7 +765,18 @@ __asm_tokenize_pass1 = __asm_tokenize
 	jsr anonref
 	lda #$02		; force word operand (relative addr is computed)
 	bcc @eval_done
+
 @evalfailed:
+	ldx state::verify
+	beq :+
+	; did eval fail while verifying due to undefined label?
+	; continue if so
+	cmp #ERR_LABEL_UNDEFINED
+	bne :+
+	; treat as valid instruction for verification purposes
+	lda #ASM_OPCODE
+	RETURN_OK
+:	sec
 	rts			; return error
 
 @eval:  jsr expr::eval
