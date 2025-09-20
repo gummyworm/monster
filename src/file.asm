@@ -401,10 +401,16 @@ __file_load_src:
 	jsr $ffba 		; SETLFS
 	jsr $ffc0 		; call OPEN
 	bcc @ok
+
 @getopenerr:
-	jsr __file_geterr
-@ok:	lda @file	; get file ID that we opened
-	rts		; return it
+	cmp #$05		; DEVICE NOT PRESENT?
+	bne :+
+	ldxy #strings::device_not_present
+	jmp io::seterr
+
+:	jmp __file_geterr
+@ok:	lda @file		; get file ID that we opened
+	rts			; return it
 .endproc
 
 ;*******************************************************************************

@@ -1,6 +1,7 @@
 .include "layout.inc"
 .include "macros.inc"
 .include "memory.inc"
+.include "strings.inc"
 .include "util.inc"
 .include "zeropage.inc"
 
@@ -27,6 +28,12 @@
 	jsr $ffba	; SETLFS
 	jsr $ffc0	; OPEN
 	bcc @ok
+
+	cmp #$05		; DEVICE NOT PRESENT?
+	bne :+
+	ldxy #strings::device_not_present
+	jmp __iec_seterr
+:	sec
 	rts
 
 @ok:	ldx #$0f	; filenumber 15
@@ -57,4 +64,23 @@
 
 	ldxy #mem::drive_err
 	jmp atoi
+.endproc
+
+;*******************************************************************************
+; SETERR
+; Sets the drive error to the given string.
+; This is used to write messages to the drive error buffer directly.
+; IN:
+;   - .XY: the address of the 0-terminated string to write to the error buffer
+.export __iec_seterr
+.proc __iec_seterr
+@err=r0
+	stxy @err
+	ldy #$00
+:	lda (@err),y
+	sta mem::drive_err,y
+	beq @done
+	iny
+	bne :-
+@done:	rts
 .endproc

@@ -8,6 +8,7 @@
 .import __str_debug_stop_debugging
 .import __str_buffers
 .import __str_deleting
+.import __str_device_not_present
 .import __str_dir
 .import __str_dumping
 .import __str_edit_file_delete_failed
@@ -57,6 +58,7 @@
 	debug_registers         = __str_debug_registers
 	debug_stop_debugging    = __str_debug_stop_debugging
 	deleting                = __str_deleting
+	device_not_present      = __str_device_not_present
 	dir                     = __str_dir
 	dumping                 = __str_dumping
 	edit_file_load_failed   = __str_edit_file_load_failed

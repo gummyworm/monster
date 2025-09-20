@@ -40,6 +40,9 @@ __str_debug_registers: .byte " pc  a  x  y  sp nv-bdizc addr      clk",0
 .export __str_debug_stop_debugging
 __str_debug_stop_debugging: .byte "stop debugging? (press 'y' to quit)",0
 
+.export __str_device_not_present
+__str_device_not_present: .byte "device not present",0
+
 .export __str_edit_line_err
 __str_edit_line_err: .byte ESCAPE_STRING, " l", ESCAPE_VALUE_DEC,":", ESCAPE_STRING,0
 

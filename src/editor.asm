@@ -3114,7 +3114,7 @@ goto_buffer:
 @scratch:
 	ldxy @file
 	jsr file::scratch	; (try to) delete the existing file
-	bcs @ret
+	bcs @err
 
 	; open the file, write the source to it, and close the file
 @open:	ldxy @file
@@ -3136,10 +3136,8 @@ goto_buffer:
 	jsr src::setflags	; clear flags on the source buffer and return
 	jmp irq::on
 
-@err:	pha		; push error code
-	ldxy #strings::edit_file_save_failed
-	jsr text::info
-@ret:	jmp irq::on
+@err:	jsr irq::on
+	jmp report_drive_error
 .endproc
 
 ;******************************************************************************
@@ -3154,6 +3152,7 @@ goto_buffer:
 	jsr irq::off
 
 	jsr file::exists
+	bcs @err
 	jsr file::geterr
 	bcs @err		; if file doesn't exist, we're done
 
@@ -3210,6 +3209,7 @@ goto_buffer:
 
 	ldxy @file
 	jsr file::exists
+	bcs @err
 	jsr file::geterr
 	bcs @err		; if file doesn't exist, we're done
 
