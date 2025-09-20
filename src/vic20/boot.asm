@@ -591,11 +591,6 @@ num_relocs=(*-relocs)/7
 	sta mem::linebuffer
 	CALL FINAL_BANK_MONITOR, mon::init
 
-.ifdef CART
-	; read error channel to clear startup code (73)
-	jsr io::readerr
-.endif
-
 .ifndef TEST
 @enter:
 .ifdef CART

@@ -9,7 +9,6 @@
 ;*******************************************************************************
 ; READERR
 ; Reads the drive's error into mem::drive_err (0-terminated)
-; NOTE: file #15 is opened and should be closed by the caller when done
 ; OUT:
 ;  - .X:             the error code
 ;  - mem::drive_err: the drive error message
@@ -27,9 +26,10 @@
 	tay		; secondary address 15 (error channel)
 	jsr $ffba	; SETLFS
 	jsr $ffc0	; OPEN
-	; TODO: why is carry set here??
+	bcc @ok
+	rts
 
-	ldx #$0f	; filenumber 15
+@ok:	ldx #$0f	; filenumber 15
 	jsr $ffc6	; CHKIN (file 15 now used as input)
 
 	; read the error message to mem::drive_err
@@ -49,6 +49,12 @@
 @eof:	ldx @ch
 	lda #$00
 	sta mem::drive_err,x
-@done:	ldxy #mem::drive_err
+
+@done:	; close the command channel (file 15)
+	lda #15		; filenumber 15 (command channel)
+	jsr $ffc3	; CLOSE 15
+	jsr $ffcc	; CLRCHN
+
+	ldxy #mem::drive_err
 	jmp atoi
 .endproc

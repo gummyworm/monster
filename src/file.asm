@@ -292,13 +292,7 @@ __file_load_src:
 	jsr __file_open
 	bcs @err
 
-@close: jsr io::readerr
-
-	lda #15		; filenumber 15 (command channel)
-	jsr $ffc3	; CLOSE 15
-	jsr $ffcc	; CLRCHN
-	lda #$00	; no error
-	RETURN_OK
+@close: jmp __file_geterr
 
 @err:   jsr @close
 	RETURN_ERR ERR_IO_ERROR
