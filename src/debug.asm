@@ -234,6 +234,8 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	dex
 	stx @cnt
 
+	inc breakpoints_active
+
 @installbrks:
 	ldx @cnt
 	lda breakpoint_flags,x
@@ -245,19 +247,15 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	lda breakpointshi,x
 	sta @brkaddr+1
 
-	; if this breakpoint is at the current PC, don't install it
-	ldxy sim::pc
-	cmpw @brkaddr
-	beq @next
-
 	; get the opcode to save before we overwrite it with a BRK
 	ldxy @brkaddr
 	jsr vmem::load
 	ldx @cnt
 	sta breaksave,x		; save the instruction under the new BRK
 
-	lda #$00		; BRK
+	; write the BRK to its address
 	ldxy @brkaddr
+	lda #$00		; BRK
 	jsr vmem::store
 
 @next:	dec @cnt
@@ -277,25 +275,24 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 	ldx __debug_numbreakpoints
 	beq @done
-	dex
 	stx @cnt
 @uninstall:
 	ldx @cnt
-	lda breakpoint_flags,x
+	lda breakpoint_flags-1,x
 	and #BREAKPOINT_ENABLED	; if breakpoint is disabled, skip
 	beq @next
 
-	lda breakpointslo,x
+	lda breakpointslo-1,x
 	sta @addr
-	lda breakpointshi,x
+	lda breakpointshi-1,x
 	sta @addr+1
 
 	; restore the opcode we replaced with a BRK
-	lda breaksave,x
+	lda breaksave-1,x
 	ldxy @addr
 	jsr vmem::store
 @next:	dec @cnt
-	bpl @uninstall
+	bne @uninstall
 @done:	rts
 .endproc
 
@@ -565,7 +562,6 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	jsr step
 	bcs :-		; failed to execute next instruction -> rts
 
-	inc breakpoints_active
 	jsr install_breakpoints
 
 	lda #$00
@@ -616,8 +612,10 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 	bne :+
 	inc step_out_depth	; if we called another subroutine, inc depth
 :	cmp #$60		; did we RTS?
-	bne @trace
-	dec step_out_depth
+	beq :+
+	cmp #$40		; or RTI?
+	bne @trace		; if not loop
+:	dec step_out_depth
 	bpl @trace		; continue trace until depth is negative
 	clc			; ok
 @done:	php
@@ -670,11 +668,11 @@ breaksave:        .res MAX_BREAKPOINTS ; backup of instructions under the BRKs
 
 	jsr install_trace_nmi
 
+	; run one step (get over breakpoint if there is one)
 	jsr __debug_step
 	bcs @ret
 
 	; install the breakpoints
-	inc breakpoints_active
 	jsr install_breakpoints
 
 	jsr print_tracing
