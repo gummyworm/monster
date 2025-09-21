@@ -61,7 +61,7 @@ NUM_TABLES   = 7
 	cpx #NUM_PALETTES
 	bcc set_pal
 	ldx #$00
-	beq set_pal
+	beq set_pal	; branch always
 .endproc
 
 ;*******************************************************************************

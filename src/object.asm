@@ -964,7 +964,7 @@ __obj_close_section:
 	; write each SEGMENT (object code, relocation data)
 	jsr dump_segment_tables
 
-	; lastly, write the debug info
+	; lastly, write the debug info for the object file
 	CALL FINAL_BANK_DEBUG, dbgi::dump
 
 	RETURN_OK
@@ -1594,6 +1594,46 @@ __obj_close_section:
 
 @done:	clc
 @eof:	rts
+.endproc
+
+;******************************************************************************
+; LOAD DEBUGINFO
+; Loads the debug info from the open object file so that it can be linked.
+.proc load_debuginfo
+@header=r0
+@addr=@header+BLOCK_START_ADDR
+@seg_id=@header+BLOCK_SEGMENT_ID
+@seg_offset=zp::tmp10
+@segname=zp::tmp12
+	ldy #$00
+:	jsr $ffa5
+	sta @header,y
+	iny
+	cpy #SIZEOF_BLOCK_HEADER
+	bne :-
+
+	; look up SEGMENT's base address for this file
+	lda @seg_id
+	jsr get_segment_name_by_id
+	stxy @segname
+	jsr link::segaddr_for_file
+	stxy @seg_offset
+
+	; get global SEGMENT id
+	ldxy @segname
+	jsr link::get_segment_by_name
+	sta zp::seg_id
+
+	; add the offset for the segment to the value from the header
+	lda @addr
+	clc
+	adc @seg_offset
+	tax
+	lda @addr+1
+	adc @seg_offset+1
+	tay
+	CALL FINAL_BANK_DEBUG, dbgi::newblock
+
 .endproc
 
 ;******************************************************************************

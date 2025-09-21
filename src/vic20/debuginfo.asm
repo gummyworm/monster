@@ -321,6 +321,7 @@ blockaddresseshi: .res MAX_FILES
 ;   - .XY:     the start address of the block
 ;   - srcline: the base line for the new block
 ;   - file:    the ID of the file for this block
+;   - seg_id:  the SEGMENT id for the file
 ; OUT:
 ;   - addr: the base address for the new block
 ;   - line: the address of the line program for the new block
@@ -1442,6 +1443,8 @@ get_filename = get_filename_addr
 	ldxy #filenames
 	stxy @name
 
+;--------------------------------------
+; dump the filenames
 	ldx numfiles
 	beq @done
 @fnames:
@@ -1462,7 +1465,8 @@ get_filename = get_filename_addr
 :	dex
 	bne @fnames		; repeat for next filename
 
-	; write the BLOCK headers
+;--------------------------------------
+; dump the BLOCK headers
 	ldxy #blockheaders
 	stxy @dbgi
 	ldx numblocks
@@ -1481,6 +1485,8 @@ get_filename = get_filename_addr
 :	dex
 	bne @headers
 
+;--------------------------------------
+; dump the line program data for the object file
 @progdata:
 	; write all bytes between debuginfo and freeptr
 	lda #<debuginfo

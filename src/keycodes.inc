@@ -30,8 +30,8 @@ K_SHOW_BUFFERS   = $87	; F5
 K_SHOW_PROJECT	 = $8b	; F6
 K_LINK           = $88	; F7
 
-K_NEXT_PAL       = $88  ; F7
-K_PREV_PAL       = $8c  ; F8
+K_NEXT_PAL       = $db	; SHIFT + +
+K_PREV_PAL       = $dd  ; SHIFT + -
 
 K_SET_BREAKPOINT = $bf	; C= + B
 K_ASM_FILE       = $b0	; C= + a

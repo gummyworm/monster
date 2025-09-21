@@ -16,6 +16,7 @@
 - [ ] Save/restore raster position while debugging
 
 ### TODO V1
+- [ ] dump filenames (from dbgi) to MAP file
 - [x] fix UDG editor crashes
 - [x] fix GUI reactivation/stack manipulation
 - [x] fix oversized operand regression (lda #$ffff doesn't trigger error)

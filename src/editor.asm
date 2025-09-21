@@ -2382,7 +2382,7 @@ main:	jsr key::getch
 	.byte K_SHOW_PROJECT	; show project
 	.byte K_REFRESH		; refresh
 	.byte K_LIST_SYMBOLS	; list symbols
-	;.byte K_LINK            ; link program
+	.byte K_LINK            ; link program
 	.byte K_CLOSE_BUFF	; close buffer
 	.byte K_NEW_BUFF	; new buffer
 	.byte K_SET_BREAKPOINT	; set breakpoint
@@ -2410,7 +2410,7 @@ main:	jsr key::getch
 .define specialvecs ccleft, ccright, ccup, ccdown, \
 	home, \
 	command_asmdbg, show_buffers, show_proj, refresh, \
-	symview::enter, \
+	symview::enter, command_link, \
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
 	next_buffer, prev_buffer, udgedit, cancel, go_basic, \
