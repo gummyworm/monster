@@ -33,7 +33,7 @@ FINAL_BANK_USER    = $a0|2	; where the user's program is stored
 ; DEBUG bank ($03)
 ; This bank stores debug information (file ID's, line numbers and addresses
 ; as well as the code to access them
-FINAL_BANK_DEBUG = $a0|3	; where debug symbols are stored
+FINAL_BANK_DEBUG = $a0|3	; where debug info is stored
 
 ;******************************************************************************
 ; SOURCE banks ($04-$0B)

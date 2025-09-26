@@ -4,6 +4,7 @@
 .import __obj_close_section
 .import __obj_dump
 .import __obj_filename
+.import __obj_get_segment_name_by_id
 .import __obj_init
 .import __obj_load
 .import __obj_load_headers
@@ -16,20 +17,21 @@
 .import __obj_segments_sizehi
 
 .scope obj
-	add_export        = __obj_add_export
-	addreloc          = __obj_add_reloc
-	add_section       = __obj_add_section
-	close_section     = __obj_close_section
-	dump              = __obj_dump
-	filename          = __obj_filename
-	init              = __obj_init
-	load              = __obj_load
-	load_headers      = __obj_load_headers
-	numsegments       = __obj_numsegments
-	numsections       = __obj_numsections
-	sections_sizelo   = __obj_sections_sizelo
-	sections_sizehi   = __obj_sections_sizehi
-	segments          = __obj_segments
-	segments_sizelo   = __obj_segments_sizelo
-	segments_sizehi   = __obj_segments_sizehi
+	add_export             = __obj_add_export
+	addreloc               = __obj_add_reloc
+	add_section            = __obj_add_section
+	close_section          = __obj_close_section
+	dump                   = __obj_dump
+	filename               = __obj_filename
+	get_segment_name_by_id = __obj_get_segment_name_by_id
+	init                   = __obj_init
+	load                   = __obj_load
+	load_headers           = __obj_load_headers
+	numsegments            = __obj_numsegments
+	numsections            = __obj_numsections
+	sections_sizelo        = __obj_sections_sizelo
+	sections_sizehi        = __obj_sections_sizehi
+	segments               = __obj_segments
+	segments_sizelo        = __obj_segments_sizelo
+	segments_sizehi        = __obj_segments_sizehi
 .endscope

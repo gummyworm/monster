@@ -14,8 +14,19 @@
 .import __debug_pop_block
 
 .import __debuginfo_dump
+.import __debuginfo_load
 .import __debuginfo_get_fileid
 .import __debuginfo_set_seg_id
+
+BLOCK_START_ADDR     = 0
+BLOCK_STOP_ADDR      = 2
+BLOCK_LINE_BASE      = 4
+BLOCK_LINE_COUNT     = 6
+BLOCK_FILE_ID        = 8
+BLOCK_SEGMENT_ID     = 9
+BLOCK_LINE_PROG      = 10
+BLOCK_PROG_STOP_ADDR = 12
+SIZEOF_BLOCK_HEADER  = 14
 
 .scope dbgi
 	addr2line    = __debug_addr2line
@@ -25,6 +36,7 @@
 	get_filename = __debug_get_filename
 	getfileid    = __debuginfo_get_fileid
 	line2addr    = __debug_line2addr
+	load         = __debuginfo_load
 	init         = __debuginfo_init
 	initonce     = __debuginfo_initonce
 	newblock     = __debug_new_block

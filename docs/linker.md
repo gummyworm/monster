@@ -65,6 +65,9 @@ To link multiple object files the linker follows the following procedure:
          * Map symbol indices to their resolved addresses using global symbol table / segment base address
     * Store object code to the current address for each segment
     * Walk relocation table, for each segment, and apply the the relocations described using the global symbol table
+    * Load debug info
+         * for each block, add base address of SEGMENT for corresponding file
+         * append line program data for each object file to get global line program data
 * Validate
   * make sure segments don't overlap
 * Write MAP file (if requested)
@@ -301,4 +304,12 @@ Because of this, records that contain post-processing are 6 bytes instead of 5.
 ### DEBUG INFO
 This table stores the program to evaluate line numbers and addresses within the object file as well as references to which source files were used to create the object file.  This information allows the linker to produce a single mega debug file (or .D file) that contains all the information for the linked program, which allows for source level debugging.
 
-The format for debug information is described in further detail in [debug-info.md](debug-info.md).
+|       field       |     size     | description
+|-------------------|--------------|----------------------------------------------------------
+| file table        |      ...     | 0-terminated list of all files
+| num blocks        |       1      | number of BLOCKS in the object file
+| line program size |       2      | total number of bytes of line program data in all blocks
+| headers           | 2\*BLOCKSIZE  | the BLOCK header data for all blocks
+| line program data |      ...     | the line program data for the object code for all blocks
+
+The debug info format itself (headers and line program data) is described in further detail in [debug-info.md](debug-info.md).

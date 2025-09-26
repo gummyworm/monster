@@ -5,6 +5,7 @@
 ;
 ; See the OBJECT CODE overview below for details on the object format.
 ;*******************************************************************************
+.include "debuginfo.inc"
 .include "errors.inc"
 .include "file.inc"
 .include "labels.inc"
@@ -1009,10 +1010,17 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; init the segment/section pointers using the current linker state
 	; (parsed from the LINK file prior to calling this procedured)
 	ldx numsegments
-	bne @initsegments
+	bne @init
 
 	sec		; no segments defined; return error
 @ret:	rts
+
+@init:
+	; initialize state:
+	; labels (global symbol table)
+	; debug info (global debug info)
+	CALL FINAL_BANK_MAIN, lbl::clr
+	CALL FINAL_BANK_MAIN, dbgi::init
 
 @initsegments:
 	; set the start address for each SECTION to the SEGMENT

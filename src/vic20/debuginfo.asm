@@ -6,8 +6,10 @@
 ; debug information
 ;*******************************************************************************
 .include "../errors.inc"
+.include "../linker.inc"
 .include "../macros.inc"
 .include "../memory.inc"
+.include "../object.inc"
 .include "../string.inc"
 .include "../ram.inc"
 .include "../zeropage.inc"
@@ -39,7 +41,8 @@ OP_ADVANCE_LINE = $04
 OP_ADVANCE_ADDR = $05
 OP_SET_PC       = $06
 
-SIZEOF_BLOCK_HEADER = 14
+SIZEOF_BLOCK_HEADER     = 14
+SIZEOF_BLOCK_HEADER_OBJ = 10	; .O header doesn't contain line prog start/stop
 
 ;*******************************************************************************
 .macro BANKJUMP proc_id
@@ -1132,13 +1135,13 @@ get_filename = get_filename_addr
 ; IN:
 ;   - .A: the ID of the block to get
 ; OUT:
-;   - .XY:
+;   - .XY: the address of the requested header
 ; CLOBBERS:
 ;   - r0-r1
 .proc header_addr
 @tmp0=r0
 @tmp1=r1
-	; multiply block number by sizeof(blockdata)
+	; multiply block number by SIZEOF_BLOCK_HEADER
 	sta @tmp0
 	asl			; *2
 	asl			; *4
@@ -1146,6 +1149,7 @@ get_filename = get_filename_addr
 	asl			; *8
 	adc @tmp1		; *12
 	adc @tmp0		; *13
+	adc @tmp0		; *14
 	adc #<blockheaders
 	tax
 	lda #>blockheaders
@@ -1440,13 +1444,14 @@ get_filename = get_filename_addr
 @name=r0
 @i=r0
 @dbgi=r2
+@progstart=r4
 	ldxy #filenames
 	stxy @name
 
 ;--------------------------------------
 ; dump the filenames
 	ldx numfiles
-	beq @done
+	beq @filesdone
 @fnames:
 	; write the filename (with terminating 0) to the object file
 	ldy #$00
@@ -1465,17 +1470,56 @@ get_filename = get_filename_addr
 :	dex
 	bne @fnames		; repeat for next filename
 
+@filesdone:
+	lda #$00
+	jsr $ffd2		; write 0 to terminate filename list
+
 ;--------------------------------------
 ; dump the BLOCK headers
+	; write the number of blocks
+	lda numblocks
+	jsr $ffd2
+
+	; write the total size of all line programs
+	ldxy freeptr
+	sub16 #debuginfo
+	txa
+	jsr $ffd2
+	tya
+	jsr $ffd2
+
 	ldxy #blockheaders
 	stxy @dbgi
 	ldx numblocks
+
+	; dump each header
+	ldx numblocks
+	beq @done		; if no BLOCKS, we're done
+	ldy #$00
 @headers:
 	lda (@dbgi),y
 	jsr $ffd2
 	iny
-	cpy #SIZEOF_BLOCK_HEADER
+	cpy #SIZEOF_BLOCK_HEADER_OBJ
 	bne @headers
+
+	; calculate the size of the line program for the block
+	; (progstop-progstart)
+	iny
+	lda (@dbgi),y
+	sta @progstart
+	iny
+	lda (@dbgi),y
+	sta @progstart+1
+	iny
+	lda (@dbgi),y
+	sbc @progstart
+	jsr $ffd2		; write the LSB of the size
+	iny
+	lda (@dbgi),y
+	sbc @progstart+1
+	jsr $ffd2		; write the MSB of the size
+
 	lda @dbgi
 	clc
 	adc #SIZEOF_BLOCK_HEADER
@@ -1502,6 +1546,142 @@ get_filename = get_filename_addr
 @chk:	ldxy @dbgi
 	cmpw freeptr
 	bne :-
+
+@done:	RETURN_OK
+.endproc
+
+;*******************************************************************************
+; LOAD
+; Loads the debug info from file to the current debug info state.
+; Addresses are offset by a given base address to support relocation.
+; This procedure is intended for use during linking, so some link context is
+; assumed to be set up:
+;  - map of local (object context) segment id's to segment names
+;  - map of global (linker context) segment names to id's
+;  - map of global (linker context) base addresses for segments
+; IN:
+;   - dbgi::loadaddr: offset to apply to all BLOCKS loaded
+; OUT:
+;   - .C: set on error
+.export __debuginfo_load
+.proc __debuginfo_load
+@header=r0
+@freeptr=r0
+@segname=r0
+@offset=r0
+@block_i=zp::tmp10
+	jsr $ffa5		; read number of blocks
+	sta numblocks
+	cmp #$00
+	bne :+
+	RETURN_OK		; no blocks
+
+:	lda #$00
+	sta @block_i
+@load_block:
+	; load the BLOCK header
+	ldy #$00
+:	jsr $ffa5
+	sta zp::debug,y
+	iny
+	cpy #SIZEOF_BLOCK_HEADER_OBJ
+	bne :-
+
+	; load the line program size and compute its stop address based on
+	; current freeptr
+	lda freeptr
+	sta progstart
+	lda freeptr+1
+	sta progstart+1
+	jsr $ffa5		; read size LSB
+	clc
+	adc freeptr
+	sta progstop		; store stop address LSB
+	php
+	jsr $ffa5		; read size MSB
+	plp
+	adc freeptr+1
+	sta progstop+1		; store stop address MSB
+
+	; look up global SEGMENT id and replace the LOCAL one with it
+	lda seg_id
+	CALL FINAL_BANK_LINKER, obj::get_segment_name_by_id
+	stxy @segname
+	CALL FINAL_BANK_LINKER, link::segid_by_name
+	sta seg_id
+
+	; look up the address offset for this SEGMENT
+	ldxy @segname
+	CALL FINAL_BANK_LINKER, link::segaddr_for_file
+	stxy @offset
+
+	; add the offset for the SEGMENT to the value from the header
+	lda blockstart
+	clc
+	adc @offset
+	sta blockstart
+	lda blockstart+1
+	adc @offset+1
+	sta blockstart+1
+
+	; also add the SEGMENT address base to the stop address
+	lda blockstop
+	clc
+	adc @offset
+	sta blockstop
+	lda blockstop+1
+	adc @offset+1
+	sta blockstop+1
+
+	lda freeptr
+	sta progstart
+	lda freeptr+1
+	sta progstart+1
+
+	lda freeptr
+	clc
+	adc progstop
+	sta progstop
+	lda freeptr+1
+	clc
+	adc progstop+1
+	sta progstop+1
+
+	; write the modified header to its stable location
+	lda numblocks
+	jsr header_addr
+	stxy @header
+	ldy #SIZEOF_BLOCK_HEADER-1
+:	lda zp::debug,y
+	sta (@header),y
+	dey
+	bpl :-
+	inc numblocks
+
+;--------------------------------------
+; load/write the line program data
+	ldy #$00
+	ldxy freeptr
+	stxy @freeptr
+:	jsr $ffa5		; load byte
+	sta (@freeptr),y	; store it
+	incw @freeptr
+
+	; repeat for all bytes
+	lda @freeptr
+	cmp progstop
+	bne :-
+	sta freeptr
+	lda @freeptr+1
+	cmp progstop+1
+	bne :-
+	sta freeptr+1
+
+	inc @block_i
+	lda @block_i
+	cmp numblocks
+	beq @done
+	jmp @load_block
 
 @done:	RETURN_OK
 .endproc
