@@ -1690,9 +1690,9 @@ get_filename = get_filename_addr
 
 ;--------------------------------------
 ; load/write the line program data
-	ldy #$00
 	ldxy freeptr
 	stxy @freeptr
+	ldy #$00
 :	jsr $ffa5		; load byte
 	sta (@freeptr),y	; store it
 	incw @freeptr
