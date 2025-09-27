@@ -26,32 +26,49 @@
 	; read past the label
 @l0:	jsr src::right_rep
 	bcs @done			; nothing on the line after the label
+	; TODO: check invalid label characters
+
 	jsr util::is_whitespace
 	bne @l0
 
-	; delete all spaces until the opcode/macro/etc.
+	; delete all whitespace until the opcode/macro/etc.
 @l1:	jsr src::after_cursor
-	bcs @done
+	bcs @done		; no chars left -> done
 	cmp #$0d
-	beq @done
+	beq @done		; newline -> done
 	jsr util::is_whitespace
-	bne @tab
-	jsr src::delete
+	bne @tab		; non-whitespace -> separate with tab
+	jsr src::delete		; delete whitespaced
 	bcc @l1
 @done:	rts
-
-@tab:	; now insert a TAB to separate label and opcode
-	lda #$09
-	jmp src::insert
+@tab:
 .endproc
 
 ;******************************************************************************
-; OPCODE
-; Formats linebuffer as an opcode.
-.proc opcode
-	; indent the linebuffer and source
+; INDENT
+; Insert one indent at current source position, then refresh the
+; line buffer and move to the end of it
+.proc indent
 	lda #$09
-	jmp src::insert
+	jsr src::insert
+
+@refresh:
+	jsr src::pushp
+	jsr src::home	; back to start of line
+	jsr src::get	; refresh linebuffer
+	jsr src::popgoto
+
+	; check the size of the line now that it has a TAB
+	jsr text::rendered_line_len
+	bcc :+				; ok
+
+	; line would be oversized with a TAB, use a space instead
+	jsr src::backspace	; delete the TAB
+	lda #' '
+	jsr src::insert		; insert a space
+	jmp @refresh		; and refresh the line again
+
+:	jmp src::down	; and go to end of line
 .endproc
 
 ;******************************************************************************
@@ -82,20 +99,15 @@
 @left_aligned:
 	lda @linecontent 	; get the type of line we're formatting
 	and #ASM_LABEL		; if formatting includes label, do __fmt_label
-	beq @notlabel
-	jsr label
-	jmp @refresh
+@label: beq @notlabel
+	jmp label
 
 @notlabel:
 	lda @linecontent
 	and #ASM_COMMENT 	; if comment, don't format at all
 	bne @done
-@ident: jsr opcode		; anything else- indent
 
-@refresh:
-	jsr src::home	; back to start of line
-	jsr src::get	; refresh linebuffer
-	jmp src::down	; and go to end of line
+@ident: jmp indent		; anything else- indent
 
 @done:  rts
 .endproc
