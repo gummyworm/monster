@@ -891,7 +891,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; IN:
 ;   - .A: the object file id to get the table for
 ; OUT
-;   - .XY: the table of section offsets for the given symbol's file
+;   - .XY: the table of SEGMENT offsets for the given symbol's file
 .proc get_file_segment_table
 @msb=r0
 	ldx #$00
@@ -903,7 +903,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	asl
 	rol @msb
 
-	; -2 so that id 1*2 points to start of our list
+	; -2 so that id #1 *2 points to start of our list
 	; -16 because object file ids are also 1-based
 	adc #<file_segments_start-2-(MAX_SEGMENTS*2)
 	tax
@@ -1025,6 +1025,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 @initsegments:
 	; set the start address for each SECTION to the SEGMENT
 	; load address parsed from the LINK file
+	ldx numsegments
 @l0:	ldy segments_load-1,x
 	lda sections_startlo,y
 	sta segments_addrlo-1,x
@@ -1036,6 +1037,9 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	; init obj pointer to start of object list
 	ldxy #__link_objfiles
 	stxy @objfile
+
+	lda #$01
+	sta activeobj
 
 @pass1: ; pass 1:
 	; Extract header data foreach file and update pointers to each file
@@ -1059,15 +1063,16 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 	CALL FINAL_BANK_MAIN, file::close
 	jsr $ffcc				; CLRCHN
 	plp					; restore load_headers error
-	bcs @ret
+	bcc :+
+	rts
 
-	; store the current base addresses for each SEGMENT for the object file
+:	; store the current base addresses for each SEGMENT for the object file
 	lda activeobj
 	jsr get_file_segment_table
 	stxy @tab
 
 	ldx #$00
-	ldy #$00
+	ldy #$02		; +2 because get_file_segment_table uses 1 base
 :	lda segments_addrlo,x
 	adc segments_sizelo,x
 	sta (@tab),y
@@ -1249,7 +1254,7 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 .endproc
 
 ;******************************************************************************
-; SEGADDR FOR FILE
+; SEGADDR FOR FILE BY NAME
 ; Returns the base address for the given segment name within the given object
 ; file. This is only valid in pass 2 after the linker has finished laying out
 ; the final program.
@@ -1258,11 +1263,26 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ;   - objfile: the file to find the section's base address for
 ; OUT:
 ;   - .XY: the base address for the requested segment within objfile
-.export __link_segaddr_for_file
-.proc __link_segaddr_for_file
+.export __link_segaddr_for_file_by_name
+.proc __link_segaddr_for_file_by_name
+	jsr get_segment_by_name		; get the id of the SEGMENT
+	; fall through
+.endproc
+
+;******************************************************************************
+; SEGADDR FOR FILE BY ID
+; Returns the base address for the given segment name within the given object
+; file. This is only valid in pass 2 after the linker has finished laying out
+; the final program.
+; IN:
+;   - .A:      global (linker) segment id to get the base address of
+;   - objfile: file to find the section's base address for
+; OUT:
+;   - .XY: the base address for the requested segment within objfile
+.export __link_segaddr_for_file_by_id
+.proc __link_segaddr_for_file_by_id
 @segname=r0
 @tab=r2
-	jsr get_segment_by_name		; get the id of the SEGMENT
 	pha
 
 	; get the segment-address table for the file

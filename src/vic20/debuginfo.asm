@@ -1559,11 +1559,40 @@ get_filename = get_filename_addr
 ;   - .C: set on error
 .export __debuginfo_load
 .proc __debuginfo_load
-@header=r0
-@freeptr=r0
-@segname=r0
-@offset=r0
-@block_i=zp::tmp10
+@i        = r0
+@header   = r0
+@freeptr  = r0
+@segname  = r0
+@offset   = r0
+@block_i  = zp::tmp10
+@filemap  = $100
+@filename = $100+MAX_FILES
+;--------------------------------------
+; load the file table and map ids to global ids
+@load_files:
+	lda #$00
+	sta @i
+@mapfile:
+	; read a filename
+	ldy #$00
+:	jsr $ffa5
+	sta @filename,y
+	iny
+	cmp #$00
+	bne :-
+	cpy #$01		; was filename empty?
+	beq @load_blocks	; if so, we're at end of list
+
+	ldxy #@filename
+	jsr set_file
+	ldx @i
+	sta @filemap,x
+	inc @i
+	bne @mapfile
+
+;--------------------------------------
+; load the BLOCK data
+@load_blocks:
 	jsr $ffa5		; read number of blocks
 	sta numblocks
 	cmp #$00
@@ -1597,16 +1626,25 @@ get_filename = get_filename_addr
 	adc freeptr+1
 	sta progstop+1		; store stop address MSB
 
+	; map local file id to the global one
+	ldx file
+	lda @filemap,x
+	sta file
+
 	; look up global SEGMENT id and replace the LOCAL one with it
+	; TODO: fix this
 	lda seg_id
+	clc
+	adc #$01		; get 1-based id
 	CALL FINAL_BANK_LINKER, obj::get_segment_name_by_id
-	stxy @segname
-	CALL FINAL_BANK_LINKER, link::segid_by_name
+	bcc :+
+	rts			; not found
+:	CALL FINAL_BANK_LINKER, link::segid_by_name
 	sta seg_id
 
 	; look up the address offset for this SEGMENT
-	ldxy @segname
-	CALL FINAL_BANK_LINKER, link::segaddr_for_file
+	CALL FINAL_BANK_LINKER, link::segaddr_for_file_by_id
+	jmp *
 	stxy @offset
 
 	; add the offset for the SEGMENT to the value from the header
@@ -1650,7 +1688,6 @@ get_filename = get_filename_addr
 	sta (@header),y
 	dey
 	bpl :-
-	inc numblocks
 
 ;--------------------------------------
 ; load/write the line program data

@@ -990,9 +990,9 @@ __obj_close_section:
 	sta @seg_idx
 
 @apply: ldx @seg_idx
-	lda sections_relocsizelo,x
+	lda segments_relocsizelo,x
 	sta @sz
-	lda sections_relocsizehi,x
+	lda segments_relocsizehi,x
 	sta @sz+1
 	iszero @sz
 	bne :+
@@ -1219,7 +1219,7 @@ __obj_close_section:
 	; get the base address of this SEGMENT in the linker
 	; NOTE: this will be garbage in pass 1
 	ldxy @name
-	jsr link::segaddr_for_file
+	jsr link::segaddr_for_file_by_name
 	tya
 	ldy @i
 	sta segments_starthi,y		; store MSB of SEGMENT base
@@ -1440,8 +1440,6 @@ __obj_close_section:
 .export __obj_load
 .proc __obj_load
 @tmp=r0
-@segcnt=r2
-@seg_idx=r4
 @i=r4
 @name=r6
 @addr=r6
@@ -1594,6 +1592,9 @@ __obj_close_section:
 
 @done:	clc
 @eof:	rts
+
+@seg_idx: .byte 0
+@segcnt:  .byte 0
 .endproc
 
 ;******************************************************************************
