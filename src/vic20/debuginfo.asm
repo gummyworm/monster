@@ -335,7 +335,7 @@ blockaddresseshi: .res MAX_FILES
 
 	lda block_open		; is there a block already open?
 	beq @cont		; continue to create new block if not
-	jsr end_block		; end the open block if there is
+	jsr end_block		; end the open block if there is one
 
 @cont:	; get offset to block header ((BLOCK_HEADER_SIZE * numblocks)
 	lda numblocks
@@ -476,6 +476,7 @@ blockaddresseshi: .res MAX_FILES
 	sta (block),y	; right the MSB of stop address to the block header
 
 	; check if progstop > freeptr and set freeptr to progstop if it is
+	; TODO: won't this always be the case?
 	cmp freeptr+1
 	bcc @close	; progstop is < freeptr, this isn't the new free ptr
 	bne @set_freetop
@@ -1480,14 +1481,6 @@ get_filename = get_filename_addr
 	lda numblocks
 	jsr $ffd2
 
-	; write the total size of all line programs
-	ldxy freeptr
-	sub16 #debuginfo
-	txa
-	jsr $ffd2
-	tya
-	jsr $ffd2
-
 	ldxy #blockheaders
 	stxy @dbgi
 	ldx numblocks
@@ -1505,7 +1498,6 @@ get_filename = get_filename_addr
 
 	; calculate the size of the line program for the block
 	; (progstop-progstart)
-	iny
 	lda (@dbgi),y
 	sta @progstart
 	iny
@@ -1514,9 +1506,11 @@ get_filename = get_filename_addr
 	iny
 	lda (@dbgi),y
 	sbc @progstart
+	php
 	jsr $ffd2		; write the LSB of the size
 	iny
 	lda (@dbgi),y
+	plp
 	sbc @progstart+1
 	jsr $ffd2		; write the MSB of the size
 
@@ -1582,7 +1576,7 @@ get_filename = get_filename_addr
 	; load the BLOCK header
 	ldy #$00
 :	jsr $ffa5
-	sta zp::debug,y
+	sta blockstate,y
 	iny
 	cpy #SIZEOF_BLOCK_HEADER_OBJ
 	bne :-
@@ -1652,7 +1646,7 @@ get_filename = get_filename_addr
 	jsr header_addr
 	stxy @header
 	ldy #SIZEOF_BLOCK_HEADER-1
-:	lda zp::debug,y
+:	lda blockstate,y
 	sta (@header),y
 	dey
 	bpl :-

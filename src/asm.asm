@@ -1777,12 +1777,11 @@ __asm_tokenize_pass1 = __asm_tokenize
 	bcc @add
 	rts		; error
 
-@add:	lda #$01
-	sta pcset	; mark PC set (linker will take care of setting it)
+@add:	ldxy __asm_linenum
+	stxy dbgi::srcline
 
-	; end current BLOCK of debug info (if one is open)
-	ldxy zp::virtualpc	; current address
-	jsr dbgi::endblock	; end the current block
+	lda #$01
+	sta pcset	; mark PC set (linker will take care of setting it)
 
 	; close the current section (if any)
 	jsr obj::close_section
@@ -1796,10 +1795,25 @@ __asm_tokenize_pass1 = __asm_tokenize
 	stxy zp::virtualpc
 
 	sta __asm_segmentid		; set SEGMENT id
+
+	; if pass 2, create new block for debug info
+	lda zp::pass
+	cmp #$02
+	bne @done
+
+	; end current BLOCK of debug info (if one is open)
+	ldxy zp::virtualpc	; current address
+	jsr dbgi::endblock	; end the current block
+
+
+
 	jsr dbgi::set_seg_id		; and set it for debug info too
 
 	; create a new BLOCK of debug info at zp::virtualpc
-	jmp dbgi::newblock	; start new block for included file
+	jsr dbgi::newblock	; start new block for included file
+
+@done:	lda #ASM_DIRECTIVE
+	RETURN_OK
 .endproc
 
 ;*******************************************************************************
