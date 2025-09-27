@@ -1679,7 +1679,7 @@ get_filename = get_filename_addr
 	sta progstop+1
 
 	; write the modified header to its stable location
-	lda numblocks
+	lda @block_i
 	jsr header_addr
 	stxy @header
 	ldy #SIZEOF_BLOCK_HEADER-1
