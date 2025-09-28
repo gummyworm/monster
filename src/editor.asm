@@ -1189,7 +1189,21 @@ main:	jsr key::getch
 ; moves cursor to start of line and enters INSERT mode
 .proc insert_start
 	jsr enter_insert
-	jmp home
+
+	; fall through to home_col
+.endproc
+
+;*******************************************************************************
+; HOME COL
+; Moves cursor to the first non-whitespace character on the line
+.proc home_col
+	jsr home
+@l1:	jsr src::after_cursor
+	jsr util::is_whitespace
+	bne @done
+	jsr ccright
+	bcc @l1
+@done:	rts
 .endproc
 
 ;*******************************************************************************
@@ -2131,6 +2145,7 @@ main:	jsr key::getch
 .proc home_line
 	jsr src::start	; at start of file?
 	beq @done	; if so, we're done
+
 @l0:	lda zp::cury	; top row?
 	beq @done
 	jsr ccup	; move UP until cursor is at top row
@@ -5306,7 +5321,7 @@ numcommands=*-commands
 	open_line_above, open_line_below, join_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, sub_char, sub_line, \
 	dir::view, swapwin, ccleft, ccright, ccup, ccdown, endofword, \
-	beginword, word_advance, home, last_line, \
+	beginword, word_advance, home_col, last_line, \
 	home_line, ccdel, ccright, goto_end, goto_start, find_next, find_prev, \
 	end_of_line, prev_empty_line, next_empty_line, begin_next_line, \
 	command_move_scr, \
