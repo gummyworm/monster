@@ -3,6 +3,7 @@
 .include "../../debug.inc"
 .include "../../debuginfo.inc"
 .include "../../flags.inc"
+.include "../../format.inc"
 .include "../../labels.inc"
 .include "../../macros.inc"
 .include "../../memory.inc"
@@ -30,10 +31,11 @@ STATUS_COL=0		; start column for status line
 @filename=zp::text
 @tmp=zp::text
 @leftend=zp::text+2
-@columnstart=STATUS_COL+3
-@linestart=STATUS_COL+6
-@sizestart=STATUS_COL+13
-@modestart=STATUS_COL
+@columnstart = STATUS_COL+3
+@linestart   = STATUS_COL+6
+@sizestart   = STATUS_COL+13
+@modestart   = STATUS_COL
+@fmtstart    = STATUS_COL+1
 	lda #' '
 	ldx #39
 @clr:	sta mem::statusline,x
@@ -101,6 +103,13 @@ STATUS_COL=0		; start column for status line
 @mode:	; add the editor mode
 	lda text::statusmode
 	sta mem::statusline+@modestart
+
+	lda fmt::enable
+	beq :+
+	lda #'f'+$20
+	skw
+:	lda #' '
+	sta mem::statusline+@fmtstart
 
 	ldy #$00
 @copyinfo:

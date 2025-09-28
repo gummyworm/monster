@@ -16,6 +16,7 @@
 - [ ] Save/restore raster position while debugging
 
 ### TODO V1
+- [ ] allow formatting to be disabled
 - [ ] fix weird off-by-1 cursor issue (on some newlines???)
 - [x] don't format if afterwards line will be too long
 - [x] dump filenames (from dbgi) to MAP file

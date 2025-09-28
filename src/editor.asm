@@ -140,6 +140,7 @@ autoindent: .byte 0		; auto-indent enable flag (0=don't auto-indent)
 
 	inx			; ldx #$01
 	stx state::verify	; don't assemble code (just check syntax)
+	stx fmt::enable		; enable formatting
 
 	stx format		; enable formatting
 	stx autoindent		; enable auto-indent
@@ -2405,6 +2406,7 @@ main:	jsr key::getch
 
 	.byte K_NEXT_PAL
 	.byte K_PREV_PAL
+	.byte K_TOGGLE_FMT
 @num_special_keys=*-@specialkeys
 .linecont +
 .define specialvecs ccleft, ccright, ccup, ccdown, \
@@ -2414,7 +2416,7 @@ main:	jsr key::getch
 	close_buffer, new_buffer, set_breakpoint, jumpback, \
 	buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7, buffer8,\
 	next_buffer, prev_buffer, udgedit, cancel, go_basic, \
-	gprefs::next_pal, gprefs::prev_pal
+	gprefs::next_pal, gprefs::prev_pal, toggle_autoformat
 .linecont -
 @specialvecslo: .lobytes specialvecs
 @specialvecshi: .hibytes specialvecs
@@ -5224,6 +5226,16 @@ __edit_gotoline:
 ; Swaps to the current GUI (if one is active), this is the last gui created
 ; via gui::activate.
 swapwin = gui::reenter
+
+;******************************************************************************
+; TOGGLE AUTOFORMAT
+; Toggles auto-formatting enable/disable
+.proc toggle_autoformat
+	lda #$01
+	eor fmt::enable
+	sta fmt::enable
+	rts
+.endproc
 
 .RODATA
 

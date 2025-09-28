@@ -17,6 +17,11 @@
 .include "util.inc"
 .include "zeropage.inc"
 
+.BSS
+
+.export __fmt_enable
+__fmt_enable: .byte 0	; flag to enable (!0) or disable (0) formatting
+
 .CODE
 
 ;******************************************************************************
@@ -82,6 +87,8 @@
 	cmp #$00
 	beq @done
 	sta @linecontent
+	lda __fmt_enable
+	beq @done
 
 	; remove spaces from start of line
 	jsr src::up

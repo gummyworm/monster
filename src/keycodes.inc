@@ -32,6 +32,7 @@ K_LINK           = $88	; F7
 
 K_NEXT_PAL       = $db	; SHIFT + +
 K_PREV_PAL       = $dd  ; SHIFT + -
+K_TOGGLE_FMT     = $bb
 
 K_SET_BREAKPOINT = $bf	; C= + B
 K_ASM_FILE       = $b0	; C= + a
