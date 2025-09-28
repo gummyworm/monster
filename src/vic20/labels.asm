@@ -15,7 +15,7 @@
 
 ;*******************************************************************************
 ; CONSTANTS
-MAX_ANON      = 700	; max number of anonymous labels
+MAX_ANON      = 694	; max number of anonymous labels
 SCOPE_LEN     = 8	; max len of namespace (scope)
 MAX_LABELS    = 736
 
@@ -30,13 +30,14 @@ allow_overwrite = zp::labels+4	; when !0, addlabel will overwrite existing
 .export __label_find
 .export __label_by_addr
 .export __label_by_id
+.export __label_dump
 .export __label_name_by_id
 .export __label_isvalid
 .export __label_get_name
 .export __label_get_addr
+.export __label_load
 .export __label_is_local
 .export __label_set
-.export __label_set24
 .export __label_del
 .export __label_address
 .export __label_address_by_id
@@ -59,14 +60,15 @@ __label_add		 = add
 __label_find             = find
 __label_by_addr          = by_addr
 __label_by_id            = by_id
+__label_dump             = dump
 __label_name_by_id       = name_by_id
 __label_isvalid          = is_valid
 __label_get_name         = get_name
+__label_load             = load
 __label_get_addr         = getaddr
 __label_get_segment      = get_segment
 __label_is_local         = is_local
 __label_set              = set
-__label_set24            = set24
 __label_del              = del
 __label_address          = address
 __label_address_by_id    = address_by_id
@@ -95,9 +97,11 @@ ADD
 FIND
 BY_ADDR
 BY_ID
+DUMP
 NAME_BY_ID
 IS_VALID
 GET_NAME
+LOAD
 GETADDR
 IS_LOCAL
 SET
@@ -119,8 +123,8 @@ SET_ADDR
 .RODATA
 
 .linecont +
-.define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
-getaddr, is_local, set, set24, del, address, address_by_id, set_scope, \
+.define procs clr, add, find, by_addr, by_id, dump, name_by_id, is_valid, get_name, \
+load, getaddr, is_local, set, del, address, address_by_id, set_scope, \
 add_anon, get_fanon, get_banon, index, id_by_addr_index, addrmode, \
 get_segment, setaddr
 .linecont -
@@ -133,13 +137,14 @@ __label_add: LBLJUMP proc_ids::ADD
 __label_find: LBLJUMP proc_ids::FIND
 __label_by_addr: LBLJUMP proc_ids::BY_ADDR
 __label_by_id: LBLJUMP proc_ids::BY_ID
+__label_dump: LBLJUMP proc_ids::DUMP
+__label_load: LBLJUMP proc_ids::LOAD
 __label_name_by_id: LBLJUMP proc_ids::NAME_BY_ID
 __label_isvalid: LBLJUMP proc_ids::IS_VALID
 __label_get_name: LBLJUMP proc_ids::GET_NAME
 __label_get_addr: LBLJUMP proc_ids::GETADDR
 __label_is_local: LBLJUMP proc_ids::IS_LOCAL
 __label_set: LBLJUMP proc_ids::SET
-__label_set24: LBLJUMP proc_ids::SET24
 __label_del: LBLJUMP proc_ids::DEL
 __label_address: LBLJUMP proc_ids::ADDRESS
 __label_address_by_id: LBLJUMP proc_ids::ADDRESS_BY_ID
@@ -156,6 +161,7 @@ __label_set_addr: LBLJUMP proc_ids::SET_ADDR
 ;******************************************************************************
 ; Entrypoint for label routines
 .proc do_label_proc
+@savex=zp::banktmp+1
 	stx @savex
 	tax
 	lda procs_lo,x
@@ -164,12 +170,10 @@ __label_set_addr: LBLJUMP proc_ids::SET_ADDR
 	sta zp::bankjmpvec+1
 	lda #FINAL_BANK_SYMBOLS
 	sta zp::banktmp
-@savex=*+1
-	ldx #$00
+	ldx @savex
 	pla
 	jmp __ram_call
 .endproc
-.export __label_clr
 .endif
 
 ;******************************************************************************
@@ -212,6 +216,8 @@ numlabels: .word 0   	; total number of labels
 .export __label_numanon
 __label_numanon:
 numanon: .word 0	; total number of anonymous labels
+
+scope: .res 8 ; buffer containing the current scope
 labelvars_size=*-labelvars
 
 .segment "LABEL_BSS"
@@ -251,11 +257,6 @@ label_addresses_sorted_ids: .res MAX_LABELS*2
 .export anon_addrs
 anon_addrs: .res MAX_ANON*2
 
-;******************************************************************************
-; VARS
-.segment "LABEL_VARS"
-scope: .res 8 ; buffer containing the current scope
-
 .segment "LABELS"
 ;******************************************************************************
 ; SET SCOPE
@@ -290,9 +291,10 @@ scope: .res 8 ; buffer containing the current scope
 @buff=$100
 @lbl=zp::labels
 	stxy @lbl
+
 	ldx #$00
-	lda scope
-	bne @l0
+	lda scope			; check if there is a scope defined
+	bne @l0				; if so, continue
 	RETURN_ERR ERR_NO_OPEN_SCOPE
 
 @l0:	lda scope,x
@@ -322,15 +324,10 @@ scope: .res 8 ; buffer containing the current scope
 ; Removes all labels effectively resetting the label state
 .proc clr
 	lda #$00
-	ldx #labelvars_size-1
+	ldx #labelvars_size
 :	sta labelvars-1,x
 	dex
 	bne :-
-	sta scope
-	sta numlabels
-	sta numlabels+1
-	sta numanon
-	sta numanon+1
 	rts
 .endproc
 
@@ -463,27 +460,6 @@ scope: .res 8 ; buffer containing the current scope
 	lda zp::label_value+1
 	sta (@addr),y
 	rts
-.endproc
-
-;******************************************************************************
-; SET24
-; Adds the label at the given 24 bit (banked) address to the label table.
-; If a label already exists, its value is replaced
-; IN:
-;  - .A:              the bank of the label
-;  - .XY:             the address of the label
-;  - zp::label_value: the value to assign to the label
-; OUT:
-;  - .C: set on error or clear if the label was successfully added
-.proc set24
-@tmplabel = $140	; temporary label storage for banked labels
-	stxy zp::bankaddr0
-	ldxy #@tmplabel
-	stxy zp::bankaddr1
-	CALL FINAL_BANK_MAIN, ram::copyline
-	ldxy #@tmplabel
-
-	; fall through to SET
 .endproc
 
 ;******************************************************************************
@@ -661,7 +637,7 @@ scope: .res 8 ; buffer containing the current scope
 	sta @addr
 	bcc :+
 	inc @addr+1
-:	jmp @insert_mode
+:	bne @insert_mode	; branch always
 
 @sh0:	; copy the label (MAX_LABEL_LEN bytes) to the SYMBOL bank
 	ldy #MAX_LABEL_LEN-1
@@ -689,9 +665,11 @@ scope: .res 8 ; buffer containing the current scope
 	; segid--
 	decw @segid
 
-	decw @cnt
-	iszero @cnt
-	beq @insert_mode
+	lda @cnt
+	bne :+
+	dec @cnt+1
+	bmi @insert_mode
+:	dec @cnt
 
 ; update all pointers
 
@@ -794,7 +772,7 @@ scope: .res 8 ; buffer containing the current scope
 
 	iny
 	cpy #MAX_LABEL_LEN
-	bcc :-
+	bne :-
 
 @storeaddr:
 	; 0-terminate the label name and write the label value
@@ -957,8 +935,7 @@ scope: .res 8 ; buffer containing the current scope
 	sec		; given address is > all in table
 	rts
 
-@found:
-	lda #$00
+@found: lda #$00
 	sta @seek+1
 	lda @cnt
 	asl
@@ -1032,7 +1009,6 @@ scope: .res 8 ; buffer containing the current scope
 	bne :+
 	dec @cnt+1
 	bmi @err
-	bpl @l0
 :	dec @cnt
 	jmp @l0
 
@@ -1115,7 +1091,6 @@ scope: .res 8 ; buffer containing the current scope
 ;   - r6: address of value to return
 ; OUT:
 ;  - .XY: the nth anonymous label whose address is < than the given address
-;  - .C:  clear to indicate success
 .proc get_anon_retval
 @seek=r6
 	ldy #$00
@@ -1125,7 +1100,7 @@ scope: .res 8 ; buffer containing the current scope
 	lda (@seek),y		; get the MSB of our anonymous label
 	tay
 	lda #$02		; always use 2 bytes for anon address size
-	RETURN_OK
+	rts
 .endproc
 
 ;******************************************************************************
@@ -1146,7 +1121,7 @@ scope: .res 8 ; buffer containing the current scope
 	sta @sec+1
 	ldy #$00
 	lda (@sec),y
-	rts
+:	rts
 .endproc
 
 ;******************************************************************************
@@ -1162,10 +1137,9 @@ scope: .res 8 ; buffer containing the current scope
 ;  - r2:  the ID of the label
 .proc address
 	jsr find		; get the id in YX
-	bcc address_by_id
-	lda #ERR_LABEL_UNDEFINED
-	;sec
-	rts
+	bcs :-			; -> rts
+
+	; fall through to address_by_id
 .endproc
 
 ;******************************************************************************
@@ -1206,7 +1180,8 @@ scope: .res 8 ; buffer containing the current scope
 	pla
 	tax
 	lda @mode
-	RETURN_OK
+	clc			; ok
+:	rts
 .endproc
 
 ;******************************************************************************
@@ -1228,8 +1203,7 @@ scope: .res 8 ; buffer containing the current scope
 @stop=rb
 	stxy @name
 	jsr find
-	bcc @del
-	rts		; not found
+	bcs :-		; -> rts (not found)
 
 @del:	stxy @id
 	jsr by_id
@@ -1413,13 +1387,15 @@ scope: .res 8 ; buffer containing the current scope
 ;  - .A: nonzero if the label is local
 ;  - .Z: clear if label is local, set if not
 .proc is_local
+@l=zp::util
 	stxy @l
-@l=*+1
-	lda $f00d
+	ldy #$00
+	lda (@l),y
 	cmp #'@'
 	bne :+
 	lda #$01	; flag that label IS local
 	rts
+
 :	lda #$00	; flag that label is NOT local
 	rts
 .endproc
@@ -1441,6 +1417,7 @@ scope: .res 8 ; buffer containing the current scope
 	rol
 	sta @addr+1
 	lda @addr
+	;clc
 	adc #<label_addresses
 	sta @addr
 	tax
@@ -1676,7 +1653,6 @@ scope: .res 8 ; buffer containing the current scope
 	adc #<labels
 	tax
 	lda @addr
-	;clc
 	adc #>labels
 	rts
 .endproc
@@ -1819,38 +1795,23 @@ scope: .res 8 ; buffer containing the current scope
 ; OUT:
 ;  - .Z: set if the char in .A is any separator
 .proc isseparator
-	cmp #$00
-	beq :-			; -> rts
+@xsave=zp::util
 	jsr iswhitespace
-	beq :-			; -> rts
-	cmp #','
-	beq :-			; -> rts
-	cmp #')'
-	beq :-			; -> rts
-	cmp #':'
-	beq :-			; -> rts
-	; fall through to isoperator
-.endproc
+	beq @done
 
-;******************************************************************************
-; IS_OPERATOR
-; IN:
-;  - .A: the character to test
-; OUT:
-;  - .Z: set if the char in .A is an operator ('+', '-', etc.)
-.proc isoperator
-@xsave=zp::util+2
 	stx @xsave
 	ldx #@numops-1
 :	cmp @ops,x
 	beq @end
 	dex
 	bpl :-
+
 @end:	php
 	ldx @xsave
 	plp
-	rts
-@ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.'
+@done:	rts
+@ops: 	.byte '(', ')', '+', '-', '*', '/', '[', ']', '^', '&', '.', ',', ':'
+	.byte $00
 @numops = *-@ops
 .endproc
 
@@ -1910,19 +1871,20 @@ scope: .res 8 ; buffer containing the current scope
 	inc @src+1	; next page
 	inc @dst+1
 
-:	decw @cnt
-	bne @l0
-	lda @cnt+1
-	bne @l0
+:	lda @cnt
+	bne :+
+	dec @cnt+1
+	bmi @cont
+:	dec @cnt
+	jmp @l0
 
-	; init the unsorted ids array
+@cont:	; init the unsorted ids array to the pattern 1, 2, 3, ...
 	ldxy #label_addresses_sorted_ids
 	stxy @dst
 
-	lda #$00
-	sta @id
-	sta @id+1
-	tay
+	ldy #$00
+	sty @id
+	sty @id+1
 
 @idloop:
 	lda @id
@@ -2145,12 +2107,101 @@ scope: .res 8 ; buffer containing the current scope
 	cmp @ub
 	lda @i+1
 	sbc @ub+1
-	bcs @qs_l7
+	bcs @done
 
 	lda @i+1
 	sta @lb+1
 	lda @i
 	sta @lb
 	jmp @qsok
-@qs_l7: rts
+@done:  rts
+.endproc
+
+;******************************************************************************
+; DUMP
+; Dumps the symbol table to the open file.
+; A 2-byte header (number of symbols) is stored first
+; NOTE: anonymous symbols and symbol metadata (mode, etc.) is not dumped
+.proc dump
+@sym=r0
+@cnt=r2
+	; write the number of symbols
+	lda numlabels
+	sta @cnt
+	jsr $ffd2
+	lda numlabels+1
+	sta @cnt+1
+	jsr $ffd2
+	ora @cnt
+	beq @done			; no symbols
+
+	ldxy #labels
+	stxy @sym
+
+	; write each symbol
+	ldy #$00
+@l0:	lda (@sym),y
+	jsr $ffd2
+	cmp #$00
+	bne @l0
+
+	lda @sym
+	clc
+	adc #MAX_LABEL_NAME_LEN
+	sta @sym
+	bcc :+
+	inc @sym+1
+
+:	lda @cnt
+	bne :+
+	dec @cnt+1
+	bmi @done
+:	dec @cnt
+	jmp @l0
+
+@done:	rts
+.endproc
+
+;******************************************************************************
+; LOAD
+; Loads the symbol table from the open file.
+.proc load
+@sym=r0
+@cnt=r2
+	; load the number of symbols
+	jsr $ffa5
+	sta numlabels
+	sta @cnt
+	jsr $ffa5
+	sta numlabels+1
+	sta @cnt+1
+
+	ora @cnt
+	beq @done			; no symbols
+
+	ldxy #labels
+	stxy @sym
+
+	; load each symbol
+	ldy #$00
+@l0:	jsr $ffa5
+	sta (@sym),y
+	cmp #$00
+	bne @l0
+
+	lda @sym
+	clc
+	adc #MAX_LABEL_NAME_LEN
+	sta @sym
+	bcc :+
+	inc @sym+1
+
+:	lda @cnt
+	bne :+
+	dec @cnt+1
+	bmi @done
+:	dec @cnt
+	jmp @l0
+
+@done:	rts
 .endproc

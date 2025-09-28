@@ -179,6 +179,7 @@ macros:          .res $1400
 @cnt=zp::macros+$0d
 @macro=zp::macros+$0e
 @numparams=zp::macros+$10
+@tmplabel=$140
 	asl
 	tax
 	lda macro_addresses,x
@@ -225,8 +226,14 @@ macros:          .res $1400
 	inc @cnt
 
 	; set the parameter to its value
-	lda #FINAL_BANK_MACROS
-	CALL FINAL_BANK_MAIN, lbl::set24
+	; (copy the param name to a temp buffer so that it can be
+	; seen in the label bank first)
+	stxy zp::bankaddr0
+	ldxy #@tmplabel
+	stxy zp::bankaddr1
+	CALL FINAL_BANK_MAIN, ram::copyline
+	ldxy #@tmplabel
+	CALL FINAL_BANK_MAIN, lbl::set
 	bcs @cleanup
 
 	; read past the param name

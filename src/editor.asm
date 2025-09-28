@@ -2995,6 +2995,7 @@ goto_buffer:
 	.byte $61	; a - assemble file
 	.byte $42	; B - create .BIN
 	.byte $50	; P - create .PRG
+	.byte $44	; D - create .D (debug)
 	.byte $6f	; o - create .OBJ file
 @num_ex_commands=*-@ex_commands
 
@@ -3002,7 +3003,7 @@ goto_buffer:
 .define ex_command_vecs command_go, command_debug, \
 	__edit_load, command_rename, command_save, command_saveall, \
 	command_scratch, command_assemble_file, \
-	command_savebin, command_saveprg, command_asm_obj
+	command_savebin, command_saveprg, command_savedbg, command_asm_obj
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
@@ -3033,6 +3034,43 @@ goto_buffer:
 	sty status_row
 	jmp cur::setmax
 .endproc
+
+;******************************************************************************
+; SAVE D
+; :D <filename>
+; Stores the program binary, the global symbol table, and debug information
+; as a .D (debug) file to <filename>.
+; IN:
+;  - .XY: the argument to the command (filename)
+.proc command_savedbg
+@file=r4
+	jsr irq::off
+	jsr file::open_w	; open the output filename
+	bcc :+
+	jmp irq::on		; failed to open file
+
+:	sta @file
+
+	; TODO: set asm::top and asm::origin
+	; stxy asm::top
+	; stxy asm::origin
+
+	; write the start address
+
+	; write the symbol table
+	CALL FINAL_BANK_SYMBOLS, lbl::dump
+
+	; write the CODE (binary data)
+	jsr write_asm
+
+	; write the debug information
+	CALL FINAL_BANK_DEBUG, dbgi::dump
+
+@done:	lda @file
+	jsr file::close
+	jmp irq::on
+.endproc
+
 
 ;******************************************************************************
 ; SAVE PRG

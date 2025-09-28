@@ -9,6 +9,7 @@
 .import __label_by_addr
 .import __label_clr
 .import __label_del
+.import __label_dump
 .import __label_find
 .import __label_get_addr
 .import __label_get_banon
@@ -24,7 +25,6 @@
 .import __label_set
 .import __label_set_addr
 .import __label_setscope
-.import __label_set24
 
 ; SEGMENT ID FLAGS
 SEG_UNDEF = $00	; segment is undefined (external)
@@ -41,13 +41,13 @@ SYM_UNRESOLVED = $ffff	; magic value for unresolved symbol ID
 	addresses     = label_addresses
 	addrmode      = __label_addrmode
 	idbyaddrindex = __label_id_by_addr_index
-	set24         = __label_set24
 	addr          = __label_address
 	addr_and_mode = __label_address_by_id
 	by_id         = __label_by_id
 	by_addr       = __label_by_addr
 	clr           = __label_clr
 	del           = __label_del
+	dump          = __label_dump
 	find          = __label_find
 	get_banon     = __label_get_banon
 	get_fanon     = __label_get_fanon
