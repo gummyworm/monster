@@ -1186,7 +1186,8 @@ main:	jsr key::getch
 
 ;*******************************************************************************
 ; INSERT_START
-; moves cursor to start of line and enters INSERT mode
+; moves cursor to the first non-whitespace character of the line and enters
+; INSERT mode
 .proc insert_start
 	jsr enter_insert
 

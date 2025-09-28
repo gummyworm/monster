@@ -45,7 +45,8 @@ __fmt_enable: .byte 0	; flag to enable (!0) or disable (0) formatting
 	bne @tab		; non-whitespace -> separate with tab
 	jsr src::delete		; delete whitespaced
 	bcc @l1
-@done:	rts
+@done:	jsr refresh
+	jmp src::down
 @tab:
 .endproc
 
@@ -58,10 +59,7 @@ __fmt_enable: .byte 0	; flag to enable (!0) or disable (0) formatting
 	jsr src::insert
 
 @refresh:
-	jsr src::pushp
-	jsr src::home	; back to start of line
-	jsr src::get	; refresh linebuffer
-	jsr src::popgoto
+	jsr refresh
 
 	; check the size of the line now that it has a TAB
 	jsr text::rendered_line_len
@@ -117,4 +115,14 @@ __fmt_enable: .byte 0	; flag to enable (!0) or disable (0) formatting
 @ident: jmp indent		; anything else- indent
 
 @done:  rts
+.endproc
+
+;******************************************************************************
+; REFRESH
+; Refreshses the line
+.proc refresh
+	jsr src::pushp
+	jsr src::home
+	jsr src::get
+	jmp src::popgoto
 .endproc
