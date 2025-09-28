@@ -2309,7 +2309,8 @@ main:	jsr key::getch
 
 ;******************************************************************************
 .proc open_line_above
-	jsr insert_start
+	jsr enter_insert
+	jsr home
 	jsr src::after_cursor
 	pha
 
