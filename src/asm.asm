@@ -1091,7 +1091,6 @@ __asm_tokenize_pass1 = __asm_tokenize
 	jsr lbl::islocal
 	cmp #$00		; check flag
 	bne :+
-
 	ldxy zp::line
 	jsr lbl::setscope	; set the non-local label as the new scope
 

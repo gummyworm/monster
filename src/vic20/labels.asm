@@ -15,7 +15,7 @@
 
 ;*******************************************************************************
 ; CONSTANTS
-MAX_ANON      = 694	; max number of anonymous labels
+MAX_ANON      = 690	; max number of anonymous labels
 SCOPE_LEN     = 8	; max len of namespace (scope)
 MAX_LABELS    = 736
 
@@ -97,15 +97,12 @@ ADD
 FIND
 BY_ADDR
 BY_ID
-DUMP
 NAME_BY_ID
 IS_VALID
 GET_NAME
-LOAD
 GETADDR
 IS_LOCAL
 SET
-SET24
 DEL
 ADDRESS
 ADDRESS_BY_ID
@@ -118,15 +115,17 @@ ID_BY_ADDR_INDEX
 ADDRMODE
 GET_SEGMENT
 SET_ADDR
+DUMP
+LOAD
 .endenum
 
 .RODATA
 
 .linecont +
-.define procs clr, add, find, by_addr, by_id, dump, name_by_id, is_valid, get_name, \
-load, getaddr, is_local, set, del, address, address_by_id, set_scope, \
+.define procs clr, add, find, by_addr, by_id, name_by_id, is_valid, get_name, \
+getaddr, is_local, set, del, address, address_by_id, set_scope, \
 add_anon, get_fanon, get_banon, index, id_by_addr_index, addrmode, \
-get_segment, setaddr
+get_segment, setaddr, dump, load
 .linecont -
 
 procs_lo: .lobytes procs
@@ -137,8 +136,6 @@ __label_add: LBLJUMP proc_ids::ADD
 __label_find: LBLJUMP proc_ids::FIND
 __label_by_addr: LBLJUMP proc_ids::BY_ADDR
 __label_by_id: LBLJUMP proc_ids::BY_ID
-__label_dump: LBLJUMP proc_ids::DUMP
-__label_load: LBLJUMP proc_ids::LOAD
 __label_name_by_id: LBLJUMP proc_ids::NAME_BY_ID
 __label_isvalid: LBLJUMP proc_ids::IS_VALID
 __label_get_name: LBLJUMP proc_ids::GET_NAME
@@ -157,6 +154,8 @@ __label_id_by_addr_index: LBLJUMP proc_ids::ID_BY_ADDR_INDEX
 __label_addrmode: LBLJUMP proc_ids::ADDRMODE
 __label_get_segment: LBLJUMP proc_ids::GET_SEGMENT
 __label_set_addr: LBLJUMP proc_ids::SET_ADDR
+__label_dump: LBLJUMP proc_ids::DUMP
+__label_load: LBLJUMP proc_ids::LOAD
 
 ;******************************************************************************
 ; Entrypoint for label routines
@@ -291,7 +290,6 @@ anon_addrs: .res MAX_ANON*2
 @buff=$100
 @lbl=zp::labels
 	stxy @lbl
-
 	ldx #$00
 	lda scope			; check if there is a scope defined
 	bne @l0				; if so, continue
@@ -637,7 +635,7 @@ anon_addrs: .res MAX_ANON*2
 	sta @addr
 	bcc :+
 	inc @addr+1
-:	bne @insert_mode	; branch always
+:	jmp @insert_mode
 
 @sh0:	; copy the label (MAX_LABEL_LEN bytes) to the SYMBOL bank
 	ldy #MAX_LABEL_LEN-1
@@ -665,11 +663,9 @@ anon_addrs: .res MAX_ANON*2
 	; segid--
 	decw @segid
 
-	lda @cnt
-	bne :+
-	dec @cnt+1
-	bmi @insert_mode
-:	dec @cnt
+	decw @cnt
+	iszero @cnt
+	beq @insert_mode
 
 ; update all pointers
 
@@ -772,7 +768,7 @@ anon_addrs: .res MAX_ANON*2
 
 	iny
 	cpy #MAX_LABEL_LEN
-	bne :-
+	bcc :-
 
 @storeaddr:
 	; 0-terminate the label name and write the label value
@@ -935,7 +931,8 @@ anon_addrs: .res MAX_ANON*2
 	sec		; given address is > all in table
 	rts
 
-@found: lda #$00
+@found:
+	lda #$00
 	sta @seek+1
 	lda @cnt
 	asl
@@ -973,12 +970,13 @@ anon_addrs: .res MAX_ANON*2
 	ldxy #anon_addrs
 	stxy @seek
 
-	ldx numanon
 	ldy numanon+1
-	bne :+
-	txa
-	beq @err		; no anonymous labels defined
-:	stxy @cnt
+	ldx numanon
+	beq :+
+	dey
+	bmi @err		; no anonymous labels defined
+:	dex
+	stxy @cnt
 
 @l0:	ldy #$01		; MSB
 	lda @addr+1
@@ -1008,11 +1006,11 @@ anon_addrs: .res MAX_ANON*2
 	lda @cnt
 	bne :+
 	dec @cnt+1
-	bmi @err
+	bpl @l0
+@err:	RETURN_ERR ERR_LABEL_UNDEFINED
+
 :	dec @cnt
 	jmp @l0
-
-@err:	RETURN_ERR ERR_LABEL_UNDEFINED
 .endproc
 
 ;******************************************************************************
@@ -1091,6 +1089,7 @@ anon_addrs: .res MAX_ANON*2
 ;   - r6: address of value to return
 ; OUT:
 ;  - .XY: the nth anonymous label whose address is < than the given address
+;  - .C:  clear to indicate success
 .proc get_anon_retval
 @seek=r6
 	ldy #$00
@@ -1100,7 +1099,7 @@ anon_addrs: .res MAX_ANON*2
 	lda (@seek),y		; get the MSB of our anonymous label
 	tay
 	lda #$02		; always use 2 bytes for anon address size
-	rts
+	RETURN_OK
 .endproc
 
 ;******************************************************************************
@@ -1152,7 +1151,6 @@ anon_addrs: .res MAX_ANON*2
 ;  - .XY: the address of the label
 ;  - .A:  the size (address mode) of the label (0=ZP, 1=ABS)
 ;  - r2:  the ID of the label
-;  - .C:  always clear
 .proc address_by_id
 @table=zp::labels+2
 @id=zp::labels+4
@@ -1180,7 +1178,6 @@ anon_addrs: .res MAX_ANON*2
 	pla
 	tax
 	lda @mode
-	clc			; ok
 :	rts
 .endproc
 
@@ -1387,15 +1384,13 @@ anon_addrs: .res MAX_ANON*2
 ;  - .A: nonzero if the label is local
 ;  - .Z: clear if label is local, set if not
 .proc is_local
-@l=zp::util
 	stxy @l
-	ldy #$00
-	lda (@l),y
+@l=*+1
+	lda $f00d
 	cmp #'@'
 	bne :+
 	lda #$01	; flag that label IS local
 	rts
-
 :	lda #$00	; flag that label is NOT local
 	rts
 .endproc
@@ -1417,7 +1412,6 @@ anon_addrs: .res MAX_ANON*2
 	rol
 	sta @addr+1
 	lda @addr
-	;clc
 	adc #<label_addresses
 	sta @addr
 	tax
@@ -1653,6 +1647,7 @@ anon_addrs: .res MAX_ANON*2
 	adc #<labels
 	tax
 	lda @addr
+	;clc
 	adc #>labels
 	rts
 .endproc
@@ -1805,7 +1800,6 @@ anon_addrs: .res MAX_ANON*2
 	beq @end
 	dex
 	bpl :-
-
 @end:	php
 	ldx @xsave
 	plp
@@ -1848,7 +1842,7 @@ anon_addrs: .res MAX_ANON*2
 @src=r2
 @dst=r4
 @id=r0
-	; @cnt = numlabels*2
+	; @cnt = numlabels
 	lda numlabels
 	sta @cnt
 	lda numlabels+1
@@ -1871,12 +1865,10 @@ anon_addrs: .res MAX_ANON*2
 	inc @src+1	; next page
 	inc @dst+1
 
-:	lda @cnt
-	bne :+
-	dec @cnt+1
-	bmi @cont
-:	dec @cnt
-	jmp @l0
+:	decw @cnt
+	bne @l0
+	lda @cnt+1
+	bne @l0
 
 @cont:	; init the unsorted ids array to the pattern 1, 2, 3, ...
 	ldxy #label_addresses_sorted_ids

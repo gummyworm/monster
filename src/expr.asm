@@ -296,8 +296,7 @@ operands: .res $100
 	beq @unresolved
 
 	CALL FINAL_BANK_MAIN, lbl::addr_and_mode
-
-	stxy @val1		; addend
+	stxy @val1					; addend
 
 	; get the segment ID
 	ldxy @symbol
