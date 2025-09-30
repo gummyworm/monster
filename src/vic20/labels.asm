@@ -972,7 +972,7 @@ anon_addrs: .res MAX_ANON*2
 
 	ldy numanon+1
 	ldx numanon
-	beq :+
+	bne :+
 	dey
 	bmi @err		; no anonymous labels defined
 :	dex
