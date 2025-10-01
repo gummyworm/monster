@@ -883,13 +883,13 @@ __obj_close_section:
 
 @objloop:
 	; dump the object code for the section
-	ldxy @sec				; address to load
-	CALL FINAL_BANK_MAIN, vmem::load	; load a byte of object code
-	jsr $ffd2				; and dump it
+	ldxy @sec		; address to load
+	jsr vmem_load		; load a byte of object code
+	jsr $ffd2		; and dump it
 	incw @sec
 	decw @sz
 	iszero @sz
-	bne @objloop				; repeat til done
+	bne @objloop		; repeat til done
 
 @reloc:	; then dump the relocation table
 	ldx @sec_idx
@@ -1071,23 +1071,23 @@ __obj_close_section:
 	beq @zp			; if 0 -> apply zeropage relocation
 
 @abs:	ldxy @pc
-	CALL FINAL_BANK_MAIN, vmem::load	; load LSB of addend
+	jsr vmem_load		; load LSB of addend
 	clc
 	adc @tmp
 	ldxy @pc
-	CALL FINAL_BANK_MAIN, vmem::store	; store updated value
+	jsr vmem_store		; store updated value
 
 	incw @pc
 	ldxy @pc
-	CALL FINAL_BANK_MAIN, vmem::load	; load MSB of addend
+	jsr vmem_load		; load MSB of addend
 	clc
 	adc @tmp+1
 	ldxy @pc
-	CALL FINAL_BANK_MAIN, vmem::store	; store MSB of relocated operand
+	jsr vmem_store		; store MSB of relocated operand
 	jmp @nopostproc_done
 
 @zp:	ldxy @pc
-	CALL FINAL_BANK_MAIN, vmem::load	; load addend
+	jsr vmem_load		; load addend
 	clc
 	adc @tmp
 	sta @tmp
@@ -1099,7 +1099,7 @@ __obj_close_section:
 @nopostproc:
 	; no post-processing, just add 1 byte addend and we're done
 	lda @tmp
-	CALL FINAL_BANK_MAIN, vmem::store	; store relocated value
+	jsr vmem_store		; store relocated value
 	jmp @nopostproc_done
 
 @postproc:
@@ -1125,13 +1125,13 @@ __obj_close_section:
 @postproc_msb:
 	lda @tmp+1				; get the MSB (post-proc)
 	ldxy @pc
-	CALL FINAL_BANK_MAIN, vmem::store	; store relocated value
+	jsr vmem_store		; store relocated value
 	jmp @next
 
 @postproc_lsb:
 	lda @tmp				; get the LSB ldxy @pc
 	ldxy @pc
-	CALL FINAL_BANK_MAIN, vmem::store	; and store
+	jsr vmem_store		; and store
 	jmp @next
 
 @nopostproc_done:
@@ -1545,6 +1545,7 @@ __obj_close_section:
 	ldy @seg_idx
 	jsr readb			; get code size LSB
 	bcs @eof
+
 	sta segments_sizelo,y
 	sta @sz
 	jsr readb			; get code size MSB
@@ -1573,15 +1574,21 @@ __obj_close_section:
 	; finally, load the object code for the segment to vmem
 	jsr readb
 	bcs @eof
-	ldxy @seg				; address to store to
-	CALL FINAL_BANK_MAIN, vmem::store	; store a byte of object code
+	ldxy @seg		; address to store to
+	jsr vmem_store		; store a byte of object code
 	incw @seg
-	decw @sz
-	iszero @sz
+
+	lda @sz
+	beq :+
+	dec @sz+1
+:	dec @sz
+	bne @objcode
+	lda @sz+1
 	bne @objcode
 
 @reltab:
 	jsr apply_relocation			; load/apply relocation table
+	lda #$01				; apply relocation
 	CALL FINAL_BANK_DEBUG, dbgi::load	; load debug info
 
 	inc @seg_idx
@@ -1728,4 +1735,18 @@ __obj_close_section:
 	beq :+
 	cmp #' '
 :	rts
+.endproc
+
+;*******************************************************************************
+; VMEM LOAD
+; Calls vmem::load
+.proc vmem_load
+	JUMP FINAL_BANK_MAIN, vmem::load
+.endproc
+
+;*******************************************************************************
+; VMEM STORE
+; Calls vmem::store
+.proc vmem_store
+	JUMP FINAL_BANK_MAIN, vmem::store
 .endproc

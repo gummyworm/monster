@@ -3087,6 +3087,7 @@ goto_buffer:
 	jsr lbl::load
 
 	; read the debug information
+	lda #$00				; no relocation
 	CALL FINAL_BANK_DEBUG, dbgi::load
 
 @done:	lda @file

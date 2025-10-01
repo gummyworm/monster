@@ -1555,6 +1555,7 @@ get_filename = get_filename_addr
 ;  - map of global (linker context) base addresses for segments
 ; IN:
 ;   - dbgi::loadaddr: offset to apply to all BLOCKS loaded
+;   - .A:             relocate flag: !0=relocate segments, 0=absolute load
 ; OUT:
 ;   - .C: set on error
 .export __debuginfo_load
@@ -1565,8 +1566,11 @@ get_filename = get_filename_addr
 @segname  = r0
 @offset   = r0
 @block_i  = zp::tmp10
+@relocate = zp::tmp12
 @filemap  = $100
 @filename = $100+MAX_FILES
+	sta @relocate
+
 ;--------------------------------------
 ; load the file table and map ids to global ids
 @load_files:
@@ -1626,13 +1630,16 @@ get_filename = get_filename_addr
 	adc freeptr+1
 	sta progstop+1		; store stop address MSB
 
+	; check if we should do relocation (for linking)
+	lda @relocate
+	beq @relocate_done
+
 	; map local file id to the global one
 	ldx file
 	lda @filemap,x
 	sta file
 
 	; look up global SEGMENT id and replace the LOCAL one with it
-	; TODO: fix this
 	lda seg_id
 	clc
 	adc #$01		; get 1-based id
@@ -1664,6 +1671,7 @@ get_filename = get_filename_addr
 	adc @offset+1
 	sta blockstop+1
 
+@relocate_done:
 	lda freeptr
 	sta progstart
 	lda freeptr+1
