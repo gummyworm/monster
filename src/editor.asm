@@ -3044,19 +3044,22 @@ goto_buffer:
 ;  - .XY: the argument to the command (filename)
 .proc command_loaddbg
 @file=zp::editortmp
+@addr=zp::editortmp+1
 	jsr irq::off
 	jsr file::open_w	; open the output filename
 	bcs @ret
 
 :	sta @file
+	tax
+	jsr $ffc6		; CHKIN, file in .X is input
 
 	; read the start address of the program
 	jsr $ffa5
 	sta asm::origin
-	sta file::loadaddr
+	sta @addr
 	jsr $ffa5
 	sta asm::origin+1
-	sta file::loadaddr+1
+	sta @addr+1
 
 	; read the size of the program and calculate the "top" address
 	jsr $ffa5
@@ -3072,7 +3075,13 @@ goto_buffer:
 	sta file::load_address_end+1
 
 	; read the CODE (binary data)
-	jsr file::loadbinv
+:	jsr $ffa5
+	ldxy @addr
+	jsr vmem::store
+	incw @addr
+	ldxy @addr
+	cmpw asm::top
+	bne :-
 
 	; read the symbol table
 	jsr lbl::load
@@ -3094,17 +3103,24 @@ goto_buffer:
 ;  - .XY: the argument to the command (filename)
 .proc command_savedbg
 @file=zp::editortmp
+@addr=zp::editortmp+2
 	jsr irq::off
 	jsr file::open_w	; open the output filename
 	bcc :+
-	jmp irq::on		; failed to open file
+
+@err:	jsr irq::on
+	jmp report_drive_error
 
 :	sta @file
+	tax
+	jsr $ffc9		; CHKOUT, file in .X is output
 
 	; write the start address of the program
 	lda asm::origin
+	sta @addr
 	jsr $ffd2
 	lda asm::origin+1
+	sta @addr+1
 	jsr $ffd2
 
 	; write the size of the program
@@ -3119,7 +3135,13 @@ goto_buffer:
 	jsr $ffd2
 
 	; write the CODE (binary data)
-	jsr write_asm
+:	ldxy @addr
+	jsr vmem::load
+	jsr $ffd2
+	incw @addr
+	ldxy @addr
+	cmpw asm::top
+	bne :-
 
 	; write the symbol table
 	jsr lbl::dump

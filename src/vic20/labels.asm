@@ -15,7 +15,7 @@
 
 ;*******************************************************************************
 ; CONSTANTS
-MAX_ANON      = 690	; max number of anonymous labels
+MAX_ANON      = 686	; max number of anonymous labels
 SCOPE_LEN     = 8	; max len of namespace (scope)
 MAX_LABELS    = 736
 
@@ -2126,16 +2126,16 @@ anon_addrs: .res MAX_ANON*2
 	jsr $ffd2
 	ora @cnt
 	beq @done			; no symbols
-
 	ldxy #labels
 	stxy @sym
 
 	; write each symbol
-	ldy #$00
-@l0:	lda (@sym),y
+@l0:	ldy #$00
+@l1:	lda (@sym),y
 	jsr $ffd2
+	iny
 	cmp #$00
-	bne @l0
+	bne @l1
 
 	lda @sym
 	clc
@@ -2147,9 +2147,10 @@ anon_addrs: .res MAX_ANON*2
 :	lda @cnt
 	bne :+
 	dec @cnt+1
-	bmi @done
 :	dec @cnt
-	jmp @l0
+	bne @l0
+	lda @cnt+1
+	bne @l0
 
 @done:	rts
 .endproc
@@ -2175,11 +2176,12 @@ anon_addrs: .res MAX_ANON*2
 	stxy @sym
 
 	; load each symbol
-	ldy #$00
-@l0:	jsr $ffa5
+@l0:	ldy #$00
+@l1:	jsr $ffa5
 	sta (@sym),y
+	iny
 	cmp #$00
-	bne @l0
+	bne @l1
 
 	lda @sym
 	clc
@@ -2191,9 +2193,9 @@ anon_addrs: .res MAX_ANON*2
 :	lda @cnt
 	bne :+
 	dec @cnt+1
-	bmi @done
 :	dec @cnt
-	jmp @l0
-
+	bne @l0
+	lda @cnt+1
+	bne @l0
 @done:	rts
 .endproc
