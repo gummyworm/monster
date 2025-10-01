@@ -3036,6 +3036,56 @@ goto_buffer:
 .endproc
 
 ;******************************************************************************
+; COMMAND LOADDBG
+; :D <filename>
+; Loads the given DEBUG file (program binary, global symbol table, and debug
+; information)
+; IN:
+;  - .XY: the argument to the command (filename)
+.proc command_loaddbg
+@file=zp::editortmp
+	jsr irq::off
+	jsr file::open_w	; open the output filename
+	bcs @ret
+
+:	sta @file
+
+	; read the start address of the program
+	jsr $ffa5
+	sta asm::origin
+	sta file::loadaddr
+	jsr $ffa5
+	sta asm::origin+1
+	sta file::loadaddr+1
+
+	; read the size of the program and calculate the "top" address
+	jsr $ffa5
+	clc
+	adc asm::origin
+	sta asm::top
+	sta file::load_address_end
+	php
+	jsr $ffa5
+	plp
+	adc asm::origin+1
+	sta asm::top+1
+	sta file::load_address_end+1
+
+	; read the CODE (binary data)
+	jsr file::loadbinv
+
+	; read the symbol table
+	jsr lbl::load
+
+	; read the debug information
+	CALL FINAL_BANK_DEBUG, dbgi::load
+
+@done:	lda @file
+	jsr file::close
+@ret:	jmp irq::on
+.endproc
+
+;******************************************************************************
 ; SAVE D
 ; :D <filename>
 ; Stores the program binary, the global symbol table, and debug information
@@ -3043,7 +3093,7 @@ goto_buffer:
 ; IN:
 ;  - .XY: the argument to the command (filename)
 .proc command_savedbg
-@file=r4
+@file=zp::editortmp
 	jsr irq::off
 	jsr file::open_w	; open the output filename
 	bcc :+
@@ -3051,17 +3101,28 @@ goto_buffer:
 
 :	sta @file
 
-	; TODO: set asm::top and asm::origin
-	; stxy asm::top
-	; stxy asm::origin
+	; write the start address of the program
+	lda asm::origin
+	jsr $ffd2
+	lda asm::origin+1
+	jsr $ffd2
 
-	; write the start address
-
-	; write the symbol table
-	CALL FINAL_BANK_SYMBOLS, lbl::dump
+	; write the size of the program
+	lda asm::top
+	sec
+	sbc asm::origin
+	php
+	jsr $ffd2
+	plp
+	lda asm::top+1
+	sbc asm::origin+1
+	jsr $ffd2
 
 	; write the CODE (binary data)
 	jsr write_asm
+
+	; write the symbol table
+	jsr lbl::dump
 
 	; write the debug information
 	CALL FINAL_BANK_DEBUG, dbgi::dump
@@ -3070,7 +3131,6 @@ goto_buffer:
 	jsr file::close
 	jmp irq::on
 .endproc
-
 
 ;******************************************************************************
 ; SAVE PRG
@@ -3210,8 +3270,6 @@ goto_buffer:
 
 	jsr file::exists
 	bcs @err
-	jsr file::geterr
-	bcs @err		; if file doesn't exist, we're done
 
 	ldxy #strings::deleting
 	jsr print_info
@@ -3267,8 +3325,6 @@ goto_buffer:
 	ldxy @file
 	jsr file::exists
 	bcs @err
-	jsr file::geterr
-	bcs @err		; if file doesn't exist, we're done
 
 	; display loading...
 	ldxy #strings::loading

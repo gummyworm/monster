@@ -74,7 +74,7 @@ __file_load_address_end = rd
 ; loads the given file into the given virtual memory address
 ; IN:
 ;  .A:             the file handle to load from
-;  file::loadaddr: the address to load the file to
+;  file::loadaddr: the virtual address to load the file to
 ; OUT:
 ;  - .C: set on error
 .export __file_load_binv
@@ -90,7 +90,7 @@ __file_load_address_end = rd
 ; loads the given file into the given memory address
 ; IN:
 ;  .A:                      the file handle to load from
-;  file::file_load_address: the address to load the file to
+;  file::loadaddr: the address to load the file to
 ; OUT:
 ;  - .C: set on error
 .export __file_load_bin
@@ -439,8 +439,7 @@ __file_load_src:
 	bne @done
 	RETURN_OK
 
-@done:	sec
-	rts
+@done:	jmp __file_geterr
 .endproc
 
 ;*******************************************************************************

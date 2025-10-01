@@ -19,6 +19,7 @@
 .import __label_index
 .import __label_is_local
 .import __label_isvalid
+.import __label_load
 .import __label_address
 .import __label_num
 .import __label_name_by_id
@@ -48,6 +49,7 @@ SYM_UNRESOLVED = $ffff	; magic value for unresolved symbol ID
 	clr           = __label_clr
 	del           = __label_del
 	dump          = __label_dump
+	load          = __label_load
 	find          = __label_find
 	get_banon     = __label_get_banon
 	get_fanon     = __label_get_fanon
