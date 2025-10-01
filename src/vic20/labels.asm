@@ -15,7 +15,7 @@
 
 ;*******************************************************************************
 ; CONSTANTS
-MAX_ANON      = 686	; max number of anonymous labels
+MAX_ANON      = 650	; max number of anonymous labels
 SCOPE_LEN     = 8	; max len of namespace (scope)
 MAX_LABELS    = 736
 
@@ -2117,6 +2117,7 @@ anon_addrs: .res MAX_ANON*2
 .proc dump
 @sym=r0
 @cnt=r2
+@addr=r4
 	; write the number of symbols
 	lda numlabels
 	sta @cnt
@@ -2126,25 +2127,31 @@ anon_addrs: .res MAX_ANON*2
 	jsr $ffd2
 	ora @cnt
 	beq @done			; no symbols
-	ldxy #labels
-	stxy @sym
+
+	jsr setup_for_load_or_dump
 
 	; write each symbol
 @l0:	ldy #$00
+
+	; write the symbol name
 @l1:	lda (@sym),y
 	jsr $ffd2
 	iny
 	cmp #$00
 	bne @l1
 
-	lda @sym
-	clc
-	adc #MAX_LABEL_NAME_LEN
-	sta @sym
-	bcc :+
-	inc @sym+1
+	; write the address
+	ldy #$00
+	lda (@addr),y
+	jsr $ffd2
+	incw @addr
+	lda (@addr),y
+	jsr $ffd2
+	incw @addr
 
-:	lda @cnt
+	jsr next_sym
+
+	lda @cnt
 	bne :+
 	dec @cnt+1
 :	dec @cnt
@@ -2161,6 +2168,7 @@ anon_addrs: .res MAX_ANON*2
 .proc load
 @sym=r0
 @cnt=r2
+@addr=r4
 	; load the number of symbols
 	jsr $ffa5
 	sta numlabels
@@ -2172,25 +2180,30 @@ anon_addrs: .res MAX_ANON*2
 	ora @cnt
 	beq @done			; no symbols
 
-	ldxy #labels
-	stxy @sym
+	jsr setup_for_load_or_dump
 
-	; load each symbol
-@l0:	ldy #$00
-@l1:	jsr $ffa5
+@l0:	; load each symbol
+	ldy #$00
+
+@l1:	; load the name
+	jsr $ffa5
 	sta (@sym),y
 	iny
 	cmp #$00
 	bne @l1
 
-	lda @sym
-	clc
-	adc #MAX_LABEL_NAME_LEN
-	sta @sym
-	bcc :+
-	inc @sym+1
+	; load the address
+	ldy #$00
+	jsr $ffa5
+	sta (@addr),y
+	incw @addr
+	jsr $ffa5
+	sta (@addr),y
+	incw @addr
 
-:	lda @cnt
+	jsr next_sym
+
+	lda @cnt
 	bne :+
 	dec @cnt+1
 :	dec @cnt
@@ -2198,4 +2211,29 @@ anon_addrs: .res MAX_ANON*2
 	lda @cnt+1
 	bne @l0
 @done:	rts
+.endproc
+
+;******************************************************************************
+; NEXT SYM
+.proc next_sym
+@sym=r0
+	lda @sym
+	clc
+	adc #MAX_LABEL_NAME_LEN
+	sta @sym
+	bcc :+
+	inc @sym+1
+:	rts
+.endproc
+
+;******************************************************************************
+; SETUP FOR LOAD OR DUMP
+.proc setup_for_load_or_dump
+@sym=r0
+@addr=r4
+	ldxy #labels
+	stxy @sym
+	ldxy #label_addresses
+	stxy @addr
+	rts
 .endproc
