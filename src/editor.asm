@@ -3048,10 +3048,19 @@ goto_buffer:
 @file=zp::editortmp
 @addr=zp::editortmp+1
 	jsr irq::off
-	jsr file::open_r	; open the output filename
-	bcs @ret
 
-:	sta @file
+	stxy @file
+	jsr file::exists
+	bcc :+
+
+@err:	jsr irq::on
+	jmp report_drive_error
+
+:	ldxy @file
+	jsr file::open_r	; open the output filename
+	bcs @err
+
+	sta @file
 	tax
 	jsr $ffc6		; CHKIN, file in .X is input
 
@@ -3092,6 +3101,7 @@ goto_buffer:
 
 @done:	lda @file
 	jsr file::close
+
 @ret:	jmp irq::on
 .endproc
 
