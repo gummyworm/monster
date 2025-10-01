@@ -2996,6 +2996,7 @@ goto_buffer:
 	.byte $42	; B - create .BIN
 	.byte $50	; P - create .PRG
 	.byte $44	; D - create .D (debug)
+	.byte $4c	; L - laod .D (debug)
 	.byte $6f	; o - create .OBJ file
 @num_ex_commands=*-@ex_commands
 
@@ -3003,7 +3004,8 @@ goto_buffer:
 .define ex_command_vecs command_go, command_debug, \
 	__edit_load, command_rename, command_save, command_saveall, \
 	command_scratch, command_assemble_file, \
-	command_savebin, command_saveprg, command_savedbg, command_asm_obj
+	command_savebin, command_saveprg, command_savedbg, command_loaddbg, \
+	command_asm_obj
 .linecont -
 @exvecslo: .lobytes ex_command_vecs
 @exvecshi: .hibytes ex_command_vecs
@@ -3046,7 +3048,7 @@ goto_buffer:
 @file=zp::editortmp
 @addr=zp::editortmp+1
 	jsr irq::off
-	jsr file::open_w	; open the output filename
+	jsr file::open_r	; open the output filename
 	bcs @ret
 
 :	sta @file
@@ -3066,13 +3068,11 @@ goto_buffer:
 	clc
 	adc asm::origin
 	sta asm::top
-	sta file::load_address_end
 	php
 	jsr $ffa5
 	plp
 	adc asm::origin+1
 	sta asm::top+1
-	sta file::load_address_end+1
 
 	; read the CODE (binary data)
 :	jsr $ffa5
