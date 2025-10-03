@@ -72,6 +72,7 @@ SLASH = SPECIAL_CHARS_START+2
 ;  zp::str0: one of the strings to compare
 ;  zp::str2: the other string to compare
 ; OUT:
+;  .Y: number of matching characters
 ;  .Z: set if the strings are equal
 .export __str_comparez
 .proc __str_comparez

@@ -29,19 +29,64 @@
 ; GET BY TYPE
 ; Returns all files that contain the provided extension
 ; IN:
-;   - .XY: the address to the extension (e.g. "o" (object)) to return
+;   - .A:  the extension (one character, uppercase)
+;   - .XY: the address to the buffer to store to
 ; OUT:
 ;   - .A:  number of files returned (or error)
 ;   - .XY: address of 0-terminated buffer containing 0-terminated filenames
 ;   - .C:  set on error
 .export __dir_get_by_type
 .proc __dir_get_by_type
-@dirbuff=mem::spare+42
+@ext=r5
+@file=r6
+@resultptr=r7
+@buff=$100
+	sta @ext
+	stxy @resultptr
+
 	jsr open_dir	; open the directory "file"
+	sta @file
 	bcs @ret
 
-	; read a filename
+	jsr read_disk_name
 
+@l0:	; read a filename
+	ldxy #@buff
+	jsr read_filename
+	bcs @done
+
+	; look for extension (e.g. ".d" or ".o")
+	lda @buff-1,y
+	cmp #$5a+1		; 'Z'+1
+	bcc :+
+	;sec
+	sbc #$20		; convert to uppercase
+:	cmp @ext		; does extension match?
+	bne @l0			; if no -> try next
+	lda @buff-2,y
+	cmp #'.'		; was there actually an extension?
+	bne @l0			; if no -> try next
+
+@match:	; filename has the requested extension, append to result
+	ldy #$00
+@l1:	lda @buff,y
+	sta (@resultptr),y
+	beq @next
+	iny
+	bne @l1
+@next:	tya
+	sec
+	adc @resultptr
+	sta @resultptr
+	bcc @l0
+	inc @resultptr+1
+	bne @l0
+
+@done:	ldy #$00
+	tya
+	sta (@resultptr),y	; terminate list
+	lda @file
+	jsr file::close
 @ret:	rts
 .endproc
 
@@ -126,6 +171,7 @@
 	jsr read_filename
 	bcs @cont		; eof -> continue
 	ldxy @line
+	sec			; +1
 	adc @line
 	sta @line
 	bcc :+
@@ -146,7 +192,10 @@
 
 ;--------------------------------------
 ; init viewer
-@cont:	jsr irq::on
+@cont:	lda @file
+	jsr file::close
+	jsr irq::on
+
 	; max a user can scroll is (# of files - SCREEN_HEIGHT-1)
 	ldx #$00
 	lda @cnt
@@ -437,18 +486,11 @@
 	cmp #$00
 	bne :-
 
-	iny
 	tya
 	RETURN_OK
-.endproc
 
-;******************************************************************************
-; GETB
-; Read a byte and check for EOF
-; OUT:
-;   - .A: the byte read
-;   - .C: set if EOF
-.proc getb
+;--------------------------------------
+getb:
         jsr $ffb7      ; call READST
         bne @eof       ; read error or end of file
         jmp $ffcf      ; call chrin (read byte from directory)

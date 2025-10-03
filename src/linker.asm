@@ -69,11 +69,9 @@ segptr=zp::link+2
 ; Represented as a 0-terminated list of 0-terminated filename
 ; e.g.
 ;   "FILE1.O",0,"FILE2.O",0,0
-.export __link_outfile
-__link_outfile=mem::spare
 
 .export __link_objfiles
-__link_objfiles=mem::spare+16
+__link_objfiles=mem::spare
 
 ;*******************************************************************************
 .segment "LINKER_BSS"
@@ -994,19 +992,15 @@ OBJ_RELABS  = $06	; byte value followed by relative word "RA $20 LAB+5"
 ; Links all files that were added to the linker (link::addfile) and produces
 ; the linked executable as a file with the given name.
 ; IN:
-;  - .XY:            the filename to produce from the linked files
 ;  - link::objfiles: array of the files to link (0-terminated)
 ; OUT:
 ;  - .C: set on error
 .export __link_link
 .proc __link_link
-@outfile=zp::link
 @objfile=zp::link+2	; pointer to current object file being linked
 @i=zp::link+4
 @segname=zp::link+6
 @tab=zp::link+8
-	stxy @outfile
-
 	; init the segment/section pointers using the current linker state
 	; (parsed from the LINK file prior to calling this procedured)
 	ldx numsegments

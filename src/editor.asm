@@ -385,35 +385,16 @@ main:	jsr key::getch
 	CALL FINAL_BANK_LINKER, link::parse
 	bcs @done				; error
 
-	; cppy the object file list to link::objfiles
-	ldx #@objlist_len-1
-:	lda @objlist,x
-	sta link::objfiles,x
-	dex
-	bpl :-
-
-	; copy the outfile to the link::outfile buffer
-	ldx #@outfile_len-1
-:	lda @outfile,x
-	sta link::outfile,x
-	dex
-	bpl :-
+	; get all object files on disk
+	lda #$4f			; 'O'
+	ldxy #link::objfiles
+	jsr dir::get_by_type
 
 	CALL FINAL_BANK_LINKER, link::link
 
 	; display the success/failure
 
 @done:	jmp irq::on
-
-; TODO: don't hardcode
-@objlist:
-;.byte "export.o",0,0
-.byte "hello.o",0,0
-@objlist_len=*-@objlist
-
-@outfile:
-.byte "out.prg",0
-@outfile_len=*-@outfile
 .endproc
 
 ;******************************************************************************
