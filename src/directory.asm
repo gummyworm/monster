@@ -1,7 +1,8 @@
 ;;******************************************************************************
 ; DIRECTORY.ASM
 ; This file contains the code to list the directory of a disk and provide a
-; menu for selecting a file to load.
+; menu for selecting a file to load as well as supporting routines for getting
+; file names from the disk's directory.
 ;******************************************************************************
 
 .include "config.inc"
@@ -25,6 +26,26 @@
 .CODE
 
 ;******************************************************************************
+; GET BY TYPE
+; Returns all files that contain the provided extension
+; IN:
+;   - .XY: the address to the extension (e.g. "o" (object)) to return
+; OUT:
+;   - .A:  number of files returned (or error)
+;   - .XY: address of 0-terminated buffer containing 0-terminated filenames
+;   - .C:  set on error
+.export __dir_get_by_type
+.proc __dir_get_by_type
+@dirbuff=mem::spare+42
+	jsr open_dir	; open the directory "file"
+	bcs @ret
+
+	; read a filename
+
+@ret:	rts
+.endproc
+
+;******************************************************************************
 ; DIR VIEW
 ; Enters the directory viewer
 ; NOTE: this routine is limited to 128 files
@@ -33,6 +54,7 @@
 ; It could also easily be modified to support more (e.g. for the 1581)
 .export __dir_view
 .proc __dir_view
+@buff=r6
 @file=r8
 @line=r8
 @row=ra
@@ -40,29 +62,19 @@
 @cnt=rc			; number of files extracted from listing
 @scrollmax=rd		; maximum amount to allow scrolling
 @scroll=re
-@dirbuff=mem::spare+42		; 0-40 will be corrupted by text routines
+@dirbuff=mem::spare+40		; 0-40 will be corrupted by text routines
 @namebuff=mem::spareend-40	; buffer for the file name
 @fptrs=@namebuff-(128*2)	; room for 128 files
 	jsr irq::off
 
-	ldxy #strings::dir
-	jsr file::open_r_prg
+	jsr open_dir
 	sta @file
 	bcc :+
 @err:	rts
 
 	; load the directory into dirbuff
-:	ldxy #@dirbuff-2
-	stxy file::loadaddr
-	ldxy #@fptrs
-	stxy file::load_address_end
-	jsr file::loadbin
-	php			; save error bit (.C)
-	lda @file
-	jsr file::close		; close the directory file
-	jsr irq::on
-	plp			; restore error bit (.C)
-	bcs @err
+:	ldxy #@dirbuff
+	stxy @buff
 
 	; reset the screen so that we can print the file names normally
 	jsr scr::save
@@ -84,6 +96,8 @@
 	ldx #SCREEN_HEIGHT-1
 	jsr draw::hiline
 
+;--------------------------------------
+; parse the name of the disk
 @getdiskname:
 	ldx #@dirmsglen
 :	lda @dirmsg-1,x
@@ -91,24 +105,14 @@
 	dex
 	bne :-
 
-	; parse the name of the file
-	lda #>(@namebuff+@dirmsglen-1)
-	sta r0+1
-	lda #<(@namebuff+@dirmsglen-1)
-	sta r0
-	ldxy #@dirbuff+5
-	jsr util::parse_enquoted_string
-	jmp @l2
+	; read the disk name into the name buffer
+	ldxy #@namebuff+@dirmsglen-1
+	jsr read_disk_name
 
-@l0:    ; skip line # (@line += 2)
-	lda @line
-	clc
-	adc #$02
-	sta @line
-	bcc :+
-	inc @line+1
-
-:	lda @cnt
+;--------------------------------------
+; parse filenames and render initial view
+@getfilenames:
+	lda @cnt
 	asl
 	tax
 	lda @line+1
@@ -118,37 +122,16 @@
 	sta @fptrs,x
 	tax
 
-	; parse the name of the file
-	lda #<@namebuff
-	sta r0
-	lda #>@namebuff
-	sta r0+1
-	jsr util::parse_enquoted_string
-
-@l2:	ldy #$00
-	lda (@line),y
-	incw @line
-	tay		; set .Z if 0
-	bne @l2
-
-@next:  ; read line link
-	ldy #$00
-	lda (@line),y
-	bne :+
-	iny
-	lda (@line),y
-	beq @cont	; 0,0 -> we're done
-
-:	; @line += 2
-	lda @line
-	clc
-	adc #$02
+	; read a filename into (@line)
+	jsr read_filename
+	bcs @cont		; eof -> continue
+	ldxy @line
+	adc @line
 	sta @line
 	bcc :+
 	inc @line+1
 
-:	; print the line
-	ldxy #@namebuff
+:	; print the line (if visible)
 	lda @row
 	cmp #SCREEN_HEIGHT-1
 	bcs :+			; if line isn't visible, don't draw
@@ -157,11 +140,14 @@
 
 :	; next line
 	inc @cnt
-	bpl @l0
+	bpl @getfilenames
 	bmi @exit		; only 127 files allowed
 				; TODO: report this error better
 
-@cont:	; max a user can scroll is (# of files - SCREEN_HEIGHT-1)
+;--------------------------------------
+; init viewer
+@cont:	jsr irq::on
+	; max a user can scroll is (# of files - SCREEN_HEIGHT-1)
 	ldx #$00
 	lda @cnt
 	cmp #SCREEN_HEIGHT-1
@@ -173,7 +159,8 @@
 	; highlight the first item
 	jsr highlight_selection
 
-; at the end of the screen, get user input for page up/down
+;--------------------------------------
+; main viewer loop
 @key:	jsr key::waitch
 	cmp #K_QUIT
 	bne @checkdown
@@ -203,8 +190,6 @@
 	lda #SCREEN_HEIGHT-1-1
 	jsr text::scrollup
 
-	ldxy #@namebuff
-	stxy r0
 	lda @scroll
 	clc
 	adc @select
@@ -213,9 +198,7 @@
 	ldy @fptrs+1,x
 	lda @fptrs,x
 	tax
-	jsr util::parse_enquoted_string
 	lda #SCREEN_HEIGHT-1-1			; bottom row
-	ldxy #@namebuff
 	jsr text::print
 	jmp @hiselection
 
@@ -236,8 +219,6 @@
 	ldx #SCREEN_HEIGHT-1-1
 	jsr text::scrolldown
 
-	ldxy #@namebuff
-	stxy r0
 	dec @scroll
 	lda @scroll
 	clc
@@ -247,8 +228,6 @@
 	ldy @fptrs+1,x
 	lda @fptrs,x
 	tax
-	jsr util::parse_enquoted_string
-	ldxy #@namebuff
 	lda #1			; top row
 	jsr text::print
 
@@ -302,6 +281,7 @@
 
 ; user selected a file (RETURN), load it and exit the directory view
 @loadselection:
+	jsr scr::restore
 	lda @select
 	clc
 	adc @scroll
@@ -310,14 +290,6 @@
 	lda @fptrs,x
 	ldy @fptrs+1,x
 	tax
-	lda #<@namebuff
-	sta r0
-	lda #>@namebuff
-	sta r0+1
-	jsr util::parse_enquoted_string
-
-	jsr scr::restore
-	ldxy #@namebuff
 	jmp edit::load		; load the file
 
 ;--------------------------------------
@@ -335,12 +307,6 @@
 	ldy @fptrs+1,x
 	lda @fptrs,x
 	tax
-	lda #<@namebuff
-	sta r0
-	lda #>@namebuff
-	sta r0+1
-	jsr util::parse_enquoted_string
-	ldxy #@namebuff
 	lda @i
 	jsr text::print
 
@@ -382,4 +348,112 @@
 @select=rb
 	ldx @select
 	jmp draw::hiline	; select the current selection
+.endproc
+
+;******************************************************************************
+; OPEN DIR
+; Opens the directory "file" for loading
+.proc open_dir
+	ldxy #strings::dir
+	jsr file::open_r_prg
+	tax
+	jmp $ffc6		; CHKIN
+.endproc
+
+;******************************************************************************
+; READ DISK NAME
+; Reads the name of the disk.  Assumes the directory file is open and
+; is at the start.
+; IN:
+;   - .XY: address of buffer to store the name to
+.proc read_disk_name
+@buff=r0
+	stxy @buff
+
+	ldy #8
+:	jsr $ffa5
+	dey
+	bne :-
+
+	; read until the closing '"'
+:	jsr $ffa5
+	cmp #'"'
+	beq @done
+	sta (@buff),y
+	iny
+	bne :-
+
+@done:  lda #$00
+	sta (@buff),y
+
+	; read until $00
+:	jsr $ffa5
+	cmp #$00
+	bne :-
+
+	rts
+.endproc
+
+;******************************************************************************
+; READ FILENAME
+; Reads one filename from the directory file (assumed to be open)
+; IN:
+;   - .XY: address of buffer to store to filename to
+; OUT:
+;   - .A: size of the filename read
+;   - .C:  set on error/eof
+.proc read_filename
+@tmp=r0
+@buff=r2
+	stxy @buff
+
+	; eat 4 bytes (track, sector and line #)
+	ldy #4
+:	jsr getb
+	dey
+	bne :-
+
+	; look for opening "
+:	jsr getb
+	cmp #'"'
+	bne :-
+
+	; read until the closing '"'
+	ldy #$00
+:	jsr getb
+	cmp #'"'
+	beq @done
+	sta (@buff),y
+	iny
+	bne :-
+	inc @buff+1
+	bne :-
+
+@done:	lda #$00
+	sta (@buff),y		; terminate buffer
+
+	; read rest of filename
+:	jsr getb
+	cmp #$00
+	bne :-
+
+	iny
+	tya
+	RETURN_OK
+.endproc
+
+;******************************************************************************
+; GETB
+; Read a byte and check for EOF
+; OUT:
+;   - .A: the byte read
+;   - .C: set if EOF
+.proc getb
+        jsr $ffb7      ; call READST
+        bne @eof       ; read error or end of file
+        jmp $ffcf      ; call chrin (read byte from directory)
+@eof:	pla
+	pla
+	sec
+	rts
 .endproc
