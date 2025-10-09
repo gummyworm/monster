@@ -1323,8 +1323,6 @@ main:	jsr key::getch
 	jsr yank			; yank the selection
 	bcs @notfound			; quit if error occurred or no selection
 
-	;jsr append_char
-	;jsr src::next
 	jsr buff::len
 	stxy @cnt
 
@@ -1337,7 +1335,6 @@ main:	jsr key::getch
 	dec @cnt+1
 :	ora @cnt+1		; are LSB and MSB of @cnt 0?
 	bne @delsel
-	;jsr enter_command
 	jmp refresh		; done, refresh to clear deleted text
 
 ;--------------------------------------
@@ -1833,6 +1830,8 @@ main:	jsr key::getch
 	jsr src::home
 	jsr src::get
 	jsr src::popgoto
+	pla				; clean stack
+	jmp @done
 
 @setcur:
 	pla				; restore index where paste ended
