@@ -1306,72 +1306,6 @@ main:	jsr key::getch
 .endproc
 
 ;*******************************************************************************
-; DELETE
-; Handles the delete key.
-; In VISUAL mode, this deletes the selection
-; In COMMAND mode, prompts for another key and deletes characters depending on
-; the following command ('w' for word, 'd' for line, etc.)
-.proc delete
-	jsr is_visual
-	bne @cont
-
-;--------------------------------------
-; VISUAL mode; delete the selection
-@delvis:
-@start=zp::editortmp+1	; set by yank
-@cnt=zp::editortmp+3
-	jsr yank			; yank the selection
-	bcs @notfound			; quit if error occurred or no selection
-
-	jsr buff::len
-	stxy @cnt
-
-@delsel:
-	jsr src::delete
-	dec @cnt
-	lda @cnt
-	cmp #$ff
-	bne :+
-	dec @cnt+1
-:	ora @cnt+1		; are LSB and MSB of @cnt 0?
-	bne @delsel
-	jmp refresh		; done, refresh to clear deleted text
-
-;--------------------------------------
-; get a key to decide what to delete
-@cont:	jsr key::waitch
-	ldx #@numcmds-1
-:	cmp @subcmds,x
-	beq @found
-	dex
-	bpl :-
-@notfound:
-	rts
-
-@found:	lda @subcmdslo,x
-	sta zp::jmpvec
-	lda @subcmdshi,x
-	sta zp::jmpvec+1
-
-	jsr buff::clear		; clear the copy buffer
-	jmp (zp::jmpvec)	; execute the delete command
-
-.PUSHSEG
-.RODATA
-@subcmds:
-.byte $77	; w delete word
-.byte $64	; d delete line
-.byte $24	; $ (end of line)
-.byte $30	; 0 (beginning of line)
-@numcmds=*-@subcmds
-
-.define subcmds delete_word, delete_line, delete_to_end, delete_to_begin
-@subcmdshi: .hibytes subcmds
-@subcmdslo: .lobytes subcmds
-.POPSEG
-.endproc
-
-;*******************************************************************************
 ; DELETE TO BEGIN (d0)
 ; Deletes everything from the current cursor position to the beginning of the
 ; line
@@ -1964,8 +1898,11 @@ main:	jsr key::getch
 
 @restoresrc:
 	jsr src::popgoto	; restore source position to copy's origin
+
 	lda @moveback		; do we need to move to top of selection?
 	beq @done		; if end was also the top, no
+
+	; move back to the line the selection began on
 	ldxy visual_start_line
 	jsr gotoline
 
@@ -2362,7 +2299,6 @@ main:	jsr key::getch
 	lda @specialvecshi,x
 	sta zp::jmpvec+1
 	jsr zp::jmpaddr
-
 	sec		; key was handled
 	rts
 
@@ -2437,6 +2373,78 @@ main:	jsr key::getch
 	lda #CUR_OFF
 	sta cur::status
 	jmp scr::clr
+.endproc
+
+;*******************************************************************************
+; DELETE
+; Handles the delete key.
+; In VISUAL mode, this deletes the selection
+; In COMMAND mode, prompts for another key and deletes characters depending on
+; the following command ('w' for word, 'd' for line, etc.)
+.proc delete
+	jsr is_visual
+	bne @cont
+
+;--------------------------------------
+; VISUAL mode; delete the selection
+@delvis:
+@start=zp::editortmp+1	; set by yank
+@cnt=zp::editortmp+3
+	jsr yank			; yank the selection
+	bcs @notfound			; quit if error occurred or no selection
+
+	jsr buff::len
+	lda selection_type
+	cmp #MODE_VISUAL_LINE
+	bne :+
+	inx
+	bne :+
+	iny
+:	stxy @cnt
+
+@delsel:
+	jsr src::delete
+	dec @cnt
+	lda @cnt
+	cmp #$ff
+	bne :+
+	dec @cnt+1
+:	ora @cnt+1		; are LSB and MSB of @cnt 0?
+	bne @delsel
+	beq refresh		; done, refresh to clear deleted text
+
+;--------------------------------------
+; get a key to decide what to delete
+@cont:	jsr key::waitch
+	ldx #@numcmds-1
+:	cmp @subcmds,x
+	beq @found
+	dex
+	bpl :-
+@notfound:
+	rts
+
+@found:	lda @subcmdslo,x
+	sta zp::jmpvec
+	lda @subcmdshi,x
+	sta zp::jmpvec+1
+
+	jsr buff::clear		; clear the copy buffer
+	jmp (zp::jmpvec)	; execute the delete command
+
+.PUSHSEG
+.RODATA
+@subcmds:
+.byte $77	; w delete word
+.byte $64	; d delete line
+.byte $24	; $ (end of line)
+.byte $30	; 0 (beginning of line)
+@numcmds=*-@subcmds
+
+.define subcmds delete_word, delete_line, delete_to_end, delete_to_begin
+@subcmdshi: .hibytes subcmds
+@subcmdslo: .lobytes subcmds
+.POPSEG
 .endproc
 
 ;*******************************************************************************
@@ -2566,6 +2574,7 @@ __edit_refresh:
 	bne @done
 	lda #$01
 	sta highlight_status
+
 	; the highlight was destroyed by drawing the line, re-highlight it
 	jmp toggle_highlight
 @done:	rts
@@ -5323,8 +5332,7 @@ __edit_gotoline:
 ; Updates the status line with the given info message and refreshses the status
 .proc print_info
 	lda status_row
-	jsr text::print
-	rts
+	jmp text::print
 .endproc
 
 ;******************************************************************************
@@ -5345,11 +5353,7 @@ __edit_gotoline:
 :	rts
 .endproc
 
-;******************************************************************************
-; SWAPWIN
-; Swaps to the current GUI (if one is active), this is the last gui created
-; via gui::activate.
-swapwin = gui::reenter
+.RODATA
 
 ;******************************************************************************
 ; TOGGLE AUTOFORMAT
@@ -5360,8 +5364,6 @@ swapwin = gui::reenter
 	sta fmt::enable
 	rts
 .endproc
-
-.RODATA
 
 ;******************************************************************************
 commands:
@@ -5429,12 +5431,13 @@ numcommands=*-commands
 	paste_below, paste_above, delete_char, \
 	open_line_above, open_line_below, join_line, comment_out, \
 	enter_visual, enter_visual_line, command_yank, sub_char, sub_line, \
-	dir::view, swapwin, ccleft, ccright, ccup, ccdown, endofword, \
+	dir::view, gui::reenter, ccleft, ccright, ccup, ccdown, endofword, \
 	beginword, word_advance, home_col, last_line, \
 	home_line, ccdel, ccright, goto_end, goto_start, find_next, find_prev, \
 	end_of_line, prev_empty_line, next_empty_line, begin_next_line, \
 	command_move_scr, \
 	command_find, next_drive, prev_drive, get_command, monitor, next_err
 .linecont -
+
 command_vecs_lo: .lobytes cmd_vecs
 command_vecs_hi: .hibytes cmd_vecs
