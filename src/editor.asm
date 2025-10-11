@@ -1691,8 +1691,7 @@ main:	jsr key::getch
 	adc #$00
 	tay
 	jsr buff::getline
-	bcc @ok
-	jmp @done		; buffer is empty
+	bcs @done		; buffer is empty
 
 @ok:	pha			; save newline flag
 	ldxy r9
@@ -1711,15 +1710,13 @@ main:	jsr key::getch
 	; for full rows ($0d terminated), just get a line and draw it
 @l1:	ldxy #mem::linebuffer
 	jsr buff::getline
-	bcs @lastline
+	bcs @lastline		; if empty, continue
+
 	sty @linelen
-	php
 	pha			; save last char read
 	ldxy r9			; (getline leaves result in r0)
 	jsr src::insertline	; insert the line read
 	pla			; restore last char read
-	plp
-	bcs @lastline		; if the buffer is empty, we're done
 	cmp #$0d		; was this line a newline?
 	bne @lastline		; if not continue to merge it with last line
 
@@ -1764,8 +1761,6 @@ main:	jsr key::getch
 	jsr src::home
 	jsr src::get
 	jsr src::popgoto
-	pla				; clean stack
-	jmp @done
 
 @setcur:
 	pla				; restore index where paste ended
@@ -4893,6 +4888,7 @@ __edit_gotoline:
 	dec @diff
 	bne @shortup
 	rts
+
 @shortdown:
 	jsr ccdown
 	dec @diff
