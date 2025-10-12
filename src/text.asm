@@ -150,9 +150,19 @@ indirect:   .byte 0
 @len=zp::text+4
 @ch=zp::text+5
 @len2=zp::text+6
+@savecurx=zp::text+7
+@savecury=zp::text+8
 	sta @ch
 	jsr __text_linelen
 	stx @len
+
+	lda zp::curx
+	sta @savecurx
+	lda zp::cury
+	sta @savecury
+
+	jsr __text_char_index
+	sty @curi
 
 	lda @ch
 	bne :+
@@ -172,18 +182,16 @@ indirect:   .byte 0
 	cpx cur::minx
 	bcc @err	; minx >= curx, cursor is limited
 
-	jsr __text_char_index
-	sty @curi
 	; get the new x position
 	lda mem::linebuffer-1,y
 	pha
 	lda #$00
-	sta mem::linebuffer-1,y	; temporarily 0-terminate line
+	sta mem::linebuffer-1,y		; temporarily 0-terminate line
 	jsr __text_rendered_line_len
 	stx zp::curx
 	pla
 	ldy @curi
-	sta mem::linebuffer-1,y	; restore
+	sta mem::linebuffer-1,y		; restore
 
 	lda __text_insertmode
 	beq @bs_done		; if REPLACE, don't alter text
@@ -208,29 +216,12 @@ indirect:   .byte 0
 	rts
 
 @printing:
-	jsr __text_rendered_line_len
-	stx @len2
-	cpx #LINESIZE		; is line already maxed out?
-	bcs @err		; if so, no chance we can insert
-
+	jsr __text_savebuff
 	ldx zp::curx
 	cpx cur::maxx
 	bcs @err		; cursor is limited
-	jsr __text_char_index
-	sty @curi
 
-	lda @ch
-	cmp #$09		; is char to print a TAB?
-	bne :+
-
-	jsr __text_tabr_dist
-	clc
-	adc @len2		; check if we can fit the new TAB char
-	cmp cur::maxx
-	beq :+
-	bcs @err		; can't fit the new TAB
-
-:	lda __text_insertmode
+	lda __text_insertmode
 	beq @fastput	; if REPLACE, no need to shift, do fast put
 
 @slowput:
@@ -271,7 +262,20 @@ indirect:   .byte 0
 	bpl @redrawline		; re-render the line
 
 @redraw:
-	lda __text_buffer
+	jsr __text_rendered_line_len
+	dex
+	bmi :+				; if len is 0 -> continue
+	cpx cur::maxx
+	bcc :+
+
+	; line is oversized now - abort the operation
+	lda @savecurx
+	sta zp::curx
+	lda @savecury
+	sta zp::cury
+	jmp __text_restorebuff
+
+:	lda __text_buffer
 	bne @done
 	lda zp::cury
 	inc zp::curx
