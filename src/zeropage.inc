@@ -11,6 +11,9 @@ bankval     = $07	; the value written by store_byte
 bankjmpaddr = $08	; JMP in struction for banked calls
 bankjmpvec  = $09	; JMP vector
 
+memsrc      = $0a	; temporary pointer for memory operations
+memdst      = $0c	; temporary pointer for memory operations
+
 debug = $10		; $10-$28 debug info generation
 
 debugger    = $28	; $28-$29 used by debugger

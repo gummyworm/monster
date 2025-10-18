@@ -74,7 +74,7 @@ segptr=zp::link+2
 __link_objfiles=mem::spare
 
 ;*******************************************************************************
-.segment "LINKER_BSS"
+.segment "LINKER_VARS"
 
 numobjects:  .byte 0
 numsegments: .byte 0
@@ -88,6 +88,8 @@ activeseg: .byte 0	; the current SEGMENT (id) being written
 ; OBJECT STATE
 ; These variables are used in the context of a single object file
 numsymbols:  .byte 0
+
+.segment "LINKER_BSS"
 
 ;*******************************************************************************
 ; SYMBOL NAMES

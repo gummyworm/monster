@@ -17,7 +17,7 @@
 ; CONSTANTS
 MAX_ANON      = 650	; max number of anonymous labels
 SCOPE_LEN     = 8	; max len of namespace (scope)
-MAX_LABELS    = 736
+MAX_LABELS    = 732
 
 MAX_LABEL_NAME_LEN = 32
 
@@ -267,7 +267,7 @@ anon_addrs: .res MAX_ANON*2
 @scope=zp::labels
 	stxy @scope
 	ldy #$00
-:	lda (@scope),y
+:	LOADB_Y @scope
 	jsr isseparator
 	beq @done
 	sta scope,y
@@ -303,7 +303,7 @@ anon_addrs: .res MAX_ANON*2
 	bne @l0
 
 :	ldy #$00
-@l1:	lda (@lbl),y
+@l1:	LOADB_Y @lbl
 	jsr isseparator
 	beq @done
 	sta @buff,x
@@ -342,6 +342,7 @@ anon_addrs: .res MAX_ANON*2
 @cnt=zp::labels+1
 @search=zp::labels+3
 @label=zp::labels+5
+@tmp=r0
 	stxy @label
 
 	; check (and flag) if the label is local. if it is, we will start
@@ -369,11 +370,13 @@ anon_addrs: .res MAX_ANON*2
 	stxy @search
 
 @seek:	ldy #$00
-@l0:	lda (@label),y
+@l0:	LOADB_Y @search
+	sta @tmp
+	lda (@label),y
 	jsr isseparator
 	beq @chkend
 
-	cmp (@search),y
+	cmp @tmp
 	beq @chmatch
 
 	; labels are alphabetical, if our label is not alphabetically greater,
@@ -389,8 +392,8 @@ anon_addrs: .res MAX_ANON*2
 	bcs @found
 	bcc @l0
 @chkend:
-	lda (@search),y
-	cmp #$00
+	; make sure string matched is 0-terminated
+	lda @tmp
 	beq @found
 
 @next:	lda @search
@@ -453,10 +456,10 @@ anon_addrs: .res MAX_ANON*2
 	; overwrite the current value for the label with zp::value
 	ldy #$00
 	lda zp::label_value
-	sta (@addr),y
+	STOREB_Y @addr
 	iny
 	lda zp::label_value+1
-	sta (@addr),y
+	STOREB_Y @addr
 	rts
 .endproc
 
@@ -536,15 +539,8 @@ anon_addrs: .res MAX_ANON*2
 
 :	; label exists, overwrite its old value
 	jsr by_id 		; get the address of the label
-	lda zp::label_value
-
-	ldy #$00
-	sta (@addr),y
-
-	iny
-	lda zp::label_value+1
-	sta (@addr),y
-
+	ldxy zp::label_value
+	STOREW @addr
 	clc		; ok
 @ret:	rts
 
@@ -639,26 +635,23 @@ anon_addrs: .res MAX_ANON*2
 
 @sh0:	; copy the label (MAX_LABEL_LEN bytes) to the SYMBOL bank
 	ldy #MAX_LABEL_LEN-1
-:	lda (@src),y
-	sta (@dst),y
-	dey
-	bpl :-
+	COPY_Y @src, @dst
 
 ; shift segment id
 	iny			; .Y=0
-	lda (@segid),y
+	LOADB_Y @segid
 	iny			; .Y=1
-	sta (@segid),y
+	STOREB_Y @segid
 	dey			; .Y=0
 
 ; shift address
-	lda (@addr),y
+	LOADB_Y @addr
 	ldy #$02
-	sta (@addr),y
+	STOREB_Y @addr
 	dey
-	lda (@addr),y
+	LOADB_Y @addr
 	ldy #$03
-	sta (@addr),y
+	STOREB_Y @addr
 
 	; segid--
 	decw @segid
@@ -758,13 +751,13 @@ anon_addrs: .res MAX_ANON*2
 @storelabel:
 	ldy #$00
 	; write the label
-:	lda (@name),y
+:	LOADB_Y @name
 	beq @storeaddr
 	jsr is_definition_separator
 	beq @storeaddr
 
 	; copy a byte to the label name
-	sta (@src),y
+	STOREB_Y @src
 
 	iny
 	cpy #MAX_LABEL_LEN
@@ -773,20 +766,20 @@ anon_addrs: .res MAX_ANON*2
 @storeaddr:
 	; 0-terminate the label name and write the label value
 	lda #$00
-	sta (@src),y
+	STOREB_Y @src
 
 	tay			; .Y=0
 	lda zp::label_value
-	sta (@addr),y		; store LSB of value
+	STOREB_Y @addr		; store LSB of value
 	lda zp::label_value+1
 	iny			; .Y=1
-	sta (@addr),y		; store MSB of value
+	STOREB_Y @addr		; store MSB of value
 
 ; store the segment ID for the label ($ff if absolute)
 @store_segid:
 	; ldy #$00
 	lda zp::label_segmentid
-	sta (@segid),y
+	STOREB_Y @segid
 
 	incw numlabels
 	ldxy @id
@@ -836,13 +829,13 @@ anon_addrs: .res MAX_ANON*2
 @shift:	; src[i+2] = src[i]
 	; src[i+3] = src[i+1]
 	ldy #$00
-	lda (@src),y	; LSB
+	LOADB_Y @src	; LSB
 	ldy #$02	; move up 2 bytes
-	sta (@src),y
+	STOREB_Y @src
 	dey
-	lda (@src),y	; MSB
+	LOADB_Y @src	; MSB
 	ldy #$03	; move up 2 bytes
-	sta (@src),y
+	STOREB_Y @src
 
 	; src -= 2
 	lda @src
@@ -864,10 +857,10 @@ anon_addrs: .res MAX_ANON*2
 	; insert the address of the anonymous label we're adding
 	lda @addr
 	ldy #$00
-	sta (@src),y
+	STOREB_Y @src
 	lda @addr+1
 	iny
-	sta (@src),y
+	STOREB_Y @src
 
 	incw numanon
 	RETURN_OK
@@ -906,10 +899,10 @@ anon_addrs: .res MAX_ANON*2
 	sta @cnt+1
 
 	tay		; .Y = 0
-@l0:	lda (@seek),y	; get LSB
+@l0:	LOADB_Y @seek	; get LSB
 	tax		; .X = LSB
 	incw @seek
-	lda (@seek),y	; get MSB
+	LOADB_Y @seek	; get MSB
 	incw @seek
 
 	cmp @addr+1
@@ -979,21 +972,22 @@ anon_addrs: .res MAX_ANON*2
 	stxy @cnt
 
 @l0:	ldy #$01		; MSB
-	lda @addr+1
-	cmp (@seek),y
+	LOADB_Y @seek
+	cmp @addr+1
 	beq @chklsb		; if =, check the LSB
-	bcs @next		; MSB is < what we're looking for, try next
+	bcc @next		; MSB is < what we're looking for, try next
+	bcs @f
+@chklsb:
+	dey		; .Y = 0
+	LOADB_Y @seek	; check if our address is less than the seek one
+	cmp @addr
+	beq @next
+	bcc @next
 
 	; MSB is >= base and LSB is >= base address
 @f:	dec @fcnt		; is this the nth label yet?
 	beq get_anon_retval	; if our count is 0, yes, end
 	bne @next		; if count is not 0, continue
-
-@chklsb:
-	dey
-	lda @addr
-	cmp (@seek),y		; check if our address is less than the seek one
-	bcc @f			; if our address is less, this is a fwd anon
 
 @next:	lda @seek
 	clc
@@ -1050,10 +1044,10 @@ anon_addrs: .res MAX_ANON*2
 	beq @err		; no anonymous labels defined
 
 @l0:	ldy #$01		; MSB
-	lda @addr+1
-	cmp (@seek),y
+	LOADB_Y @seek
+	cmp @addr+1
 	beq @chklsb		; if =, check the LSB
-	bcc @next		; MSB is > what we're looking for, try next
+	bcs @next		; MSB is > what we're looking for, try next
 
 	; MSB is >= base and LSB is >= base address
 @b:	dec @bcnt		; is this the nth label yet?
@@ -1061,10 +1055,11 @@ anon_addrs: .res MAX_ANON*2
 	bne @next		; if count is not 0, continue
 
 @chklsb:
-	dey
-	lda @addr
-	cmp (@seek),y		; check if our address is less than the seek one
-	bcs @b			; if our address is <= this is a backward anon
+	dey			; .Y=0
+	LOADB_Y @seek
+	cmp @addr		; check if our address is less than the seek one
+	beq @b			; if our address is <= this is a backward anon
+	bcc @b
 
 @next:	lda @seek
 	sec
@@ -1093,10 +1088,10 @@ anon_addrs: .res MAX_ANON*2
 .proc get_anon_retval
 @seek=r6
 	ldy #$00
-	lda (@seek),y		; get LSB of anonymous label address
+	LOADB_Y @seek		; get LSB of anonymous label address
 	tax
 	iny
-	lda (@seek),y		; get the MSB of our anonymous label
+	LOADB_Y @seek		; get the MSB of our anonymous label
 	tay
 	lda #$02		; always use 2 bytes for anon address size
 	RETURN_OK
@@ -1118,8 +1113,7 @@ anon_addrs: .res MAX_ANON*2
 	tya
 	adc #>segment_ids
 	sta @sec+1
-	ldy #$00
-	lda (@sec),y
+	LOADB @sec
 :	rts
 .endproc
 
@@ -1161,10 +1155,10 @@ anon_addrs: .res MAX_ANON*2
 	stxy @table
 
 	ldy #$00
-	lda (@table),y
+	LOADB_Y @table
 	pha		; save address LSB
 	iny
-	lda (@table),y
+	LOADB_Y @table
 	pha		; save address MSB
 
 	; get the size of the label from its address mode
@@ -1227,13 +1221,13 @@ anon_addrs: .res MAX_ANON*2
 @addrloop:
 	; dst[i] = dst[i+2]
 	ldy #$02
-	lda (@dst),y
+	LOADB_Y @dst
 	ldy #$00
-	sta (@dst),y
+	STOREB_Y @dst
 	ldy #$03
-	lda (@dst),y
+	LOADB_Y @dst
 	ldy #$01
-	sta (@dst),y
+	STOREB_Y @dst
 
 	lda @dst
 	clc
@@ -1267,10 +1261,7 @@ anon_addrs: .res MAX_ANON*2
 	ldx @cnt2
 @nameloop:
 	ldy #MAX_LABEL_LEN-1
-:	lda (@src),y
-	sta (@dst),y
-	dey
-	bpl :-
+	COPY_Y @src, @dst
 
 	lda @src
 	clc
@@ -1312,8 +1303,8 @@ anon_addrs: .res MAX_ANON*2
 	ldx @cnt3
 	ldy #$00
 @segidloop:
-	lda (@src),y
-	sta (@dst),y
+	LOADB_Y @src
+	STOREB_Y @dst
 @next_segid:
 	incw @src
 	incw @dst
@@ -1480,11 +1471,11 @@ anon_addrs: .res MAX_ANON*2
 	tya
 	adc @lb+1
 	sta @m+1
-	lda @addr+1	; load target value MSB
-	ldy #$01	; load index to MSB
-	cmp (@m),Y	; compare MSB
+	ldy #$01		; load index to MSB
+	LOADB_Y @m
+	cmp @addr+1
 	beq @chklsb
-	bcc @modhigh	; A[mid] > value
+	bcs @modhigh		; A[mid] > value
 
 @modlow:
 	; A[mid] < value
@@ -1497,11 +1488,11 @@ anon_addrs: .res MAX_ANON*2
 	jmp @loop
 
 @chklsb:
-	lda @addr	; load target value LSB
-	dey		; set index to LSB
-	cmp (@m),Y	; compare LSB
+	dey			; set index to LSB (0)
+	LOADB_Y @m	; compare LSB
+	cmp @addr		; load target value LSB
 	beq @done
-	bcs @modlow	; A[mid] < value
+	bcc @modlow		; A[mid] < value
 
 @modhigh:		; A[mid] > value
 	lda @m		; high = mid - element size
@@ -1526,10 +1517,10 @@ anon_addrs: .res MAX_ANON*2
 	sta @m+1
 
 	ldy #$00
-	lda (@m),y
+	LOADB_Y @m
 	tax
 	iny
-	lda (@m),y
+	LOADB_Y @m
 	tay
 	RETURN_OK
 
@@ -1615,10 +1606,10 @@ anon_addrs: .res MAX_ANON*2
 	adc #>label_addresses_sorted_ids
 	sta @tmp+1
 	ldy #$00
-	lda (@tmp),y
+	LOADB_Y @tmp
 	tax
 	iny
-	lda (@tmp),y
+	LOADB_Y @tmp
 	tay
 	rts
 .endproc
@@ -1665,7 +1656,7 @@ anon_addrs: .res MAX_ANON*2
 	ldy #$00
 
 ; first character must be a letter or '@'
-@l0:	lda (@name),y
+@l0:	LOADB_Y @name
 	iny
 	jsr iswhitespace
 	beq @l0
@@ -1688,7 +1679,7 @@ anon_addrs: .res MAX_ANON*2
 @l1:	inx
 	cpx #(MAX_LABEL_LEN/2)+1
 	bcs @toolong
-	lda (@name),y
+	LOADB_Y @name
 	jsr isseparator
 	beq @done
 	cmp #'0'
@@ -1721,15 +1712,15 @@ anon_addrs: .res MAX_ANON*2
 	sta @src+1
 
 	ldy #$00
-@l0:	lda (@src),y
-	sta (@dst),y
+@l0:	LOADB_Y @src
+	STOREB_Y @dst
 	beq @done
 	iny
 	cpy #MAX_LABEL_LEN
 	bcc @l0
 
 	lda #$00
-	sta (@dst),y
+	STOREB_Y @dst
 
 @done:	rts
 .endproc
@@ -1746,12 +1737,7 @@ anon_addrs: .res MAX_ANON*2
 	jsr by_id
 	stxy @src
 
-	ldy #$00
-	lda (@src),y
-	tax
-	iny
-	lda (@src),y
-	tay
+	LOADW @src
 	rts
 .endproc
 
@@ -1855,11 +1841,11 @@ anon_addrs: .res MAX_ANON*2
 
 	; copy the addresses
 	ldy #$00
-@l0:	lda (@src),y
-	sta (@dst),y
+@l0:	LOADB_Y @src
+	STOREB_Y @dst
 	iny
-	lda (@src),y
-	sta (@dst),y
+	LOADB_Y @src
+	STOREB_Y @dst
 	iny
 	bne :+
 	inc @src+1	; next page
@@ -1880,10 +1866,10 @@ anon_addrs: .res MAX_ANON*2
 
 @idloop:
 	lda @id
-	sta (@dst),y	; store LSB
+	STOREB_Y @dst
 	iny
 	lda @id+1
-	sta (@dst),y	; store MSB
+	STOREB_Y @dst
 	iny
 	bne :+
 	inc @dst+1	; next page
@@ -1984,19 +1970,19 @@ anon_addrs: .res MAX_ANON*2
 
 	; @x = array[(@j+@i) / 2]
 	ldy #$00
-	lda (@tmp),y
+	LOADB_Y @tmp
 	sta @x
 	iny
-	lda (@tmp),y
+	LOADB_Y @tmp
 	sta @x+1
 
 @qsloop1:
 	; while (array[i] > @x) { inc @i }
 	ldy #$00		; compare array[i] and x
-	lda (@i),y
+	LOADB_Y @i
 	cmp @x
 	iny
-	lda (@i),y
+	LOADB_Y @i
 	sbc @x+1
 	bcs @qs_l1
 	lda #$02	; move @i to next element
@@ -2007,11 +1993,15 @@ anon_addrs: .res MAX_ANON*2
 	bne @qsloop1	; branch always
 
 @qs_l1:	ldy #$00	; compare array[j] and x
-	lda @x
-	cmp (@j),y
+	LOADB_Y @j
+	sta @tmp
 	iny
+	LOADB_Y @j
+	sta @tmp+1
+	lda @x
+	cmp @tmp
 	lda @x+1
-	sbc (@j),y
+	sbc @tmp+1
 	bcs @qs_l3
 
 	lda @j
@@ -2030,19 +2020,9 @@ anon_addrs: .res MAX_ANON*2
 	bcc @qs_l8
 
 @qs_l6:	setptrs
-	lda (@j),y	; swap array[@i] and array[@j]
-	tax
-	lda (@i),y
-	sta (@j),y
-	txa
-	sta (@i),y
+	SWAPB_Y @i, @j	; swap array[@i] and array[@j]
 
-	lda (@idj),y	; swap ids[@i] and ids[@j]
-	tax
-	lda (@idi),y
-	sta (@idj),y
-	txa
-	sta (@idi),y
+	SWAPB_Y @idi, @idj	; swap ids[@i] and ids[@j]
 
 	dey
 	bpl @qs_l6
@@ -2134,7 +2114,7 @@ anon_addrs: .res MAX_ANON*2
 @l0:	ldy #$00
 
 	; write the symbol name
-@l1:	lda (@sym),y
+@l1:	LOADB_Y @sym
 	jsr $ffd2
 	iny
 	cmp #$00
@@ -2142,10 +2122,10 @@ anon_addrs: .res MAX_ANON*2
 
 	; write the address
 	ldy #$00
-	lda (@addr),y
+	LOADB_Y @addr
 	jsr $ffd2
 	incw @addr
-	lda (@addr),y
+	LOADB_Y @addr
 	jsr $ffd2
 	incw @addr
 
@@ -2187,18 +2167,18 @@ anon_addrs: .res MAX_ANON*2
 
 @l1:	; load the name
 	jsr $ffa5
-	sta (@sym),y
+	STOREB_Y @sym
 	iny
 	cmp #$00
 	bne @l1
 
 	; load the address
-	ldy #$00
 	jsr $ffa5
-	sta (@addr),y
+	tax
+	jsr $ffa5
+	tay
+	STOREW @addr
 	incw @addr
-	jsr $ffa5
-	sta (@addr),y
 	incw @addr
 
 	jsr next_sym
