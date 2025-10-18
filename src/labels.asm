@@ -7,11 +7,11 @@
 ; efficient retrieval by address.
 ;*******************************************************************************
 
-.include "../config.inc"
-.include "../errors.inc"
-.include "../ram.inc"
-.include "../macros.inc"
-.include "../zeropage.inc"
+.include "config.inc"
+.include "errors.inc"
+.include "ram.inc"
+.include "macros.inc"
+.include "zeropage.inc"
 
 ;*******************************************************************************
 ; CONSTANTS

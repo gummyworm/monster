@@ -272,10 +272,11 @@
 ;   - dst:  destination address
 ;   - .Y:   the number of bytes to copy
 .macro COPY_Y src, dst
-:	lda (src),y
+.local @loop
+@loop:	lda (src),y
 	sta (dst),y
 	dey
-	bpl :-
+	bpl @loop
 .endmacro
 
 ;*******************************************************************************
@@ -291,15 +292,15 @@
 .endmacro
 
 ;*******************************************************************************
-; FILLxx
+; FILL_Y
 ; Fill memory with a single byte value
 ; IN:
 ;   - addr: start address to fill
 ;   - .A:   byte value
 ;   - .Y:   number of bytes to fill
-.macro FILLxx addr
-@loop:
-	sta (addr),y
+.macro FILL_Y addr
+.local @loop
+@loop:	sta (addr),y
 	dey
 	bpl @loop
 .endmacro
